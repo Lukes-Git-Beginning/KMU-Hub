@@ -1011,6 +1011,37 @@ func TestService_GenerateGoBDExport_HeaderRow(t *testing.T) {
 	assert.Contains(t, content, "Bruttobetrag", "header must contain Bruttobetrag")
 	assert.Contains(t, content, "Status", "header must contain Status")
 	assert.Contains(t, content, "Steuerart", "header must contain Steuerart")
+	// GoBD-2019 mandatory posting columns (previously missing).
+	assert.Contains(t, content, "Konto", "header must contain Konto")
+	assert.Contains(t, content, "Steuerschluessel", "header must contain Steuerschluessel")
+	assert.Contains(t, content, "Steuersatz", "header must contain Steuersatz")
+	assert.Contains(t, content, "Nettobetrag", "header must contain Nettobetrag")
+	assert.Contains(t, content, "MwSt", "header must contain MwSt")
+	assert.Contains(t, content, "Buchungstext", "header must contain Buchungstext")
+}
+
+func TestService_GenerateGoBDExport_PostingColumns(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	rows := []GoBDExportRow{
+		{
+			InvoiceNumber: "RE-2026-0007", InvoiceDate: "2026-03-01", CustomerName: "Test GmbH",
+			Account: "8400", TaxKey: "3", TaxRate: "19", NetAmount: "200.00", TaxAmount: "38.00",
+			GrossTotal: "238.00", Status: "sent", TaxMode: "standard", BookingText: "Beratung",
+		},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	content := string(result.CSVData[3:])
+	// The posting line carries net, VAT, tax key and revenue account.
+	assert.Contains(t, content, "8400", "row must carry the SKR03 revenue account")
+	assert.Contains(t, content, "200.00", "row must carry the net amount")
+	assert.Contains(t, content, "38.00", "row must carry the VAT amount")
+	assert.Contains(t, content, "Beratung", "row must carry the Buchungstext")
 }
 
 func TestService_GenerateGoBDExport_RowCount(t *testing.T) {

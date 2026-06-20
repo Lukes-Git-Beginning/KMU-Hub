@@ -2353,16 +2353,159 @@ func (s *BizGRPCServer) SendDunningNotice(ctx context.Context, req *bizv1.SendDu
 // GoBD Export (Sprint 2 / Wave 1.B)
 // ============================================================================
 
-func (s *BizGRPCServer) GenerateGoBDExport(_ context.Context, _ *bizv1.GenerateGoBDExportRequest) (*bizv1.GenerateGoBDExportResponse, error) {
-	// F3: the GoBD CSV export is not yet IDEA/BMF-compliant — it omits the mandatory
-	// posting columns (Buchungsbetrag netto, MwSt-Betrag, Steuerschlüssel,
-	// Soll/Haben-Konto, Buchungstext, interne Belegnummer). Returning a "preview"
-	// file that looks like a GoBD export risks an operator filing a non-compliant
-	// document with the Finanzamt. Disable the endpoint (HTTP 501 at the gateway)
-	// until the format is completed. The CSV builder in dunning.GenerateGoBDExport
-	// and its tests remain in place for the rebuild.
-	return nil, status.Error(codes.Unimplemented,
-		"GoBD export is not yet IDEA/BMF-compliant and is temporarily disabled")
+func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.GenerateGoBDExportRequest) (*bizv1.GenerateGoBDExportResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+	fromDate, err := time.Parse("2006-01-02", req.GetFromDate())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid from_date")
+	}
+	toDate, err := time.Parse("2006-01-02", req.GetToDate())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid to_date")
+	}
+
+	const pageSize = 1000
+	var rows []dunning.GoBDExportRow
+
+	// Issued invoices (sent/paid/overdue) as positive postings, keyset-paged.
+	var invCursorDate *time.Time
+	var invCursorID *uuid.UUID
+	for {
+		page, pErr := s.invoiceService.ListForDATEVExport(ctx, tenantID, fromDate, toDate, invCursorDate, invCursorID, pageSize)
+		if pErr != nil {
+			return nil, mapBizError(pErr)
+		}
+		if len(page) == 0 {
+			break
+		}
+		for _, inv := range page {
+			rows = append(rows, financeDocToGoBDRows(inv.InvoiceNumber, inv.InvoiceDate, inv.CustomerName, inv.Status, inv.TaxMode, inv.LineItems, inv.Subtotal, 1)...)
+		}
+		last := page[len(page)-1]
+		d, id := last.InvoiceDate, last.ID
+		invCursorDate, invCursorID = &d, &id
+		if len(page) < pageSize {
+			break
+		}
+	}
+
+	// Credit notes (Stornos/Gutschriften) as negative postings so the journal balances.
+	var cnCursorDate *time.Time
+	var cnCursorID *uuid.UUID
+	for {
+		page, pErr := s.creditNoteService.ListForDATEVExport(ctx, tenantID, fromDate, toDate, cnCursorDate, cnCursorID, pageSize)
+		if pErr != nil {
+			return nil, mapBizError(pErr)
+		}
+		if len(page) == 0 {
+			break
+		}
+		for _, cn := range page {
+			rows = append(rows, financeDocToGoBDRows(cn.CreditNoteNumber, cn.CreatedAt, cn.CustomerName, "credit_note", cn.TaxMode, cn.LineItems, cn.Subtotal, -1)...)
+		}
+		last := page[len(page)-1]
+		d, id := last.CreatedAt, last.ID
+		cnCursorDate, cnCursorID = &d, &id
+		if len(page) < pageSize {
+			break
+		}
+	}
+
+	result, err := s.dunningService.GenerateGoBDExport(ctx, tenantID, fromDate, toDate, rows)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	filename := fmt.Sprintf("GoBD_Export_%s_%s.csv", req.GetFromDate(), req.GetToDate())
+	return &bizv1.GenerateGoBDExportResponse{
+		CsvData:       result.CSVData,
+		Filename:      filename,
+		RecordCount:   int32(result.RowCount),
+		FormatVersion: "GoBD-CSV-1.0",
+	}, nil
+}
+
+// financeDocToGoBDRows splits one invoice or credit note into GoBD posting rows —
+// one per VAT rate for standard mode, or a single exempt row for reverse-charge /
+// Kleinunternehmer. Each row carries the SKR03 revenue account, DATEV BU key, net
+// and VAT amounts. sign is +1 for invoices and -1 for credit notes so the journal
+// nets out.
+func financeDocToGoBDRows(number string, docDate time.Time, customer, status, taxMode string, lineItemsJSON json.RawMessage, subtotal decimal.Decimal, sign int) []dunning.GoBDExportRow {
+	dateStr := docDate.Format("2006-01-02")
+	bookingText := fmt.Sprintf("Rechnung %s %s", number, customer)
+	signed := func(d decimal.Decimal) decimal.Decimal {
+		if sign < 0 {
+			return d.Neg()
+		}
+		return d
+	}
+
+	if taxMode == models.TaxModeReverseCharge || taxMode == models.TaxModeKleinunternehmer {
+		return []dunning.GoBDExportRow{{
+			InvoiceNumber: number,
+			InvoiceDate:   dateStr,
+			CustomerName:  customer,
+			Account:       datev.RevenueAccountForRateAndMode("0", taxMode),
+			TaxKey:        datev.BUSchluesselForRate("0"),
+			TaxRate:       "0",
+			NetAmount:     signed(subtotal).StringFixed(2),
+			TaxAmount:     "0.00",
+			GrossTotal:    signed(subtotal).StringFixed(2),
+			Status:        status,
+			TaxMode:       taxMode,
+			BookingText:   bookingText,
+		}}
+	}
+
+	var items []models.LineItem
+	if len(lineItemsJSON) > 0 {
+		_ = json.Unmarshal(lineItemsJSON, &items)
+	}
+
+	hundred := decimal.NewFromInt(100)
+	type rateGroup struct {
+		rate decimal.Decimal
+		net  decimal.Decimal
+		tax  decimal.Decimal
+	}
+	order := make([]string, 0)
+	groups := make(map[string]*rateGroup)
+	for _, item := range items {
+		lineTotal := item.Quantity.Mul(item.UnitPrice)
+		lineTax := lineTotal.Mul(item.TaxRate).Div(hundred).Round(2)
+		key := fmt.Sprintf("%d", item.TaxRate.IntPart())
+		g, ok := groups[key]
+		if !ok {
+			g = &rateGroup{rate: item.TaxRate}
+			groups[key] = g
+			order = append(order, key)
+		}
+		g.net = g.net.Add(lineTotal)
+		g.tax = g.tax.Add(lineTax)
+	}
+
+	rows := make([]dunning.GoBDExportRow, 0, len(order))
+	for _, key := range order {
+		g := groups[key]
+		rows = append(rows, dunning.GoBDExportRow{
+			InvoiceNumber: number,
+			InvoiceDate:   dateStr,
+			CustomerName:  customer,
+			Account:       datev.RevenueAccountForRateAndMode(key, taxMode),
+			TaxKey:        datev.BUSchluesselForRate(key),
+			TaxRate:       key,
+			NetAmount:     signed(g.net).StringFixed(2),
+			TaxAmount:     signed(g.tax).StringFixed(2),
+			GrossTotal:    signed(g.net.Add(g.tax)).StringFixed(2),
+			Status:        status,
+			TaxMode:       taxMode,
+			BookingText:   bookingText,
+		})
+	}
+	return rows
 }
 
 // ============================================================================

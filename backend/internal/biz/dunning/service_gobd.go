@@ -109,19 +109,24 @@ func (s *Service) SendDunningNotice(ctx context.Context, tenantID, id, userID uu
 // GenerateGoBDExport
 // ============================================================================
 
-// TODO Sprint 3: extend GoBDExportRow + buildGoBDCSV to include the GoBD-2019
-// mandatory columns: Buchungsbetrag (net), MwSt-Betrag, Steuerschluessel,
-// Soll/Haben-Konto, Buchungstext, Belegnummer-intern. Until then this export
-// is a preview only — operators must NOT submit it to a Finanzamt audit.
-
-// GoBDExportRow represents one line in the GoBD CSV export.
+// GoBDExportRow represents one posting line in the GoBD CSV export. One row is
+// emitted per (invoice, VAT-rate) so each posting carries its own net amount,
+// VAT amount, tax key and revenue account — the columns GoBD/IDEA require for a
+// machine-auditable journal. The caller builds the rows (see invoicesToGoBDRows
+// in the biz gRPC server).
 type GoBDExportRow struct {
 	InvoiceNumber string
 	InvoiceDate   string
 	CustomerName  string
-	GrossTotal    string
+	Account       string // SKR03 revenue account (Konto)
+	TaxKey        string // DATEV BU-Schluessel (Steuerschluessel)
+	TaxRate       string // whole-number percent, e.g. "19"
+	NetAmount     string // Nettobetrag
+	TaxAmount     string // MwSt-Betrag
+	GrossTotal    string // Bruttobetrag (net + VAT)
 	Status        string
 	TaxMode       string
+	BookingText   string // Buchungstext
 }
 
 // GoBDExportResult is returned by GenerateGoBDExport.
@@ -140,7 +145,8 @@ type GoBDExportResult struct {
 // The CSV follows Grundsätze zur ordnungsmäßigen Führung und Aufbewahrung von
 // Büchern, Aufzeichnungen und Unterlagen in elektronischer Form (GoBD, BMF 2019).
 //
-// Column order: BelegNr, BelegDatum, Empfaenger, Bruttobetrag, Status, Steuerart
+// Column order: BelegNr, BelegDatum, Empfaenger, Konto, Steuerschluessel,
+// Steuersatz, Nettobetrag, MwSt, Bruttobetrag, Status, Steuerart, Buchungstext
 func (s *Service) GenerateGoBDExport(_ context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, rows []GoBDExportRow) (GoBDExportResult, error) {
 	csvData := buildGoBDCSV(rows)
 
@@ -173,16 +179,26 @@ func buildGoBDCSV(rows []GoBDExportRow) []byte {
 	w.Comma = ';'
 
 	// Header
-	_ = w.Write([]string{"BelegNr", "BelegDatum", "Empfaenger", "Bruttobetrag", "Status", "Steuerart"})
+	_ = w.Write([]string{
+		"BelegNr", "BelegDatum", "Empfaenger", "Konto", "Steuerschluessel",
+		"Steuersatz", "Nettobetrag", "MwSt", "Bruttobetrag", "Status",
+		"Steuerart", "Buchungstext",
+	})
 
 	for _, r := range rows {
 		_ = w.Write([]string{
 			r.InvoiceNumber,
 			r.InvoiceDate,
 			r.CustomerName,
+			r.Account,
+			r.TaxKey,
+			r.TaxRate,
+			r.NetAmount,
+			r.TaxAmount,
 			r.GrossTotal,
 			r.Status,
 			r.TaxMode,
+			r.BookingText,
 		})
 	}
 	w.Flush()
