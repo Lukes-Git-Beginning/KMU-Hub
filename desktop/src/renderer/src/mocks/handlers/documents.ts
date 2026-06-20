@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { IDS } from '../data/shared-ids'
+import { IDS, CURRENT_USER } from '../data/shared-ids'
 import { daysAgo, hoursAgo } from '../data/date-helpers'
 
 const API = API_BASE_URL
@@ -17,6 +17,8 @@ const folders = [
   { id: IDS.folders.marketing, name: 'Marketing', parent_id: IDS.folders.root, space_type: 'personal', file_count: 6, created_at: daysAgo(20) },
   { id: IDS.folders.vorlagen, name: 'Vorlagen', parent_id: IDS.folders.root, space_type: 'personal', file_count: 4, created_at: daysAgo(80) },
   { id: IDS.folders.personal, name: 'Personal', parent_id: IDS.folders.root, space_type: 'personal', file_count: 3, created_at: daysAgo(50) },
+  // Default destination for reports filed from the berichte module (R-5b)
+  { id: 'fld-berichte', name: 'Berichte', parent_id: IDS.folders.root, space_type: 'personal', file_count: 0, created_at: daysAgo(15) },
   // Team space — own folders so the sidebar sections differ per space
   { id: 'fld-team-root', name: 'Team-Dateien', parent_id: null, space_type: 'team', file_count: 1, created_at: daysAgo(70) },
   { id: 'fld-team-vertrieb', name: 'Vertrieb', parent_id: 'fld-team-root', space_type: 'team', file_count: 1, created_at: daysAgo(40) },
@@ -35,6 +37,7 @@ const tags = [
   { id: 't3', name: 'Design', color: '#ec4899' },
   { id: 't4', name: 'Vorlage', color: '#f59e0b' },
   { id: 't5', name: 'DSGVO', color: '#10b981' },
+  { id: 't-bericht', name: 'Bericht', color: '#0ea5e9' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -561,9 +564,11 @@ export const documentHandlers = [
     const formData = await request.formData()
     const uploaded = formData.get('file')
     const folderId = formData.get('folder_id')
+    const tagId = formData.get('tag_id')
     if (!(uploaded instanceof File)) {
       return HttpResponse.json({ error: 'No file' }, { status: 400 })
     }
+    const tag = typeof tagId === 'string' ? tags.find((tt) => tt.id === tagId) : undefined
     const newFile: MockFile = {
       id: `file-upload-${Date.now()}`,
       filename: uploaded.name,
@@ -571,11 +576,11 @@ export const documentHandlers = [
       mime_type: uploaded.type || 'application/octet-stream',
       file_size: uploaded.size,
       folder_id: typeof folderId === 'string' && folderId ? folderId : IDS.folders.root,
-      created_by: IDS.users.markus,
-      created_by_name: 'Markus Weber',
+      created_by: CURRENT_USER.id,
+      created_by_name: CURRENT_USER.name,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      tags: [],
+      tags: tag ? [tag] : [],
     }
     files.push(newFile)
     return HttpResponse.json({ file: enrich(newFile) }, { status: 201 })

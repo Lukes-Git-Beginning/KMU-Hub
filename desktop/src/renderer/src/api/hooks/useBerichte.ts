@@ -28,6 +28,7 @@ import {
   attachReportToTask,
   listSchedules,
   runScheduleNow,
+  saveReportToDocuments,
   previewReport,
   runReport,
   toggleSchedule,
@@ -289,6 +290,16 @@ export function useAttachReportToContact() {
       attachReportToContact(contactId, doc),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: ['contacts', vars.contactId] }),
+  })
+}
+
+/** Save the report as a PDF into the documents module (R-5b integration). */
+export function useSaveReportToDocuments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ folderId, doc }: { folderId: string; doc: { id: string; title: string } }) =>
+      saveReportToDocuments(folderId, doc),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
   })
 }
 

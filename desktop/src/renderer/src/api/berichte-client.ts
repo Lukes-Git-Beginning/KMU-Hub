@@ -259,6 +259,32 @@ export function attachReportToContact(contactId: string, doc: ReportRef) {
   })
 }
 
+export interface SavedDocumentFile {
+  id: string
+  name: string
+}
+
+/**
+ * Save the report as a PDF file into the documents module (R-5b). The real
+ * PDF bytes come from the server export (R-3b, Luke); the demo files a small
+ * placeholder PDF so the entry appears in documents with the "Bericht" tag.
+ */
+export function saveReportToDocuments(folderId: string, doc: ReportRef) {
+  const placeholder = new Blob([`%PDF-1.4\n% Cosmi-Bericht: ${doc.title}\n`], {
+    type: 'application/pdf',
+  })
+  const file = new File([placeholder], `${doc.title}.pdf`, { type: 'application/pdf' })
+  const form = new FormData()
+  form.append('file', file)
+  form.append('folder_id', folderId)
+  form.append('tag_id', 't-bericht')
+  return request<{ file: SavedDocumentFile }>({
+    method: 'POST',
+    path: '/api/v1/documents/files/upload',
+    body: form,
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard KPIs
 // ---------------------------------------------------------------------------
