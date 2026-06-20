@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BuilderState } from './builder-utils'
 import { emptyBuilderState, MAX_DIMENSIONS, suggestViz, toQuery } from './builder-utils'
-import type { VisualizationType } from '@/api/berichte-types'
+import type { ReportDateRange, ReportFilter, VisualizationType } from '@/api/berichte-types'
 import { useReportPreview } from '@/api/hooks/useBerichte'
 import { resolveSource } from '../../report-sources/registry'
 import { fieldByKey } from '../../report-sources/types'
 import { SourcePicker } from './SourcePicker'
 import { FieldPicker } from './FieldPicker'
+import { DateRangePicker } from './DateRangePicker'
+import { FilterBuilder } from './FilterBuilder'
 import { VizSwitcher } from './VizSwitcher'
 import { LivePreview } from './LivePreview'
 
@@ -21,7 +23,13 @@ export function ReportBuilderShell() {
   const [state, setState] = useState<BuilderState>(emptyBuilderState)
   const source = state.sourceId ? resolveSource(state.sourceId) : undefined
   const query = useMemo(() => toQuery(state), [state])
-  const preview = useReportPreview(query)
+  // Debounce so typing in filter inputs doesn't refetch on every keystroke.
+  const [debouncedQuery, setDebouncedQuery] = useState(query)
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query), 150)
+    return () => clearTimeout(id)
+  }, [query])
+  const preview = useReportPreview(debouncedQuery)
 
   function setSource(id: string) {
     setState(() => applyAutoViz({ ...emptyBuilderState(), sourceId: id }))
@@ -55,6 +63,14 @@ export function ReportBuilderShell() {
     setState((s) => ({ ...s, viz, vizManual: true }))
   }
 
+  function setDateRange(dateRange: ReportDateRange | undefined) {
+    setState((s) => ({ ...s, dateRange }))
+  }
+
+  function setFilters(filters: ReportFilter[]) {
+    setState((s) => ({ ...s, filters }))
+  }
+
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
       {/* Config column */}
@@ -72,6 +88,13 @@ export function ReportBuilderShell() {
               onToggleDimension={toggleDimension}
               onToggleMeasure={toggleMeasure}
             />
+          </div>
+        )}
+
+        {source && (
+          <div className="space-y-4 rounded-xl border border-border bg-card p-4">
+            <DateRangePicker source={source} value={state.dateRange} onChange={setDateRange} />
+            <FilterBuilder source={source} filters={state.filters} onChange={setFilters} />
           </div>
         )}
 
