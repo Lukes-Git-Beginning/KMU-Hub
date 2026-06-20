@@ -474,13 +474,16 @@ export default function FormularePage() {
   const prefsExportFormat = useFormularePrefsStore((s) => s.defaultExportFormat)
   const prefsConsentText = useFormularePrefsStore((s) => s.defaultConsentText)
   const prefsPrivacyUrl = useFormularePrefsStore((s) => s.defaultPrivacyUrl)
+  const prefsThankYouMessage = useFormularePrefsStore((s) => s.defaultThankYouMessage)
+  // FT-5 — the grid/list toggle reads + writes the persisted personal default.
+  const formView = useFormularePrefsStore((s) => s.defaultFormView)
+  const setFormView = useFormularePrefsStore((s) => s.setDefaultFormView)
 
   // Tab & search — initial tab honours the personal default.
   const [tab, setTab] = useState<TabKey>(prefsDefaultTab)
   const [search, setSearch] = useState('')
-  // FT-4 — Formulare tab: status quick-filter + grid/list view
+  // FT-4 — Formulare tab: status quick-filter (grid/list view via prefs above)
   const [formStatusFilter, setFormStatusFilter] = useState<'all' | FormSchema['status']>('all')
-  const [formView, setFormView] = useState<'grid' | 'list'>('grid')
 
   // Detail modal for a single submission
   const [selectedSubmission, setSelectedSubmission] =
@@ -494,6 +497,8 @@ export default function FormularePage() {
   >('details')
   // FT-1 — template detail modal (clickable template cards)
   const [selectedTemplate, setSelectedTemplate] = useState<FormSchema | null>(null)
+  // FT-5 — template delete confirmation
+  const [templateToDelete, setTemplateToDelete] = useState<FormSchema | null>(null)
   // FT-1 — confirm archiving a form that still has unread submissions
   const [archiveConfirm, setArchiveConfirm] = useState<{
     schema: FormSchema
@@ -977,6 +982,11 @@ export default function FormularePage() {
         onClick: () => requestShare(schema),
         disabled: !isShareable(schema),
       },
+      {
+        label: t('formulare.vorlagen.saveAsTemplate'),
+        icon: LayoutTemplate,
+        onClick: () => saveAsTemplate(schema),
+      },
       ...lifecycleItems(schema),
       {
         separator: true,
@@ -1190,6 +1200,8 @@ export default function FormularePage() {
           status: 'draft',
           fields: [],
           isTemplate: false,
+          // FT-5 — seed the configurable tenant default thank-you message.
+          thankYouMessage: prefsThankYouMessage.trim() || undefined,
         },
         {
           onSuccess: () => {
@@ -1243,6 +1255,34 @@ export default function FormularePage() {
           toast.error(err instanceof Error ? err.message : t('common.error')),
       },
     )
+  }
+
+  // FT-5 — turn an existing form into a reusable template (moves it to the
+  // Vorlagen tab) and the reverse delete flow for templates.
+  const saveAsTemplate = (schema: FormSchema) => {
+    updateSchema.mutate(
+      { id: schema.id, isTemplate: true },
+      {
+        onSuccess: () => {
+          toast.success(t('formulare.vorlagen.savedAsTemplate', { name: schema.title }))
+          setSelectedForm((cur) => (cur && cur.id === schema.id ? null : cur))
+        },
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
+  }
+
+  const handleDeleteTemplate = (template: FormSchema) => {
+    deleteSchema.mutate(template.id, {
+      onSuccess: () => {
+        setTemplateToDelete(null)
+        setSelectedTemplate(null)
+        toast.success(t('formulare.vorlagen.deleted', { name: template.title }))
+      },
+      onError: (err) =>
+        toast.error(err instanceof Error ? err.message : t('common.error')),
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -3831,7 +3871,27 @@ export default function FormularePage() {
         }
         footer={
           selectedTemplate ? (
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const tmpl = selectedTemplate
+                    setSelectedTemplate(null)
+                    openEditor(tmpl)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+                >
+                  <Edit className="h-4 w-4" />
+                  {t('formulare.actions.bearbeiten')}
+                </button>
+                <button
+                  onClick={() => setTemplateToDelete(selectedTemplate)}
+                  className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-2 text-sm text-destructive transition-colors hover:bg-error-light"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t('common.delete')}
+                </button>
+              </div>
               <button
                 onClick={() => {
                   const tmpl = selectedTemplate
@@ -3986,6 +4046,19 @@ export default function FormularePage() {
         confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteForm(confirmDelete)}
+      />
+
+      {/* ====================== FT-5 — CONFIRM DELETE TEMPLATE ====================== */}
+      <ConfirmDialog
+        open={!!templateToDelete}
+        onOpenChange={() => setTemplateToDelete(null)}
+        title={t('formulare.vorlagen.deleteTitle')}
+        description={t('formulare.vorlagen.deleteDescription', {
+          name: templateToDelete?.title ?? '',
+        })}
+        confirmLabel={t('common.delete')}
+        variant="destructive"
+        onConfirm={() => templateToDelete && handleDeleteTemplate(templateToDelete)}
       />
     </div>
   )

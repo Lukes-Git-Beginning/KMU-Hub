@@ -4,11 +4,13 @@ import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/sh
 import {
   useFormularePrefsStore,
   type FormulareTab,
+  type FormulareView,
 } from '@/stores/formularePrefs'
 import type { ExportFormat } from '@/api/formulare-types'
 
 const TABS: FormulareTab[] = ['formulare', 'eingänge', 'vorlagen']
 const FORMATS: ExportFormat[] = ['csv', 'xlsx']
+const VIEWS: FormulareView[] = ['grid', 'list']
 
 // ─── Persönlich ──────────────────────────────────────────────────
 
@@ -16,8 +18,10 @@ function PersonalPrefs() {
   const { t } = useTranslation()
   const defaultTab = useFormularePrefsStore((s) => s.defaultTab)
   const defaultExportFormat = useFormularePrefsStore((s) => s.defaultExportFormat)
+  const defaultFormView = useFormularePrefsStore((s) => s.defaultFormView)
   const setDefaultTab = useFormularePrefsStore((s) => s.setDefaultTab)
   const setDefaultExportFormat = useFormularePrefsStore((s) => s.setDefaultExportFormat)
+  const setDefaultFormView = useFormularePrefsStore((s) => s.setDefaultFormView)
 
   return (
     <div className="space-y-5">
@@ -72,6 +76,35 @@ function PersonalPrefs() {
           {t('formulare.settings.personal.exportFormatHint')}
         </p>
       </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground">
+          {t('formulare.settings.personal.formView')}
+        </label>
+        <div className="flex gap-2">
+          {VIEWS.map((v) => {
+            const on = defaultFormView === v
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setDefaultFormView(v)}
+                className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+                  on
+                    ? 'border-primary bg-primary-light text-primary'
+                    : 'border-border text-muted-foreground hover:bg-secondary'
+                }`}
+                aria-pressed={on}
+              >
+                {t(`formulare.settings.viewOption.${v}`)}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t('formulare.settings.personal.formViewHint')}
+        </p>
+      </div>
     </div>
   )
 }
@@ -83,10 +116,16 @@ function TenantPrefs() {
   const defaultConsentText = useFormularePrefsStore((s) => s.defaultConsentText)
   const defaultPrivacyUrl = useFormularePrefsStore((s) => s.defaultPrivacyUrl)
   const notifyOnSubmission = useFormularePrefsStore((s) => s.notifyOnSubmission)
+  const notifyEmail = useFormularePrefsStore((s) => s.notifyEmail)
+  const defaultThankYouMessage = useFormularePrefsStore((s) => s.defaultThankYouMessage)
   const retentionDays = useFormularePrefsStore((s) => s.retentionDays)
   const setDefaultConsentText = useFormularePrefsStore((s) => s.setDefaultConsentText)
   const setDefaultPrivacyUrl = useFormularePrefsStore((s) => s.setDefaultPrivacyUrl)
   const setNotifyOnSubmission = useFormularePrefsStore((s) => s.setNotifyOnSubmission)
+  const setNotifyEmail = useFormularePrefsStore((s) => s.setNotifyEmail)
+  const setDefaultThankYouMessage = useFormularePrefsStore(
+    (s) => s.setDefaultThankYouMessage,
+  )
   const setRetentionDays = useFormularePrefsStore((s) => s.setRetentionDays)
 
   return (
@@ -145,6 +184,40 @@ function TenantPrefs() {
             }`}
           />
         </button>
+      </div>
+
+      {notifyOnSubmission && (
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-foreground">
+            {t('formulare.settings.tenant.notifyEmail')}
+          </label>
+          <input
+            type="email"
+            value={notifyEmail}
+            onChange={(e) => setNotifyEmail(e.target.value)}
+            placeholder="team@firma.de"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          />
+          <p className="text-xs text-muted-foreground">
+            {t('formulare.settings.tenant.notifyEmailHint')}
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground">
+          {t('formulare.settings.tenant.thankYou')}
+        </label>
+        <textarea
+          value={defaultThankYouMessage}
+          onChange={(e) => setDefaultThankYouMessage(e.target.value)}
+          rows={2}
+          placeholder={t('formulare.settings.tenant.thankYouPlaceholder')}
+          className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+        />
+        <p className="text-xs text-muted-foreground">
+          {t('formulare.settings.tenant.thankYouHint')}
+        </p>
       </div>
 
       <div className="space-y-1.5">
