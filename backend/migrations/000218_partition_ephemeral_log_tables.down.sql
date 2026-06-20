@@ -33,6 +33,19 @@ $$;
 
 ALTER TABLE events RENAME TO events_partitioned;
 
+-- Free index/constraint names held by the renamed partitioned table.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT conname FROM pg_constraint WHERE conrelid = 'events_partitioned'::regclass LOOP
+        EXECUTE format('ALTER TABLE events_partitioned DROP CONSTRAINT IF EXISTS %I', r.conname);
+    END LOOP;
+    FOR r IN SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'events_partitioned' LOOP
+        EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+    END LOOP;
+END;
+$$;
+
 CREATE TABLE events (
     id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type_key VARCHAR(100) NOT NULL,
@@ -58,6 +71,19 @@ DROP TABLE events_partitioned CASCADE;
 
 ALTER TABLE dialer_call_events RENAME TO dialer_call_events_partitioned;
 
+-- Free index/constraint names held by the renamed partitioned table.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT conname FROM pg_constraint WHERE conrelid = 'dialer_call_events_partitioned'::regclass LOOP
+        EXECUTE format('ALTER TABLE dialer_call_events_partitioned DROP CONSTRAINT IF EXISTS %I', r.conname);
+    END LOOP;
+    FOR r IN SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'dialer_call_events_partitioned' LOOP
+        EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+    END LOOP;
+END;
+$$;
+
 CREATE TABLE dialer_call_events (
     id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     dialer_call_session_id UUID        NOT NULL
@@ -65,8 +91,7 @@ CREATE TABLE dialer_call_events (
     event_type             TEXT        NOT NULL,
     payload                JSONB       NOT NULL DEFAULT '{}',
     occurred_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    tenant_id              UUID        NOT NULL
-        REFERENCES tenants(id),
+    tenant_id              UUID        NOT NULL,
     CONSTRAINT fk_dialer_call_events_tenant
         FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 );
@@ -87,6 +112,19 @@ DROP TABLE dialer_call_events_partitioned CASCADE;
 -- =============================================================================
 
 ALTER TABLE automation_executions RENAME TO automation_executions_partitioned;
+
+-- Free index/constraint names held by the renamed partitioned table.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT conname FROM pg_constraint WHERE conrelid = 'automation_executions_partitioned'::regclass LOOP
+        EXECUTE format('ALTER TABLE automation_executions_partitioned DROP CONSTRAINT IF EXISTS %I', r.conname);
+    END LOOP;
+    FOR r IN SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'automation_executions_partitioned' LOOP
+        EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+    END LOOP;
+END;
+$$;
 
 CREATE TABLE automation_executions (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

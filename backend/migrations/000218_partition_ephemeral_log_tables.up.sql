@@ -95,6 +95,22 @@ $$;
 
 ALTER TABLE events RENAME TO events_old;
 
+-- RENAME TO does not rename dependent objects (indexes, constraints) in Postgres,
+-- so their canonical names stay bound to events_old and would collide with the new
+-- table. Drop them on the old table (not needed for the SELECT * data copy) to free
+-- the names.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT conname FROM pg_constraint WHERE conrelid = 'events_old'::regclass LOOP
+        EXECUTE format('ALTER TABLE events_old DROP CONSTRAINT IF EXISTS %I', r.conname);
+    END LOOP;
+    FOR r IN SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'events_old' LOOP
+        EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+    END LOOP;
+END;
+$$;
+
 CREATE TABLE events (
     id             UUID         NOT NULL DEFAULT gen_random_uuid(),
     event_type_key VARCHAR(100) NOT NULL,
@@ -143,6 +159,19 @@ DROP TABLE events_old;
 -- =============================================================================
 
 ALTER TABLE dialer_call_events RENAME TO dialer_call_events_old;
+
+-- Free index/constraint names held by the renamed old table.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT conname FROM pg_constraint WHERE conrelid = 'dialer_call_events_old'::regclass LOOP
+        EXECUTE format('ALTER TABLE dialer_call_events_old DROP CONSTRAINT IF EXISTS %I', r.conname);
+    END LOOP;
+    FOR r IN SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'dialer_call_events_old' LOOP
+        EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+    END LOOP;
+END;
+$$;
 
 CREATE TABLE dialer_call_events (
     id                     UUID        NOT NULL DEFAULT gen_random_uuid(),
@@ -199,6 +228,19 @@ DROP TABLE dialer_call_events_old;
 -- =============================================================================
 
 ALTER TABLE automation_executions RENAME TO automation_executions_old;
+
+-- Free index/constraint names held by the renamed old table.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT conname FROM pg_constraint WHERE conrelid = 'automation_executions_old'::regclass LOOP
+        EXECUTE format('ALTER TABLE automation_executions_old DROP CONSTRAINT IF EXISTS %I', r.conname);
+    END LOOP;
+    FOR r IN SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'automation_executions_old' LOOP
+        EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+    END LOOP;
+END;
+$$;
 
 CREATE TABLE automation_executions (
     id               UUID        NOT NULL DEFAULT gen_random_uuid(),
