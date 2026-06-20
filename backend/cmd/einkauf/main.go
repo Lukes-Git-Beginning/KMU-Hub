@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -20,6 +21,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/server"
 	einkaufv1 "github.com/kmuhub/kmuhub/proto/einkauf/v1"
+	inventarv1 "github.com/kmuhub/kmuhub/proto/inventar/v1"
 )
 
 func main() {
@@ -47,6 +49,23 @@ func main() {
 	// NewServiceExtended wires both the base repo and the extended repo
 	// (catalog, supplier ratings, framework contracts) so all RPCs work.
 	einkaufService := einkauf.NewServiceExtended(repo)
+
+	// Wire inventar gRPC client for cross-module stock adjustment on goods receipt.
+	// The connection is established lazily; failure to connect is non-fatal since
+	// inventar integration is best-effort (graceful degradation).
+	inventarConn, inventarConnErr := grpc.NewClient(
+		cfg.InventarGRPCAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if inventarConnErr != nil {
+		slog.Warn("failed to create inventar gRPC connection; stock sync on goods receipt disabled",
+			"address", cfg.InventarGRPCAddress, "error", inventarConnErr)
+	} else {
+		inventarClient := inventarv1.NewInventarServiceClient(inventarConn)
+		einkaufService.WithInventarAdjuster(einkauf.NewGRPCInventarAdjuster(inventarClient))
+		defer inventarConn.Close()
+		slog.Info("inventar gRPC client connected", "address", cfg.InventarGRPCAddress)
+	}
 
 	metricsRegistry := metrics.NewRegistry()
 

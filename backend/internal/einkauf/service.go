@@ -11,22 +11,39 @@ import (
 	"github.com/google/uuid"
 )
 
+// InventarAdjuster is a narrow interface that the einkauf service uses to
+// record incoming stock movements in the inventar module on goods receipt.
+// The implementation resolves the inventar item by SKU and calls AdjustStock.
+// If the SKU is not found in inventar (item not yet created there), the
+// call is a no-op so that goods receipt never fails due to inventar state
+// (graceful degradation per architecture rule 8).
+type InventarAdjuster interface {
+	// AdjustStockBySKU increments the inventar item identified by sku by
+	// delta units. Returns nil if the SKU is not found (soft-fail).
+	AdjustStockBySKU(ctx context.Context, tenantID uuid.UUID, sku string, delta int64, reason string) error
+}
+
 // Service handles einkauf (purchasing) business logic.
-//
-// Wareneingangs-Sync: ReceiveGoods und PartialReceive aktualisieren nur die
-// lokalen received_quantity-Werte in den po_lines-Zeilen. Der Cross-Modul-Aufruf
-// zu inventar.RecordMovement ist ein Sprint-3-Item; bis dahin hat der
-// Wareneingang keine Auswirkung auf den globalen Lagerbestand.
 type Service struct {
 	repo    Repository
 	// repoExt is non-nil when the service was created via NewServiceExtended.
 	// It grants access to the catalog, ratings, and framework contract persistence.
 	repoExt RepositoryExtended
+	// inventarAdj is optional; if non-nil, ReceiveGoods and PartialReceive
+	// will trigger inventory movements in the inventar module.
+	inventarAdj InventarAdjuster
 }
 
 // NewService creates a new einkauf service.
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// WithInventarAdjuster attaches an InventarAdjuster to the service so that
+// goods-receipt operations also update the inventar module's stock levels.
+func (s *Service) WithInventarAdjuster(adj InventarAdjuster) *Service {
+	s.inventarAdj = adj
+	return s
 }
 
 // ============================================================================
@@ -550,12 +567,10 @@ func (s *Service) SubmitPO(ctx context.Context, tenantID, poID uuid.UUID) (*Purc
 	return po, nil
 }
 
-// ReceiveGoods marks all lines as fully received and transitions the PO to received status.
-//
-// TODO: Sprint 3 — integrate with inventar.RecordMovement
-// On ReceiveGoods, for each line, call inventar service to record an "in"
-// movement of the full quantity. Cross-module gRPC client will be wired in
-// S3 once we settle on the internal-call pattern.
+// ReceiveGoods marks all lines as fully received and transitions the PO to
+// received status. If an InventarAdjuster is configured, it also increments
+// the inventar stock level for each line's SKU by the ordered quantity.
+// Missing SKUs in inventar are silently skipped (graceful degradation).
 func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*PurchaseOrder, error) {
 	po, err := s.repo.GetPO(ctx, tenantID, poID)
 	if err != nil {
@@ -570,28 +585,44 @@ func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*
 		return nil, fmt.Errorf("list po lines for receive: %w", err)
 	}
 
+	// Update received quantities for every line (full delivery).
 	for _, line := range lines {
 		if err := s.repo.UpdatePOLineReceivedQuantity(ctx, tenantID, line.ID, line.Quantity); err != nil {
 			return nil, fmt.Errorf("update received quantity for line %s: %w", line.ID, err)
 		}
 	}
 
+	// Transition PO to received.
 	if err := s.repo.UpdatePOStatus(ctx, tenantID, poID, POStatusReceived); err != nil {
 		return nil, fmt.Errorf("update po status received: %w", err)
 	}
-
 	po.Status = POStatusReceived
+
+	// Record inventory movements for each line (best-effort: skip on error so
+	// that a missing inventar item never blocks a goods receipt).
+	if s.inventarAdj != nil {
+		reason := fmt.Sprintf("goods receipt PO %s", po.PONumber)
+		for _, line := range lines {
+			qty, parseErr := strconv.ParseFloat(line.Quantity, 64)
+			if parseErr != nil || qty <= 0 {
+				continue
+			}
+			if adjErr := s.inventarAdj.AdjustStockBySKU(ctx, tenantID, line.SKU, int64(qty), reason); adjErr != nil {
+				slog.Warn("inventar stock adjustment failed during ReceiveGoods",
+					"po_id", poID, "line_id", line.ID, "sku", line.SKU, "error", adjErr)
+			}
+		}
+	}
+
 	slog.Info("einkauf goods received (full)", "po_id", poID, "tenant_id", tenantID, "lines_count", len(lines))
 	return po, nil
 }
 
-// PartialReceive updates received quantities per line and sets the PO to
-// partially_received or received depending on whether all lines are complete.
-//
-// TODO: Sprint 3 — integrate with inventar.RecordMovement
-// On PartialReceive, for each line in the input map, call inventar service
-// to record an "in" movement of the delta quantity received. Cross-module
-// gRPC client will be wired in S3 once we settle on the internal-call pattern.
+// PartialReceive updates received quantities per line and transitions the PO
+// to partially_received or received depending on whether all lines are complete.
+// If an InventarAdjuster is configured, it also increments inventar stock for
+// each supplied line's SKU by the newly received delta quantity.
+// Missing SKUs in inventar are silently skipped (graceful degradation).
 func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, items []PartialReceiveItem) (*PurchaseOrder, error) {
 	po, err := s.repo.GetPO(ctx, tenantID, poID)
 	if err != nil {
@@ -601,8 +632,16 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 		return nil, ErrPONotReceivable
 	}
 
-	// Validate all items before applying any update (fail-fast, all-or-nothing).
-	// TODO(Sprint 3): wrap in a DB transaction once the repository exposes Tx support.
+	// -------------------------------------------------------------------------
+	// Phase 1: Validate all items + compute incoming deltas (fail-fast).
+	// lineDeltas maps lineID → (sku, incomingQty) for stock adjustment.
+	// -------------------------------------------------------------------------
+	type lineAdjust struct {
+		sku      string
+		incomingQty float64
+	}
+	lineAdjusts := make(map[uuid.UUID]lineAdjust, len(items))
+
 	for _, item := range items {
 		recv, err := strconv.ParseFloat(item.ReceivedQuantity, 64)
 		if err != nil || recv < 0 {
@@ -619,16 +658,29 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 		if recv > ordered {
 			return nil, fmt.Errorf("partial receive line %s: %w", item.LineID, ErrExceedsOrderedQty)
 		}
+
+		// Delta = newly arriving quantity (the full new received qty; callers
+		// pass the cumulative received amount, so we track per-line delta by
+		// comparing against the previous received_quantity).
+		prevRecv, _ := strconv.ParseFloat(line.ReceivedQuantity, 64)
+		delta := recv - prevRecv
+		if delta > 0 && line.SKU != "" {
+			lineAdjusts[item.LineID] = lineAdjust{sku: line.SKU, incomingQty: delta}
+		}
 	}
 
-	// Apply updates
+	// -------------------------------------------------------------------------
+	// Phase 2: Persist received-quantity updates.
+	// -------------------------------------------------------------------------
 	for _, item := range items {
 		if err := s.repo.UpdatePOLineReceivedQuantity(ctx, tenantID, item.LineID, item.ReceivedQuantity); err != nil {
 			return nil, fmt.Errorf("partial receive line %s: %w", item.LineID, err)
 		}
 	}
 
-	// Check if all lines are fully received to determine new status
+	// -------------------------------------------------------------------------
+	// Phase 3: Determine new PO status.
+	// -------------------------------------------------------------------------
 	lines, err := s.repo.ListPOLines(ctx, tenantID, poID)
 	if err != nil {
 		return nil, fmt.Errorf("reload lines after partial receive: %w", err)
@@ -642,8 +694,21 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 	if err := s.repo.UpdatePOStatus(ctx, tenantID, poID, newStatus); err != nil {
 		return nil, fmt.Errorf("update po status after partial receive: %w", err)
 	}
-
 	po.Status = newStatus
+
+	// -------------------------------------------------------------------------
+	// Phase 4: Record inventory movements (best-effort, non-blocking).
+	// -------------------------------------------------------------------------
+	if s.inventarAdj != nil {
+		reason := fmt.Sprintf("partial goods receipt PO %s", po.PONumber)
+		for lineID, adj := range lineAdjusts {
+			if adjErr := s.inventarAdj.AdjustStockBySKU(ctx, tenantID, adj.sku, int64(adj.incomingQty), reason); adjErr != nil {
+				slog.Warn("inventar stock adjustment failed during PartialReceive",
+					"po_id", poID, "line_id", lineID, "sku", adj.sku, "error", adjErr)
+			}
+		}
+	}
+
 	slog.Info("einkauf partial receive applied", "po_id", poID, "tenant_id", tenantID, "new_status", newStatus)
 	return po, nil
 }

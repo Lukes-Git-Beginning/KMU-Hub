@@ -51,6 +51,11 @@ import {
   useCatalogItems,
   useFrameworkContracts,
   useSupplierRatings,
+  useCreatePO,
+  useAddPOLine,
+  useCreateSupplier,
+  useReceiveGoods,
+  usePartialReceive,
 } from '@/api/hooks/useEinkauf'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatAmount, formatCurrency, formatDate } from '@/lib/format'
@@ -311,6 +316,15 @@ export default function EinkaufPage() {
   const { data: ratingsData } = useSupplierRatings(selectedSupplier?.id ?? '')
   const selectedSupplierRatings = ratingsData?.ratings ?? []
 
+  // ---------------------------------------------------------------------------
+  // Write mutations
+  // ---------------------------------------------------------------------------
+  const createPOMutation = useCreatePO()
+  const addPOLineMutation = useAddPOLine()
+  const createSupplierMutation = useCreateSupplier()
+  const receiveGoodsMutation = useReceiveGoods()
+  const partialReceiveMutation = usePartialReceive()
+
   const getSupplierAvgRating = useCallback(
     (ratings: typeof selectedSupplierRatings) => {
       if (ratings.length === 0) return 0
@@ -381,9 +395,48 @@ export default function EinkaufPage() {
     }
     const sup = suppliers.find((s) => s.id === newOrderSupplierId)
     const nr = `PO-${new Date().getFullYear()}-${String(purchaseOrders.length + 1).padStart(3, '0')}`
-    toast.success(t('einkauf.toast.orderCreated', { nr, supplier: sup?.name ?? t('einkauf.detail.supplierSection'), currency: newOrderCurrency, total: newOrderTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 }) }))
-    resetNewOrderForm()
-    setShowNewOrderDialog(false)
+
+    createPOMutation.mutate(
+      {
+        supplier_id: newOrderSupplierId,
+        po_number: nr,
+        order_date: new Date().toISOString(),
+        expected_delivery_date: newOrderDate || undefined,
+        currency: newOrderCurrency,
+        notes: newOrderNotes || undefined,
+      },
+      {
+        onSuccess: (data) => {
+          const poId = data?.id
+          if (poId) {
+            // Add each line sequentially via fire-and-forget; failures are
+            // surfaced as individual toasts but do not roll back the PO.
+            newOrderItems.forEach((item, idx) => {
+              addPOLineMutation.mutate({
+                poId,
+                product_name: item.name,
+                quantity: String(item.quantity),
+                unit_price: String(item.unitPrice),
+                line_position: idx,
+              })
+            })
+          }
+          toast.success(
+            t('einkauf.toast.orderCreated', {
+              nr,
+              supplier: sup?.name ?? t('einkauf.detail.supplierSection'),
+              currency: newOrderCurrency,
+              total: newOrderTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 }),
+            }),
+          )
+          resetNewOrderForm()
+          setShowNewOrderDialog(false)
+        },
+        onError: () => {
+          toast.error(t('einkauf.toast.orderCreateFailed'))
+        },
+      },
+    )
   }
 
   // -- New supplier dialog helpers --
@@ -400,9 +453,25 @@ export default function EinkaufPage() {
       toast.error(t('einkauf.validation.supplierNameRequired'))
       return
     }
-    toast.success(t('einkauf.toast.supplierCreated', { name: newSupName }))
-    resetNewSupplierForm()
-    setShowNewSupplierDialog(false)
+    createSupplierMutation.mutate(
+      {
+        name: newSupName.trim(),
+        email: newSupEmail.trim() || undefined,
+        phone: newSupPhone.trim() || undefined,
+        payment_terms: newSupPayment || undefined,
+        notes: newSupContact.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('einkauf.toast.supplierCreated', { name: newSupName }))
+          resetNewSupplierForm()
+          setShowNewSupplierDialog(false)
+        },
+        onError: () => {
+          toast.error(t('einkauf.toast.supplierCreateFailed'))
+        },
+      },
+    )
   }
 
   // -- Wareneingang --
@@ -420,12 +489,60 @@ export default function EinkaufPage() {
 
   const handleSaveWareneingang = () => {
     if (!showWareneingangDialog) return
-    if (bookToInventory) {
-      toast.success(t('einkauf.toast.wareneingangWithInventory', { orderNumber: showWareneingangDialog.po_number }))
+    const order = showWareneingangDialog
+    const orderItems = getOrderItems(order.id)
+
+    // If all items are fully received (or no per-item qtys entered), use ReceiveGoods.
+    // Otherwise use PartialReceive with the per-line quantities from the form.
+    const allFull = orderItems.every((item) => {
+      const entered = receivedQtys[item.id] ?? 0
+      const ordered = parseFloat(item.quantity)
+      const alreadyReceived = parseFloat(item.received_quantity)
+      return entered + alreadyReceived >= ordered
+    })
+
+    const hasPartialEntries = orderItems.some((item) => (receivedQtys[item.id] ?? 0) > 0)
+
+    if (!partialDelivery && allFull && !hasPartialEntries) {
+      // Full receive via ReceiveGoods (simpler path — no per-line qtys specified)
+      receiveGoodsMutation.mutate(order.id, {
+        onSuccess: () => {
+          const key = bookToInventory ? 'einkauf.toast.wareneingangWithInventory' : 'einkauf.toast.wareneingang'
+          toast.success(t(key, { orderNumber: order.po_number }))
+          setShowWareneingangDialog(null)
+        },
+        onError: () => {
+          toast.error(t('einkauf.toast.wareneingangFailed'))
+        },
+      })
     } else {
-      toast.success(t('einkauf.toast.wareneingang', { orderNumber: showWareneingangDialog.po_number }))
+      // Partial receive: submit per-line quantities
+      const items = orderItems
+        .filter((item) => (receivedQtys[item.id] ?? 0) > 0)
+        .map((item) => ({
+          line_id: item.id,
+          received_quantity: String(receivedQtys[item.id] ?? 0),
+        }))
+
+      if (items.length === 0) {
+        toast.error(t('einkauf.validation.noQuantityEntered'))
+        return
+      }
+
+      partialReceiveMutation.mutate(
+        { poId: order.id, items },
+        {
+          onSuccess: () => {
+            const key = bookToInventory ? 'einkauf.toast.wareneingangWithInventory' : 'einkauf.toast.wareneingang'
+            toast.success(t(key, { orderNumber: order.po_number }))
+            setShowWareneingangDialog(null)
+          },
+          onError: () => {
+            toast.error(t('einkauf.toast.wareneingangFailed'))
+          },
+        },
+      )
     }
-    setShowWareneingangDialog(null)
   }
 
   // -- Approval --
