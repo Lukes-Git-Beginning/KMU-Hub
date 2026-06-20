@@ -700,7 +700,16 @@ export const berichteHandlers = [
   // --- Run ---
   http.post(`${API}/api/v1/berichte/definitions/:id/run`, ({ params }) => {
     const id = String(params.id)
-    const result = REPORT_RESULTS[id]
+    // System defs use canned results; custom builder defs run through the executor
+    // (same fallback as export) so newly built charts render in documents.
+    let result = REPORT_RESULTS[id]
+    if (!result) {
+      const definition = DEMO_DEFINITIONS.find((d) => d.id === id)
+      if (definition && isBuilderQuery(definition.query_config)) {
+        const source = resolveSource(definition.query_config.sourceId)
+        if (source) result = executeQuery(source, definition.query_config, source.sampleRows())
+      }
+    }
     if (!result) return new HttpResponse(null, { status: 404 })
     const now = new Date().toISOString()
     return HttpResponse.json({

@@ -1,12 +1,32 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BarChart3, FileText, Search } from 'lucide-react'
-import type { ReportDefinition, VisualizationType } from '@/api/berichte-types'
+import { BarChart3, FilePlus2, FolderOpen, FileText, Search } from 'lucide-react'
+import type {
+  ReportDefinition,
+  VisualizationType,
+} from '@/api/berichte-types'
 import { isBuilderQuery } from '@/api/berichte-types'
-import { useDefinitions, useReportResult } from '@/api/hooks/useBerichte'
+import {
+  useCreateDefinition,
+  useDefinitions,
+  useReportPreview,
+  useReportResult,
+} from '@/api/hooks/useBerichte'
 import { DetailModal, Skeleton } from '@/components/shared'
 import { resolveSource } from '../../report-sources/registry'
-import { VIZ_GALLERY } from '../builder/builder-utils'
+import { fieldByKey, type ReportSource } from '../../report-sources/types'
+import {
+  emptyBuilderState,
+  suggestViz,
+  toQuery,
+  MAX_DIMENSIONS,
+  VIZ_GALLERY,
+  type BuilderState,
+} from '../builder/builder-utils'
+import { SourcePicker } from '../builder/SourcePicker'
+import { FieldPicker } from '../builder/FieldPicker'
+import { VizSwitcher } from '../builder/VizSwitcher'
+import { LivePreview } from '../builder/LivePreview'
 import { ChartRenderer } from '../charts/ChartRenderer'
 
 /** Derive a sensible visualization for a definition (its builder viz, or a
@@ -39,8 +59,78 @@ interface ChartBlockPickerProps {
   onApply: (patch: { definitionId: string; viz?: VisualizationType }) => void
 }
 
-/** Modal to attach a saved chart/table definition to a block (R-1b, library tab). */
+/** Modal to attach a chart/table definition to a block — pick from the library
+ *  or build a new one inline (R-1b). */
 export function ChartBlockPicker({ open, onClose, mode, onApply }: ChartBlockPickerProps) {
+  const { t } = useTranslation()
+  const [tab, setTab] = useState<'library' | 'new'>('library')
+
+  function applyAndClose(patch: { definitionId: string; viz?: VisualizationType }) {
+    onApply(patch)
+    onClose()
+  }
+
+  return (
+    <DetailModal
+      open={open}
+      onClose={onClose}
+      maxWidth="max-w-3xl"
+      title={
+        mode === 'table'
+          ? t('berichte.docs.chartPicker.titleTable')
+          : t('berichte.docs.chartPicker.titleChart')
+      }
+    >
+      <div className="space-y-4 p-5">
+        {/* Tab switcher */}
+        <div className="inline-flex rounded-lg border border-border p-0.5">
+          <button
+            type="button"
+            onClick={() => setTab('library')}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+              tab === 'library'
+                ? 'bg-primary-light font-medium text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            {t('berichte.docs.chartPicker.tabLibrary')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('new')}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+              tab === 'new'
+                ? 'bg-primary-light font-medium text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <FilePlus2 className="h-3.5 w-3.5" />
+            {t('berichte.docs.chartPicker.tabNew')}
+          </button>
+        </div>
+
+        {tab === 'library' ? (
+          <LibraryTab mode={mode} onApply={applyAndClose} onCancel={onClose} />
+        ) : (
+          <NewChartTab mode={mode} onApply={applyAndClose} onCancel={onClose} />
+        )}
+      </div>
+    </DetailModal>
+  )
+}
+
+/* ------------------------------ Library tab ------------------------------- */
+
+function LibraryTab({
+  mode,
+  onApply,
+  onCancel,
+}: {
+  mode: 'chart' | 'table'
+  onApply: (patch: { definitionId: string; viz?: VisualizationType }) => void
+  onCancel: () => void
+}) {
   const { t } = useTranslation()
   const { data, isLoading } = useDefinitions()
   const [search, setSearch] = useState('')
@@ -59,43 +149,9 @@ export function ChartBlockPicker({ open, onClose, mode, onApply }: ChartBlockPic
   const previewViz: VisualizationType =
     mode === 'table' ? 'table' : selected ? vizForDefinition(selected) : 'bar'
 
-  function apply() {
-    if (!selected) return
-    onApply({ definitionId: selected.id, viz: mode === 'table' ? undefined : previewViz })
-    onClose()
-  }
-
   return (
-    <DetailModal
-      open={open}
-      onClose={onClose}
-      maxWidth="max-w-3xl"
-      title={
-        mode === 'table'
-          ? t('berichte.docs.chartPicker.titleTable')
-          : t('berichte.docs.chartPicker.titleChart')
-      }
-      footer={
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
-          >
-            {t('berichte.docs.chartPicker.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={!selected}
-            className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          >
-            {t('berichte.docs.chartPicker.apply')}
-          </button>
-        </div>
-      }
-    >
-      <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+    <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         {/* Definition list */}
         <div className="space-y-2">
           <div className="relative">
@@ -107,7 +163,7 @@ export function ChartBlockPicker({ open, onClose, mode, onApply }: ChartBlockPic
               className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
-          <div className="max-h-[340px] space-y-1.5 overflow-y-auto pr-1">
+          <div className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-14 w-full rounded-lg" />
@@ -157,14 +213,27 @@ export function ChartBlockPicker({ open, onClose, mode, onApply }: ChartBlockPic
           {selected ? (
             <DefinitionPreview definitionId={selected.id} viz={previewViz} name={selected.name} />
           ) : (
-            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+            <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
               <BarChart3 className="h-8 w-8 text-muted-foreground/40" />
               {t('berichte.docs.chartPicker.previewHint')}
             </div>
           )}
         </div>
       </div>
-    </DetailModal>
+
+      <PickerActions
+        onCancel={onCancel}
+        onConfirm={() =>
+          selected &&
+          onApply({
+            definitionId: selected.id,
+            viz: mode === 'table' ? undefined : previewViz,
+          })
+        }
+        confirmLabel={t('berichte.docs.chartPicker.apply')}
+        disabled={!selected}
+      />
+    </>
   )
 }
 
@@ -184,14 +253,195 @@ function DefinitionPreview({
     <div className="space-y-2">
       <p className="text-xs font-medium text-foreground">{name}</p>
       {result ? (
-        <ChartRenderer result={result} viz={viz} height={260} />
+        <ChartRenderer result={result} viz={viz} height={240} />
       ) : isLoading ? (
-        <Skeleton className="h-[240px] w-full rounded-lg" />
+        <Skeleton className="h-[220px] w-full rounded-lg" />
       ) : (
-        <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+        <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">
           {t('berichte.docs.chartPicker.previewError')}
         </div>
       )}
+    </div>
+  )
+}
+
+/* -------------------------------- New tab --------------------------------- */
+
+function applyAutoViz(next: BuilderState): BuilderState {
+  if (next.vizManual) return next
+  return {
+    ...next,
+    viz: suggestViz(next, next.sourceId ? resolveSource(next.sourceId) : undefined),
+  }
+}
+
+function NewChartTab({
+  mode,
+  onApply,
+  onCancel,
+}: {
+  mode: 'chart' | 'table'
+  onApply: (patch: { definitionId: string; viz?: VisualizationType }) => void
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  const [state, setState] = useState<BuilderState>(emptyBuilderState)
+  const createMutation = useCreateDefinition()
+
+  const source: ReportSource | undefined = state.sourceId
+    ? resolveSource(state.sourceId)
+    : undefined
+  const query = useMemo(() => {
+    const q = toQuery(state)
+    if (q && mode === 'table') return { ...q, viz: 'table' as VisualizationType }
+    return q
+  }, [state, mode])
+
+  // Debounce so typing doesn't refetch the preview on every change.
+  const [debounced, setDebounced] = useState(query)
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(query), 150)
+    return () => clearTimeout(id)
+  }, [query])
+  const preview = useReportPreview(debounced)
+
+  function setSource(id: string) {
+    setState(applyAutoViz({ ...emptyBuilderState(), sourceId: id }))
+  }
+  function toggleDimension(key: string) {
+    setState((s) => {
+      const has = s.dimensions.includes(key)
+      let dimensions = has ? s.dimensions.filter((d) => d !== key) : [...s.dimensions, key]
+      if (dimensions.length > MAX_DIMENSIONS) dimensions = dimensions.slice(0, MAX_DIMENSIONS)
+      return applyAutoViz({ ...s, dimensions })
+    })
+  }
+  function toggleMeasure(key: string) {
+    setState((s) => {
+      const has = s.measures.some((m) => m.field === key)
+      if (has) return applyAutoViz({ ...s, measures: s.measures.filter((m) => m.field !== key) })
+      const field = source ? fieldByKey(source, key) : undefined
+      return applyAutoViz({
+        ...s,
+        measures: [...s.measures, { field: key, agg: field?.defaultAgg ?? 'sum' }],
+      })
+    })
+  }
+  function selectViz(viz: VisualizationType) {
+    setState((s) => ({ ...s, viz, vizManual: true }))
+  }
+
+  function save() {
+    if (!query || !source) return
+    const name =
+      state.name.trim() ||
+      `${source.label} – ${VIZ_GALLERY.find((v) => v.type === query.viz)?.label ?? ''}`.trim()
+    createMutation.mutate(
+      {
+        name,
+        module: source.module,
+        kind: 'custom',
+        query_config: query,
+        default_format: 'pdf',
+        is_published: false,
+      },
+      {
+        onSuccess: (res) =>
+          onApply({
+            definitionId: res.definition.id,
+            viz: mode === 'table' ? undefined : query.viz,
+          }),
+      },
+    )
+  }
+
+  const hasFields = state.dimensions.length > 0 || state.measures.length > 0
+
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+          <div className="rounded-xl border border-border bg-card p-3">
+            <SourcePicker value={state.sourceId} onChange={setSource} />
+          </div>
+          {source && (
+            <div className="rounded-xl border border-border bg-card p-3">
+              <FieldPicker
+                source={source}
+                dimensions={state.dimensions}
+                measures={state.measures}
+                onToggleDimension={toggleDimension}
+                onToggleMeasure={toggleMeasure}
+              />
+            </div>
+          )}
+          {source && hasFields && mode === 'chart' && (
+            <div className="rounded-xl border border-border bg-card p-3">
+              <VizSwitcher value={state.viz} auto={!state.vizManual} onSelect={selectViz} />
+            </div>
+          )}
+          {source && query && (
+            <input
+              value={state.name}
+              onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
+              placeholder={t('berichte.docs.chartPicker.namePlaceholder')}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+          )}
+        </div>
+
+        <div className="min-h-[300px]">
+          <LivePreview
+            query={query}
+            result={preview.data?.result}
+            source={source}
+            isLoading={preview.isFetching}
+            isError={preview.isError}
+          />
+        </div>
+      </div>
+
+      <PickerActions
+        onCancel={onCancel}
+        onConfirm={save}
+        confirmLabel={t('berichte.docs.chartPicker.saveInsert')}
+        disabled={!query || createMutation.isPending}
+      />
+    </>
+  )
+}
+
+/* ------------------------------- Shared bits ------------------------------ */
+
+function PickerActions({
+  onCancel,
+  onConfirm,
+  confirmLabel,
+  disabled,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+  confirmLabel: string
+  disabled: boolean
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center justify-end gap-2 border-t border-border-muted pt-3">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+      >
+        {t('berichte.docs.chartPicker.cancel')}
+      </button>
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={disabled}
+        className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+      >
+        {confirmLabel}
+      </button>
     </div>
   )
 }
