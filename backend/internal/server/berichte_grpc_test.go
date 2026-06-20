@@ -216,7 +216,9 @@ func TestBerichteGRPCServer_ExportReport_NilFactory(t *testing.T) {
 		DefinitionId: uuid.New().String(),
 		Format:       "pdf",
 	})
-	assertGRPCCode(t, err, codes.Unimplemented)
+	// A nil exporter factory is a server misconfiguration (the factory is wired
+	// in cmd/berichte since WP-3), so it surfaces as Internal, not Unimplemented.
+	assertGRPCCode(t, err, codes.Internal)
 }
 
 func TestBerichteGRPCServer_ExportReport_InvalidTenantID(t *testing.T) {
