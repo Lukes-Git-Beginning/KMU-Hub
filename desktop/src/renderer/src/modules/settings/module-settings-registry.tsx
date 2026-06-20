@@ -20,6 +20,7 @@ import {
   Workflow,
   BarChart3,
   Bell,
+  FileInput,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -43,6 +44,7 @@ import { HelpdeskSettingsPanel } from '@/modules/helpdesk/settings/HelpdeskSetti
 import { AutomatisierungSettingsPanel } from '@/modules/automatisierung/settings/AutomatisierungSettingsPanel'
 import { BerichteSettingsPanel } from '@/modules/berichte/settings/BerichteSettingsPanel'
 import { NotificationsSettingsPanel } from './panels/NotificationsSettingsPanel'
+import { FormulareSettingsPanel } from '@/modules/formulare/settings/FormulareSettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -83,6 +85,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'dokumente', group: 'module', labelKey: 'moduleSettings.entries.dokumente', icon: FolderOpen, navMatch: ['/dokumente'], component: DokumenteSettingsPanel },
   { id: 'vertraege', group: 'module', labelKey: 'moduleSettings.entries.vertraege', icon: FileSignature, navMatch: ['/vertraege'], component: VertraegeSettingsPanel },
   { id: 'notifications', group: 'module', labelKey: 'moduleSettings.entries.notifications', icon: Bell, navMatch: ['/notifications'], component: NotificationsSettingsPanel },
+  { id: 'formulare', group: 'module', labelKey: 'moduleSettings.entries.formulare', icon: FileInput, navMatch: ['/formulare'], component: FormulareSettingsPanel },
   // '/' is exact-match only in the resolver — keep this entry from swallowing other routes.
   { id: 'dashboard', group: 'module', labelKey: 'moduleSettings.entries.dashboard', icon: LayoutDashboard, navMatch: ['/'], component: DashboardSettingsPanel },
 

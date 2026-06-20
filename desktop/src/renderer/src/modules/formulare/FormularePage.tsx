@@ -1,4 +1,22 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, type SyntheticEvent } from 'react'
+import { useQueries } from '@tanstack/react-query'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useTranslation } from 'react-i18next'
 import { formatDate as libFormatDate, formatDateTime as libFormatDateTime } from '@/lib/format'
 import {
@@ -34,6 +52,8 @@ import {
   Info,
   Globe,
   FileInput,
+  ShieldCheck,
+  ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -43,6 +63,11 @@ import {
   type FormFieldType,
 } from '@/stores/formulare'
 import {
+  useFormularePrefsStore,
+  DEFAULT_CONSENT_TEXT,
+  DEFAULT_PRIVACY_URL,
+} from '@/stores/formularePrefs'
+import {
   useFormSchemas,
   useCreateFormSchema,
   useUpdateFormSchema,
@@ -50,9 +75,11 @@ import {
   useDuplicateFormSchema,
   useExportSubmissions,
   useUpdateSubmissionStatus,
+  formulareKeys,
 } from '@/api/hooks/useFormulare'
+import { listSubmissions } from '@/api/formulare-client'
 import type { FormSchema, FormSubmission, FormSubmissionStatus } from '@/api/formulare-types'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -95,34 +122,40 @@ const submissionStatusColors: Record<FormSubmissionStatus, string> = {
 const FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
   text: 'formulare.fieldType.text',
   textarea: 'formulare.fieldType.textarea',
+  email: 'formulare.fieldType.email',
   select: 'formulare.fieldType.select',
   checkbox: 'formulare.fieldType.checkbox',
   radio: 'formulare.fieldType.radio',
   date: 'formulare.fieldType.date',
   number: 'formulare.fieldType.number',
   file: 'formulare.fieldType.file',
+  consent: 'formulare.fieldType.consent',
 }
 
 const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
   text: Type,
   textarea: AlignLeft,
+  email: Mail,
   select: ChevronDown,
   checkbox: CheckSquare,
   radio: Circle,
   date: Calendar,
   number: Hash,
   file: Paperclip,
+  consent: ShieldCheck,
 }
 
 const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
   { value: 'text', labelKey: 'formulare.fieldType.text' },
   { value: 'textarea', labelKey: 'formulare.fieldType.textarea' },
+  { value: 'email', labelKey: 'formulare.fieldType.email' },
   { value: 'select', labelKey: 'formulare.fieldType.selectDropdown' },
   { value: 'radio', labelKey: 'formulare.fieldType.radioOption' },
   { value: 'checkbox', labelKey: 'formulare.fieldType.checkbox' },
   { value: 'date', labelKey: 'formulare.fieldType.date' },
   { value: 'number', labelKey: 'formulare.fieldType.number' },
   { value: 'file', labelKey: 'formulare.fieldType.fileUpload' },
+  { value: 'consent', labelKey: 'formulare.fieldType.consent' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -176,7 +209,7 @@ export default function FormularePage() {
   const updateSchema = useUpdateFormSchema()
   const deleteSchema = useDeleteFormSchema()
   const duplicateSchema = useDuplicateFormSchema()
-  const _exportSubs = useExportSubmissions()
+  const exportSubs = useExportSubmissions()
   const updateSubStatus = useUpdateSubmissionStatus()
 
   // -------------------------------------------------------------------------
@@ -190,9 +223,27 @@ export default function FormularePage() {
     updateDraftMeta,
     addField,
     removeField,
-    reorderFields: _reorderFields,
+    reorderFields,
     updateField,
   } = useFormulareStore()
+
+  // DnD sensors for the field-builder list (pointer drag + keyboard a11y).
+  const fieldSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleFieldDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id || !draft) return
+      const oldIndex = draft.fields.findIndex((f) => f.id === active.id)
+      const newIndex = draft.fields.findIndex((f) => f.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+      reorderFields(arrayMove(draft.fields, oldIndex, newIndex))
+    },
+    [draft, reorderFields],
+  )
 
   // -------------------------------------------------------------------------
   // Local UI state
@@ -222,13 +273,25 @@ export default function FormularePage() {
     [t],
   )
 
-  // Tab & search
-  const [tab, setTab] = useState<TabKey>('formulare')
+  // Module preferences (personal + tenant) — see formularePrefs store.
+  const prefsDefaultTab = useFormularePrefsStore((s) => s.defaultTab)
+  const prefsExportFormat = useFormularePrefsStore((s) => s.defaultExportFormat)
+  const prefsConsentText = useFormularePrefsStore((s) => s.defaultConsentText)
+  const prefsPrivacyUrl = useFormularePrefsStore((s) => s.defaultPrivacyUrl)
+
+  // Tab & search — initial tab honours the personal default.
+  const [tab, setTab] = useState<TabKey>(prefsDefaultTab)
   const [search, setSearch] = useState('')
 
-  // Detail panel for submissions
+  // Detail modal for a single submission
   const [selectedSubmission, setSelectedSubmission] =
     useState<FormSubmission | null>(null)
+
+  // Detail modal for a single form (360° view + actions)
+  const [selectedForm, setSelectedForm] = useState<FormSchema | null>(null)
+
+  // Standalone public-facing form preview (decoupled from the editor draft)
+  const [previewSchema, setPreviewSchema] = useState<FormSchema | null>(null)
 
   // Expanded submission groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -252,6 +315,8 @@ export default function FormularePage() {
   const [configRequired, setConfigRequired] = useState(false)
   const [configPlaceholder, setConfigPlaceholder] = useState('')
   const [configOptions, setConfigOptions] = useState('')
+  const [configConsentText, setConfigConsentText] = useState('')
+  const [configPrivacyUrl, setConfigPrivacyUrl] = useState('')
 
   // 10.1 — Conditional logic state
   const [configConditionalEnabled, setConfigConditionalEnabled] =
@@ -268,16 +333,27 @@ export default function FormularePage() {
   // 10.4 — Public preview state
   const [showPublicPreview, setShowPublicPreview] = useState(false)
 
-  // 10.5 — Export dropdown state
-  const [showExportMenu, setShowExportMenu] = useState(false)
 
-  // Submissions state: loaded lazily per schema when "Eingänge" tab opens.
-  // We keep a flat list of submissions gathered by opening groups.
-  // NOTE: The backend has per-schema submission endpoints. The Page shows
-  // all submissions grouped by schema — we load them on demand per group.
-  const [submissionsBySchemaId, setSubmissionsBySchemaId] = useState<
-    Record<string, FormSubmission[]>
-  >({})
+  // Submissions are fetched eagerly for every active form (one query per form,
+  // deduped with the per-group SubmissionsPanel via a shared query key). This
+  // keeps the header + stat cards accurate on first load instead of only after
+  // a group is expanded.
+  const submissionQueries = useQueries({
+    queries: activeForms.map((s) => ({
+      queryKey: formulareKeys.submissions.listBySchema(s.id),
+      queryFn: () => listSubmissions(s.id),
+    })),
+  })
+
+  const submissionsBySchemaId = useMemo(() => {
+    const map: Record<string, FormSubmission[]> = {}
+    activeForms.forEach((s, i) => {
+      const items = submissionQueries[i]?.data?.items
+      if (items) map[s.id] = items
+    })
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeForms, submissionQueries.map((q) => q.dataUpdatedAt).join(',')])
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -465,7 +541,41 @@ export default function FormularePage() {
     })
   }
 
+  // Real CSV/XLSX download via the export endpoint (blob handled in the hook).
+  const handleExportSubmissions = (
+    schema: FormSchema,
+    format: 'csv' | 'xlsx',
+  ) => {
+    exportSubs.mutate(
+      { formSchemaId: schema.id, format },
+      {
+        onSuccess: () =>
+          toast.success(
+            t('formulare.export.downloadStarted', {
+              name: schema.title,
+              format: format.toUpperCase(),
+            }),
+          ),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
+  }
+
   const handleAddField = (type: FormFieldType) => {
+    if (type === 'consent') {
+      // DSGVO consent is a required, purpose-bound checkbox by definition.
+      // Defaults come from the tenant settings (overridable per field).
+      addField({
+        type,
+        label: t('formulare.consent.defaultLabel'),
+        required: true,
+        consentText: prefsConsentText || DEFAULT_CONSENT_TEXT,
+        privacyUrl: prefsPrivacyUrl || DEFAULT_PRIVACY_URL,
+      })
+      setShowAddFieldMenu(false)
+      return
+    }
     addField({
       type,
       label: FIELD_TYPE_LABELS[type],
@@ -488,6 +598,8 @@ export default function FormularePage() {
     setConfigRequired(field.required)
     setConfigPlaceholder(field.placeholder ?? '')
     setConfigOptions(field.options?.join(', ') ?? '')
+    setConfigConsentText(field.consentText ?? '')
+    setConfigPrivacyUrl(field.privacyUrl ?? '')
     setConfigConditionalEnabled(!!field.conditionalLogic)
     setConfigConditionalFieldId(field.conditionalLogic?.fieldId ?? '')
     setConfigConditionalOperator(field.conditionalLogic?.operator ?? 'equals')
@@ -500,8 +612,12 @@ export default function FormularePage() {
     const { field } = showFieldConfigDialog
     updateField(field.id, {
       label: configLabel,
-      required: configRequired,
+      required: field.type === 'consent' ? true : configRequired,
       placeholder: configPlaceholder || undefined,
+      consentText:
+        field.type === 'consent' ? configConsentText || undefined : field.consentText,
+      privacyUrl:
+        field.type === 'consent' ? configPrivacyUrl || undefined : field.privacyUrl,
       options:
         field.type === 'select' || field.type === 'radio'
           ? configOptions
@@ -768,6 +884,15 @@ export default function FormularePage() {
             className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground placeholder:text-input-placeholder"
           />
         )
+      case 'email':
+        return (
+          <input
+            type="email"
+            disabled
+            placeholder={field.placeholder || 'name@beispiel.de'}
+            className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground placeholder:text-input-placeholder"
+          />
+        )
       case 'textarea':
         return (
           <textarea
@@ -833,6 +958,27 @@ export default function FormularePage() {
             <Paperclip className="h-4 w-4" />
             {t('formulare.editor.dateiZiehen')}
           </div>
+        )
+      case 'consent':
+        return (
+          <label className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/30 p-3">
+            <div className="mt-0.5 h-4 w-4 shrink-0 rounded border-2 border-border" />
+            <span className="text-xs leading-relaxed text-muted-foreground">
+              {field.consentText || DEFAULT_CONSENT_TEXT}
+              {field.privacyUrl && (
+                <a
+                  href={field.privacyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.preventDefault()}
+                  className="ml-1 inline-flex items-center gap-0.5 text-primary underline"
+                >
+                  {t('formulare.consent.privacyLink')}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </span>
+          </label>
         )
       default:
         return null
@@ -1010,93 +1156,52 @@ export default function FormularePage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {draft.fields.map((field) => {
-                  // 10.2 — Page break divider
-                  if (field.label === '__page_break__') {
-                    const pageNum =
-                      fieldPageMap.get(field.id) === -1
-                        ? Array.from(fieldPageMap.entries())
-                            .filter(([, v]) => v === -1)
-                            .findIndex(([k]) => k === field.id) + 1
-                        : 1
-                    return (
-                      <div
-                        key={field.id}
-                        className="flex items-center gap-3 py-2 group"
-                      >
-                        <div className="flex-1 border-t border-dashed border-primary/40" />
-                        <span className="text-xs font-medium text-primary/70 whitespace-nowrap">
-                          {t('formulare.editor.seitenumbruchLabel', {
-                            page: pageNum + 1,
-                          })}
-                        </span>
-                        <div className="flex-1 border-t border-dashed border-primary/40" />
-                        <button
-                          onClick={() => handleRemoveField(field.id)}
-                          className="rounded-md p-1 text-muted-foreground hover:text-error hover:bg-error-light transition-colors opacity-0 group-hover:opacity-100"
-                          title={t('formulare.editor.seitenumbruch')}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )
-                  }
+              <DndContext
+                sensors={fieldSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleFieldDragEnd}
+              >
+                <SortableContext
+                  items={draft.fields.map((f) => f.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {draft.fields.map((field) => {
+                      if (field.label === '__page_break__') {
+                        const pageNum =
+                          fieldPageMap.get(field.id) === -1
+                            ? Array.from(fieldPageMap.entries())
+                                .filter(([, v]) => v === -1)
+                                .findIndex(([k]) => k === field.id) + 1
+                            : 1
+                        return (
+                          <SortableFieldItem
+                            key={field.id}
+                            field={field}
+                            pageBreakLabel={t('formulare.editor.seitenumbruchLabel', {
+                              page: pageNum + 1,
+                            })}
+                            t={t}
+                            onRemove={() => handleRemoveField(field.id)}
+                          />
+                        )
+                      }
 
-                  const Icon = FIELD_TYPE_ICONS[field.type]
-                  return (
-                    <div
-                      key={field.id}
-                      className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 group hover:shadow-[var(--shadow-card-hover)] transition-shadow"
-                    >
-                      <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 cursor-grab" />
-                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-light shrink-0">
-                        <Icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground truncate">
-                            {field.label}
-                          </span>
-                          {field.required && (
-                            <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error shrink-0">
-                              {t('formulare.editor.pflicht')}
-                            </span>
-                          )}
-                          {/* 10.1 — Conditional badge */}
-                          {field.conditionalLogic && (
-                            <span className="rounded bg-warning-light px-1.5 py-0.5 text-[9px] font-medium text-warning shrink-0">
-                              {t('formulare.editor.bedingt')}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-muted-foreground">
-                          {FIELD_TYPE_LABELS[field.type]}
-                          {field.options
-                            ? ` (${field.options.length} ${t('formulare.fieldConfig.optionen')})`
-                            : ''}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => openFieldConfig(field)}
-                          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          title={t('formulare.actions.bearbeiten')}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleRemoveField(field.id)}
-                          className="rounded-md p-1.5 text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-                          title={t('common.delete')}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                      return (
+                        <SortableFieldItem
+                          key={field.id}
+                          field={field}
+                          icon={FIELD_TYPE_ICONS[field.type]}
+                          typeLabel={FIELD_TYPE_LABELS[field.type]}
+                          t={t}
+                          onEdit={() => openFieldConfig(field)}
+                          onRemove={() => handleRemoveField(field.id)}
+                        />
+                      )
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
 
@@ -1246,10 +1351,15 @@ export default function FormularePage() {
                           <span className="text-destructive ml-0.5">*</span>
                         )}
                       </label>
-                      {(field.type === 'text' || field.type === 'number') && (
+                      {(field.type === 'text' ||
+                        field.type === 'number' ||
+                        field.type === 'email') && (
                         <input
-                          type={field.type}
-                          placeholder={field.placeholder || field.label}
+                          type={field.type === 'email' ? 'email' : field.type}
+                          placeholder={
+                            field.placeholder ||
+                            (field.type === 'email' ? 'name@beispiel.de' : field.label)
+                          }
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       )}
@@ -1308,6 +1418,27 @@ export default function FormularePage() {
                           {t('formulare.editor.dateiZiehen')}
                         </div>
                       )}
+                      {field.type === 'consent' && (
+                        <label className="flex items-start gap-2.5 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 rounded text-blue-600"
+                          />
+                          <span className="text-xs leading-relaxed text-gray-600">
+                            {field.consentText || DEFAULT_CONSENT_TEXT}
+                            {field.privacyUrl && (
+                              <a
+                                href={field.privacyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-1 text-blue-600 underline"
+                              >
+                                {t('formulare.consent.privacyLink')}
+                              </a>
+                            )}
+                          </span>
+                        </label>
+                      )}
                     </div>
                   ))}
               </div>
@@ -1360,26 +1491,65 @@ export default function FormularePage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground">
-                  {t('formulare.fieldConfig.pflichtfeld')}
-                </label>
-                <button
-                  onClick={() => setConfigRequired(!configRequired)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                    configRequired ? 'bg-primary' : 'bg-secondary'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                      configRequired ? 'translate-x-4.5' : 'translate-x-0.5'
+              {showFieldConfigDialog?.field.type !== 'consent' && (
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-foreground">
+                    {t('formulare.fieldConfig.pflichtfeld')}
+                  </label>
+                  <button
+                    onClick={() => setConfigRequired(!configRequired)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      configRequired ? 'bg-primary' : 'bg-secondary'
                     }`}
-                  />
-                </button>
-              </div>
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        configRequired ? 'translate-x-4.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* DSGVO consent: purpose-binding text + privacy policy link */}
+              {showFieldConfigDialog?.field.type === 'consent' && (
+                <>
+                  <div className="flex items-start gap-2 rounded-lg bg-info-light px-3 py-2">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+                    <p className="text-xs text-info">
+                      {t('formulare.consent.configHint')}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('formulare.consent.text')}
+                    </label>
+                    <textarea
+                      value={configConsentText}
+                      onChange={(e) => setConfigConsentText(e.target.value)}
+                      rows={4}
+                      placeholder={t('formulare.consent.textPlaceholder')}
+                      className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('formulare.consent.privacyUrl')}
+                    </label>
+                    <input
+                      type="url"
+                      value={configPrivacyUrl}
+                      onChange={(e) => setConfigPrivacyUrl(e.target.value)}
+                      placeholder="https://…/datenschutz"
+                      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    />
+                  </div>
+                </>
+              )}
 
               {(showFieldConfigDialog?.field.type === 'text' ||
                 showFieldConfigDialog?.field.type === 'textarea' ||
+                showFieldConfigDialog?.field.type === 'email' ||
                 showFieldConfigDialog?.field.type === 'number') && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">
@@ -1682,50 +1852,10 @@ export default function FormularePage() {
             />
           </div>
 
-          {/* 10.5 — Export button (Eingänge tab only) */}
           {tab === 'eingänge' && allSubmissions.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                {t('formulare.export.exportieren')}
-              </button>
-              {showExportMenu && (
-                <div className="absolute right-0 top-full mt-1 z-20 w-48 rounded-lg border border-border bg-card shadow-xl py-1">
-                  <button
-                    onClick={() => {
-                      // Export requires a specific schema context; show hint
-                      toast.success(
-                        t('formulare.export.csvToast', {
-                          count: allSubmissions.length,
-                        }),
-                      )
-                      setShowExportMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <Download className="h-4 w-4 text-muted-foreground" />
-                    {t('formulare.export.csv')}
-                  </button>
-                  <button
-                    onClick={() => {
-                      toast.success(
-                        t('formulare.export.excelToast', {
-                          count: allSubmissions.length,
-                        }),
-                      )
-                      setShowExportMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <Download className="h-4 w-4 text-muted-foreground" />
-                    {t('formulare.export.excel')}
-                  </button>
-                </div>
-              )}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('formulare.export.perFormHint')}
+            </p>
           )}
         </div>
       )}
@@ -1759,8 +1889,16 @@ export default function FormularePage() {
               {filteredForms.map((schema) => (
                 <div
                   key={schema.id}
-                  onClick={() => openEditor(schema)}
-                  className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedForm(schema)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedForm(schema)
+                    }
+                  }}
+                  className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -1854,11 +1992,11 @@ export default function FormularePage() {
                     className="rounded-lg border border-border bg-card overflow-hidden"
                   >
                     {/* Group header */}
-                    <button
-                      onClick={() => toggleGroup(schema.id)}
-                      className="flex w-full items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 pr-3 hover:bg-secondary/50 transition-colors">
+                      <button
+                        onClick={() => toggleGroup(schema.id)}
+                        className="flex flex-1 items-center gap-3 px-4 py-3 text-left"
+                      >
                         {isExpanded ? (
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         ) : (
@@ -1878,19 +2016,22 @@ export default function FormularePage() {
                             {t('formulare.submission.neu', { count: newCount })}
                           </span>
                         )}
-                      </div>
-                    </button>
+                      </button>
+                      {schema.submissionCount > 0 && (
+                        <ExportMenu
+                          schema={schema}
+                          onExport={handleExportSubmissions}
+                          t={t}
+                          compact
+                          defaultFormat={prefsExportFormat}
+                        />
+                      )}
+                    </div>
 
                     {/* Submissions table — loaded lazily */}
                     {isExpanded && (
                       <SubmissionsPanel
                         schemaId={schema.id}
-                        onLoaded={(subs) =>
-                          setSubmissionsBySchemaId((prev) => ({
-                            ...prev,
-                            [schema.id]: subs,
-                          }))
-                        }
                         onSelectSubmission={setSelectedSubmission}
                         onUpdateStatus={(sub, status) => {
                           updateSubStatus.mutate(
@@ -1993,8 +2134,8 @@ export default function FormularePage() {
         </>
       )}
 
-      {/* ====================== SUBMISSION DETAIL PANEL ====================== */}
-      <DetailPanel
+      {/* ====================== SUBMISSION DETAIL MODAL ====================== */}
+      <DetailModal
         open={!!selectedSubmission}
         onClose={() => setSelectedSubmission(null)}
         title={
@@ -2021,7 +2162,7 @@ export default function FormularePage() {
             </span>
           ) : undefined
         }
-        width="w-[440px]"
+        maxWidth="max-w-lg"
         footer={
           selectedSubmission ? (
             <div className="flex items-center gap-2">
@@ -2082,15 +2223,66 @@ export default function FormularePage() {
       >
         {selectedSubmission && (
           <div className="space-y-5">
-            {/* Submitter info */}
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                {t('formulare.submission.absender')}
-              </p>
-              <p className="text-sm font-medium text-foreground">
-                {selectedSubmission.submittedBy ?? '--'}
-              </p>
+            {/* Submitter meta */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  {t('formulare.submission.absender')}
+                </p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {selectedSubmission.submittedBy ?? '--'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  {t('formulare.submission.ipAdresse')}
+                </p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {selectedSubmission.ipAddress ?? '--'}
+                </p>
+              </div>
             </div>
+
+            {/* DSGVO consent confirmation (if the form captured one) */}
+            {(() => {
+              const schemaFields =
+                (schemas.find((s) => s.id === selectedSubmission.formSchemaId)
+                  ?.fields as FormField[] | undefined) ?? []
+              const consentField = schemaFields.find((f) => f.type === 'consent')
+              if (!consentField) return null
+              const accepted = !!selectedSubmission.answers[consentField.id]
+              return (
+                <div
+                  className={`rounded-lg border p-3 ${
+                    accepted
+                      ? 'border-success/30 bg-success-light'
+                      : 'border-warning/30 bg-warning-light'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${
+                        accepted ? 'text-success' : 'text-warning'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {accepted
+                          ? t('formulare.consent.accepted', {
+                              date: formatDateTime(selectedSubmission.submittedAt),
+                            })
+                          : t('formulare.consent.notAccepted')}
+                      </p>
+                      {consentField.consentText && (
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          {consentField.consentText}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Answers */}
             <div>
@@ -2104,6 +2296,8 @@ export default function FormularePage() {
                       selectedSubmission.formSchemaId ?? '',
                       fieldId,
                     )
+                    // Consent is surfaced in its own block above — skip here.
+                    if (field?.type === 'consent') return null
                     // 10.1 — Skip fields hidden by conditional logic
                     if (field?.conditionalLogic) {
                       const visible = evaluateCondition(
@@ -2130,7 +2324,307 @@ export default function FormularePage() {
             </div>
           </div>
         )}
-      </DetailPanel>
+      </DetailModal>
+
+      {/* ====================== FORMULAR DETAIL MODAL ====================== */}
+      <DetailModal
+        open={!!selectedForm}
+        onClose={() => setSelectedForm(null)}
+        title={selectedForm?.title ?? ''}
+        subtitle={
+          selectedForm
+            ? t('formulare.detail.subtitle', {
+                fields: selectedForm.fields.filter(
+                  (f) => (f as FormField).label !== '__page_break__',
+                ).length,
+                submissions: selectedForm.submissionCount,
+              })
+            : ''
+        }
+        badge={
+          selectedForm ? (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                formStatusColors[selectedForm.status]
+              }`}
+            >
+              {formStatusLabels[selectedForm.status]}
+            </span>
+          ) : undefined
+        }
+        footer={
+          selectedForm ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    duplicateSchema.mutate(
+                      { id: selectedForm.id },
+                      {
+                        onSuccess: () => {
+                          toast.success(
+                            t('formulare.toast.dupliziert', {
+                              name: selectedForm.title,
+                            }),
+                          )
+                          setSelectedForm(null)
+                        },
+                        onError: (err) =>
+                          toast.error(
+                            err instanceof Error ? err.message : t('common.error'),
+                          ),
+                      },
+                    )
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  {t('formulare.actions.duplizieren')}
+                </button>
+                <button
+                  onClick={() => {
+                    const form = selectedForm
+                    setSelectedForm(null)
+                    setShowShareDialog(form)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  {t('formulare.actions.teilen')}
+                </button>
+                <button
+                  onClick={() => {
+                    const newStatus =
+                      selectedForm.status === 'archived' ? 'active' : 'archived'
+                    updateSchema.mutate(
+                      { id: selectedForm.id, status: newStatus },
+                      {
+                        onSuccess: () => {
+                          toast.success(
+                            selectedForm.status === 'archived'
+                              ? t('formulare.toast.aktiviert', {
+                                  name: selectedForm.title,
+                                })
+                              : t('formulare.toast.archiviert', {
+                                  name: selectedForm.title,
+                                }),
+                          )
+                          setSelectedForm({ ...selectedForm, status: newStatus })
+                        },
+                        onError: (err) =>
+                          toast.error(
+                            err instanceof Error ? err.message : t('common.error'),
+                          ),
+                      },
+                    )
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                  {selectedForm.status === 'archived'
+                    ? t('formulare.actions.aktivieren')
+                    : t('formulare.actions.archivieren')}
+                </button>
+                {selectedForm.submissionCount > 0 && (
+                  <ExportMenu
+                    schema={selectedForm}
+                    onExport={handleExportSubmissions}
+                    t={t}
+                    compact
+                    defaultFormat={prefsExportFormat}
+                  />
+                )}
+                <button
+                  onClick={() => {
+                    const form = selectedForm
+                    setSelectedForm(null)
+                    setConfirmDelete(form)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-error hover:bg-error-light transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('common.delete')}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPreviewSchema(selectedForm)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Eye className="h-4 w-4" />
+                  {t('formulare.editor.vorschau')}
+                </button>
+                <button
+                  onClick={() => {
+                    const form = selectedForm
+                    setSelectedForm(null)
+                    openEditor(form)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  {t('formulare.actions.bearbeiten')}
+                </button>
+              </div>
+            </div>
+          ) : undefined
+        }
+      >
+        {selectedForm && (
+          <div className="space-y-5">
+            {selectedForm.description && (
+              <p className="text-sm text-muted-foreground">
+                {selectedForm.description}
+              </p>
+            )}
+
+            {/* Meta grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  label: t('formulare.detail.visibility'),
+                  value: selectedForm.isPublic
+                    ? t('formulare.card.oeffentlich')
+                    : t('formulare.detail.private'),
+                },
+                {
+                  label: t('formulare.detail.submissions'),
+                  value: String(selectedForm.submissionCount),
+                },
+                {
+                  label: t('formulare.detail.createdBy'),
+                  value: selectedForm.createdBy ?? '--',
+                },
+                {
+                  label: t('formulare.detail.createdAt'),
+                  value: formatDate(selectedForm.createdAt),
+                },
+                {
+                  label: t('formulare.detail.updatedAt'),
+                  value: formatDate(selectedForm.updatedAt),
+                },
+                {
+                  label: t('formulare.detail.pages'),
+                  value: String(
+                    Math.max(1, selectedForm.pageCount),
+                  ),
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-lg border border-border bg-secondary/30 p-3"
+                >
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Field list */}
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                {t('formulare.editor.felder', {
+                  count: selectedForm.fields.filter(
+                    (f) => (f as FormField).label !== '__page_break__',
+                  ).length,
+                })}
+              </h4>
+              {selectedForm.fields.filter(
+                (f) => (f as FormField).label !== '__page_break__',
+              ).length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">
+                  {t('formulare.detail.noFields')}
+                </p>
+              ) : (
+                <div className="rounded-lg border border-border divide-y divide-border-muted">
+                  {(selectedForm.fields as FormField[])
+                    .filter((f) => f.label !== '__page_break__')
+                    .map((field) => {
+                      const Icon = FIELD_TYPE_ICONS[field.type]
+                      return (
+                        <div
+                          key={field.id}
+                          className="flex items-center gap-3 px-3 py-2.5"
+                        >
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-light shrink-0">
+                            <Icon className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="flex-1 text-sm text-foreground truncate">
+                            {field.label}
+                          </span>
+                          {field.required && (
+                            <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error shrink-0">
+                              {t('formulare.editor.pflicht')}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {FIELD_TYPE_LABELS[field.type]}
+                          </span>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </DetailModal>
+
+      {/* ====================== STANDALONE FORM PREVIEW ====================== */}
+      <DetailModal
+        open={!!previewSchema}
+        onClose={() => setPreviewSchema(null)}
+        title={previewSchema?.title || t('formulare.preview.formularname')}
+        subtitle={t('formulare.editor.vorschau')}
+        onBack={selectedForm ? () => setPreviewSchema(null) : undefined}
+      >
+        {previewSchema && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 rounded-lg bg-info-light px-3 py-2">
+              <Info className="h-4 w-4 text-info shrink-0" />
+              <p className="text-xs text-info">{t('formulare.preview.banner')}</p>
+            </div>
+            {previewSchema.description && (
+              <p className="text-sm text-muted-foreground">
+                {previewSchema.description}
+              </p>
+            )}
+            {(previewSchema.fields as FormField[]).filter(
+              (f) => f.label !== '__page_break__',
+            ).length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">
+                {t('formulare.detail.noFields')}
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {(previewSchema.fields as FormField[])
+                  .filter((f) => f.label !== '__page_break__')
+                  .map((field) => (
+                    <div key={field.id} className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                        {field.label}
+                        {field.required && (
+                          <span className="text-destructive">*</span>
+                        )}
+                      </label>
+                      {renderFieldPreview(field)}
+                    </div>
+                  ))}
+                <button
+                  disabled
+                  className="mt-2 rounded-lg bg-primary/50 px-4 py-2 text-sm text-primary-foreground cursor-not-allowed"
+                >
+                  {t('formulare.editor.absenden')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </DetailModal>
 
       {/* ====================== NEUES FORMULAR DIALOG ====================== */}
       <Dialog
@@ -2325,12 +2819,213 @@ export default function FormularePage() {
 }
 
 // ---------------------------------------------------------------------------
+// ExportMenu — a small CSV/XLSX export dropdown bound to one schema. Reused by
+// the Eingänge group headers and the form detail modal. Triggers a real blob
+// download via the parent's onExport handler.
+// ---------------------------------------------------------------------------
+
+interface ExportMenuProps {
+  schema: FormSchema
+  onExport: (schema: FormSchema, format: 'csv' | 'xlsx') => void
+  t: (key: string, opts?: Record<string, unknown>) => string
+  compact?: boolean
+  /** Personal default — listed first and marked as the default option. */
+  defaultFormat?: 'csv' | 'xlsx'
+}
+
+function ExportMenu({ schema, onExport, t, compact, defaultFormat = 'csv' }: ExportMenuProps) {
+  const [open, setOpen] = useState(false)
+  const formats: { value: 'csv' | 'xlsx'; labelKey: string }[] = [
+    { value: 'csv', labelKey: 'formulare.export.csv' },
+    { value: 'xlsx', labelKey: 'formulare.export.excel' },
+  ]
+  formats.sort((a, b) =>
+    a.value === defaultFormat ? -1 : b.value === defaultFormat ? 1 : 0,
+  )
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={
+          compact
+            ? 'flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary'
+            : 'flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary'
+        }
+      >
+        <Download className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+        {t('formulare.export.exportieren')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-border bg-card py-1 shadow-xl">
+            {formats.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => {
+                  onExport(schema, f.value)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <Download className="h-4 w-4 text-muted-foreground" />
+                <span className="flex-1 text-left">{t(f.labelKey)}</span>
+                {f.value === defaultFormat && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('formulare.export.standard')}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SortableFieldItem — one draggable row of the field builder (dnd-kit). The
+// drag listeners live on a dedicated grip handle; inline controls carry a
+// data-field-control guard + onPointerDown stop so editing never starts a drag.
+// ---------------------------------------------------------------------------
+
+interface SortableFieldItemProps {
+  field: FormField
+  icon?: typeof Type
+  typeLabel?: string
+  /** When set, renders the page-break divider variant instead of a field row. */
+  pageBreakLabel?: string
+  t: (key: string, opts?: Record<string, unknown>) => string
+  onEdit?: () => void
+  onRemove: () => void
+}
+
+function SortableFieldItem({
+  field,
+  icon: Icon,
+  typeLabel,
+  pageBreakLabel,
+  t,
+  onEdit,
+  onRemove,
+}: SortableFieldItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: field.id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  const stop = (e: SyntheticEvent) => e.stopPropagation()
+
+  if (pageBreakLabel) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`flex items-center gap-2 py-2 group ${isDragging ? 'opacity-50' : ''}`}
+      >
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab text-primary/40 transition-colors hover:text-primary/70 active:cursor-grabbing"
+          aria-label={t('formulare.editor.feldVerschieben')}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="flex-1 border-t border-dashed border-primary/40" />
+        <span className="text-xs font-medium text-primary/70 whitespace-nowrap">
+          {pageBreakLabel}
+        </span>
+        <div className="flex-1 border-t border-dashed border-primary/40" />
+        <button
+          data-field-control
+          onPointerDown={stop}
+          onClick={onRemove}
+          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-error-light hover:text-error opacity-0 group-hover:opacity-100"
+          title={t('formulare.editor.seitenumbruch')}
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded-lg border border-border bg-card p-3 group transition-shadow hover:shadow-[var(--shadow-card-hover)] ${
+        isDragging ? 'opacity-50 shadow-lg' : ''
+      }`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="shrink-0 cursor-grab text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+        aria-label={t('formulare.editor.feldVerschieben')}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      {Icon && (
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-light shrink-0">
+          <Icon className="h-4 w-4 text-primary" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground truncate">
+            {field.label}
+          </span>
+          {field.required && (
+            <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error shrink-0">
+              {t('formulare.editor.pflicht')}
+            </span>
+          )}
+          {field.conditionalLogic && (
+            <span className="rounded bg-warning-light px-1.5 py-0.5 text-[9px] font-medium text-warning shrink-0">
+              {t('formulare.editor.bedingt')}
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          {typeLabel}
+          {field.options
+            ? ` (${field.options.length} ${t('formulare.fieldConfig.optionen')})`
+            : ''}
+        </span>
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {onEdit && (
+          <button
+            data-field-control
+            onPointerDown={stop}
+            onClick={onEdit}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary"
+            title={t('formulare.actions.bearbeiten')}
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button
+          data-field-control
+          onPointerDown={stop}
+          onClick={onRemove}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-error-light hover:text-error"
+          title={t('common.delete')}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // SubmissionsPanel — lazy-loads submissions for a single schema
 // ---------------------------------------------------------------------------
 
 interface SubmissionsPanelProps {
   schemaId: string
-  onLoaded: (subs: FormSubmission[]) => void
   onSelectSubmission: (sub: FormSubmission) => void
   onUpdateStatus: (sub: FormSubmission, status: FormSubmissionStatus) => void
   submissionStatusLabels: Record<FormSubmissionStatus, string>
@@ -2341,7 +3036,6 @@ interface SubmissionsPanelProps {
 
 function SubmissionsPanel({
   schemaId,
-  onLoaded,
   onSelectSubmission,
   onUpdateStatus,
   submissionStatusLabels,
@@ -2349,16 +3043,9 @@ function SubmissionsPanel({
   formatDateTime,
   t,
 }: SubmissionsPanelProps) {
+  // Hits the warm cache populated by the page-level eager useQueries fetch.
   const { data, isLoading } = useSubmissions(schemaId)
-
-  // Notify parent when data arrives
   const items = data?.items ?? []
-  // Use a ref-like pattern: call onLoaded once items are available
-  // We use useMemo to avoid calling on every render
-  useMemo(() => {
-    if (items.length > 0) onLoaded(items)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items])
 
   if (isLoading) {
     return (

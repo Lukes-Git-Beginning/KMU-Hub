@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/api/formulare-types.ts",
+    "src/renderer/src/api/formulare-client.ts",
+    "src/renderer/src/api/hooks/useFormulare.ts",
+    "src/renderer/src/stores/formulare.ts",
+    "src/renderer/src/stores/formularePrefs.ts",
+    "src/renderer/src/mocks/handlers/formulare.ts",
+    "src/renderer/src/modules/formulare/FormularePage.tsx",
+    "src/renderer/src/modules/formulare/settings/FormulareSettingsPanel.tsx"
+  ]
+}

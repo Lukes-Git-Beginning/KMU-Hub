@@ -15,7 +15,11 @@ export type FormSubmissionStatus = 'new' | 'read' | 'archived'
 export type WebhookDeliveryStatus = 'pending' | 'delivered' | 'failed' | 'dead'
 export type ExportFormat = 'csv' | 'xlsx'
 
-/** Field types supported by the backend schema. Note: 'rating' is frontend-only (not in backend proto). */
+/**
+ * Field types supported by the backend schema. Note: 'rating' and 'consent' are
+ * frontend/demo pseudo-types (not in the backend proto whitelist) — 'consent'
+ * renders a purpose-bound DSGVO checkbox with a linked privacy policy.
+ */
 export type FormFieldType =
   | 'text'
   | 'textarea'
@@ -26,6 +30,7 @@ export type FormFieldType =
   | 'checkbox'
   | 'date'
   | 'file'
+  | 'consent'
 
 // ---------------------------------------------------------------------------
 // Domain models
@@ -38,6 +43,8 @@ export interface FormField {
   required: boolean
   placeholder?: string
   options?: string[] // für select/radio
+  consentText?: string // consent only: purpose-binding / privacy text
+  privacyUrl?: string // consent only: link to the Datenschutzerklärung
   conditionalLogic?: unknown // TBD in späterem Sprint
   page?: number
 }
