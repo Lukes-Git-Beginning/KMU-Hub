@@ -584,6 +584,7 @@
   "auth.passwordTooShort": "Password must be at least 8 characters.",
   "auth.register": "Sign up",
   "auth.registerFailed": "Registration failed.",
+  "auth.rememberMe": "Stay signed in",
   "automatisierung.action.add": "Add Action",
   "automatisierung.action.availableVariables": "Available Variables",
   "automatisierung.action.choose": "Choose Action",

@@ -584,6 +584,7 @@
   "auth.passwordTooShort": "Le mot de passe doit comporter au moins 8 caracteres.",
   "auth.register": "S'inscrire",
   "auth.registerFailed": "L'inscription a echoue.",
+  "auth.rememberMe": "Rester connecte",
   "automatisierung.action.add": "Ajouter une action",
   "automatisierung.action.availableVariables": "Variables disponibles",
   "automatisierung.action.choose": "Choisir une action",

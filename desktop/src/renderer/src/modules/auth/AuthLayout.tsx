@@ -23,24 +23,38 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <div className="absolute top-1/2 right-12 h-32 w-32 rotate-45 rounded-2xl bg-white/[0.03]" />
         </div>
 
+        {/* Logo */}
         <div className="relative z-10">
-          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-auto w-auto max-h-20 object-contain" />
+          <img
+            src={branding.cosmi.icon128}
+            alt="Cosmi"
+            className="h-auto w-auto max-h-[52px] object-contain"
+          />
         </div>
 
-        <div className="relative z-10 space-y-6">
-          <h1 className="text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
+        {/* Headline + feature list */}
+        <div className="relative z-10 space-y-7">
+          <h1 className="text-3xl font-bold leading-[1.15] tracking-tight xl:text-[2.25rem]">
             {t('auth.hero.line1')}
             <br />
             {t('auth.hero.line2')}
             <br />
-            <span className="text-white/70">{t('auth.hero.line3')}</span>
+            <span className="font-normal text-white/60">{t('auth.hero.line3')}</span>
           </h1>
 
           <ul className="space-y-3">
             {FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-3 text-sm text-white/80">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-[10px] font-bold">
-                  &#10003;
+              <li key={f} className="flex items-center gap-3 text-[13px] leading-snug text-white/75">
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <svg width="9" height="7" viewBox="0 0 9 7" fill="none" aria-hidden="true">
+                    <path
+                      d="M1 3.5l2.2 2.2L8 1"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </span>
                 {f}
               </li>
@@ -48,17 +62,18 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           </ul>
         </div>
 
+        {/* Footer */}
         <div className="relative z-10">
-          <p className="text-xs text-white/40 mb-2">
+          <p className="mb-1.5 text-[11px] leading-relaxed text-white/35">
             {t('auth.footer.badges')}
           </p>
-          <p className="text-xs text-white/50">by Zentria</p>
+          <p className="text-[11px] text-white/45">by Zentria</p>
         </div>
       </div>
 
       {/* Form panel */}
-      <div className="flex flex-1 items-center justify-center bg-background p-6">
-        <div className="w-full max-w-sm">
+      <div className="flex flex-1 items-center justify-center bg-background p-8">
+        <div className="w-full max-w-[360px]">
           {children}
         </div>
       </div>

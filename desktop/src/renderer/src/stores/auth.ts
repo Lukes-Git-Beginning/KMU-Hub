@@ -59,11 +59,13 @@ interface AuthState {
   /** Register a new account. Automatically logs in on success. */
   register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>
 
-  /** Log in with email and password. Throws '2FA_REQUIRED' if 2FA needed. */
-  login: (email: string, password: string) => Promise<void>
+  /** Log in with email and password. Throws '2FA_REQUIRED' if 2FA needed.
+   *  @param rememberMe - when false, tokens are kept in memory only (not persisted across restarts). Defaults to true. */
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
 
-  /** Complete login by validating 2FA code with pending token. */
-  complete2FALogin: (pendingToken: string, code: string) => Promise<void>
+  /** Complete login by validating 2FA code with pending token.
+   *  @param rememberMe - forwarded from the credentials step; controls token persistence. */
+  complete2FALogin: (pendingToken: string, code: string, rememberMe?: boolean) => Promise<void>
 
   /** Log out: revoke token, clear storage, disconnect WebSocket. */
   logout: () => Promise<void>
@@ -282,7 +284,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     wsManager.connect(accessToken)
   },
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, rememberMe = true) {
     // Login requires a network connection
     if (!navigator.onLine) {
       throw new Error('Anmeldung erfordert eine Internetverbindung.')
@@ -312,11 +314,13 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       throw new Error('Invalid server response.')
     }
 
-    // Persist tokens via Electron safeStorage
-    await window.electronAPI.auth.storeTokens({
-      accessToken,
-      refreshToken,
-    })
+    // Persist tokens via Electron safeStorage only when rememberMe is true
+    if (rememberMe) {
+      await window.electronAPI.auth.storeTokens({
+        accessToken,
+        refreshToken,
+      })
+    }
 
     // Cache user for offline access
     cacheUser(user)
@@ -334,7 +338,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     wsManager.connect(accessToken)
   },
 
-  async complete2FALogin(pendingToken: string, code: string) {
+  async complete2FALogin(pendingToken: string, code: string, rememberMe = true) {
     if (!navigator.onLine) {
       throw new Error('Anmeldung erfordert eine Internetverbindung.')
     }
@@ -351,11 +355,13 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       roles: result.user.roles,
     }
 
-    // Persist tokens via Electron safeStorage
-    await window.electronAPI.auth.storeTokens({
-      accessToken,
-      refreshToken,
-    })
+    // Persist tokens via Electron safeStorage only when rememberMe is true
+    if (rememberMe) {
+      await window.electronAPI.auth.storeTokens({
+        accessToken,
+        refreshToken,
+      })
+    }
 
     // Cache user for offline access
     cacheUser(user)
