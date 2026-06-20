@@ -937,6 +937,7 @@
   "berichte.docs.blank": "Blank report",
   "berichte.docs.read": "Read",
   "berichte.docs.edit": "Edit",
+  "berichte.docs.print": "Print / Save as PDF",
   "berichte.docs.addBlock": "Insert block",
   "berichte.docs.cancelInsert": "Cancel insert",
   "berichte.docs.addItem": "Add item",

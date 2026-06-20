@@ -937,6 +937,7 @@
   "berichte.docs.blank": "Report vuoto",
   "berichte.docs.read": "Leggi",
   "berichte.docs.edit": "Modifica",
+  "berichte.docs.print": "Stampa / PDF",
   "berichte.docs.addBlock": "Inserisci blocco",
   "berichte.docs.cancelInsert": "Annulla inserimento",
   "berichte.docs.addItem": "Aggiungi voce",

@@ -64,7 +64,7 @@ export function AppShell() {
         Zum Hauptinhalt springen
       </a>
 
-      <div className="flex h-full bg-background overflow-hidden glass-surface">
+      <div className="app-shell-root flex h-full bg-background overflow-hidden glass-surface">
         {/* Mobile sidebar overlay */}
         {isSidebar && sidebarMobileOpen && (
           <div

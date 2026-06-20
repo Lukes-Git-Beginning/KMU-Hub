@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/api/berichte-types.ts",
+    "src/renderer/src/api/berichte-client.ts",
+    "src/renderer/src/api/hooks/useBerichte.ts",
+    "src/renderer/src/mocks/handlers/berichte.ts",
+    "src/renderer/src/modules/berichte/components/documents/doc-utils.ts",
+    "src/renderer/src/modules/berichte/components/documents/DocumentReader.tsx",
+    "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx"
+  ]
+}

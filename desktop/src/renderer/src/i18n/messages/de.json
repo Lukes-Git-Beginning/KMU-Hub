@@ -937,6 +937,7 @@
   "berichte.docs.blank": "Leerer Bericht",
   "berichte.docs.read": "Lesen",
   "berichte.docs.edit": "Bearbeiten",
+  "berichte.docs.print": "Drucken / Als PDF",
   "berichte.docs.addBlock": "Block einfügen",
   "berichte.docs.cancelInsert": "Einfügen abbrechen",
   "berichte.docs.addItem": "Punkt hinzufügen",

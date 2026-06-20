@@ -937,6 +937,7 @@
   "berichte.docs.blank": "Rapport vierge",
   "berichte.docs.read": "Lire",
   "berichte.docs.edit": "Modifier",
+  "berichte.docs.print": "Imprimer / PDF",
   "berichte.docs.addBlock": "Insérer un bloc",
   "berichte.docs.cancelInsert": "Annuler l’insertion",
   "berichte.docs.addItem": "Ajouter un élément",

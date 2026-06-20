@@ -11,12 +11,52 @@
     margin: 0;
   }
 
+  /*
+   * R-3a — print only the report sheets. The reader sits deep inside the app
+   * shell (sidebar/header/dock) and the document-editor chrome (toolbar, status
+   * badge, toggle). We must keep the report in the normal flow so Chromium
+   * paginates it across A4 pages — `position:absolute` traps it on one page.
+   *
+   * Strategy: open every overflow/height clip on the wrapper chain so the sheets
+   * are not trapped in one screen, then `display:none` the chrome by structural
+   * position (shell → main → main-content is the only path to the report).
+   */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  /* The deep wrapper chain (shell → main → outlet → module → editor) uses
+     overflow-hidden + full-height boxes; let them flow instead of clipping. */
+  body * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Hide the app chrome (sidebar, header, dock, banner) and the editor toolbar.
+     Only `main > #main-content` leads to the report; everything else is chrome. */
+  .app-shell-root > *:not(main),
+  .app-shell-root > main > *:not(#main-content),
+  .report-doc-chrome {
+    display: none !important;
+  }
+
+  /* Drop the reader's scroll padding so sheets span the full A4 width. */
+  .report-doc-body {
+    padding: 0 !important;
+  }
+
   /* The on-screen tinted "desk" becomes plain paper when printed. */
   .report-desk {
     margin: 0 !important;
     padding: 0 !important;
     background: transparent !important;
     min-height: 0 !important;
+  }
+  /* Collapse the inter-sheet gap so each sheet maps cleanly onto one page. */
+  .report-desk > div {
+    gap: 0 !important;
   }
 
   /* Each sheet is one printed page; the last one must not add a trailing page. */

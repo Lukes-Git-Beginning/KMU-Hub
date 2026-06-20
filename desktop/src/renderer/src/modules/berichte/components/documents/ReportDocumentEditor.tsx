@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, ArrowLeft, Check, CheckCircle2, Copy, Eye, MoreVertical, Pencil, Send } from 'lucide-react'
+import { Archive, ArrowLeft, Check, CheckCircle2, Copy, Eye, MoreVertical, Pencil, Printer, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ReportDocStatus, ReportDocument, ReportRow } from '@/api/berichte-types'
 import {
@@ -35,7 +35,7 @@ export function ReportDocumentEditor({
   if (isLoading || !doc) {
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-6 py-3">
+        <header className="report-doc-chrome flex shrink-0 items-center gap-3 border-b border-border bg-background px-6 py-3">
           <button
             type="button"
             onClick={onBack}
@@ -125,7 +125,7 @@ function DocumentEditorInner({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex items-center gap-3 border-b border-border bg-background px-6 py-3">
+      <header className="report-doc-chrome flex items-center gap-3 border-b border-border bg-background px-6 py-3">
         <button
           type="button"
           onClick={onBack}
@@ -181,6 +181,18 @@ function DocumentEditorInner({
           </div>
         )}
 
+        {/* Print / Save as PDF — available whenever the report is being read. */}
+        {mode === 'read' && (
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            {t('berichte.docs.print')}
+          </button>
+        )}
+
         {saveState === 'saving' ? (
           <span className="text-xs text-muted-foreground">{t('berichte.docs.saving')}</span>
         ) : saveState === 'saved' ? (
@@ -202,7 +214,7 @@ function DocumentEditorInner({
         />
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="report-doc-body flex-1 overflow-y-auto p-6">
         {mode === 'edit' && !locked ? (
           <BlockEditor rows={rows} onChange={setRows} />
         ) : (
