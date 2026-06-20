@@ -3,7 +3,7 @@ import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { FileText } from 'lucide-react'
-import type { WikiArticle as WikiArticleType } from '@/types/wiki'
+import type { WikiArticle as WikiArticleType, WikiCategory } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
 import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { useUpdateArticle, useArticleVersions, useRestoreVersion, useArticle } from '@/api/hooks/useWiki'
@@ -20,11 +20,12 @@ import { WikiAttachments } from './WikiAttachments'
 
 interface WikiArticleProps {
   article: WikiArticleType
+  categories: WikiCategory[]
   onDelete: () => void
   onShare: () => void
 }
 
-export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
+export function WikiArticle({ article, categories, onDelete, onShare }: WikiArticleProps) {
   const { t } = useTranslation()
   const isEditing = useWikiStore((s) => s.isEditing)
   const setEditing = useWikiStore((s) => s.setEditing)
@@ -100,6 +101,7 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
         {/* Header */}
         <WikiArticleHeader
           article={article}
+          categories={categories}
           versionCount={versions.length}
           viewCount={viewCount}
           onEdit={handleStartEdit}

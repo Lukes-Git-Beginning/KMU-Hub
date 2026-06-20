@@ -258,6 +258,7 @@ export default function WikiPage() {
           {selectedArticle && (
             <WikiArticle
               article={selectedArticle}
+              categories={categories}
               onDelete={() => setDeleteTarget(selectedArticle)}
               onShare={() => setShareTarget(selectedArticle)}
             />

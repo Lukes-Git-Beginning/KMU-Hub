@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Pin,
   Send,
@@ -9,14 +10,16 @@ import {
   Eye,
   Clock,
   Tag,
+  FolderInput,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import type { WikiArticle } from '@/types/wiki'
+import type { WikiArticle, WikiCategory } from '@/types/wiki'
 import { useUpdateArticle } from '@/api/hooks/useWiki'
 import { useWikiStore } from '@/stores/wiki'
 import { ItemActions } from '@/components/shared'
 import { formatDate as libFormatDate } from '@/lib/format'
+import { WikiMoveDialog } from './WikiMoveDialog'
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -39,6 +42,8 @@ function formatShortDate(dateStr: string): string {
 
 interface WikiArticleHeaderProps {
   article: WikiArticle
+  /** All categories — needed for the move dialog. */
+  categories: WikiCategory[]
   /** Live version count from the per-article versions query. */
   versionCount?: number
   /** Live view count (incremented on detail GET). */
@@ -51,6 +56,7 @@ interface WikiArticleHeaderProps {
 
 export function WikiArticleHeader({
   article,
+  categories,
   versionCount,
   viewCount,
   onEdit,
@@ -61,6 +67,7 @@ export function WikiArticleHeader({
   const { t } = useTranslation()
   const updateMutation = useUpdateArticle()
   const togglePin = useWikiStore((s) => s.togglePin)
+  const [moveOpen, setMoveOpen] = useState(false)
 
   const st = statusConfig[article.status]
 
@@ -125,6 +132,7 @@ export function WikiArticleHeader({
                   toast.success(article.isPinned ? t('wiki.actions.unpinned') : t('wiki.actions.pinned'))
                 },
               },
+              { label: t('wiki.actions.move'), icon: FolderInput, onClick: () => setMoveOpen(true) },
               ...(article.status === 'draft'
                 ? [{
                     label: t('wiki.actions.publish'),
@@ -162,6 +170,13 @@ export function WikiArticleHeader({
           ))}
         </div>
       )}
+
+      <WikiMoveDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        article={article}
+        categories={categories}
+      />
     </div>
   )
 }

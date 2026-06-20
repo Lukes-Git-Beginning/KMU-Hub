@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BookOpen, Plus, FolderPlus } from 'lucide-react'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
@@ -31,9 +31,23 @@ export function WikiSidebar({ categories, articles, categoriesLoading, onNewArti
   const defaultView = useWikiPrefsStore((s) => s.defaultView)
   const sidebarDefaultOpen = useWikiPrefsStore((s) => s.sidebarDefaultOpen)
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() =>
-    sidebarDefaultOpen ? new Set((categories ?? []).map((c) => c.id)) : new Set(),
-  )
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  // Categories load asynchronously, so seed the default-expanded set once they
+  // arrive (a useState initializer would capture the empty initial list and
+  // leave every node collapsed — hiding all subcategories).
+  const seededRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current) return
+    if (!sidebarDefaultOpen) {
+      seededRef.current = true
+      return
+    }
+    if ((categories?.length ?? 0) > 0) {
+      setExpandedIds(new Set(categories.map((c) => c.id)))
+      seededRef.current = true
+    }
+  }, [categories, sidebarDefaultOpen])
 
   const totalArticles = articles.length
   const publishedCount = articles.filter((a) => a.status === 'published').length
@@ -120,17 +134,21 @@ export function WikiSidebar({ categories, articles, categoriesLoading, onNewArti
               </div>
             ) : (
               <div className="space-y-0.5">
-                {(categories ?? []).map((cat) => (
-                  <WikiTreeNode
-                    key={cat.id}
-                    category={cat}
-                    isSelected={selectedCategoryId === cat.id}
-                    isExpanded={expandedIds.has(cat.id)}
-                    onSelect={setSelectedCategory}
-                    onToggle={toggleExpand}
-                    articleCount={articleCounts[cat.id] ?? 0}
-                  />
-                ))}
+                {(categories ?? [])
+                  .filter((cat) => !cat.parentId)
+                  .sort((a, b) => a.sortOrder - b.sortOrder)
+                  .map((cat) => (
+                    <WikiTreeNode
+                      key={cat.id}
+                      category={cat}
+                      categories={categories ?? []}
+                      selectedCategoryId={selectedCategoryId}
+                      expandedIds={expandedIds}
+                      onSelect={setSelectedCategory}
+                      onToggle={toggleExpand}
+                      articleCounts={articleCounts}
+                    />
+                  ))}
               </div>
             )}
           </>
