@@ -352,7 +352,7 @@ let WEBHOOKS: FormWebhook[] = [
   },
 ]
 
-let DELIVERIES: WebhookDelivery[] = [
+const DELIVERIES: WebhookDelivery[] = [
   {
     id: 'dlv-1',
     webhookId: 'wh-1',
