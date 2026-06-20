@@ -16,6 +16,7 @@ import type {
   ReportRow,
   ReportSchedule,
   ReportSeries,
+  ReportTemplate,
 } from '@/api/berichte-types'
 
 const API = API_BASE_URL
@@ -205,6 +206,122 @@ let DEMO_DOCUMENTS: ReportDocument[] = [
   },
 ]
 let documentCounter = 0
+
+// ---------------------------------------------------------------------------
+// Report Templates — prebuilt block structures for "Neuer Bericht aus Vorlage".
+// Placeholder content; the user fills it in. Charts/tables carry a caption but
+// no source yet (picked in the editor, R-1b).
+// ---------------------------------------------------------------------------
+
+const TPL_SETTINGS: ReportDocument['settings'] = {
+  showHeader: true,
+  showFooter: true,
+  showPageNumbers: true,
+}
+
+const DEMO_TEMPLATES: ReportTemplate[] = [
+  {
+    id: 'tpl-monat',
+    title: 'Monats-/Managementbericht',
+    description: 'Deckblatt, Zusammenfassung, Kennzahlen, Finanzen, Empfehlung.',
+    module: 'cross',
+    icon: 'CalendarRange',
+    settings: TPL_SETTINGS,
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Monatsbericht', subtitle: 'Monat Jahr', showDate: true }),
+      r({ id: bid('h'), type: 'heading', level: 1, text: 'Zusammenfassung' }),
+      r({ id: bid('t'), type: 'text', html: '<p>Kernaussage des Monats in zwei bis drei Sätzen.</p>' }),
+      rc(
+        { blocks: [kpiBlock('Umsatz', '—', '€', null, 'finanzen')] },
+        { blocks: [kpiBlock('Kosten', '—', '€', null, 'finanzen')] },
+        { blocks: [kpiBlock('Ergebnis', '—', '€', null, 'finanzen')] },
+      ),
+      r({ id: bid('h'), type: 'heading', level: 2, text: 'Finanzen' }),
+      r({ id: bid('c'), type: 'chart', caption: 'Umsatz nach Monat' }),
+      r({ id: bid('cl'), type: 'callout', variant: 'recommendation', title: 'Empfehlung', html: '<p>Maßnahmen für den nächsten Monat.</p>' }),
+    ],
+  },
+  {
+    id: 'tpl-sales',
+    title: 'Vertriebsbericht',
+    description: 'Kennzahlen, Pipeline-Trichter, Abschlüsse, nächste Schritte.',
+    module: 'crm',
+    icon: 'TrendingUp',
+    settings: TPL_SETTINGS,
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Vertriebsbericht', subtitle: 'Periode', showDate: true }),
+      rc(
+        { blocks: [kpiBlock('Umsatz', '—', '€', null, 'crm')] },
+        { blocks: [kpiBlock('Gewinnrate', '—', '%', null, 'crm')] },
+        { blocks: [kpiBlock('Pipeline', '—', '€', null, 'crm')] },
+      ),
+      r({ id: bid('h'), type: 'heading', level: 2, text: 'Pipeline' }),
+      r({ id: bid('c'), type: 'chart', caption: 'Pipeline nach Phase' }),
+      r({ id: bid('tb'), type: 'table', caption: 'Abschlüsse der Periode' }),
+      r({ id: bid('cl'), type: 'callout', variant: 'recommendation', title: 'Nächste Schritte', html: '<p>Top-3-Maßnahmen.</p>' }),
+    ],
+  },
+  {
+    id: 'tpl-bi',
+    title: 'Analyse-Bericht',
+    description: 'Kennzahlen-Übersicht, Zeitreihe, Vergleiche, Detaildaten.',
+    module: 'cross',
+    icon: 'BarChart3',
+    settings: TPL_SETTINGS,
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Analyse-Bericht', subtitle: 'Zeitraum', showDate: true }),
+      rc(
+        { blocks: [kpiBlock('Kennzahl A', '—', '', null, 'cross')] },
+        { blocks: [kpiBlock('Kennzahl B', '—', '', null, 'cross')] },
+        { blocks: [kpiBlock('Kennzahl C', '—', '', null, 'cross')] },
+      ),
+      r({ id: bid('c'), type: 'chart', caption: 'Entwicklung über Zeit' }),
+      rc(
+        { blocks: [{ id: bid('c'), type: 'chart', caption: 'Verteilung A' }] },
+        { blocks: [{ id: bid('c'), type: 'chart', caption: 'Verteilung B' }] },
+      ),
+      r({ id: bid('tb'), type: 'table', caption: 'Detaildaten' }),
+    ],
+  },
+  {
+    id: 'tpl-projekt',
+    title: 'Projektbericht',
+    description: 'Status, Fortschritt, Budget, Meilensteine, Risiken.',
+    module: 'work',
+    icon: 'ClipboardList',
+    settings: TPL_SETTINGS,
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Projektbericht', subtitle: 'Projektname', showDate: true }),
+      r({ id: bid('h'), type: 'heading', level: 1, text: 'Status & Fortschritt' }),
+      rc(
+        { blocks: [kpiBlock('Fortschritt', '—', '%', null, 'work')] },
+        { blocks: [kpiBlock('Budget', '—', '€', null, 'work')] },
+      ),
+      r({ id: bid('t'), type: 'text', html: '<p>Wichtigste Meilensteine und ihr Stand.</p>' }),
+      r({ id: bid('bl'), type: 'bullet', items: ['Risiko 1', 'Risiko 2'] }),
+      r({ id: bid('cl'), type: 'callout', variant: 'recommendation', title: 'Maßnahmen', html: '<p>Empfohlene nächste Schritte.</p>' }),
+    ],
+  },
+  {
+    id: 'tpl-exec',
+    title: 'Executive-Kurzbericht',
+    description: 'Kernaussage, drei Kennzahlen, Top-Findings, Empfehlung.',
+    module: 'cross',
+    icon: 'Zap',
+    settings: TPL_SETTINGS,
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Executive Update', subtitle: 'Datum', showDate: true }),
+      r({ id: bid('t'), type: 'text', html: '<p>Kernaussage zuerst: das Wichtigste in zwei Sätzen.</p>' }),
+      rc(
+        { blocks: [kpiBlock('Kennzahl 1', '—', '', null, 'cross')] },
+        { blocks: [kpiBlock('Kennzahl 2', '—', '', null, 'cross')] },
+        { blocks: [kpiBlock('Kennzahl 3', '—', '', null, 'cross')] },
+      ),
+      r({ id: bid('bl'), type: 'bullet', items: ['Finding 1', 'Finding 2', 'Finding 3'] }),
+      r({ id: bid('cl'), type: 'callout', variant: 'recommendation', title: 'Empfehlung', html: '<p>Was als Nächstes zu tun ist.</p>' }),
+    ],
+  },
+]
 
 // ---------------------------------------------------------------------------
 // Report results (per definition) — series for charts, columns+rows for tables
@@ -492,6 +609,11 @@ export const berichteHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
+  // --- Report Templates ---
+  http.get(`${API}/api/v1/berichte/templates`, () =>
+    HttpResponse.json({ templates: DEMO_TEMPLATES }),
+  ),
+
   // --- Report Documents (multi-page authoring) ---
   http.get(`${API}/api/v1/berichte/documents`, ({ request }) => {
     const url = new URL(request.url)
@@ -516,29 +638,35 @@ export const berichteHandlers = [
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
     documentCounter += 1
     const now = new Date().toISOString()
-    const title = String(body.title ?? 'Neuer Bericht')
+    const template = body.template_id
+      ? DEMO_TEMPLATES.find((t) => t.id === body.template_id)
+      : undefined
+    const title = String(body.title ?? template?.title ?? 'Neuer Bericht')
     const document: ReportDocument = {
       id: `doc-custom-${documentCounter}`,
       tenant_id: TENANT,
       title,
-      description: body.description ? String(body.description) : undefined,
-      module: (body.module as ReportDocument['module']) ?? 'cross',
+      description: body.description ? String(body.description) : template?.description,
+      module: (body.module as ReportDocument['module']) ?? template?.module ?? 'cross',
       status: 'draft',
       rows:
         (body.rows as ReportDocument['rows']) ??
-        [
-          {
-            id: 'row-1',
-            columns: [
+        (template
+          ? (JSON.parse(JSON.stringify(template.rows)) as ReportDocument['rows'])
+          : [
               {
-                id: 'col-1',
-                blocks: [{ id: 'cover-1', type: 'cover', title, showDate: true }],
+                id: 'row-1',
+                columns: [
+                  {
+                    id: 'col-1',
+                    blocks: [{ id: 'cover-1', type: 'cover', title, showDate: true }],
+                  },
+                ],
               },
-            ],
-          },
-        ],
+            ]),
       settings:
         (body.settings as ReportDocument['settings']) ??
+        template?.settings ??
         { showHeader: true, showFooter: true, showPageNumbers: true },
       template_id: (body.template_id as string | null) ?? null,
       created_by: 'u-demo',

@@ -933,6 +933,8 @@
   "berichte.docs.emptyTitle": "Nessun report",
   "berichte.docs.emptyHint": "Crea il tuo primo report multipagina con testo, indicatori e grafici.",
   "berichte.docs.newTitle": "Nuovo report",
+  "berichte.docs.startFrom": "Crea un nuovo report",
+  "berichte.docs.blank": "Report vuoto",
   "berichte.docs.search": "Cerca report…",
   "berichte.docs.sortEdited": "Modificato",
   "berichte.docs.sortName": "Nome",

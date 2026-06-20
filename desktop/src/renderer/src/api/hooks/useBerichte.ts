@@ -23,6 +23,7 @@ import {
   invalidateCache,
   listDefinitions,
   listReportDocuments,
+  listReportTemplates,
   listSchedules,
   previewReport,
   runReport,
@@ -62,6 +63,7 @@ export const berichteKeys = {
   documents: (params?: ListReportDocumentsParams) =>
     ['berichte', 'documents', params] as const,
   document: (id: string) => ['berichte', 'documents', id] as const,
+  templates: () => ['berichte', 'templates'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +274,14 @@ export function useReportDocument(id: string) {
     queryKey: berichteKeys.document(id),
     queryFn: () => getReportDocument(id),
     enabled: !!id,
+  })
+}
+
+export function useReportTemplates() {
+  return useQuery({
+    queryKey: berichteKeys.templates(),
+    queryFn: () => listReportTemplates(),
+    staleTime: Infinity,
   })
 }
 

@@ -19,6 +19,7 @@ import type {
   ListDefinitionsResponse,
   ListReportDocumentsParams,
   ListReportDocumentsResponse,
+  ListReportTemplatesResponse,
   ListSchedulesParams,
   ListSchedulesResponse,
   PreviewReportResponse,
@@ -262,5 +263,12 @@ export function deleteReportDocument(id: string) {
   return request<void>({
     method: 'DELETE',
     path: `${BASE}/documents/${id}`,
+  })
+}
+
+export function listReportTemplates() {
+  return request<ListReportTemplatesResponse>({
+    method: 'GET',
+    path: `${BASE}/templates`,
   })
 }

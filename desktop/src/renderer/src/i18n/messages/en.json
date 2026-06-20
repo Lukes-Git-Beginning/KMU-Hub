@@ -933,6 +933,8 @@
   "berichte.docs.emptyTitle": "No reports yet",
   "berichte.docs.emptyHint": "Create your first multi-page report with text, metrics and charts.",
   "berichte.docs.newTitle": "New report",
+  "berichte.docs.startFrom": "Start a new report",
+  "berichte.docs.blank": "Blank report",
   "berichte.docs.search": "Search reports…",
   "berichte.docs.sortEdited": "Edited",
   "berichte.docs.sortName": "Name",

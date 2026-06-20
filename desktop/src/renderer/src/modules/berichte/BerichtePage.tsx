@@ -58,15 +58,22 @@ export default function BerichtePage() {
     [schedules],
   )
 
+  const openCreated = (id: string) => {
+    setTab('berichte')
+    setOpenDocId(id)
+  }
+
   const handleNewReport = () => {
     createDoc.mutate(
       { title: t('berichte.docs.newTitle'), module: 'cross' },
-      {
-        onSuccess: (res) => {
-          setTab('berichte')
-          setOpenDocId(res.document.id)
-        },
-      },
+      { onSuccess: (res) => openCreated(res.document.id) },
+    )
+  }
+
+  const handleNewFromTemplate = (templateId: string) => {
+    createDoc.mutate(
+      { template_id: templateId },
+      { onSuccess: (res) => openCreated(res.document.id) },
     )
   }
 
@@ -142,7 +149,11 @@ export default function BerichtePage() {
       )}
 
       {tab === 'berichte' && (
-        <BerichtLibrary onOpen={(doc) => setOpenDocId(doc.id)} onNew={handleNewReport} />
+        <BerichtLibrary
+          onOpen={(doc) => setOpenDocId(doc.id)}
+          onNew={handleNewReport}
+          onNewFromTemplate={handleNewFromTemplate}
+        />
       )}
 
       {tab === 'geplant' && <ScheduleList definitions={definitions} />}

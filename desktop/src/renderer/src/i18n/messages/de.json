@@ -933,6 +933,8 @@
   "berichte.docs.emptyTitle": "Noch keine Berichte",
   "berichte.docs.emptyHint": "Erstelle deinen ersten mehrseitigen Bericht mit Text, Kennzahlen und Diagrammen.",
   "berichte.docs.newTitle": "Neuer Bericht",
+  "berichte.docs.startFrom": "Neuen Bericht erstellen",
+  "berichte.docs.blank": "Leerer Bericht",
   "berichte.docs.search": "Berichte durchsuchen…",
   "berichte.docs.sortEdited": "Bearbeitet",
   "berichte.docs.sortName": "Name",

@@ -541,7 +541,8 @@ export interface ReportDocument {
 }
 
 export interface CreateReportDocumentInput {
-  title: string
+  /** Optional — falls back to the template title or "Neuer Bericht". */
+  title?: string
   description?: string
   module?: ReportModule
   template_id?: string | null
@@ -571,4 +572,20 @@ export interface ListReportDocumentsResponse {
 
 export interface ReportDocumentResponse {
   document: ReportDocument
+}
+
+/** A starter template: a prebuilt block structure a new report is created from. */
+export interface ReportTemplate {
+  id: string
+  title: string
+  description: string
+  module: ReportModule
+  /** Lucide icon name resolved in the picker UI. */
+  icon?: string
+  rows: ReportRow[]
+  settings?: ReportDocSettings
+}
+
+export interface ListReportTemplatesResponse {
+  templates: ReportTemplate[]
 }

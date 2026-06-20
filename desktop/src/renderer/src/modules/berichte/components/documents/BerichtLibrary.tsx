@@ -1,19 +1,27 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  BarChart3,
+  CalendarRange,
+  ClipboardList,
   Copy,
+  FilePlus,
   FileText,
   LayoutGrid,
   List as ListIcon,
   Search,
   Trash2,
+  TrendingUp,
+  Zap,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ReportDocStatus, ReportDocument } from '@/api/berichte-types'
 import {
   useCreateReportDocument,
   useDeleteReportDocument,
   useReportDocuments,
+  useReportTemplates,
 } from '@/api/hooks/useBerichte'
 import {
   ConfirmDialog,
@@ -30,6 +38,15 @@ import { estimatePageCount } from './doc-utils'
 interface BerichtLibraryProps {
   onOpen: (doc: ReportDocument) => void
   onNew: () => void
+  onNewFromTemplate: (templateId: string) => void
+}
+
+const TEMPLATE_ICONS: Record<string, LucideIcon> = {
+  CalendarRange,
+  TrendingUp,
+  BarChart3,
+  ClipboardList,
+  Zap,
 }
 
 const STATUS_FILTERS: { value: 'all' | ReportDocStatus; key: string }[] = [
@@ -40,9 +57,10 @@ const STATUS_FILTERS: { value: 'all' | ReportDocStatus; key: string }[] = [
   { value: 'archived', key: 'berichte.docs.status.archived' },
 ]
 
-export function BerichtLibrary({ onOpen, onNew }: BerichtLibraryProps) {
+export function BerichtLibrary({ onOpen, onNew, onNewFromTemplate }: BerichtLibraryProps) {
   const { t } = useTranslation()
   const { data, isLoading } = useReportDocuments()
+  const { data: templatesData } = useReportTemplates()
   const createMutation = useCreateReportDocument()
   const deleteMutation = useDeleteReportDocument()
 
@@ -54,6 +72,7 @@ export function BerichtLibrary({ onOpen, onNew }: BerichtLibraryProps) {
   const [pendingDelete, setPendingDelete] = useState<ReportDocument | null>(null)
 
   const docs = useMemo(() => data?.documents ?? [], [data])
+  const templates = templatesData?.templates ?? []
 
   const filtered = useMemo(() => {
     let result = docs
@@ -145,6 +164,48 @@ export function BerichtLibrary({ onOpen, onNew }: BerichtLibraryProps) {
 
   return (
     <div className="space-y-4">
+      {/* Template picker — start a new report from a prebuilt structure */}
+      {templates.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            {t('berichte.docs.startFrom')}
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={onNew}
+              className="flex w-44 shrink-0 items-center gap-2.5 rounded-xl border border-dashed border-border bg-card p-3 text-left transition-colors hover:border-primary/40"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+                <FilePlus className="h-4 w-4" />
+              </div>
+              <p className="text-xs font-medium text-foreground">{t('berichte.docs.blank')}</p>
+            </button>
+            {templates.map((tpl) => {
+              const Icon = TEMPLATE_ICONS[tpl.icon ?? ''] ?? FileText
+              return (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => onNewFromTemplate(tpl.id)}
+                  className="flex w-52 shrink-0 items-start gap-2.5 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium text-foreground">{tpl.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-muted-foreground">
+                      {tpl.description}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
