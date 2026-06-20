@@ -31,11 +31,11 @@ func insertRawInvoice(t *testing.T, pool *pgxpool.Pool, ctx context.Context, ten
 		`INSERT INTO finance_invoices (
 			id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items,
+			tax_mode,
 			subtotal, total_tax, gross_total,
 			invoice_date, due_date, payment_terms,
 			created_by, created_at, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'[]'::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
 		invID, tenantID,
 		fmt.Sprintf("RE-CN-%s", invID.String()[:8]), "sent",
 		"CN Kunde GmbH", "Addr", "cn@example.com", "",

@@ -42,7 +42,7 @@ func (r *PostgresRepository) Create(ctx context.Context, q *models.Quote) error 
 		`INSERT INTO finance_quotes (
 			id, tenant_id, quote_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
 			created_by, created_at, updated_at,
@@ -50,15 +50,15 @@ func (r *PostgresRepository) Create(ctx context.Context, q *models.Quote) error 
 		) VALUES (
 			$1, $2, $3, $4,
 			$5, $6, $7, $8,
-			$9, $10, $11,
-			$12, $13, $14,
-			$15, $16, $17, $18,
-			$19, $20, $21,
-			$22
+			$9, $10,
+			$11, $12, $13,
+			$14, $15, $16, $17,
+			$18, $19, $20,
+			$21
 		)`,
 		q.ID, q.TenantID, q.QuoteNumber, q.Status,
 		q.CustomerName, q.CustomerAddress, q.CustomerEmail, q.CustomerUStIDNr,
-		q.TaxMode, q.LineItems, q.TaxBreakdownRaw,
+		q.TaxMode, q.TaxBreakdownRaw,
 		q.Subtotal, q.TotalTax, q.GrossTotal,
 		q.ValidUntil, q.Notes, q.DealID, q.SourceQuoteID,
 		q.CreatedBy, q.CreatedAt, q.UpdatedAt,
@@ -79,7 +79,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, quote_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
 			created_by, created_at, updated_at, currency
@@ -163,7 +163,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, quote_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
 			created_by, created_at, updated_at, currency
@@ -238,14 +238,14 @@ func (r *PostgresRepository) UpdateInTx(ctx context.Context, tx pgx.Tx, q *model
 		`UPDATE finance_quotes SET
 			quote_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
-			tax_mode = $7, line_items = $8, tax_breakdown = $9,
-			subtotal = $10, total_tax = $11, gross_total = $12,
-			valid_until = $13, notes = $14, deal_id = $15,
-			updated_at = $16
-		WHERE tenant_id = $17 AND id = $18`,
+			tax_mode = $7, tax_breakdown = $8,
+			subtotal = $9, total_tax = $10, gross_total = $11,
+			valid_until = $12, notes = $13, deal_id = $14,
+			updated_at = $15
+		WHERE tenant_id = $16 AND id = $17`,
 		q.QuoteNumber, q.Status,
 		q.CustomerName, q.CustomerAddress, q.CustomerEmail, q.CustomerUStIDNr,
-		q.TaxMode, q.LineItems, q.TaxBreakdownRaw,
+		q.TaxMode, q.TaxBreakdownRaw,
 		q.Subtotal, q.TotalTax, q.GrossTotal,
 		q.ValidUntil, q.Notes, q.DealID,
 		q.UpdatedAt, q.TenantID, q.ID,
@@ -286,7 +286,7 @@ func (r *PostgresRepository) GetByDealID(ctx context.Context, tenantID, dealID u
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, quote_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
 			created_by, created_at, updated_at, currency
@@ -532,13 +532,14 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 
 // scanQuote scans a single pgx.Row into a Quote model.
 // Decimals are scanned as strings to avoid float64 precision loss (ADR-0007).
+// Does NOT scan line_items (dropped in Migration 000217).
 func (r *PostgresRepository) scanQuote(row pgx.Row) (*models.Quote, error) {
 	var q models.Quote
 	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := row.Scan(
 		&q.ID, &q.TenantID, &q.QuoteNumber, &q.Status,
 		&q.CustomerName, &q.CustomerAddress, &q.CustomerEmail, &q.CustomerUStIDNr,
-		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
+		&q.TaxMode, &q.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
 		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency,
@@ -563,7 +564,7 @@ func (r *PostgresRepository) scanQuoteFromRows(rows pgx.Rows) (*models.Quote, er
 	err := rows.Scan(
 		&q.ID, &q.TenantID, &q.QuoteNumber, &q.Status,
 		&q.CustomerName, &q.CustomerAddress, &q.CustomerEmail, &q.CustomerUStIDNr,
-		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
+		&q.TaxMode, &q.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
 		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency,

@@ -43,7 +43,7 @@ func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) 
 			id, tenant_id, credit_note_number, status,
 			original_invoice_id,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			reason, created_by, created_at, updated_at,
 			currency
@@ -51,15 +51,15 @@ func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) 
 			$1, $2, $3, $4,
 			$5,
 			$6, $7, $8, $9,
-			$10, $11, $12,
-			$13, $14, $15,
-			$16, $17, $18, $19,
-			$20
+			$10, $11,
+			$12, $13, $14,
+			$15, $16, $17, $18,
+			$19
 		)`,
 		cn.ID, cn.TenantID, cn.CreditNoteNumber, cn.Status,
 		cn.OriginalInvoiceID,
 		cn.CustomerName, cn.CustomerAddress, cn.CustomerEmail, cn.CustomerUStIDNr,
-		cn.TaxMode, cn.LineItems, cn.TaxBreakdownRaw,
+		cn.TaxMode, cn.TaxBreakdownRaw,
 		cn.Subtotal.String(), cn.TotalTax.String(), cn.GrossTotal.String(),
 		cn.Reason, cn.CreatedBy, cn.CreatedAt, cn.UpdatedAt,
 		cn.Currency,
@@ -80,7 +80,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 		`SELECT id, tenant_id, credit_note_number, status,
 			original_invoice_id,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes
@@ -130,13 +130,13 @@ func (r *PostgresRepository) UpdateInTx(ctx context.Context, tx pgx.Tx, cn *mode
 		`UPDATE finance_credit_notes SET
 			credit_note_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
-			tax_mode = $7, line_items = $8, tax_breakdown = $9,
-			subtotal = $10, total_tax = $11, gross_total = $12,
-			reason = $13, updated_at = $14
-		WHERE tenant_id = $15 AND id = $16`,
+			tax_mode = $7, tax_breakdown = $8,
+			subtotal = $9, total_tax = $10, gross_total = $11,
+			reason = $12, updated_at = $13
+		WHERE tenant_id = $14 AND id = $15`,
 		cn.CreditNoteNumber, cn.Status,
 		cn.CustomerName, cn.CustomerAddress, cn.CustomerEmail, cn.CustomerUStIDNr,
-		cn.TaxMode, cn.LineItems, cn.TaxBreakdownRaw,
+		cn.TaxMode, cn.TaxBreakdownRaw,
 		cn.Subtotal.String(), cn.TotalTax.String(), cn.GrossTotal.String(),
 		cn.Reason, cn.UpdatedAt,
 		cn.TenantID, cn.ID,
@@ -199,7 +199,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		SELECT id, tenant_id, credit_note_number, status,
 			original_invoice_id,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes %s
@@ -256,7 +256,7 @@ func (r *PostgresRepository) GetByInvoiceID(ctx context.Context, tenantID, invoi
 		`SELECT id, tenant_id, credit_note_number, status,
 			original_invoice_id,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes
@@ -322,7 +322,7 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 	query := fmt.Sprintf(`SELECT id, tenant_id, credit_note_number, status,
 			original_invoice_id,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes
@@ -378,6 +378,8 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 // Scan helpers
 // ============================================================================
 
+// scanCreditNote scans a single pgx.Row into a CreditNote model.
+// Does NOT scan line_items (dropped in Migration 000217).
 func (r *PostgresRepository) scanCreditNote(row pgx.Row) (*models.CreditNote, error) {
 	var cn models.CreditNote
 	var subtotalStr, totalTaxStr, grossTotalStr string
@@ -385,7 +387,7 @@ func (r *PostgresRepository) scanCreditNote(row pgx.Row) (*models.CreditNote, er
 		&cn.ID, &cn.TenantID, &cn.CreditNoteNumber, &cn.Status,
 		&cn.OriginalInvoiceID,
 		&cn.CustomerName, &cn.CustomerAddress, &cn.CustomerEmail, &cn.CustomerUStIDNr,
-		&cn.TaxMode, &cn.LineItems, &cn.TaxBreakdownRaw,
+		&cn.TaxMode, &cn.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&cn.Reason, &cn.CreatedBy, &cn.CreatedAt, &cn.UpdatedAt, &cn.Currency,
 	)
@@ -408,7 +410,7 @@ func (r *PostgresRepository) scanCreditNoteFromRows(rows pgx.Rows) (*models.Cred
 		&cn.ID, &cn.TenantID, &cn.CreditNoteNumber, &cn.Status,
 		&cn.OriginalInvoiceID,
 		&cn.CustomerName, &cn.CustomerAddress, &cn.CustomerEmail, &cn.CustomerUStIDNr,
-		&cn.TaxMode, &cn.LineItems, &cn.TaxBreakdownRaw,
+		&cn.TaxMode, &cn.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&cn.Reason, &cn.CreatedBy, &cn.CreatedAt, &cn.UpdatedAt, &cn.Currency,
 	)

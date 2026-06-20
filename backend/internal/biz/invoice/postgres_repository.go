@@ -42,7 +42,7 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 		`INSERT INTO finance_invoices (
 			id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -52,17 +52,17 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 		) VALUES (
 			$1, $2, $3, $4,
 			$5, $6, $7, $8,
-			$9, $10, $11, $12,
-			$13, $14, $15,
-			$16, $17, $18, $19,
-			$20, $21, $22,
-			$23,
-			$24, $25, $26,
-			$27
+			$9, $10, $11,
+			$12, $13, $14,
+			$15, $16, $17, $18,
+			$19, $20, $21,
+			$22,
+			$23, $24, $25,
+			$26
 		)`,
 		inv.ID, inv.TenantID, inv.InvoiceNumber, inv.Status,
 		inv.CustomerName, inv.CustomerAddress, inv.CustomerEmail, inv.CustomerUStIDNr,
-		inv.CompanySnapshotRaw, inv.TaxMode, inv.LineItems, inv.TaxBreakdownRaw,
+		inv.CompanySnapshotRaw, inv.TaxMode, inv.TaxBreakdownRaw,
 		inv.Subtotal, inv.TotalTax, inv.GrossTotal,
 		inv.InvoiceDate, inv.DeliveryDate, inv.DueDate, inv.PaymentTerms,
 		inv.SnapshotData, inv.SourceQuoteID, inv.Notes,
@@ -85,7 +85,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -177,7 +177,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -256,16 +256,16 @@ func (r *PostgresRepository) UpdateInTx(ctx context.Context, tx pgx.Tx, inv *mod
 		`UPDATE finance_invoices SET
 			invoice_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
-			company_snapshot = $7, tax_mode = $8, line_items = $9, tax_breakdown = $10,
-			subtotal = $11, total_tax = $12, gross_total = $13,
-			invoice_date = $14, delivery_date = $15, due_date = $16, payment_terms = $17,
-			snapshot_data = $18, notes = $19,
-			locked_at = $20, locked_by = $21,
-			updated_at = $22
-		WHERE tenant_id = $23 AND id = $24`,
+			company_snapshot = $7, tax_mode = $8, tax_breakdown = $9,
+			subtotal = $10, total_tax = $11, gross_total = $12,
+			invoice_date = $13, delivery_date = $14, due_date = $15, payment_terms = $16,
+			snapshot_data = $17, notes = $18,
+			locked_at = $19, locked_by = $20,
+			updated_at = $21
+		WHERE tenant_id = $22 AND id = $23`,
 		inv.InvoiceNumber, inv.Status,
 		inv.CustomerName, inv.CustomerAddress, inv.CustomerEmail, inv.CustomerUStIDNr,
-		inv.CompanySnapshotRaw, inv.TaxMode, inv.LineItems, inv.TaxBreakdownRaw,
+		inv.CompanySnapshotRaw, inv.TaxMode, inv.TaxBreakdownRaw,
 		inv.Subtotal, inv.TotalTax, inv.GrossTotal,
 		inv.InvoiceDate, inv.DeliveryDate, inv.DueDate, inv.PaymentTerms,
 		inv.SnapshotData, inv.Notes,
@@ -326,7 +326,7 @@ func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID)
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -382,7 +382,7 @@ func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -519,7 +519,7 @@ func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uui
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -590,7 +590,7 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 
 	query := fmt.Sprintf(`SELECT id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -651,16 +651,16 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 // ============================================================================
 
 // scanInvoice scans a single pgx.Row into an Invoice model.
-// Scans all 31 columns including contact_id (Migration 000141), zugferd_profile,
+// Scans all 30 columns including contact_id (Migration 000141), zugferd_profile,
 // time_tracking_source, locked_at, locked_by (ADR-0007 lock columns) and
-// currency (Migration 000216, B6).
+// currency (Migration 000216, B6). Does NOT scan line_items (dropped in 000217).
 func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {
 	var inv models.Invoice
 	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := row.Scan(
 		&inv.ID, &inv.TenantID, &inv.InvoiceNumber, &inv.Status,
 		&inv.CustomerName, &inv.CustomerAddress, &inv.CustomerEmail, &inv.CustomerUStIDNr,
-		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.LineItems, &inv.TaxBreakdownRaw,
+		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&inv.InvoiceDate, &inv.DeliveryDate, &inv.DueDate, &inv.PaymentTerms,
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
@@ -687,7 +687,7 @@ func (r *PostgresRepository) scanInvoiceFromRows(rows pgx.Rows) (*models.Invoice
 	err := rows.Scan(
 		&inv.ID, &inv.TenantID, &inv.InvoiceNumber, &inv.Status,
 		&inv.CustomerName, &inv.CustomerAddress, &inv.CustomerEmail, &inv.CustomerUStIDNr,
-		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.LineItems, &inv.TaxBreakdownRaw,
+		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&inv.InvoiceDate, &inv.DeliveryDate, &inv.DueDate, &inv.PaymentTerms,
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,

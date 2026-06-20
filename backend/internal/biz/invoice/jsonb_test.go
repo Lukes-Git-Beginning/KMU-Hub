@@ -1,13 +1,12 @@
 package invoice
 
-// jsonb_test.go — ADR-0007 Sprint 3 Skeleton Tests
+// jsonb_test.go — ADR-0007 unit tests for LineItem and TaxBreakdown serialization.
 //
-// These tests document the JSONB behavior that must be preserved (or superseded)
-// when Sprint 4 migrates line_items from JSONB to finance_invoice_lines.
-//
-// All three tests are skipped until Sprint 4 provides the relational
-// implementation. The skips are intentional markers — DO NOT remove without
-// implementing the actual assertions.
+// These tests verify JSON marshal/unmarshal behavior of the LineItem and
+// TaxBreakdown model types. The Sprint 4 relational migration (000132/000133)
+// moved line storage from JSONB to finance_invoice_lines, and Migration 000217
+// dropped the JSONB column. LineItems on the model struct is now an in-memory
+// transport field populated from the relational table.
 //
 // See: docs/adr/0007-finance-line-items-normalization.md
 
@@ -22,9 +21,8 @@ import (
 
 // TestLineItemsJSONBRoundtrip verifies that a []models.LineItem survives a
 // Marshal → JSON → Unmarshal cycle with exact decimal equality.
-//
-// Sprint 4: Replace the skip with assertions on the relational roundtrip
-// (Create Invoice → INSERT finance_invoice_lines → GetByID → compare Lines).
+// LineItems is now an in-memory transport field (not stored as JSONB); this test
+// validates the serialization contract used between the repo and service layers.
 func TestLineItemsJSONBRoundtrip(t *testing.T) {
 	original := []models.LineItem{
 		{
@@ -82,8 +80,7 @@ func TestLineItemsJSONBRoundtrip(t *testing.T) {
 // map[string]decimal.Decimal (tax_by_rate) survives serialization consistently.
 //
 // Decimal keys like "19" vs "19.00" can cause silent inequality after roundtrip.
-// Sprint 4: Extend with DB-backed assertions once tax_breakdown is computed
-// from finance_invoice_lines.
+// tax_breakdown remains stored as JSONB on the invoice header.
 func TestTaxBreakdownRoundtrip(t *testing.T) {
 	original := models.TaxBreakdown{
 		Subtotal: decimal.NewFromFloat(165.50),
@@ -128,10 +125,8 @@ func TestTaxBreakdownRoundtrip(t *testing.T) {
 }
 
 // TestCorruptLineItemsHandling verifies that attempting to unmarshal a corrupt
-// (non-array) line_items JSON value does not panic and returns a clear error.
-//
-// Sprint 4: Extend to verify that a DB row with corrupt line_items JSONB is
-// handled gracefully by the repository (returns error, not panic).
+// (non-array) JSON value into []models.LineItem does not panic and returns a
+// clear error. This guards the in-memory unmarshal path used in the service layer.
 func TestCorruptLineItemsHandling(t *testing.T) {
 	corruptInputs := []struct {
 		name  string

@@ -114,7 +114,9 @@ type NumberSequence struct {
 }
 
 // LineItem represents a single line on a quote, invoice, or credit note.
-// Stored as JSONB in the database.
+// Stored in the relational line tables (finance_invoice_lines, finance_quote_lines,
+// finance_credit_note_lines). The LineItems json.RawMessage field on Quote/Invoice/
+// CreditNote is an in-memory transport populated by the repository from those tables.
 type LineItem struct {
 	ID          string          `json:"id"`
 	Position    int             `json:"position"`

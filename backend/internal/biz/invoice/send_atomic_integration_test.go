@@ -112,14 +112,14 @@ func TestSend_AtomicRollback_NumberNotConsumed(t *testing.T) {
 	require.True(t, ok, "sequence row must exist after the first send")
 	require.Equal(t, 1, seq)
 
-	// 2) Create invoice B, then corrupt its stored line_items to quantity 0 so the
+	// 2) Create invoice B, then corrupt its relational line to quantity 0 so the
 	//    line re-insert inside UpdateInTx violates chk_invoice_lines_quantity > 0.
+	//    GetByID loads lines from finance_invoice_lines, so corrupting the relational
+	//    row means Send will attempt to re-insert a quantity=0 line and hit the constraint.
 	invB := draftInvoice(tenantID, oneValidLine())
 	require.NoError(t, repo.Create(ctx, invB))
 	_, err := superPool.Exec(context.Background(),
-		`UPDATE finance_invoices SET line_items =
-		   '[{"id":"l1","position":1,"description":"Bad","quantity":"0","unit_price":"100","tax_rate":"19","line_total":"0"}]'::jsonb
-		 WHERE id = $1`, invB.ID)
+		`UPDATE finance_invoice_lines SET quantity = '0' WHERE invoice_id = $1`, invB.ID)
 	require.NoError(t, err)
 
 	// 3) Send B → must fail (constraint violation during the coupled transaction).

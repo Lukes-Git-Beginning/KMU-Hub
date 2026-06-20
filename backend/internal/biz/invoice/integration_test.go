@@ -267,9 +267,11 @@ func TestInvoiceConstraintRejection(t *testing.T) {
 	})
 }
 
-// TestBackfillIdempotency inserts a finance_invoices row with JSONB line_items
-// directly (bypassing the repo), then runs the backfill SQL twice and asserts
-// exactly 2 relational rows each time (idempotent NOT EXISTS guard).
+// TestBackfillIdempotency verifies the relational line-item flow end-to-end:
+// insert an invoice via the repo (which writes to finance_invoice_lines), then
+// read it back via GetByID and assert the lines are present. This replaces the
+// historical JSONB backfill test (Migration 000133) which is no longer relevant
+// after Migration 000217 drops the line_items JSONB column.
 func TestBackfillIdempotency(t *testing.T) {
 	appPool, superURL := pgtc.StartPostgres(t)
 	superPool := pgtc.SuperPool(t, superURL)
@@ -279,77 +281,31 @@ func TestBackfillIdempotency(t *testing.T) {
 	ctx := pgtc.TenantCtx(context.Background(), tenantID)
 	seedTenant(t, appPool, ctx, tenantID)
 
-	// Insert a raw invoice with JSONB line_items — no relational lines.
-	invID := uuid.New()
-	creatorID := uuid.New()
-	now := time.Now().UTC()
-	lineItemsJSON := `[
-		{"id":"l1","position":1,"description":"Item 1","quantity":"1","unit_price":"100","tax_rate":"19","line_total":"100"},
-		{"id":"l2","position":2,"description":"Item 2","quantity":"2","unit_price":"50","tax_rate":"7","line_total":"100"}
-	]`
+	repo := NewPostgresRepository(appPool)
+	lines := twoLines()
+	inv := makeInvoice(tenantID, lines)
 
-	_, err := superPool.Exec(context.Background(),
-		`INSERT INTO finance_invoices (
-			id, tenant_id, invoice_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items,
-			subtotal, total_tax, gross_total,
-			invoice_date, due_date, payment_terms,
-			created_by, created_at, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-		invID, tenantID, fmt.Sprintf("RE-BACKFILL-%s", invID.String()[:8]), "draft",
-		"Backfill GmbH", "Addr", "bf@example.com", "",
-		"standard", lineItemsJSON,
-		"200", "28", "228",
-		now, now.Add(30*24*time.Hour), "30 days",
-		creatorID, now, now,
-	)
+	if err := repo.Create(ctx, inv); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Assert 2 rows in finance_invoice_lines (relational).
+	if n := countLineRows(t, superPool, inv.ID); n != 2 {
+		t.Fatalf("after Create: got %d line rows, want 2", n)
+	}
+
+	// Read back via GetByID — lines must be loaded from the relational table.
+	got, err := repo.GetByID(ctx, tenantID, inv.ID)
 	if err != nil {
-		t.Fatalf("insert raw invoice: %v", err)
+		t.Fatalf("GetByID: %v", err)
 	}
 
-	// Backfill SQL from migration 000133 (the invoice section).
-	backfillSQL := `
-		INSERT INTO finance_invoice_lines (
-			invoice_id, tenant_id, position, description,
-			quantity, unit_price, tax_rate, line_total, created_at, updated_at
-		)
-		SELECT
-			fi.id,
-			fi.tenant_id,
-			t.ord::int,
-			COALESCE(t.elem->>'description', ''),
-			(t.elem->>'quantity')::numeric,
-			(t.elem->>'unit_price')::numeric,
-			COALESCE(NULLIF(t.elem->>'tax_rate', '')::numeric, 0),
-			COALESCE(
-				NULLIF(t.elem->>'line_total', '')::numeric,
-				(t.elem->>'quantity')::numeric * (t.elem->>'unit_price')::numeric
-			),
-			fi.created_at,
-			fi.updated_at
-		FROM finance_invoices fi,
-		     jsonb_array_elements(fi.line_items) WITH ORDINALITY AS t(elem, ord)
-		WHERE fi.id = $1
-		  AND fi.line_items IS NOT NULL
-		  AND jsonb_typeof(fi.line_items) = 'array'
-		  AND fi.line_items <> '[]'::jsonb
-		  AND NOT EXISTS (SELECT 1 FROM finance_invoice_lines l WHERE l.invoice_id = fi.id)`
-
-	// First run.
-	if _, err := superPool.Exec(context.Background(), backfillSQL, invID); err != nil {
-		t.Fatalf("backfill run 1: %v", err)
+	var gotLines []models.LineItem
+	if err := json.Unmarshal(got.LineItems, &gotLines); err != nil {
+		t.Fatalf("unmarshal line items: %v", err)
 	}
-	if n := countLineRows(t, superPool, invID); n != 2 {
-		t.Fatalf("after backfill run 1: got %d lines, want 2", n)
-	}
-
-	// Second run — must be a no-op (NOT EXISTS guard).
-	if _, err := superPool.Exec(context.Background(), backfillSQL, invID); err != nil {
-		t.Fatalf("backfill run 2: %v", err)
-	}
-	if n := countLineRows(t, superPool, invID); n != 2 {
-		t.Fatalf("after backfill run 2: got %d lines, want still 2 (idempotent)", n)
+	if len(gotLines) != 2 {
+		t.Fatalf("line count via GetByID: got %d, want 2", len(gotLines))
 	}
 }
 

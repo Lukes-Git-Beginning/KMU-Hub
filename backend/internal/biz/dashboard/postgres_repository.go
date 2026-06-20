@@ -137,7 +137,7 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	recentRows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, line_items, tax_breakdown,
+			company_snapshot, tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
@@ -171,7 +171,7 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	quoteRows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, quote_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			tax_mode, line_items, tax_breakdown,
+			tax_mode, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
 			created_by, created_at, updated_at
@@ -245,13 +245,14 @@ func monthsBetween(from, to time.Time) int {
 }
 
 // scanInvoice scans an invoice row from a query result.
+// Does NOT scan line_items (dropped in Migration 000217).
 func scanInvoice(rows interface{ Scan(dest ...any) error }) (*models.Invoice, error) {
 	var inv models.Invoice
 	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := rows.Scan(
 		&inv.ID, &inv.TenantID, &inv.InvoiceNumber, &inv.Status,
 		&inv.CustomerName, &inv.CustomerAddress, &inv.CustomerEmail, &inv.CustomerUStIDNr,
-		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.LineItems, &inv.TaxBreakdownRaw,
+		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&inv.InvoiceDate, &inv.DeliveryDate, &inv.DueDate, &inv.PaymentTerms,
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
@@ -276,13 +277,14 @@ func scanInvoice(rows interface{ Scan(dest ...any) error }) (*models.Invoice, er
 }
 
 // scanQuote scans a quote row from a query result.
+// Does NOT scan line_items (dropped in Migration 000217).
 func scanQuote(rows interface{ Scan(dest ...any) error }) (*models.Quote, error) {
 	var q models.Quote
 	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := rows.Scan(
 		&q.ID, &q.TenantID, &q.QuoteNumber, &q.Status,
 		&q.CustomerName, &q.CustomerAddress, &q.CustomerEmail, &q.CustomerUStIDNr,
-		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
+		&q.TaxMode, &q.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
 		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt,
