@@ -17,6 +17,26 @@ type ModuleLead struct {
 	GrantedAt time.Time
 }
 
+// UserModuleGrant records that a user has access to a module within a tenant.
+// UserName is joined from the users table for display and is not stored on the
+// grant row itself. LastActiveAt is reserved for a future activity pipeline and
+// stays nil until that lands.
+type UserModuleGrant struct {
+	TenantID     uuid.UUID
+	UserID       uuid.UUID
+	UserName     string
+	ModuleID     string
+	GrantedBy    *uuid.UUID
+	GrantedAt    time.Time
+	LastActiveAt *time.Time
+}
+
+// ModuleGrantRef is a (user, module) pair targeted by a bulk revoke.
+type ModuleGrantRef struct {
+	UserID   uuid.UUID
+	ModuleID string
+}
+
 // SettingEntry is a key→JSONB value pair for a module setting.
 // Value is stored as raw JSON to accommodate any shape the FE defines
 // (string, number, boolean, array, object).

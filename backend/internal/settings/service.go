@@ -112,6 +112,78 @@ func (s *Service) GetMyModuleLeads(ctx context.Context, tenantID, userID uuid.UU
 }
 
 // ============================================================================
+// Module-access grant management
+// ============================================================================
+
+// ListModuleGrants returns access grants, optionally filtered by user or module.
+func (s *Service) ListModuleGrants(ctx context.Context, tenantID uuid.UUID, userID *uuid.UUID, moduleID *string) ([]*UserModuleGrant, error) {
+	return s.repo.ListModuleGrants(ctx, tenantID, userID, moduleID)
+}
+
+// GrantModuleAccess gives a user access to a module. Only admins may do this.
+func (s *Service) GrantModuleAccess(ctx context.Context, tenantID, callerID, targetUserID uuid.UUID, moduleID string) (*UserModuleGrant, error) {
+	if moduleID == "" {
+		return nil, ErrInvalidModuleID
+	}
+	if err := s.requireAdmin(ctx, tenantID, callerID); err != nil {
+		return nil, err
+	}
+	g, err := s.repo.GrantModuleAccess(ctx, tenantID, targetUserID, moduleID, &callerID)
+	if err != nil {
+		return nil, err
+	}
+	slog.Info("module access granted",
+		"tenant_id", tenantID, "user_id", targetUserID, "module_id", moduleID, "granted_by", callerID)
+	return g, nil
+}
+
+// RevokeModuleAccess removes a user's access to a module. Only admins may do this.
+func (s *Service) RevokeModuleAccess(ctx context.Context, tenantID, callerID, targetUserID uuid.UUID, moduleID string) error {
+	if moduleID == "" {
+		return ErrInvalidModuleID
+	}
+	if err := s.requireAdmin(ctx, tenantID, callerID); err != nil {
+		return err
+	}
+	if err := s.repo.RevokeModuleAccess(ctx, tenantID, targetUserID, moduleID); err != nil {
+		return err
+	}
+	slog.Info("module access revoked",
+		"tenant_id", tenantID, "user_id", targetUserID, "module_id", moduleID, "revoked_by", callerID)
+	return nil
+}
+
+// BulkRevokeModuleAccess removes multiple grants at once. Only admins may do this.
+func (s *Service) BulkRevokeModuleAccess(ctx context.Context, tenantID, callerID uuid.UUID, refs []ModuleGrantRef) (int, error) {
+	if err := s.requireAdmin(ctx, tenantID, callerID); err != nil {
+		return 0, err
+	}
+	for _, ref := range refs {
+		if ref.ModuleID == "" {
+			return 0, ErrInvalidModuleID
+		}
+	}
+	n, err := s.repo.BulkRevokeModuleAccess(ctx, tenantID, refs)
+	if err != nil {
+		return 0, err
+	}
+	slog.Info("module access bulk-revoked", "tenant_id", tenantID, "count", n, "revoked_by", callerID)
+	return n, nil
+}
+
+// requireAdmin returns ErrNotAdmin when the caller is not an admin in the tenant.
+func (s *Service) requireAdmin(ctx context.Context, tenantID, callerID uuid.UUID) error {
+	isAdmin, err := s.roleChecker.IsAdmin(ctx, tenantID, callerID)
+	if err != nil {
+		return err
+	}
+	if !isAdmin {
+		return ErrNotAdmin
+	}
+	return nil
+}
+
+// ============================================================================
 // Settings management
 // ============================================================================
 

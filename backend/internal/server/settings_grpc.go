@@ -147,6 +147,108 @@ func (s *SettingsGRPCServer) GetMyModuleLeads(ctx context.Context, req *settings
 }
 
 // ============================================================================
+// Module-access grant RPCs
+// ============================================================================
+
+func (s *SettingsGRPCServer) ListModuleGrants(ctx context.Context, req *settingsv1.ListModuleGrantsRequest) (*settingsv1.ListModuleGrantsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	var userIDPtr *uuid.UUID
+	if req.UserId != nil {
+		uid, err := uuid.Parse(req.GetUserId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", err)
+		}
+		userIDPtr = &uid
+	}
+
+	grants, err := s.svc.ListModuleGrants(ctx, tenantID, userIDPtr, req.ModuleId)
+	if err != nil {
+		slog.Error("ListModuleGrants failed", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to list module grants")
+	}
+
+	resp := &settingsv1.ListModuleGrantsResponse{
+		Grants: make([]*settingsv1.UserModuleGrant, 0, len(grants)),
+	}
+	for _, g := range grants {
+		resp.Grants = append(resp.Grants, modulegrantToProto(g))
+	}
+	return resp, nil
+}
+
+func (s *SettingsGRPCServer) GrantModuleAccess(ctx context.Context, req *settingsv1.GrantModuleAccessRequest) (*settingsv1.UserModuleGrant, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	targetUserID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", err)
+	}
+	callerID, err := uuid.Parse(req.GetGrantedBy())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid granted_by: %v", err)
+	}
+
+	g, err := s.svc.GrantModuleAccess(ctx, tenantID, callerID, targetUserID, req.GetModuleId())
+	if err != nil {
+		return nil, mapModuleGrantError(err, "grant")
+	}
+	return modulegrantToProto(g), nil
+}
+
+func (s *SettingsGRPCServer) RevokeModuleAccess(ctx context.Context, req *settingsv1.RevokeModuleAccessRequest) (*settingsv1.RevokeModuleAccessResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	targetUserID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user_id: %v", err)
+	}
+
+	callerID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "caller not authenticated")
+	}
+
+	if err := s.svc.RevokeModuleAccess(ctx, tenantID, callerID, targetUserID, req.GetModuleId()); err != nil {
+		return nil, mapModuleGrantError(err, "revoke")
+	}
+	return &settingsv1.RevokeModuleAccessResponse{}, nil
+}
+
+func (s *SettingsGRPCServer) BulkRevokeModuleAccess(ctx context.Context, req *settingsv1.BulkRevokeModuleAccessRequest) (*settingsv1.BulkRevokeModuleAccessResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	callerID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "caller not authenticated")
+	}
+
+	refs := make([]settings.ModuleGrantRef, 0, len(req.GetRefs()))
+	for _, r := range req.GetRefs() {
+		uid, err := uuid.Parse(r.GetUserId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid user_id in refs: %v", err)
+		}
+		refs = append(refs, settings.ModuleGrantRef{UserID: uid, ModuleID: r.GetModuleId()})
+	}
+
+	n, err := s.svc.BulkRevokeModuleAccess(ctx, tenantID, callerID, refs)
+	if err != nil {
+		return nil, mapModuleGrantError(err, "bulk-revoke")
+	}
+	return &settingsv1.BulkRevokeModuleAccessResponse{RevokedCount: int32(n)}, nil
+}
+
+// ============================================================================
 // Settings RPCs
 // ============================================================================
 
@@ -300,6 +402,37 @@ func moduleleadToProto(ml *settings.ModuleLead) *settingsv1.ModuleLead {
 		p.GrantedBy = ml.GrantedBy.String()
 	}
 	return p
+}
+
+func modulegrantToProto(g *settings.UserModuleGrant) *settingsv1.UserModuleGrant {
+	p := &settingsv1.UserModuleGrant{
+		TenantId:  g.TenantID.String(),
+		UserId:    g.UserID.String(),
+		UserName:  g.UserName,
+		ModuleId:  g.ModuleID,
+		GrantedAt: timestamppb.New(g.GrantedAt),
+	}
+	if g.GrantedBy != nil {
+		p.GrantedBy = g.GrantedBy.String()
+	}
+	if g.LastActiveAt != nil {
+		p.LastActiveAt = timestamppb.New(*g.LastActiveAt)
+	}
+	return p
+}
+
+// mapModuleGrantError maps service errors to gRPC status codes for the module
+// grant RPCs. op is the verb used in the user-facing message ("grant", etc.).
+func mapModuleGrantError(err error, op string) error {
+	switch {
+	case errors.Is(err, settings.ErrNotAdmin):
+		return status.Errorf(codes.PermissionDenied, "only admins may %s module access", op)
+	case errors.Is(err, settings.ErrInvalidModuleID):
+		return status.Errorf(codes.InvalidArgument, "module_id must not be empty")
+	default:
+		slog.Error("module access op failed", "op", op, "error", err)
+		return status.Errorf(codes.Internal, "failed to %s module access", op)
+	}
 }
 
 func entriesToProto(entries []*settings.SettingEntry) []*settingsv1.SettingEntry {

@@ -178,6 +178,112 @@ func (r *PostgresRepository) ListLeadModulesForUser(ctx context.Context, tenantI
 }
 
 // ============================================================================
+// Module-access grant queries
+// ============================================================================
+
+// ListModuleGrants lists access grants for a tenant, optionally filtered by user
+// and/or module. user_name is joined from users for display.
+func (r *PostgresRepository) ListModuleGrants(ctx context.Context, tenantID uuid.UUID, userID *uuid.UUID, moduleID *string) ([]*UserModuleGrant, error) {
+	query := `
+		SELECT g.tenant_id, g.user_id,
+		       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email, ''),
+		       g.module_id, g.granted_by, g.granted_at, g.last_active_at
+		FROM user_module_grants g
+		JOIN users u ON u.id = g.user_id
+		WHERE g.tenant_id = $1
+	`
+	args := []any{tenantID}
+	if userID != nil {
+		args = append(args, *userID)
+		query += " AND g.user_id = $2"
+	}
+	if moduleID != nil {
+		args = append(args, *moduleID)
+		if userID != nil {
+			query += " AND g.module_id = $3"
+		} else {
+			query += " AND g.module_id = $2"
+		}
+	}
+	query += " ORDER BY u.last_name, u.first_name, g.module_id"
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var grants []*UserModuleGrant
+	for rows.Next() {
+		g := &UserModuleGrant{}
+		if err := rows.Scan(&g.TenantID, &g.UserID, &g.UserName, &g.ModuleID, &g.GrantedBy, &g.GrantedAt, &g.LastActiveAt); err != nil {
+			return nil, err
+		}
+		grants = append(grants, g)
+	}
+	return grants, rows.Err()
+}
+
+// GrantModuleAccess inserts or updates an access grant (UPSERT) and returns it
+// with the joined user_name.
+func (r *PostgresRepository) GrantModuleAccess(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, grantedBy *uuid.UUID) (*UserModuleGrant, error) {
+	const q = `
+		WITH upserted AS (
+			INSERT INTO user_module_grants (tenant_id, user_id, module_id, granted_by, granted_at)
+			VALUES ($1, $2, $3, $4, NOW())
+			ON CONFLICT (tenant_id, user_id, module_id)
+			DO UPDATE SET granted_by = EXCLUDED.granted_by, granted_at = NOW()
+			RETURNING tenant_id, user_id, module_id, granted_by, granted_at, last_active_at
+		)
+		SELECT up.tenant_id, up.user_id,
+		       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email, ''),
+		       up.module_id, up.granted_by, up.granted_at, up.last_active_at
+		FROM upserted up
+		JOIN users u ON u.id = up.user_id
+	`
+	g := &UserModuleGrant{}
+	err := r.pool.QueryRow(ctx, q, tenantID, userID, moduleID, grantedBy).
+		Scan(&g.TenantID, &g.UserID, &g.UserName, &g.ModuleID, &g.GrantedBy, &g.GrantedAt, &g.LastActiveAt)
+	return g, err
+}
+
+// RevokeModuleAccess removes an access grant. Idempotent — no error if absent.
+func (r *PostgresRepository) RevokeModuleAccess(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) error {
+	const q = `
+		DELETE FROM user_module_grants
+		WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3
+	`
+	_, err := r.pool.Exec(ctx, q, tenantID, userID, moduleID)
+	return err
+}
+
+// BulkRevokeModuleAccess removes multiple (user, module) grants in one statement
+// and returns the number of rows actually deleted.
+func (r *PostgresRepository) BulkRevokeModuleAccess(ctx context.Context, tenantID uuid.UUID, refs []ModuleGrantRef) (int, error) {
+	if len(refs) == 0 {
+		return 0, nil
+	}
+	userIDs := make([]uuid.UUID, len(refs))
+	moduleIDs := make([]string, len(refs))
+	for i, ref := range refs {
+		userIDs[i] = ref.UserID
+		moduleIDs[i] = ref.ModuleID
+	}
+	const q = `
+		DELETE FROM user_module_grants
+		WHERE tenant_id = $1
+		  AND (user_id, module_id) IN (
+		      SELECT * FROM unnest($2::uuid[], $3::text[])
+		  )
+	`
+	tag, err := r.pool.Exec(ctx, q, tenantID, userIDs, moduleIDs)
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+// ============================================================================
 // Tenant settings queries
 // ============================================================================
 

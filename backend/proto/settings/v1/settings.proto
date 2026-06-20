@@ -21,6 +21,13 @@ service SettingsService {
   // "Am I a lead?" fast-path used by the FE useIsModuleLead hook
   rpc GetMyModuleLeads(GetMyModuleLeadsRequest) returns (GetMyModuleLeadsResponse);
 
+  // Module-access grant management (admin only for write). Distinct from
+  // module-lead: a grant gives a user ACCESS to a module; a lead may configure it.
+  rpc ListModuleGrants(ListModuleGrantsRequest)             returns (ListModuleGrantsResponse);
+  rpc GrantModuleAccess(GrantModuleAccessRequest)           returns (UserModuleGrant);
+  rpc RevokeModuleAccess(RevokeModuleAccessRequest)         returns (RevokeModuleAccessResponse);
+  rpc BulkRevokeModuleAccess(BulkRevokeModuleAccessRequest) returns (BulkRevokeModuleAccessResponse);
+
   // Resolved settings (user > tenant > not-set), returned as a flat key→value map
   rpc GetResolvedSettings(GetResolvedSettingsRequest) returns (GetResolvedSettingsResponse);
 
@@ -93,6 +100,63 @@ message GetMyModuleLeadsResponse {
   // module_ids the caller is lead for (empty if none; admin = all)
   repeated string module_ids = 1;
   bool            is_admin   = 2;
+}
+
+// ============================================================================
+// Module-Access Grant Requests / Responses
+// ============================================================================
+
+// UserModuleGrant records that a user has access to a module. user_name is
+// joined from the users table for display; last_active_at is reserved for a
+// future activity pipeline and is absent until then.
+message UserModuleGrant {
+  string tenant_id  = 1;
+  string user_id    = 2;
+  string user_name  = 3;
+  string module_id  = 4;
+  string granted_by = 5;
+  google.protobuf.Timestamp granted_at     = 6;
+  optional google.protobuf.Timestamp last_active_at = 7;
+}
+
+message ListModuleGrantsRequest {
+  string tenant_id = 1;
+  optional string user_id   = 2;
+  optional string module_id = 3;
+}
+
+message ListModuleGrantsResponse {
+  repeated UserModuleGrant grants = 1;
+}
+
+message GrantModuleAccessRequest {
+  string tenant_id  = 1;
+  string user_id    = 2;
+  string module_id  = 3;
+  string granted_by = 4;
+}
+
+message RevokeModuleAccessRequest {
+  string tenant_id = 1;
+  string user_id   = 2;
+  string module_id = 3;
+}
+
+message RevokeModuleAccessResponse {}
+
+// A (user, module) pair targeted by a bulk revoke.
+message ModuleGrantRef {
+  string user_id   = 1;
+  string module_id = 2;
+}
+
+message BulkRevokeModuleAccessRequest {
+  string tenant_id = 1;
+  repeated ModuleGrantRef refs = 2;
+}
+
+message BulkRevokeModuleAccessResponse {
+  int32 revoked_count = 1;
 }
 
 // ============================================================================

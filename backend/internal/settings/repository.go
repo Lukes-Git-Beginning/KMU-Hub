@@ -16,6 +16,12 @@ type Repository interface {
 	IsModuleLead(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) (bool, error)
 	ListLeadModulesForUser(ctx context.Context, tenantID, userID uuid.UUID) ([]string, error)
 
+	// Module-access grants
+	ListModuleGrants(ctx context.Context, tenantID uuid.UUID, userID *uuid.UUID, moduleID *string) ([]*UserModuleGrant, error)
+	GrantModuleAccess(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, grantedBy *uuid.UUID) (*UserModuleGrant, error)
+	RevokeModuleAccess(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) error
+	BulkRevokeModuleAccess(ctx context.Context, tenantID uuid.UUID, refs []ModuleGrantRef) (int, error)
+
 	// Tenant settings
 	GetTenantSettings(ctx context.Context, tenantID uuid.UUID, moduleID string) ([]*SettingEntry, error)
 	PutTenantSettings(ctx context.Context, tenantID uuid.UUID, moduleID string, updatedBy *uuid.UUID, entries []*SettingEntry) ([]*SettingEntry, error)

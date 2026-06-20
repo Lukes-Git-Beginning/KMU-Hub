@@ -1,12 +1,12 @@
 /**
- * useModuleAssignments.ts — TanStack Query hooks for Module-Assignment Tab (Phase 2).
+ * useModuleAssignments.ts — TanStack Query hooks for the Module-Assignment Tab.
  *
- * No backend calls. Uses MOCK_GRANTS from billing-mock.ts as source of truth.
- * Mutations operate on in-memory QueryClient cache via setQueryData.
- * staleTime: Infinity — data only changes through mutations.
+ * Backed by the real /api/v1/tenant/module-grants endpoints (R3-E6). Mutations
+ * apply an optimistic cache update for snappy UX, roll back on error, and
+ * invalidate on settle so the server stays the source of truth.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MOCK_GRANTS } from '@/mocks/billing-mock'
+import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 import type { UserModuleGrant, ModuleId } from '@/lib/pricing'
 
 // ───────────────────────── Query Keys ─────────────────────────
@@ -16,32 +16,41 @@ const MA_KEYS = {
   byUser: (userId: string) => ['moduleAssignments', 'grants', 'user', userId] as const,
 }
 
-// ───────────────────────── Seed data ─────────────────────────
+const GRANTS_PATH = '/api/v1/tenant/module-grants'
 
-// Initialise once; subsequent calls read from QueryClient cache.
-let seeded = false
-let _cachedGrants: UserModuleGrant[] = [...MOCK_GRANTS]
+// Backend grant shape (gateway HandleListModuleGrants). moduleId is widened to
+// ModuleId on the way in.
+interface RawGrant {
+  userId: string
+  userName: string
+  moduleId: string
+  grantedAt: string
+  lastActiveAt: string | null
+}
 
-function getGrants(): UserModuleGrant[] {
-  return _cachedGrants
+function toGrant(g: RawGrant): UserModuleGrant {
+  return {
+    userId: g.userId,
+    userName: g.userName,
+    moduleId: g.moduleId as ModuleId,
+    grantedAt: g.grantedAt,
+    lastActiveAt: g.lastActiveAt,
+  }
 }
 
 // ───────────────────────── Hooks ─────────────────────────
 
-/**
- * All UserModuleGrant entries.
- * Initial data from MOCK_GRANTS; mutated in-memory via queryClient.setQueryData.
- */
+/** All UserModuleGrant entries for the tenant. */
 export function useModuleAssignments() {
   return useQuery<UserModuleGrant[]>({
     queryKey: MA_KEYS.all,
-    queryFn: () => {
-      if (!seeded) {
-        seeded = true
-      }
-      return Promise.resolve(getGrants())
+    queryFn: async () => {
+      const data = await authenticatedRequest<{ grants: RawGrant[] }>({
+        method: 'GET',
+        path: GRANTS_PATH,
+      })
+      return (data.grants ?? []).map(toGrant)
     },
-    staleTime: Infinity,
   })
 }
 
@@ -63,20 +72,16 @@ export interface GrantModuleArgs {
   moduleId: ModuleId
 }
 
-/** Add a module grant for a user (optimistic). */
+/** Add a module grant for a user (optimistic, server-persisted). */
 export function useGrantModule() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (args: GrantModuleArgs): Promise<UserModuleGrant> => {
-      const newGrant: UserModuleGrant = {
-        userId: args.userId,
-        userName: args.userName,
-        moduleId: args.moduleId,
-        grantedAt: new Date().toISOString(),
-        lastActiveAt: null,
-      }
-      return newGrant
+    mutationFn: async (args: GrantModuleArgs) => {
+      await authenticatedRequest({
+        method: 'PUT',
+        path: `${GRANTS_PATH}/${args.userId}/${args.moduleId}`,
+      })
     },
     onMutate: async (args) => {
       await queryClient.cancelQueries({ queryKey: MA_KEYS.all })
@@ -89,18 +94,20 @@ export function useGrantModule() {
         grantedAt: new Date().toISOString(),
         lastActiveAt: null,
       }
-
-      const next = [...(previous ?? _cachedGrants), newGrant]
-      _cachedGrants = next
-      queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, next)
+      const base = previous ?? []
+      // Avoid a duplicate row if the grant already exists.
+      const exists = base.some((g) => g.userId === args.userId && g.moduleId === args.moduleId)
+      queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, exists ? base : [...base, newGrant])
 
       return { previous }
     },
     onError: (_err, _args, context) => {
       if (context?.previous) {
-        _cachedGrants = context.previous
         queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, context.previous)
       }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: MA_KEYS.all })
     },
   })
 }
@@ -116,29 +123,35 @@ export interface RevokeModuleArgs {
   fromRecommendation?: boolean
 }
 
-/** Remove a module grant for a user (optimistic). */
+/** Remove a module grant for a user (optimistic, server-persisted). */
 export function useRevokeModule() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (_args: RevokeModuleArgs) => undefined,
+    mutationFn: async (args: RevokeModuleArgs) => {
+      await authenticatedRequest({
+        method: 'DELETE',
+        path: `${GRANTS_PATH}/${args.userId}/${args.moduleId}`,
+      })
+    },
     onMutate: async (args) => {
       await queryClient.cancelQueries({ queryKey: MA_KEYS.all })
-      const previous = queryClient.getQueryData<UserModuleGrant[]>(MA_KEYS.all) ?? _cachedGrants
+      const previous = queryClient.getQueryData<UserModuleGrant[]>(MA_KEYS.all) ?? []
 
       const next = previous.filter(
         (g) => !(g.userId === args.userId && g.moduleId === args.moduleId),
       )
-      _cachedGrants = next
       queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, next)
 
       return { previous }
     },
     onError: (_err, _args, context) => {
       if (context?.previous) {
-        _cachedGrants = context.previous
         queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, context.previous)
       }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: MA_KEYS.all })
     },
   })
 }
@@ -152,48 +165,73 @@ export interface BulkRevokeArgs {
   fromRecommendation?: boolean
 }
 
-/** Revoke multiple grants at once (optimistic). */
+/** Revoke multiple grants at once (optimistic, server-persisted). */
 export function useBulkRevokeInactive() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (_args: BulkRevokeArgs) => undefined,
+    mutationFn: async (args: BulkRevokeArgs) => {
+      if (args.pairs.length === 0) return
+      await authenticatedRequest({
+        method: 'POST',
+        path: `${GRANTS_PATH}/bulk-revoke`,
+        body: { pairs: args.pairs },
+      })
+    },
     onMutate: async (args) => {
       await queryClient.cancelQueries({ queryKey: MA_KEYS.all })
-      const previous = queryClient.getQueryData<UserModuleGrant[]>(MA_KEYS.all) ?? _cachedGrants
+      const previous = queryClient.getQueryData<UserModuleGrant[]>(MA_KEYS.all) ?? []
 
       const pairSet = new Set(args.pairs.map((p) => `${p.userId}:${p.moduleId}`))
       const next = previous.filter((g) => !pairSet.has(`${g.userId}:${g.moduleId}`))
-      _cachedGrants = next
       queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, next)
 
       return { previous }
     },
     onError: (_err, _args, context) => {
       if (context?.previous) {
-        _cachedGrants = context.previous
         queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, context.previous)
       }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: MA_KEYS.all })
     },
   })
 }
 
-/** Restore a set of grants (used by undo-toast logic). */
+/** Restore a set of grants (used by undo-toast logic) — re-grants each. */
 export function useRestoreGrants() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (_grants: UserModuleGrant[]) => undefined,
+    mutationFn: async (grants: UserModuleGrant[]) => {
+      await Promise.all(
+        grants.map((g) =>
+          authenticatedRequest({
+            method: 'PUT',
+            path: `${GRANTS_PATH}/${g.userId}/${g.moduleId}`,
+          }),
+        ),
+      )
+    },
     onMutate: async (grants) => {
       await queryClient.cancelQueries({ queryKey: MA_KEYS.all })
-      const current = queryClient.getQueryData<UserModuleGrant[]>(MA_KEYS.all) ?? _cachedGrants
+      const current = queryClient.getQueryData<UserModuleGrant[]>(MA_KEYS.all) ?? []
 
       // Add back (avoid duplicates)
       const existingKeys = new Set(current.map((g) => `${g.userId}:${g.moduleId}`))
       const toAdd = grants.filter((g) => !existingKeys.has(`${g.userId}:${g.moduleId}`))
-      const next = [...current, ...toAdd]
-      _cachedGrants = next
-      queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, next)
+      queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, [...current, ...toAdd])
+
+      return { previous: current }
+    },
+    onError: (_err, _grants, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<UserModuleGrant[]>(MA_KEYS.all, context.previous)
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: MA_KEYS.all })
     },
   })
 }

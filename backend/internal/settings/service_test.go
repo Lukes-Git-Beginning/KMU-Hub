@@ -100,6 +100,22 @@ func (r *fakeRepo) ListLeadModulesForUser(_ context.Context, tenantID, userID uu
 	return mods, nil
 }
 
+func (r *fakeRepo) ListModuleGrants(_ context.Context, _ uuid.UUID, _ *uuid.UUID, _ *string) ([]*settings.UserModuleGrant, error) {
+	return nil, nil
+}
+
+func (r *fakeRepo) GrantModuleAccess(_ context.Context, tenantID, userID uuid.UUID, moduleID string, grantedBy *uuid.UUID) (*settings.UserModuleGrant, error) {
+	return &settings.UserModuleGrant{TenantID: tenantID, UserID: userID, ModuleID: moduleID, GrantedBy: grantedBy}, nil
+}
+
+func (r *fakeRepo) RevokeModuleAccess(_ context.Context, _, _ uuid.UUID, _ string) error {
+	return nil
+}
+
+func (r *fakeRepo) BulkRevokeModuleAccess(_ context.Context, _ uuid.UUID, refs []settings.ModuleGrantRef) (int, error) {
+	return len(refs), nil
+}
+
 func (r *fakeRepo) GetTenantSettings(_ context.Context, tenantID uuid.UUID, moduleID string) ([]*settings.SettingEntry, error) {
 	return r.tenantSettings[tsKey(tenantID, moduleID)], nil
 }

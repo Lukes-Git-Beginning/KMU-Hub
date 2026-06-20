@@ -19,15 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SettingsService_ListModuleLeads_FullMethodName     = "/settings.v1.SettingsService/ListModuleLeads"
-	SettingsService_GrantModuleLead_FullMethodName     = "/settings.v1.SettingsService/GrantModuleLead"
-	SettingsService_RevokeModuleLead_FullMethodName    = "/settings.v1.SettingsService/RevokeModuleLead"
-	SettingsService_GetMyModuleLeads_FullMethodName    = "/settings.v1.SettingsService/GetMyModuleLeads"
-	SettingsService_GetResolvedSettings_FullMethodName = "/settings.v1.SettingsService/GetResolvedSettings"
-	SettingsService_GetTenantSettings_FullMethodName   = "/settings.v1.SettingsService/GetTenantSettings"
-	SettingsService_PutTenantSettings_FullMethodName   = "/settings.v1.SettingsService/PutTenantSettings"
-	SettingsService_GetUserSettings_FullMethodName     = "/settings.v1.SettingsService/GetUserSettings"
-	SettingsService_PutUserSettings_FullMethodName     = "/settings.v1.SettingsService/PutUserSettings"
+	SettingsService_ListModuleLeads_FullMethodName        = "/settings.v1.SettingsService/ListModuleLeads"
+	SettingsService_GrantModuleLead_FullMethodName        = "/settings.v1.SettingsService/GrantModuleLead"
+	SettingsService_RevokeModuleLead_FullMethodName       = "/settings.v1.SettingsService/RevokeModuleLead"
+	SettingsService_GetMyModuleLeads_FullMethodName       = "/settings.v1.SettingsService/GetMyModuleLeads"
+	SettingsService_ListModuleGrants_FullMethodName       = "/settings.v1.SettingsService/ListModuleGrants"
+	SettingsService_GrantModuleAccess_FullMethodName      = "/settings.v1.SettingsService/GrantModuleAccess"
+	SettingsService_RevokeModuleAccess_FullMethodName     = "/settings.v1.SettingsService/RevokeModuleAccess"
+	SettingsService_BulkRevokeModuleAccess_FullMethodName = "/settings.v1.SettingsService/BulkRevokeModuleAccess"
+	SettingsService_GetResolvedSettings_FullMethodName    = "/settings.v1.SettingsService/GetResolvedSettings"
+	SettingsService_GetTenantSettings_FullMethodName      = "/settings.v1.SettingsService/GetTenantSettings"
+	SettingsService_PutTenantSettings_FullMethodName      = "/settings.v1.SettingsService/PutTenantSettings"
+	SettingsService_GetUserSettings_FullMethodName        = "/settings.v1.SettingsService/GetUserSettings"
+	SettingsService_PutUserSettings_FullMethodName        = "/settings.v1.SettingsService/PutUserSettings"
 )
 
 // SettingsServiceClient is the client API for SettingsService service.
@@ -48,6 +52,12 @@ type SettingsServiceClient interface {
 	RevokeModuleLead(ctx context.Context, in *RevokeModuleLeadRequest, opts ...grpc.CallOption) (*RevokeModuleLeadResponse, error)
 	// "Am I a lead?" fast-path used by the FE useIsModuleLead hook
 	GetMyModuleLeads(ctx context.Context, in *GetMyModuleLeadsRequest, opts ...grpc.CallOption) (*GetMyModuleLeadsResponse, error)
+	// Module-access grant management (admin only for write). Distinct from
+	// module-lead: a grant gives a user ACCESS to a module; a lead may configure it.
+	ListModuleGrants(ctx context.Context, in *ListModuleGrantsRequest, opts ...grpc.CallOption) (*ListModuleGrantsResponse, error)
+	GrantModuleAccess(ctx context.Context, in *GrantModuleAccessRequest, opts ...grpc.CallOption) (*UserModuleGrant, error)
+	RevokeModuleAccess(ctx context.Context, in *RevokeModuleAccessRequest, opts ...grpc.CallOption) (*RevokeModuleAccessResponse, error)
+	BulkRevokeModuleAccess(ctx context.Context, in *BulkRevokeModuleAccessRequest, opts ...grpc.CallOption) (*BulkRevokeModuleAccessResponse, error)
 	// Resolved settings (user > tenant > not-set), returned as a flat key→value map
 	GetResolvedSettings(ctx context.Context, in *GetResolvedSettingsRequest, opts ...grpc.CallOption) (*GetResolvedSettingsResponse, error)
 	// Tenant-scope settings (Modul-Leiter or admin only for write)
@@ -100,6 +110,46 @@ func (c *settingsServiceClient) GetMyModuleLeads(ctx context.Context, in *GetMyM
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetMyModuleLeadsResponse)
 	err := c.cc.Invoke(ctx, SettingsService_GetMyModuleLeads_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) ListModuleGrants(ctx context.Context, in *ListModuleGrantsRequest, opts ...grpc.CallOption) (*ListModuleGrantsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListModuleGrantsResponse)
+	err := c.cc.Invoke(ctx, SettingsService_ListModuleGrants_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) GrantModuleAccess(ctx context.Context, in *GrantModuleAccessRequest, opts ...grpc.CallOption) (*UserModuleGrant, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserModuleGrant)
+	err := c.cc.Invoke(ctx, SettingsService_GrantModuleAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) RevokeModuleAccess(ctx context.Context, in *RevokeModuleAccessRequest, opts ...grpc.CallOption) (*RevokeModuleAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeModuleAccessResponse)
+	err := c.cc.Invoke(ctx, SettingsService_RevokeModuleAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) BulkRevokeModuleAccess(ctx context.Context, in *BulkRevokeModuleAccessRequest, opts ...grpc.CallOption) (*BulkRevokeModuleAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkRevokeModuleAccessResponse)
+	err := c.cc.Invoke(ctx, SettingsService_BulkRevokeModuleAccess_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +224,12 @@ type SettingsServiceServer interface {
 	RevokeModuleLead(context.Context, *RevokeModuleLeadRequest) (*RevokeModuleLeadResponse, error)
 	// "Am I a lead?" fast-path used by the FE useIsModuleLead hook
 	GetMyModuleLeads(context.Context, *GetMyModuleLeadsRequest) (*GetMyModuleLeadsResponse, error)
+	// Module-access grant management (admin only for write). Distinct from
+	// module-lead: a grant gives a user ACCESS to a module; a lead may configure it.
+	ListModuleGrants(context.Context, *ListModuleGrantsRequest) (*ListModuleGrantsResponse, error)
+	GrantModuleAccess(context.Context, *GrantModuleAccessRequest) (*UserModuleGrant, error)
+	RevokeModuleAccess(context.Context, *RevokeModuleAccessRequest) (*RevokeModuleAccessResponse, error)
+	BulkRevokeModuleAccess(context.Context, *BulkRevokeModuleAccessRequest) (*BulkRevokeModuleAccessResponse, error)
 	// Resolved settings (user > tenant > not-set), returned as a flat key→value map
 	GetResolvedSettings(context.Context, *GetResolvedSettingsRequest) (*GetResolvedSettingsResponse, error)
 	// Tenant-scope settings (Modul-Leiter or admin only for write)
@@ -203,6 +259,18 @@ func (UnimplementedSettingsServiceServer) RevokeModuleLead(context.Context, *Rev
 }
 func (UnimplementedSettingsServiceServer) GetMyModuleLeads(context.Context, *GetMyModuleLeadsRequest) (*GetMyModuleLeadsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMyModuleLeads not implemented")
+}
+func (UnimplementedSettingsServiceServer) ListModuleGrants(context.Context, *ListModuleGrantsRequest) (*ListModuleGrantsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListModuleGrants not implemented")
+}
+func (UnimplementedSettingsServiceServer) GrantModuleAccess(context.Context, *GrantModuleAccessRequest) (*UserModuleGrant, error) {
+	return nil, status.Error(codes.Unimplemented, "method GrantModuleAccess not implemented")
+}
+func (UnimplementedSettingsServiceServer) RevokeModuleAccess(context.Context, *RevokeModuleAccessRequest) (*RevokeModuleAccessResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeModuleAccess not implemented")
+}
+func (UnimplementedSettingsServiceServer) BulkRevokeModuleAccess(context.Context, *BulkRevokeModuleAccessRequest) (*BulkRevokeModuleAccessResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BulkRevokeModuleAccess not implemented")
 }
 func (UnimplementedSettingsServiceServer) GetResolvedSettings(context.Context, *GetResolvedSettingsRequest) (*GetResolvedSettingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetResolvedSettings not implemented")
@@ -308,6 +376,78 @@ func _SettingsService_GetMyModuleLeads_Handler(srv interface{}, ctx context.Cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SettingsServiceServer).GetMyModuleLeads(ctx, req.(*GetMyModuleLeadsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_ListModuleGrants_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListModuleGrantsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).ListModuleGrants(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_ListModuleGrants_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).ListModuleGrants(ctx, req.(*ListModuleGrantsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_GrantModuleAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GrantModuleAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).GrantModuleAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_GrantModuleAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).GrantModuleAccess(ctx, req.(*GrantModuleAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_RevokeModuleAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeModuleAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).RevokeModuleAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_RevokeModuleAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).RevokeModuleAccess(ctx, req.(*RevokeModuleAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_BulkRevokeModuleAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkRevokeModuleAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).BulkRevokeModuleAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_BulkRevokeModuleAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).BulkRevokeModuleAccess(ctx, req.(*BulkRevokeModuleAccessRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -424,6 +564,22 @@ var SettingsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMyModuleLeads",
 			Handler:    _SettingsService_GetMyModuleLeads_Handler,
+		},
+		{
+			MethodName: "ListModuleGrants",
+			Handler:    _SettingsService_ListModuleGrants_Handler,
+		},
+		{
+			MethodName: "GrantModuleAccess",
+			Handler:    _SettingsService_GrantModuleAccess_Handler,
+		},
+		{
+			MethodName: "RevokeModuleAccess",
+			Handler:    _SettingsService_RevokeModuleAccess_Handler,
+		},
+		{
+			MethodName: "BulkRevokeModuleAccess",
+			Handler:    _SettingsService_BulkRevokeModuleAccess_Handler,
 		},
 		{
 			MethodName: "GetResolvedSettings",

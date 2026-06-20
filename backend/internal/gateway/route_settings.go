@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -58,6 +59,14 @@ func (sr *SettingsRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequirePermission("module-leads", "read")).Get("/me", sr.HandleGetMyModuleLeads)
 		r.With(middleware.RequirePermission("module-leads", "write")).Put("/{user_id}/{module_id}", sr.HandleGrantModuleLead)
 		r.With(middleware.RequirePermission("module-leads", "write")).Delete("/{user_id}/{module_id}", sr.HandleRevokeModuleLead)
+	})
+
+	r.Route("/api/v1/tenant/module-grants", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("module-grants", "read")).Get("/", sr.HandleListModuleGrants)
+		r.With(middleware.RequirePermission("module-grants", "write")).Post("/bulk-revoke", sr.HandleBulkRevokeModuleAccess)
+		r.With(middleware.RequirePermission("module-grants", "write")).Put("/{user_id}/{module_id}", sr.HandleGrantModuleAccess)
+		r.With(middleware.RequirePermission("module-grants", "write")).Delete("/{user_id}/{module_id}", sr.HandleRevokeModuleAccess)
 	})
 
 	r.Route("/api/v1/settings/{module_id}", func(r chi.Router) {
@@ -214,6 +223,191 @@ func (sr *SettingsRoutes) HandleRevokeModuleLead(w http.ResponseWriter, r *http.
 		return
 	}
 	response.JSON(w, http.StatusNoContent, nil)
+}
+
+// ============================================================================
+// Module-access grant handlers
+// ============================================================================
+
+// userModuleGrantJSON is the flat shape the ModuleAssignmentTab consumes
+// (lib/pricing.ts UserModuleGrant). Timestamps are RFC3339 strings and field
+// names are camelCase, so we transform the proto rather than passing it through.
+type userModuleGrantJSON struct {
+	UserID       string  `json:"userId"`
+	UserName     string  `json:"userName"`
+	ModuleID     string  `json:"moduleId"`
+	GrantedAt    string  `json:"grantedAt"`
+	LastActiveAt *string `json:"lastActiveAt"`
+}
+
+func toUserModuleGrantJSON(g *settingsv1.UserModuleGrant) userModuleGrantJSON {
+	out := userModuleGrantJSON{
+		UserID:    g.GetUserId(),
+		UserName:  g.GetUserName(),
+		ModuleID:  g.GetModuleId(),
+		GrantedAt: g.GetGrantedAt().AsTime().Format(time.RFC3339),
+	}
+	if g.LastActiveAt != nil {
+		s := g.GetLastActiveAt().AsTime().Format(time.RFC3339)
+		out.LastActiveAt = &s
+	}
+	return out
+}
+
+// HandleListModuleGrants returns all module-access grants for the tenant.
+func (sr *SettingsRoutes) HandleListModuleGrants(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	req := &settingsv1.ListModuleGrantsRequest{TenantId: tenantID.String()}
+	if uid := r.URL.Query().Get("user_id"); uid != "" {
+		req.UserId = &uid
+	}
+	if mid := r.URL.Query().Get("module_id"); mid != "" {
+		req.ModuleId = &mid
+	}
+
+	resp, err := client.ListModuleGrants(r.Context(), req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	grants := make([]userModuleGrantJSON, 0, len(resp.GetGrants()))
+	for _, g := range resp.GetGrants() {
+		grants = append(grants, toUserModuleGrantJSON(g))
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"grants": grants})
+}
+
+// HandleGrantModuleAccess grants a user access to a module (admin only).
+func (sr *SettingsRoutes) HandleGrantModuleAccess(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	callerID := middleware.GetUserID(r.Context())
+	if callerID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	targetUserID, ok := validateUUIDParam(w, r, "user_id")
+	if !ok {
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+	if moduleID == "" {
+		response.Error(w, http.StatusBadRequest, "module_id is required")
+		return
+	}
+
+	resp, err := client.GrantModuleAccess(r.Context(), &settingsv1.GrantModuleAccessRequest{
+		TenantId:  tenantID.String(),
+		UserId:    targetUserID,
+		ModuleId:  moduleID,
+		GrantedBy: callerID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, toUserModuleGrantJSON(resp))
+}
+
+// HandleRevokeModuleAccess revokes a user's access to a module (admin only).
+func (sr *SettingsRoutes) HandleRevokeModuleAccess(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	targetUserID, ok := validateUUIDParam(w, r, "user_id")
+	if !ok {
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+	if moduleID == "" {
+		response.Error(w, http.StatusBadRequest, "module_id is required")
+		return
+	}
+
+	_, err = client.RevokeModuleAccess(r.Context(), &settingsv1.RevokeModuleAccessRequest{
+		TenantId: tenantID.String(),
+		UserId:   targetUserID,
+		ModuleId: moduleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusNoContent, nil)
+}
+
+// bulkRevokeGrantsRequest is the HTTP body for POST /module-grants/bulk-revoke.
+type bulkRevokeGrantsRequest struct {
+	Pairs []struct {
+		UserID   string `json:"userId" validate:"required,uuid"`
+		ModuleID string `json:"moduleId" validate:"required"`
+	} `json:"pairs" validate:"required"`
+}
+
+// HandleBulkRevokeModuleAccess revokes multiple grants in one call (admin only).
+func (sr *SettingsRoutes) HandleBulkRevokeModuleAccess(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	req, ok := decodeAndValidate[bulkRevokeGrantsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	refs := make([]*settingsv1.ModuleGrantRef, 0, len(req.Pairs))
+	for _, p := range req.Pairs {
+		refs = append(refs, &settingsv1.ModuleGrantRef{UserId: p.UserID, ModuleId: p.ModuleID})
+	}
+
+	resp, err := client.BulkRevokeModuleAccess(r.Context(), &settingsv1.BulkRevokeModuleAccessRequest{
+		TenantId: tenantID.String(),
+		Refs:     refs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"revokedCount": resp.GetRevokedCount()})
 }
 
 // ============================================================================

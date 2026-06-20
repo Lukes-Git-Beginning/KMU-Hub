@@ -7,6 +7,7 @@
  */
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { Search, AlertTriangle, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -17,11 +18,40 @@ import {
   useRestoreGrants,
 } from '@/api/hooks/useModuleAssignments'
 import { useInsightSettings } from '@/api/hooks/useBilling'
+import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 import { DEFAULT_INSIGHT_SETTINGS, MODULE_PRICES, type ModuleId } from '@/lib/pricing'
 import type { UserModuleGrant } from '@/lib/pricing'
-import { MOCK_USERS } from '@/mocks/billing-mock'
 import { ConfirmDialog } from '@/components/shared'
 import { formatEUR } from '@/lib/pricing'
+
+// Team members for the assignment matrix, sourced from the real users endpoint.
+interface TeamUser {
+  userId: string
+  userName: string
+}
+
+interface RawTeamUser {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+}
+
+function useTeamUsers() {
+  return useQuery<TeamUser[]>({
+    queryKey: ['team', 'users'],
+    queryFn: async () => {
+      const data = await authenticatedRequest<{ users: RawTeamUser[] }>({
+        method: 'GET',
+        path: '/api/v1/users',
+      })
+      return (data.users ?? []).map((u) => ({
+        userId: u.id,
+        userName: `${u.first_name} ${u.last_name}`.trim() || u.email,
+      }))
+    },
+  })
+}
 
 // ───────────────────────── Module display config ─────────────────────────
 
@@ -135,6 +165,7 @@ function isRecentlyActive(lastActiveAt: string | null): boolean {
 export function ModuleAssignmentTab({ initialFilter, onSelectMember }: Props) {
   const { t } = useTranslation()
   const { data: allGrants = [] } = useModuleAssignments()
+  const { data: allUsers = [] } = useTeamUsers()
   const { data: insightSettings } = useInsightSettings()
   const minInactivityDays = insightSettings?.minInactivityDays ?? DEFAULT_INSIGHT_SETTINGS.minInactivityDays
 
@@ -183,13 +214,13 @@ export function ModuleAssignmentTab({ initialFilter, onSelectMember }: Props) {
     return map
   }, [allGrants])
 
-  // ── User list (from MOCK_USERS, filtered by initialFilter.userIds if set) ──
+  // ── User list (from the users endpoint, filtered by initialFilter.userIds if set) ──
   const baseUsers = useMemo(() => {
     if (initialFilter?.userIds && initialFilter.userIds.length > 0) {
-      return MOCK_USERS.filter((u) => initialFilter.userIds!.includes(u.userId))
+      return allUsers.filter((u) => initialFilter.userIds!.includes(u.userId))
     }
-    return [...MOCK_USERS]
-  }, [initialFilter?.userIds])
+    return allUsers
+  }, [allUsers, initialFilter?.userIds])
 
   const filteredUsers = useMemo(() => {
     return baseUsers.filter((u) => {
