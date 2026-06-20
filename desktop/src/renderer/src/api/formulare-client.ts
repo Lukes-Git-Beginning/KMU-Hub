@@ -13,6 +13,7 @@ import type {
   DuplicateFormSchemaInput,
   ExportFormat,
   ExportedSubmissions,
+  FieldStat,
   FormSchema,
   FormShareLink,
   FormSubmission,
@@ -263,6 +264,8 @@ export interface FormStatsResponse {
   submissionsThisWeek: number
   submissionsThisMonth: number
   averageCompletionRate: number
+  /** FT-3a — per-field analysis, keyed by field id. */
+  fieldStats?: Record<string, FieldStat>
 }
 
 export function getFormStats(schemaId: string) {

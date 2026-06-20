@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, type SyntheticEvent } from 'react'
+import { useState, useMemo, useCallback, type SyntheticEvent, type ReactNode } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import {
   DndContext,
@@ -66,6 +66,7 @@ import {
   Ban,
   Ruler,
   Star,
+  BarChart3,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -92,10 +93,12 @@ import {
   useShareLinks,
   useUpdateShareLink,
   useDeleteShareLink,
+  useFormStats,
   formulareKeys,
 } from '@/api/hooks/useFormulare'
 import { listSubmissions } from '@/api/formulare-client'
 import type {
+  FieldStat,
   FormSchema,
   FormShareLink,
   FormSubmission,
@@ -103,6 +106,8 @@ import type {
   ShareChannel,
   ShareLinkStatus,
 } from '@/api/formulare-types'
+import { ChartRenderer } from '@/modules/berichte/components/charts/ChartRenderer'
+import type { ReportResult } from '@/api/berichte-types'
 import {
   ItemActions,
   ConfirmDialog,
@@ -484,7 +489,9 @@ export default function FormularePage() {
   // Detail modal for a single form (360° view + actions)
   const [selectedForm, setSelectedForm] = useState<FormSchema | null>(null)
   // FT-1 — tab inside the form detail modal (Details / Eingänge; FD-2 adds Verteilung)
-  const [formDetailTab, setFormDetailTab] = useState<'details' | 'eingaenge' | 'verteilung'>('details')
+  const [formDetailTab, setFormDetailTab] = useState<
+    'details' | 'eingaenge' | 'auswertung' | 'verteilung'
+  >('details')
   // FT-1 — template detail modal (clickable template cards)
   const [selectedTemplate, setSelectedTemplate] = useState<FormSchema | null>(null)
   // FT-1 — confirm archiving a form that still has unread submissions
@@ -3260,6 +3267,10 @@ export default function FormularePage() {
                     }),
                   },
                   {
+                    key: 'auswertung' as const,
+                    label: t('formulare.detail.tabAuswertung'),
+                  },
+                  {
                     key: 'verteilung' as const,
                     label: t('formulare.detail.tabVerteilung', {
                       count: shareLinkCount,
@@ -3399,6 +3410,15 @@ export default function FormularePage() {
                   t={t}
                 />
               </div>
+            )}
+
+            {/* FT-3a — per-field evaluation dashboard for this form */}
+            {formDetailTab === 'auswertung' && (
+              <EvaluationPanel
+                schema={selectedForm}
+                formatDate={formatDate}
+                t={t}
+              />
             )}
 
             {/* FD-2 — distribution overview: shared links per form */}
@@ -4844,6 +4864,229 @@ function ShareLinksPanel({
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// EvaluationPanel — FT-3a per-field analysis dashboard. KPI row from the stats
+// endpoint + one card per field: a bar chart (ChartRenderer, reused from the
+// berichte module) for choice fields, a top-answers list for free text, a month
+// distribution for dates and avg/min/max for numbers/ratings.
+// ---------------------------------------------------------------------------
+
+/** Adapt a {label → count} distribution into a single-series ReportResult. */
+function distToResult(
+  dist: Record<string, number>,
+  measureLabel: string,
+): ReportResult {
+  const entries = Object.entries(dist)
+  return {
+    columns: [
+      { key: 'label', label: 'Option', type: 'string' },
+      { key: 'count', label: measureLabel, type: 'number' },
+    ],
+    rows: entries.map(([label, count]) => ({ label, count })),
+    series: [
+      {
+        id: 'count',
+        label: measureLabel,
+        data: entries.map(([label, value]) => ({ label, value })),
+      },
+    ],
+    meta: {
+      generated_at: '1970-01-01T00:00:00Z',
+      row_count: entries.length,
+      definition_id: 'field-stat',
+    },
+  }
+}
+
+interface FieldStatCardProps {
+  field: FormField
+  stat: FieldStat
+  t: (key: string, opts?: Record<string, unknown>) => string
+}
+
+function FieldStatCard({ field, stat, t }: FieldStatCardProps) {
+  const Icon = FIELD_TYPE_ICONS[field.type]
+  const measure = t('formulare.eval.answers')
+
+  let body: ReactNode = null
+
+  if (stat.distribution && Object.keys(stat.distribution).length > 0) {
+    const total = Object.values(stat.distribution).reduce((s, n) => s + n, 0)
+    body =
+      total > 0 ? (
+        <ChartRenderer result={distToResult(stat.distribution, measure)} viz="bar" height={180} />
+      ) : (
+        <p className="py-4 text-center text-xs text-muted-foreground">
+          {t('formulare.eval.noData')}
+        </p>
+      )
+  } else if (stat.topValues) {
+    body =
+      stat.topValues.length > 0 ? (
+        <ul className="space-y-1.5">
+          {stat.topValues.map((tv) => (
+            <li
+              key={tv.value}
+              className="flex items-center justify-between gap-3 rounded-md bg-secondary/30 px-3 py-1.5"
+            >
+              <span className="truncate text-sm text-foreground">{tv.value}</span>
+              <span className="shrink-0 rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
+                {t('formulare.eval.timesCount', { count: tv.count })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="py-4 text-center text-xs text-muted-foreground">
+          {t('formulare.eval.noData')}
+        </p>
+      )
+  } else if (stat.byMonth) {
+    body =
+      Object.keys(stat.byMonth).length > 0 ? (
+        <ChartRenderer result={distToResult(stat.byMonth, measure)} viz="bar" height={180} />
+      ) : (
+        <p className="py-4 text-center text-xs text-muted-foreground">
+          {t('formulare.eval.noData')}
+        </p>
+      )
+  } else if (stat.numeric !== undefined) {
+    body = stat.numeric ? (
+      <div className="space-y-3">
+        {field.type === 'rating' && (
+          <RatingInput
+            scale={field.ratingScale ?? 5}
+            value={Math.round(stat.numeric.avg)}
+            disabled
+          />
+        )}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: t('formulare.eval.avg'), value: stat.numeric.avg.toFixed(1) },
+            { label: t('formulare.eval.min'), value: String(stat.numeric.min) },
+            { label: t('formulare.eval.max'), value: String(stat.numeric.max) },
+          ].map((m) => (
+            <div key={m.label} className="rounded-lg border border-border bg-secondary/30 p-2.5 text-center">
+              <p className="text-lg font-semibold text-foreground">{m.value}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {m.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <p className="py-4 text-center text-xs text-muted-foreground">
+        {t('formulare.eval.noData')}
+      </p>
+    )
+  } else {
+    // file / email — filled vs empty
+    body = (
+      <div className="flex items-center gap-4 text-sm">
+        <span className="inline-flex items-center gap-1.5 text-success">
+          <Check className="h-4 w-4" />
+          {t('formulare.eval.filledCount', { count: stat.filled })}
+        </span>
+        <span className="text-muted-foreground">
+          {t('formulare.eval.emptyCount', { count: stat.empty })}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary-light">
+          <Icon className="h-3.5 w-3.5 text-primary" />
+        </div>
+        <h4 className="flex-1 truncate text-sm font-medium text-foreground">
+          {field.label}
+        </h4>
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          {t('formulare.eval.filledOf', { filled: stat.filled, total: stat.total })}
+        </span>
+      </div>
+      {body}
+    </div>
+  )
+}
+
+interface EvaluationPanelProps {
+  schema: FormSchema
+  formatDate: (d: string) => string
+  t: (key: string, opts?: Record<string, unknown>) => string
+}
+
+function EvaluationPanel({ schema, t }: EvaluationPanelProps) {
+  const { data: stats, isLoading } = useFormStats(schema.id)
+  const dataFields = (schema.fields as FormField[]).filter(
+    (f) => f.label !== '__page_break__',
+  )
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-lg bg-secondary" />
+          ))}
+        </div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-40 animate-pulse rounded-xl bg-secondary" />
+        ))}
+      </div>
+    )
+  }
+
+  if (!stats) return null
+
+  if (stats.totalSubmissions === 0) {
+    return (
+      <EmptyState
+        icon={BarChart3}
+        title={t('formulare.eval.emptyTitle')}
+        description={t('formulare.eval.emptyHint')}
+      />
+    )
+  }
+
+  const fieldStats = stats.fieldStats ?? {}
+  const kpis = [
+    { label: t('formulare.eval.kpiTotal'), value: String(stats.totalSubmissions) },
+    { label: t('formulare.eval.kpiNew'), value: String(stats.newSubmissions) },
+    { label: t('formulare.eval.kpiWeek'), value: String(stats.submissionsThisWeek) },
+    {
+      label: t('formulare.eval.kpiCompletion'),
+      value: `${Math.round(stats.averageCompletionRate * 100)}%`,
+    },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {kpis.map((kpi) => (
+          <div key={kpi.label} className="rounded-lg border border-border bg-secondary/30 p-3">
+            <p className="text-xl font-semibold text-foreground">{kpi.value}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {kpi.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {dataFields.map((field) => {
+          const stat = fieldStats[field.id]
+          if (!stat) return null
+          return <FieldStatCard key={field.id} field={field} stat={stat} t={t} />
+        })}
+      </div>
     </div>
   )
 }
