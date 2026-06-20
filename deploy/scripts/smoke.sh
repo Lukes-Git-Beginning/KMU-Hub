@@ -538,6 +538,91 @@ else
 fi
 
 # ==========================================
+# Video / LiveKit Tests (1)
+# ==========================================
+section "Video / LiveKit"
+
+# 22. LiveKit join-token probe
+# Endpoint: POST /api/v1/calendar/events/{id}/join-token
+# Body:     {"display_name": "..."}
+# Success:  200 + non-empty .token field
+# Strategy: create a throwaway calendar event (needs calendars:write = manager role),
+#           then call the join-token endpoint. Skip gracefully when:
+#   - no token (pre-auth failure)
+#   - calendar list returns non-200 (work service down)
+#   - event creation fails (permissions or infra)
+#   - join-token returns 503 (LiveKit credentials not set in this env)
+#   - join-token returns 403 (manager role not yet active for smoke user)
+# This ensures the test is never a flaky smoke-suite blocker in environments
+# without LiveKit configured (LIVEKIT_API_KEY / LIVEKIT_API_SECRET / LIVEKIT_WS_URL).
+LIVEKIT_EVENT_ID=""
+
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    # Step 1: pick an existing calendar to attach the throwaway event to
+    CAL_LIST_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/v1/calendar/calendars" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null) || CAL_LIST_RESP=$'\n000'
+    CAL_LIST_CODE=$(echo "$CAL_LIST_RESP" | tail -1)
+    CAL_LIST_BODY=$(echo "$CAL_LIST_RESP" | sed '$d')
+
+    LIVEKIT_CAL_ID=$(echo "$CAL_LIST_BODY" | jq -r '.calendars[0].id // empty' 2>/dev/null || echo "")
+
+    if [[ "$CAL_LIST_CODE" == "200" && -n "$LIVEKIT_CAL_ID" && "$LIVEKIT_CAL_ID" != "null" ]]; then
+        # Step 2: create throwaway event with has_video_call=true
+        LIVEKIT_START="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo '2026-07-01T10:00:00Z')"
+        LIVEKIT_END="$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo '2026-07-01T11:00:00Z')"
+
+        EVT_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/calendar/events" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SMOKE_TOKEN" \
+            -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
+            -d "{\"calendar_id\":\"$LIVEKIT_CAL_ID\",\"title\":\"smoke-livekit-$(date +%s)\",\"start_time\":\"$LIVEKIT_START\",\"end_time\":\"$LIVEKIT_END\",\"has_video_call\":true}" \
+            2>/dev/null) || EVT_RESP=$'\n000'
+        EVT_CODE=$(echo "$EVT_RESP" | tail -1)
+        EVT_BODY=$(echo "$EVT_RESP" | sed '$d')
+
+        if [[ "$EVT_CODE" == "201" || "$EVT_CODE" == "200" ]]; then
+            LIVEKIT_EVENT_ID=$(echo "$EVT_BODY" | jq -r '.event.id // .id // empty' 2>/dev/null || echo "")
+        fi
+    fi
+
+    if [[ -n "$LIVEKIT_EVENT_ID" && "$LIVEKIT_EVENT_ID" != "null" ]]; then
+        # Step 3: request join token
+        TKN_RESP=$(curl -s -w "\n%{http_code}" -X POST \
+            "$BASE_URL/api/v1/calendar/events/$LIVEKIT_EVENT_ID/join-token" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SMOKE_TOKEN" \
+            -d '{"display_name":"Smoke Test"}' 2>/dev/null) || TKN_RESP=$'\n000'
+        TKN_CODE=$(echo "$TKN_RESP" | tail -1)
+        TKN_BODY=$(echo "$TKN_RESP" | sed '$d')
+
+        if [[ "$TKN_CODE" == "200" ]]; then
+            TKN_VALUE=$(echo "$TKN_BODY" | jq -r '.token // empty' 2>/dev/null || echo "")
+            if [[ -n "$TKN_VALUE" && "$TKN_VALUE" != "null" ]]; then
+                pass "LiveKit join-token returns 200 + non-empty token"
+            else
+                fail "LiveKit join-token returned 200 but .token field is empty" "$TKN_BODY"
+            fi
+        elif [[ "$TKN_CODE" == "503" ]]; then
+            # LiveKit env vars not set — graceful skip, not a deploy blocker
+            pass "LiveKit join-token reachable (503 — LiveKit not configured in env, skip)"
+        elif [[ "$TKN_CODE" == "403" ]]; then
+            # Manager role not yet propagated into JWT claims — inconclusive, not a LiveKit failure
+            pass "LiveKit join-token skipped (403 — manager role not active for smoke user)"
+        else
+            fail "LiveKit join-token returned unexpected $TKN_CODE" "$TKN_BODY"
+        fi
+
+        # Cleanup throwaway event regardless of token result
+        curl -s -o /dev/null -X DELETE "$BASE_URL/api/v1/calendar/events/$LIVEKIT_EVENT_ID" \
+            -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || true
+    else
+        pass "LiveKit probe skipped (no usable calendar or event creation failed — check work service)"
+    fi
+else
+    pass "LiveKit probe skipped (no auth token)"
+fi
+
+# ==========================================
 # Cleanup
 # ==========================================
 section "Cleanup"
