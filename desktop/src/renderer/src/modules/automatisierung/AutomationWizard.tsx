@@ -342,6 +342,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
     prevStep,
     draftWorkflow,
     setEditorMode,
+    resetDraft,
   } = useAutomatisierungStore()
 
   const createMutation = useCreateAutomation()
@@ -370,13 +371,18 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
       max_steps: draftWorkflow.max_steps ?? 10,
     }
 
+    const handleSuccess = () => {
+      resetDraft()
+      onClose()
+    }
+
     if (isEditing && draftWorkflow.id) {
       updateMutation.mutate(
         { id: draftWorkflow.id, ...payload },
-        { onSuccess: () => onClose() },
+        { onSuccess: handleSuccess },
       )
     } else {
-      createMutation.mutate(payload, { onSuccess: () => onClose() })
+      createMutation.mutate(payload, { onSuccess: handleSuccess })
     }
   }
 

@@ -161,6 +161,7 @@ function EditorInner({ onClose }: { onClose: () => void }) {
     draftWorkflow,
     setDraftWorkflow,
     setEditorMode,
+    resetDraft,
   } = useAutomatisierungStore()
 
   const createMutation = useCreateAutomation()
@@ -269,13 +270,18 @@ function EditorInner({ onClose }: { onClose: () => void }) {
       max_steps: updated.max_steps ?? 10,
     }
 
+    const handleSuccess = () => {
+      resetDraft()
+      onClose()
+    }
+
     if (isEditing && draftWorkflow?.id) {
       updateMutation.mutate(
         { id: draftWorkflow.id, ...payload },
-        { onSuccess: () => onClose() },
+        { onSuccess: handleSuccess },
       )
     } else {
-      createMutation.mutate(payload, { onSuccess: () => onClose() })
+      createMutation.mutate(payload, { onSuccess: handleSuccess })
     }
   }
 
