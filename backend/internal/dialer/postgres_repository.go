@@ -557,14 +557,15 @@ func (r *PostgresCallRepository) UpdateSession(ctx context.Context, s *CallSessi
 	return nil
 }
 
-// UpdateSessionWithEvent atomically updates a call session and appends a call
-// event in one BEGIN/COMMIT block. A failure in either step rolls back both,
-// preventing the half-write that would otherwise occur if the process crashes
-// between the two independent Exec calls.
-func (r *PostgresCallRepository) UpdateSessionWithEvent(ctx context.Context, s *CallSession, e *CallEvent) error {
+// UpdateSessionWithEventAndContact atomically updates a call session, appends a
+// call event, and updates the campaign contact's queue status in one
+// BEGIN/COMMIT block. A failure in any step rolls back all three, preventing the
+// half-write that would otherwise leave the contact stranded in an inconsistent
+// status if the process crashes between the independent Exec calls.
+func (r *PostgresCallRepository) UpdateSessionWithEventAndContact(ctx context.Context, s *CallSession, e *CallEvent, contactID uuid.UUID, contactStatus string, outcomeID *uuid.UUID, callbackAt *time.Time) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("UpdateSessionWithEvent begin tx: %w", err)
+		return fmt.Errorf("UpdateSessionWithEventAndContact begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
@@ -580,7 +581,7 @@ func (r *PostgresCallRepository) UpdateSessionWithEvent(ctx context.Context, s *
 		s.ID, s.TenantID,
 	)
 	if err != nil {
-		return fmt.Errorf("UpdateSessionWithEvent update session: %w", err)
+		return fmt.Errorf("UpdateSessionWithEventAndContact update session: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrCallSessionNotFound
@@ -588,7 +589,7 @@ func (r *PostgresCallRepository) UpdateSessionWithEvent(ctx context.Context, s *
 
 	payloadJSON, err := json.Marshal(e.Payload)
 	if err != nil {
-		return fmt.Errorf("UpdateSessionWithEvent marshal event payload: %w", err)
+		return fmt.Errorf("UpdateSessionWithEventAndContact marshal event payload: %w", err)
 	}
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO dialer_call_events
@@ -596,11 +597,25 @@ func (r *PostgresCallRepository) UpdateSessionWithEvent(ctx context.Context, s *
 		 VALUES ($1, (SELECT tenant_id FROM dialer_call_sessions WHERE id = $2), $2, $3, $4, $5)`,
 		e.ID, e.DialerCallSessionID, e.EventType, payloadJSON, e.OccurredAt,
 	); err != nil {
-		return fmt.Errorf("UpdateSessionWithEvent append event: %w", err)
+		return fmt.Errorf("UpdateSessionWithEventAndContact append event: %w", err)
+	}
+
+	// Update the campaign contact's queue status in the same transaction.
+	// callback_at is only touched when callbackAt is non-nil (COALESCE keeps the
+	// existing value otherwise), mirroring the prior SetContactCallback semantics.
+	if _, err := tx.Exec(ctx,
+		`UPDATE dialer_campaign_contacts
+		 SET status = $1, outcome_id = $2,
+		     callback_at = COALESCE($3, callback_at),
+		     updated_at = NOW()
+		 WHERE id = $4`,
+		contactStatus, outcomeID, callbackAt, contactID,
+	); err != nil {
+		return fmt.Errorf("UpdateSessionWithEventAndContact update contact: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("UpdateSessionWithEvent commit: %w", err)
+		return fmt.Errorf("UpdateSessionWithEventAndContact commit: %w", err)
 	}
 	return nil
 }

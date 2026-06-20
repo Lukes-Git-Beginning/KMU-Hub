@@ -115,6 +115,15 @@ type mockCallRepo struct {
 	mu       sync.Mutex
 	sessions map[uuid.UUID]*CallSession
 	events   []*CallEvent
+
+	// Captured params of the most recent UpdateSessionWithEventAndContact call,
+	// for assertions on the campaign-contact write.
+	lastContactID         uuid.UUID
+	lastContactStatus     string
+	lastContactCallbackAt *time.Time
+	// failContactUpdate simulates the contact-status write failing inside the
+	// transaction: nothing is persisted (rollback), and an error is returned.
+	failContactUpdate bool
 }
 
 func newMockCallRepo() *mockCallRepo {
@@ -155,10 +164,12 @@ func (r *mockCallRepo) AppendEvent(_ context.Context, e *CallEvent) error {
 	return nil
 }
 
-// UpdateSessionWithEvent atomically (under the mock's mutex) updates the
-// session and appends the event. This simulates the transactional behaviour of
-// the real Postgres implementation without requiring a live database.
-func (r *mockCallRepo) UpdateSessionWithEvent(_ context.Context, s *CallSession, e *CallEvent) error {
+// UpdateSessionWithEventAndContact atomically (under the mock's mutex) updates
+// the session, appends the event, and records the campaign-contact write. This
+// simulates the transactional behaviour of the real Postgres implementation
+// without requiring a live database: when failContactUpdate is set, nothing is
+// persisted (rollback) and an error is returned.
+func (r *mockCallRepo) UpdateSessionWithEventAndContact(_ context.Context, s *CallSession, e *CallEvent, contactID uuid.UUID, contactStatus string, _ *uuid.UUID, callbackAt *time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.sessions[s.ID]; !ok {
@@ -169,8 +180,16 @@ func (r *mockCallRepo) UpdateSessionWithEvent(_ context.Context, s *CallSession,
 	if s.TenantID != uuid.Nil && existing.TenantID != uuid.Nil && existing.TenantID != s.TenantID {
 		return ErrCallSessionNotFound
 	}
+	if r.failContactUpdate {
+		// Simulate the contact write failing inside the TX — the session and
+		// event are rolled back (left unmodified) just like a real ROLLBACK.
+		return ErrCampaignContactNotFound
+	}
 	r.sessions[s.ID] = s
 	r.events = append(r.events, e)
+	r.lastContactID = contactID
+	r.lastContactStatus = contactStatus
+	r.lastContactCallbackAt = callbackAt
 	return nil
 }
 
@@ -435,6 +454,64 @@ func TestLogCallOutcome_CallbackSetsContactStatus(t *testing.T) {
 	// Verify outcome was set on session.
 	if h.calls.sessions[sessionID].OutcomeID == nil {
 		t.Error("expected OutcomeID to be set")
+	}
+
+	// Verify the campaign-contact status was updated atomically in the same call.
+	if h.calls.lastContactID != ccID {
+		t.Errorf("expected contact update for %s, got %s", ccID, h.calls.lastContactID)
+	}
+	if h.calls.lastContactStatus != ContactStatusCallback {
+		t.Errorf("expected contact status %q, got %q", ContactStatusCallback, h.calls.lastContactStatus)
+	}
+	if h.calls.lastContactCallbackAt == nil {
+		t.Error("expected callback_at to be set for a callback outcome")
+	}
+}
+
+// TestLogCallOutcome_ContactUpdateFailureRollsBack verifies that when the
+// campaign-contact write fails inside the transaction, the session update and
+// outcome event are rolled back together (atomicity) and the error surfaces to
+// the caller — rather than the prior behaviour of silently warning and leaving
+// the contact stranded in an inconsistent status.
+func TestLogCallOutcome_ContactUpdateFailureRollsBack(t *testing.T) {
+	h := newTestHarness()
+	sessionID := uuid.New()
+	ccID := uuid.New()
+	outcomeID := uuid.New()
+
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:                sessionID,
+		CampaignContactID: ccID,
+		AgentID:           uuid.New(),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	h.outcomes.outcomes[outcomeID] = &CallOutcome{
+		ID:         outcomeID,
+		Label:      "Erreicht",
+		IsCallback: false,
+	}
+	h.campaigns.contacts[ccID] = &CampaignContact{
+		ID:         ccID,
+		CampaignID: uuid.New(),
+		ContactID:  uuid.New(),
+	}
+
+	// Force the contact write to fail inside the transaction.
+	h.calls.failContactUpdate = true
+
+	_, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, sessionID, outcomeID, nil, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected an error when the contact update fails inside the transaction")
+	}
+
+	// The session must NOT have been persisted (rolled back): OutcomeID stays nil.
+	if h.calls.sessions[sessionID].OutcomeID != nil {
+		t.Error("expected session OutcomeID to remain unset after rollback")
+	}
+	// No outcome event must have been appended.
+	if len(h.calls.events) != 0 {
+		t.Errorf("expected no events appended after rollback, got %d", len(h.calls.events))
 	}
 }
 

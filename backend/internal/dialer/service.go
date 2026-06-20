@@ -656,32 +656,24 @@ func (s *Service) LogCallOutcome(
 		Payload:             map[string]any{"outcome_id": outcomeID.String(), "outcome_label": outcome.Label},
 		OccurredAt:          now,
 	}
-	// Atomically persist session update + event to prevent partial writes.
-	if err := s.calls.UpdateSessionWithEvent(ctx, session, outcomeEvent); err != nil {
-		return nil, fmt.Errorf("log outcome – persist session and event: %w", err)
+
+	// Determine the resulting campaign-contact status from the outcome type.
+	contactStatus := ContactStatusCompleted
+	var contactCallbackAt *time.Time
+	if outcome.IsCallback && callbackAt != nil {
+		contactStatus = ContactStatusCallback
+		contactCallbackAt = callbackAt
 	}
 
-	// Update campaign contact status based on outcome type.
-	if outcome.IsCallback && callbackAt != nil {
-		if err := s.campaigns.UpdateContactStatus(ctx, session.CampaignContactID, ContactStatusCallback, &outcomeID); err != nil {
-			slog.WarnContext(ctx, "dialer: set contact callback status failed",
-				"campaign_contact_id", session.CampaignContactID,
-				"error", err,
-			)
-		}
-		if err := s.campaigns.SetContactCallback(ctx, session.CampaignContactID, *callbackAt); err != nil {
-			slog.WarnContext(ctx, "dialer: set contact callback time failed",
-				"campaign_contact_id", session.CampaignContactID,
-				"error", err,
-			)
-		}
-	} else {
-		if err := s.campaigns.UpdateContactStatus(ctx, session.CampaignContactID, ContactStatusCompleted, &outcomeID); err != nil {
-			slog.WarnContext(ctx, "dialer: set contact completed status failed",
-				"campaign_contact_id", session.CampaignContactID,
-				"error", err,
-			)
-		}
+	// Atomically persist the session update, outcome event, and campaign-contact
+	// status in one transaction. A crash between the writes can no longer strand
+	// the contact in an inconsistent status (e.g. in_progress instead of
+	// completed/callback), which would otherwise corrupt the campaign queue.
+	if err := s.calls.UpdateSessionWithEventAndContact(
+		ctx, session, outcomeEvent,
+		session.CampaignContactID, contactStatus, &outcomeID, contactCallbackAt,
+	); err != nil {
+		return nil, fmt.Errorf("log outcome – persist session, event and contact: %w", err)
 	}
 
 	// Log the call as a CRM timeline activity — best-effort, non-fatal.

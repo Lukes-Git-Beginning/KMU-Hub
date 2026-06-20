@@ -42,10 +42,17 @@ type CallRepository interface {
 	UpdateSession(ctx context.Context, s *CallSession) error
 	AppendEvent(ctx context.Context, e *CallEvent) error
 	ListEventsBySession(ctx context.Context, sessionID uuid.UUID) ([]*CallEvent, error)
-	// UpdateSessionWithEvent atomically updates a call session and appends an
-	// event in a single database transaction. This prevents partial writes when
-	// LogCallOutcome is interrupted after UpdateSession but before AppendEvent.
-	UpdateSessionWithEvent(ctx context.Context, s *CallSession, e *CallEvent) error
+	// UpdateSessionWithEventAndContact atomically updates a call session, appends
+	// an outcome event, and updates the campaign contact's queue status in a
+	// single database transaction. This prevents partial writes when
+	// LogCallOutcome is interrupted between the session/event persist and the
+	// contact-status update — which would otherwise strand the contact in an
+	// inconsistent status (e.g. in_progress instead of completed/callback).
+	//
+	// contactID is the campaign-contact join row to update; contactStatus is the
+	// resulting status; outcomeID is recorded on the contact; callbackAt, when
+	// non-nil, sets the contact's callback_at and is otherwise left unchanged.
+	UpdateSessionWithEventAndContact(ctx context.Context, s *CallSession, e *CallEvent, contactID uuid.UUID, contactStatus string, outcomeID *uuid.UUID, callbackAt *time.Time) error
 }
 
 // OutcomeRepository handles persistence for call outcomes (per-tenant configurable).

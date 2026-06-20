@@ -144,7 +144,7 @@ func (r *stubCallRepo) UpdateSession(_ context.Context, s *dialer.CallSession) e
 func (r *stubCallRepo) AppendEvent(_ context.Context, e *dialer.CallEvent) error {
 	r.events = append(r.events, e); return nil
 }
-func (r *stubCallRepo) UpdateSessionWithEvent(_ context.Context, s *dialer.CallSession, e *dialer.CallEvent) error {
+func (r *stubCallRepo) UpdateSessionWithEventAndContact(_ context.Context, s *dialer.CallSession, e *dialer.CallEvent, _ uuid.UUID, _ string, _ *uuid.UUID, _ *time.Time) error {
 	if _, ok := r.sessions[s.ID]; !ok { return dialer.ErrCallSessionNotFound }
 	r.sessions[s.ID] = s
 	r.events = append(r.events, e)
