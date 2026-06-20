@@ -2942,6 +2942,8 @@
   "finanzen.eInvoice.zugferdFullName": "ZUGFeRD — Central User Guide of the Forum for Electronic Invoicing Germany",
   "finanzen.eInvoice.zugferdInfo": "ZUGFeRD combines a human-readable PDF with machine-readable XML data. Ideal for B2B invoices in the DACH region.",
   "finanzen.eInvoice.zugferdProfile": "ZUGFeRD Profile",
+  "finanzen.error.backendUnavailable": "Backend unavailable.",
+  "finanzen.error.startGateway": "Please start the gateway and try again.",
   "finanzen.export.datevBatch": "DATEV Journal Batch",
   "finanzen.export.datevDescription": "EXTF format compatible with DATEV Unternehmen online, firm accounting, and tax advisor software.",
   "finanzen.export.downloaded": "{filename} downloaded",

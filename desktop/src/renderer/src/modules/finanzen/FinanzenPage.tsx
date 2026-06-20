@@ -179,13 +179,13 @@ function FinanzenPageContent() {
   const [search, setSearch] = useState('')
 
   // Data hooks
-  const { data: invoicesData, isLoading: invoicesLoading } = useInvoices(
+  const { data: invoicesData, isLoading: invoicesLoading, isError: invoicesError } = useInvoices(
     invoiceFilter.status ? { status: invoiceFilter.status } : undefined,
   )
-  const { data: quotesData, isLoading: quotesLoading } = useQuotes(
+  const { data: quotesData, isLoading: quotesLoading, isError: quotesError } = useQuotes(
     quoteFilter.status ? { status: quoteFilter.status } : undefined,
   )
-  const { data: creditNotesData, isLoading: creditNotesLoading } =
+  const { data: creditNotesData, isLoading: creditNotesLoading, isError: creditNotesError } =
     useCreditNotes()
 
   // Mutations
@@ -663,7 +663,9 @@ function FinanzenPageContent() {
 
       {/* Invoices Tab */}
       {effectiveTab === 'invoices' &&
-        (invoicesLoading ? (
+        (invoicesError ? (
+          <ErrorState />
+        ) : invoicesLoading ? (
           <LoadingState />
         ) : filteredInvoices.length === 0 ? (
           <EmptyState
@@ -745,7 +747,9 @@ function FinanzenPageContent() {
 
       {/* Quotes Tab */}
       {effectiveTab === 'quotes' &&
-        (quotesLoading ? (
+        (quotesError ? (
+          <ErrorState />
+        ) : quotesLoading ? (
           <LoadingState />
         ) : filteredQuotes.length === 0 ? (
           <EmptyState
@@ -803,7 +807,9 @@ function FinanzenPageContent() {
 
       {/* Credit Notes Tab */}
       {effectiveTab === 'credit-notes' &&
-        (creditNotesLoading ? (
+        (creditNotesError ? (
+          <ErrorState />
+        ) : creditNotesLoading ? (
           <LoadingState />
         ) : filteredCreditNotes.length === 0 ? (
           <EmptyState
@@ -1138,6 +1144,17 @@ function LoadingState() {
       {[1, 2, 3].map((i) => (
         <div key={i} className="h-14 rounded-xl bg-secondary/50 animate-shimmer" />
       ))}
+    </div>
+  )
+}
+
+function ErrorState() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-16">
+      <AlertCircle className="h-8 w-8 text-destructive" />
+      <p className="text-sm text-destructive">{t('finanzen.error.backendUnavailable')}</p>
+      <p className="text-xs text-muted-foreground">{t('finanzen.error.startGateway')}</p>
     </div>
   )
 }
