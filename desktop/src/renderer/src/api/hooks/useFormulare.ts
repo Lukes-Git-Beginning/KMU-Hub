@@ -8,9 +8,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createFormSchema,
+  createShareLink,
   createSubmission,
   createWebhook,
   deleteFormSchema,
+  deleteShareLink,
   deleteWebhook,
   duplicateFormSchema,
   exportSubmissions,
@@ -20,15 +22,18 @@ import {
   getWebhook,
   listAllDeliveries,
   listFormSchemas,
+  listShareLinks,
   listSubmissions,
   listWebhookDeliveries,
   listWebhooks,
   updateFormSchema,
+  updateShareLink,
   updateSubmissionStatus,
   updateWebhook,
 } from '../formulare-client'
 import type {
   CreateFormSchemaInput,
+  CreateShareLinkInput,
   CreateSubmissionInput,
   CreateWebhookInput,
   DuplicateFormSchemaInput,
@@ -37,6 +42,7 @@ import type {
   ListSchemasQuery,
   ListSubmissionsQuery,
   UpdateFormSchemaInput,
+  UpdateShareLinkInput,
   UpdateSubmissionStatusInput,
   UpdateWebhookInput,
 } from '../formulare-types'
@@ -58,6 +64,11 @@ export const formulareKeys = {
     listBySchema: (schemaId: string, q?: ListSubmissionsQuery) =>
       ['formulare', 'submissions', 'list', schemaId, q] as const,
     detail: (id: string) => ['formulare', 'submissions', 'detail', id] as const,
+  },
+  shareLinks: {
+    all: ['formulare', 'share-links'] as const,
+    listBySchema: (schemaId: string) =>
+      ['formulare', 'share-links', 'list', schemaId] as const,
   },
   webhooks: {
     all: ['formulare', 'webhooks'] as const,
@@ -170,6 +181,71 @@ export function useAllDeliveries(query?: ListDeliveriesQuery) {
   return useQuery({
     queryKey: formulareKeys.deliveries.all(query),
     queryFn: () => listAllDeliveries(query),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Share links (FD-1 / FD-2)
+// ---------------------------------------------------------------------------
+
+export function useShareLinks(formSchemaId: string) {
+  return useQuery({
+    queryKey: formulareKeys.shareLinks.listBySchema(formSchemaId),
+    queryFn: () => listShareLinks(formSchemaId),
+    enabled: !!formSchemaId,
+  })
+}
+
+export function useCreateShareLink() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      formSchemaId,
+      ...input
+    }: CreateShareLinkInput & { formSchemaId: string }) =>
+      createShareLink(formSchemaId, input),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({
+        queryKey: formulareKeys.shareLinks.listBySchema(variables.formSchemaId),
+      }),
+  })
+}
+
+export function useUpdateShareLink() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      formSchemaId: _formSchemaId,
+      ...input
+    }: UpdateShareLinkInput & { id: string; formSchemaId?: string }) =>
+      updateShareLink(id, input),
+    onSuccess: (_data, variables) => {
+      if (variables.formSchemaId) {
+        qc.invalidateQueries({
+          queryKey: formulareKeys.shareLinks.listBySchema(variables.formSchemaId),
+        })
+      } else {
+        qc.invalidateQueries({ queryKey: formulareKeys.shareLinks.all })
+      }
+    },
+  })
+}
+
+export function useDeleteShareLink() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, formSchemaId: _formSchemaId }: { id: string; formSchemaId?: string }) =>
+      deleteShareLink(id),
+    onSuccess: (_data, variables) => {
+      if (variables.formSchemaId) {
+        qc.invalidateQueries({
+          queryKey: formulareKeys.shareLinks.listBySchema(variables.formSchemaId),
+        })
+      } else {
+        qc.invalidateQueries({ queryKey: formulareKeys.shareLinks.all })
+      }
+    },
   })
 }
 

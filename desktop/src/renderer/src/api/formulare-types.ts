@@ -21,6 +21,11 @@ export type FormSubmissionStatus = 'new' | 'read' | 'archived'
 export type WebhookDeliveryStatus = 'pending' | 'delivered' | 'failed' | 'dead'
 export type ExportFormat = 'csv' | 'xlsx'
 
+/** Distribution channel a share link was created for (FD-1). */
+export type ShareChannel = 'link' | 'email' | 'embed' | 'qr'
+/** Lifecycle of a single share link. `expired` is derived (date / answer limit). */
+export type ShareLinkStatus = 'active' | 'expired' | 'disabled'
+
 /**
  * Field types supported by the backend schema. Note: 'rating' and 'consent' are
  * frontend/demo pseudo-types (not in the backend proto whitelist) — 'consent'
@@ -83,6 +88,29 @@ export interface FormSubmission {
   submittedBy: string | null
   ipAddress: string | null
   submittedAt: string
+}
+
+/**
+ * A shareable distribution link for a form (FD-1 / FD-2). MSW-stateful in demo;
+ * the real token + public route are Luke's lane (FD-4). `views`/`submissions`
+ * drive the conversion overview; `status` is derived on read from expiry,
+ * answer limit and a manual disable flag.
+ */
+export interface FormShareLink {
+  id: string
+  formSchemaId: string
+  tenantId: string
+  token: string
+  /** Public fill-out URL — placeholder host until FD-4 wires the real route. */
+  url: string
+  channel: ShareChannel
+  expiresAt: string | null
+  maxSubmissions: number | null
+  views: number
+  submissions: number
+  status: ShareLinkStatus
+  createdBy: string | null
+  createdAt: string
 }
 
 export interface FormWebhook {
@@ -152,6 +180,16 @@ export interface CreateSubmissionInput {
 
 export interface UpdateSubmissionStatusInput {
   status: FormSubmissionStatus
+}
+
+export interface CreateShareLinkInput {
+  channel: ShareChannel
+  expiresAt?: string | null
+  maxSubmissions?: number | null
+}
+
+export interface UpdateShareLinkInput {
+  status?: ShareLinkStatus
 }
 
 export interface CreateWebhookInput {

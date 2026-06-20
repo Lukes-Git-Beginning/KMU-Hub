@@ -1,15 +1,20 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
+import { CURRENT_USER } from '@/mocks/data/shared-ids'
 import type {
   CreateFormSchemaInput,
+  CreateShareLinkInput,
   CreateSubmissionInput,
   CreateWebhookInput,
   DuplicateFormSchemaInput,
   FormField,
   FormSchema,
+  FormShareLink,
   FormSubmission,
   FormWebhook,
+  ShareLinkStatus,
   UpdateFormSchemaInput,
+  UpdateShareLinkInput,
   UpdateSubmissionStatusInput,
   UpdateWebhookInput,
   WebhookDelivery,
@@ -338,6 +343,91 @@ function recountSubmissions(schemaId: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Seed — share links (FD-1 distribution layer; powers the FD-2 overview).
+// `status` is derived on read (expiry / answer limit override 'active'); a
+// 'disabled' value is sticky. Real token + public route stay Luke's lane (FD-4).
+// ---------------------------------------------------------------------------
+
+const SHARE_HOST = 'https://forms.zentria.tech/r/'
+
+function genToken(): string {
+  // URL-safe random token; crypto is available in the MSW browser worker.
+  const bytes = new Uint8Array(8)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(36).padStart(2, '0'))
+    .join('')
+    .slice(0, 12)
+}
+
+function deriveShareStatus(link: FormShareLink): ShareLinkStatus {
+  if (link.status === 'disabled') return 'disabled'
+  if (link.expiresAt && new Date(link.expiresAt).getTime() < Date.now()) return 'expired'
+  if (link.maxSubmissions != null && link.submissions >= link.maxSubmissions) return 'expired'
+  return 'active'
+}
+
+/** Output view of a link with its status derived from expiry / limit. */
+function shareOut(link: FormShareLink): FormShareLink {
+  return { ...link, status: deriveShareStatus(link) }
+}
+
+let shareSeq = 1
+const newShareId = () => `shl-${shareSeq++}`
+
+function makeShareLink(
+  over: Partial<FormShareLink> & Pick<FormShareLink, 'formSchemaId' | 'channel'>,
+): FormShareLink {
+  const token = over.token ?? genToken()
+  return {
+    id: newShareId(),
+    tenantId: TENANT,
+    token,
+    url: `${SHARE_HOST}${token}`,
+    expiresAt: null,
+    maxSubmissions: null,
+    views: 0,
+    submissions: 0,
+    status: 'active',
+    createdBy: CURRENT_USER.name,
+    createdAt: isoAgo(5 * DAY),
+    ...over,
+  }
+}
+
+let SHARE_LINKS: FormShareLink[] = [
+  makeShareLink({
+    formSchemaId: 'form-feedback',
+    channel: 'link',
+    views: 142,
+    submissions: 6,
+    createdAt: isoAgo(30 * DAY),
+  }),
+  makeShareLink({
+    formSchemaId: 'form-feedback',
+    channel: 'qr',
+    views: 38,
+    submissions: 2,
+    createdAt: isoAgo(12 * DAY),
+  }),
+  makeShareLink({
+    formSchemaId: 'form-kontakt',
+    channel: 'email',
+    views: 64,
+    submissions: 4,
+    expiresAt: isoAgo(-20 * DAY), // expires in 20 days
+    createdAt: isoAgo(18 * DAY),
+  }),
+  makeShareLink({
+    formSchemaId: 'form-event',
+    channel: 'link',
+    views: 210,
+    submissions: 5,
+    expiresAt: isoAgo(3 * DAY), // already expired (registration over)
+    createdAt: isoAgo(25 * DAY),
+  }),
+]
+
+// ---------------------------------------------------------------------------
 // Seed — webhooks + deliveries (not surfaced by the page yet; kept consistent)
 // ---------------------------------------------------------------------------
 
@@ -554,6 +644,35 @@ export const formulareHandlers = [
     return HttpResponse.json(submission, { status: 201 })
   }),
 
+  // ── Share links: list by schema (FD-1 / FD-2) ──
+  http.get(`${API}/api/v1/formulare/schemas/:schemaId/share-links`, ({ params }) => {
+    const links = SHARE_LINKS.filter((l) => l.formSchemaId === params.schemaId)
+      .map(shareOut)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return HttpResponse.json(links)
+  }),
+
+  // ── Share links: create ──
+  http.post(`${API}/api/v1/formulare/schemas/:schemaId/share-links`, async ({ params, request }) => {
+    const schema = SCHEMAS.find((s) => s.id === params.schemaId)
+    if (!schema) return new HttpResponse(null, { status: 404 })
+    const body = (await request.json().catch(() => ({}))) as CreateShareLinkInput
+    const link = makeShareLink({
+      formSchemaId: schema.id,
+      channel: body.channel ?? 'link',
+      expiresAt: body.expiresAt ?? null,
+      maxSubmissions:
+        body.maxSubmissions != null && body.maxSubmissions > 0
+          ? body.maxSubmissions
+          : null,
+      views: 0,
+      submissions: 0,
+      createdAt: new Date().toISOString(),
+    })
+    SHARE_LINKS = [link, ...SHARE_LINKS]
+    return HttpResponse.json(shareOut(link), { status: 201 })
+  }),
+
   // ── Webhooks: list by schema ──
   http.get(`${API}/api/v1/formulare/schemas/:schemaId/webhooks`, ({ params }) => {
     return HttpResponse.json(WEBHOOKS.filter((w) => w.formSchemaId === params.schemaId))
@@ -653,6 +772,23 @@ export const formulareHandlers = [
     const body = (await request.json().catch(() => ({}))) as UpdateSubmissionStatusInput
     if (body.status !== undefined) submission.status = body.status
     return HttpResponse.json(submission)
+  }),
+
+  // ── Share links: update (disable / re-activate) ──
+  http.patch(`${API}/api/v1/formulare/share-links/:id`, async ({ params, request }) => {
+    const link = SHARE_LINKS.find((l) => l.id === params.id)
+    if (!link) return new HttpResponse(null, { status: 404 })
+    const body = (await request.json().catch(() => ({}))) as UpdateShareLinkInput
+    if (body.status !== undefined) link.status = body.status
+    return HttpResponse.json(shareOut(link))
+  }),
+
+  // ── Share links: delete ──
+  http.delete(`${API}/api/v1/formulare/share-links/:id`, ({ params }) => {
+    const exists = SHARE_LINKS.some((l) => l.id === params.id)
+    if (!exists) return new HttpResponse(null, { status: 404 })
+    SHARE_LINKS = SHARE_LINKS.filter((l) => l.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
   }),
 
   // ── Deliveries: by webhook (before the single-webhook GET) ──

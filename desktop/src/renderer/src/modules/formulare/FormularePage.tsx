@@ -58,6 +58,9 @@ import {
   Lock,
   Unlock,
   RotateCcw,
+  QrCode,
+  Code2,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -79,10 +82,17 @@ import {
   useDuplicateFormSchema,
   useExportSubmissions,
   useUpdateSubmissionStatus,
+  useCreateShareLink,
   formulareKeys,
 } from '@/api/hooks/useFormulare'
 import { listSubmissions } from '@/api/formulare-client'
-import type { FormSchema, FormSubmission, FormSubmissionStatus } from '@/api/formulare-types'
+import type {
+  FormSchema,
+  FormShareLink,
+  FormSubmission,
+  FormSubmissionStatus,
+  ShareChannel,
+} from '@/api/formulare-types'
 import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader, type ActionItem } from '@/components/shared'
 import {
   Dialog,
@@ -217,6 +227,7 @@ export default function FormularePage() {
   const duplicateSchema = useDuplicateFormSchema()
   const exportSubs = useExportSubmissions()
   const updateSubStatus = useUpdateSubmissionStatus()
+  const createShareLink = useCreateShareLink()
 
   // -------------------------------------------------------------------------
   // Client state (Zustand — editor draft)
@@ -309,6 +320,12 @@ export default function FormularePage() {
   // FD-0 — lifecycle: close dialog (captures the optional closed message)
   const [closeDialogForm, setCloseDialogForm] = useState<FormSchema | null>(null)
   const [closeMessageInput, setCloseMessageInput] = useState('')
+  // FD-1 — share dialog: channel + settings, then the generated token link
+  const [shareChannel, setShareChannel] = useState<ShareChannel>('link')
+  const [shareExpiry, setShareExpiry] = useState('')
+  const [shareMaxSubs, setShareMaxSubs] = useState('')
+  const [shareCreatedLink, setShareCreatedLink] = useState<FormShareLink | null>(null)
+  const [shareCopied, setShareCopied] = useState(false)
   const [showFieldConfigDialog, setShowFieldConfigDialog] = useState<{
     field: FormField
   } | null>(null)
@@ -534,13 +551,70 @@ export default function FormularePage() {
     setCloseDialogForm(null)
   }
 
+  // -------------------------------------------------------------------------
+  // FD-1 — share dialog (real token link, clipboard, channels, settings)
+  // -------------------------------------------------------------------------
+
+  const resetShareDialog = () => {
+    setShareChannel('link')
+    setShareExpiry('')
+    setShareMaxSubs('')
+    setShareCreatedLink(null)
+    setShareCopied(false)
+  }
+
   /** Guarded share entry point — blocks non-live forms with an explanation. */
   const requestShare = (schema: FormSchema) => {
     if (!isShareable(schema)) {
       toast.error(t('formulare.lifecycle.shareNotActive'))
       return
     }
+    resetShareDialog()
     setShowShareDialog(schema)
+  }
+
+  const closeShareDialog = () => {
+    setShowShareDialog(null)
+    resetShareDialog()
+  }
+
+  /** Embed channel copies an iframe snippet; everything else copies the URL. */
+  const shareValueOf = (link: FormShareLink): string =>
+    link.channel === 'embed'
+      ? `<iframe src="${link.url}" width="100%" height="640" style="border:0" title="${showShareDialog?.title ?? ''}"></iframe>`
+      : link.url
+
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setShareCopied(true)
+      toast.success(t('formulare.toast.linkKopiert'))
+      setTimeout(() => setShareCopied(false), 2000)
+    } catch {
+      toast.error(t('common.error'))
+    }
+  }
+
+  const handleCreateShareLink = () => {
+    if (!showShareDialog) return
+    createShareLink.mutate(
+      {
+        formSchemaId: showShareDialog.id,
+        channel: shareChannel,
+        expiresAt: shareExpiry
+          ? new Date(`${shareExpiry}T23:59:59`).toISOString()
+          : null,
+        maxSubmissions: shareMaxSubs ? Number(shareMaxSubs) : null,
+      },
+      {
+        onSuccess: (link) => {
+          setShareCreatedLink(link)
+          void copyToClipboard(shareValueOf(link))
+        },
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
   }
 
   /** Status-dependent lifecycle entries for the actions dropdown. */
@@ -2862,14 +2936,14 @@ export default function FormularePage() {
         </DialogContent>
       </Dialog>
 
-      {/* ====================== SHARE DIALOG ====================== */}
+      {/* ====================== SHARE DIALOG (FD-1) ====================== */}
       <Dialog
         open={!!showShareDialog}
         onOpenChange={(o) => {
-          if (!o) setShowShareDialog(null)
+          if (!o) closeShareDialog()
         }}
       >
-        <DialogContent className="gap-0 p-0 max-w-sm">
+        <DialogContent className="gap-0 p-0 max-w-md">
           <DialogHeader className="border-b border-border px-5 py-4">
             <div className="flex items-center gap-2">
               <Share2 className="h-5 w-5 text-primary" />
@@ -2877,8 +2951,8 @@ export default function FormularePage() {
                 {t('formulare.share.title')}
               </DialogTitle>
             </div>
-            <DialogDescription className="sr-only">
-              {t('formulare.share.title')}
+            <DialogDescription className="pt-1 text-sm text-muted-foreground">
+              {t('formulare.share.subtitle')}
             </DialogDescription>
           </DialogHeader>
 
@@ -2887,61 +2961,183 @@ export default function FormularePage() {
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                 {t('formulare.share.formular')}
               </p>
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-sm font-medium text-foreground truncate">
                 {showShareDialog?.title}
               </p>
             </div>
 
-            <div className="space-y-2">
-              <button
-                onClick={() => {
-                  toast.success(t('formulare.toast.linkKopiert'))
-                  setShowShareDialog(null)
-                }}
-                className="flex w-full items-center gap-3 rounded-lg border border-border p-3 hover:bg-secondary/50 transition-colors"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light">
-                  <Link2 className="h-4 w-4 text-primary" />
-                </div>
-                <div className="text-left">
+            {!shareCreatedLink ? (
+              <>
+                {/* Stage 1 — channel + settings */}
+                <div className="space-y-2">
                   <p className="text-sm font-medium text-foreground">
-                    {t('formulare.share.linkKopieren')}
+                    {t('formulare.share.channelLabel')}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {t('formulare.share.linkHint')}
-                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(
+                      [
+                        { value: 'link', labelKey: 'formulare.share.channel.link', Icon: Link2 },
+                        { value: 'email', labelKey: 'formulare.share.channel.email', Icon: Mail },
+                        { value: 'embed', labelKey: 'formulare.share.channel.embed', Icon: Code2 },
+                        { value: 'qr', labelKey: 'formulare.share.channel.qr', Icon: QrCode },
+                      ] as const
+                    ).map((ch) => {
+                      const active = shareChannel === ch.value
+                      return (
+                        <button
+                          key={ch.value}
+                          onClick={() => setShareChannel(ch.value)}
+                          className={`flex flex-col items-center gap-1.5 rounded-lg border px-2 py-3 text-xs transition-colors ${
+                            active
+                              ? 'border-primary bg-primary-light text-primary font-medium'
+                              : 'border-border text-muted-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          <ch.Icon className="h-4 w-4" />
+                          {t(ch.labelKey)}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </button>
 
-              <button
-                onClick={() => {
-                  toast.success(t('formulare.toast.emailGesendet'))
-                  setShowShareDialog(null)
-                }}
-                className="flex w-full items-center gap-3 rounded-lg border border-border p-3 hover:bg-secondary/50 transition-colors"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-info-light">
-                  <Mail className="h-4 w-4 text-info" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('formulare.share.expiry')}
+                    </label>
+                    <input
+                      type="date"
+                      value={shareExpiry}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setShareExpiry(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('formulare.share.maxSubmissions')}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={shareMaxSubs}
+                      onChange={(e) => setShareMaxSubs(e.target.value)}
+                      placeholder={t('formulare.share.maxSubmissionsPlaceholder')}
+                      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    />
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-foreground">
-                    {t('formulare.share.perEmail')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {t('formulare.share.emailHint')}
+              </>
+            ) : (
+              <>
+                {/* Stage 2 — generated link */}
+                <div className="flex items-center gap-2 rounded-lg bg-success-light px-3 py-2">
+                  <Check className="h-4 w-4 text-success shrink-0" />
+                  <p className="text-xs text-success">
+                    {t('formulare.share.created')}
                   </p>
                 </div>
-              </button>
-            </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    {shareCreatedLink.channel === 'embed'
+                      ? t('formulare.share.embedLabel')
+                      : t('formulare.share.linkLabel')}
+                  </label>
+                  <div className="flex items-start gap-2">
+                    {shareCreatedLink.channel === 'embed' ? (
+                      <textarea
+                        readOnly
+                        rows={3}
+                        value={shareValueOf(shareCreatedLink)}
+                        onFocus={(e) => e.currentTarget.select()}
+                        className="w-full resize-none rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                      />
+                    ) : (
+                      <input
+                        readOnly
+                        value={shareValueOf(shareCreatedLink)}
+                        onFocus={(e) => e.currentTarget.select()}
+                        className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                      />
+                    )}
+                    <button
+                      onClick={() => copyToClipboard(shareValueOf(shareCreatedLink))}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+                    >
+                      {shareCopied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                      {shareCopied
+                        ? t('formulare.share.copied')
+                        : t('formulare.share.copy')}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5">
+                    <Calendar className="h-3 w-3" />
+                    {shareCreatedLink.expiresAt
+                      ? t('formulare.share.expiresOn', {
+                          date: formatDate(shareCreatedLink.expiresAt),
+                        })
+                      : t('formulare.share.noExpiry')}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5">
+                    <Hash className="h-3 w-3" />
+                    {shareCreatedLink.maxSubmissions != null
+                      ? t('formulare.share.maxLabel', {
+                          count: shareCreatedLink.maxSubmissions,
+                        })
+                      : t('formulare.share.unlimited')}
+                  </span>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  {t('formulare.share.overviewHint')}
+                </p>
+              </>
+            )}
           </div>
 
           <DialogFooter className="border-t border-border px-5 py-4">
-            <button
-              onClick={() => setShowShareDialog(null)}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              {t('formulare.share.schliessen')}
-            </button>
+            {!shareCreatedLink ? (
+              <>
+                <button
+                  onClick={closeShareDialog}
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={handleCreateShareLink}
+                  disabled={createShareLink.isPending}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover disabled:opacity-60"
+                >
+                  <Share2 className="h-4 w-4" />
+                  {t('formulare.share.create')}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={resetShareDialog}
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  {t('formulare.share.another')}
+                </button>
+                <button
+                  onClick={closeShareDialog}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+                >
+                  {t('formulare.share.done')}
+                </button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

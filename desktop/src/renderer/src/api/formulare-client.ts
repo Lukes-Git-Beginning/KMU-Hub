@@ -7,12 +7,14 @@
  */
 import type {
   CreateFormSchemaInput,
+  CreateShareLinkInput,
   CreateSubmissionInput,
   CreateWebhookInput,
   DuplicateFormSchemaInput,
   ExportFormat,
   ExportedSubmissions,
   FormSchema,
+  FormShareLink,
   FormSubmission,
   FormWebhook,
   ListDeliveriesQuery,
@@ -21,6 +23,7 @@ import type {
   ListSubmissionsQuery,
   ListSubmissionsResponse,
   UpdateFormSchemaInput,
+  UpdateShareLinkInput,
   UpdateSubmissionStatusInput,
   UpdateWebhookInput,
   WebhookDelivery,
@@ -171,6 +174,40 @@ export function exportSubmissions(
     { format },
     format,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Share links (FD-1 / FD-2)
+// ---------------------------------------------------------------------------
+
+export function listShareLinks(formSchemaId: string) {
+  return request<FormShareLink[]>({
+    method: 'GET',
+    path: `${BASE}/schemas/${formSchemaId}/share-links`,
+  })
+}
+
+export function createShareLink(formSchemaId: string, body: CreateShareLinkInput) {
+  return request<FormShareLink>({
+    method: 'POST',
+    path: `${BASE}/schemas/${formSchemaId}/share-links`,
+    body,
+  })
+}
+
+export function updateShareLink(id: string, body: UpdateShareLinkInput) {
+  return request<FormShareLink>({
+    method: 'PATCH',
+    path: `${BASE}/share-links/${id}`,
+    body,
+  })
+}
+
+export function deleteShareLink(id: string) {
+  return request<void>({
+    method: 'DELETE',
+    path: `${BASE}/share-links/${id}`,
+  })
 }
 
 // ---------------------------------------------------------------------------
