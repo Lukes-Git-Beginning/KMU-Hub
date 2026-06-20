@@ -63,6 +63,7 @@ func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 			w.status, w.is_correction, w.original_entry_id,
 			w.correction_reason, w.correction_approved_by, w.correction_approved_at,
 			w.created_at, w.updated_at, w.project_id,
+			w.category_id, w.location_lat, w.location_lng, w.location_address,
 			COALESCE(u.first_name || ' ' || u.last_name, '') AS employee_name
 		FROM hr_work_time_entries w
 		LEFT JOIN hr_employee_profiles ep ON w.employee_id = ep.user_id
@@ -75,6 +76,7 @@ func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 		&entry.Status, &entry.IsCorrection, &entry.OriginalEntryID,
 		&entry.CorrectionReason, &entry.CorrectionApprovedBy, &entry.CorrectionApprovedAt,
 		&entry.CreatedAt, &entry.UpdatedAt, &entry.ProjectID,
+		&entry.CategoryID, &entry.LocationLat, &entry.LocationLng, &entry.LocationAddress,
 		&entry.EmployeeName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -93,7 +95,8 @@ func (r *PostgresWorkTimeRepo) GetActiveShift(ctx context.Context, employeeID uu
 			break_minutes, auto_break_deducted, net_work_minutes,
 			status, is_correction, original_entry_id,
 			correction_reason, correction_approved_by, correction_approved_at,
-			created_at, updated_at
+			created_at, updated_at,
+			category_id, project_id, location_lat, location_lng, location_address
 		FROM hr_work_time_entries
 		WHERE employee_id = $1 AND status = 'active'
 		LIMIT 1`,
@@ -104,6 +107,7 @@ func (r *PostgresWorkTimeRepo) GetActiveShift(ctx context.Context, employeeID uu
 		&entry.Status, &entry.IsCorrection, &entry.OriginalEntryID,
 		&entry.CorrectionReason, &entry.CorrectionApprovedBy, &entry.CorrectionApprovedAt,
 		&entry.CreatedAt, &entry.UpdatedAt,
+		&entry.CategoryID, &entry.ProjectID, &entry.LocationLat, &entry.LocationLng, &entry.LocationAddress,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -189,6 +193,7 @@ func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) 
 			w.status, w.is_correction, w.original_entry_id,
 			w.correction_reason, w.correction_approved_by, w.correction_approved_at,
 			w.created_at, w.updated_at, w.project_id,
+			w.category_id, w.location_lat, w.location_lng, w.location_address,
 			COALESCE(u.first_name || ' ' || u.last_name, '') AS employee_name
 		FROM hr_work_time_entries w
 		LEFT JOIN hr_employee_profiles ep ON w.employee_id = ep.user_id
@@ -215,6 +220,7 @@ func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) 
 			&entry.Status, &entry.IsCorrection, &entry.OriginalEntryID,
 			&entry.CorrectionReason, &entry.CorrectionApprovedBy, &entry.CorrectionApprovedAt,
 			&entry.CreatedAt, &entry.UpdatedAt, &entry.ProjectID,
+			&entry.CategoryID, &entry.LocationLat, &entry.LocationLng, &entry.LocationAddress,
 			&entry.EmployeeName,
 		); scanErr != nil {
 			return nil, 0, scanErr

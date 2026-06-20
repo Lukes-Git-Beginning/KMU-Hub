@@ -34,13 +34,13 @@ func (r *PostgresEmployeeRepo) Create(ctx context.Context, profile *models.Emplo
 			work_days_per_week, annual_leave_days, manager_user_id, start_date,
 			emergency_contact_name, emergency_contact_phone,
 			address_street, address_city, address_postal_code, address_country,
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+			created_at, updated_at, hourly_rate
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
 		profile.ID, profile.TenantID, profile.UserID, profile.Department, profile.PositionTitle, profile.ContractType,
 		profile.WorkDaysPerWeek, profile.AnnualLeaveDays, profile.ManagerUserID, profile.StartDate,
 		profile.EmergencyContactName, profile.EmergencyContactPhone,
 		profile.AddressStreet, profile.AddressCity, profile.AddressPostalCode, profile.AddressCountry,
-		profile.CreatedAt, profile.UpdatedAt,
+		profile.CreatedAt, profile.UpdatedAt, profile.HourlyRate,
 	)
 	return err
 }
@@ -51,7 +51,7 @@ func (r *PostgresEmployeeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 			ep.work_days_per_week, ep.annual_leave_days, ep.manager_user_id, ep.start_date,
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
-			ep.created_at, ep.updated_at,
+			ep.created_at, ep.updated_at, ep.hourly_rate,
 			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
 			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
@@ -70,7 +70,7 @@ func (r *PostgresEmployeeRepo) GetByUserID(ctx context.Context, userID uuid.UUID
 			ep.work_days_per_week, ep.annual_leave_days, ep.manager_user_id, ep.start_date,
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
-			ep.created_at, ep.updated_at,
+			ep.created_at, ep.updated_at, ep.hourly_rate,
 			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
 			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
@@ -134,7 +134,7 @@ func (r *PostgresEmployeeRepo) List(ctx context.Context, filter EmployeeFilter) 
 			ep.work_days_per_week, ep.annual_leave_days, ep.manager_user_id, ep.start_date,
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
-			ep.created_at, ep.updated_at,
+			ep.created_at, ep.updated_at, ep.hourly_rate,
 			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
 			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
@@ -173,13 +173,15 @@ func (r *PostgresEmployeeRepo) Update(ctx context.Context, profile *models.Emplo
 			start_date = $7,
 			emergency_contact_name = $8, emergency_contact_phone = $9,
 			address_street = $10, address_city = $11, address_postal_code = $12, address_country = $13,
-			updated_at = $14
-		WHERE id = $15 AND tenant_id = $16`,
+			hourly_rate = $14,
+			updated_at = $15
+		WHERE id = $16 AND tenant_id = $17`,
 		profile.Department, profile.PositionTitle, profile.ContractType,
 		profile.WorkDaysPerWeek, profile.AnnualLeaveDays, profile.ManagerUserID,
 		profile.StartDate,
 		profile.EmergencyContactName, profile.EmergencyContactPhone,
 		profile.AddressStreet, profile.AddressCity, profile.AddressPostalCode, profile.AddressCountry,
+		profile.HourlyRate,
 		profile.UpdatedAt, profile.ID, profile.TenantID,
 	)
 	return err
@@ -337,7 +339,7 @@ func scanEmployeeProfile(row pgx.Row) (*models.EmployeeProfile, error) {
 		&p.WorkDaysPerWeek, &p.AnnualLeaveDays, &p.ManagerUserID, &p.StartDate,
 		&p.EmergencyContactName, &p.EmergencyContactPhone,
 		&p.AddressStreet, &p.AddressCity, &p.AddressPostalCode, &p.AddressCountry,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.CreatedAt, &p.UpdatedAt, &p.HourlyRate,
 		&p.UserName, &p.UserEmail, &p.ManagerName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -356,7 +358,7 @@ func scanEmployeeProfileFromRows(rows pgx.Rows) (*models.EmployeeProfile, error)
 		&p.WorkDaysPerWeek, &p.AnnualLeaveDays, &p.ManagerUserID, &p.StartDate,
 		&p.EmergencyContactName, &p.EmergencyContactPhone,
 		&p.AddressStreet, &p.AddressCity, &p.AddressPostalCode, &p.AddressCountry,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.CreatedAt, &p.UpdatedAt, &p.HourlyRate,
 		&p.UserName, &p.UserEmail, &p.ManagerName,
 	)
 	if err != nil {
