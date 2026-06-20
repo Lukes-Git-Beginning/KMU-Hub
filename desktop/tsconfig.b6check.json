@@ -18,6 +18,8 @@
     "src/renderer/src/modules/berichte/components/documents/SaveToDocumentsDialog.tsx",
     "src/renderer/src/modules/berichte/components/documents/ShareLinkDialog.tsx",
     "src/renderer/src/mocks/handlers/crm.ts",
-    "src/renderer/src/mocks/handlers/documents.ts"
+    "src/renderer/src/mocks/handlers/documents.ts",
+    "src/renderer/src/api/hooks/useContacts.ts",
+    "src/renderer/src/modules/kontakte/ContactDetailPanel.tsx"
   ]
 }

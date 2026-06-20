@@ -18,6 +18,7 @@ import {
   TrendingUp,
   CheckSquare,
   Shield,
+  FileBarChart,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -35,6 +36,7 @@ import { useSegmentOverrideStore } from '@/stores/segmentOverride'
 import { computeSegment, SEGMENT_META, type MandantSegment } from '@/lib/segments'
 import { useTags, useAddContactTags, useRemoveContactTags } from '@/api/hooks/useContactTags'
 import { useDeals } from '@/api/hooks/useDeals'
+import { useContactFiles } from '@/api/hooks/useContacts'
 import { useContactEmails } from '@/api/hooks/useEmail'
 import { useEntityTasks } from '@/api/hooks/useTasks'
 import { ConsentPanel } from '@/modules/kontakte/ConsentPanel'
@@ -227,6 +229,12 @@ export function ContactDetailPanel({
   const { data: dealsData } = useDeals({ contact_id: contact.id, page_size: 5 })
   const { data: emailsData } = useContactEmails(contact.id, 1, 5)
   const { data: tasksData } = useEntityTasks('contact', contact.id)
+  const { data: filesData } = useContactFiles(contact.id)
+
+  // Report references attached from the berichte module (R-5a).
+  const linkedReports = (filesData?.files ?? []).filter(
+    (f) => f.mime_type === 'application/cosmi-report',
+  )
 
   const contactDeals = (dealsData as { deals?: Record<string, unknown>[] } | undefined)?.deals ?? []
   const contactEmails = (emailsData as { messages?: Record<string, unknown>[] } | undefined)?.messages ?? []
@@ -549,6 +557,34 @@ export function ContactDetailPanel({
                 <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                   {contact.notes}
                 </p>
+              </section>
+            </>
+          )}
+
+          {/* Linked reports (attached from berichte, R-5a) */}
+          {linkedReports.length > 0 && (
+            <>
+              <Separator />
+              <section>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <FileBarChart className="h-3.5 w-3.5" />
+                  {t('kontakte.detail.linkedReports')}
+                </h3>
+                <div className="space-y-1.5">
+                  {linkedReports.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => navigate('/berichte')}
+                      className="flex w-full items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                    >
+                      <FileBarChart className="h-4 w-4 text-primary shrink-0" />
+                      <span className="min-w-0 flex-1 truncate text-foreground">{f.filename}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDate(f.created_at)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </section>
             </>
           )}

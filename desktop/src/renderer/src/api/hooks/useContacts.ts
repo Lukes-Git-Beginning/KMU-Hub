@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { authenticatedRequest } from '../utils/authenticatedFetch'
 
 export interface ContactListParams {
   page?: number
@@ -39,6 +40,28 @@ export function useContact(id: string) {
       if (error) throw error
       return data
     },
+    enabled: !!id,
+  })
+}
+
+export interface ContactFile {
+  id: string
+  contact_id: string
+  filename: string
+  mime_type: string
+  storage_key: string
+  created_at: string
+}
+
+/** Files/links attached to a contact (e.g. report references from berichte). */
+export function useContactFiles(id: string) {
+  return useQuery({
+    queryKey: ['contacts', id, 'files'],
+    queryFn: () =>
+      authenticatedRequest<{ files: ContactFile[] }>({
+        method: 'GET',
+        path: `/api/v1/contacts/${id}/files`,
+      }),
     enabled: !!id,
   })
 }
