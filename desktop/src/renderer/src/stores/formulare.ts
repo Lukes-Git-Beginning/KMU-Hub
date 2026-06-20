@@ -24,6 +24,9 @@ export type FormFieldType =
   | 'date'
   | 'number'
   | 'file'
+  // Frontend/demo pseudo-type: a DSGVO consent checkbox (purpose-bound, with a
+  // linked privacy policy). Not in the backend proto whitelist.
+  | 'consent'
 
 export interface FormField {
   id: string
@@ -32,6 +35,10 @@ export interface FormField {
   required: boolean
   placeholder?: string
   options?: string[] // for select, radio
+  /** consent only: purpose-binding / privacy text shown next to the checkbox. */
+  consentText?: string
+  /** consent only: link to the Datenschutzerklärung. */
+  privacyUrl?: string
   conditionalLogic?: {
     fieldId: string
     operator: 'equals' | 'not_equals' | 'contains'

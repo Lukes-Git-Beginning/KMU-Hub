@@ -38,11 +38,20 @@
 - i18n `formulare.editor.feldVerschieben` ×4 (Drag-Handle-aria-Label).
 - **QA** (`scripts/qa-formulare-f3.mjs`): Handle „Name" von Pos 0 → 2 gezogen (`changed: true`), nach Speichern + Neuöffnen Reihenfolge erhalten (`matchesAfter: true`), Palette-Add (Datum) ergibt 6 Felder. **0 pageErrors.** Screenshots gesichtet (Handles + Live-Preview-Sync).
 
+### F-4 — DSGVO-Einwilligungsfeld + Submission-Tiefe + Export ✅
+- **Neuer Feldtyp `consent`** (Frontend/Demo-Pseudo-Typ, in Store + API ergänzt mit `consentText` + `privacyUrl`). In der Palette als „Einwilligung" (ShieldCheck). Beim Hinzufügen automatisch Pflicht + Default-DSGVO-Text + Datenschutz-Link. Feld-Config zeigt für consent eigene Eingaben (Zweckbindungstext + Link), Pflicht-Toggle ausgeblendet (immer Pflicht).
+- **Rendering**: Consent rendert in Editor-Live-Vorschau, standalone Vorschau und öffentlicher Editor-Vorschau als Checkbox mit Zweckbindungstext + verlinkter Datenschutzerklärung.
+- **Submission-Tiefe**: Detail zeigt Meta-Grid (Absender + IP-Adresse) und einen prominenten **Consent-Bestätigungsblock** („Eingewilligt am {date}" mit ShieldCheck + erfasstem Zweckbindungstext); consent wird aus der normalen Antwortliste ausgeblendet (keine Dopplung).
+- **Echter Export**: `useExportSubmissions` verdrahtet (vorher ungenutzter Stub). Wiederverwendbare `ExportMenu` (CSV/XLSX) im **Eingänge-Gruppen-Header** (pro Formular) und im **Form-Detail-Modal**. MSW liefert echten CSV-Blob (UTF-8-BOM, `Content-Disposition`) → echter Datei-Download. Der irreführende globale Toast-Stub wurde entfernt.
+- **Seed**: alle „Datenschutz-Einwilligung"-Felder auf `consent` upgegradet.
+- i18n ×4: `fieldType.consent`, `consent.*` (8), `submission.ipAdresse`, `export.downloadStarted`/`perFormHint` — 12 Keys.
+- **QA** (`scripts/qa-formulare-f4.mjs`): consent im Form-Detail, Submission-Consent-Block + IP, **echter Download** (`kundenfeedback_eingaenge.csv`, `downloaded: true`), Consent-Feld via Palette hinzugefügt. **0 pageErrors, 0 failedApi.** Screenshots gesichtet.
+
 ## Definition of Done
 - [x] Demo-Mode lebendig (0 failedApiRequests/pageErrors, Listen + Details + Submissions gefüllt) — F-1
 - [x] Formular-Zeile + Submission-Zeile → DetailModal mit allen Infos/Aktionen — F-2
 - [x] DnD-Formular-Builder, alle Feldtypen, Live-Vorschau, Reihenfolge persistent — F-3
-- [ ] DSGVO-Einwilligungsfeld + Consent im Submission-Detail + echter Export-Download — F-4
+- [x] DSGVO-Einwilligungsfeld + Consent im Submission-Detail + echter Export-Download — F-4
 - [ ] Moduleinstellungen (personal + tenant) via ModuleSettingsShell — F-5
 - [ ] i18n ×4 vollständig, 0 Raw-Keys, 0 `{{}}` (per Screenshot verifiziert) — laufend
 - [x] `reviews/formulare.md` mit DoD-Häkchen + Befunden, je Phase ein Commit/Push

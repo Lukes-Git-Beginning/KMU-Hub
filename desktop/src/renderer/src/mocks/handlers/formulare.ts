@@ -80,7 +80,14 @@ function buildSchemas(): FormSchema[] {
         f({ type: 'email', label: 'E-Mail', required: true, placeholder: 'name@beispiel.de' }),
         f({ type: 'select', label: 'Gesamtbewertung', required: true, options: ['Sehr zufrieden', 'Zufrieden', 'Neutral', 'Unzufrieden'] }),
         f({ type: 'textarea', label: 'Was können wir verbessern?', required: false, placeholder: 'Ihr Kommentar …' }),
-        f({ type: 'checkbox', label: 'Datenschutz-Einwilligung', required: true }),
+        f({
+          type: 'consent',
+          label: 'Datenschutz-Einwilligung',
+          required: true,
+          consentText:
+            'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.',
+          privacyUrl: 'https://www.zentria.tech/datenschutz',
+        }),
       ],
     }),
     base({
@@ -97,7 +104,14 @@ function buildSchemas(): FormSchema[] {
         f({ type: 'email', label: 'E-Mail', required: true, placeholder: 'name@beispiel.de' }),
         f({ type: 'text', label: 'Betreff', required: false, placeholder: 'Worum geht es?' }),
         f({ type: 'textarea', label: 'Nachricht', required: true, placeholder: 'Ihre Nachricht …' }),
-        f({ type: 'checkbox', label: 'Datenschutz-Einwilligung', required: true }),
+        f({
+          type: 'consent',
+          label: 'Datenschutz-Einwilligung',
+          required: true,
+          consentText:
+            'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.',
+          privacyUrl: 'https://www.zentria.tech/datenschutz',
+        }),
       ],
     }),
     base({
@@ -115,7 +129,14 @@ function buildSchemas(): FormSchema[] {
         f({ type: 'select', label: 'Position', required: true, options: ['Vertrieb', 'Entwicklung', 'Buchhaltung', 'Initiativbewerbung'] }),
         f({ type: 'date', label: 'Verfügbar ab', required: false }),
         f({ type: 'file', label: 'Lebenslauf (PDF)', required: true }),
-        f({ type: 'checkbox', label: 'Datenschutz-Einwilligung', required: true }),
+        f({
+          type: 'consent',
+          label: 'Datenschutz-Einwilligung',
+          required: true,
+          consentText:
+            'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.',
+          privacyUrl: 'https://www.zentria.tech/datenschutz',
+        }),
       ],
     }),
     base({
@@ -133,7 +154,14 @@ function buildSchemas(): FormSchema[] {
         f({ type: 'number', label: 'Anzahl Personen', required: true, placeholder: '1' }),
         f({ type: 'radio', label: 'Verpflegung', required: true, options: ['Mit Fleisch', 'Vegetarisch', 'Vegan'] }),
         f({ type: 'checkbox', label: 'Newsletter abonnieren', required: false }),
-        f({ type: 'checkbox', label: 'Datenschutz-Einwilligung', required: true }),
+        f({
+          type: 'consent',
+          label: 'Datenschutz-Einwilligung',
+          required: true,
+          consentText:
+            'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.',
+          privacyUrl: 'https://www.zentria.tech/datenschutz',
+        }),
       ],
     }),
     base({
@@ -147,7 +175,14 @@ function buildSchemas(): FormSchema[] {
       updatedAt: isoAgo(20 * HOUR),
       fields: [
         f({ type: 'email', label: 'E-Mail', required: true, placeholder: 'name@beispiel.de' }),
-        f({ type: 'checkbox', label: 'Datenschutz-Einwilligung', required: true }),
+        f({
+          type: 'consent',
+          label: 'Datenschutz-Einwilligung',
+          required: true,
+          consentText:
+            'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.',
+          privacyUrl: 'https://www.zentria.tech/datenschutz',
+        }),
       ],
     }),
     base({

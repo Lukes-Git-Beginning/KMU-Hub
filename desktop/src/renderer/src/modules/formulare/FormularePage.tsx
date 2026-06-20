@@ -52,6 +52,8 @@ import {
   Info,
   Globe,
   FileInput,
+  ShieldCheck,
+  ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -122,6 +124,7 @@ const FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
   date: 'formulare.fieldType.date',
   number: 'formulare.fieldType.number',
   file: 'formulare.fieldType.file',
+  consent: 'formulare.fieldType.consent',
 }
 
 const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
@@ -134,6 +137,7 @@ const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
   date: Calendar,
   number: Hash,
   file: Paperclip,
+  consent: ShieldCheck,
 }
 
 const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
@@ -146,7 +150,13 @@ const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
   { value: 'date', labelKey: 'formulare.fieldType.date' },
   { value: 'number', labelKey: 'formulare.fieldType.number' },
   { value: 'file', labelKey: 'formulare.fieldType.fileUpload' },
+  { value: 'consent', labelKey: 'formulare.fieldType.consent' },
 ]
+
+/** DSGVO default when adding a consent field (overridable per tenant in F-5). */
+const DEFAULT_CONSENT_TEXT =
+  'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.'
+const DEFAULT_PRIVACY_URL = 'https://www.zentria.tech/datenschutz'
 
 // ---------------------------------------------------------------------------
 // Helper: map FormSchema → DraftSchema for the editor
@@ -199,7 +209,7 @@ export default function FormularePage() {
   const updateSchema = useUpdateFormSchema()
   const deleteSchema = useDeleteFormSchema()
   const duplicateSchema = useDuplicateFormSchema()
-  const _exportSubs = useExportSubmissions()
+  const exportSubs = useExportSubmissions()
   const updateSubStatus = useUpdateSubmissionStatus()
 
   // -------------------------------------------------------------------------
@@ -299,6 +309,8 @@ export default function FormularePage() {
   const [configRequired, setConfigRequired] = useState(false)
   const [configPlaceholder, setConfigPlaceholder] = useState('')
   const [configOptions, setConfigOptions] = useState('')
+  const [configConsentText, setConfigConsentText] = useState('')
+  const [configPrivacyUrl, setConfigPrivacyUrl] = useState('')
 
   // 10.1 — Conditional logic state
   const [configConditionalEnabled, setConfigConditionalEnabled] =
@@ -315,8 +327,6 @@ export default function FormularePage() {
   // 10.4 — Public preview state
   const [showPublicPreview, setShowPublicPreview] = useState(false)
 
-  // 10.5 — Export dropdown state
-  const [showExportMenu, setShowExportMenu] = useState(false)
 
   // Submissions are fetched eagerly for every active form (one query per form,
   // deduped with the per-group SubmissionsPanel via a shared query key). This
@@ -525,7 +535,40 @@ export default function FormularePage() {
     })
   }
 
+  // Real CSV/XLSX download via the export endpoint (blob handled in the hook).
+  const handleExportSubmissions = (
+    schema: FormSchema,
+    format: 'csv' | 'xlsx',
+  ) => {
+    exportSubs.mutate(
+      { formSchemaId: schema.id, format },
+      {
+        onSuccess: () =>
+          toast.success(
+            t('formulare.export.downloadStarted', {
+              name: schema.title,
+              format: format.toUpperCase(),
+            }),
+          ),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
+  }
+
   const handleAddField = (type: FormFieldType) => {
+    if (type === 'consent') {
+      // DSGVO consent is a required, purpose-bound checkbox by definition.
+      addField({
+        type,
+        label: t('formulare.consent.defaultLabel'),
+        required: true,
+        consentText: DEFAULT_CONSENT_TEXT,
+        privacyUrl: DEFAULT_PRIVACY_URL,
+      })
+      setShowAddFieldMenu(false)
+      return
+    }
     addField({
       type,
       label: FIELD_TYPE_LABELS[type],
@@ -548,6 +591,8 @@ export default function FormularePage() {
     setConfigRequired(field.required)
     setConfigPlaceholder(field.placeholder ?? '')
     setConfigOptions(field.options?.join(', ') ?? '')
+    setConfigConsentText(field.consentText ?? '')
+    setConfigPrivacyUrl(field.privacyUrl ?? '')
     setConfigConditionalEnabled(!!field.conditionalLogic)
     setConfigConditionalFieldId(field.conditionalLogic?.fieldId ?? '')
     setConfigConditionalOperator(field.conditionalLogic?.operator ?? 'equals')
@@ -560,8 +605,12 @@ export default function FormularePage() {
     const { field } = showFieldConfigDialog
     updateField(field.id, {
       label: configLabel,
-      required: configRequired,
+      required: field.type === 'consent' ? true : configRequired,
       placeholder: configPlaceholder || undefined,
+      consentText:
+        field.type === 'consent' ? configConsentText || undefined : field.consentText,
+      privacyUrl:
+        field.type === 'consent' ? configPrivacyUrl || undefined : field.privacyUrl,
       options:
         field.type === 'select' || field.type === 'radio'
           ? configOptions
@@ -902,6 +951,27 @@ export default function FormularePage() {
             <Paperclip className="h-4 w-4" />
             {t('formulare.editor.dateiZiehen')}
           </div>
+        )
+      case 'consent':
+        return (
+          <label className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/30 p-3">
+            <div className="mt-0.5 h-4 w-4 shrink-0 rounded border-2 border-border" />
+            <span className="text-xs leading-relaxed text-muted-foreground">
+              {field.consentText || DEFAULT_CONSENT_TEXT}
+              {field.privacyUrl && (
+                <a
+                  href={field.privacyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.preventDefault()}
+                  className="ml-1 inline-flex items-center gap-0.5 text-primary underline"
+                >
+                  {t('formulare.consent.privacyLink')}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </span>
+          </label>
         )
       default:
         return null
@@ -1341,6 +1411,27 @@ export default function FormularePage() {
                           {t('formulare.editor.dateiZiehen')}
                         </div>
                       )}
+                      {field.type === 'consent' && (
+                        <label className="flex items-start gap-2.5 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 rounded text-blue-600"
+                          />
+                          <span className="text-xs leading-relaxed text-gray-600">
+                            {field.consentText || DEFAULT_CONSENT_TEXT}
+                            {field.privacyUrl && (
+                              <a
+                                href={field.privacyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-1 text-blue-600 underline"
+                              >
+                                {t('formulare.consent.privacyLink')}
+                              </a>
+                            )}
+                          </span>
+                        </label>
+                      )}
                     </div>
                   ))}
               </div>
@@ -1393,23 +1484,61 @@ export default function FormularePage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground">
-                  {t('formulare.fieldConfig.pflichtfeld')}
-                </label>
-                <button
-                  onClick={() => setConfigRequired(!configRequired)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                    configRequired ? 'bg-primary' : 'bg-secondary'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                      configRequired ? 'translate-x-4.5' : 'translate-x-0.5'
+              {showFieldConfigDialog?.field.type !== 'consent' && (
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-foreground">
+                    {t('formulare.fieldConfig.pflichtfeld')}
+                  </label>
+                  <button
+                    onClick={() => setConfigRequired(!configRequired)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      configRequired ? 'bg-primary' : 'bg-secondary'
                     }`}
-                  />
-                </button>
-              </div>
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        configRequired ? 'translate-x-4.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* DSGVO consent: purpose-binding text + privacy policy link */}
+              {showFieldConfigDialog?.field.type === 'consent' && (
+                <>
+                  <div className="flex items-start gap-2 rounded-lg bg-info-light px-3 py-2">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+                    <p className="text-xs text-info">
+                      {t('formulare.consent.configHint')}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('formulare.consent.text')}
+                    </label>
+                    <textarea
+                      value={configConsentText}
+                      onChange={(e) => setConfigConsentText(e.target.value)}
+                      rows={4}
+                      placeholder={t('formulare.consent.textPlaceholder')}
+                      className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('formulare.consent.privacyUrl')}
+                    </label>
+                    <input
+                      type="url"
+                      value={configPrivacyUrl}
+                      onChange={(e) => setConfigPrivacyUrl(e.target.value)}
+                      placeholder="https://…/datenschutz"
+                      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                    />
+                  </div>
+                </>
+              )}
 
               {(showFieldConfigDialog?.field.type === 'text' ||
                 showFieldConfigDialog?.field.type === 'textarea' ||
@@ -1716,50 +1845,10 @@ export default function FormularePage() {
             />
           </div>
 
-          {/* 10.5 — Export button (Eingänge tab only) */}
           {tab === 'eingänge' && allSubmissions.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                {t('formulare.export.exportieren')}
-              </button>
-              {showExportMenu && (
-                <div className="absolute right-0 top-full mt-1 z-20 w-48 rounded-lg border border-border bg-card shadow-xl py-1">
-                  <button
-                    onClick={() => {
-                      // Export requires a specific schema context; show hint
-                      toast.success(
-                        t('formulare.export.csvToast', {
-                          count: allSubmissions.length,
-                        }),
-                      )
-                      setShowExportMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <Download className="h-4 w-4 text-muted-foreground" />
-                    {t('formulare.export.csv')}
-                  </button>
-                  <button
-                    onClick={() => {
-                      toast.success(
-                        t('formulare.export.excelToast', {
-                          count: allSubmissions.length,
-                        }),
-                      )
-                      setShowExportMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <Download className="h-4 w-4 text-muted-foreground" />
-                    {t('formulare.export.excel')}
-                  </button>
-                </div>
-              )}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('formulare.export.perFormHint')}
+            </p>
           )}
         </div>
       )}
@@ -1896,11 +1985,11 @@ export default function FormularePage() {
                     className="rounded-lg border border-border bg-card overflow-hidden"
                   >
                     {/* Group header */}
-                    <button
-                      onClick={() => toggleGroup(schema.id)}
-                      className="flex w-full items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 pr-3 hover:bg-secondary/50 transition-colors">
+                      <button
+                        onClick={() => toggleGroup(schema.id)}
+                        className="flex flex-1 items-center gap-3 px-4 py-3 text-left"
+                      >
                         {isExpanded ? (
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         ) : (
@@ -1920,8 +2009,16 @@ export default function FormularePage() {
                             {t('formulare.submission.neu', { count: newCount })}
                           </span>
                         )}
-                      </div>
-                    </button>
+                      </button>
+                      {schema.submissionCount > 0 && (
+                        <ExportMenu
+                          schema={schema}
+                          onExport={handleExportSubmissions}
+                          t={t}
+                          compact
+                        />
+                      )}
+                    </div>
 
                     {/* Submissions table — loaded lazily */}
                     {isExpanded && (
@@ -2118,15 +2215,66 @@ export default function FormularePage() {
       >
         {selectedSubmission && (
           <div className="space-y-5">
-            {/* Submitter info */}
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                {t('formulare.submission.absender')}
-              </p>
-              <p className="text-sm font-medium text-foreground">
-                {selectedSubmission.submittedBy ?? '--'}
-              </p>
+            {/* Submitter meta */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  {t('formulare.submission.absender')}
+                </p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {selectedSubmission.submittedBy ?? '--'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  {t('formulare.submission.ipAdresse')}
+                </p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {selectedSubmission.ipAddress ?? '--'}
+                </p>
+              </div>
             </div>
+
+            {/* DSGVO consent confirmation (if the form captured one) */}
+            {(() => {
+              const schemaFields =
+                (schemas.find((s) => s.id === selectedSubmission.formSchemaId)
+                  ?.fields as FormField[] | undefined) ?? []
+              const consentField = schemaFields.find((f) => f.type === 'consent')
+              if (!consentField) return null
+              const accepted = !!selectedSubmission.answers[consentField.id]
+              return (
+                <div
+                  className={`rounded-lg border p-3 ${
+                    accepted
+                      ? 'border-success/30 bg-success-light'
+                      : 'border-warning/30 bg-warning-light'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${
+                        accepted ? 'text-success' : 'text-warning'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {accepted
+                          ? t('formulare.consent.accepted', {
+                              date: formatDateTime(selectedSubmission.submittedAt),
+                            })
+                          : t('formulare.consent.notAccepted')}
+                      </p>
+                      {consentField.consentText && (
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          {consentField.consentText}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Answers */}
             <div>
@@ -2140,6 +2288,8 @@ export default function FormularePage() {
                       selectedSubmission.formSchemaId ?? '',
                       fieldId,
                     )
+                    // Consent is surfaced in its own block above — skip here.
+                    if (field?.type === 'consent') return null
                     // 10.1 — Skip fields hidden by conditional logic
                     if (field?.conditionalLogic) {
                       const visible = evaluateCondition(
@@ -2267,6 +2417,14 @@ export default function FormularePage() {
                     ? t('formulare.actions.aktivieren')
                     : t('formulare.actions.archivieren')}
                 </button>
+                {selectedForm.submissionCount > 0 && (
+                  <ExportMenu
+                    schema={selectedForm}
+                    onExport={handleExportSubmissions}
+                    t={t}
+                    compact
+                  />
+                )}
                 <button
                   onClick={() => {
                     const form = selectedForm
@@ -2647,6 +2805,65 @@ export default function FormularePage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteForm(confirmDelete)}
       />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ExportMenu — a small CSV/XLSX export dropdown bound to one schema. Reused by
+// the Eingänge group headers and the form detail modal. Triggers a real blob
+// download via the parent's onExport handler.
+// ---------------------------------------------------------------------------
+
+interface ExportMenuProps {
+  schema: FormSchema
+  onExport: (schema: FormSchema, format: 'csv' | 'xlsx') => void
+  t: (key: string, opts?: Record<string, unknown>) => string
+  compact?: boolean
+}
+
+function ExportMenu({ schema, onExport, t, compact }: ExportMenuProps) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={
+          compact
+            ? 'flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary'
+            : 'flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary'
+        }
+      >
+        <Download className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+        {t('formulare.export.exportieren')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-border bg-card py-1 shadow-xl">
+            <button
+              onClick={() => {
+                onExport(schema, 'csv')
+                setOpen(false)
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+            >
+              <Download className="h-4 w-4 text-muted-foreground" />
+              {t('formulare.export.csv')}
+            </button>
+            <button
+              onClick={() => {
+                onExport(schema, 'xlsx')
+                setOpen(false)
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+            >
+              <Download className="h-4 w-4 text-muted-foreground" />
+              {t('formulare.export.excel')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
