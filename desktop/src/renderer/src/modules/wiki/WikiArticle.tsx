@@ -26,6 +26,7 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
   const { t } = useTranslation()
   const isEditing = useWikiStore((s) => s.isEditing)
   const setEditing = useWikiStore((s) => s.setEditing)
+  const setSelectedArticle = useWikiStore((s) => s.setSelectedArticle)
   const updateArticleMutation = useUpdateArticle()
   const restoreVersionMutation = useRestoreVersion()
   const [editContent, setEditContent] = useState(article.content)
@@ -58,6 +59,18 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
   const handleStartEdit = () => {
     setEditContent(article.content)
     setEditing(true)
+  }
+
+  // Internal [[wiki link]] clicks open the target article.
+  const handleBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = (e.target as HTMLElement).closest('[data-wiki-link]')
+    if (!el) return
+    const targetId = el.getAttribute('data-article-id')
+    if (targetId) {
+      e.preventDefault()
+      setSelectedArticle(targetId)
+      setEditing(false)
+    }
   }
 
   const handleRestore = async (versionId: string) => {
@@ -98,7 +111,12 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
             {article.content.trim() ? (
               <div
                 className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
+                onClick={handleBodyClick}
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(article.content, {
+                    ADD_ATTR: ['data-wiki-link', 'data-article-id', 'data-slug', 'data-mention-id'],
+                  }),
+                }}
               />
             ) : (
               <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">

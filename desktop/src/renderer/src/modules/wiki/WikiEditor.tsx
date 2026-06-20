@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { RichTextEditor } from '@/components/shared'
+import { WikiRichEditor } from './WikiRichEditor'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -15,52 +14,26 @@ interface WikiEditorProps {
 }
 
 /**
- * Article editor — wraps the shared TipTap RichTextEditor.
+ * Article editor — wraps the wiki-specific TipTap editor (WikiRichEditor).
  *
  * The editor speaks HTML (onChange returns serialised HTML); the article store
- * persists it as `{ html }`. Ctrl/Cmd+S saves, Escape cancels — both captured
- * at the wrapper so they fire regardless of editor focus.
+ * persists it as `{ html }`. Ctrl/Cmd+S saves, Escape cancels — both handled
+ * inside the editor so they cooperate with the @mention / [[link]] autocomplete.
  */
 export function WikiEditor({ content, onChange, onSave, onCancel, saving }: WikiEditorProps) {
   const { t } = useTranslation()
-  const [html, setHtml] = useState(content)
-
-  useEffect(() => {
-    setHtml(content)
-  }, [content])
-
-  const handleChange = (value: string) => {
-    setHtml(value)
-    onChange(value)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      onSave()
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onCancel()
-    }
-  }
 
   return (
-    <div
-      className="flex flex-1 flex-col overflow-hidden"
-      onKeyDownCapture={handleKeyDown}
-    >
+    <div className="flex flex-1 flex-col overflow-hidden">
       {/* Editor */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        <RichTextEditor
+        <WikiRichEditor
           content={content}
-          onChange={handleChange}
+          onChange={onChange}
           placeholder={t('wiki.editor.placeholder')}
-          showFooter={false}
           autofocus
-          minHeight="320px"
-          maxHeight="none"
-          className="border-border"
+          onSave={onSave}
+          onCancel={onCancel}
         />
       </div>
 
