@@ -16,34 +16,36 @@ import (
 )
 
 type RateLimiter struct {
-	redis    *redis.Client
-	rps      int
-	window   time.Duration
-	fallback *inMemoryLimiter
-	prefix   string
+	redis       *redis.Client
+	rps         int
+	window      time.Duration
+	fallback    *inMemoryLimiter
+	prefix      string
+	behindProxy bool
 }
 
 // NewRateLimiter creates a rate limiter with the default "ratelimit" key prefix.
-// Backward-compatible — existing callers are unaffected.
-func NewRateLimiter(redisClient *redis.Client, rps int) *RateLimiter {
-	return NewRateLimiterWithPrefix(redisClient, rps, "ratelimit")
+// behindProxy controls whether X-Forwarded-For is trusted (see ClientIPTrusted).
+func NewRateLimiter(redisClient *redis.Client, rps int, behindProxy bool) *RateLimiter {
+	return NewRateLimiterWithPrefix(redisClient, rps, "ratelimit", behindProxy)
 }
 
 // NewRateLimiterWithPrefix creates a rate limiter with a custom Redis key prefix.
 // Use this to create scoped limiters with independent counters (e.g. "ratelimit:public").
-func NewRateLimiterWithPrefix(redisClient *redis.Client, rps int, prefix string) *RateLimiter {
+func NewRateLimiterWithPrefix(redisClient *redis.Client, rps int, prefix string, behindProxy bool) *RateLimiter {
 	return &RateLimiter{
-		redis:    redisClient,
-		rps:      rps,
-		window:   time.Second,
-		fallback: newInMemoryLimiter(rps),
-		prefix:   prefix,
+		redis:       redisClient,
+		rps:         rps,
+		window:      time.Second,
+		fallback:    newInMemoryLimiter(rps),
+		prefix:      prefix,
+		behindProxy: behindProxy,
 	}
 }
 
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := clientIP(r)
+		key := ClientIPTrusted(r, rl.behindProxy)
 
 		// Try authenticated user ID first
 		if userID := GetUserID(r.Context()); userID != "" {
@@ -85,9 +87,37 @@ func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, error) {
 	return incr.Val() <= int64(rl.rps), nil
 }
 
-// ClientIP extracts the real client IP from the request, preferring the first
-// value of X-Forwarded-For (set by reverse proxies). Falls back to RemoteAddr.
-// Exported so other packages (e.g. gateway handlers) can reuse the same logic.
+// ClientIPTrusted resolves the client IP for security decisions (rate limiting,
+// IP filtering) under the configured proxy-trust setting.
+//
+// When behindProxy is true, the request is assumed to traverse exactly one
+// trusted reverse proxy (Caddy) that appends the real peer IP to the END of
+// X-Forwarded-For. The LAST entry is therefore authoritative; the leftmost
+// entries are attacker-supplied and ignored. This defeats X-Forwarded-For
+// spoofing of the rate limiter and IP filter that a leftmost read would allow.
+//
+// When behindProxy is false, all forwarding headers are attacker-controlled
+// (the gateway is directly exposed) and ignored — only the TCP peer
+// (RemoteAddr) is trusted.
+func ClientIPTrusted(r *http.Request, behindProxy bool) string {
+	if behindProxy {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if ip := strings.TrimSpace(parts[len(parts)-1]); ip != "" {
+				return ip
+			}
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// ClientIP extracts the client IP preferring the first X-Forwarded-For value.
+// Retained for non-security callers (request logging, captcha attribution) that
+// predate the proxy-trust model; security middleware must use ClientIPTrusted.
 func ClientIP(r *http.Request) string { return clientIP(r) }
 
 func clientIP(r *http.Request) string {

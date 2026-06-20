@@ -19,8 +19,12 @@ const forgotRateLimitWindow = 10 * time.Minute
 // forgotRateLimitMax is the maximum number of requests allowed per email per window.
 const forgotRateLimitMax = 5
 
-// forgotBucket tracks rate-limit state for a single email address.
+// forgotBucket tracks rate-limit state for a single email address. mu guards
+// count/windowEnd: sync.Map protects the map itself but not concurrent access to
+// a stored *forgotBucket, so two simultaneous requests for the same email would
+// otherwise race on count.
 type forgotBucket struct {
+	mu        sync.Mutex
 	count     int
 	windowEnd time.Time
 }
@@ -451,11 +455,15 @@ func (a *AuthRoutes) allowForgotAttempt(email string) bool {
 	actual, _ := a.forgotLimiter.LoadOrStore(email, &forgotBucket{windowEnd: now.Add(forgotRateLimitWindow)})
 	b := actual.(*forgotBucket)
 
-	// Use a pointer-level lock via sync.Mutex embedded in the bucket.
-	// Simpler: re-store atomically after check.
+	// Guard count/windowEnd with the bucket's own mutex. Reset the fields in
+	// place (rather than Store-ing a fresh bucket) so a concurrent caller holding
+	// the same pointer observes the reset under the same lock.
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if now.After(b.windowEnd) {
 		// Window expired — reset.
-		a.forgotLimiter.Store(email, &forgotBucket{count: 1, windowEnd: now.Add(forgotRateLimitWindow)})
+		b.count = 1
+		b.windowEnd = now.Add(forgotRateLimitWindow)
 		return true
 	}
 	b.count++

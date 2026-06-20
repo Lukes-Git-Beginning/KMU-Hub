@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
@@ -23,17 +23,21 @@ var errIPRulesUnavailable = errors.New("IP rules unavailable: auth service unrea
 // IPFilterMiddleware checks client IP addresses against configured allow/block rules.
 // Rules are cached and refreshed every 60 seconds from the security gRPC service.
 type IPFilterMiddleware struct {
-	registry       *ServiceRegistry
-	mu             sync.RWMutex
-	rules          []*securityv1.IPAccessRule
-	lastLoad       time.Time
+	registry        *ServiceRegistry
+	mu              sync.RWMutex
+	rules           []*securityv1.IPAccessRule
+	lastLoad        time.Time
 	rulesEverLoaded bool
+	behindProxy     bool
 }
 
-// NewIPFilterMiddleware creates a new IP filter middleware.
-func NewIPFilterMiddleware(registry *ServiceRegistry) *IPFilterMiddleware {
+// NewIPFilterMiddleware creates a new IP filter middleware. behindProxy controls
+// whether X-Forwarded-For is trusted when extracting the client IP (see
+// middleware.ClientIPTrusted).
+func NewIPFilterMiddleware(registry *ServiceRegistry, behindProxy bool) *IPFilterMiddleware {
 	return &IPFilterMiddleware{
-		registry: registry,
+		registry:    registry,
+		behindProxy: behindProxy,
 	}
 }
 
@@ -52,7 +56,7 @@ func (f *IPFilterMiddleware) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		clientIP := extractClientIP(r)
+		clientIP := middleware.ClientIPTrusted(r, f.behindProxy)
 		if clientIP == "" {
 			// Cannot determine IP: allow (fail open)
 			next.ServeHTTP(w, r)
@@ -126,8 +130,14 @@ func (f *IPFilterMiddleware) Middleware(next http.Handler) http.Handler {
 // handleFetchFailure decides whether to serve stale rules or fail closed.
 func (f *IPFilterMiddleware) handleFetchFailure(err error) ([]*securityv1.IPAccessRule, error) {
 	if !f.rulesEverLoaded {
-		slog.Error("IP filter: no rules ever loaded, failing closed", "error", err)
-		return nil, errIPRulesUnavailable
+		// Cold start: rules have never loaded (e.g. auth not yet reachable during
+		// a normal compose boot). Fail OPEN so login and all traffic work, rather
+		// than 503-ing the entire gateway including /auth/login. The next request
+		// after auth is up loads and caches the rules. ip_access_rules is RLS /
+		// tenant-scoped, so the load must run on a request context that carries a
+		// tenant — which is why we keep the lazy load instead of a background one.
+		slog.Warn("IP filter: no rules loaded yet, failing open until auth is reachable", "error", err)
+		return nil, nil
 	}
 	if time.Since(f.lastLoad) > ipRuleMaxStaleness {
 		slog.Error("IP filter: cache exceeds max staleness, failing closed",
@@ -174,26 +184,3 @@ func (f *IPFilterMiddleware) getRules(r *http.Request) ([]*securityv1.IPAccessRu
 	return f.rules, nil
 }
 
-// extractClientIP extracts the client IP from X-Forwarded-For or RemoteAddr.
-func extractClientIP(r *http.Request) string {
-	// Check X-Forwarded-For first (may contain comma-separated IPs)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.SplitN(xff, ",", 2)
-		ip := strings.TrimSpace(parts[0])
-		if ip != "" {
-			return ip
-		}
-	}
-
-	// Check X-Real-IP
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return strings.TrimSpace(xri)
-	}
-
-	// Fall back to RemoteAddr
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}

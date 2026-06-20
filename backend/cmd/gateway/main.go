@@ -148,16 +148,16 @@ func main() {
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 
 	// IP filter middleware: reject blocked IPs before rate limiting
-	ipFilter := gateway.NewIPFilterMiddleware(registry)
+	ipFilter := gateway.NewIPFilterMiddleware(registry, cfg.BehindProxy)
 	r.Use(ipFilter.Middleware)
 
-	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS)
+	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS, cfg.BehindProxy)
 	r.Use(rateLimiter.Middleware)
 
 	// Scoped rate limiter for unauthenticated public endpoints (/api/v1/public/*).
 	// Uses a separate Redis key prefix ("ratelimit:public:") so public and global
 	// counters are independent — a burst on booking pages does not exhaust global tokens.
-	publicRateLimiter := middleware.NewRateLimiterWithPrefix(redisClient, cfg.PublicRateLimitRPS, "ratelimit:public")
+	publicRateLimiter := middleware.NewRateLimiterWithPrefix(redisClient, cfg.PublicRateLimitRPS, "ratelimit:public", cfg.BehindProxy)
 
 	// Audit logger: logs security-relevant events via gRPC (worker pool)
 	auditLogger := middleware.NewAuditLogger(func() (securityv1.SecurityServiceClient, error) {
