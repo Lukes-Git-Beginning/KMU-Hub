@@ -33,6 +33,7 @@ import { LexwareSetupWizard } from '../integrations/LexwareSetupWizard'
 import { LexwareSyncDashboard } from '../integrations/LexwareSyncDashboard'
 import { DatevSettingsPanel } from '../integrations/DatevSettingsPanel'
 import { AccountLinkDialog } from '../integrations/AccountLinkDialog'
+import { FeatureGate } from '@/components/shared/FeatureGate'
 import {
   useBexioConnectionStatus,
   useBexioDisconnect,
@@ -176,35 +177,37 @@ export function IntegrationsSettingsTab() {
             isToggling={updateSlack.isPending}
           />
 
-          {/* Bexio integration */}
-          <IntegrationCard
-            name="Bexio"
-            description={t('settings.integrations.bexio.description')}
-            icon={
-              <span className="text-sm font-bold text-foreground">
-                Bx
-              </span>
-            }
-            status={
-              bexioConnection?.connected
-                ? 'connected'
-                : 'disconnected'
-            }
-            isActive={bexioConnection?.connected ?? false}
-            onConfigure={() =>
-              bexioConnection?.connected
-                ? setBexioDashboardOpen(true)
-                : setBexioWizardOpen(true)
-            }
-            onToggle={() => {
-              if (bexioConnection?.connected) {
-                if (confirm(t('settings.integrations.bexio.disconnectConfirm'))) {
-                  bexioDisconnect.mutate()
-                }
+          {/* Bexio integration — gated behind integrations.bexio feature flag */}
+          <FeatureGate flag="integrations.bexio">
+            <IntegrationCard
+              name="Bexio"
+              description={t('settings.integrations.bexio.description')}
+              icon={
+                <span className="text-sm font-bold text-foreground">
+                  Bx
+                </span>
               }
-            }}
-            isToggling={bexioDisconnect.isPending}
-          />
+              status={
+                bexioConnection?.connected
+                  ? 'connected'
+                  : 'disconnected'
+              }
+              isActive={bexioConnection?.connected ?? false}
+              onConfigure={() =>
+                bexioConnection?.connected
+                  ? setBexioDashboardOpen(true)
+                  : setBexioWizardOpen(true)
+              }
+              onToggle={() => {
+                if (bexioConnection?.connected) {
+                  if (confirm(t('settings.integrations.bexio.disconnectConfirm'))) {
+                    bexioDisconnect.mutate()
+                  }
+                }
+              }}
+              isToggling={bexioDisconnect.isPending}
+            />
+          </FeatureGate>
           {/* Lexware Office integration */}
           <IntegrationCard
             name="Lexware Office"
@@ -294,17 +297,19 @@ export function IntegrationsSettingsTab() {
         existingConfig={slackConfig}
       />
 
-      {/* Bexio wizard and dashboard */}
-      <BexioSetupWizard
-        isOpen={bexioWizardOpen}
-        onClose={() => setBexioWizardOpen(false)}
-      />
-      {bexioDashboardOpen && (
-        <BexioSyncDashboard
-          isOpen={bexioDashboardOpen}
-          onClose={() => setBexioDashboardOpen(false)}
+      {/* Bexio wizard and dashboard — gated behind integrations.bexio feature flag */}
+      <FeatureGate flag="integrations.bexio">
+        <BexioSetupWizard
+          isOpen={bexioWizardOpen}
+          onClose={() => setBexioWizardOpen(false)}
         />
-      )}
+        {bexioDashboardOpen && (
+          <BexioSyncDashboard
+            isOpen={bexioDashboardOpen}
+            onClose={() => setBexioDashboardOpen(false)}
+          />
+        )}
+      </FeatureGate>
 
       {/* Lexware wizard and dashboard */}
       <LexwareSetupWizard

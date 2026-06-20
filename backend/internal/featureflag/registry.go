@@ -91,6 +91,11 @@ func NewRegistry() *Registry {
 	// risk: safe | llm_toggle_safe: true | description: enables the Produktion (production) module
 	r.register(Flag{Key: "modules.produktion", DefaultEnabled: false, EnvVar: "COSMI_MODULE_PRODUKTION_ENABLED", Description: "enables the Produktion (production) module", Risk: SafeRisk, LLMToggleSafe: true})
 
+	// ── Integration flags ────────────────────────────────────────────────────────
+
+	// risk: safe | llm_toggle_safe: false | description: enables Bexio accounting integration (OAuth2 sync)
+	r.register(Flag{Key: "integrations.bexio", DefaultEnabled: false, EnvVar: "COSMI_INTEGRATION_BEXIO_ENABLED", Description: "enables Bexio accounting integration (OAuth2 sync)", Risk: SafeRisk, LLMToggleSafe: false})
+
 	// ── Plugin flags ─────────────────────────────────────────────────────────────
 
 	// risk: breaking | llm_toggle_safe: false | description: enables WASM plugin runtime (off in prod until Phase D)
