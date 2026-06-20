@@ -41,6 +41,14 @@ type InvoiceReader interface {
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error)
 }
 
+// InvoiceStatusUpdater flips an invoice's status inside a caller-owned tx.
+// Implemented by the invoice PostgresRepository. Injected so StornoInvoice can
+// cancel the original invoice atomically with the credit note finalization,
+// leaving the books either fully reversed or untouched (GoBD §146).
+type InvoiceStatusUpdater interface {
+	UpdateStatusInTx(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID, status string) error
+}
+
 // NumberSequenceRepo provides gap-free document number generation.
 type NumberSequenceRepo interface {
 	NextNumber(ctx context.Context, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error)

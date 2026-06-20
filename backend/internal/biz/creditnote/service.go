@@ -32,6 +32,15 @@ type Service struct {
 	// pool backs the atomic Send transaction (number assignment + status/number
 	// update in one tx). May be nil in unit tests that do not exercise Send.
 	pool txBeginner
+	// invoiceCanceller cancels the original invoice inside the Storno tx. Set via
+	// SetInvoiceStatusUpdater; required only for StornoInvoice.
+	invoiceCanceller InvoiceStatusUpdater
+}
+
+// SetInvoiceStatusUpdater wires the in-tx invoice canceller used by StornoInvoice.
+// Kept out of NewService so existing constructor callers and tests are unchanged.
+func (s *Service) SetInvoiceStatusUpdater(u InvoiceStatusUpdater) {
+	s.invoiceCanceller = u
 }
 
 // NewService creates a new credit note service.
@@ -218,6 +227,96 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 		"gross_total", cn.GrossTotal,
 	)
 	return nil
+}
+
+// StornoInvoice reverses an issued invoice GoBD-compliantly: it creates a full
+// mirroring credit note (Stornorechnung) and, in a single transaction, finalizes
+// it with a gap-free GS number AND flips the invoice to cancelled. GoBD §146
+// forbids silently deleting an issued invoice — it must be reversed by a credit
+// note. The credit note mirrors the invoice's line items with their original
+// (positive) amounts; the credit-note document type is what makes it a reversal.
+//
+// Returns the finalized credit note's id and number. It refuses to act if the
+// invoice already carries a sent credit note, so a partially-credited invoice is
+// never silently over-credited (manual handling required there).
+func (s *Service) StornoInvoice(ctx context.Context, tenantID, invoiceID, userID uuid.UUID) (uuid.UUID, string, error) {
+	if s.pool == nil {
+		return uuid.Nil, "", fmt.Errorf("credit note service: pool not configured (required for Storno)")
+	}
+	if s.invoiceCanceller == nil {
+		return uuid.Nil, "", fmt.Errorf("credit note service: invoice status updater not configured (required for Storno)")
+	}
+
+	inv, err := s.invoiceReader.GetByID(ctx, tenantID, invoiceID)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("load invoice for storno: %w", err)
+	}
+
+	// Guard: never auto-storno on top of an existing sent credit note.
+	existing, exErr := s.repo.GetByInvoiceID(ctx, tenantID, invoiceID)
+	if exErr != nil {
+		return uuid.Nil, "", fmt.Errorf("check existing credit notes: %w", exErr)
+	}
+	for _, c := range existing {
+		if c.Status == models.CreditNoteStatusSent {
+			return uuid.Nil, "", ErrInvoiceAlreadyCredited
+		}
+	}
+
+	var items []models.LineItem
+	if umErr := json.Unmarshal(inv.LineItems, &items); umErr != nil {
+		return uuid.Nil, "", fmt.Errorf("unmarshal invoice line items: %w", umErr)
+	}
+
+	// Create the reversing credit note as a draft (mirrors the invoice 1:1).
+	cn, err := s.Create(ctx, CreateInput{
+		TenantID:          tenantID,
+		OriginalInvoiceID: invoiceID,
+		LineItems:         items,
+		TaxMode:           inv.TaxMode,
+		Reason:            fmt.Sprintf("Storno der Rechnung %s", inv.InvoiceNumber),
+		UserID:            userID,
+	})
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("create storno credit note: %w", err)
+	}
+
+	// Finalize the credit note (gap-free GS number) AND cancel the invoice in ONE
+	// transaction so the books are never left half-reversed.
+	fiscalYear := time.Now().Year()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("begin storno tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	number, numErr := s.numberSeqRepo.NextNumberInTx(ctx, tx, tenantID, models.DocumentTypeCreditNote, fiscalYear, "GS")
+	if numErr != nil {
+		return uuid.Nil, "", fmt.Errorf("assign storno number: %w", numErr)
+	}
+
+	cn.CreditNoteNumber = number
+	cn.Status = models.CreditNoteStatusSent
+	cn.UpdatedAt = time.Now()
+	if updErr := s.repo.UpdateInTx(ctx, tx, cn); updErr != nil {
+		return uuid.Nil, "", fmt.Errorf("finalize storno credit note: %w", updErr)
+	}
+
+	if cancelErr := s.invoiceCanceller.UpdateStatusInTx(ctx, tx, tenantID, invoiceID, models.InvoiceStatusCancelled); cancelErr != nil {
+		return uuid.Nil, "", fmt.Errorf("cancel invoice in storno tx: %w", cancelErr)
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return uuid.Nil, "", fmt.Errorf("commit storno tx: %w", commitErr)
+	}
+
+	slog.Info("invoice reversed by storno credit note",
+		"invoice_id", invoiceID,
+		"credit_note_id", cn.ID,
+		"credit_note_number", number,
+		"tenant_id", tenantID,
+	)
+	return cn.ID, number, nil
 }
 
 // parseTaxMode converts a string tax mode to the tax package TaxMode type.

@@ -2,6 +2,7 @@ package creditnote
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -586,4 +587,89 @@ func TestService_Send_NumberSeqError(t *testing.T) {
 
 	// Status should remain draft since send failed
 	assert.Equal(t, models.CreditNoteStatusDraft, repo.creditNotes[cnID].Status)
+}
+
+// ============================================================================
+// StornoInvoice (GoBD §146 — cancel a sent invoice via a reversing credit note)
+// ============================================================================
+
+// fakeInvoiceCanceller records the in-tx invoice status update performed by the
+// Storno path.
+type fakeInvoiceCanceller struct {
+	cancelledID uuid.UUID
+	cancelledTo string
+	err         error
+}
+
+func (f *fakeInvoiceCanceller) UpdateStatusInTx(_ context.Context, _ pgx.Tx, _, id uuid.UUID, status string) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.cancelledID = id
+	f.cancelledTo = status
+	return nil
+}
+
+func sentInvoiceWithLines(tenantID uuid.UUID) *models.Invoice {
+	inv := newTestInvoice(tenantID, models.InvoiceStatusSent)
+	inv.InvoiceNumber = "RE-2026-0007"
+	inv.TaxMode = models.TaxModeStandard
+	liJSON, _ := json.Marshal(newTestLineItems())
+	inv.LineItems = liJSON
+	return inv
+}
+
+func TestService_StornoInvoice_ReversesAndCancels(t *testing.T) {
+	svc, repo, invReader, _ := newTestService()
+	tenantID := uuid.New()
+	inv := sentInvoiceWithLines(tenantID)
+	invReader.AddInvoice(inv)
+	canceller := &fakeInvoiceCanceller{}
+	svc.SetInvoiceStatusUpdater(canceller)
+
+	cnID, cnNum, err := svc.StornoInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, cnID)
+	assert.Equal(t, "GS-2026-0001", cnNum)
+
+	// The invoice was cancelled inside the same (storno) transaction.
+	assert.Equal(t, inv.ID, canceller.cancelledID)
+	assert.Equal(t, models.InvoiceStatusCancelled, canceller.cancelledTo)
+
+	// A sent credit note now mirrors the invoice with positive amounts.
+	cn := repo.creditNotes[cnID]
+	require.NotNil(t, cn)
+	assert.Equal(t, models.CreditNoteStatusSent, cn.Status)
+	assert.Equal(t, inv.ID, cn.OriginalInvoiceID)
+	assert.True(t, cn.GrossTotal.IsPositive(), "storno credit note mirrors the invoice (positive amounts)")
+	assert.Contains(t, cn.Reason, "Storno")
+}
+
+func TestService_StornoInvoice_RefusesIfAlreadyCredited(t *testing.T) {
+	svc, repo, invReader, _ := newTestService()
+	tenantID := uuid.New()
+	inv := sentInvoiceWithLines(tenantID)
+	invReader.AddInvoice(inv)
+	// A sent credit note already exists for this invoice.
+	existing := &models.CreditNote{ID: uuid.New(), TenantID: tenantID, OriginalInvoiceID: inv.ID, Status: models.CreditNoteStatusSent}
+	repo.creditNotes[existing.ID] = existing
+	svc.SetInvoiceStatusUpdater(&fakeInvoiceCanceller{})
+
+	_, _, err := svc.StornoInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrInvoiceAlreadyCredited)
+}
+
+func TestService_StornoInvoice_RequiresCanceller(t *testing.T) {
+	svc, _, invReader, _ := newTestService()
+	tenantID := uuid.New()
+	inv := sentInvoiceWithLines(tenantID)
+	invReader.AddInvoice(inv)
+	// No SetInvoiceStatusUpdater → must refuse rather than half-reverse.
+
+	_, _, err := svc.StornoInvoice(context.Background(), tenantID, inv.ID, uuid.New())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invoice status updater not configured")
 }

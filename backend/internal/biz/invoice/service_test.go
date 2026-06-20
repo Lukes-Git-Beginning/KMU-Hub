@@ -813,17 +813,79 @@ func TestService_Cancel_Success_FromDraft(t *testing.T) {
 	assert.Equal(t, models.InvoiceStatusCancelled, repo.invoices[inv.ID].Status)
 }
 
-func TestService_Cancel_Success_FromSent(t *testing.T) {
+// fakeStornoCreator stands in for creditnote.Service. It records the call and
+// simulates the real atomic behaviour (the Storno tx flips the invoice to
+// cancelled) so Cancel's orchestration can be exercised without a database.
+type fakeStornoCreator struct {
+	repo   *MockRepository
+	called bool
+	cnID   uuid.UUID
+	cnNum  string
+	err    error
+}
+
+func (f *fakeStornoCreator) StornoInvoice(_ context.Context, _, invoiceID, _ uuid.UUID) (uuid.UUID, string, error) {
+	f.called = true
+	if f.err != nil {
+		return uuid.Nil, "", f.err
+	}
+	if inv, ok := f.repo.invoices[invoiceID]; ok {
+		inv.Status = models.InvoiceStatusCancelled
+	}
+	return f.cnID, f.cnNum, nil
+}
+
+// TestService_Cancel_Sent_IssuesStorno verifies that cancelling an issued (sent)
+// invoice reverses it via a Storno credit note rather than a silent status flip
+// (GoBD §146).
+func TestService_Cancel_Sent_IssuesStorno(t *testing.T) {
 	svc, repo, _, _, _ := newTestService()
 	tenantID := uuid.New()
 	userID := uuid.New()
 	inv := createDraftInvoice(t, repo, tenantID)
 	inv.Status = models.InvoiceStatusSent
 
+	storno := &fakeStornoCreator{repo: repo, cnID: uuid.New(), cnNum: "GS-2026-0001"}
+	svc.SetStornoCreator(storno)
+
 	err := svc.Cancel(context.Background(), tenantID, inv.ID, userID)
 
 	require.NoError(t, err)
+	assert.True(t, storno.called, "a sent invoice must be reversed via the storno path")
 	assert.Equal(t, models.InvoiceStatusCancelled, repo.invoices[inv.ID].Status)
+}
+
+// TestService_Cancel_Overdue_IssuesStorno verifies an overdue (also issued)
+// invoice takes the same storno path.
+func TestService_Cancel_Overdue_IssuesStorno(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID)
+	inv.Status = models.InvoiceStatusOverdue
+
+	storno := &fakeStornoCreator{repo: repo, cnID: uuid.New(), cnNum: "GS-2026-0002"}
+	svc.SetStornoCreator(storno)
+
+	err := svc.Cancel(context.Background(), tenantID, inv.ID, uuid.New())
+
+	require.NoError(t, err)
+	assert.True(t, storno.called)
+	assert.Equal(t, models.InvoiceStatusCancelled, repo.invoices[inv.ID].Status)
+}
+
+// TestService_Cancel_Sent_WithoutStornoCreator_Refuses verifies that an issued
+// invoice is never silently flipped to cancelled when no storno path is wired.
+func TestService_Cancel_Sent_WithoutStornoCreator_Refuses(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID)
+	inv.Status = models.InvoiceStatusSent
+
+	err := svc.Cancel(context.Background(), tenantID, inv.ID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrStornoUnavailable)
+	assert.Equal(t, models.InvoiceStatusSent, repo.invoices[inv.ID].Status,
+		"an issued invoice must never be flipped without a storno credit note")
 }
 
 func TestService_Cancel_RejectsAlreadyPaid(t *testing.T) {

@@ -26,6 +26,15 @@ type txBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
+// StornoCreator reverses an issued invoice by creating and finalizing a mirroring
+// credit note and cancelling the invoice atomically. Implemented by
+// creditnote.Service (structural — no import either way). Injected so Cancel can
+// enforce GoBD §146: a sent invoice is never silently flipped to cancelled, it is
+// reversed by a Stornorechnung. Returns the credit note id and number.
+type StornoCreator interface {
+	StornoInvoice(ctx context.Context, tenantID, invoiceID, userID uuid.UUID) (uuid.UUID, string, error)
+}
+
 // Service handles invoice business logic with GoBD compliance.
 type Service struct {
 	repo            Repository
@@ -36,6 +45,16 @@ type Service struct {
 	// pool backs the atomic Send transaction (number assignment + status/number
 	// update in one tx). May be nil in unit tests that do not exercise Send.
 	pool txBeginner
+	// stornoCreator reverses an issued invoice via a credit note. Set via
+	// SetStornoCreator; required to cancel a sent/overdue invoice.
+	stornoCreator StornoCreator
+}
+
+// SetStornoCreator wires the credit-note-backed Storno used to cancel issued
+// invoices. Kept out of NewService so existing constructor callers and tests are
+// unchanged.
+func (s *Service) SetStornoCreator(c StornoCreator) {
+	s.stornoCreator = c
 }
 
 // NewService creates a new invoice service.
@@ -519,8 +538,11 @@ func (s *Service) MarkPaid(ctx context.Context, tenantID, id uuid.UUID) error {
 	return nil
 }
 
-// Cancel transitions a draft or sent invoice to cancelled.
-// Paid invoices cannot be cancelled (use credit notes instead).
+// Cancel cancels an invoice. A draft (never issued) is cancelled directly. A
+// sent or overdue invoice has already been issued, so GoBD §146 forbids a silent
+// status flip: it is reversed by a Stornorechnung (credit note) created and
+// committed atomically with the cancellation via the injected StornoCreator.
+// Paid invoices cannot be cancelled (issue a credit note manually instead).
 func (s *Service) Cancel(ctx context.Context, tenantID, id, userID uuid.UUID) error {
 	inv, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
@@ -528,8 +550,10 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id, userID uuid.UUID) er
 	}
 
 	switch inv.Status {
-	case models.InvoiceStatusDraft, models.InvoiceStatusSent:
-		// Valid transitions
+	case models.InvoiceStatusDraft:
+		// Never issued — safe to discard directly.
+	case models.InvoiceStatusSent, models.InvoiceStatusOverdue:
+		// Issued — must be reversed by a credit note (handled below).
 	case models.InvoiceStatusPaid:
 		return ErrInvoiceAlreadyPaid
 	case models.InvoiceStatusCancelled:
@@ -538,16 +562,36 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id, userID uuid.UUID) er
 		return fmt.Errorf("cannot cancel invoice with status %s", inv.Status)
 	}
 
-	// GoBD §146: administratively locked invoices are technically immutable
+	// GoBD §146: administratively locked invoices are technically immutable.
 	if isInvoiceLocked(inv) {
 		return ErrInvoiceLocked
+	}
+
+	if inv.Status == models.InvoiceStatusSent || inv.Status == models.InvoiceStatusOverdue {
+		if s.stornoCreator == nil {
+			// Never silently flip an issued invoice when no Storno path is wired.
+			return ErrStornoUnavailable
+		}
+		cnID, cnNumber, stornoErr := s.stornoCreator.StornoInvoice(ctx, tenantID, id, userID)
+		if stornoErr != nil {
+			return fmt.Errorf("storno invoice %s: %w", id, stornoErr)
+		}
+		slog.Info("issued invoice cancelled via storno credit note",
+			"invoice_id", id,
+			"tenant_id", tenantID,
+			"credit_note_id", cnID,
+			"credit_note_number", cnNumber,
+			"cancelled_by", userID,
+		)
+		// The Storno tx already flipped the invoice to cancelled.
+		return nil
 	}
 
 	if updateErr := s.repo.UpdateStatus(ctx, tenantID, id, models.InvoiceStatusCancelled); updateErr != nil {
 		return updateErr
 	}
 
-	slog.Info("invoice cancelled",
+	slog.Info("draft invoice cancelled",
 		"invoice_id", id,
 		"tenant_id", tenantID,
 		"cancelled_by", userID,

@@ -2420,6 +2420,8 @@ func mapBizError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, invoice.ErrInvoiceLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, invoice.ErrStornoUnavailable):
+		return status.Error(codes.Internal, err.Error())
 
 	// Credit note errors
 	case errors.Is(err, creditnote.ErrCreditNoteNotFound):
@@ -2427,6 +2429,8 @@ func mapBizError(err error) error {
 	case errors.Is(err, creditnote.ErrCreditNoteNotDraft):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, creditnote.ErrInvalidInvoiceForCredit):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, creditnote.ErrInvoiceAlreadyCredited):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, creditnote.ErrNoLineItems):
 		return status.Error(codes.InvalidArgument, err.Error())
