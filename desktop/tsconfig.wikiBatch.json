@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/api/wiki-types.ts",
+    "src/renderer/src/api/wiki-client.ts",
+    "src/renderer/src/api/wiki-adapter.ts",
+    "src/renderer/src/api/hooks/useWiki.ts",
+    "src/renderer/src/stores/wiki*.ts",
+    "src/renderer/src/mocks/handlers/wiki.ts",
+    "src/renderer/src/modules/wiki/**/*.ts",
+    "src/renderer/src/modules/wiki/**/*.tsx"
+  ]
+}

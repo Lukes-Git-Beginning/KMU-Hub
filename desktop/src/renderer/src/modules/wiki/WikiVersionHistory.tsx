@@ -11,9 +11,18 @@ interface WikiVersionHistoryProps {
   versions: WikiVersion[]
   open: boolean
   onClose: () => void
+  onRestore?: (versionId: string) => void
+  /** Version id currently being restored (shows a pending state on its button). */
+  restoringId?: string
 }
 
-export function WikiVersionHistory({ versions, open, onClose }: WikiVersionHistoryProps) {
+export function WikiVersionHistory({
+  versions,
+  open,
+  onClose,
+  onRestore,
+  restoringId,
+}: WikiVersionHistoryProps) {
   const { t } = useTranslation()
   if (!open) return null
 
@@ -38,13 +47,21 @@ export function WikiVersionHistory({ versions, open, onClose }: WikiVersionHisto
 
       {/* Version list */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {(versions ?? []).map((v, idx) => (
-          <WikiVersionItem
-            key={v.id}
-            version={v}
-            isCurrent={idx === 0}
-          />
-        ))}
+        {(versions ?? []).length === 0 ? (
+          <p className="px-2.5 py-6 text-center text-[11px] text-muted-foreground">
+            {t('wiki.version.empty')}
+          </p>
+        ) : (
+          (versions ?? []).map((v, idx) => (
+            <WikiVersionItem
+              key={v.id}
+              version={v}
+              isCurrent={idx === 0}
+              onRestore={idx === 0 ? undefined : onRestore}
+              restoring={restoringId === v.id}
+            />
+          ))
+        )}
       </div>
     </div>
   )

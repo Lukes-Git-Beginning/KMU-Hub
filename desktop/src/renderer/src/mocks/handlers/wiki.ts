@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { IDS } from '../data/shared-ids'
+import { IDS, CURRENT_USER } from '../data/shared-ids'
 import { daysAgo, hoursAgo } from '../data/date-helpers'
 import type {
   WikiArticle,
@@ -197,6 +197,16 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       changed_by: IDS.users.julia,
       changed_at: daysAgo(20) + 'T11:00:00Z',
     },
+    {
+      id: 'wver-001-3',
+      article_id: 'wart-001',
+      version_number: 3,
+      content: tiptapDoc(
+        'Dies ist die zentrale Wissensbasis des Unternehmens. Hier finden Sie alle wichtigen Prozesse, Anleitungen und Informationen.',
+      ),
+      changed_by: IDS.users.stefan,
+      changed_at: daysAgo(5) + 'T10:30:00Z',
+    },
   ],
   'wart-003': [
     {
@@ -206,6 +216,16 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       content: tiptapDoc('Ursprünglicher Prozessentwurf.'),
       changed_by: IDS.users.markus,
       changed_at: daysAgo(40) + 'T10:00:00Z',
+    },
+    {
+      id: 'wver-003-2',
+      article_id: 'wart-003',
+      version_number: 2,
+      content: tiptapDoc(
+        'Beschreibt den vollständigen Prozess von der Angebotserstellung bis zur Rechnungsstellung inkl. Mahnwesen und DATEV-Export.',
+      ),
+      changed_by: IDS.users.markus,
+      changed_at: daysAgo(10) + 'T16:00:00Z',
     },
   ],
 }
@@ -242,6 +262,20 @@ const ATTACHMENTS: Record<string, WikiAttachment[]> = {
 function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; total: number } {
   const start = (page - 1) * pageSize
   return { items: items.slice(start, start + pageSize), total: items.length }
+}
+
+/** Append a new version snapshot for an article (newest version_number wins). */
+function appendVersion(articleId: string, content: Record<string, unknown>): void {
+  const list = (VERSIONS[articleId] ??= [])
+  const nextNumber = list.reduce((max, v) => Math.max(max, v.version_number), 0) + 1
+  list.push({
+    id: `wver-${articleId}-${nextNumber}-${Date.now()}`,
+    article_id: articleId,
+    version_number: nextNumber,
+    content,
+    changed_by: CURRENT_USER.id,
+    changed_at: new Date().toISOString(),
+  })
 }
 
 // ============================================================================
@@ -348,7 +382,11 @@ export const wikiHandlers = [
     if (!article) return HttpResponse.json({ error: 'article not found' }, { status: 404 })
     const body = (await request.json()) as Partial<WikiArticle>
     if (body.title !== undefined) article.title = body.title
-    if (body.content !== undefined) article.content = body.content
+    if (body.content !== undefined) {
+      article.content = body.content
+      // A content edit creates a new version snapshot (newest = current).
+      appendVersion(article.id, body.content)
+    }
     if (body.category_id !== undefined) article.category_id = body.category_id
     if (body.published !== undefined) article.published = body.published
     article.updated_at = new Date().toISOString()
@@ -405,6 +443,8 @@ export const wikiHandlers = [
     }
     article.content = version.content
     article.updated_at = new Date().toISOString()
+    // Restoring produces a new current version equal to the restored content.
+    appendVersion(article.id, version.content)
     return HttpResponse.json(article)
   }),
 

@@ -163,6 +163,9 @@ export function useRestoreVersion() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: wikiKeys.article(variables.articleId) })
       qc.invalidateQueries({ queryKey: wikiKeys.versions(variables.articleId) })
+      // The detail view renders from the list query — refresh it so the
+      // restored content is shown immediately.
+      qc.invalidateQueries({ queryKey: ['wiki', 'articles'] })
     },
   })
 }

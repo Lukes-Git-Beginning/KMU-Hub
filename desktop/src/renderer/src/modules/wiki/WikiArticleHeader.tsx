@@ -38,6 +38,8 @@ function formatShortDate(dateStr: string): string {
 
 interface WikiArticleHeaderProps {
   article: WikiArticle
+  /** Live version count from the per-article versions query. */
+  versionCount?: number
   onEdit: () => void
   onDelete: () => void
   onToggleVersions: () => void
@@ -46,6 +48,7 @@ interface WikiArticleHeaderProps {
 
 export function WikiArticleHeader({
   article,
+  versionCount,
   onEdit,
   onDelete,
   onToggleVersions,
@@ -80,7 +83,7 @@ export function WikiArticleHeader({
             <span>{t('wiki.header.views', { count: article.viewCount })}</span>
             <span>·</span>
             <History className="h-3 w-3" />
-            <span>v{(article.versions ?? []).length}</span>
+            <span>v{versionCount ?? (article.versions ?? []).length}</span>
           </div>
         </div>
 
@@ -108,7 +111,7 @@ export function WikiArticleHeader({
             <Share2 className="h-4 w-4" />
           </button>
           <ItemActions
-            actions={[
+            items={[
               {
                 label: article.isPinned ? t('wiki.actions.unpin') : t('wiki.actions.pin'),
                 icon: Pin,
