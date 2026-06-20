@@ -7,6 +7,7 @@ import type {
   WikiCategory,
   WikiVersion,
   WikiAttachment,
+  WikiShareToken,
 } from '@/api/wiki-types'
 
 const API = API_BASE_URL
@@ -249,6 +250,20 @@ const VERSIONS: Record<string, WikiVersion[]> = {
   ],
 }
 
+// Inline SVG demo blob so an image attachment shows a real thumbnail/preview
+// without a backend upload pipeline.
+const DEMO_IMAGE_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='200' height='130'>" +
+  "<rect width='200' height='130' fill='#eef2ff'/>" +
+  "<rect x='18' y='22' width='70' height='34' rx='6' fill='#6366f1'/>" +
+  "<rect x='112' y='22' width='70' height='34' rx='6' fill='#8b5cf6'/>" +
+  "<rect x='65' y='80' width='70' height='34' rx='6' fill='#0ea5e9'/>" +
+  "<line x1='53' y1='56' x2='100' y2='80' stroke='#475569' stroke-width='2'/>" +
+  "<line x1='147' y1='56' x2='100' y2='80' stroke='#475569' stroke-width='2'/>" +
+  "<text x='100' y='126' font-family='sans-serif' font-size='11' text-anchor='middle' fill='#334155'>Onboarding-Ablauf</text>" +
+  '</svg>'
+const DEMO_IMAGE_DATA_URL = 'data:image/svg+xml,' + encodeURIComponent(DEMO_IMAGE_SVG)
+
 const ATTACHMENTS: Record<string, WikiAttachment[]> = {
   'wart-002': [
     {
@@ -259,6 +274,16 @@ const ATTACHMENTS: Record<string, WikiAttachment[]> = {
       size: 142300,
       uploaded_by: IDS.users.julia,
       created_at: daysAgo(44) + 'T09:00:00Z',
+    },
+    {
+      id: 'watt-003',
+      article_id: 'wart-002',
+      file_ref: 'onboarding-ablauf.svg',
+      mime: 'image/svg+xml',
+      size: 4200,
+      uploaded_by: IDS.users.julia,
+      created_at: daysAgo(44) + 'T09:05:00Z',
+      data_url: DEMO_IMAGE_DATA_URL,
     },
   ],
   'wart-004': [
@@ -273,6 +298,18 @@ const ATTACHMENTS: Record<string, WikiAttachment[]> = {
     },
   ],
 }
+
+// Active share tokens (stateful — created via POST, revoked via DELETE).
+const SHARE_TOKENS: WikiShareToken[] = [
+  {
+    id: 'wshare-seed-1',
+    article_id: 'wart-001',
+    token: 'demo-share-token-welcome',
+    expires_at: null,
+    permissions: ['read'],
+    created_at: daysAgo(6) + 'T08:00:00Z',
+  },
+]
 
 // ============================================================================
 // Helpers
@@ -516,7 +553,12 @@ export const wikiHandlers = [
   }),
 
   http.post(`${BASE}/articles/:id/attachments`, async ({ params, request }) => {
-    const body = (await request.json()) as { file_ref: string; mime: string; size: number }
+    const body = (await request.json()) as {
+      file_ref: string
+      mime: string
+      size: number
+      data_url?: string
+    }
     const attachment: WikiAttachment = {
       id: `watt-${Date.now()}`,
       article_id: params.id as string,
@@ -525,6 +567,7 @@ export const wikiHandlers = [
       size: body.size,
       uploaded_by: CURRENT_USER.id,
       created_at: new Date().toISOString(),
+      data_url: body.data_url,
     }
     if (!ATTACHMENTS[params.id as string]) {
       ATTACHMENTS[params.id as string] = []
@@ -544,27 +587,34 @@ export const wikiHandlers = [
     return HttpResponse.json({ error: 'attachment not found' }, { status: 404 })
   }),
 
-  // --- Share tokens ---
+  // --- Share tokens (stateful) ---
+
+  http.get(`${BASE}/articles/:id/share`, ({ params }) => {
+    const tokens = SHARE_TOKENS.filter((t) => t.article_id === params.id)
+    return HttpResponse.json(tokens)
+  }),
 
   http.post(`${BASE}/articles/:id/share`, async ({ params, request }) => {
     const body = (await request.json().catch(() => ({}))) as {
       expires_at?: string
       permissions?: string[]
     }
-    return HttpResponse.json(
-      {
-        id: `wshare-${Date.now()}`,
-        article_id: params.id,
-        token: `demo-share-token-${Math.random().toString(36).slice(2)}`,
-        expires_at: body.expires_at ?? null,
-        permissions: body.permissions ?? ['read'],
-        created_at: new Date().toISOString(),
-      },
-      { status: 201 },
-    )
+    const token = {
+      id: `wshare-${Date.now()}`,
+      article_id: params.id as string,
+      token: `demo-share-token-${Math.random().toString(36).slice(2)}`,
+      expires_at: body.expires_at ?? null,
+      permissions: body.permissions ?? ['read'],
+      created_at: new Date().toISOString(),
+    }
+    SHARE_TOKENS.push(token)
+    return HttpResponse.json(token, { status: 201 })
   }),
 
-  http.delete(`${BASE}/share/:tokenId`, () => {
+  http.delete(`${BASE}/share/:tokenId`, ({ params }) => {
+    const idx = SHARE_TOKENS.findIndex((t) => t.id === params.tokenId)
+    if (idx === -1) return HttpResponse.json({ error: 'token not found' }, { status: 404 })
+    SHARE_TOKENS.splice(idx, 1)
     return new HttpResponse(null, { status: 204 })
   }),
 ]

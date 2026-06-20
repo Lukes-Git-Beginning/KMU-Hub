@@ -98,6 +98,15 @@ export default function WikiPage() {
   const isSearching = debouncedQuery.trim().length > 1
   const { data: searchData, isFetching: searchFetching } = useSearchArticles(debouncedQuery)
 
+  // Deep link support: a share link of the form #/wiki?a=<id> opens that article.
+  useEffect(() => {
+    const hash = window.location.hash
+    const qIndex = hash.indexOf('?')
+    if (qIndex === -1) return
+    const a = new URLSearchParams(hash.slice(qIndex + 1)).get('a')
+    if (a) setSelectedArticle(a)
+  }, [setSelectedArticle])
+
   // Dialogs
   const [showNewArticle, setShowNewArticle] = useState(false)
   const [showNewCategory, setShowNewCategory] = useState(false)

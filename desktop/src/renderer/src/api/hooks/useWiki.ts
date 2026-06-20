@@ -23,6 +23,7 @@ import {
   createCategory,
   deleteCategory,
   updateCategory,
+  listShareTokens,
   createShareToken,
   revokeShareToken,
 } from '../wiki-client'
@@ -46,6 +47,7 @@ export const wikiKeys = {
   version: (versionId: string) => ['wiki', 'versions', versionId] as const,
   attachments: (articleId: string) => ['wiki', 'articles', articleId, 'attachments'] as const,
   categories: () => ['wiki', 'categories'] as const,
+  shareTokens: (articleId: string) => ['wiki', 'articles', articleId, 'share'] as const,
   search: (query: string) => ['wiki', 'search', query] as const,
 }
 
@@ -185,6 +187,7 @@ export function useUploadAttachment() {
       file_ref: string
       mime: string
       size: number
+      data_url?: string
     }) => uploadAttachment(articleId, body),
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: wikiKeys.attachments(variables.articleId) }),
@@ -243,21 +246,40 @@ export function useUpdateCategory() {
 }
 
 // ---------------------------------------------------------------------------
+// Queries — Share tokens
+// ---------------------------------------------------------------------------
+
+export function useShareTokens(articleId: string) {
+  return useQuery({
+    queryKey: wikiKeys.shareTokens(articleId),
+    queryFn: () => listShareTokens(articleId),
+    enabled: !!articleId,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Mutations — Share tokens
 // ---------------------------------------------------------------------------
 
 export function useCreateShareToken() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: ({
       articleId,
       ...input
     }: CreateShareTokenInput & { articleId: string }) =>
       createShareToken(articleId, input),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: wikiKeys.shareTokens(variables.articleId) }),
   })
 }
 
 export function useRevokeShareToken() {
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: (tokenId: string) => revokeShareToken(tokenId),
+    mutationFn: ({ tokenId }: { tokenId: string; articleId: string }) =>
+      revokeShareToken(tokenId),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: wikiKeys.shareTokens(variables.articleId) }),
   })
 }

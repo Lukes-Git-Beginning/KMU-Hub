@@ -50,6 +50,8 @@ export interface WikiAttachment {
   size: number
   uploaded_by: string | null
   created_at: string
+  /** Demo blob (data URL) — enables download + image preview without a backend. */
+  data_url?: string
 }
 
 export interface WikiCategory {
@@ -116,6 +118,7 @@ export interface UploadAttachmentInput {
   file_ref: string
   mime: string
   size: number
+  data_url?: string
 }
 
 export interface CreateShareTokenInput {

@@ -113,7 +113,7 @@ export function listAttachments(articleId: string) {
 
 export function uploadAttachment(
   articleId: string,
-  body: { file_ref: string; mime: string; size: number },
+  body: { file_ref: string; mime: string; size: number; data_url?: string },
 ) {
   return request<WikiAttachment>({
     method: 'POST',
@@ -152,6 +152,13 @@ export function updateCategory(
 // ---------------------------------------------------------------------------
 // Share tokens
 // ---------------------------------------------------------------------------
+
+export function listShareTokens(articleId: string) {
+  return request<WikiShareToken[]>({
+    method: 'GET',
+    path: `${BASE}/articles/${articleId}/share`,
+  })
+}
 
 export function createShareToken(articleId: string, body?: CreateShareTokenInput) {
   return request<WikiShareToken>({
