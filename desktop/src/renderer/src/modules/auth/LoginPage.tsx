@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AuthLayout } from './AuthLayout'
+import { branding } from '@/config/branding'
 
 type LoginStage = 'credentials' | '2fa_prompt'
 
@@ -196,31 +197,14 @@ export default function LoginPage() {
       <div className="animate-fade-up space-y-8">
         {/* Logo + headline */}
         <div className="space-y-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 animate-scale-in-bounce">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="text-primary"
-              aria-hidden="true"
-            >
-              <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity="0.25" />
-              <path
-                d="M2 17l10 5 10-5"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M2 12l10 5 10-5"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+          <div className="flex h-11 w-11 items-center justify-center animate-scale-in-bounce">
+            <img
+              src={branding.cosmi.icon128}
+              alt="Cosmi"
+              width={44}
+              height={44}
+              className="h-11 w-11 object-contain"
+            />
           </div>
 
           <div className="space-y-1">

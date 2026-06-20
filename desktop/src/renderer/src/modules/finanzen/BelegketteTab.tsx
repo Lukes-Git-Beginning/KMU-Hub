@@ -3,9 +3,9 @@
  *
  * Shows the lifecycle of a financial document from quote through to payment/credit note.
  * Each chain is a horizontal pipeline with status indicators.
- * Mock data for design — backend swap: replace with API hooks.
  */
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   FileText,
@@ -23,7 +23,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useDocumentChains } from '@/api/hooks/useFinance'
-import type { ChainDocType, ChainDocStatus } from '@/types/finance-types'
+import { useContactMatch } from './lib/customer-account'
+import type { ChainDocType, ChainDocStatus, DocumentChain } from '@/types/finance-types'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -46,7 +47,203 @@ const statusConfig: Record<ChainDocStatus, { labelKey: string; bg: string; text:
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Determines the target finanzen tab for the "next step" action based on the
+ * last non-pending node in the chain. Maps the current active doc type to the
+ * logical next step in the Angebot → Rechnung → Zahlung / Mahnwesen flow.
+ */
+function nextStepTab(chain: DocumentChain): string {
+  const activeNode =
+    chain.nodes.find((n) => n.status === 'active' || n.status === 'overdue') ??
+    chain.nodes.findLast((n) => n.status !== 'pending')
+
+  if (!activeNode) return 'invoices'
+
+  switch (activeNode.type) {
+    case 'quote':
+      return 'invoices'
+    case 'invoice':
+      return chain.nodes.some((n) => n.status === 'overdue') ? 'dunning' : 'invoices'
+    case 'dunning':
+      return 'dunning'
+    case 'payment':
+    case 'credit-note':
+    default:
+      return 'invoices'
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChainRow — isolated so hooks (useContactMatch) run per chain
+// ---------------------------------------------------------------------------
+
+interface ChainRowProps {
+  chain: DocumentChain
+  isExpanded: boolean
+  onToggle: () => void
+}
+
+function ChainRow({ chain, isExpanded, onToggle }: ChainRowProps) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const contactId = useContactMatch({ name: chain.customer })
+
+  const handleGoToCustomer = () => {
+    if (contactId) {
+      navigate(`/kontakte?contact=${contactId}`)
+    }
+  }
+
+  const handleNextStep = () => {
+    const tab = nextStepTab(chain)
+    navigate(`/finanzen?tab=${tab}`)
+  }
+
+  return (
+    <div
+      className={`rounded-lg border transition-colors ${
+        chain.nodes.some((n) => n.status === 'overdue')
+          ? 'border-error/30'
+          : chain.isComplete
+            ? 'border-success/30'
+            : 'border-border'
+      }`}
+    >
+      {/* Chain header */}
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent/30 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground truncate">
+              {chain.customer}
+            </span>
+            {chain.isComplete ? (
+              <span className="flex items-center gap-1 rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">
+                <CheckCircle2 className="h-3 w-3" />
+                {t('finanzen.docChain.status.completed')}
+              </span>
+            ) : chain.nodes.some((n) => n.status === 'overdue') ? (
+              <span className="flex items-center gap-1 rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error">
+                <AlertCircle className="h-3 w-3" />
+                {t('finanzen.docChain.status.overdue')}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
+                <Clock className="h-3 w-3" />
+                {t('finanzen.docChain.statsOpen')}
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">{chain.totalValue}</span>
+        </div>
+
+        {/* Mini pipeline */}
+        <div className="hidden sm:flex items-center gap-1">
+          {chain.nodes.map((node, i) => {
+            const cfg = docTypeConfig[node.type]
+            const Icon = cfg.icon
+            const sCfg = statusConfig[node.status]
+            return (
+              <div key={i} className="flex items-center gap-1">
+                {i > 0 && <ArrowRight className="h-3 w-3 text-border" />}
+                <div
+                  className={`flex h-7 w-7 items-center justify-center rounded-full ${sCfg.bg}`}
+                  title={`${t(cfg.labelKey)}: ${node.number}`}
+                >
+                  <Icon className={`h-3.5 w-3.5 ${sCfg.text}`} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {isExpanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        )}
+      </button>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div className="border-t border-border px-4 py-3 space-y-3">
+          {/* Pipeline visualization */}
+          <div className="flex items-start gap-0 overflow-x-auto pb-2">
+            {chain.nodes.map((node, i) => {
+              const cfg = docTypeConfig[node.type]
+              const Icon = cfg.icon
+              const sCfg = statusConfig[node.status]
+              return (
+                <div key={i} className="flex items-start">
+                  {i > 0 && (
+                    <div className="flex items-center pt-5 px-1">
+                      <div className={`h-0.5 w-8 ${
+                        node.status === 'pending' ? 'bg-border border-dashed' : 'bg-primary/30'
+                      }`} />
+                      <ArrowRight className={`h-4 w-4 -ml-1.5 ${
+                        node.status === 'pending' ? 'text-border' : 'text-primary/30'
+                      }`} />
+                    </div>
+                  )}
+                  <div className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 min-w-[130px] ${
+                    node.status === 'active'
+                      ? 'border-primary/40 bg-primary/5'
+                      : node.status === 'overdue'
+                        ? 'border-error/40 bg-error-light/20'
+                        : node.status === 'pending'
+                          ? 'border-dashed border-border bg-secondary/30'
+                          : 'border-border'
+                  }`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full ${sCfg.bg}`}>
+                      <Icon className={`h-5 w-5 ${sCfg.text}`} />
+                    </div>
+                    <span className={`text-xs font-medium ${cfg.color}`}>{t(cfg.labelKey)}</span>
+                    <span className="text-[11px] font-mono text-foreground">{node.number}</span>
+                    <span className="text-[10px] text-muted-foreground">{node.date}</span>
+                    <span className="text-[10px] font-medium text-foreground">{node.amount}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${sCfg.bg} ${sCfg.text}`}>
+                      {t(sCfg.labelKey)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              onClick={handleGoToCustomer}
+              disabled={!contactId}
+              title={contactId ? undefined : t('finanzen.customerAccount.noCrmMatch')}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {t('finanzen.docChain.goToCustomer')}
+            </button>
+            {!chain.isComplete && (
+              <button
+                onClick={handleNextStep}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <ArrowRight className="h-3 w-3" />
+                {t('finanzen.docChain.nextStep')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// BelegketteTab
 // ---------------------------------------------------------------------------
 
 type FilterOption = 'all' | 'open' | 'complete' | 'overdue'
@@ -140,140 +337,14 @@ export function BelegketteTab() {
             <p className="mt-1 text-xs text-muted-foreground">{t('finanzen.docChain.adjustFilters')}</p>
           </div>
         ) : (
-          filtered.map((chain) => {
-            const isExpanded = expandedId === chain.id
-            return (
-              <div
-                key={chain.id}
-                className={`rounded-lg border transition-colors ${
-                  chain.nodes.some((n) => n.status === 'overdue')
-                    ? 'border-error/30'
-                    : chain.isComplete
-                      ? 'border-success/30'
-                      : 'border-border'
-                }`}
-              >
-                {/* Chain header */}
-                <button
-                  onClick={() => setExpandedId(isExpanded ? null : chain.id)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent/30 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground truncate">
-                        {chain.customer}
-                      </span>
-                      {chain.isComplete ? (
-                        <span className="flex items-center gap-1 rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">
-                          <CheckCircle2 className="h-3 w-3" />
-                          {t('finanzen.docChain.status.completed')}
-                        </span>
-                      ) : chain.nodes.some((n) => n.status === 'overdue') ? (
-                        <span className="flex items-center gap-1 rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error">
-                          <AlertCircle className="h-3 w-3" />
-                          {t('finanzen.docChain.status.overdue')}
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
-                          <Clock className="h-3 w-3" />
-                          {t('finanzen.docChain.statsOpen')}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground">{chain.totalValue}</span>
-                  </div>
-
-                  {/* Mini pipeline */}
-                  <div className="hidden sm:flex items-center gap-1">
-                    {chain.nodes.map((node, i) => {
-                      const cfg = docTypeConfig[node.type]
-                      const Icon = cfg.icon
-                      const sCfg = statusConfig[node.status]
-                      return (
-                        <div key={i} className="flex items-center gap-1">
-                          {i > 0 && <ArrowRight className="h-3 w-3 text-border" />}
-                          <div
-                            className={`flex h-7 w-7 items-center justify-center rounded-full ${sCfg.bg}`}
-                            title={`${t(cfg.labelKey)}: ${node.number}`}
-                          >
-                            <Icon className={`h-3.5 w-3.5 ${sCfg.text}`} />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                  )}
-                </button>
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="border-t border-border px-4 py-3 space-y-3">
-                    {/* Pipeline visualization */}
-                    <div className="flex items-start gap-0 overflow-x-auto pb-2">
-                      {chain.nodes.map((node, i) => {
-                        const cfg = docTypeConfig[node.type]
-                        const Icon = cfg.icon
-                        const sCfg = statusConfig[node.status]
-                        return (
-                          <div key={i} className="flex items-start">
-                            {i > 0 && (
-                              <div className="flex items-center pt-5 px-1">
-                                <div className={`h-0.5 w-8 ${
-                                  node.status === 'pending' ? 'bg-border border-dashed' : 'bg-primary/30'
-                                }`} />
-                                <ArrowRight className={`h-4 w-4 -ml-1.5 ${
-                                  node.status === 'pending' ? 'text-border' : 'text-primary/30'
-                                }`} />
-                              </div>
-                            )}
-                            <div className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 min-w-[130px] ${
-                              node.status === 'active'
-                                ? 'border-primary/40 bg-primary/5'
-                                : node.status === 'overdue'
-                                  ? 'border-error/40 bg-error-light/20'
-                                  : node.status === 'pending'
-                                    ? 'border-dashed border-border bg-secondary/30'
-                                    : 'border-border'
-                            }`}>
-                              <div className={`flex h-10 w-10 items-center justify-center rounded-full ${sCfg.bg}`}>
-                                <Icon className={`h-5 w-5 ${sCfg.text}`} />
-                              </div>
-                              <span className={`text-xs font-medium ${cfg.color}`}>{t(cfg.labelKey)}</span>
-                              <span className="text-[11px] font-mono text-foreground">{node.number}</span>
-                              <span className="text-[10px] text-muted-foreground">{node.date}</span>
-                              <span className="text-[10px] font-medium text-foreground">{node.amount}</span>
-                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${sCfg.bg} ${sCfg.text}`}>
-                                {t(sCfg.labelKey)}
-                              </span>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-2 pt-1">
-                      <button className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors">
-                        <ExternalLink className="h-3 w-3" />
-                        {t('finanzen.docChain.goToCustomer')}
-                      </button>
-                      {!chain.isComplete && (
-                        <button className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-                          <ArrowRight className="h-3 w-3" />
-                          {t('finanzen.docChain.nextStep')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })
+          filtered.map((chain) => (
+            <ChainRow
+              key={chain.id}
+              chain={chain}
+              isExpanded={expandedId === chain.id}
+              onToggle={() => setExpandedId(expandedId === chain.id ? null : chain.id)}
+            />
+          ))
         )}
       </div>
     </div>
