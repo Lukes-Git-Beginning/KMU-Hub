@@ -304,6 +304,21 @@ export const wikiHandlers = [
     return HttpResponse.json(newCat, { status: 201 })
   }),
 
+  http.patch(`${BASE}/categories/:id`, async ({ params, request }) => {
+    const category = CATEGORIES.find((c) => c.id === params.id)
+    if (!category) return HttpResponse.json({ error: 'category not found' }, { status: 404 })
+    const body = (await request.json()) as {
+      name?: string
+      parent_id?: string | null
+      position?: number
+    }
+    if (body.name !== undefined) category.name = body.name
+    if (body.parent_id !== undefined) category.parent_id = body.parent_id
+    if (body.position !== undefined) category.position = body.position
+    category.updated_at = new Date().toISOString()
+    return HttpResponse.json(category)
+  }),
+
   http.delete(`${BASE}/categories/:id`, ({ params }) => {
     const idx = CATEGORIES.findIndex((c) => c.id === params.id)
     if (idx === -1) return HttpResponse.json({ error: 'category not found' }, { status: 404 })

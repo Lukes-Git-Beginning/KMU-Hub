@@ -10,6 +10,7 @@ import { adaptVersion } from '@/api/wiki-adapter'
 import { WikiArticleHeader } from './WikiArticleHeader'
 import { WikiEditor } from './WikiEditor'
 import { WikiVersionHistory } from './WikiVersionHistory'
+import { WikiAttachments } from './WikiAttachments'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -92,23 +93,28 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
             onCancel={handleCancel}
             saving={updateArticleMutation.isPending}
           />
-        ) : article.content.trim() ? (
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            <div
-              className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
-            />
-          </div>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center">
-            <FileText className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">{t('wiki.article.empty')}</p>
-            <button
-              onClick={handleStartEdit}
-              className="mt-1 h-8 rounded-md border border-border px-3 text-xs text-foreground hover:bg-accent transition-colors"
-            >
-              {t('wiki.article.startWriting')}
-            </button>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {article.content.trim() ? (
+              <div
+                className="prose prose-sm max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                <FileText className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">{t('wiki.article.empty')}</p>
+                <button
+                  onClick={handleStartEdit}
+                  className="mt-1 h-8 rounded-md border border-border px-3 text-xs text-foreground hover:bg-accent transition-colors"
+                >
+                  {t('wiki.article.startWriting')}
+                </button>
+              </div>
+            )}
+
+            {/* Attachments */}
+            <WikiAttachments articleId={article.id} />
           </div>
         )}
       </div>
