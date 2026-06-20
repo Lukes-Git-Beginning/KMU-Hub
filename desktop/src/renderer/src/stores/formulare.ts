@@ -17,6 +17,7 @@ import { persist } from 'zustand/middleware'
 export type FormFieldType =
   | 'text'
   | 'textarea'
+  | 'email'
   | 'select'
   | 'checkbox'
   | 'radio'

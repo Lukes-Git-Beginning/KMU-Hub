@@ -3093,6 +3093,7 @@
   "formulare.fieldConfig.zeigeWenn": "Mostra questo campo solo se...",
   "formulare.fieldType.checkbox": "Checkbox",
   "formulare.fieldType.date": "Data",
+  "formulare.fieldType.email": "E-mail",
   "formulare.fieldType.file": "File",
   "formulare.fieldType.fileUpload": "Caricamento file",
   "formulare.fieldType.number": "Numero",

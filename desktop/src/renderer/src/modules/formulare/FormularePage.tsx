@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate as libFormatDate, formatDateTime as libFormatDateTime } from '@/lib/format'
 import {
@@ -95,6 +95,7 @@ const submissionStatusColors: Record<FormSubmissionStatus, string> = {
 const FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
   text: 'formulare.fieldType.text',
   textarea: 'formulare.fieldType.textarea',
+  email: 'formulare.fieldType.email',
   select: 'formulare.fieldType.select',
   checkbox: 'formulare.fieldType.checkbox',
   radio: 'formulare.fieldType.radio',
@@ -106,6 +107,7 @@ const FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
 const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
   text: Type,
   textarea: AlignLeft,
+  email: Mail,
   select: ChevronDown,
   checkbox: CheckSquare,
   radio: Circle,
@@ -117,6 +119,7 @@ const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
 const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
   { value: 'text', labelKey: 'formulare.fieldType.text' },
   { value: 'textarea', labelKey: 'formulare.fieldType.textarea' },
+  { value: 'email', labelKey: 'formulare.fieldType.email' },
   { value: 'select', labelKey: 'formulare.fieldType.selectDropdown' },
   { value: 'radio', labelKey: 'formulare.fieldType.radioOption' },
   { value: 'checkbox', labelKey: 'formulare.fieldType.checkbox' },
@@ -768,6 +771,15 @@ export default function FormularePage() {
             className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground placeholder:text-input-placeholder"
           />
         )
+      case 'email':
+        return (
+          <input
+            type="email"
+            disabled
+            placeholder={field.placeholder || 'name@beispiel.de'}
+            className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground placeholder:text-input-placeholder"
+          />
+        )
       case 'textarea':
         return (
           <textarea
@@ -1246,10 +1258,15 @@ export default function FormularePage() {
                           <span className="text-destructive ml-0.5">*</span>
                         )}
                       </label>
-                      {(field.type === 'text' || field.type === 'number') && (
+                      {(field.type === 'text' ||
+                        field.type === 'number' ||
+                        field.type === 'email') && (
                         <input
-                          type={field.type}
-                          placeholder={field.placeholder || field.label}
+                          type={field.type === 'email' ? 'email' : field.type}
+                          placeholder={
+                            field.placeholder ||
+                            (field.type === 'email' ? 'name@beispiel.de' : field.label)
+                          }
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       )}
@@ -1380,6 +1397,7 @@ export default function FormularePage() {
 
               {(showFieldConfigDialog?.field.type === 'text' ||
                 showFieldConfigDialog?.field.type === 'textarea' ||
+                showFieldConfigDialog?.field.type === 'email' ||
                 showFieldConfigDialog?.field.type === 'number') && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">
@@ -2351,11 +2369,10 @@ function SubmissionsPanel({
 }: SubmissionsPanelProps) {
   const { data, isLoading } = useSubmissions(schemaId)
 
-  // Notify parent when data arrives
+  // Notify parent when data arrives. Must be an effect (not render-time work) —
+  // calling the parent's setState during render triggers a React warning.
   const items = data?.items ?? []
-  // Use a ref-like pattern: call onLoaded once items are available
-  // We use useMemo to avoid calling on every render
-  useMemo(() => {
+  useEffect(() => {
     if (items.length > 0) onLoaded(items)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])

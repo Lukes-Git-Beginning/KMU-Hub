@@ -31,6 +31,7 @@ import { produktionHandlers } from './produktion'
 import { einkaufHandlers } from './einkauf'
 import { fuhrparkHandlers } from './fuhrpark'
 import { rapporteHandlers } from './rapporte'
+import { formulareHandlers } from './formulare'
 
 export const handlers = [
   ...authHandlers,
@@ -62,4 +63,5 @@ export const handlers = [
   ...einkaufHandlers,
   ...fuhrparkHandlers,
   ...rapporteHandlers,
+  ...formulareHandlers,
 ]

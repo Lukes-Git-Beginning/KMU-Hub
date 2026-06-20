@@ -3123,6 +3123,7 @@
   "formulare.fieldConfig.zeigeWenn": "Show this field only when...",
   "formulare.fieldType.checkbox": "Checkbox",
   "formulare.fieldType.date": "Date",
+  "formulare.fieldType.email": "Email",
   "formulare.fieldType.file": "File",
   "formulare.fieldType.fileUpload": "File Upload",
   "formulare.fieldType.number": "Number",
