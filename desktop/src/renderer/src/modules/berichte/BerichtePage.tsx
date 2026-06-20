@@ -38,6 +38,7 @@ export default function BerichtePage() {
   const [tab, setTab] = useState<TabKey>('dashboard')
   const [moduleFilter, setModuleFilter] = useState<string>('all')
   const [openDocId, setOpenDocId] = useState<string | null>(null)
+  const [openMode, setOpenMode] = useState<'read' | 'edit'>('read')
 
   const kpisQuery = useDashboardKPIs(
     moduleFilter === 'all' ? undefined : [moduleFilter],
@@ -60,6 +61,7 @@ export default function BerichtePage() {
 
   const openCreated = (id: string) => {
     setTab('berichte')
+    setOpenMode('edit')
     setOpenDocId(id)
   }
 
@@ -80,7 +82,11 @@ export default function BerichtePage() {
   // Editor takes over the full module area (its own header + back button).
   if (openDocId) {
     return (
-      <ReportDocumentEditor documentId={openDocId} onBack={() => setOpenDocId(null)} />
+      <ReportDocumentEditor
+        documentId={openDocId}
+        onBack={() => setOpenDocId(null)}
+        initialMode={openMode}
+      />
     )
   }
 
@@ -150,7 +156,10 @@ export default function BerichtePage() {
 
       {tab === 'berichte' && (
         <BerichtLibrary
-          onOpen={(doc) => setOpenDocId(doc.id)}
+          onOpen={(doc) => {
+            setOpenMode('read')
+            setOpenDocId(doc.id)
+          }}
           onNew={handleNewReport}
           onNewFromTemplate={handleNewFromTemplate}
         />

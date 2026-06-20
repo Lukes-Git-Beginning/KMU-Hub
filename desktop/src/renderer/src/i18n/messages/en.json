@@ -943,6 +943,8 @@
   "berichte.docs.removeItem": "Remove item",
   "berichte.docs.dragRow": "Move",
   "berichte.docs.deleteBlock": "Delete block",
+  "berichte.docs.saving": "Saving…",
+  "berichte.docs.saved": "Saved",
   "berichte.docs.blockSoon": "Editable soon",
   "berichte.docs.ph.coverTitle": "Title",
   "berichte.docs.ph.coverSubtitle": "Subtitle",

@@ -943,6 +943,8 @@
   "berichte.docs.removeItem": "Rimuovi voce",
   "berichte.docs.dragRow": "Sposta",
   "berichte.docs.deleteBlock": "Elimina blocco",
+  "berichte.docs.saving": "Salvataggio…",
+  "berichte.docs.saved": "Salvato",
   "berichte.docs.blockSoon": "Presto modificabile",
   "berichte.docs.ph.coverTitle": "Titolo",
   "berichte.docs.ph.coverSubtitle": "Sottotitolo",

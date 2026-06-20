@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Eye, Pencil } from 'lucide-react'
+import { ArrowLeft, Check, Eye, Pencil } from 'lucide-react'
 import type { ReportDocument, ReportRow } from '@/api/berichte-types'
 import { useReportDocument, useUpdateReportDocument } from '@/api/hooks/useBerichte'
 import { Skeleton } from '@/components/shared'
@@ -11,9 +11,15 @@ import { BLOCK_META, blockSummary, estimatePageCount } from './doc-utils'
 interface ReportDocumentEditorProps {
   documentId: string
   onBack: () => void
+  /** Read mode when opened from the library; edit when freshly created. */
+  initialMode?: 'read' | 'edit'
 }
 
-export function ReportDocumentEditor({ documentId, onBack }: ReportDocumentEditorProps) {
+export function ReportDocumentEditor({
+  documentId,
+  onBack,
+  initialMode = 'read',
+}: ReportDocumentEditorProps) {
   const { t } = useTranslation()
   const { data, isLoading } = useReportDocument(documentId)
   const doc = data?.document
@@ -45,27 +51,34 @@ export function ReportDocumentEditor({ documentId, onBack }: ReportDocumentEdito
   }
 
   // Key on doc.id so local edit state resets cleanly when switching documents.
-  return <DocumentEditorInner key={doc.id} doc={doc} onBack={onBack} />
+  return <DocumentEditorInner key={doc.id} doc={doc} onBack={onBack} initialMode={initialMode} />
 }
 
-/** Read mode is the default; released documents are locked (read only). */
-function DocumentEditorInner({ doc, onBack }: { doc: ReportDocument; onBack: () => void }) {
+/** Read mode is the default; released/archived documents are locked (read only). */
+function DocumentEditorInner({
+  doc,
+  onBack,
+  initialMode,
+}: {
+  doc: ReportDocument
+  onBack: () => void
+  initialMode: 'read' | 'edit'
+}) {
   const { t } = useTranslation()
   const updateMutation = useUpdateReportDocument()
   const locked = doc.status === 'released' || doc.status === 'archived'
 
   const [rows, setRows] = useState<ReportRow[]>(doc.rows)
-  const [mode, setMode] = useState<'read' | 'edit'>('edit')
-  const firstRun = useRef(true)
+  const [mode, setMode] = useState<'read' | 'edit'>(locked ? 'read' : initialMode)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
 
-  // Debounced auto-save when the block structure changes.
+  // Debounced auto-save once the block structure actually changes. Comparing
+  // against the initial doc.rows reference skips the mount (StrictMode-safe).
   useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false
-      return
-    }
+    if (rows === doc.rows) return
+    setSaveState('saving')
     const handle = setTimeout(() => {
-      updateMutation.mutate({ id: doc.id, rows })
+      updateMutation.mutate({ id: doc.id, rows }, { onSuccess: () => setSaveState('saved') })
     }, 800)
     return () => clearTimeout(handle)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,7 +100,13 @@ function DocumentEditorInner({ doc, onBack }: { doc: ReportDocument; onBack: () 
           defaultValue={doc.title}
           onBlur={(e) => {
             const value = e.target.value.trim()
-            if (value && value !== doc.title) updateMutation.mutate({ id: doc.id, title: value })
+            if (value && value !== doc.title) {
+              setSaveState('saving')
+              updateMutation.mutate(
+                { id: doc.id, title: value },
+                { onSuccess: () => setSaveState('saved') },
+              )
+            }
           }}
           className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-foreground transition-colors hover:border-border focus:border-border focus:outline-none focus:ring-2 focus:ring-focus-ring"
           aria-label={t('berichte.docs.titleLabel')}
@@ -116,6 +135,15 @@ function DocumentEditorInner({ doc, onBack }: { doc: ReportDocument; onBack: () 
             </button>
           </div>
         )}
+
+        {saveState === 'saving' ? (
+          <span className="text-xs text-muted-foreground">{t('berichte.docs.saving')}</span>
+        ) : saveState === 'saved' ? (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Check className="h-3 w-3 text-success" />
+            {t('berichte.docs.saved')}
+          </span>
+        ) : null}
 
         <span className="text-xs text-muted-foreground">
           {t('berichte.docs.pages', { count: estimatePageCount({ ...doc, rows }) })}
