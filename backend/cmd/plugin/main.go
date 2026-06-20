@@ -74,6 +74,7 @@ func main() {
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryUnaryInterceptor(),
 			metricsRegistry.GRPCUnaryInterceptor(),
+			middleware.TenantInboundUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
 			middleware.RecoveryStreamInterceptor(),
