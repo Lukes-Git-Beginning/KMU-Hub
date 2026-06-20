@@ -4,8 +4,9 @@
  * Full-featured page with active calls, call history, and device settings.
  * Integrates with meetings store for live meetings and call history data.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import {
   Video,
   Phone,
@@ -21,6 +22,9 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { useMeetingsStore, type CallHistoryEntry } from '../../stores/meetings'
+import { useMeetings, useStartMeeting } from '@/api/hooks/useMeetings'
+import { VideoCallView } from '@/features/video/VideoCallView'
+import { backendMeetingToUI } from '../meetings/mappers'
 import { PageHeader } from '@/components/shared'
 import { formatDate } from '@/lib/format'
 
@@ -69,11 +73,12 @@ function directionIcon(direction: CallHistoryEntry['direction']) {
 
 function ActiveCallCard({
   meeting,
+  onJoin,
 }: {
   meeting: { id: string; title: string; participants: { id: string; name: string; initials: string }[]; room: string; startTime: string; duration: number; color: string }
+  onJoin: () => void
 }) {
   const { t } = useTranslation()
-  const { joinMeeting } = useMeetingsStore()
 
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
@@ -115,7 +120,7 @@ function ActiveCallCard({
 
       <div className="mt-3 flex gap-2">
         <button
-          onClick={() => joinMeeting(meeting.id)}
+          onClick={onJoin}
           className="flex-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 transition-colors"
         >
           {t('video.call.beitreten')}
@@ -282,7 +287,37 @@ export default function VideoPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<VideoTab>('active')
   const [historySearch, setHistorySearch] = useState('')
-  const { meetings, callHistory } = useMeetingsStore()
+  const { meetings: localMeetings, callHistory } = useMeetingsStore()
+
+  // Real meetings from the backend, merged with local mock meetings (R3-E4).
+  const { data: apiMeetings } = useMeetings()
+  const apiUIMeetings = useMemo(
+    () => (apiMeetings ?? []).map(backendMeetingToUI),
+    [apiMeetings],
+  )
+  const apiIds = useMemo(() => new Set(apiUIMeetings.map((m) => m.id)), [apiUIMeetings])
+  const meetings = useMemo(
+    () => [...apiUIMeetings, ...localMeetings],
+    [apiUIMeetings, localMeetings],
+  )
+
+  const startMeeting = useStartMeeting()
+  // Active LiveKit call overlay: starting a backend meeting yields a token +
+  // ws_url which mounts the real VideoCallView. Local mock meetings have no
+  // backend session, so they fall back to the (no-op) store join.
+  const [activeCall, setActiveCall] = useState<{ callId: string; token: string; wsUrl: string } | null>(null)
+
+  const handleJoin = (id: string) => {
+    if (apiIds.has(id)) {
+      startMeeting.mutate(id, {
+        onSuccess: (res) =>
+          setActiveCall({ callId: id, token: res.token, wsUrl: res.ws_url }),
+        onError: () => toast.error(t('meetings.toast.startFailed')),
+      })
+    } else {
+      useMeetingsStore.getState().joinMeeting(id)
+    }
+  }
 
   const liveMeetings = meetings.filter((m) => m.status === 'live')
 
@@ -357,7 +392,7 @@ export default function VideoPage() {
             {liveMeetings.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {liveMeetings.map((m) => (
-                  <ActiveCallCard key={m.id} meeting={m} />
+                  <ActiveCallCard key={m.id} meeting={m} onJoin={() => handleJoin(m.id)} />
                 ))}
               </div>
             ) : (
@@ -405,7 +440,7 @@ export default function VideoPage() {
                           {m.participants.length}
                         </div>
                         <button
-                          onClick={() => useMeetingsStore.getState().joinMeeting(m.id)}
+                          onClick={() => handleJoin(m.id)}
                           className="rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20"
                         >
                           {t('video.call.beitreten')}
@@ -457,6 +492,18 @@ export default function VideoPage() {
 
         {activeTab === 'settings' && <div className="animate-fade-up"><SettingsTab /></div>}
       </div>
+
+      {/* Active LiveKit call — full-screen overlay (R3-E4) */}
+      {activeCall && (
+        <div className="fixed inset-0 z-[60] bg-background">
+          <VideoCallView
+            callId={activeCall.callId}
+            token={activeCall.token}
+            wsUrl={activeCall.wsUrl}
+            onLeave={() => setActiveCall(null)}
+          />
+        </div>
+      )}
     </div>
   )
 }
