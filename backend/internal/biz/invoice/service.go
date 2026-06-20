@@ -142,22 +142,30 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 		return nil, err
 	}
 
+	// Load company settings once (best-effort) for the payment-terms and currency
+	// defaults below.
+	settings, settingsErr := s.companySettings.GetByTenantID(ctx, input.TenantID)
+	if settingsErr != nil {
+		slog.Warn("failed to load company settings for invoice defaults",
+			"tenant_id", input.TenantID,
+			"error", settingsErr,
+		)
+	}
+
 	// Determine payment terms and due date
 	paymentTermsDays := input.PaymentTermsDays
 	if paymentTermsDays <= 0 {
-		// Fall back to company settings
-		settings, settingsErr := s.companySettings.GetByTenantID(ctx, input.TenantID)
-		if settingsErr != nil {
-			slog.Warn("failed to load company settings for payment terms default",
-				"tenant_id", input.TenantID,
-				"error", settingsErr,
-			)
-		}
 		if settings != nil && settings.DefaultPaymentTermsDays > 0 {
 			paymentTermsDays = settings.DefaultPaymentTermsDays
 		} else {
 			paymentTermsDays = 30 // Fallback default
 		}
+	}
+
+	// Currency: tenant default from company settings, else the system default (EUR).
+	currency := models.DefaultCurrency
+	if settings != nil && settings.DefaultCurrency != "" {
+		currency = settings.DefaultCurrency
 	}
 
 	invoiceDate := input.InvoiceDate
@@ -184,6 +192,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 		Subtotal:        breakdown.Subtotal,
 		TotalTax:        breakdown.TotalTax,
 		GrossTotal:      breakdown.GrossTotal,
+		Currency:        currency,
 		InvoiceDate:     invoiceDate,
 		DeliveryDate:    input.DeliveryDate,
 		DueDate:         dueDate,

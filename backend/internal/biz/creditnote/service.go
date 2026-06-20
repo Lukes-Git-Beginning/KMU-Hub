@@ -108,6 +108,12 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Credit
 		return nil, err
 	}
 
+	// A credit note inherits the currency of the invoice it credits.
+	currency := inv.Currency
+	if currency == "" {
+		currency = models.DefaultCurrency
+	}
+
 	now := time.Now()
 	cn := &models.CreditNote{
 		ID:                uuid.New(),
@@ -125,6 +131,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Credit
 		Subtotal:          breakdown.Subtotal,
 		TotalTax:          breakdown.TotalTax,
 		GrossTotal:        breakdown.GrossTotal,
+		Currency:          currency,
 		Reason:            input.Reason,
 		CreatedBy:         input.UserID,
 		CreatedAt:         now,

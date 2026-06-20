@@ -12,6 +12,11 @@ import (
 // Status Constants
 // ============================================================================
 
+// DefaultCurrency is the fallback ISO 4217 currency code applied to finance
+// documents when a tenant has no configured default (B6 / Migration 000216).
+// It mirrors the DB column default on finance_invoices/credit_notes/quotes.
+const DefaultCurrency = "EUR"
+
 // Quote statuses
 const (
 	QuoteStatusDraft    = "draft"
@@ -90,6 +95,8 @@ type CompanySettings struct {
 	DefaultPaymentTermsDays int             `json:"default_payment_terms_days"`
 	DefaultQuoteValidityDays int            `json:"default_quote_validity_days"`
 	Basiszinssatz           decimal.Decimal `json:"basiszinssatz"`
+	// DefaultCurrency is the ISO 4217 code applied to new finance documents (B6).
+	DefaultCurrency         string          `json:"default_currency"`
 	CreatedAt               time.Time       `json:"created_at"`
 	UpdatedAt               time.Time       `json:"updated_at"`
 }
@@ -170,6 +177,7 @@ type Quote struct {
 	Subtotal        decimal.Decimal `json:"subtotal"`
 	TotalTax        decimal.Decimal `json:"total_tax"`
 	GrossTotal      decimal.Decimal `json:"gross_total"`
+	Currency        string          `json:"currency"`
 	ValidUntil      *time.Time      `json:"valid_until,omitempty"`
 	Notes           string          `json:"notes"`
 	DealID          *uuid.UUID      `json:"deal_id,omitempty"`
@@ -196,6 +204,7 @@ type Invoice struct {
 	Subtotal          decimal.Decimal `json:"subtotal"`
 	TotalTax          decimal.Decimal `json:"total_tax"`
 	GrossTotal        decimal.Decimal `json:"gross_total"`
+	Currency          string          `json:"currency"`
 	InvoiceDate       time.Time       `json:"invoice_date"`
 	DeliveryDate      *time.Time      `json:"delivery_date,omitempty"`
 	DueDate           time.Time       `json:"due_date"`
@@ -234,6 +243,7 @@ type CreditNote struct {
 	Subtotal          decimal.Decimal `json:"subtotal"`
 	TotalTax          decimal.Decimal `json:"total_tax"`
 	GrossTotal        decimal.Decimal `json:"gross_total"`
+	Currency          string          `json:"currency"`
 	Reason            string          `json:"reason"`
 	CreatedBy         uuid.UUID       `json:"created_by"`
 	CreatedAt         time.Time       `json:"created_at"`

@@ -214,12 +214,13 @@ func (fm *FieldMapper) applyContactFieldToKMUHub(data *ContactSyncData, bc *Bexi
 
 // --- Invoice Mapping ---
 
-// MapInvoiceToBexio maps a KMU Hub invoice to a Bexio invoice.
-func (fm *FieldMapper) MapInvoiceToBexio(invoice *models.Invoice, contactBexioID int, _ []models.BexioFieldMappingEntry) (*BexioInvoice, error) {
+// MapInvoiceToBexio maps a KMU Hub invoice to a Bexio invoice. cache resolves the
+// document currency to the tenant's Bexio currency ID; pass nil to fall back to CHF.
+func (fm *FieldMapper) MapInvoiceToBexio(invoice *models.Invoice, contactBexioID int, _ []models.BexioFieldMappingEntry, cache *LookupCache) (*BexioInvoice, error) {
 	bi := &BexioInvoice{
 		ContactID:   contactBexioID,
 		UserID:      1, // Default user in Bexio, resolved by API
-		CurrencyID:  1, // Default CHF
+		CurrencyID:  resolveBexioCurrencyID(cache, invoice.Currency),
 		MwstType:    BexioMwstTypeExclusive,
 		MwstIsNet:   true,
 		IsValidFrom: invoice.InvoiceDate.Format("2006-01-02"),
@@ -245,12 +246,13 @@ func (fm *FieldMapper) MapInvoiceToBexio(invoice *models.Invoice, contactBexioID
 
 // --- Quote Mapping ---
 
-// MapQuoteToBexio maps a KMU Hub quote to a Bexio quote (KB offer).
-func (fm *FieldMapper) MapQuoteToBexio(quote *models.Quote, contactBexioID int, _ []models.BexioFieldMappingEntry) (*BexioQuote, error) {
+// MapQuoteToBexio maps a KMU Hub quote to a Bexio quote (KB offer). cache resolves
+// the document currency to the tenant's Bexio currency ID; pass nil to fall back to CHF.
+func (fm *FieldMapper) MapQuoteToBexio(quote *models.Quote, contactBexioID int, _ []models.BexioFieldMappingEntry, cache *LookupCache) (*BexioQuote, error) {
 	bq := &BexioQuote{
 		ContactID:   contactBexioID,
 		UserID:      1,
-		CurrencyID:  1, // Default CHF
+		CurrencyID:  resolveBexioCurrencyID(cache, quote.Currency),
 		MwstType:    BexioMwstTypeExclusive,
 		MwstIsNet:   true,
 		IsValidFrom: quote.CreatedAt.Format("2006-01-02"),
@@ -271,6 +273,22 @@ func (fm *FieldMapper) MapQuoteToBexio(quote *models.Quote, contactBexioID int, 
 	bq.Positions = positions
 
 	return bq, nil
+}
+
+// resolveBexioCurrencyID maps a document currency code to the tenant's Bexio
+// currency ID via the lookup cache. Bexio currency IDs are tenant-specific, so a
+// populated cache is required; when the cache is nil/unpopulated or the code is
+// unknown it falls back to 1 (CHF), preserving the historical default (B6).
+func resolveBexioCurrencyID(cache *LookupCache, code string) int {
+	if code == "" {
+		code = models.DefaultCurrency
+	}
+	if cache != nil {
+		if id, ok := cache.GetCurrencyID(code); ok {
+			return id
+		}
+	}
+	return 1 // CHF fallback
 }
 
 // mapLineItemsToPositions converts KMU Hub line items JSON to Bexio positions.

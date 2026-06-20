@@ -63,8 +63,17 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 		return fmt.Errorf("bexio push quote: resolve contact: %w", err)
 	}
 
+	// Resolve the tenant's Bexio currency IDs (tenant-specific) so the document
+	// currency maps correctly instead of always defaulting to CHF (B6). On refresh
+	// failure the mapper falls back to CHF.
+	lookupCache := NewLookupCache()
+	if refreshErr := lookupCache.Refresh(ctx, qp.client, tenantID); refreshErr != nil {
+		slog.Warn("bexio: lookup cache refresh failed; quote currency falls back to CHF",
+			"tenant_id", tenantID, "error", refreshErr)
+	}
+
 	// Map to Bexio format
-	bexioQuote, err := qp.fieldMapper.MapQuoteToBexio(quote, contactBexioID, mappingEntries)
+	bexioQuote, err := qp.fieldMapper.MapQuoteToBexio(quote, contactBexioID, mappingEntries, lookupCache)
 	if err != nil {
 		return fmt.Errorf("bexio push quote: map: %w", err)
 	}

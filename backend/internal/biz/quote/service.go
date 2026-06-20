@@ -138,20 +138,26 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Quote,
 		return nil, err
 	}
 
+	// Load company settings once (best-effort) for the validity and currency defaults.
+	settings, settingsErr := s.companySettings.GetByTenantID(ctx, input.TenantID)
+	if settingsErr != nil {
+		slog.Warn("failed to load company settings for quote defaults",
+			"tenant_id", input.TenantID,
+			"error", settingsErr,
+		)
+	}
+
 	// Determine valid_until: explicit or from company settings default
 	validUntil := input.ValidUntil
-	if validUntil == nil {
-		settings, settingsErr := s.companySettings.GetByTenantID(ctx, input.TenantID)
-		if settingsErr != nil {
-			slog.Warn("failed to load company settings for quote validity default",
-				"tenant_id", input.TenantID,
-				"error", settingsErr,
-			)
-		}
-		if settings != nil && settings.DefaultQuoteValidityDays > 0 {
-			expiry := time.Now().AddDate(0, 0, settings.DefaultQuoteValidityDays)
-			validUntil = &expiry
-		}
+	if validUntil == nil && settings != nil && settings.DefaultQuoteValidityDays > 0 {
+		expiry := time.Now().AddDate(0, 0, settings.DefaultQuoteValidityDays)
+		validUntil = &expiry
+	}
+
+	// Currency: tenant default from company settings, else the system default (EUR).
+	currency := models.DefaultCurrency
+	if settings != nil && settings.DefaultCurrency != "" {
+		currency = settings.DefaultCurrency
 	}
 
 	now := time.Now()
@@ -170,6 +176,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Quote,
 		Subtotal:        breakdown.Subtotal,
 		TotalTax:        breakdown.TotalTax,
 		GrossTotal:      breakdown.GrossTotal,
+		Currency:        currency,
 		ValidUntil:      validUntil,
 		Notes:           input.Notes,
 		DealID:          input.DealID,

@@ -45,14 +45,16 @@ func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) 
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
-			reason, created_by, created_at, updated_at
+			reason, created_by, created_at, updated_at,
+			currency
 		) VALUES (
 			$1, $2, $3, $4,
 			$5,
 			$6, $7, $8, $9,
 			$10, $11, $12,
 			$13, $14, $15,
-			$16, $17, $18, $19
+			$16, $17, $18, $19,
+			$20
 		)`,
 		cn.ID, cn.TenantID, cn.CreditNoteNumber, cn.Status,
 		cn.OriginalInvoiceID,
@@ -60,6 +62,7 @@ func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) 
 		cn.TaxMode, cn.LineItems, cn.TaxBreakdownRaw,
 		cn.Subtotal.String(), cn.TotalTax.String(), cn.GrossTotal.String(),
 		cn.Reason, cn.CreatedBy, cn.CreatedAt, cn.UpdatedAt,
+		cn.Currency,
 	)
 	if err != nil {
 		return fmt.Errorf("insert finance_credit_notes: %w", err)
@@ -79,7 +82,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
-			reason, created_by, created_at, updated_at
+			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes
 		WHERE tenant_id = $1 AND id = $2`,
 		tenantID, id,
@@ -198,7 +201,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
-			reason, created_by, created_at, updated_at
+			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -255,7 +258,7 @@ func (r *PostgresRepository) GetByInvoiceID(ctx context.Context, tenantID, invoi
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
-			reason, created_by, created_at, updated_at
+			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes
 		WHERE tenant_id = $1 AND original_invoice_id = $2
 		ORDER BY created_at DESC`,
@@ -321,7 +324,7 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
-			reason, created_by, created_at, updated_at
+			reason, created_by, created_at, updated_at, currency
 		FROM finance_credit_notes
 		WHERE tenant_id = $1
 		  AND status = 'sent'
@@ -384,7 +387,7 @@ func (r *PostgresRepository) scanCreditNote(row pgx.Row) (*models.CreditNote, er
 		&cn.CustomerName, &cn.CustomerAddress, &cn.CustomerEmail, &cn.CustomerUStIDNr,
 		&cn.TaxMode, &cn.LineItems, &cn.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
-		&cn.Reason, &cn.CreatedBy, &cn.CreatedAt, &cn.UpdatedAt,
+		&cn.Reason, &cn.CreatedBy, &cn.CreatedAt, &cn.UpdatedAt, &cn.Currency,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrCreditNoteNotFound
@@ -407,7 +410,7 @@ func (r *PostgresRepository) scanCreditNoteFromRows(rows pgx.Rows) (*models.Cred
 		&cn.CustomerName, &cn.CustomerAddress, &cn.CustomerEmail, &cn.CustomerUStIDNr,
 		&cn.TaxMode, &cn.LineItems, &cn.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
-		&cn.Reason, &cn.CreatedBy, &cn.CreatedAt, &cn.UpdatedAt,
+		&cn.Reason, &cn.CreatedBy, &cn.CreatedAt, &cn.UpdatedAt, &cn.Currency,
 	)
 	if err != nil {
 		return nil, err

@@ -63,8 +63,17 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 		return fmt.Errorf("bexio push invoice: resolve contact: %w", err)
 	}
 
+	// Resolve the tenant's Bexio currency IDs (tenant-specific) so the document
+	// currency maps correctly instead of always defaulting to CHF (B6). On refresh
+	// failure the mapper falls back to CHF.
+	lookupCache := NewLookupCache()
+	if refreshErr := lookupCache.Refresh(ctx, ip.client, tenantID); refreshErr != nil {
+		slog.Warn("bexio: lookup cache refresh failed; invoice currency falls back to CHF",
+			"tenant_id", tenantID, "error", refreshErr)
+	}
+
 	// Map to Bexio format
-	bexioInvoice, err := ip.fieldMapper.MapInvoiceToBexio(invoice, contactBexioID, mappingEntries)
+	bexioInvoice, err := ip.fieldMapper.MapInvoiceToBexio(invoice, contactBexioID, mappingEntries, lookupCache)
 	if err != nil {
 		return fmt.Errorf("bexio push invoice: map: %w", err)
 	}

@@ -1,6 +1,7 @@
 package pdf
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +69,46 @@ func TestGenerateZUGFeRDXML_ZeroInvoiceDate(t *testing.T) {
 	}
 	if _, err := GenerateZUGFeRDXML(inv, completeTestSettings()); err == nil {
 		t.Fatal("expected an error for a zero issue date, got nil")
+	}
+}
+
+func TestGenerateZUGFeRDXML_CurrencyFromInvoice(t *testing.T) {
+	t.Parallel()
+
+	inv := models.Invoice{
+		InvoiceNumber: "RE-2026-0001",
+		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
+		Currency:      "CHF",
+	}
+	out, err := GenerateZUGFeRDXML(inv, completeTestSettings())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	xml := string(out)
+	if !strings.Contains(xml, "<ram:InvoiceCurrencyCode>CHF</ram:InvoiceCurrencyCode>") {
+		t.Error("expected InvoiceCurrencyCode CHF in XML")
+	}
+	if !strings.Contains(xml, `currencyID="CHF"`) {
+		t.Error("expected TaxTotalAmount currencyID CHF in XML")
+	}
+}
+
+func TestGenerateZUGFeRDXML_CurrencyDefaultsToEUR(t *testing.T) {
+	t.Parallel()
+
+	inv := models.Invoice{
+		InvoiceNumber: "RE-2026-0001",
+		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
+		// Currency intentionally left empty — must fall back to EUR.
+	}
+	out, err := GenerateZUGFeRDXML(inv, completeTestSettings())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(out), "<ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>") {
+		t.Error("expected currency to default to EUR when invoice.Currency is empty")
 	}
 }
 

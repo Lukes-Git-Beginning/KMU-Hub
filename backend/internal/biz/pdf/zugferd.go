@@ -77,6 +77,10 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 
 	dueDateStr := invoice.DueDate.Format("20060102")
 	invoiceDateStr := invoice.InvoiceDate.Format("20060102")
+	currency := invoice.Currency
+	if currency == "" {
+		currency = models.DefaultCurrency
+	}
 
 	xml := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice
@@ -121,7 +125,7 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 
 		<ram:ApplicableHeaderTradeSettlement>
 			<ram:PaymentReference>%s</ram:PaymentReference>
-			<ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+			<ram:InvoiceCurrencyCode>%s</ram:InvoiceCurrencyCode>
 			<ram:SpecifiedTradePaymentTerms>
 				<ram:DueDateDateTime>
 					<udt:DateTimeString format="102">%s</udt:DateTimeString>
@@ -129,7 +133,7 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 			</ram:SpecifiedTradePaymentTerms>
 			<ram:SpecifiedTradeSettlementHeaderMonetarySummation>
 				<ram:LineTotalAmount>%s</ram:LineTotalAmount>
-				<ram:TaxTotalAmount currencyID="EUR">%s</ram:TaxTotalAmount>
+				<ram:TaxTotalAmount currencyID="%s">%s</ram:TaxTotalAmount>
 				<ram:GrandTotalAmount>%s</ram:GrandTotalAmount>
 				<ram:DuePayableAmount>%s</ram:DuePayableAmount>
 			</ram:SpecifiedTradeSettlementHeaderMonetarySummation>
@@ -148,8 +152,10 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 		xmlEscape(settings.UStIDNr),
 		xmlEscape(invoice.CustomerName),
 		xmlEscape(invoice.InvoiceNumber),
+		currency,
 		dueDateStr,
 		invoice.Subtotal.StringFixed(2),
+		currency,
 		invoice.TotalTax.StringFixed(2),
 		invoice.GrossTotal.StringFixed(2),
 		invoice.GrossTotal.StringFixed(2),

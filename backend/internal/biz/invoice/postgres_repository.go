@@ -47,7 +47,8 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
 			contact_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at,
+			currency
 		) VALUES (
 			$1, $2, $3, $4,
 			$5, $6, $7, $8,
@@ -56,7 +57,8 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 			$16, $17, $18, $19,
 			$20, $21, $22,
 			$23,
-			$24, $25, $26
+			$24, $25, $26,
+			$27
 		)`,
 		inv.ID, inv.TenantID, inv.InvoiceNumber, inv.Status,
 		inv.CustomerName, inv.CustomerAddress, inv.CustomerEmail, inv.CustomerUStIDNr,
@@ -66,6 +68,7 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 		inv.SnapshotData, inv.SourceQuoteID, inv.Notes,
 		inv.ContactID,
 		inv.CreatedBy, inv.CreatedAt, inv.UpdatedAt,
+		inv.Currency,
 	)
 	if err != nil {
 		return fmt.Errorf("insert finance_invoices: %w", err)
@@ -88,7 +91,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 			snapshot_data, source_quote_id, notes,
 			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			contact_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_invoices
 		WHERE tenant_id = $1 AND id = $2`,
 		tenantID, id,
@@ -180,7 +183,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 			snapshot_data, source_quote_id, notes,
 			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			contact_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_invoices %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -319,7 +322,7 @@ func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID)
 			snapshot_data, source_quote_id, notes,
 			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			contact_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_invoices
 		WHERE tenant_id = $1 AND status = 'sent' AND due_date < NOW()
 		ORDER BY due_date ASC`,
@@ -375,7 +378,7 @@ func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID
 			snapshot_data, source_quote_id, notes,
 			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			contact_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_invoices
 		WHERE tenant_id = $1 AND source_quote_id = $2`,
 		tenantID, quoteID,
@@ -512,7 +515,7 @@ func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uui
 			snapshot_data, source_quote_id, notes,
 			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			contact_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_invoices
 		WHERE tenant_id = $1
 		  AND status != 'draft'
@@ -583,7 +586,7 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 			snapshot_data, source_quote_id, notes,
 			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			contact_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_invoices
 		WHERE tenant_id = $1
 		  AND status IN ('sent', 'paid', 'overdue')
@@ -638,8 +641,9 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 // ============================================================================
 
 // scanInvoice scans a single pgx.Row into an Invoice model.
-// Scans all 30 columns including contact_id (Migration 000141), zugferd_profile,
-// time_tracking_source, locked_at, locked_by (ADR-0007 lock columns).
+// Scans all 31 columns including contact_id (Migration 000141), zugferd_profile,
+// time_tracking_source, locked_at, locked_by (ADR-0007 lock columns) and
+// currency (Migration 000216, B6).
 func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {
 	var inv models.Invoice
 	var subtotalStr, totalTaxStr, grossTotalStr string
@@ -652,7 +656,7 @@ func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
 		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.ContactID,
-		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt,
+		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt, &inv.Currency,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInvoiceNotFound
@@ -679,7 +683,7 @@ func (r *PostgresRepository) scanInvoiceFromRows(rows pgx.Rows) (*models.Invoice
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
 		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.ContactID,
-		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt,
+		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt, &inv.Currency,
 	)
 	if err != nil {
 		return nil, err

@@ -292,7 +292,7 @@ func (fm *FieldMapper) MapInvoiceToLexware(invoice *models.Invoice, contactLexwa
 		li.DueDate = invoice.DueDate.Format("2006-01-02")
 	}
 
-	positions, err := fm.mapLineItemsToLexware(invoice.LineItems)
+	positions, err := fm.mapLineItemsToLexware(invoice.LineItems, currencyOrDefault(invoice.Currency))
 	if err != nil {
 		return nil, fmt.Errorf("map line items: %w", err)
 	}
@@ -316,7 +316,7 @@ func (fm *FieldMapper) MapQuoteToLexware(quote *models.Quote, contactLexwareID s
 		lq.ExpirationDate = quote.ValidUntil.Format("2006-01-02")
 	}
 
-	positions, err := fm.mapLineItemsToLexware(quote.LineItems)
+	positions, err := fm.mapLineItemsToLexware(quote.LineItems, currencyOrDefault(quote.Currency))
 	if err != nil {
 		return nil, fmt.Errorf("map line items: %w", err)
 	}
@@ -325,7 +325,7 @@ func (fm *FieldMapper) MapQuoteToLexware(quote *models.Quote, contactLexwareID s
 	return lq, nil
 }
 
-func (fm *FieldMapper) mapLineItemsToLexware(lineItemsJSON json.RawMessage) ([]LexwareLineItem, error) {
+func (fm *FieldMapper) mapLineItemsToLexware(lineItemsJSON json.RawMessage, currency string) ([]LexwareLineItem, error) {
 	if len(lineItemsJSON) == 0 {
 		return nil, nil
 	}
@@ -352,7 +352,7 @@ func (fm *FieldMapper) mapLineItemsToLexware(lineItemsJSON json.RawMessage) ([]L
 			Name:     item.Description,
 			Quantity: qty,
 			UnitPrice: LexwareUnitPrice{
-				Currency:          "EUR",
+				Currency:          currency,
 				NetAmount:         netAmount,
 				TaxRatePercentage: taxRate,
 			},
@@ -360,6 +360,15 @@ func (fm *FieldMapper) mapLineItemsToLexware(lineItemsJSON json.RawMessage) ([]L
 	}
 
 	return lineItems, nil
+}
+
+// currencyOrDefault returns the document currency, falling back to the system
+// default (EUR) when the document predates the currency column (B6).
+func currencyOrDefault(currency string) string {
+	if currency == "" {
+		return models.DefaultCurrency
+	}
+	return currency
 }
 
 // Default mappings

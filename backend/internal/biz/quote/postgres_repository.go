@@ -45,14 +45,16 @@ func (r *PostgresRepository) Create(ctx context.Context, q *models.Quote) error 
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at,
+			currency
 		) VALUES (
 			$1, $2, $3, $4,
 			$5, $6, $7, $8,
 			$9, $10, $11,
 			$12, $13, $14,
 			$15, $16, $17, $18,
-			$19, $20, $21
+			$19, $20, $21,
+			$22
 		)`,
 		q.ID, q.TenantID, q.QuoteNumber, q.Status,
 		q.CustomerName, q.CustomerAddress, q.CustomerEmail, q.CustomerUStIDNr,
@@ -60,6 +62,7 @@ func (r *PostgresRepository) Create(ctx context.Context, q *models.Quote) error 
 		q.Subtotal, q.TotalTax, q.GrossTotal,
 		q.ValidUntil, q.Notes, q.DealID, q.SourceQuoteID,
 		q.CreatedBy, q.CreatedAt, q.UpdatedAt,
+		q.Currency,
 	)
 	if err != nil {
 		return fmt.Errorf("insert finance_quotes: %w", err)
@@ -79,7 +82,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_quotes
 		WHERE tenant_id = $1 AND id = $2`,
 		tenantID, id,
@@ -163,7 +166,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_quotes %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -286,7 +289,7 @@ func (r *PostgresRepository) GetByDealID(ctx context.Context, tenantID, dealID u
 			tax_mode, line_items, tax_breakdown,
 			subtotal, total_tax, gross_total,
 			valid_until, notes, deal_id, source_quote_id,
-			created_by, created_at, updated_at
+			created_by, created_at, updated_at, currency
 		FROM finance_quotes
 		WHERE tenant_id = $1 AND deal_id = $2
 		ORDER BY created_at DESC`,
@@ -449,7 +452,7 @@ func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantI
 			bank_name, iban, bic,
 			logo_url, accent_color,
 			is_kleinunternehmer, default_payment_terms_days, default_quote_validity_days,
-			basiszinssatz, created_at, updated_at
+			basiszinssatz, default_currency, created_at, updated_at
 		FROM company_settings
 		WHERE tenant_id = $1`,
 		tenantID,
@@ -459,7 +462,7 @@ func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantI
 		&cs.BankName, &cs.IBAN, &cs.BIC,
 		&cs.LogoURL, &cs.AccentColor,
 		&cs.IsKleinunternehmer, &cs.DefaultPaymentTermsDays, &cs.DefaultQuoteValidityDays,
-		&basiszinssatzFloat, &cs.CreatedAt, &cs.UpdatedAt,
+		&basiszinssatzFloat, &cs.DefaultCurrency, &cs.CreatedAt, &cs.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil // No settings configured yet
@@ -476,6 +479,12 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 	if settings.ID == uuid.Nil {
 		settings.ID = uuid.New()
 	}
+	// Never persist an empty currency over the column default — callers that don't
+	// yet set DefaultCurrency would otherwise blank it out (B6).
+	defaultCurrency := settings.DefaultCurrency
+	if defaultCurrency == "" {
+		defaultCurrency = models.DefaultCurrency
+	}
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO company_settings (
 			id, tenant_id, name, street, plz, city, country,
@@ -483,8 +492,8 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 			bank_name, iban, bic,
 			logo_url, accent_color,
 			is_kleinunternehmer, default_payment_terms_days, default_quote_validity_days,
-			basiszinssatz, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW(), $20)
+			basiszinssatz, default_currency, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), $21)
 		ON CONFLICT (tenant_id)
 		DO UPDATE SET
 			name = EXCLUDED.name,
@@ -504,6 +513,7 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 			default_payment_terms_days = EXCLUDED.default_payment_terms_days,
 			default_quote_validity_days = EXCLUDED.default_quote_validity_days,
 			basiszinssatz = EXCLUDED.basiszinssatz,
+			default_currency = EXCLUDED.default_currency,
 			updated_at = EXCLUDED.updated_at`,
 		settings.ID, settings.TenantID,
 		settings.Name, settings.Street, settings.PLZ, settings.City, settings.Country,
@@ -511,7 +521,7 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 		settings.BankName, settings.IBAN, settings.BIC,
 		settings.LogoURL, settings.AccentColor,
 		settings.IsKleinunternehmer, settings.DefaultPaymentTermsDays, settings.DefaultQuoteValidityDays,
-		settings.Basiszinssatz.InexactFloat64(), settings.UpdatedAt,
+		settings.Basiszinssatz.InexactFloat64(), defaultCurrency, settings.UpdatedAt,
 	)
 	return err
 }
@@ -531,7 +541,7 @@ func (r *PostgresRepository) scanQuote(row pgx.Row) (*models.Quote, error) {
 		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
-		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt,
+		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrQuoteNotFound
@@ -556,7 +566,7 @@ func (r *PostgresRepository) scanQuoteFromRows(rows pgx.Rows) (*models.Quote, er
 		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
-		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt,
+		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt, &q.Currency,
 	)
 	if err != nil {
 		return nil, err
