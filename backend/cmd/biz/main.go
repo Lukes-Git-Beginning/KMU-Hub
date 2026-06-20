@@ -148,7 +148,7 @@ func main() {
 	// =========================================================================
 	// Initialize Services
 	// =========================================================================
-	quoteSvc := quote.NewService(quoteRepo, numberSeqRepo, companySettingsRepo, dealUpdater)
+	quoteSvc := quote.NewService(quoteRepo, numberSeqRepo, companySettingsRepo, dealUpdater, pool)
 	invoiceSvc := invoice.NewService(invoiceRepo, numberSeqRepo, companySettingsRepo, quoteRepo, pool)
 	creditNoteSvc := creditnote.NewService(creditNoteRepo, invoiceRepo, numberSeqRepo, pool)
 	paymentSvc := payment.NewService(paymentRepo, invoiceRepo, invoiceRepo)

@@ -7,15 +7,24 @@ package quote
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
+
+// txBeginner begins a transaction. Satisfied by *pgxpool.Pool in production and
+// injected as a fake in unit tests so Send's orchestration can be exercised without
+// a database (real atomicity is covered by the integration test).
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
 
 // Service handles quote business logic.
 type Service struct {
@@ -24,21 +33,28 @@ type Service struct {
 	companySettings CompanySettingsRepo
 	dealUpdater     DealValueUpdater
 	emitter         EventEmitter
+	// pool backs the atomic Send transaction (number assignment + status/number
+	// update in one tx). May be nil in unit tests that do not exercise Send.
+	pool txBeginner
 }
 
 // NewService creates a new quote service.
 // dealUpdater may be nil; if nil, deal value sync is skipped (standalone mode).
+// pool is required for Send (atomic numbering); it may be nil in unit tests that
+// do not call Send.
 func NewService(
 	repo Repository,
 	numberSeqRepo NumberSequenceRepo,
 	companySettings CompanySettingsRepo,
 	dealUpdater DealValueUpdater,
+	pool txBeginner,
 ) *Service {
 	return &Service{
 		repo:            repo,
 		numberSeqRepo:   numberSeqRepo,
 		companySettings: companySettings,
 		dealUpdater:     dealUpdater,
+		pool:            pool,
 	}
 }
 
@@ -366,19 +382,33 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 		return ErrQuoteNotDraft
 	}
 
-	// Assign quote number via gap-free sequence
 	fiscalYear := time.Now().Year()
-	number, numErr := s.numberSeqRepo.NextNumber(ctx, tenantID, models.DocumentTypeQuote, fiscalYear, "AN")
+
+	// Assign the sequential number and persist the sent state in ONE transaction.
+	// Previously NextNumber committed its own tx before repo.Update ran in a second
+	// tx; a failed update left the number consumed (GoBD gap for quotes). Coupling
+	// both in one tx makes the rollback atomic: a failed update returns the number.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin send tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	number, numErr := s.numberSeqRepo.NextNumberInTx(ctx, tx, tenantID, models.DocumentTypeQuote, fiscalYear, "AN")
 	if numErr != nil {
-		return numErr
+		return fmt.Errorf("assign quote number: %w", numErr)
 	}
 
 	quote.QuoteNumber = number
 	quote.Status = models.QuoteStatusSent
 	quote.UpdatedAt = time.Now()
 
-	if updateErr := s.repo.Update(ctx, quote); updateErr != nil {
+	if updateErr := s.repo.UpdateInTx(ctx, tx, quote); updateErr != nil {
 		return updateErr
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return fmt.Errorf("commit send tx: %w", commitErr)
 	}
 
 	slog.Info("quote sent",

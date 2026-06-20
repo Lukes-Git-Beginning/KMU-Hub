@@ -220,7 +220,18 @@ func (r *PostgresRepository) Update(ctx context.Context, q *models.Quote) error 
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.Exec(ctx,
+	if err := r.UpdateInTx(ctx, tx, q); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// UpdateInTx performs the quote update within the caller's transaction. It is used by
+// Send to assign the number and persist the sent state atomically (no separate commit
+// per step), preventing a consumed-but-unassigned number on partial failure.
+func (r *PostgresRepository) UpdateInTx(ctx context.Context, tx pgx.Tx, q *models.Quote) error {
+	_, err := tx.Exec(ctx,
 		`UPDATE finance_quotes SET
 			quote_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
@@ -249,11 +260,7 @@ func (r *PostgresRepository) Update(ctx context.Context, q *models.Quote) error 
 		return fmt.Errorf("delete quote lines: %w", err)
 	}
 
-	if err := r.insertQuoteLines(ctx, tx, q); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+	return r.insertQuoteLines(ctx, tx, q)
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
