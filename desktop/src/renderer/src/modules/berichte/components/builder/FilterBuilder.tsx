@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Filter, Plus, X } from 'lucide-react'
 import type { FilterOperator, ReportFilter } from '@/api/berichte-types'
@@ -22,10 +23,13 @@ function ValueInput({
   field,
   filter,
   onPatch,
+  suggestions,
 }: {
   field: FieldDefinition
   filter: ReportFilter
   onPatch: (patch: Partial<ReportFilter>) => void
+  /** For string fields: actual values from the data, offered as a datalist. */
+  suggestions?: string[]
 }) {
   if (NO_VALUE_OPERATORS.includes(filter.operator)) return null
 
@@ -89,20 +93,48 @@ function ValueInput({
     )
   }
 
-  // string
+  // string — offer the actual values from the data as a datalist (pick or type)
+  const listId = suggestions && suggestions.length > 0 ? `flt-${field.key}` : undefined
   return (
-    <input
-      type="text"
-      value={String(filter.value ?? '')}
-      onChange={(e) => onPatch({ value: e.target.value })}
-      className={`${SELECT_CLASS} min-w-0 flex-1`}
-    />
+    <>
+      <input
+        type="text"
+        list={listId}
+        value={String(filter.value ?? '')}
+        onChange={(e) => onPatch({ value: e.target.value })}
+        className={`${SELECT_CLASS} min-w-0 flex-1`}
+      />
+      {listId && (
+        <datalist id={listId}>
+          {suggestions!.map((v) => (
+            <option key={v} value={v} />
+          ))}
+        </datalist>
+      )}
+    </>
   )
 }
 
 export function FilterBuilder({ source, filters, onChange }: FilterBuilderProps) {
   const { t } = useTranslation()
   const filterable = source.fields.filter((f) => f.dataType !== 'date')
+
+  // Distinct real values per string field, so a customer/name can be picked from
+  // the actual data instead of typed blind.
+  const stringSuggestions = useMemo(() => {
+    const rows = source.sampleRows()
+    const map: Record<string, string[]> = {}
+    for (const f of source.fields) {
+      if (f.dataType !== 'string') continue
+      const seen = new Set<string>()
+      for (const row of rows) {
+        const v = row[f.key]
+        if (v != null && v !== '') seen.add(String(v))
+      }
+      map[f.key] = [...seen].sort((a, b) => a.localeCompare(b)).slice(0, 50)
+    }
+    return map
+  }, [source])
 
   function addFilter() {
     const f0 = filterable[0]
@@ -187,7 +219,14 @@ export function FilterBuilder({ source, filters, onChange }: FilterBuilderProps)
                       </option>
                     ))}
                   </select>
-                  {field && <ValueInput field={field} filter={filter} onPatch={(p) => patchFilter(i, p)} />}
+                  {field && (
+                    <ValueInput
+                      field={field}
+                      filter={filter}
+                      onPatch={(p) => patchFilter(i, p)}
+                      suggestions={field.dataType === 'string' ? stringSuggestions[field.key] : undefined}
+                    />
+                  )}
                 </div>
               </div>
             )

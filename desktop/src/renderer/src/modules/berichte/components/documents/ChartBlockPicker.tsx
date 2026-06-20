@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BarChart3, FilePlus2, FolderOpen, FileText, Search } from 'lucide-react'
 import type {
+  ReportDateRange,
   ReportDefinition,
+  ReportFilter,
   VisualizationType,
 } from '@/api/berichte-types'
 import { isBuilderQuery } from '@/api/berichte-types'
@@ -25,6 +27,8 @@ import {
 } from '../builder/builder-utils'
 import { SourcePicker } from '../builder/SourcePicker'
 import { FieldPicker } from '../builder/FieldPicker'
+import { FilterBuilder } from '../builder/FilterBuilder'
+import { DateRangePicker } from '../builder/DateRangePicker'
 import { VizSwitcher } from '../builder/VizSwitcher'
 import { LivePreview } from '../builder/LivePreview'
 import { ChartRenderer } from '../charts/ChartRenderer'
@@ -330,6 +334,12 @@ function NewChartTab({
   function selectViz(viz: VisualizationType) {
     setState((s) => ({ ...s, viz, vizManual: true }))
   }
+  function setFilters(filters: ReportFilter[]) {
+    setState((s) => ({ ...s, filters }))
+  }
+  function setDateRange(dateRange: ReportDateRange | undefined) {
+    setState((s) => ({ ...s, dateRange }))
+  }
 
   function save() {
     if (!query || !source) return
@@ -373,6 +383,12 @@ function NewChartTab({
                 onToggleDimension={toggleDimension}
                 onToggleMeasure={toggleMeasure}
               />
+            </div>
+          )}
+          {source && (
+            <div className="space-y-3 rounded-xl border border-border bg-card p-3">
+              <DateRangePicker source={source} value={state.dateRange} onChange={setDateRange} />
+              <FilterBuilder source={source} filters={state.filters} onChange={setFilters} />
             </div>
           )}
           {source && hasFields && mode === 'chart' && (
