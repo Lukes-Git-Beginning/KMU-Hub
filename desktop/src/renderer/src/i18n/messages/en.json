@@ -3081,6 +3081,7 @@
   "formulare.editor.emailSenden": "Send email",
   "formulare.editor.empfaenger": "Recipients",
   "formulare.editor.feldHinzufuegen": "Add Field",
+  "formulare.editor.feldVerschieben": "Move field",
   "formulare.editor.felder": "Fields ({count})",
   "formulare.editor.noFelder": "No fields yet. Click \"Add Field\".",
   "formulare.editor.oeffentlich": "Public",

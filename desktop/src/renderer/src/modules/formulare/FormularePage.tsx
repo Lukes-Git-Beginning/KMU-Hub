@@ -1,5 +1,22 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, type SyntheticEvent } from 'react'
 import { useQueries } from '@tanstack/react-query'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useTranslation } from 'react-i18next'
 import { formatDate as libFormatDate, formatDateTime as libFormatDateTime } from '@/lib/format'
 import {
@@ -196,9 +213,27 @@ export default function FormularePage() {
     updateDraftMeta,
     addField,
     removeField,
-    reorderFields: _reorderFields,
+    reorderFields,
     updateField,
   } = useFormulareStore()
+
+  // DnD sensors for the field-builder list (pointer drag + keyboard a11y).
+  const fieldSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleFieldDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id || !draft) return
+      const oldIndex = draft.fields.findIndex((f) => f.id === active.id)
+      const newIndex = draft.fields.findIndex((f) => f.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+      reorderFields(arrayMove(draft.fields, oldIndex, newIndex))
+    },
+    [draft, reorderFields],
+  )
 
   // -------------------------------------------------------------------------
   // Local UI state
@@ -1044,93 +1079,52 @@ export default function FormularePage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {draft.fields.map((field) => {
-                  // 10.2 — Page break divider
-                  if (field.label === '__page_break__') {
-                    const pageNum =
-                      fieldPageMap.get(field.id) === -1
-                        ? Array.from(fieldPageMap.entries())
-                            .filter(([, v]) => v === -1)
-                            .findIndex(([k]) => k === field.id) + 1
-                        : 1
-                    return (
-                      <div
-                        key={field.id}
-                        className="flex items-center gap-3 py-2 group"
-                      >
-                        <div className="flex-1 border-t border-dashed border-primary/40" />
-                        <span className="text-xs font-medium text-primary/70 whitespace-nowrap">
-                          {t('formulare.editor.seitenumbruchLabel', {
-                            page: pageNum + 1,
-                          })}
-                        </span>
-                        <div className="flex-1 border-t border-dashed border-primary/40" />
-                        <button
-                          onClick={() => handleRemoveField(field.id)}
-                          className="rounded-md p-1 text-muted-foreground hover:text-error hover:bg-error-light transition-colors opacity-0 group-hover:opacity-100"
-                          title={t('formulare.editor.seitenumbruch')}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )
-                  }
+              <DndContext
+                sensors={fieldSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleFieldDragEnd}
+              >
+                <SortableContext
+                  items={draft.fields.map((f) => f.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {draft.fields.map((field) => {
+                      if (field.label === '__page_break__') {
+                        const pageNum =
+                          fieldPageMap.get(field.id) === -1
+                            ? Array.from(fieldPageMap.entries())
+                                .filter(([, v]) => v === -1)
+                                .findIndex(([k]) => k === field.id) + 1
+                            : 1
+                        return (
+                          <SortableFieldItem
+                            key={field.id}
+                            field={field}
+                            pageBreakLabel={t('formulare.editor.seitenumbruchLabel', {
+                              page: pageNum + 1,
+                            })}
+                            t={t}
+                            onRemove={() => handleRemoveField(field.id)}
+                          />
+                        )
+                      }
 
-                  const Icon = FIELD_TYPE_ICONS[field.type]
-                  return (
-                    <div
-                      key={field.id}
-                      className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 group hover:shadow-[var(--shadow-card-hover)] transition-shadow"
-                    >
-                      <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 cursor-grab" />
-                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-light shrink-0">
-                        <Icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground truncate">
-                            {field.label}
-                          </span>
-                          {field.required && (
-                            <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error shrink-0">
-                              {t('formulare.editor.pflicht')}
-                            </span>
-                          )}
-                          {/* 10.1 — Conditional badge */}
-                          {field.conditionalLogic && (
-                            <span className="rounded bg-warning-light px-1.5 py-0.5 text-[9px] font-medium text-warning shrink-0">
-                              {t('formulare.editor.bedingt')}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-muted-foreground">
-                          {FIELD_TYPE_LABELS[field.type]}
-                          {field.options
-                            ? ` (${field.options.length} ${t('formulare.fieldConfig.optionen')})`
-                            : ''}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => openFieldConfig(field)}
-                          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          title={t('formulare.actions.bearbeiten')}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleRemoveField(field.id)}
-                          className="rounded-md p-1.5 text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-                          title={t('common.delete')}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                      return (
+                        <SortableFieldItem
+                          key={field.id}
+                          field={field}
+                          icon={FIELD_TYPE_ICONS[field.type]}
+                          typeLabel={FIELD_TYPE_LABELS[field.type]}
+                          t={t}
+                          onEdit={() => openFieldConfig(field)}
+                          onRemove={() => handleRemoveField(field.id)}
+                        />
+                      )
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
 
@@ -2653,6 +2647,142 @@ export default function FormularePage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteForm(confirmDelete)}
       />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SortableFieldItem — one draggable row of the field builder (dnd-kit). The
+// drag listeners live on a dedicated grip handle; inline controls carry a
+// data-field-control guard + onPointerDown stop so editing never starts a drag.
+// ---------------------------------------------------------------------------
+
+interface SortableFieldItemProps {
+  field: FormField
+  icon?: typeof Type
+  typeLabel?: string
+  /** When set, renders the page-break divider variant instead of a field row. */
+  pageBreakLabel?: string
+  t: (key: string, opts?: Record<string, unknown>) => string
+  onEdit?: () => void
+  onRemove: () => void
+}
+
+function SortableFieldItem({
+  field,
+  icon: Icon,
+  typeLabel,
+  pageBreakLabel,
+  t,
+  onEdit,
+  onRemove,
+}: SortableFieldItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: field.id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  const stop = (e: SyntheticEvent) => e.stopPropagation()
+
+  if (pageBreakLabel) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`flex items-center gap-2 py-2 group ${isDragging ? 'opacity-50' : ''}`}
+      >
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab text-primary/40 transition-colors hover:text-primary/70 active:cursor-grabbing"
+          aria-label={t('formulare.editor.feldVerschieben')}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="flex-1 border-t border-dashed border-primary/40" />
+        <span className="text-xs font-medium text-primary/70 whitespace-nowrap">
+          {pageBreakLabel}
+        </span>
+        <div className="flex-1 border-t border-dashed border-primary/40" />
+        <button
+          data-field-control
+          onPointerDown={stop}
+          onClick={onRemove}
+          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-error-light hover:text-error opacity-0 group-hover:opacity-100"
+          title={t('formulare.editor.seitenumbruch')}
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded-lg border border-border bg-card p-3 group transition-shadow hover:shadow-[var(--shadow-card-hover)] ${
+        isDragging ? 'opacity-50 shadow-lg' : ''
+      }`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="shrink-0 cursor-grab text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+        aria-label={t('formulare.editor.feldVerschieben')}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      {Icon && (
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-light shrink-0">
+          <Icon className="h-4 w-4 text-primary" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground truncate">
+            {field.label}
+          </span>
+          {field.required && (
+            <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error shrink-0">
+              {t('formulare.editor.pflicht')}
+            </span>
+          )}
+          {field.conditionalLogic && (
+            <span className="rounded bg-warning-light px-1.5 py-0.5 text-[9px] font-medium text-warning shrink-0">
+              {t('formulare.editor.bedingt')}
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          {typeLabel}
+          {field.options
+            ? ` (${field.options.length} ${t('formulare.fieldConfig.optionen')})`
+            : ''}
+        </span>
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {onEdit && (
+          <button
+            data-field-control
+            onPointerDown={stop}
+            onClick={onEdit}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary"
+            title={t('formulare.actions.bearbeiten')}
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button
+          data-field-control
+          onPointerDown={stop}
+          onClick={onRemove}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-error-light hover:text-error"
+          title={t('common.delete')}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   )
 }

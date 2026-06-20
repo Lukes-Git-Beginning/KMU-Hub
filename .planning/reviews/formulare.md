@@ -31,10 +31,17 @@
 - **i18n** `formulare.detail.*` ×4 (9 Keys: subtitle, visibility, private, submissions, createdBy/At, updatedAt, pages, noFields).
 - **QA** (`scripts/qa-formulare-f2.mjs`): Form-Modal (5 Feld-Zeilen, 6 Aktionen), Vorschau (4 Inputs), Submission-Modal zentriert. **0 pageErrors, 0 failedApi**, keine Raw-Keys. Screenshots gesichtet.
 
+### F-3 — DnD-Formular-Builder (dnd-kit) ✅
+- Die Editor-Feldliste ist jetzt eine **echte Drag-and-drop-Liste** (`DndContext` + `SortableContext` + `verticalListSortingStrategy`). Neue `SortableFieldItem`-Komponente (Modul-Ebene, sonst würde `useSortable` bei jedem Render remounten): Drag-Listeners auf einem **dedizierten Grip-Handle**, innere Edit/Löschen-Buttons mit `data-field-control` + `onPointerDown`-Stop (kein Drag-vs-Klick-Konflikt, wie work-Kanban). `PointerSensor` (5px-Aktivierung) + `KeyboardSensor` (a11y).
+- `onDragEnd` → `arrayMove` über `draft.fields` → `reorderFields` (Store, vorher ungenutzt). Live-Vorschau spiegelt die neue Reihenfolge sofort; Speichern persistiert via MSW-PATCH.
+- Alle Feldtypen in der Palette (inkl. neu `email`), Feld-Eigenschaften (Label/Pflicht/Platzhalter/Optionen/bedingte Logik) unverändert nutzbar. Seitenumbrüche sind ebenfalls sortierbar.
+- i18n `formulare.editor.feldVerschieben` ×4 (Drag-Handle-aria-Label).
+- **QA** (`scripts/qa-formulare-f3.mjs`): Handle „Name" von Pos 0 → 2 gezogen (`changed: true`), nach Speichern + Neuöffnen Reihenfolge erhalten (`matchesAfter: true`), Palette-Add (Datum) ergibt 6 Felder. **0 pageErrors.** Screenshots gesichtet (Handles + Live-Preview-Sync).
+
 ## Definition of Done
 - [x] Demo-Mode lebendig (0 failedApiRequests/pageErrors, Listen + Details + Submissions gefüllt) — F-1
 - [x] Formular-Zeile + Submission-Zeile → DetailModal mit allen Infos/Aktionen — F-2
-- [ ] DnD-Formular-Builder, alle Feldtypen, Live-Vorschau, Reihenfolge persistent — F-3
+- [x] DnD-Formular-Builder, alle Feldtypen, Live-Vorschau, Reihenfolge persistent — F-3
 - [ ] DSGVO-Einwilligungsfeld + Consent im Submission-Detail + echter Export-Download — F-4
 - [ ] Moduleinstellungen (personal + tenant) via ModuleSettingsShell — F-5
 - [ ] i18n ×4 vollständig, 0 Raw-Keys, 0 `{{}}` (per Screenshot verifiziert) — laufend

@@ -3051,6 +3051,7 @@
   "formulare.editor.emailSenden": "Invia e-mail",
   "formulare.editor.empfaenger": "Destinatari",
   "formulare.editor.feldHinzufuegen": "Aggiungi campo",
+  "formulare.editor.feldVerschieben": "Sposta campo",
   "formulare.editor.felder": "Campi ({count})",
   "formulare.editor.noFelder": "Ancora nessun campo. Fare clic su \"Aggiungi campo\".",
   "formulare.editor.oeffentlich": "Pubblico",

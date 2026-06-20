@@ -3051,6 +3051,7 @@
   "formulare.editor.emailSenden": "Envoyer un e-mail",
   "formulare.editor.empfaenger": "Destinataire",
   "formulare.editor.feldHinzufuegen": "Ajouter un champ",
+  "formulare.editor.feldVerschieben": "Déplacer le champ",
   "formulare.editor.felder": "Champs ({count})",
   "formulare.editor.noFelder": "Aucun champ pour l'instant. Cliquez sur \"Ajouter un champ\".",
   "formulare.editor.oeffentlich": "Public",
