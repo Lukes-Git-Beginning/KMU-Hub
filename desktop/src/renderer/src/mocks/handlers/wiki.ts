@@ -432,7 +432,8 @@ export const wikiHandlers = [
       filtered = filtered.filter(
         (a) =>
           a.title.toLowerCase().includes(q) ||
-          (typeof a.content === 'string' && (a.content as string).toLowerCase().includes(q)),
+          // walk the JSONB content to plain text so TipTap docs match too
+          contentText(a.content).toLowerCase().includes(q),
       )
     }
 

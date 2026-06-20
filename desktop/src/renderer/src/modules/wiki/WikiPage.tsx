@@ -34,6 +34,7 @@ import { WikiArticle } from './WikiArticle'
 import { WikiTemplateDialog } from './WikiTemplateDialog'
 import { WikiCategoryDialog } from './WikiCategoryDialog'
 import { WikiShareDialog } from './WikiShareDialog'
+import { WikiHighlight, searchSnippet } from './WikiHighlight'
 import { formatDate as libFormatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
@@ -173,7 +174,7 @@ export default function WikiPage() {
 
   const handleSelectArticle = (article: WikiArticleType) => {
     setSelectedArticle(article.id)
-    // viewCount increment not yet available via API
+    // Opening the detail triggers useArticle → the GET increments view_count.
   }
 
   const handleDelete = async () => {
@@ -263,8 +264,24 @@ export default function WikiPage() {
                         {/* Title row */}
                         <div className="flex items-center gap-1.5">
                           {article.isPinned && <Pin className="h-3 w-3 shrink-0 text-primary" />}
-                          <span className="text-sm font-medium text-foreground truncate">{article.title}</span>
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {isSearching ? (
+                              <WikiHighlight text={article.title} query={debouncedQuery} />
+                            ) : (
+                              article.title
+                            )}
+                          </span>
                         </div>
+
+                        {/* Content match snippet (only while searching) */}
+                        {isSearching && (() => {
+                          const snippet = searchSnippet(article.content, debouncedQuery)
+                          return snippet ? (
+                            <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                              <WikiHighlight text={snippet} query={debouncedQuery} />
+                            </p>
+                          ) : null
+                        })()}
 
                         {/* Meta row */}
                         <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
