@@ -7,12 +7,14 @@
 > **Der bisher gebaute Builder (E-0…E-5, `.planning/berichte-builder-plan.md`) ist NICHT weg** —
 > er wird zur untersten „Grafik-Widget"-Schicht (ein Baustein im Dokument).
 >
-> **Stand 2026-06-20 (Hauptterminal-Batch 1 fertig):** R-0 ✅ · **R-1a ✅** (Block-Editor-Kern:
-> Skeleton, Vorlagen-Picker, +-Menü, Inline-Edit, dnd-Reorder, Löschen, Auto-Save) · **B1-6 ✅**
-> (Lese-Reader-Grundlage: Deckblatt/Text/KPI/Chart/Callout gerendert, echte Diagramme).
-> **Darien-Feedback zum Reader: „ok fürs Erste, aber da müssen wir nochmal deutlich rüber" →
-> neue Phase R-2p (Reader-Premium-Politur).** Nächste Batches: R-1b (Spalten + Chart-Block-Picker),
-> R-2 (Lebenszyklus-Übergänge), R-2p (Reader-Politur).
+> **Stand 2026-06-20 (Batch 1+2+3 fertig):** R-0 ✅ · **R-1a ✅** · **B1-6 ✅** · **R-1b ✅**
+> (B2-1…B2-5: Spalten-Zeilen + Breiten-Presets, Chart-Block-Picker Bibliothek+Neu-Tab inkl. inline
+> Builder mit Filter/Zeitraum + echte Werte-Datalist, KPI-Block + KPI-Reihe, Callout/Image/Table-Editoren) ·
+> **R-2 ✅** (B3-1: Lebenszyklus-Buttons + Guards + „Freigegeben am" + Reader-Empty-State) ·
+> **R-2p ✅** (B3-2…B3-5: A4-Bögen-Reader + Akzentlinie + Kopf-/Fußzeile + „Seite X von Y" · Playfair-
+> Editorial-Typografie + premium Deckblatt + 65ch · Block-Politur + Cover-eigene-Seite · Print-CSS-Grundlage
+> `report-print.css`). Plus Darien-Review-Fixes (Filter/Datalist, Sticky-Header, Mehrspalten-Block-z-index).
+> **Nächster Batch (RESUME-batch-3.md): R-3 PDF-Export + R-4 Scheduling.** Danach R-5 (Integration) + R-6 (Datenquellen).
 
 ---
 
