@@ -143,8 +143,12 @@ function buildSchemas(): FormSchema[] {
       id: 'form-event',
       title: 'Eventanmeldung Sommerfest',
       description: 'Anmeldung zum jährlichen Kundenevent.',
-      status: 'active',
+      // Closed lifecycle demo: registration period is over, but the responses
+      // stay visible for evaluation and the form can be re-opened.
+      status: 'closed',
       isPublic: true,
+      closedMessage:
+        'Die Anmeldung zum Sommerfest ist abgeschlossen. Vielen Dank für Ihr Interesse — wir freuen uns auf das nächste Event!',
       submissionCount: 5,
       createdAt: isoAgo(14 * DAY),
       updatedAt: isoAgo(8 * HOUR),
@@ -168,8 +172,9 @@ function buildSchemas(): FormSchema[] {
       id: 'form-newsletter',
       title: 'Newsletter-Anmeldung',
       description: 'Schlankes Double-Opt-in-Formular für den Newsletter.',
-      status: 'active',
-      isPublic: true,
+      // Archived lifecycle demo: read-only, kept for the record.
+      status: 'archived',
+      isPublic: false,
       submissionCount: 2,
       createdAt: isoAgo(9 * DAY),
       updatedAt: isoAgo(20 * HOUR),
@@ -463,6 +468,7 @@ export const formulareHandlers = [
       isTemplate: body.isTemplate ?? false,
       isPublic: body.isPublic ?? false,
       pageCount: body.pageCount ?? 1,
+      closedMessage: body.closedMessage,
       submissionCount: 0,
       createdBy: 'Du',
       createdAt: now,
@@ -619,6 +625,7 @@ export const formulareHandlers = [
     if (body.isTemplate !== undefined) schema.isTemplate = body.isTemplate
     if (body.isPublic !== undefined) schema.isPublic = body.isPublic
     if (body.pageCount !== undefined) schema.pageCount = body.pageCount
+    if (body.closedMessage !== undefined) schema.closedMessage = body.closedMessage
     schema.updatedAt = new Date().toISOString()
     return HttpResponse.json(schema)
   }),

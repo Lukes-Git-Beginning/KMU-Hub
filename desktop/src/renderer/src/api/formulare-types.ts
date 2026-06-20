@@ -10,7 +10,13 @@
 // Enum-like string unions
 // ---------------------------------------------------------------------------
 
-export type FormSchemaStatus = 'draft' | 'active' | 'archived'
+/**
+ * Lifecycle status. `closed` (Darien decision 2026-06-20) sits between `active`
+ * and `archived`: the form stops accepting new submissions but stays
+ * re-activatable and its evaluation remains visible. Only `active` forms are
+ * shareable; `draft` must be published first.
+ */
+export type FormSchemaStatus = 'draft' | 'active' | 'closed' | 'archived'
 export type FormSubmissionStatus = 'new' | 'read' | 'archived'
 export type WebhookDeliveryStatus = 'pending' | 'delivered' | 'failed' | 'dead'
 export type ExportFormat = 'csv' | 'xlsx'
@@ -59,6 +65,8 @@ export interface FormSchema {
   isTemplate: boolean
   isPublic: boolean
   pageCount: number
+  /** Message shown on the public fill-out page once the form is `closed`. */
+  closedMessage?: string
   submissionCount: number
   createdBy: string | null
   createdAt: string
@@ -119,6 +127,7 @@ export interface CreateFormSchemaInput {
   isTemplate?: boolean
   isPublic?: boolean
   pageCount?: number
+  closedMessage?: string
 }
 
 export interface UpdateFormSchemaInput {
@@ -129,6 +138,7 @@ export interface UpdateFormSchemaInput {
   isTemplate?: boolean
   isPublic?: boolean
   pageCount?: number
+  closedMessage?: string
 }
 
 export interface DuplicateFormSchemaInput {

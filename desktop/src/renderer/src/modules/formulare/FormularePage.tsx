@@ -54,6 +54,10 @@ import {
   FileInput,
   ShieldCheck,
   ExternalLink,
+  Send,
+  Lock,
+  Unlock,
+  RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -79,7 +83,7 @@ import {
 } from '@/api/hooks/useFormulare'
 import { listSubmissions } from '@/api/formulare-client'
 import type { FormSchema, FormSubmission, FormSubmissionStatus } from '@/api/formulare-types'
-import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader, type ActionItem } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -98,13 +102,15 @@ type TabKey = 'formulare' | 'eingänge' | 'vorlagen'
 const formStatusLabelKeys: Record<FormSchema['status'], string> = {
   active: 'formulare.status.active',
   draft: 'formulare.status.draft',
+  closed: 'formulare.status.closed',
   archived: 'formulare.status.archived',
 }
 
 const formStatusColors: Record<FormSchema['status'], string> = {
   active: 'bg-success-light text-success',
   draft: 'bg-secondary text-muted-foreground',
-  archived: 'bg-warning-light text-warning',
+  closed: 'bg-warning-light text-warning',
+  archived: 'bg-secondary text-muted-foreground opacity-80',
 }
 
 const submissionStatusLabelKeys: Record<FormSubmissionStatus, string> = {
@@ -300,6 +306,9 @@ export default function FormularePage() {
   const [confirmDelete, setConfirmDelete] = useState<FormSchema | null>(null)
   const [showNewFormDialog, setShowNewFormDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState<FormSchema | null>(null)
+  // FD-0 — lifecycle: close dialog (captures the optional closed message)
+  const [closeDialogForm, setCloseDialogForm] = useState<FormSchema | null>(null)
+  const [closeMessageInput, setCloseMessageInput] = useState('')
   const [showFieldConfigDialog, setShowFieldConfigDialog] = useState<{
     field: FormField
   } | null>(null)
@@ -461,8 +470,131 @@ export default function FormularePage() {
   const formatDateTime = (d: string) =>
     libFormatDateTime(d, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
+  // -------------------------------------------------------------------------
+  // FD-0 — lifecycle transitions (draft → active → closed → archived)
+  // -------------------------------------------------------------------------
+
+  /** Real fields (page breaks are pseudo-fields and don't count). */
+  const realFieldCount = (schema: FormSchema) =>
+    schema.fields.filter((f) => (f as FormField).label !== '__page_break__')
+      .length
+
+  /** Only live forms can be shared — draft must be published, closed/archived can't. */
+  const isShareable = (schema: FormSchema) => schema.status === 'active'
+
+  const applyStatus = (
+    schema: FormSchema,
+    status: FormSchema['status'],
+    toastKey: string,
+    extra?: { closedMessage?: string },
+  ) => {
+    updateSchema.mutate(
+      { id: schema.id, status, ...(extra ?? {}) },
+      {
+        onSuccess: () => {
+          toast.success(t(toastKey, { name: schema.title }))
+          // Keep an open detail modal in sync with the new status.
+          setSelectedForm((cur) =>
+            cur && cur.id === schema.id ? { ...cur, status, ...(extra ?? {}) } : cur,
+          )
+        },
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
+  }
+
+  const publishForm = (schema: FormSchema) => {
+    if (realFieldCount(schema) === 0) {
+      toast.error(t('formulare.lifecycle.publishNoFields'))
+      return
+    }
+    applyStatus(schema, 'active', 'formulare.lifecycle.published')
+  }
+
+  const reopenForm = (schema: FormSchema) =>
+    applyStatus(schema, 'active', 'formulare.lifecycle.reopened')
+
+  const restoreForm = (schema: FormSchema) =>
+    applyStatus(schema, 'draft', 'formulare.lifecycle.restored')
+
+  const archiveForm = (schema: FormSchema) =>
+    applyStatus(schema, 'archived', 'formulare.toast.archiviert')
+
+  const openCloseDialog = (schema: FormSchema) => {
+    setCloseMessageInput(schema.closedMessage ?? '')
+    setCloseDialogForm(schema)
+  }
+
+  const confirmCloseForm = () => {
+    if (!closeDialogForm) return
+    applyStatus(closeDialogForm, 'closed', 'formulare.lifecycle.closed', {
+      closedMessage: closeMessageInput.trim() || undefined,
+    })
+    setCloseDialogForm(null)
+  }
+
+  /** Guarded share entry point — blocks non-live forms with an explanation. */
+  const requestShare = (schema: FormSchema) => {
+    if (!isShareable(schema)) {
+      toast.error(t('formulare.lifecycle.shareNotActive'))
+      return
+    }
+    setShowShareDialog(schema)
+  }
+
+  /** Status-dependent lifecycle entries for the actions dropdown. */
+  const lifecycleItems = (schema: FormSchema): ActionItem[] => {
+    switch (schema.status) {
+      case 'draft':
+        return [
+          {
+            label: t('formulare.lifecycle.publish'),
+            icon: Send,
+            onClick: () => publishForm(schema),
+          },
+        ]
+      case 'active':
+        return [
+          {
+            label: t('formulare.lifecycle.close'),
+            icon: Lock,
+            onClick: () => openCloseDialog(schema),
+          },
+          {
+            label: t('formulare.actions.archivieren'),
+            icon: Archive,
+            onClick: () => archiveForm(schema),
+          },
+        ]
+      case 'closed':
+        return [
+          {
+            label: t('formulare.lifecycle.reopen'),
+            icon: Unlock,
+            onClick: () => reopenForm(schema),
+          },
+          {
+            label: t('formulare.actions.archivieren'),
+            icon: Archive,
+            onClick: () => archiveForm(schema),
+          },
+        ]
+      case 'archived':
+        return [
+          {
+            label: t('formulare.lifecycle.restore'),
+            icon: RotateCcw,
+            onClick: () => restoreForm(schema),
+          },
+        ]
+      default:
+        return []
+    }
+  }
+
   const getFormActions = useCallback(
-    (schema: FormSchema) => [
+    (schema: FormSchema): ActionItem[] => [
       {
         label: t('formulare.actions.bearbeiten'),
         icon: Edit,
@@ -490,44 +622,20 @@ export default function FormularePage() {
       {
         label: t('formulare.actions.teilen'),
         icon: Share2,
-        onClick: () => setShowShareDialog(schema),
+        onClick: () => requestShare(schema),
+        disabled: !isShareable(schema),
       },
+      ...lifecycleItems(schema),
       {
-        label:
-          schema.status === 'archived'
-            ? t('formulare.actions.aktivieren')
-            : t('formulare.actions.archivieren'),
-        icon: Archive,
-        onClick: () => {
-          const newStatus =
-            schema.status === 'archived' ? 'active' : 'archived'
-          updateSchema.mutate(
-            { id: schema.id, status: newStatus },
-            {
-              onSuccess: () =>
-                toast.success(
-                  schema.status === 'archived'
-                    ? t('formulare.toast.aktiviert', { name: schema.title })
-                    : t('formulare.toast.archiviert', { name: schema.title }),
-                ),
-              onError: (err) =>
-                toast.error(
-                  err instanceof Error ? err.message : t('common.error'),
-                ),
-            },
-          )
-        },
-      },
-      { separator: true as const, label: '', onClick: () => {} },
-      {
+        separator: true,
         label: t('common.delete'),
         icon: Trash2,
-        variant: 'destructive' as const,
+        variant: 'destructive',
         onClick: () => setConfirmDelete(schema),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, duplicateSchema, updateSchema],
+    [t, duplicateSchema, updateSchema, closeMessageInput],
   )
 
   const handleDeleteForm = (schema: FormSchema) => {
@@ -2382,49 +2490,65 @@ export default function FormularePage() {
                   {t('formulare.actions.duplizieren')}
                 </button>
                 <button
-                  onClick={() => {
-                    const form = selectedForm
-                    setSelectedForm(null)
-                    setShowShareDialog(form)
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                  onClick={() => requestShare(selectedForm)}
+                  disabled={!isShareable(selectedForm)}
+                  title={
+                    !isShareable(selectedForm)
+                      ? t('formulare.lifecycle.shareOnlyActive')
+                      : undefined
+                  }
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                 >
                   <Share2 className="h-3.5 w-3.5" />
                   {t('formulare.actions.teilen')}
                 </button>
-                <button
-                  onClick={() => {
-                    const newStatus =
-                      selectedForm.status === 'archived' ? 'active' : 'archived'
-                    updateSchema.mutate(
-                      { id: selectedForm.id, status: newStatus },
-                      {
-                        onSuccess: () => {
-                          toast.success(
-                            selectedForm.status === 'archived'
-                              ? t('formulare.toast.aktiviert', {
-                                  name: selectedForm.title,
-                                })
-                              : t('formulare.toast.archiviert', {
-                                  name: selectedForm.title,
-                                }),
-                          )
-                          setSelectedForm({ ...selectedForm, status: newStatus })
-                        },
-                        onError: (err) =>
-                          toast.error(
-                            err instanceof Error ? err.message : t('common.error'),
-                          ),
-                      },
-                    )
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  <Archive className="h-3.5 w-3.5" />
-                  {selectedForm.status === 'archived'
-                    ? t('formulare.actions.aktivieren')
-                    : t('formulare.actions.archivieren')}
-                </button>
+                {/* FD-0 — status-dependent lifecycle action */}
+                {selectedForm.status === 'draft' && (
+                  <button
+                    onClick={() => publishForm(selectedForm)}
+                    className="flex items-center gap-1.5 rounded-lg border border-success/30 bg-success-light px-2.5 py-1.5 text-xs font-medium text-success transition-colors hover:opacity-80"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {t('formulare.lifecycle.publish')}
+                  </button>
+                )}
+                {selectedForm.status === 'active' && (
+                  <button
+                    onClick={() => openCloseDialog(selectedForm)}
+                    className="flex items-center gap-1.5 rounded-lg border border-warning/30 bg-warning-light px-2.5 py-1.5 text-xs font-medium text-warning transition-colors hover:opacity-80"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    {t('formulare.lifecycle.close')}
+                  </button>
+                )}
+                {selectedForm.status === 'closed' && (
+                  <button
+                    onClick={() => reopenForm(selectedForm)}
+                    className="flex items-center gap-1.5 rounded-lg border border-success/30 bg-success-light px-2.5 py-1.5 text-xs font-medium text-success transition-colors hover:opacity-80"
+                  >
+                    <Unlock className="h-3.5 w-3.5" />
+                    {t('formulare.lifecycle.reopen')}
+                  </button>
+                )}
+                {selectedForm.status === 'archived' && (
+                  <button
+                    onClick={() => restoreForm(selectedForm)}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {t('formulare.lifecycle.restore')}
+                  </button>
+                )}
+                {(selectedForm.status === 'active' ||
+                  selectedForm.status === 'closed') && (
+                  <button
+                    onClick={() => archiveForm(selectedForm)}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                    {t('formulare.actions.archivieren')}
+                  </button>
+                )}
                 {selectedForm.submissionCount > 0 && (
                   <ExportMenu
                     schema={selectedForm}
@@ -2582,7 +2706,27 @@ export default function FormularePage() {
         subtitle={t('formulare.editor.vorschau')}
         onBack={selectedForm ? () => setPreviewSchema(null) : undefined}
       >
-        {previewSchema && (
+        {previewSchema && previewSchema.status === 'closed' ? (
+          // FD-0 — closed forms show the close notice externals would see.
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 rounded-lg bg-info-light px-3 py-2">
+              <Info className="h-4 w-4 text-info shrink-0" />
+              <p className="text-xs text-info">{t('formulare.preview.banner')}</p>
+            </div>
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-warning/30 bg-warning-light px-6 py-10 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-warning/15">
+                <Lock className="h-6 w-6 text-warning" />
+              </div>
+              <p className="text-base font-semibold text-foreground">
+                {t('formulare.preview.closedTitle')}
+              </p>
+              <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                {previewSchema.closedMessage?.trim() ||
+                  t('formulare.preview.closedDefault')}
+              </p>
+            </div>
+          </div>
+        ) : previewSchema ? (
           <div className="space-y-5">
             <div className="flex items-center gap-2 rounded-lg bg-info-light px-3 py-2">
               <Info className="h-4 w-4 text-info shrink-0" />
@@ -2623,7 +2767,7 @@ export default function FormularePage() {
               </div>
             )}
           </div>
-        )}
+        ) : null}
       </DetailModal>
 
       {/* ====================== NEUES FORMULAR DIALOG ====================== */}
@@ -2797,6 +2941,62 @@ export default function FormularePage() {
               className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
             >
               {t('formulare.share.schliessen')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ====================== CLOSE FORM DIALOG (FD-0) ====================== */}
+      <Dialog
+        open={!!closeDialogForm}
+        onOpenChange={(o) => {
+          if (!o) setCloseDialogForm(null)
+        }}
+      >
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <div className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-warning" />
+              <DialogTitle className="text-base font-semibold text-foreground">
+                {t('formulare.closeDialog.title')}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="pt-1 text-sm text-muted-foreground">
+              {t('formulare.closeDialog.description', {
+                name: closeDialogForm?.title ?? '',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-5 space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {t('formulare.closeDialog.messageLabel')}
+            </label>
+            <textarea
+              value={closeMessageInput}
+              onChange={(e) => setCloseMessageInput(e.target.value)}
+              rows={3}
+              placeholder={t('formulare.closeDialog.messagePlaceholder')}
+              className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('formulare.closeDialog.messageHint')}
+            </p>
+          </div>
+
+          <DialogFooter className="border-t border-border px-5 py-4">
+            <button
+              onClick={() => setCloseDialogForm(null)}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={confirmCloseForm}
+              className="flex items-center gap-2 rounded-lg bg-warning px-4 py-2 text-sm font-medium text-warning-foreground transition-colors hover:opacity-90"
+            >
+              <Lock className="h-4 w-4" />
+              {t('formulare.closeDialog.confirm')}
             </button>
           </DialogFooter>
         </DialogContent>
