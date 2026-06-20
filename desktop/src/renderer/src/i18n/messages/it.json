@@ -941,6 +941,8 @@
   "berichte.docs.cancelInsert": "Annulla inserimento",
   "berichte.docs.addItem": "Aggiungi voce",
   "berichte.docs.removeItem": "Rimuovi voce",
+  "berichte.docs.dragRow": "Sposta",
+  "berichte.docs.deleteBlock": "Elimina blocco",
   "berichte.docs.blockSoon": "Presto modificabile",
   "berichte.docs.ph.coverTitle": "Titolo",
   "berichte.docs.ph.coverSubtitle": "Sottotitolo",

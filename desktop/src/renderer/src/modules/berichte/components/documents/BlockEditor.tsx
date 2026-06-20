@@ -1,6 +1,28 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Heading1, Heading2, Plus, Trash2, X } from 'lucide-react'
+import {
+  GripVertical,
+  Heading1,
+  Heading2,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import type { ReportBlock, ReportBlockType, ReportRow } from '@/api/berichte-types'
 import { BLOCK_META } from './doc-utils'
@@ -33,10 +55,11 @@ interface BlockEditorProps {
   onChange: (rows: ReportRow[]) => void
 }
 
-/** Editable block document: renders rows -> columns -> editable blocks + insert. */
+/** Editable block document: rows -> columns -> blocks, drag-reorder + insert. */
 export function BlockEditor({ rows, onChange }: BlockEditorProps) {
   const { t } = useTranslation()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   function patchBlock(blockId: string, patch: Partial<ReportBlock>) {
     onChange(
@@ -52,6 +75,19 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
     )
   }
 
+  function deleteBlock(blockId: string) {
+    onChange(
+      rows
+        .map((row) => ({
+          ...row,
+          columns: row.columns
+            .map((col) => ({ ...col, blocks: col.blocks.filter((b) => b.id !== blockId) }))
+            .filter((col) => col.blocks.length > 0),
+        }))
+        .filter((row) => row.columns.length > 0),
+    )
+  }
+
   function addBlock(type: ReportBlockType) {
     onChange([
       ...rows,
@@ -60,23 +96,44 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
     setPickerOpen(false)
   }
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const from = rows.findIndex((r) => r.id === active.id)
+    const to = rows.findIndex((r) => r.id === over.id)
+    if (from === -1 || to === -1) return
+    onChange(arrayMove(rows, from, to))
+  }
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      {rows.map((row) => (
-        <div key={row.id} className={row.columns.length > 1 ? 'flex gap-3' : undefined}>
-          {row.columns.map((col) => (
-            <div key={col.id} className="space-y-4" style={{ flex: col.width ?? 1 }}>
-              {col.blocks.map((block) => (
-                <BlockEdit
-                  key={block.id}
-                  block={block}
-                  onPatch={(patch) => patchBlock(block.id, patch)}
-                />
-              ))}
-            </div>
+    <div className="mx-auto max-w-3xl space-y-4 pl-6">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+          {rows.map((row) => (
+            <SortableRow key={row.id} id={row.id}>
+              <div className={row.columns.length > 1 ? 'flex gap-3' : undefined}>
+                {row.columns.map((col) => (
+                  <div key={col.id} className="space-y-4" style={{ flex: col.width ?? 1 }}>
+                    {col.blocks.map((block) => (
+                      <div key={block.id} className="group/block relative">
+                        <BlockEdit block={block} onPatch={(p) => patchBlock(block.id, p)} />
+                        <button
+                          type="button"
+                          onClick={() => deleteBlock(block.id)}
+                          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-destructive group-hover/block:opacity-100"
+                          aria-label={t('berichte.docs.deleteBlock')}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </SortableRow>
           ))}
-        </div>
-      ))}
+        </SortableContext>
+      </DndContext>
 
       {/* Insert a new block */}
       {pickerOpen ? (
@@ -115,6 +172,36 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
           {t('berichte.docs.addBlock')}
         </button>
       )}
+    </div>
+  )
+}
+
+/** Row wrapper with a hover-only drag handle. */
+function SortableRow({ id, children }: { id: string; children: ReactNode }) {
+  const { t } = useTranslation()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className="group/row relative"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="absolute -left-7 top-1.5 flex h-6 w-6 cursor-grab items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-secondary active:cursor-grabbing group-hover/row:opacity-100"
+        aria-label={t('berichte.docs.dragRow')}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      {children}
     </div>
   )
 }

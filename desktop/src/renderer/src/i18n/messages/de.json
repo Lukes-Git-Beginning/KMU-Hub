@@ -941,6 +941,8 @@
   "berichte.docs.cancelInsert": "Einfügen abbrechen",
   "berichte.docs.addItem": "Punkt hinzufügen",
   "berichte.docs.removeItem": "Punkt entfernen",
+  "berichte.docs.dragRow": "Verschieben",
+  "berichte.docs.deleteBlock": "Block löschen",
   "berichte.docs.blockSoon": "Bald bearbeitbar",
   "berichte.docs.ph.coverTitle": "Titel",
   "berichte.docs.ph.coverSubtitle": "Untertitel",

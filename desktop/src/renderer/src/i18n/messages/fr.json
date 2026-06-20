@@ -941,6 +941,8 @@
   "berichte.docs.cancelInsert": "Annuler l’insertion",
   "berichte.docs.addItem": "Ajouter un élément",
   "berichte.docs.removeItem": "Supprimer l’élément",
+  "berichte.docs.dragRow": "Déplacer",
+  "berichte.docs.deleteBlock": "Supprimer le bloc",
   "berichte.docs.blockSoon": "Bientôt modifiable",
   "berichte.docs.ph.coverTitle": "Titre",
   "berichte.docs.ph.coverSubtitle": "Sous-titre",
