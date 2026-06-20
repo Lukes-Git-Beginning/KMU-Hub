@@ -34,8 +34,8 @@ export function ReportDocumentEditor({
 
   if (isLoading || !doc) {
     return (
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex items-center gap-3 border-b border-border bg-background px-6 py-3">
+      <div className="flex h-full flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-6 py-3">
           <button
             type="button"
             onClick={onBack}
@@ -124,7 +124,7 @@ function DocumentEditorInner({
   }, [rows, doc.id])
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
       <header className="flex items-center gap-3 border-b border-border bg-background px-6 py-3">
         <button
           type="button"
