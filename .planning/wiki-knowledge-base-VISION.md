@@ -47,16 +47,21 @@ FE-mockbar vollständig (MSW-Erweiterungen). Bringt wiki schnell auf einen revie
 | WT-4 | Anhänge & Freigabe | Anhang-Download + Bild-Vorschau (Demo-Blob/Data-URL); **Share-Verwaltung**: aktive Links listen + widerrufen (MSW stateful), interner Team-Verweis statt `cosmi://`. |
 | WT-5 | Suche-Fix + Politur | Listen-Volltextsuche reparieren (Content-Walk), Treffer-Highlight; tote i18n-Keys raus, `views` als ICU-Plural; Demo-Tiefe-Audit. |
 
-### Batch 2 · Premium Lesen & Schreiben — `WP-1…WP-5` (das „berichte-Editorial-Niveau")
-FE-mockbar vollständig. Hebt das tägliche Lese-/Schreiberlebnis.
+### Batch 2 · Premium Erstellen & Lesen — `WP-1…WP-5` (Editor auf berichte-Niveau) — ⭐ PRIORITÄT
+> **Darien-Review Batch 1 (2026-06-21):** „das Erstellen sieht kein bisschen so aus wie beim berichte-Modul" → hier **gründlich nachbessern**. Nach Dariens Review ist das der **nächste wiki-Batch** (vor Batch 3/4).
+
+FE-mockbar vollständig. **Ist-Stand nach Batch 1:** Der Editor ist ein Standard-TipTap-Kasten (shared `EditorToolbar` + `EditorBubbleMenu`, Save/Cancel-Footer, `max-w-3xl`) — funktional, aber weit unter dem berichte-Authoring. Ziel: das **Niveau** von berichte erreichen, wiki-angemessen (Notion-artige Seite, KEIN A4-Report).
+
+**Lücke berichte-Authoring → wiki-Erstellen (das fehlt konkret):**
+- Slash-/Block-Einfügemenü statt nur Toolbar · reiche Blöcke (Callout, Code-Syntax, Toggle, Trenner, Bild+Caption) · Cover/Icon-Identität pro Artikel · editoriale Premium-Typografie (Playfair-Überschriften self-hosted, 65ch, ruhige Hierarchie) · Inhaltsverzeichnis · fokussierter „leerer-Canvas"-Editor statt umrahmter Kasten · Titel als großes Editorial-Heading statt Input-Feld · durchdachter Empty-State (Joy-Moment).
 
 | # | Phase | Inhalt |
 |---|-------|--------|
-| WP-1 | Editorial-Lese-Ansicht | Ruhige Lesetypografie (Lesebreite aus Prefs), **Breadcrumbs** (Bereich › Kategorie › Artikel), Lesezeit, Meta-Leiste (Owner/aktualisiert). |
-| WP-2 | Inhaltsverzeichnis | **TOC** aus H1–H3 mit Anker-Sprung + Scroll-Spy (aktueller Abschnitt), bei langen Artikeln sticky an der Seite. |
-| WP-3 | Editor-Tiefe | **Slash-Command-Menü** (`/`) + neue Blöcke: Callout (Info/Warnung/Tipp), Code mit Syntax-Highlight, Toggle/Details (aufklappbar), Trenner. |
-| WP-4 | Artikel-Identität | Cover-Bild + Icon/Emoji-Ersatz (Custom-SVG/Initial) pro Artikel; in Liste + Lese-Kopf sichtbar. |
-| WP-5 | Vorlagen-CRUD | Eigene Vorlagen statt 3 hardcoded: erstellen/bearbeiten/löschen, Vorschau im Dialog (MSW). |
+| WP-1 | Editor-Shell + Look | Vom umrahmten Kasten zum fokussierten, ruhigen Canvas: großzügige Lesebreite, Premium-Typografie wie berichte (Playfair-Überschriften self-hosted, 65ch, klare Hierarchie), Titel als großes Editorial-Heading (kein Input-Feld), dezente sticky Toolbar. |
+| WP-2 | Slash-Menü + reiche Blöcke | **`/`-Einfügemenü** (Icon+Label, tastatur-navigierbar — Muster aus berichte) + neue Blöcke: Callout (Info/Warnung/Tipp/Empfehlung), Code mit Syntax-Highlight, Toggle/Details, Trenner, Bild mit Caption. |
+| WP-3 | Cover + Icon (Identität) | Cover-Bild + Icon/Initial pro Artikel (Custom-SVG, KEINE Emojis) — im Editor-Kopf, Lese-Kopf und in der Liste. |
+| WP-4 | Editorial-Lese-Ansicht + TOC | Lese-Modus mit ruhiger Premium-Typografie + **Breadcrumbs** (Bereich › Kategorie › Artikel) + Lesezeit + Meta-Leiste + **Inhaltsverzeichnis** (H1–H3, Anker-Sprung, Scroll-Spy, sticky). |
+| WP-5 | Vorlagen-CRUD + Politur | Eigene Vorlagen (erstellen/bearbeiten/löschen, Vorschau) statt 3 hardcoded; Editor-Empty-State als Joy-Moment; Demo-Tiefe-Audit + i18n ×4. |
 
 ### Batch 3 · Vertrauen & Vernetzung — `WV-1…WV-5` (Workflow + Knowledge-Graph)
 FE-mockbar; Review-Erinnerungen/Notify echt = Backend.
