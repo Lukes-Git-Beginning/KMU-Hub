@@ -185,13 +185,14 @@ Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handle
 - **Package:** `backend/internal/crm/consent/`
 - **API:** `Asserter.Assert(ctx, contactID, channel)` — `channel ∈ {ChannelEmail, ChannelPhone}`
 - **Hooks:**
-  - `email/send/service.go` — vor SMTP-Dispatch
-  - `dialer/service.go` — vor Twilio/Dialer-Call
+  - `email/send/service.go:161` — vor SMTP-Dispatch ⚠ **derzeit TOT** (siehe R3-Befund unten)
+  - `dialer/service.go` — vor Twilio/Dialer-Call ✅ scharf (`cmd/dialer/main.go:92`)
 - **Query:** `consent_records WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL`
 - **Transactional Skip:** `ChannelEmail` + Contact ohne E-Mail → `nil` (nichts zu senden, kein Consent noetig)
 - **Block-Log:** `slog.Warn("consent_block", "contact_id", id, "channel", ch)` + `ErrNoConsent`
 - **Status:** Launch-Blocker R1-P0.2 erledigt (PR #10). Gateway-Wiring via additive `NewServiceWithConsent()`-Constructors. **Dialer-Wiring Chain PILOT (2026-06-09, `1548a067`):** `cmd/dialer/main.go` rief bisher `dialer.NewService(...)` ohne Consent-Asserter — der nil-safe Guard im Service war tot, `AssertConsent(ChannelPhone)` wurde nie aufgerufen. Jetzt `dialer.NewServiceWithConsent(...)` mit Postgres-Consent-Asserter verdrahtet — analog zu email/send. DSGVO-Consent-Check vor `InitiateDialerCall` ist damit scharf in Production.
 - **gRPC-Mapping (Sprint 3 Welle 2A, Commit `1f6c4c0`, 2026-05-08):** `mapDialerError` in `backend/internal/server/dialer_grpc.go` mappt `consent.ErrNoConsent` jetzt auf `codes.PermissionDenied` (vorher fiel es durch auf `codes.Internal`, weil keine explizite Sentinel-Klausel). Test-Case in `dialer_grpc_test.go::TestMapDialerError` deckt alle 10 Sentinels ab (`ErrCampaignNotFound`, `ErrCallSessionNotFound`, `ErrOutcomeNotFound`, `ErrCampaignNotDraft`, `ErrCampaignNotActive`, `ErrInvalidStatusTransition`, `ErrNoContactsAvailable`, `ErrContactAlreadyInCampaign`, `ErrAgentNotAvailable`, `ErrCampaignHasNoContacts`, plus `consent.ErrNoConsent` → `PermissionDenied` plus `nil` → `nil` plus unknown → `Internal`).
+- ⚠ **KORREKTUR Rigorosum R3 (2026-06-20, P0-4):** Die obige Aussage „Consent vor SendEmail aktiv" / „analog zu email/send" war/ist für den **E-Mail-Pfad FALSCH.** `cmd/email/main.go:99` verdrahtet `send.NewService(...)` **ohne** Consent-Asserter — exakt der gleiche tote-nil-Guard-Bug wie beim Dialer vor `1548a067`. Der Check in `send/service.go:161` läuft nie, weil `consentAsserter == nil`. Das Gateway (`route_email.go:520 HandleSendEmail`) prüft ebenfalls keinen Consent. **Konsequenz:** kontaktbezogene E-Mails (mit `ContactID`) werden ohne Einwilligungsprüfung versendet → UWG §7 / DSGVO-Risiko. **Fix (Welle 7a):** `cmd/email/main.go` auf `send.NewServiceWithConsent(...)` mit `consent.NewPostgresAssertRepo(pool)` + `consent.NewAsserter(...)` umstellen (Muster `cmd/dialer/main.go:88-92`); zusätzlich `ContactID`-Propagation Gateway→Email-Service verifizieren (sonst triggert der Guard auch nach Wiring nicht).
 
 ## Prod-Secrets Startup-Assertion (S0.3, scharf + Requirements-API seit 2026-06-05)
 
