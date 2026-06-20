@@ -23,6 +23,11 @@ type mockWorkTimeRepo struct {
 	previousShiftEnd *time.Time
 	dailySummary     *DailySummary
 	weeklySummary    *WeeklySummary
+
+	// Call counters for the batched N+1-free read paths.
+	weeklyBatchCalls      int
+	activeShiftBatchCalls int
+	dailyRangeCalls       int
 }
 
 func newMockWorkTimeRepo() *mockWorkTimeRepo {
@@ -87,6 +92,40 @@ func (m *mockWorkTimeRepo) GetWeeklySummary(_ context.Context, _ uuid.UUID, _ ti
 	return &WeeklySummary{}, nil
 }
 
+func (m *mockWorkTimeRepo) GetDailySummaryRange(_ context.Context, _ uuid.UUID, start time.Time, numDays int) ([]DailySummary, error) {
+	m.dailyRangeCalls++
+	days := make([]DailySummary, numDays)
+	for i := range days {
+		days[i] = DailySummary{Date: start.AddDate(0, 0, i)}
+		if m.dailySummary != nil {
+			days[i].NetWorkMinutes = m.dailySummary.NetWorkMinutes
+		}
+	}
+	return days, nil
+}
+
+func (m *mockWorkTimeRepo) GetWeeklySummaryBatch(_ context.Context, employeeIDs []uuid.UUID, _ time.Time) (map[uuid.UUID]*WeeklySummary, error) {
+	m.weeklyBatchCalls++
+	result := make(map[uuid.UUID]*WeeklySummary, len(employeeIDs))
+	for _, id := range employeeIDs {
+		if m.weeklySummary != nil {
+			result[id] = m.weeklySummary
+		} else {
+			result[id] = &WeeklySummary{}
+		}
+	}
+	return result, nil
+}
+
+func (m *mockWorkTimeRepo) GetActiveShiftEmployeeIDs(_ context.Context, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	m.activeShiftBatchCalls++
+	result := make(map[uuid.UUID]bool, len(employeeIDs))
+	if m.activeShift != nil {
+		result[m.activeShift.EmployeeID] = true
+	}
+	return result, nil
+}
+
 func (m *mockWorkTimeRepo) AggregateWorkTimeForInvoice(_ context.Context, _, _ uuid.UUID, _, _ time.Time) (int, []string, error) {
 	return 0, nil, nil
 }
@@ -140,7 +179,8 @@ func (m *mockBreakRepo) ListByWorkTimeEntry(_ context.Context, workTimeEntryID u
 }
 
 type mockEmployeeRepo struct {
-	profile *models.EmployeeProfile
+	profile  *models.EmployeeProfile
+	profiles []*models.EmployeeProfile
 }
 
 func (m *mockEmployeeRepo) Create(_ context.Context, _ *models.EmployeeProfile) error { return nil }
@@ -151,7 +191,7 @@ func (m *mockEmployeeRepo) GetByUserID(_ context.Context, _ uuid.UUID) (*models.
 	return m.profile, nil
 }
 func (m *mockEmployeeRepo) List(_ context.Context, _ employee.EmployeeFilter) ([]*models.EmployeeProfile, int, error) {
-	return nil, 0, nil
+	return m.profiles, len(m.profiles), nil
 }
 func (m *mockEmployeeRepo) Update(_ context.Context, _ *models.EmployeeProfile) error { return nil }
 
@@ -512,4 +552,42 @@ func TestGetWorkTimeStatus_ClockedIn(t *testing.T) {
 	assert.True(t, status.IsClockedIn)
 	assert.False(t, status.IsOnBreak)
 	assert.NotNil(t, status.CurrentShiftStart)
+}
+
+// TestGetTeamTime_BatchesRepoQueries proves GetTeamTime issues a constant number of
+// repository round-trips regardless of employee count (was 1 + 9×N → N+1 / P0).
+func TestGetTeamTime_BatchesRepoQueries(t *testing.T) {
+	workRepo := newMockWorkTimeRepo()
+	breakRepo := newMockBreakRepo()
+
+	var profiles []*models.EmployeeProfile
+	for i := 0; i < 5; i++ {
+		profiles = append(profiles, &models.EmployeeProfile{
+			UserID:          uuid.New(),
+			UserName:        "Employee",
+			WorkDaysPerWeek: 5,
+		})
+	}
+	empRepo := &mockEmployeeRepo{profiles: profiles}
+	svc := NewService(workRepo, breakRepo, empRepo, &mockSettingsRepo{}, nil)
+
+	entries, err := svc.GetTeamTime(context.Background(), uuid.New(), time.Now())
+	require.NoError(t, err)
+	assert.Len(t, entries, 5)
+
+	// Exactly one batched weekly-summary query and one batched active-shift query,
+	// independent of the 5 employees (the naive impl did one of each per employee).
+	assert.Equal(t, 1, workRepo.weeklyBatchCalls)
+	assert.Equal(t, 1, workRepo.activeShiftBatchCalls)
+}
+
+// TestGetTimeAnalytics_BatchesDailyQueries proves the day trend is loaded with a single
+// range query instead of one GetDailySummary call per day.
+func TestGetTimeAnalytics_BatchesDailyQueries(t *testing.T) {
+	svc, workRepo, _ := newTestService()
+
+	_, err := svc.GetTimeAnalytics(context.Background(), uuid.New(), uuid.New(), "week")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, workRepo.dailyRangeCalls)
 }

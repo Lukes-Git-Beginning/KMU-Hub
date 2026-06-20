@@ -18,7 +18,16 @@ type WorkTimeRepository interface {
 	List(ctx context.Context, filter WorkTimeFilter) ([]*models.HRWorkTimeEntry, int, error)
 	GetPreviousShiftEnd(ctx context.Context, employeeID uuid.UUID, before time.Time) (*time.Time, error)
 	GetDailySummary(ctx context.Context, employeeID uuid.UUID, date time.Time) (*DailySummary, error)
+	// GetDailySummaryRange returns one DailySummary per day for [start, start+numDays)
+	// in a single aggregated query (replaces numDays per-day GetDailySummary calls).
+	GetDailySummaryRange(ctx context.Context, employeeID uuid.UUID, start time.Time, numDays int) ([]DailySummary, error)
 	GetWeeklySummary(ctx context.Context, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error)
+	// GetWeeklySummaryBatch returns the weekly summary for each employee in a single
+	// aggregated query, replacing N per-employee GetWeeklySummary calls.
+	GetWeeklySummaryBatch(ctx context.Context, employeeIDs []uuid.UUID, weekStart time.Time) (map[uuid.UUID]*WeeklySummary, error)
+	// GetActiveShiftEmployeeIDs returns the set of employee IDs that currently have an
+	// active shift, in a single query, replacing N per-employee GetActiveShift calls.
+	GetActiveShiftEmployeeIDs(ctx context.Context, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 	// AggregateWorkTimeForInvoice returns the total completed net_work_minutes and the
 	// individual entry IDs for an employee in the given inclusive date range.
 	// Only entries with status='completed' and a non-NULL net_work_minutes are considered.

@@ -564,14 +564,14 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 
 	targetMinutes := targetWeeklyMinutes * numDays / 5 // pro-rated
 
+	// Load the whole day range in a single aggregated query (was numDays round-trips).
+	dailies, dailyErr := s.workTimeRepo.GetDailySummaryRange(ctx, employeeID, start, numDays)
+	if dailyErr != nil {
+		return nil, dailyErr
+	}
 	var trend []DayTrendEntry
 	totalMinutes := 0
-	for i := 0; i < numDays; i++ {
-		day := start.AddDate(0, 0, i)
-		daily, dailyErr := s.workTimeRepo.GetDailySummary(ctx, employeeID, day)
-		if dailyErr != nil {
-			continue
-		}
+	for _, daily := range dailies {
 		trend = append(trend, DayTrendEntry{
 			Date:          daily.Date,
 			NetMinutes:    daily.NetWorkMinutes,
@@ -626,12 +626,38 @@ func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart
 		return nil, listErr
 	}
 
-	var teamEntries []TeamTimeEntry
+	// Batch-load weekly summaries, active shifts and week approvals to avoid an N+1.
+	// Previously this issued ~9 queries per employee (GetWeeklySummary = 7 daily
+	// round-trips, plus GetActiveShift and GetByEmployeeWeek) — up to ~4500 sequential
+	// round-trips for 500 employees. Now it is a constant 3 queries regardless of N.
+	// Work time entries are keyed by employee_id = user_id.
+	empIDs := make([]uuid.UUID, 0, len(employees))
 	for _, emp := range employees {
-		// Work time entries are keyed by employee_id = user_id
-		weekly, weekErr := s.workTimeRepo.GetWeeklySummary(ctx, emp.UserID, weekStart)
+		empIDs = append(empIDs, emp.UserID)
+	}
+
+	weeklyByEmp, weeklyErr := s.workTimeRepo.GetWeeklySummaryBatch(ctx, empIDs, weekStart)
+	if weeklyErr != nil {
+		return nil, weeklyErr
+	}
+	activeByEmp, activeErr := s.workTimeRepo.GetActiveShiftEmployeeIDs(ctx, empIDs)
+	if activeErr != nil {
+		return nil, activeErr
+	}
+	statusByEmp := make(map[uuid.UUID]string)
+	if s.weekApprovalRepo != nil {
+		approvals, waErr := s.weekApprovalRepo.ListByWeek(ctx, tenantID, weekStart)
+		if waErr == nil {
+			for _, wa := range approvals {
+				statusByEmp[wa.EmployeeID] = string(wa.Status)
+			}
+		}
+	}
+
+	teamEntries := make([]TeamTimeEntry, 0, len(employees))
+	for _, emp := range employees {
 		weekMinutes := 0
-		if weekErr == nil {
+		if weekly, ok := weeklyByEmp[emp.UserID]; ok && weekly != nil {
 			weekMinutes = weekly.NetWorkMinutes
 		}
 
@@ -646,14 +672,9 @@ func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart
 			overtime = 0
 		}
 
-		activeShift, _ := s.workTimeRepo.GetActiveShift(ctx, emp.UserID)
-
 		weekStatus := "open"
-		if s.weekApprovalRepo != nil {
-			wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, emp.UserID, weekStart)
-			if waErr == nil && wa != nil {
-				weekStatus = string(wa.Status)
-			}
+		if st, ok := statusByEmp[emp.UserID]; ok {
+			weekStatus = st
 		}
 
 		teamEntries = append(teamEntries, TeamTimeEntry{
@@ -663,14 +684,11 @@ func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart
 			WeekMinutes:     weekMinutes,
 			TargetMinutes:   targetMinutes,
 			OvertimeMinutes: overtime,
-			ClockedIn:       activeShift != nil,
+			ClockedIn:       activeByEmp[emp.UserID],
 			WeekStatus:      weekStatus,
 		})
 	}
 
-	if teamEntries == nil {
-		teamEntries = []TeamTimeEntry{}
-	}
 	return teamEntries, nil
 }
 

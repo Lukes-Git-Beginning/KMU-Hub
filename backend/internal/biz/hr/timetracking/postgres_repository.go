@@ -292,31 +292,153 @@ func (r *PostgresWorkTimeRepo) GetDailySummary(ctx context.Context, employeeID u
 }
 
 func (r *PostgresWorkTimeRepo) GetWeeklySummary(ctx context.Context, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error) {
-	// Ensure weekStart is a Monday
+	batch, err := r.GetWeeklySummaryBatch(ctx, []uuid.UUID{employeeID}, weekStart)
+	if err != nil {
+		return nil, err
+	}
+	return batch[employeeID], nil
+}
+
+// GetWeeklySummaryBatch aggregates the weekly summary for every requested employee
+// in a single GROUP BY query, replacing the previous N×7 per-day round-trips.
+func (r *PostgresWorkTimeRepo) GetWeeklySummaryBatch(ctx context.Context, employeeIDs []uuid.UUID, weekStart time.Time) (map[uuid.UUID]*WeeklySummary, error) {
+	// Ensure weekStart is a Monday at local midnight.
 	for weekStart.Weekday() != time.Monday {
 		weekStart = weekStart.AddDate(0, 0, -1)
 	}
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
 
-	summary := &WeeklySummary{
-		WeekStart: weekStart,
-		Days:      make([]DailySummary, 7),
+	buckets, err := r.aggregateDailyBuckets(ctx, employeeIDs, weekStart, 7)
+	if err != nil {
+		return nil, err
 	}
 
-	for i := 0; i < 7; i++ {
-		day := weekStart.AddDate(0, 0, i)
-		dailySummary, err := r.GetDailySummary(ctx, employeeID, day)
-		if err != nil {
-			return nil, err
+	result := make(map[uuid.UUID]*WeeklySummary, len(employeeIDs))
+	for _, id := range employeeIDs {
+		days := buckets[id]
+		summary := &WeeklySummary{WeekStart: weekStart, Days: days}
+		for i := range days {
+			summary.TotalWorkedMinutes += days[i].TotalWorkedMinutes
+			summary.TotalBreakMinutes += days[i].TotalBreakMinutes
+			summary.NetWorkMinutes += days[i].NetWorkMinutes
+			summary.TotalOvertimeMinutes += days[i].OvertimeMinutes
 		}
-		summary.Days[i] = *dailySummary
-		summary.TotalWorkedMinutes += dailySummary.TotalWorkedMinutes
-		summary.TotalBreakMinutes += dailySummary.TotalBreakMinutes
-		summary.NetWorkMinutes += dailySummary.NetWorkMinutes
-		summary.TotalOvertimeMinutes += dailySummary.OvertimeMinutes
+		result[id] = summary
+	}
+	return result, nil
+}
+
+// GetDailySummaryRange returns one DailySummary per day for [start, start+numDays)
+// in a single aggregated query, replacing numDays per-day GetDailySummary calls.
+func (r *PostgresWorkTimeRepo) GetDailySummaryRange(ctx context.Context, employeeID uuid.UUID, start time.Time, numDays int) ([]DailySummary, error) {
+	buckets, err := r.aggregateDailyBuckets(ctx, []uuid.UUID{employeeID}, start, numDays)
+	if err != nil {
+		return nil, err
+	}
+	return buckets[employeeID], nil
+}
+
+// aggregateDailyBuckets runs a single GROUP BY query that buckets work time entries
+// into consecutive 24h windows starting at `start`, for all given employees over
+// numDays days. It returns, per requested employee, a slice of numDays DailySummary
+// values (index == day offset), applying the same per-day net/overtime recomputation
+// as GetDailySummary. Employees without entries get a zeroed slice.
+func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, employeeIDs []uuid.UUID, start time.Time, numDays int) (map[uuid.UUID][]DailySummary, error) {
+	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	// Use exact 24h windows so day_idx is always in [0, numDays): no gaps/overlaps,
+	// even across DST (matches GetDailySummary's dayEnd = dayStart + 24h semantics).
+	end := start.Add(time.Duration(numDays) * 24 * time.Hour)
+
+	result := make(map[uuid.UUID][]DailySummary, len(employeeIDs))
+	for _, id := range employeeIDs {
+		days := make([]DailySummary, numDays)
+		for i := range days {
+			days[i] = DailySummary{Date: start.AddDate(0, 0, i)}
+		}
+		result[id] = days
+	}
+	if len(employeeIDs) == 0 || numDays <= 0 {
+		return result, nil
 	}
 
-	return summary, nil
+	rows, err := r.pool.Query(ctx,
+		`SELECT
+			employee_id,
+			FLOOR(EXTRACT(EPOCH FROM (clock_in - $2::timestamptz)) / 86400)::int AS day_idx,
+			COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(clock_out, NOW()) - clock_in)) / 60)::int, 0),
+			COALESCE(SUM(break_minutes + auto_break_deducted), 0),
+			COALESCE(SUM(COALESCE(net_work_minutes, 0)), 0),
+			COUNT(*)
+		FROM hr_work_time_entries
+		WHERE employee_id = ANY($1)
+			AND clock_in >= $2 AND clock_in < $3
+			AND status IN ('active', 'completed', 'correction_approved')
+		GROUP BY employee_id, day_idx`,
+		employeeIDs, start, end,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var empID uuid.UUID
+		var dayIdx int
+		var d DailySummary
+		if scanErr := rows.Scan(
+			&empID, &dayIdx,
+			&d.TotalWorkedMinutes, &d.TotalBreakMinutes, &d.NetWorkMinutes, &d.EntryCount,
+		); scanErr != nil {
+			return nil, scanErr
+		}
+		days, ok := result[empID]
+		if !ok || dayIdx < 0 || dayIdx >= numDays {
+			continue
+		}
+		d.Date = days[dayIdx].Date // preserve pre-seeded label
+		// For active shifts net_work_minutes is NULL, so recompute from total - breaks.
+		if d.NetWorkMinutes == 0 && d.TotalWorkedMinutes > 0 {
+			d.NetWorkMinutes = d.TotalWorkedMinutes - d.TotalBreakMinutes
+			if d.NetWorkMinutes < 0 {
+				d.NetWorkMinutes = 0
+			}
+		}
+		d.OvertimeMinutes = d.NetWorkMinutes - 480
+		if d.OvertimeMinutes < 0 {
+			d.OvertimeMinutes = 0
+		}
+		days[dayIdx] = d
+	}
+	return result, rows.Err()
+}
+
+// GetActiveShiftEmployeeIDs returns the set of employee IDs with a currently active
+// shift in a single query, replacing N per-employee GetActiveShift calls.
+func (r *PostgresWorkTimeRepo) GetActiveShiftEmployeeIDs(ctx context.Context, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	result := make(map[uuid.UUID]bool, len(employeeIDs))
+	if len(employeeIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT employee_id
+		FROM hr_work_time_entries
+		WHERE employee_id = ANY($1) AND status = 'active'`,
+		employeeIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return nil, scanErr
+		}
+		result[id] = true
+	}
+	return result, rows.Err()
 }
 
 // GetProjectBreakdown returns per-project aggregated net_work_minutes for the given employee and date range.
