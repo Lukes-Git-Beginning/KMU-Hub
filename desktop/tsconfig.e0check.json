@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/api/berichte-types.ts",
+    "src/renderer/src/modules/berichte/report-sources/types.ts",
+    "src/renderer/src/modules/berichte/report-sources/sample-utils.ts",
+    "src/renderer/src/modules/berichte/report-sources/finanzen.source.ts",
+    "src/renderer/src/modules/berichte/report-sources/kontakte.source.ts",
+    "src/renderer/src/modules/berichte/report-sources/work.source.ts",
+    "src/renderer/src/modules/berichte/report-sources/helpdesk.source.ts",
+    "src/renderer/src/modules/berichte/report-sources/kommunikation.source.ts",
+    "src/renderer/src/modules/berichte/report-sources/registry.ts"
+  ]
+}

@@ -19,6 +19,8 @@ export type ReportModule =
   | 'helpdesk'
   | 'inventar'
   | 'produktion'
+  | 'work'
+  | 'kommunikation'
   | 'cross'
 export type ReportKind = 'system' | 'custom'
 export type ScheduleRunStatus = 'success' | 'failed' | 'skipped'
@@ -234,4 +236,131 @@ export interface ExportedReport {
   blob: Blob
   filename: string
   content_type: string
+}
+
+// ---------------------------------------------------------------------------
+// Report Builder — typed no-code query schema
+//
+// The builder produces a BuilderQueryConfig, which is persisted verbatim into
+// ReportDefinition.query_config (JSONB). The backend query executor (Luke) reads
+// it; in demo mode the MSW /preview handler interprets it against each source's
+// sample rows. This is the FE contract for the self-service report builder.
+// ---------------------------------------------------------------------------
+
+/** Chart kinds the builder can render. */
+export type VisualizationType =
+  | 'table'
+  | 'bar'
+  | 'line'
+  | 'area'
+  | 'donut'
+  | 'kpi'
+  | 'combo'
+  | 'gauge'
+
+/** Aggregation functions applied to measures. */
+export type AggregationFn = 'count' | 'sum' | 'avg' | 'min' | 'max'
+
+/** Filter operators. Which ones are valid depends on the field's data type. */
+export type FilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'lt'
+  | 'between'
+  | 'contains'
+  | 'startsWith'
+  | 'isEmpty'
+  | 'in'
+  | 'notIn'
+  | 'before'
+  | 'after'
+  | 'inLastDays'
+
+/** A single filter condition (all filters are AND-combined). */
+export interface ReportFilter {
+  /** Field key, resolved against the source's field definitions. */
+  field: string
+  operator: FilterOperator
+  /** Primary value (string/number/string[] depending on operator). */
+  value?: unknown
+  /** Secondary value, only for `between`. */
+  value2?: unknown
+}
+
+/** A measure (numeric field) with its aggregation. */
+export interface ReportMeasure {
+  field: string
+  agg: AggregationFn
+}
+
+/** Relative date presets for the date-range quick picks. */
+export type DateRangePreset =
+  | 'last7'
+  | 'last30'
+  | 'last90'
+  | 'thisMonth'
+  | 'lastMonth'
+  | 'thisQuarter'
+  | 'thisYear'
+  | 'custom'
+
+export interface ReportDateRange {
+  /** Date field the range applies to. */
+  field?: string
+  preset?: DateRangePreset
+  from?: string
+  to?: string
+}
+
+/** Per-report visual styling options (the "Style" tab). */
+export interface ReportViewOptions {
+  /** Named palette id from the chart theme; undefined = default. */
+  palette?: string
+  showLegend?: boolean
+  legendPosition?: 'top' | 'right' | 'bottom'
+  showDataLabels?: boolean
+  axisXTitle?: string
+  axisYTitle?: string
+  /** Stack bars/areas instead of grouping. */
+  stacked?: boolean
+  /** Number format for measure values. */
+  numberFormat?: 'plain' | 'thousands' | 'currency' | 'percent'
+}
+
+/**
+ * The full no-code query produced by the builder. Stored in query_config.
+ * `kind: 'builder'` distinguishes it from legacy system `query_config` shapes
+ * (which use `{ kind: 'revenue' | 'tickets' | ... }`).
+ */
+export interface BuilderQueryConfig {
+  kind: 'builder'
+  /** Report-source id from the report-sources registry. */
+  sourceId: string
+  viz: VisualizationType
+  /** Group-by dimension field keys (max 2). */
+  dimensions: string[]
+  /** Aggregated numeric fields. */
+  measures: ReportMeasure[]
+  /** AND-combined filter conditions. */
+  filters: ReportFilter[]
+  dateRange?: ReportDateRange
+  sort?: { field: string; dir: 'asc' | 'desc' }
+  /** Top-N row limit (e.g. top 10 customers). */
+  limit?: number
+  options?: ReportViewOptions
+}
+
+/** Type guard: is a query_config a builder query? */
+export function isBuilderQuery(config: unknown): config is BuilderQueryConfig {
+  return !!config && (config as { kind?: string }).kind === 'builder'
+}
+
+/** Request body for the demo preview executor (POST /berichte/preview). */
+export interface PreviewReportInput {
+  query: BuilderQueryConfig
+}
+
+export interface PreviewReportResponse {
+  result: ReportResult
 }
