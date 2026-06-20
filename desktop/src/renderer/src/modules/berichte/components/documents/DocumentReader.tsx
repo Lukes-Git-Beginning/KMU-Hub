@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { TrendingDown, TrendingUp } from 'lucide-react'
+import { FileText, TrendingDown, TrendingUp } from 'lucide-react'
 import DOMPurify from 'dompurify'
 import type {
   CalloutVariant,
@@ -30,6 +30,23 @@ export function DocumentReader({
   rows: ReportRow[]
   settings?: ReportDocSettings
 }) {
+  const { t } = useTranslation()
+  const isEmpty = rows.every((row) => row.columns.every((col) => col.blocks.length === 0))
+
+  if (isEmpty) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card px-10 py-20 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+          <FileText className="h-6 w-6" />
+        </div>
+        <p className="text-sm font-medium text-foreground">{t('berichte.docs.readerEmptyTitle')}</p>
+        <p className="max-w-xs text-xs text-muted-foreground">
+          {t('berichte.docs.readerEmptyHint')}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card px-10 py-10 shadow-sm">
       {settings?.showHeader && settings.headerText && (

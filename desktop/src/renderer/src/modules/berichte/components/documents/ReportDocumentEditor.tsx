@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Check, Eye, Pencil } from 'lucide-react'
-import type { ReportDocument, ReportRow } from '@/api/berichte-types'
-import { useReportDocument, useUpdateReportDocument } from '@/api/hooks/useBerichte'
+import { Archive, ArrowLeft, Check, CheckCircle2, Copy, Eye, MoreVertical, Pencil, Send } from 'lucide-react'
+import { toast } from 'sonner'
+import type { ReportDocStatus, ReportDocument, ReportRow } from '@/api/berichte-types'
+import {
+  useCreateReportDocument,
+  useReportDocument,
+  useUpdateReportDocument,
+} from '@/api/hooks/useBerichte'
 import { Skeleton } from '@/components/shared'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { formatDate } from '@/lib/format'
 import { ReportStatusBadge } from './ReportStatusBadge'
 import { BlockEditor } from './BlockEditor'
 import { DocumentReader } from './DocumentReader'
-import { estimatePageCount } from './doc-utils'
+import { blockCount, estimatePageCount } from './doc-utils'
 
 interface ReportDocumentEditorProps {
   documentId: string
@@ -67,11 +74,42 @@ function DocumentEditorInner({
 }) {
   const { t } = useTranslation()
   const updateMutation = useUpdateReportDocument()
+  const createMutation = useCreateReportDocument()
   const locked = doc.status === 'released' || doc.status === 'archived'
 
   const [rows, setRows] = useState<ReportRow[]>(doc.rows)
   const [mode, setMode] = useState<'read' | 'edit'>(locked ? 'read' : initialMode)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+
+  const totalBlocks = blockCount({ ...doc, rows })
+
+  /** Move the document through its lifecycle (draft → final → released → archived). */
+  function transitionTo(status: ReportDocStatus) {
+    setSaveState('saving')
+    updateMutation.mutate(
+      { id: doc.id, status },
+      {
+        onSuccess: () => {
+          setSaveState('saved')
+          if (status === 'released') setMode('read')
+          toast.success(t(`berichte.docs.lifecycle.toast.${status}`))
+        },
+      },
+    )
+  }
+
+  /** Duplicate the current document as a fresh draft (only path out of archived). */
+  function duplicate() {
+    createMutation.mutate(
+      {
+        title: `${doc.title} ${t('berichte.docs.copySuffix')}`,
+        module: doc.module,
+        rows,
+        settings: doc.settings,
+      },
+      { onSuccess: () => toast.success(t('berichte.docs.duplicated')) },
+    )
+  }
 
   // Debounced auto-save once the block structure actually changes. Comparing
   // against the initial doc.rows reference skips the mount (StrictMode-safe).
@@ -115,6 +153,12 @@ function DocumentEditorInner({
 
         <ReportStatusBadge status={doc.status} />
 
+        {doc.status === 'released' && doc.released_at && (
+          <span className="hidden text-xs text-muted-foreground xl:inline">
+            {t('berichte.docs.releasedOn', { date: formatDate(doc.released_at) })}
+          </span>
+        )}
+
         {/* Read / edit toggle (hidden while locked) */}
         {!locked && (
           <div className="flex overflow-hidden rounded-lg border border-border">
@@ -149,6 +193,13 @@ function DocumentEditorInner({
         <span className="text-xs text-muted-foreground">
           {t('berichte.docs.pages', { count: estimatePageCount({ ...doc, rows }) })}
         </span>
+
+        <StatusActions
+          status={doc.status}
+          totalBlocks={totalBlocks}
+          onTransition={transitionTo}
+          onDuplicate={duplicate}
+        />
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -159,6 +210,89 @@ function DocumentEditorInner({
         )}
       </div>
     </div>
+  )
+}
+
+/** Context-sensitive lifecycle controls in the editor header. */
+function StatusActions({
+  status,
+  totalBlocks,
+  onTransition,
+  onDuplicate,
+}: {
+  status: ReportDocStatus
+  totalBlocks: number
+  onTransition: (status: ReportDocStatus) => void
+  onDuplicate: () => void
+}) {
+  const { t } = useTranslation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const primaryCls =
+    'flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50'
+
+  if (status === 'draft') {
+    return (
+      <button
+        type="button"
+        onClick={() => onTransition('final')}
+        disabled={totalBlocks === 0}
+        title={totalBlocks === 0 ? t('berichte.docs.lifecycle.guardEmpty') : undefined}
+        className={primaryCls}
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        {t('berichte.docs.lifecycle.markFinal')}
+      </button>
+    )
+  }
+
+  if (status === 'final') {
+    return (
+      <button type="button" onClick={() => onTransition('released')} className={primaryCls}>
+        <Send className="h-3.5 w-3.5" />
+        {t('berichte.docs.lifecycle.release')}
+      </button>
+    )
+  }
+
+  // released / archived → secondary actions in a menu.
+  return (
+    <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label={t('berichte.docs.lifecycle.more')}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1" align="end" sideOffset={4}>
+        <button
+          type="button"
+          onClick={() => {
+            setMenuOpen(false)
+            onDuplicate()
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary"
+        >
+          <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+          {t('berichte.docs.lifecycle.duplicateDraft')}
+        </button>
+        {status === 'released' && (
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false)
+              onTransition('archived')
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary"
+          >
+            <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('berichte.docs.lifecycle.archive')}
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   )
 }
 
