@@ -57,6 +57,7 @@ export function WikiVersionHistory({
               key={v.id}
               version={v}
               isCurrent={idx === 0}
+              currentContent={(versions ?? [])[0]?.content}
               onRestore={idx === 0 ? undefined : onRestore}
               restoring={restoringId === v.id}
             />

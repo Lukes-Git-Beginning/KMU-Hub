@@ -52,11 +52,12 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
     .map((v) => ({ ...v, editorName: resolveUser(v.editorName) || v.editorName }))
     .sort((a, b) => b.version - a.version)
 
-  const handleSave = async () => {
+  const handleSave = async (changeNote?: string) => {
     try {
       await updateArticleMutation.mutateAsync({
         id: article.id,
         content: { html: editContent } as Record<string, unknown>,
+        change_note: changeNote?.trim() || undefined,
       })
       setEditing(false)
       toast.success(t('wiki.article.saved'))

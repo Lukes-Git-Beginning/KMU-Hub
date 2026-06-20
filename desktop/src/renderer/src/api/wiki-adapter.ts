@@ -123,7 +123,8 @@ export function adaptVersion(api: ApiVersion): WikiVersion {
     version: api.version_number,
     editorName: api.changed_by ?? '',
     editedAt: api.changed_at,
-    changeNote: '',
+    changeNote: api.change_note ?? '',
+    content: extractHtml(api.content),
   }
 }
 

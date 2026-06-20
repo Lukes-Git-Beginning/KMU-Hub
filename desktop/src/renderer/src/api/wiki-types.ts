@@ -38,6 +38,8 @@ export interface WikiVersion {
   content: TipTapContent
   changed_by: string | null
   changed_at: string
+  /** Optional author-supplied summary of what changed in this revision. */
+  change_note?: string
 }
 
 export interface WikiAttachment {
@@ -89,6 +91,8 @@ export interface UpdateArticleInput {
   category_id?: string | null
   published?: boolean
   tags?: string[]
+  /** Optional note stored on the version snapshot a content edit produces. */
+  change_note?: string
 }
 
 export interface ListArticlesParams {

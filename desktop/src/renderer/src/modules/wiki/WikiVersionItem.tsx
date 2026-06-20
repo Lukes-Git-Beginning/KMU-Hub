@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Clock, RotateCcw, Loader2 } from 'lucide-react'
+import { Clock, RotateCcw, Loader2, GitCompare } from 'lucide-react'
 import type { WikiVersion } from '@/types/wiki'
 import { formatDate as libFormatDate } from '@/lib/format'
+import { WikiVersionDiff } from './WikiVersionDiff'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,55 +21,88 @@ function formatShortDate(dateStr: string): string {
 interface WikiVersionItemProps {
   version: WikiVersion
   isCurrent: boolean
+  /** Content of the current version — compared against this one in the diff. */
+  currentContent?: string
   /** Restore this version (omitted for the current version). */
   onRestore?: (versionId: string) => void
   restoring?: boolean
 }
 
-export function WikiVersionItem({ version, isCurrent, onRestore, restoring }: WikiVersionItemProps) {
+export function WikiVersionItem({
+  version,
+  isCurrent,
+  currentContent,
+  onRestore,
+  restoring,
+}: WikiVersionItemProps) {
   const { t } = useTranslation()
+  const [showDiff, setShowDiff] = useState(false)
+  const canCompare = !isCurrent && currentContent !== undefined
+
   return (
-    <div className={`group flex items-start gap-2.5 rounded-md px-2.5 py-2 ${
+    <div className={`group rounded-md px-2.5 py-2 ${
       isCurrent ? 'bg-primary/5' : 'hover:bg-accent/50'
     } transition-colors`}>
-      {/* Version badge */}
-      <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-medium ${
-        isCurrent ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
-      }`}>
-        v{version.version}
-      </span>
+      <div className="flex items-start gap-2.5">
+        {/* Version badge */}
+        <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-medium ${
+          isCurrent ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
+        }`}>
+          v{version.version}
+        </span>
 
-      {/* Content */}
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-foreground">
-          {version.editorName}
-          {isCurrent && (
-            <span className="ml-1.5 text-[10px] text-primary font-normal">{t('wiki.version.current')}</span>
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-foreground">
+            {version.editorName}
+            {isCurrent && (
+              <span className="ml-1.5 text-[10px] text-primary font-normal">{t('wiki.version.current')}</span>
+            )}
+          </p>
+          {version.changeNote && (
+            <p className="text-[11px] text-muted-foreground italic mt-0.5">{version.changeNote}</p>
           )}
-        </p>
-        {version.changeNote && (
-          <p className="text-[11px] text-muted-foreground italic mt-0.5">{version.changeNote}</p>
-        )}
-        <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
-          <Clock className="h-2.5 w-2.5" />
-          {formatShortDate(version.editedAt)}
+          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
+            <Clock className="h-2.5 w-2.5" />
+            {formatShortDate(version.editedAt)}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex shrink-0 items-center gap-0.5">
+          {canCompare && (
+            <button
+              onClick={() => setShowDiff((v) => !v)}
+              className={`rounded p-1 transition-colors hover:bg-accent ${
+                showDiff ? 'text-primary' : 'text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+              }`}
+              title={showDiff ? t('wiki.version.hideCompare') : t('wiki.version.compare')}
+              aria-label={showDiff ? t('wiki.version.hideCompare') : t('wiki.version.compare')}
+              aria-pressed={showDiff}
+            >
+              <GitCompare className="h-3 w-3" />
+            </button>
+          )}
+          {onRestore && (
+            <button
+              onClick={() => onRestore(version.id)}
+              disabled={restoring}
+              className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-100"
+              title={t('wiki.version.restore')}
+            >
+              {restoring ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3 w-3" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Restore action */}
-      {onRestore && (
-        <button
-          onClick={() => onRestore(version.id)}
-          disabled={restoring}
-          className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-100"
-          title={t('wiki.version.restore')}
-        >
-          {restoring ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <RotateCcw className="h-3 w-3" />
-          )}
-        </button>
+      {/* Inline diff vs. the current version */}
+      {showDiff && canCompare && (
+        <WikiVersionDiff oldContent={version.content} newContent={currentContent ?? ''} />
       )}
     </div>
   )

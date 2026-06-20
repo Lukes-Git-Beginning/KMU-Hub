@@ -56,6 +56,8 @@ export interface WikiVersion {
   editorName: string
   editedAt: string
   changeNote: string
+  /** Normalised HTML content of this revision — used for the diff/preview. */
+  content: string
 }
 
 // ---------------------------------------------------------------------------

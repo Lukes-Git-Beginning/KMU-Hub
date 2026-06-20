@@ -202,6 +202,7 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       content: tiptapDoc('Erste Version des Willkommensartikels.'),
       changed_by: CURRENT_USER.id,
       changed_at: daysAgo(58) + 'T09:00:00Z',
+      change_note: 'Erstentwurf angelegt',
     },
     {
       id: 'wver-001-2',
@@ -210,6 +211,7 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       content: tiptapDoc('Überarbeitet mit Abteilungsstruktur.'),
       changed_by: IDS.users.julia,
       changed_at: daysAgo(20) + 'T11:00:00Z',
+      change_note: 'Abteilungsstruktur ergänzt',
     },
     {
       id: 'wver-001-3',
@@ -220,6 +222,7 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       ),
       changed_by: CURRENT_USER.id,
       changed_at: daysAgo(5) + 'T10:30:00Z',
+      change_note: 'Einleitung neu formuliert',
     },
   ],
   'wart-003': [
@@ -230,6 +233,7 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       content: tiptapDoc('Ursprünglicher Prozessentwurf.'),
       changed_by: IDS.users.markus,
       changed_at: daysAgo(40) + 'T10:00:00Z',
+      change_note: 'Erstentwurf des Prozesses',
     },
     {
       id: 'wver-003-2',
@@ -240,6 +244,7 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       ),
       changed_by: IDS.users.markus,
       changed_at: daysAgo(10) + 'T16:00:00Z',
+      change_note: 'Mahnwesen und DATEV-Export ergänzt',
     },
   ],
 }
@@ -296,7 +301,11 @@ function contentText(content: unknown): string {
 }
 
 /** Append a new version snapshot for an article (newest version_number wins). */
-function appendVersion(articleId: string, content: Record<string, unknown>): void {
+function appendVersion(
+  articleId: string,
+  content: Record<string, unknown>,
+  changeNote?: string,
+): void {
   const list = (VERSIONS[articleId] ??= [])
   const nextNumber = list.reduce((max, v) => Math.max(max, v.version_number), 0) + 1
   list.push({
@@ -306,6 +315,7 @@ function appendVersion(articleId: string, content: Record<string, unknown>): voi
     content,
     changed_by: CURRENT_USER.id,
     changed_at: new Date().toISOString(),
+    change_note: changeNote?.trim() || undefined,
   })
 }
 
@@ -430,12 +440,12 @@ export const wikiHandlers = [
   http.put(`${BASE}/articles/:id`, async ({ params, request }) => {
     const article = ARTICLES.find((a) => a.id === params.id)
     if (!article) return HttpResponse.json({ error: 'article not found' }, { status: 404 })
-    const body = (await request.json()) as Partial<WikiArticle>
+    const body = (await request.json()) as Partial<WikiArticle> & { change_note?: string }
     if (body.title !== undefined) article.title = body.title
     if (body.content !== undefined) {
       article.content = body.content
       // A content edit creates a new version snapshot (newest = current).
-      appendVersion(article.id, body.content)
+      appendVersion(article.id, body.content, body.change_note)
     }
     if (body.category_id !== undefined) article.category_id = body.category_id
     if (body.published !== undefined) article.published = body.published
@@ -494,7 +504,7 @@ export const wikiHandlers = [
     article.content = version.content
     article.updated_at = new Date().toISOString()
     // Restoring produces a new current version equal to the restored content.
-    appendVersion(article.id, version.content)
+    appendVersion(article.id, version.content, `Wiederhergestellt aus v${version.version_number}`)
     return HttpResponse.json(article)
   }),
 
