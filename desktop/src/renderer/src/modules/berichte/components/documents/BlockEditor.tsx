@@ -1,10 +1,14 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  Columns2,
+  Columns3,
   GripVertical,
   Heading1,
   Heading2,
+  MoreVertical,
   Plus,
+  Square,
   Trash2,
   X,
 } from 'lucide-react'
@@ -24,7 +28,13 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
-import type { ReportBlock, ReportBlockType, ReportRow } from '@/api/berichte-types'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type {
+  ReportBlock,
+  ReportBlockType,
+  ReportDocColumn,
+  ReportRow,
+} from '@/api/berichte-types'
 import { BLOCK_META } from './doc-utils'
 
 /** Block id helper — unique per inserted block. */
@@ -32,6 +42,16 @@ const uid = (p: string): string => `${p}-${crypto.randomUUID().slice(0, 8)}`
 
 /** Simple block types insertable in the core editor (chart/table/kpi = R-1b). */
 const INSERTABLE: ReportBlockType[] = ['heading', 'text', 'bullet', 'divider', 'pagebreak']
+
+/** Width presets per column count (flex weights, carried into the read mode). */
+const WIDTH_PRESETS: Record<number, { label: string; widths: number[] }[]> = {
+  2: [
+    { label: '50 / 50', widths: [1, 1] },
+    { label: '60 / 40', widths: [3, 2] },
+    { label: '40 / 60', widths: [2, 3] },
+  ],
+  3: [{ label: '33 / 33 / 33', widths: [1, 1, 1] }],
+}
 
 function makeBlock(type: ReportBlockType): ReportBlock {
   switch (type) {
@@ -48,6 +68,10 @@ function makeBlock(type: ReportBlockType): ReportBlock {
     default:
       return { id: uid('b'), type: 'text', html: '' }
   }
+}
+
+function emptyColumn(): ReportDocColumn {
+  return { id: uid('col'), blocks: [], width: 1 }
 }
 
 interface BlockEditorProps {
@@ -76,24 +100,85 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
   }
 
   function deleteBlock(blockId: string) {
+    // Keep empty columns inside multi-column rows so the layout persists; drop a
+    // row only once every column is empty.
     onChange(
       rows
         .map((row) => ({
           ...row,
-          columns: row.columns
-            .map((col) => ({ ...col, blocks: col.blocks.filter((b) => b.id !== blockId) }))
-            .filter((col) => col.blocks.length > 0),
+          columns: row.columns.map((col) => ({
+            ...col,
+            blocks: col.blocks.filter((b) => b.id !== blockId),
+          })),
         }))
-        .filter((row) => row.columns.length > 0),
+        .filter((row) => row.columns.some((col) => col.blocks.length > 0)),
     )
   }
 
+  /** Append a new single-column row with one block. */
   function addBlock(type: ReportBlockType) {
     onChange([
       ...rows,
-      { id: uid('row'), columns: [{ id: uid('col'), blocks: [makeBlock(type)] }] },
+      { id: uid('row'), columns: [{ ...emptyColumn(), blocks: [makeBlock(type)] }] },
     ])
     setPickerOpen(false)
+  }
+
+  /** Append an empty multi-column row to fill column by column. */
+  function addColumnRow(count: number) {
+    onChange([
+      ...rows,
+      { id: uid('row'), columns: Array.from({ length: count }, emptyColumn) },
+    ])
+    setPickerOpen(false)
+  }
+
+  /** Insert a block into a specific column of a specific row. */
+  function addBlockToColumn(rowId: string, colId: string, type: ReportBlockType) {
+    onChange(
+      rows.map((row) =>
+        row.id !== rowId
+          ? row
+          : {
+              ...row,
+              columns: row.columns.map((col) =>
+                col.id !== colId ? col : { ...col, blocks: [...col.blocks, makeBlock(type)] },
+              ),
+            },
+      ),
+    )
+  }
+
+  /** Change a row's column count, preserving content (excess columns merge left). */
+  function setColumnCount(rowId: string, count: number) {
+    onChange(
+      rows.map((row) => {
+        if (row.id !== rowId || row.columns.length === count) return row
+        const next: ReportDocColumn[] = []
+        for (let i = 0; i < count; i += 1) next.push(row.columns[i] ?? emptyColumn())
+        if (row.columns.length > count) {
+          const merged = row.columns.slice(count).flatMap((c) => c.blocks)
+          next[count - 1] = { ...next[count - 1], blocks: [...next[count - 1].blocks, ...merged] }
+        }
+        // Reset to even widths; the user then picks a preset from the menu.
+        return { ...row, columns: next.map((c) => ({ ...c, width: 1 })) }
+      }),
+    )
+  }
+
+  /** Apply a width preset to a row (flex weights per column). */
+  function setRowWidths(rowId: string, widths: number[]) {
+    onChange(
+      rows.map((row) =>
+        row.id !== rowId
+          ? row
+          : { ...row, columns: row.columns.map((c, i) => ({ ...c, width: widths[i] ?? 1 })) },
+      ),
+    )
+  }
+
+  function deleteRow(rowId: string) {
+    onChange(rows.filter((row) => row.id !== rowId))
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -110,10 +195,26 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
           {rows.map((row) => (
-            <SortableRow key={row.id} id={row.id}>
+            <SortableRow
+              key={row.id}
+              id={row.id}
+              menu={
+                <RowMenu
+                  columnCount={row.columns.length}
+                  widths={row.columns.map((c) => c.width ?? 1)}
+                  onSetColumns={(n) => setColumnCount(row.id, n)}
+                  onSetWidths={(w) => setRowWidths(row.id, w)}
+                  onDelete={() => deleteRow(row.id)}
+                />
+              }
+            >
               <div className={row.columns.length > 1 ? 'flex gap-3' : undefined}>
                 {row.columns.map((col) => (
-                  <div key={col.id} className="space-y-4" style={{ flex: col.width ?? 1 }}>
+                  <div
+                    key={col.id}
+                    className="min-w-0 space-y-4"
+                    style={{ flex: col.width ?? 1 }}
+                  >
                     {col.blocks.map((block) => (
                       <div key={block.id} className="group/block relative">
                         <BlockEdit block={block} onPatch={(p) => patchBlock(block.id, p)} />
@@ -127,6 +228,14 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
                         </button>
                       </div>
                     ))}
+                    {/* Per-column insert (only shown for multi-column rows; single
+                        column rows use the document-level insert below). */}
+                    {row.columns.length > 1 && (
+                      <ColumnInsert
+                        onAdd={(type) => addBlockToColumn(row.id, col.id, type)}
+                        empty={col.blocks.length === 0}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -135,32 +244,62 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
         </SortableContext>
       </DndContext>
 
-      {/* Insert a new block */}
+      {/* Insert a new row */}
       {pickerOpen ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
-          {INSERTABLE.map((type) => {
-            const meta = BLOCK_META[type]
-            const Icon = meta.icon
-            return (
+        <div className="space-y-3 rounded-xl border border-border bg-card p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t('berichte.docs.blockLabel')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(false)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary"
+              aria-label={t('berichte.docs.cancelInsert')}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {INSERTABLE.map((type) => {
+              const meta = BLOCK_META[type]
+              const Icon = meta.icon
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => addBlock(type)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
+                >
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  {t(meta.labelKey)}
+                </button>
+              )
+            })}
+          </div>
+          <div className="border-t border-border-muted pt-3">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t('berichte.docs.layout')}
+            </span>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
-                key={type}
                 type="button"
-                onClick={() => addBlock(type)}
+                onClick={() => addColumnRow(2)}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
               >
-                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                {t(meta.labelKey)}
+                <Columns2 className="h-3.5 w-3.5 text-muted-foreground" />
+                {t('berichte.docs.columnCount', { count: 2 })}
               </button>
-            )
-          })}
-          <button
-            type="button"
-            onClick={() => setPickerOpen(false)}
-            className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary"
-            aria-label={t('berichte.docs.cancelInsert')}
-          >
-            <X className="h-4 w-4" />
-          </button>
+              <button
+                type="button"
+                onClick={() => addColumnRow(3)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
+              >
+                <Columns3 className="h-3.5 w-3.5 text-muted-foreground" />
+                {t('berichte.docs.columnCount', { count: 3 })}
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <button
@@ -176,8 +315,16 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
   )
 }
 
-/** Row wrapper with a hover-only drag handle. */
-function SortableRow({ id, children }: { id: string; children: ReactNode }) {
+/** Row wrapper with a hover-only drag handle (left) and options menu (right). */
+function SortableRow({
+  id,
+  menu,
+  children,
+}: {
+  id: string
+  menu: ReactNode
+  children: ReactNode
+}) {
   const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -201,8 +348,170 @@ function SortableRow({ id, children }: { id: string; children: ReactNode }) {
       >
         <GripVertical className="h-4 w-4" />
       </button>
+      <div className="absolute -right-9 top-1.5 opacity-0 transition-opacity group-hover/row:opacity-100">
+        {menu}
+      </div>
       {children}
     </div>
+  )
+}
+
+/** Row options popover: column count, width presets, delete. */
+function RowMenu({
+  columnCount,
+  widths,
+  onSetColumns,
+  onSetWidths,
+  onDelete,
+}: {
+  columnCount: number
+  widths: number[]
+  onSetColumns: (count: number) => void
+  onSetWidths: (widths: number[]) => void
+  onDelete: () => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const presets = WIDTH_PRESETS[columnCount] ?? []
+  const currentKey = JSON.stringify(widths)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label={t('berichte.docs.rowOptions')}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-2" align="end" sideOffset={4}>
+        <p className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('berichte.docs.columnsLabel')}
+        </p>
+        <div className="flex gap-1.5">
+          {([1, 2, 3] as const).map((n) => {
+            const Icon = n === 1 ? Square : n === 2 ? Columns2 : Columns3
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onSetColumns(n)}
+                className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-xs transition-colors ${
+                  columnCount === n
+                    ? 'border-primary/40 bg-primary-light text-primary'
+                    : 'border-border text-muted-foreground hover:bg-secondary'
+                }`}
+                aria-label={t('berichte.docs.columnCount', { count: n })}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {n}
+              </button>
+            )
+          })}
+        </div>
+
+        {presets.length > 0 && (
+          <>
+            <p className="px-1 pb-1.5 pt-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t('berichte.docs.widthLabel')}
+            </p>
+            <div className="space-y-1">
+              {presets.map((preset) => {
+                const active = JSON.stringify(preset.widths) === currentKey
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => onSetWidths(preset.widths)}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                      active
+                        ? 'bg-primary-light text-primary'
+                        : 'text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <span className="flex h-3.5 w-6 gap-0.5">
+                      {preset.widths.map((w, i) => (
+                        <span
+                          key={i}
+                          className={`rounded-sm ${active ? 'bg-primary/60' : 'bg-muted-foreground/40'}`}
+                          style={{ flex: w }}
+                        />
+                      ))}
+                    </span>
+                    {preset.label}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        <div className="mt-2 border-t border-border-muted pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onDelete()
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {t('berichte.docs.deleteRow')}
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Compact per-column block inserter for multi-column rows. */
+function ColumnInsert({
+  onAdd,
+  empty,
+}: {
+  onAdd: (type: ReportBlockType) => void
+  empty: boolean
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground ${
+            empty ? 'py-3' : 'py-1.5'
+          }`}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t('berichte.docs.blockLabel')}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-44 p-1.5" align="start" sideOffset={4}>
+        <div className="flex flex-col gap-0.5">
+          {INSERTABLE.map((type) => {
+            const meta = BLOCK_META[type]
+            const Icon = meta.icon
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  onAdd(type)
+                }}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary"
+              >
+                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                {t(meta.labelKey)}
+              </button>
+            )
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
