@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckSquare, Share2 } from 'lucide-react'
+import { CheckSquare, Share2, User } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { ReportDocument } from '@/api/berichte-types'
 import { AttachToTaskDialog } from './AttachToTaskDialog'
+import { AttachToContactDialog } from './AttachToContactDialog'
 
 interface ShareActionsMenuProps {
   doc: ReportDocument
@@ -19,6 +20,7 @@ export function ShareActionsMenu({ doc }: ShareActionsMenuProps) {
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [attachTaskOpen, setAttachTaskOpen] = useState(false)
+  const [attachContactOpen, setAttachContactOpen] = useState(false)
 
   const itemCls =
     'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary'
@@ -47,10 +49,26 @@ export function ShareActionsMenu({ doc }: ShareActionsMenuProps) {
             <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
             {t('berichte.docs.attach.taskAction')}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false)
+              setAttachContactOpen(true)
+            }}
+            className={itemCls}
+          >
+            <User className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('berichte.docs.attach.contactAction')}
+          </button>
         </PopoverContent>
       </Popover>
 
       <AttachToTaskDialog doc={doc} open={attachTaskOpen} onClose={() => setAttachTaskOpen(false)} />
+      <AttachToContactDialog
+        doc={doc}
+        open={attachContactOpen}
+        onClose={() => setAttachContactOpen(false)}
+      />
     </>
   )
 }

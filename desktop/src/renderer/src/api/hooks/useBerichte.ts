@@ -24,6 +24,7 @@ import {
   listDefinitions,
   listReportDocuments,
   listReportTemplates,
+  attachReportToContact,
   attachReportToTask,
   listSchedules,
   runScheduleNow,
@@ -277,6 +278,17 @@ export function useAttachReportToTask() {
       attachReportToTask(taskId, doc),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: ['task-files', vars.taskId] }),
+  })
+}
+
+/** Attach a report as a reference to a CRM contact (R-5 integration). */
+export function useAttachReportToContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contactId, doc }: { contactId: string; doc: { id: string; title: string } }) =>
+      attachReportToContact(contactId, doc),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ['contacts', vars.contactId] }),
   })
 }
 

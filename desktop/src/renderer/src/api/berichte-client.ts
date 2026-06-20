@@ -246,6 +246,19 @@ export function attachReportToTask(taskId: string, doc: ReportRef) {
   })
 }
 
+/** Attach a report document as a reference to a CRM contact. */
+export function attachReportToContact(contactId: string, doc: ReportRef) {
+  return request<{ file: unknown }>({
+    method: 'POST',
+    path: `/api/v1/contacts/${contactId}/files`,
+    body: {
+      filename: doc.title,
+      mime_type: 'application/cosmi-report',
+      storage_key: `report://${doc.id}`,
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard KPIs
 // ---------------------------------------------------------------------------

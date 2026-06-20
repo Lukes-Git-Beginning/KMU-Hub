@@ -12,6 +12,9 @@
     "src/renderer/src/modules/berichte/components/documents/DocumentReader.tsx",
     "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx",
     "src/renderer/src/modules/berichte/components/documents/ShareActionsMenu.tsx",
-    "src/renderer/src/modules/berichte/components/documents/AttachToTaskDialog.tsx"
+    "src/renderer/src/modules/berichte/components/documents/AttachReportDialog.tsx",
+    "src/renderer/src/modules/berichte/components/documents/AttachToTaskDialog.tsx",
+    "src/renderer/src/modules/berichte/components/documents/AttachToContactDialog.tsx",
+    "src/renderer/src/mocks/handlers/crm.ts"
   ]
 }

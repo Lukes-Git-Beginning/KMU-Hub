@@ -26,6 +26,17 @@ const mockContactTags: { id: string; name: string; color: string; entityType: st
   { id: 'tag-c19', name: 'Interessent', color: '#6366F1', entityType: 'contact' },
 ]
 
+// Report references attached to contacts (R-5a) — demo-stateful, swap-ready.
+const contactReportLinks: Array<{
+  id: string
+  contact_id: string
+  filename: string
+  mime_type: string
+  storage_key: string
+  created_at: string
+}> = []
+let contactFileCounter = 0
+
 // ---------------------------------------------------------------------------
 // Helper: flatten a company.address object into a string. OpenAPI defines
 // CompanyInfo.address as a string ("street, zip city, country"); the mock data
@@ -631,5 +642,26 @@ export const crmHandlers = [
       companies: matchedCompanies.slice(0, 10),
       deals: matchedDeals.slice(0, 10),
     })
+  }),
+
+  // ── Contact report references (R-5a) ──────────────────────────────────────
+  http.get(`${API}/api/v1/contacts/:id/files`, ({ params }) => {
+    const list = contactReportLinks.filter((f) => f.contact_id === params.id)
+    return HttpResponse.json({ files: list })
+  }),
+
+  http.post(`${API}/api/v1/contacts/:id/files`, async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    contactFileCounter += 1
+    const file = {
+      id: `cfile-${contactFileCounter}`,
+      contact_id: params.id as string,
+      filename: String(body.filename ?? ''),
+      mime_type: String(body.mime_type ?? ''),
+      storage_key: String(body.storage_key ?? ''),
+      created_at: new Date().toISOString(),
+    }
+    contactReportLinks.push(file)
+    return HttpResponse.json({ file }, { status: 201 })
   }),
 ]
