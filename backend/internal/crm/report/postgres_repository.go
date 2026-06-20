@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -60,13 +61,18 @@ func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter Pipel
 
 	for rows.Next() {
 		var stage models.PipelineStageValue
-		if scanErr := rows.Scan(&stage.StageID, &stage.StageName, &stage.DealCount, &stage.TotalValue, &stage.WeightedValue); scanErr != nil {
+		var totalValueStr, weightedValueStr string
+		if scanErr := rows.Scan(&stage.StageID, &stage.StageName, &stage.DealCount, &totalValueStr, &weightedValueStr); scanErr != nil {
 			return nil, scanErr
 		}
+		// Money is scanned as a string and parsed into decimal (ADR-0007); totals are
+		// accumulated in decimal to avoid float rounding error across stages.
+		stage.TotalValue, _ = decimal.NewFromString(totalValueStr)
+		stage.WeightedValue, _ = decimal.NewFromString(weightedValueStr)
 		report.Stages = append(report.Stages, &stage)
 		report.TotalDeals += stage.DealCount
-		report.TotalValue += stage.TotalValue
-		report.TotalWeightedValue += stage.WeightedValue
+		report.TotalValue = report.TotalValue.Add(stage.TotalValue)
+		report.TotalWeightedValue = report.TotalWeightedValue.Add(stage.WeightedValue)
 	}
 
 	return report, rows.Err()

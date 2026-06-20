@@ -480,17 +480,22 @@ func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID
 	)
 
 	var totalInvoices, totalPaid, totalOutstanding int
-	var totalPaidAmt, totalOutstandingAmt, avgDays float64
-	if err := row.Scan(&totalInvoices, &totalPaid, &totalOutstanding, &totalPaidAmt, &totalOutstandingAmt, &avgDays); err != nil {
+	// Money sums are scanned as strings and parsed into decimal (ADR-0007) to avoid
+	// float rounding; avg_days_to_pay is a derived duration, not currency.
+	var totalPaidAmtStr, totalOutstandingAmtStr string
+	var avgDays float64
+	if err := row.Scan(&totalInvoices, &totalPaid, &totalOutstanding, &totalPaidAmtStr, &totalOutstandingAmtStr, &avgDays); err != nil {
 		return PaymentStats{}, fmt.Errorf("aggregate payment stats: %w", err)
 	}
+	totalPaidAmt, _ := decimal.NewFromString(totalPaidAmtStr)
+	totalOutstandingAmt, _ := decimal.NewFromString(totalOutstandingAmtStr)
 
 	return PaymentStats{
 		TotalInvoices:          totalInvoices,
 		TotalPaid:              totalPaid,
 		TotalOutstanding:       totalOutstanding,
-		TotalPaidAmount:        decimal.NewFromFloat(totalPaidAmt),
-		TotalOutstandingAmount: decimal.NewFromFloat(totalOutstandingAmt),
+		TotalPaidAmount:        totalPaidAmt,
+		TotalOutstandingAmount: totalOutstandingAmt,
 		AverageDaysToPay:       decimal.NewFromFloat(avgDays),
 	}, nil
 }

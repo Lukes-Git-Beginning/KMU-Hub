@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -35,13 +36,13 @@ func (m *MockRepository) GetPipelineReport(ctx context.Context, filter PipelineF
 	}
 	return &models.PipelineReport{
 		Stages: []*models.PipelineStageValue{
-			{StageID: uuid.New(), StageName: "New", DealCount: 5, TotalValue: 50000, WeightedValue: 5000},
-			{StageID: uuid.New(), StageName: "Qualified", DealCount: 3, TotalValue: 30000, WeightedValue: 9000},
-			{StageID: uuid.New(), StageName: "Won", DealCount: 2, TotalValue: 20000, WeightedValue: 20000},
+			{StageID: uuid.New(), StageName: "New", DealCount: 5, TotalValue: decimal.NewFromInt(50000), WeightedValue: decimal.NewFromInt(5000)},
+			{StageID: uuid.New(), StageName: "Qualified", DealCount: 3, TotalValue: decimal.NewFromInt(30000), WeightedValue: decimal.NewFromInt(9000)},
+			{StageID: uuid.New(), StageName: "Won", DealCount: 2, TotalValue: decimal.NewFromInt(20000), WeightedValue: decimal.NewFromInt(20000)},
 		},
 		TotalDeals:         10,
-		TotalValue:         100000,
-		TotalWeightedValue: 34000,
+		TotalValue:         decimal.NewFromInt(100000),
+		TotalWeightedValue: decimal.NewFromInt(34000),
 	}, nil
 }
 
@@ -101,8 +102,8 @@ func TestService_GetPipelineReport_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, report.Stages, 3)
 	assert.Equal(t, int32(10), report.TotalDeals)
-	assert.Equal(t, 100000.0, report.TotalValue)
-	assert.Equal(t, 34000.0, report.TotalWeightedValue)
+	assert.True(t, report.TotalValue.Equal(decimal.NewFromInt(100000)), "total value: %s", report.TotalValue)
+	assert.True(t, report.TotalWeightedValue.Equal(decimal.NewFromInt(34000)), "total weighted: %s", report.TotalWeightedValue)
 }
 
 func TestService_GetPipelineReport_WithOwnerFilter(t *testing.T) {
@@ -171,8 +172,8 @@ func TestService_GetPipelineReport_EmptyReport(t *testing.T) {
 	repo.pipelineReport = &models.PipelineReport{
 		Stages:             []*models.PipelineStageValue{},
 		TotalDeals:         0,
-		TotalValue:         0,
-		TotalWeightedValue: 0,
+		TotalValue:         decimal.Zero,
+		TotalWeightedValue: decimal.Zero,
 	}
 	svc := NewService(repo)
 

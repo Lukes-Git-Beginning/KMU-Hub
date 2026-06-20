@@ -1,22 +1,27 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+)
 
-// PipelineStageValue represents aggregated deal data for a pipeline stage
+// PipelineStageValue represents aggregated deal data for a pipeline stage.
+// Monetary fields use decimal (ADR-0007); the gRPC layer converts to the proto
+// double representation at the wire boundary.
 type PipelineStageValue struct {
-	StageID       uuid.UUID `json:"stage_id"`
-	StageName     string    `json:"stage_name"`
-	DealCount     int32     `json:"deal_count"`
-	TotalValue    float64   `json:"total_value"`
-	WeightedValue float64   `json:"weighted_value"`
+	StageID       uuid.UUID       `json:"stage_id"`
+	StageName     string          `json:"stage_name"`
+	DealCount     int32           `json:"deal_count"`
+	TotalValue    decimal.Decimal `json:"total_value"`
+	WeightedValue decimal.Decimal `json:"weighted_value"`
 }
 
 // PipelineReport represents a pipeline report with aggregated deal data
 type PipelineReport struct {
 	Stages             []*PipelineStageValue `json:"stages"`
 	TotalDeals         int32                 `json:"total_deals"`
-	TotalValue         float64               `json:"total_value"`
-	TotalWeightedValue float64               `json:"total_weighted_value"`
+	TotalValue         decimal.Decimal       `json:"total_value"`
+	TotalWeightedValue decimal.Decimal       `json:"total_weighted_value"`
 }
 
 // ConversionMetric represents stage-to-stage conversion data

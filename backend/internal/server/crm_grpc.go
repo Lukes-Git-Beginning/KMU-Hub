@@ -1975,16 +1975,16 @@ func (s *CRMGRPCServer) GetPipelineReport(ctx context.Context, req *crmv1.GetPip
 			StageId:       stage.StageID.String(),
 			StageName:     stage.StageName,
 			DealCount:     stage.DealCount,
-			TotalValue:    stage.TotalValue,
-			WeightedValue: stage.WeightedValue,
+			TotalValue:    stage.TotalValue.InexactFloat64(),
+			WeightedValue: stage.WeightedValue.InexactFloat64(),
 		})
 	}
 
 	return &crmv1.GetPipelineReportResponse{
 		Stages:             stages,
 		TotalDeals:         r.TotalDeals,
-		TotalValue:         r.TotalValue,
-		TotalWeightedValue: r.TotalWeightedValue,
+		TotalValue:         r.TotalValue.InexactFloat64(),
+		TotalWeightedValue: r.TotalWeightedValue.InexactFloat64(),
 	}, nil
 }
 
