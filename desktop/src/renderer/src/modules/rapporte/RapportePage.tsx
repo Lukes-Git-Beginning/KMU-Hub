@@ -40,6 +40,15 @@ import {
   type ReportActivity,
   type ReportMaterial,
 } from '@/stores/rapporte'
+import {
+  useRapporteList,
+  useReportStats,
+  useCreateReport,
+  useUpdateReport,
+  useDeleteReport,
+  useSubmitReport,
+} from '@/api/hooks/useRapporte'
+import { adaptWorkReport } from '@/api/rapporte-adapter'
 import SignatureCanvas from './SignatureCanvas'
 import SketchCanvas from './SketchCanvas'
 import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
@@ -166,7 +175,33 @@ const approvalLabelKeys: Record<FieldReport['approvalStatus'], string> = {
 
 export default function RapportePage() {
   const { t } = useTranslation()
-  const { reports, measurements, templates, deleteReport, deleteMeasurement, updateReport } = useRapporteStore()
+
+  // ---------------------------------------------------------------------------
+  // Server state — reports (API hooks)
+  // ---------------------------------------------------------------------------
+
+  const { data: reportsData, isLoading: reportsLoading, isError: reportsError } = useRapporteList()
+  const { data: statsData } = useReportStats()
+
+  const deleteReportMutation = useDeleteReport()
+  const submitReportMutation = useSubmitReport()
+  const updateReportMutation = useUpdateReport()
+
+  // Map wire shape → FieldReport for the UI
+  const reports: FieldReport[] = useMemo(
+    () => (reportsData?.reports ?? []).map(adaptWorkReport),
+    [reportsData],
+  )
+
+  // ---------------------------------------------------------------------------
+  // Client state — measurements + templates (no API endpoints yet)
+  // ---------------------------------------------------------------------------
+
+  const { measurements, templates, deleteMeasurement } = useRapporteStore()
+
+  // ---------------------------------------------------------------------------
+  // UI state
+  // ---------------------------------------------------------------------------
 
   const [tab, setTab] = useState<TabKey>('tagesberichte')
   const [search, setSearch] = useState('')
@@ -216,13 +251,15 @@ export default function RapportePage() {
     return list
   }, [reports, projectFilter, dateFilter, search])
 
-  // Stats
+  // Stats — prefer server stats when available, fall back to client-computed values
   const reportsThisWeek = reports.filter((r) => isThisWeek(r.date)).length
   const totalHours = reports.reduce((sum, r) => sum + calcNetMinutes(r.workStart, r.workEnd, r.breakMinutes), 0)
   const totalHoursFormatted = `${Math.floor(totalHours / 60)}h`
-  const activeProjects = new Set(reports.map((r) => r.projectId)).size
+  const activeProjects = statsData
+    ? statsData.approved_count + statsData.submitted_count
+    : new Set(reports.map((r) => r.projectId)).size
 
-  // Mock material cost (for stats display)
+  // Mock material cost (no API field yet)
   const materialCostMock = 48_750
 
   // ---------------------------------------------------------------------------
@@ -230,9 +267,13 @@ export default function RapportePage() {
   // ---------------------------------------------------------------------------
 
   const handleDeleteReport = (id: string) => {
-    deleteReport(id)
-    setSelectedReport(null)
-    toast.success(t('rapporte.report.deleted'))
+    deleteReportMutation.mutate(id, {
+      onSuccess: () => {
+        setSelectedReport(null)
+        toast.success(t('rapporte.report.deleted'))
+      },
+      onError: () => toast.error(t('rapporte.report.deleteError')),
+    })
   }
 
   const handleDeleteMeasurement = (id: string) => {
@@ -245,6 +286,33 @@ export default function RapportePage() {
     setShowNewReport(true)
   }
 
+  const handleUpdateReport = (id: string, updates: Partial<FieldReport>) => {
+    // Map FieldReport partial back to UpdateReportInput for the API
+    // Only fields the API understands are forwarded; approval transitions use dedicated endpoints
+    if (updates.approvalStatus === 'submitted') {
+      submitReportMutation.mutate(id, {
+        onSuccess: (data) => {
+          if (selectedReport && selectedReport.id === id) {
+            setSelectedReport({ ...selectedReport, approvalStatus: data.report.status as FieldReport['approvalStatus'] })
+          }
+        },
+        onError: () => toast.error(t('rapporte.detail.submitError')),
+      })
+    } else {
+      updateReportMutation.mutate(
+        { id, title: updates.projectName, description: updates.notes },
+        {
+          onSuccess: () => {
+            if (selectedReport && selectedReport.id === id) {
+              setSelectedReport({ ...selectedReport, ...updates })
+            }
+          },
+          onError: () => toast.error(t('rapporte.detail.updateError')),
+        },
+      )
+    }
+  }
+
   const toggleMeasurement = (id: string) => {
     setExpandedMeasurement(expandedMeasurement === id ? null : id)
   }
@@ -252,6 +320,22 @@ export default function RapportePage() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  if (reportsLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+      </div>
+    )
+  }
+
+  if (reportsError) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <p className="text-sm text-error">{t('common.errorLoading')}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
@@ -650,10 +734,7 @@ export default function RapportePage() {
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
           onDelete={handleDeleteReport}
-          onUpdate={(id, updates) => {
-            updateReport(id, updates)
-            setSelectedReport({ ...selectedReport, ...updates })
-          }}
+          onUpdate={handleUpdateReport}
         />
       )}
 
@@ -1025,6 +1106,7 @@ function NewReportDialog({
   templatePrefill: ReportTemplate | null
 }) {
   const { t } = useTranslation()
+  const createReport = useCreateReport()
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [projectId, setProjectId] = useState('')
   const [weather, setWeather] = useState<WeatherType>('sunny')
@@ -1088,6 +1170,22 @@ function NewReportDialog({
     setMaterials(materials.map((m, i) => (i === idx ? { ...m, [field]: value } : m)))
   }
 
+  const resetForm = () => {
+    setDate(new Date().toISOString().split('T')[0])
+    setProjectId('')
+    setWeather('sunny')
+    setTemperature('10')
+    setWorkStart('07:00')
+    setWorkEnd('17:00')
+    setBreakMin('60')
+    setWorkers([{ name: '', role: '', hours: 8 }])
+    setActivities([{ description: '', category: '' }])
+    setMaterials([{ article: '', quantity: 0, unit: 'Stk' }])
+    setNotes('')
+    setPhotos([])
+    setSignatureDataUrl(null)
+  }
+
   const handleSave = () => {
     if (!projectId) {
       toast.error(t('rapporte.dialog.selectProject'))
@@ -1105,23 +1203,25 @@ function NewReportDialog({
     }
 
     const project = projects.find((p) => p.id === projectId)
-    toast.success(t('rapporte.dialog.reportCreated', { name: project?.name ?? 'Projekt' }))
+    const activitiesSummary = validActivities.map((a) => a.description).join('; ')
 
-    // Reset
-    setDate(new Date().toISOString().split('T')[0])
-    setProjectId('')
-    setWeather('sunny')
-    setTemperature('10')
-    setWorkStart('07:00')
-    setWorkEnd('17:00')
-    setBreakMin('60')
-    setWorkers([{ name: '', role: '', hours: 8 }])
-    setActivities([{ description: '', category: '' }])
-    setMaterials([{ article: '', quantity: 0, unit: 'Stk' }])
-    setNotes('')
-    setPhotos([])
-    setSignatureDataUrl(null)
-    onOpenChange(false)
+    createReport.mutate(
+      {
+        // Use project name as title (no dedicated project FK in API yet)
+        title: project?.name ?? projectId,
+        description: activitiesSummary,
+        author_id: validWorkers[0]?.name ?? 'current-user',
+        report_date: date,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('rapporte.dialog.reportCreated', { name: project?.name ?? 'Projekt' }))
+          resetForm()
+          onOpenChange(false)
+        },
+        onError: () => toast.error(t('rapporte.dialog.reportCreateError')),
+      },
+    )
   }
 
   return (
@@ -1526,6 +1626,7 @@ function NewMeasurementDialog({
   projects: { id: string; name: string }[]
 }) {
   const { t } = useTranslation()
+  const { addMeasurement } = useRapporteStore()
   const [name, setName] = useState('')
   const [projectId, setProjectId] = useState('')
   const [positions, setPositions] = useState<PositionDraft[]>([
@@ -1576,6 +1677,30 @@ function NewMeasurementDialog({
     }
 
     const project = projects.find((p) => p.id === projectId)
+
+    // Persist to store so the Aufmass tab reflects the new measurement
+    addMeasurement({
+      id: `ms-${Date.now()}`,
+      name: name.trim(),
+      projectName: project?.name ?? projectId,
+      author: '',
+      createdAt: new Date().toISOString().split('T')[0],
+      positions: validPositions.map((p, idx) => {
+        const l = parseFloat(p.length) || 0
+        const w = parseFloat(p.width) || 0
+        const h = parseFloat(p.height) || 0
+        return {
+          id: `mp-${Date.now()}-${idx}`,
+          label: p.label,
+          length: l,
+          width: w,
+          height: h,
+          area: l * w,
+          volume: l * w * h,
+        }
+      }),
+    })
+
     toast.success(t('rapporte.measurement.dialog.created', { name, project: project?.name ?? 'Projekt' }))
 
     // Reset
