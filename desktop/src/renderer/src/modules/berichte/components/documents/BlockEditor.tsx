@@ -297,7 +297,7 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
                         <button
                           type="button"
                           onClick={() => deleteBlock(block.id)}
-                          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-destructive group-hover/block:opacity-100"
+                          className="absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-destructive group-hover/block:opacity-100"
                           aria-label={t('berichte.docs.deleteBlock')}
                         >
                           <Trash2 className="h-3 w-3" />
