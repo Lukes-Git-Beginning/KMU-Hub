@@ -11,30 +11,38 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createDefinition,
+  createReportDocument,
   createSchedule,
   deleteDefinition,
+  deleteReportDocument,
   deleteSchedule,
   exportReport,
   getDashboardKPIs,
   getDefinition,
+  getReportDocument,
   invalidateCache,
   listDefinitions,
+  listReportDocuments,
   listSchedules,
   previewReport,
   runReport,
   toggleSchedule,
   updateDefinition,
+  updateReportDocument,
   updateSchedule,
 } from '../berichte-client'
 import type {
   BuilderQueryConfig,
   CreateDefinitionInput,
+  CreateReportDocumentInput,
   CreateScheduleInput,
   ExportReportInput,
   ListDefinitionsParams,
+  ListReportDocumentsParams,
   ListSchedulesParams,
   RunReportInput,
   UpdateDefinitionInput,
+  UpdateReportDocumentInput,
   UpdateScheduleInput,
 } from '../berichte-types'
 
@@ -51,6 +59,9 @@ export const berichteKeys = {
     ['berichte', 'schedules', params] as const,
   kpis: (modules?: string[]) =>
     ['berichte', 'kpis', modules?.slice().sort()] as const,
+  documents: (params?: ListReportDocumentsParams) =>
+    ['berichte', 'documents', params] as const,
+  document: (id: string) => ['berichte', 'documents', id] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -242,5 +253,54 @@ export function useToggleSchedule() {
       toggleSchedule(id, active),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['berichte', 'schedules'] }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries / Mutations — Report Documents (multi-page authoring)
+// ---------------------------------------------------------------------------
+
+export function useReportDocuments(params?: ListReportDocumentsParams) {
+  return useQuery({
+    queryKey: berichteKeys.documents(params),
+    queryFn: () => listReportDocuments(params),
+  })
+}
+
+export function useReportDocument(id: string) {
+  return useQuery({
+    queryKey: berichteKeys.document(id),
+    queryFn: () => getReportDocument(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreateReportDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateReportDocumentInput) => createReportDocument(input),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['berichte', 'documents'] }),
+  })
+}
+
+export function useUpdateReportDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateReportDocumentInput & { id: string }) =>
+      updateReportDocument(id, input),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: berichteKeys.document(variables.id) })
+      qc.invalidateQueries({ queryKey: ['berichte', 'documents'] })
+    },
+  })
+}
+
+export function useDeleteReportDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteReportDocument(id),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['berichte', 'documents'] }),
   })
 }

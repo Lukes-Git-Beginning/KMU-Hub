@@ -3,23 +3,25 @@ import { useTranslation } from 'react-i18next'
 import {
   BarChart3,
   CalendarClock,
-  FilePlus,
+  FileText,
   Landmark,
   Plus,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared'
 import {
+  useCreateReportDocument,
   useDashboardKPIs,
   useDefinitions,
   useSchedules,
 } from '@/api/hooks/useBerichte'
 import { DashboardGrid } from './components/DashboardGrid'
 import { PinnedReports } from './components/PinnedReports'
-import { ReportBuilderShell } from './components/builder/ReportBuilderShell'
+import { BerichtLibrary } from './components/documents/BerichtLibrary'
+import { ReportDocumentEditor } from './components/documents/ReportDocumentEditor'
 import { ScheduleList } from './components/ScheduleList'
 import { DatevView } from './components/DatevView'
 
-type TabKey = 'dashboard' | 'erstellen' | 'geplant' | 'datev'
+type TabKey = 'dashboard' | 'berichte' | 'geplant' | 'datev'
 
 const MODULE_OPTIONS: { id: string; name: string }[] = [
   { id: 'finanzen', name: 'Finanzen' },
@@ -35,12 +37,14 @@ export default function BerichtePage() {
 
   const [tab, setTab] = useState<TabKey>('dashboard')
   const [moduleFilter, setModuleFilter] = useState<string>('all')
+  const [openDocId, setOpenDocId] = useState<string | null>(null)
 
   const kpisQuery = useDashboardKPIs(
     moduleFilter === 'all' ? undefined : [moduleFilter],
   )
   const definitionsQuery = useDefinitions({ kind: 'system', is_published: true })
   const schedulesQuery = useSchedules()
+  const createDoc = useCreateReportDocument()
 
   const kpis = kpisQuery.data?.kpis ?? []
   const definitions = definitionsQuery.data?.definitions ?? []
@@ -55,12 +59,27 @@ export default function BerichtePage() {
   )
 
   const handleNewReport = () => {
-    setTab('erstellen')
+    createDoc.mutate(
+      { title: t('berichte.docs.newTitle'), module: 'cross' },
+      {
+        onSuccess: (res) => {
+          setTab('berichte')
+          setOpenDocId(res.document.id)
+        },
+      },
+    )
+  }
+
+  // Editor takes over the full module area (its own header + back button).
+  if (openDocId) {
+    return (
+      <ReportDocumentEditor documentId={openDocId} onBack={() => setOpenDocId(null)} />
+    )
   }
 
   const tabs = [
     { key: 'dashboard' as const, label: t('berichte.tabs.dashboard'), icon: BarChart3 },
-    { key: 'erstellen' as const, label: t('berichte.tabs.erstellen'), icon: FilePlus },
+    { key: 'berichte' as const, label: t('berichte.tabs.berichte'), icon: FileText },
     {
       key: 'geplant' as const,
       label: t('berichte.tabs.geplant', { count: schedules.length }),
@@ -122,7 +141,9 @@ export default function BerichtePage() {
         </>
       )}
 
-      {tab === 'erstellen' && <ReportBuilderShell />}
+      {tab === 'berichte' && (
+        <BerichtLibrary onOpen={(doc) => setOpenDocId(doc.id)} onNew={handleNewReport} />
+      )}
 
       {tab === 'geplant' && <ScheduleList definitions={definitions} />}
 

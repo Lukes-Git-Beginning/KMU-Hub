@@ -7,9 +7,13 @@ import { isBuilderQuery } from '@/api/berichte-types'
 import type {
   BuilderQueryConfig,
   DashboardKPI,
+  KpiBlock,
+  ReportBlock,
   ReportColumn,
   ReportDefinition,
+  ReportDocument,
   ReportResult,
+  ReportRow,
   ReportSchedule,
   ReportSeries,
 } from '@/api/berichte-types'
@@ -77,6 +81,130 @@ let DEMO_DEFINITIONS: ReportDefinition[] = [
   def('def-datev-susa', 'DATEV Summen- und Saldenliste', 'Summen- und Saldenliste je Konto (DATEV-Format).', 'finanzen', 'datev_susa'),
 ]
 let definitionCounter = 0
+
+// ---------------------------------------------------------------------------
+// Report Documents (multi-page authoring, Schicht 4) — session-persistent.
+// Seeded demo documents + ones created via "Neuer Bericht". Block layout:
+// rows -> columns -> blocks. Backend gap (ReportDocument persistence + snapshots)
+// tracked in backend-gaps.md.
+// ---------------------------------------------------------------------------
+
+let blockSeq = 0
+const bid = (p: string): string => `${p}-${(blockSeq += 1)}`
+
+/** One full-width column row. */
+function r(...blocks: ReportBlock[]): ReportRow {
+  return { id: bid('row'), columns: [{ id: bid('col'), blocks }] }
+}
+/** Multi-column row (KPI rows, text-beside-chart). */
+function rc(...columns: { width?: number; blocks: ReportBlock[] }[]): ReportRow {
+  return {
+    id: bid('row'),
+    columns: columns.map((c) => ({ id: bid('col'), width: c.width, blocks: c.blocks })),
+  }
+}
+function kpiBlock(
+  label: string,
+  value: string,
+  unit: string,
+  change: number | null,
+  source: string,
+): KpiBlock {
+  return { id: bid('kpi'), type: 'kpi', label, value, unit, changePercent: change, source }
+}
+
+const docAgo = (days: number): string =>
+  new Date(Date.now() - days * 86400000).toISOString()
+
+let DEMO_DOCUMENTS: ReportDocument[] = [
+  {
+    id: 'doc-verkauf-q2',
+    tenant_id: TENANT,
+    title: 'Verkaufsbericht Q2 2026',
+    description: 'Quartalsbericht Vertrieb: Pipeline, Umsatz und Empfehlungen.',
+    module: 'crm',
+    status: 'released',
+    created_by: 'u-demo',
+    created_at: docAgo(14),
+    updated_at: docAgo(2),
+    released_at: docAgo(2),
+    settings: {
+      showHeader: true,
+      showFooter: true,
+      showPageNumbers: true,
+      headerText: 'Verkaufsbericht Q2 2026',
+      palette: 'cosmi',
+    },
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Verkaufsbericht', subtitle: 'Q2 2026 · Zentria GmbH', author: 'Vertriebsleitung', showDate: true }),
+      r({ id: bid('pb'), type: 'pagebreak' }),
+      r({ id: bid('h'), type: 'heading', level: 1, text: 'Zusammenfassung' }),
+      r({ id: bid('t'), type: 'text', html: '<p>Das zweite Quartal zeigt ein Umsatzplus von <strong>18 %</strong> gegenüber Q1. Die Region Süd trägt den größten Anteil; die Gewinnrate ist stabil bei 32 %.</p>' }),
+      rc(
+        { blocks: [kpiBlock('Umsatz', '142.500', '€', 18, 'finanzen')] },
+        { blocks: [kpiBlock('Gewinnrate', '32', '%', 4.2, 'crm')] },
+        { blocks: [kpiBlock('Neue Deals', '37', '', 12, 'crm')] },
+      ),
+      r({ id: bid('h'), type: 'heading', level: 2, text: 'Umsatz nach Monat' }),
+      rc(
+        { width: 2, blocks: [{ id: bid('t'), type: 'text', html: '<p>Der Aufwärtstrend hält seit März an. Mai war der stärkste Monat seit Jahresbeginn.</p>' }] },
+        { width: 3, blocks: [{ id: bid('c'), type: 'chart', definitionId: 'def-umsatz', caption: 'Monatlicher Umsatz, letzte 12 Monate' }] },
+      ),
+      r({ id: bid('cl'), type: 'callout', variant: 'recommendation', title: 'Empfehlung', html: '<p>Vertriebskapazität in Region Süd ausbauen und das Verkaufsmodell an den höheren Abschlussraten ausrichten.</p>' }),
+    ],
+  },
+  {
+    id: 'doc-monat-juni',
+    tenant_id: TENANT,
+    title: 'Monatsbericht Juni 2026',
+    description: 'Management-Monatsbericht: Kennzahlen, Finanzen, Helpdesk.',
+    module: 'finanzen',
+    status: 'final',
+    created_by: 'u-demo',
+    created_at: docAgo(6),
+    updated_at: docAgo(1),
+    released_at: null,
+    settings: {
+      showHeader: true,
+      showFooter: true,
+      showPageNumbers: true,
+      headerText: 'Monatsbericht Juni 2026',
+      palette: 'cosmi',
+    },
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Monatsbericht', subtitle: 'Juni 2026', author: 'Geschäftsführung', showDate: true }),
+      r({ id: bid('h'), type: 'heading', level: 1, text: 'Kennzahlen im Überblick' }),
+      rc(
+        { blocks: [kpiBlock('Umsatz (MTD)', '84.532', '€', 12.4, 'finanzen')] },
+        { blocks: [kpiBlock('Offene Rechnungen', '23', '', -8.1, 'finanzen')] },
+        { blocks: [kpiBlock('Offene Tickets', '18', '', 6, 'helpdesk')] },
+      ),
+      r({ id: bid('t'), type: 'text', html: '<p>Der Monat verlief planmäßig. Die offenen Rechnungen sind gegenüber Mai gesunken.</p>' }),
+      r({ id: bid('h'), type: 'heading', level: 2, text: 'Helpdesk-Auslastung' }),
+      r({ id: bid('c'), type: 'chart', definitionId: 'def-tickets', caption: 'Offene und gelöste Tickets pro Monat' }),
+      r({ id: bid('bl'), type: 'bullet', items: ['Reaktionszeit unter Zielwert', 'Zwei Eskalationen gelöst', 'CSAT stabil bei 4,5'] }),
+    ],
+  },
+  {
+    id: 'doc-helpdesk-kw24',
+    tenant_id: TENANT,
+    title: 'Helpdesk-Auslastung KW 24',
+    description: 'Wöchentlicher Kurzbericht Support (Entwurf).',
+    module: 'helpdesk',
+    status: 'draft',
+    created_by: 'u-demo',
+    created_at: docAgo(1),
+    updated_at: docAgo(0),
+    released_at: null,
+    settings: { showHeader: false, showFooter: true, showPageNumbers: true },
+    rows: [
+      r({ id: bid('cover'), type: 'cover', title: 'Helpdesk-Auslastung', subtitle: 'KW 24 · Entwurf', showDate: true }),
+      r({ id: bid('h'), type: 'heading', level: 1, text: 'Notizen' }),
+      r({ id: bid('t'), type: 'text', html: '<p>Erste Stichpunkte für den Wochenbericht. Diagramme folgen.</p>' }),
+    ],
+  },
+]
+let documentCounter = 0
 
 // ---------------------------------------------------------------------------
 // Report results (per definition) — series for charts, columns+rows for tables
@@ -361,6 +489,83 @@ export const berichteHandlers = [
   // --- Delete definition ---
   http.delete(`${API}/api/v1/berichte/definitions/:id`, ({ params }) => {
     DEMO_DEFINITIONS = DEMO_DEFINITIONS.filter((d) => d.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // --- Report Documents (multi-page authoring) ---
+  http.get(`${API}/api/v1/berichte/documents`, ({ request }) => {
+    const url = new URL(request.url)
+    const module = url.searchParams.get('module')
+    const status = url.searchParams.get('status')
+    const search = url.searchParams.get('search')?.toLowerCase()
+    let docs = DEMO_DOCUMENTS
+    if (module) docs = docs.filter((d) => d.module === module)
+    if (status) docs = docs.filter((d) => d.status === status)
+    if (search) docs = docs.filter((d) => d.title.toLowerCase().includes(search))
+    const documents = [...docs].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    return HttpResponse.json({ documents, total: documents.length })
+  }),
+
+  http.get(`${API}/api/v1/berichte/documents/:id`, ({ params }) => {
+    const document = DEMO_DOCUMENTS.find((d) => d.id === params.id)
+    if (!document) return new HttpResponse(null, { status: 404 })
+    return HttpResponse.json({ document })
+  }),
+
+  http.post(`${API}/api/v1/berichte/documents`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    documentCounter += 1
+    const now = new Date().toISOString()
+    const title = String(body.title ?? 'Neuer Bericht')
+    const document: ReportDocument = {
+      id: `doc-custom-${documentCounter}`,
+      tenant_id: TENANT,
+      title,
+      description: body.description ? String(body.description) : undefined,
+      module: (body.module as ReportDocument['module']) ?? 'cross',
+      status: 'draft',
+      rows:
+        (body.rows as ReportDocument['rows']) ??
+        [
+          {
+            id: 'row-1',
+            columns: [
+              {
+                id: 'col-1',
+                blocks: [{ id: 'cover-1', type: 'cover', title, showDate: true }],
+              },
+            ],
+          },
+        ],
+      settings:
+        (body.settings as ReportDocument['settings']) ??
+        { showHeader: true, showFooter: true, showPageNumbers: true },
+      template_id: (body.template_id as string | null) ?? null,
+      created_by: 'u-demo',
+      created_at: now,
+      updated_at: now,
+      released_at: null,
+    }
+    DEMO_DOCUMENTS = [document, ...DEMO_DOCUMENTS]
+    return HttpResponse.json({ document }, { status: 201 })
+  }),
+
+  http.patch(`${API}/api/v1/berichte/documents/:id`, async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    const idx = DEMO_DOCUMENTS.findIndex((d) => d.id === params.id)
+    if (idx === -1) return new HttpResponse(null, { status: 404 })
+    const prev = DEMO_DOCUMENTS[idx]
+    const next = { ...prev, ...body, updated_at: new Date().toISOString() } as ReportDocument
+    // Stamp released_at on first release.
+    if (body.status === 'released' && !prev.released_at) {
+      next.released_at = new Date().toISOString()
+    }
+    DEMO_DOCUMENTS[idx] = next
+    return HttpResponse.json({ document: next })
+  }),
+
+  http.delete(`${API}/api/v1/berichte/documents/:id`, ({ params }) => {
+    DEMO_DOCUMENTS = DEMO_DOCUMENTS.filter((d) => d.id !== params.id)
     return new HttpResponse(null, { status: 204 })
   }),
 

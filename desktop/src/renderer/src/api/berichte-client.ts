@@ -8,6 +8,7 @@
 import type {
   BuilderQueryConfig,
   CreateDefinitionInput,
+  CreateReportDocumentInput,
   CreateScheduleInput,
   DashboardKPIsResponse,
   DefinitionResponse,
@@ -16,14 +17,18 @@ import type {
   InvalidateCacheResponse,
   ListDefinitionsParams,
   ListDefinitionsResponse,
+  ListReportDocumentsParams,
+  ListReportDocumentsResponse,
   ListSchedulesParams,
   ListSchedulesResponse,
   PreviewReportResponse,
+  ReportDocumentResponse,
   ReportFormat,
   RunReportInput,
   RunReportResponse,
   ScheduleResponse,
   UpdateDefinitionInput,
+  UpdateReportDocumentInput,
   UpdateScheduleInput,
 } from './berichte-types'
 import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
@@ -215,5 +220,47 @@ export function getDashboardKPIs(modules?: string[]) {
     method: 'GET',
     path: `${BASE}/kpis`,
     params: modules && modules.length > 0 ? { modules } : undefined,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Report Documents (multi-page authoring)
+// ---------------------------------------------------------------------------
+
+export function listReportDocuments(params?: ListReportDocumentsParams) {
+  return request<ListReportDocumentsResponse>({
+    method: 'GET',
+    path: `${BASE}/documents`,
+    params: params as RequestOptions['params'],
+  })
+}
+
+export function getReportDocument(id: string) {
+  return request<ReportDocumentResponse>({
+    method: 'GET',
+    path: `${BASE}/documents/${id}`,
+  })
+}
+
+export function createReportDocument(body: CreateReportDocumentInput) {
+  return request<ReportDocumentResponse>({
+    method: 'POST',
+    path: `${BASE}/documents`,
+    body,
+  })
+}
+
+export function updateReportDocument(id: string, body: UpdateReportDocumentInput) {
+  return request<ReportDocumentResponse>({
+    method: 'PATCH',
+    path: `${BASE}/documents/${id}`,
+    body,
+  })
+}
+
+export function deleteReportDocument(id: string) {
+  return request<void>({
+    method: 'DELETE',
+    path: `${BASE}/documents/${id}`,
   })
 }

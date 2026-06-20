@@ -364,3 +364,211 @@ export interface PreviewReportInput {
 export interface PreviewReportResponse {
   result: ReportResult
 }
+
+// ---------------------------------------------------------------------------
+// Report Documents — multi-page authoring (Schicht 4)
+//
+// A ReportDocument is the multi-page report a user authors in the block editor:
+// cover page + headings + rich text + embedded charts/tables/KPIs across many
+// pages. It is distinct from ReportDefinition (= a single chart/data widget,
+// "Schicht 3"). A chart block embeds a ReportDefinition by id, or carries an
+// inline BuilderQueryConfig.
+//
+// Layout model: document → rows → columns → blocks. Default is one full-width
+// column per row (top-down reading flow, carries long multi-page text). A row
+// may split into 2–3 columns for KPI rows and "text beside chart" layouts.
+// Atomic blocks (chart/table/kpi/image) never break across a page; text blocks
+// flow across page boundaries.
+// ---------------------------------------------------------------------------
+
+/** Lifecycle status. No approval gate (too bureaucratic for SMEs). */
+export type ReportDocStatus = 'draft' | 'final' | 'released' | 'archived'
+
+export type ReportBlockType =
+  | 'cover'
+  | 'heading'
+  | 'text'
+  | 'chart'
+  | 'table'
+  | 'kpi'
+  | 'callout'
+  | 'bullet'
+  | 'divider'
+  | 'image'
+  | 'pagebreak'
+
+interface ReportBlockBase {
+  id: string
+  type: ReportBlockType
+}
+
+/** Cover page: title, optional subtitle, logo, author, date. */
+export interface CoverBlock extends ReportBlockBase {
+  type: 'cover'
+  title: string
+  subtitle?: string
+  author?: string
+  /** Render the document period/date line. */
+  showDate?: boolean
+  logoUrl?: string
+}
+
+export interface HeadingBlock extends ReportBlockBase {
+  type: 'heading'
+  level: 1 | 2
+  text: string
+}
+
+/** Rich text (TipTap HTML). Flows across pages. */
+export interface TextBlock extends ReportBlockBase {
+  type: 'text'
+  html: string
+}
+
+/** Embedded chart widget — references a saved definition or an inline query. */
+export interface ChartBlock extends ReportBlockBase {
+  type: 'chart'
+  definitionId?: string
+  query?: BuilderQueryConfig
+  caption?: string
+}
+
+/** Embedded data table — references a saved definition or an inline query. */
+export interface TableBlock extends ReportBlockBase {
+  type: 'table'
+  definitionId?: string
+  query?: BuilderQueryConfig
+  caption?: string
+}
+
+/** Single highlighted metric. A KPI row = one row with several kpi blocks. */
+export interface KpiBlock extends ReportBlockBase {
+  type: 'kpi'
+  label: string
+  value: string
+  unit?: string
+  changePercent?: number | null
+  /** Source label (module / data source). */
+  source?: string
+}
+
+export type CalloutVariant = 'info' | 'success' | 'warning' | 'recommendation'
+
+/** Callout / handling recommendation. */
+export interface CalloutBlock extends ReportBlockBase {
+  type: 'callout'
+  variant: CalloutVariant
+  title?: string
+  html: string
+}
+
+export interface BulletBlock extends ReportBlockBase {
+  type: 'bullet'
+  items: string[]
+  ordered?: boolean
+}
+
+export interface DividerBlock extends ReportBlockBase {
+  type: 'divider'
+}
+
+export interface ImageBlock extends ReportBlockBase {
+  type: 'image'
+  url: string
+  caption?: string
+  alt?: string
+}
+
+/** Explicit page break in the printed/PDF output. */
+export interface PageBreakBlock extends ReportBlockBase {
+  type: 'pagebreak'
+}
+
+export type ReportBlock =
+  | CoverBlock
+  | HeadingBlock
+  | TextBlock
+  | ChartBlock
+  | TableBlock
+  | KpiBlock
+  | CalloutBlock
+  | BulletBlock
+  | DividerBlock
+  | ImageBlock
+  | PageBreakBlock
+
+export interface ReportDocColumn {
+  id: string
+  /** Relative width weight (e.g. 1/1 = 50/50, 3/2 = 60/40). Default 1. */
+  width?: number
+  blocks: ReportBlock[]
+}
+
+export interface ReportRow {
+  id: string
+  /** 1–3 columns. One column = full width. */
+  columns: ReportDocColumn[]
+}
+
+/** Document-level page setup (header/footer/page numbers, palette). */
+export interface ReportDocSettings {
+  showHeader?: boolean
+  headerText?: string
+  showFooter?: boolean
+  showPageNumbers?: boolean
+  logoUrl?: string
+  /** Chart palette id, reused from the builder palettes. */
+  palette?: string
+  accentColor?: string
+}
+
+export interface ReportDocument {
+  id: string
+  tenant_id: string
+  title: string
+  description?: string
+  module: ReportModule
+  status: ReportDocStatus
+  rows: ReportRow[]
+  settings: ReportDocSettings
+  /** Template this document was created from, if any. */
+  template_id?: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  /** Set when status first transitions to 'released'. */
+  released_at?: string | null
+}
+
+export interface CreateReportDocumentInput {
+  title: string
+  description?: string
+  module?: ReportModule
+  template_id?: string | null
+  rows?: ReportRow[]
+  settings?: ReportDocSettings
+}
+
+export interface UpdateReportDocumentInput {
+  title?: string
+  description?: string
+  module?: ReportModule
+  status?: ReportDocStatus
+  rows?: ReportRow[]
+  settings?: ReportDocSettings
+}
+
+export interface ListReportDocumentsParams {
+  module?: ReportModule
+  status?: ReportDocStatus
+  search?: string
+}
+
+export interface ListReportDocumentsResponse {
+  documents: ReportDocument[]
+  total: number
+}
+
+export interface ReportDocumentResponse {
+  document: ReportDocument
+}
