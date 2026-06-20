@@ -47,6 +47,18 @@ export type FormFieldType =
 // Domain models
 // ---------------------------------------------------------------------------
 
+/** FT-2a — preset pattern for text-field validation (regex derived centrally). */
+export type FieldPatternType = 'free' | 'plz' | 'phone' | 'iban'
+
+/** FT-2a — optional per-field validation rules (length/value/pattern). */
+export interface FieldValidation {
+  minLength?: number
+  maxLength?: number
+  min?: number
+  max?: number
+  patternType?: FieldPatternType
+}
+
 export interface FormField {
   id: string
   type: FormFieldType
@@ -57,6 +69,7 @@ export interface FormField {
   consentText?: string // consent only: purpose-binding / privacy text
   privacyUrl?: string // consent only: link to the Datenschutzerklärung
   conditionalLogic?: unknown // TBD in späterem Sprint
+  validation?: FieldValidation // FT-2a — length / value / pattern rules
   page?: number
 }
 

@@ -28,6 +28,25 @@ export type FormFieldType =
   // linked privacy policy). Not in the backend proto whitelist.
   | 'consent'
 
+/**
+ * Preset pattern for text-field validation (FT-2a). The concrete regex is
+ * derived centrally (FIELD_PATTERN_PRESETS in FormularePage) so we never store
+ * a free-form regex — too error-prone for KMU users. 'free' = no pattern.
+ */
+export type FieldPatternType = 'free' | 'plz' | 'phone' | 'iban'
+
+/**
+ * Optional per-field validation rules (FT-2a). Length rules apply to
+ * text/textarea, min/max value to number, patternType to text only.
+ */
+export interface FieldValidation {
+  minLength?: number
+  maxLength?: number
+  min?: number
+  max?: number
+  patternType?: FieldPatternType
+}
+
 export interface FormField {
   id: string
   type: FormFieldType
@@ -44,6 +63,8 @@ export interface FormField {
     operator: 'equals' | 'not_equals' | 'contains'
     value: string
   }
+  /** FT-2a — optional validation rules applied in the fill-out preview. */
+  validation?: FieldValidation
   page?: number
 }
 

@@ -64,6 +64,7 @@ import {
   LayoutGrid,
   LayoutList,
   Ban,
+  Ruler,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -71,6 +72,7 @@ import {
   type DraftSchema,
   type FormField,
   type FormFieldType,
+  type FieldPatternType,
 } from '@/stores/formulare'
 import {
   useFormularePrefsStore,
@@ -189,6 +191,76 @@ const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
   { value: 'file', labelKey: 'formulare.fieldType.fileUpload' },
   { value: 'consent', labelKey: 'formulare.fieldType.consent' },
 ]
+
+// ---------------------------------------------------------------------------
+// FT-2a — field validation: pattern presets + value checker
+// ---------------------------------------------------------------------------
+
+/**
+ * Text-field pattern presets. The field stores only the preset key
+ * (FieldPatternType); the regex lives here so we never persist a free-form
+ * regex — too error-prone for KMU users. DACH-tuned defaults.
+ */
+const FIELD_PATTERN_PRESETS: Record<
+  Exclude<FieldPatternType, 'free'>,
+  { regex: RegExp; errorKey: string }
+> = {
+  plz: { regex: /^\d{5}$/, errorKey: 'formulare.validation.error.plz' },
+  phone: { regex: /^[+0][\d\s/()-]{5,19}$/, errorKey: 'formulare.validation.error.phone' },
+  iban: { regex: /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/, errorKey: 'formulare.validation.error.iban' },
+}
+
+const PATTERN_TYPE_OPTION_KEYS: { value: FieldPatternType; labelKey: string }[] = [
+  { value: 'free', labelKey: 'formulare.validation.pattern.free' },
+  { value: 'plz', labelKey: 'formulare.validation.pattern.plz' },
+  { value: 'phone', labelKey: 'formulare.validation.pattern.phone' },
+  { value: 'iban', labelKey: 'formulare.validation.pattern.iban' },
+]
+
+/** A localized validation failure: an i18n key plus interpolation params. */
+interface ValidationError {
+  key: string
+  params?: Record<string, unknown>
+}
+
+/**
+ * Validate one field value against its rules (FT-2a). Returns the first
+ * violation as an i18n key (+params) or null when valid. Empty values pass —
+ * the `required` check is the caller's responsibility.
+ */
+function validateFieldValue(field: FormField, rawValue: unknown): ValidationError | null {
+  const v = field.validation
+  const value =
+    typeof rawValue === 'string' ? rawValue : rawValue == null ? '' : String(rawValue)
+  if (value.trim() === '') return null
+
+  if (field.type === 'text' || field.type === 'textarea') {
+    if (v?.minLength != null && value.length < v.minLength) {
+      return { key: 'formulare.validation.error.minLength', params: { min: v.minLength } }
+    }
+    if (v?.maxLength != null && value.length > v.maxLength) {
+      return { key: 'formulare.validation.error.maxLength', params: { max: v.maxLength } }
+    }
+  }
+  if (field.type === 'number') {
+    const num = Number(value)
+    if (!Number.isNaN(num)) {
+      if (v?.min != null && num < v.min) {
+        return { key: 'formulare.validation.error.min', params: { min: v.min } }
+      }
+      if (v?.max != null && num > v.max) {
+        return { key: 'formulare.validation.error.max', params: { max: v.max } }
+      }
+    }
+  }
+  if (field.type === 'text' && v?.patternType && v.patternType !== 'free') {
+    const preset = FIELD_PATTERN_PRESETS[v.patternType]
+    const normalized =
+      v.patternType === 'iban' ? value.replace(/\s+/g, '').toUpperCase() : value.trim()
+    if (!preset.regex.test(normalized)) return { key: preset.errorKey }
+  }
+  return null
+}
 
 // ---------------------------------------------------------------------------
 // Helper: map FormSchema → DraftSchema for the editor
@@ -375,6 +447,13 @@ export default function FormularePage() {
   const [configOptions, setConfigOptions] = useState('')
   const [configConsentText, setConfigConsentText] = useState('')
   const [configPrivacyUrl, setConfigPrivacyUrl] = useState('')
+
+  // FT-2a — validation rule state (stored as strings, parsed on save)
+  const [configMinLength, setConfigMinLength] = useState('')
+  const [configMaxLength, setConfigMaxLength] = useState('')
+  const [configMin, setConfigMin] = useState('')
+  const [configMax, setConfigMax] = useState('')
+  const [configPatternType, setConfigPatternType] = useState<FieldPatternType>('free')
 
   // 10.1 — Conditional logic state
   const [configConditionalEnabled, setConfigConditionalEnabled] =
@@ -907,11 +986,41 @@ export default function FormularePage() {
     setConfigOptions(field.options?.join(', ') ?? '')
     setConfigConsentText(field.consentText ?? '')
     setConfigPrivacyUrl(field.privacyUrl ?? '')
+    setConfigMinLength(field.validation?.minLength?.toString() ?? '')
+    setConfigMaxLength(field.validation?.maxLength?.toString() ?? '')
+    setConfigMin(field.validation?.min?.toString() ?? '')
+    setConfigMax(field.validation?.max?.toString() ?? '')
+    setConfigPatternType(field.validation?.patternType ?? 'free')
     setConfigConditionalEnabled(!!field.conditionalLogic)
     setConfigConditionalFieldId(field.conditionalLogic?.fieldId ?? '')
     setConfigConditionalOperator(field.conditionalLogic?.operator ?? 'equals')
     setConfigConditionalValue(field.conditionalLogic?.value ?? '')
     setShowFieldConfigDialog({ field })
+  }
+
+  // FT-2a — assemble the optional validation object from the dialog inputs.
+  const buildValidation = (type: FormFieldType): FormField['validation'] => {
+    const num = (s: string): number | undefined => {
+      const n = Number(s)
+      return s.trim() !== '' && Number.isFinite(n) ? n : undefined
+    }
+    const rules: NonNullable<FormField['validation']> = {}
+    if (type === 'text' || type === 'textarea') {
+      const minL = num(configMinLength)
+      const maxL = num(configMaxLength)
+      if (minL != null) rules.minLength = minL
+      if (maxL != null) rules.maxLength = maxL
+    }
+    if (type === 'number') {
+      const mn = num(configMin)
+      const mx = num(configMax)
+      if (mn != null) rules.min = mn
+      if (mx != null) rules.max = mx
+    }
+    if (type === 'text' && configPatternType !== 'free') {
+      rules.patternType = configPatternType
+    }
+    return Object.keys(rules).length > 0 ? rules : undefined
   }
 
   const saveFieldConfig = () => {
@@ -921,6 +1030,7 @@ export default function FormularePage() {
       label: configLabel,
       required: field.type === 'consent' ? true : configRequired,
       placeholder: configPlaceholder || undefined,
+      validation: buildValidation(field.type),
       consentText:
         field.type === 'consent' ? configConsentText || undefined : field.consentText,
       privacyUrl:
@@ -1634,129 +1744,13 @@ export default function FormularePage() {
               </p>
             </div>
 
-            {/* Form content */}
-            <div className="p-8">
-              <div className="mb-6">
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {draft.title || t('formulare.preview.formularname')}
-                </h1>
-                {draft.description && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    {draft.description}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-5">
-                {draft.fields
-                  .filter((f) => f.label !== '__page_break__')
-                  .map((field) => (
-                    <div key={field.id} className="space-y-1.5">
-                      <label className="text-sm font-medium text-gray-700">
-                        {field.label}
-                        {field.required && (
-                          <span className="text-destructive ml-0.5">*</span>
-                        )}
-                      </label>
-                      {(field.type === 'text' ||
-                        field.type === 'number' ||
-                        field.type === 'email') && (
-                        <input
-                          type={field.type === 'email' ? 'email' : field.type}
-                          placeholder={
-                            field.placeholder ||
-                            (field.type === 'email' ? 'name@beispiel.de' : field.label)
-                          }
-                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      )}
-                      {field.type === 'textarea' && (
-                        <textarea
-                          rows={3}
-                          placeholder={field.placeholder || field.label}
-                          className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      )}
-                      {field.type === 'select' && (
-                        <select className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">
-                            {t('formulare.editor.selectPlaceholder')}
-                          </option>
-                          {field.options?.map((opt) => (
-                            <option key={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      )}
-                      {field.type === 'radio' && (
-                        <div className="space-y-1.5">
-                          {field.options?.map((opt) => (
-                            <label
-                              key={opt}
-                              className="flex items-center gap-2 text-sm text-gray-700"
-                            >
-                              <input
-                                type="radio"
-                                name={field.id}
-                                className="h-4 w-4 text-blue-600"
-                              />
-                              {opt}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      {field.type === 'checkbox' && (
-                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded text-blue-600"
-                          />
-                          {field.label}
-                        </label>
-                      )}
-                      {field.type === 'date' && (
-                        <input
-                          type="date"
-                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      )}
-                      {field.type === 'file' && (
-                        <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
-                          <Paperclip className="h-4 w-4" />
-                          {t('formulare.editor.dateiZiehen')}
-                        </div>
-                      )}
-                      {field.type === 'consent' && (
-                        <label className="flex items-start gap-2.5 text-sm text-gray-700">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 rounded text-blue-600"
-                          />
-                          <span className="text-xs leading-relaxed text-gray-600">
-                            {field.consentText || DEFAULT_CONSENT_TEXT}
-                            {field.privacyUrl && (
-                              <a
-                                href={field.privacyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="ml-1 text-blue-600 underline"
-                              >
-                                {t('formulare.consent.privacyLink')}
-                              </a>
-                            )}
-                          </span>
-                        </label>
-                      )}
-                    </div>
-                  ))}
-              </div>
-
-              {draft.fields.filter((f) => f.label !== '__page_break__').length >
-                0 && (
-                <button className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
-                  {t('formulare.editor.absenden')}
-                </button>
-              )}
-            </div>
+            {/* Form content — interactive fill preview with FT-2a validation */}
+            <PreviewFillForm
+              fields={draft.fields as FormField[]}
+              title={draft.title || t('formulare.preview.formularname')}
+              description={draft.description}
+              t={t}
+            />
           </DialogContent>
         </Dialog>
 
@@ -1890,6 +1884,107 @@ export default function FormularePage() {
                     placeholder={t('formulare.fieldConfig.optionenPlaceholder')}
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   />
+                </div>
+              )}
+
+              {/* FT-2a — Validation rules (length / value / pattern) */}
+              {(showFieldConfigDialog?.field.type === 'text' ||
+                showFieldConfigDialog?.field.type === 'textarea' ||
+                showFieldConfigDialog?.field.type === 'number') && (
+                <div className="border-t border-border-muted pt-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Ruler className="h-4 w-4 text-muted-foreground" />
+                    <label className="text-sm font-medium text-foreground">
+                      {t('formulare.validation.title')}
+                    </label>
+                  </div>
+
+                  {(showFieldConfigDialog?.field.type === 'text' ||
+                    showFieldConfigDialog?.field.type === 'textarea') && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {t('formulare.validation.minLength')}
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={configMinLength}
+                          onChange={(e) => setConfigMinLength(e.target.value)}
+                          placeholder={t('formulare.validation.optional')}
+                          className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {t('formulare.validation.maxLength')}
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={configMaxLength}
+                          onChange={(e) => setConfigMaxLength(e.target.value)}
+                          placeholder={t('formulare.validation.optional')}
+                          className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {showFieldConfigDialog?.field.type === 'number' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {t('formulare.validation.minValue')}
+                        </label>
+                        <input
+                          type="number"
+                          value={configMin}
+                          onChange={(e) => setConfigMin(e.target.value)}
+                          placeholder={t('formulare.validation.optional')}
+                          className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {t('formulare.validation.maxValue')}
+                        </label>
+                        <input
+                          type="number"
+                          value={configMax}
+                          onChange={(e) => setConfigMax(e.target.value)}
+                          placeholder={t('formulare.validation.optional')}
+                          className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {showFieldConfigDialog?.field.type === 'text' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {t('formulare.validation.patternLabel')}
+                      </label>
+                      <select
+                        value={configPatternType}
+                        onChange={(e) =>
+                          setConfigPatternType(e.target.value as FieldPatternType)
+                        }
+                        className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                      >
+                        {PATTERN_TYPE_OPTION_KEYS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {t(opt.labelKey)}
+                          </option>
+                        ))}
+                      </select>
+                      {configPatternType !== 'free' && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {t('formulare.validation.patternHint')}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3671,6 +3766,232 @@ export default function FormularePage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteForm(confirmDelete)}
       />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// PreviewFillForm — interactive fill-out preview (FT-2a). Holds its own answer
+// + error state, applies the per-field validation rules on submit and shows a
+// thank-you state. Mirrors the future public page (white surface, blue accents).
+// Extended in FT-2b with rating + a configurable thank-you message.
+// ---------------------------------------------------------------------------
+
+interface PreviewFillFormProps {
+  fields: FormField[]
+  title: string
+  description?: string
+  t: (key: string, opts?: Record<string, unknown>) => string
+}
+
+function PreviewFillForm({ fields, title, description, t }: PreviewFillFormProps) {
+  const dataFields = useMemo(
+    () => fields.filter((f) => f.label !== '__page_break__'),
+    [fields],
+  )
+  const [values, setValues] = useState<Record<string, unknown>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitted, setSubmitted] = useState(false)
+
+  const setVal = (id: string, v: unknown) => {
+    setValues((prev) => ({ ...prev, [id]: v }))
+    setErrors((prev) => {
+      if (!prev[id]) return prev
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }
+
+  const handleSubmit = () => {
+    const next: Record<string, string> = {}
+    for (const field of dataFields) {
+      const raw = values[field.id]
+      const str = typeof raw === 'string' ? raw : raw == null ? '' : String(raw)
+      const missing =
+        field.type === 'consent' || field.type === 'checkbox'
+          ? raw !== true
+          : str.trim() === ''
+      if (field.required && missing) {
+        next[field.id] = t('formulare.validation.error.required')
+        continue
+      }
+      const err = validateFieldValue(field, raw)
+      if (err) next[field.id] = t(err.key, err.params)
+    }
+    setErrors(next)
+    if (Object.keys(next).length === 0) setSubmitted(true)
+  }
+
+  const reset = () => {
+    setValues({})
+    setErrors({})
+    setSubmitted(false)
+  }
+
+  if (submitted) {
+    return (
+      <div className="p-8">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-6 py-10 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+            <Check className="h-6 w-6 text-green-600" />
+          </div>
+          <p className="text-base font-semibold text-gray-900">
+            {t('formulare.preview.thankYouTitle')}
+          </p>
+          <p className="max-w-sm text-sm leading-relaxed text-gray-600">
+            {t('formulare.preview.thankYouDefault')}
+          </p>
+          <button
+            onClick={reset}
+            className="mt-1 text-xs font-medium text-blue-600 hover:underline"
+          >
+            {t('formulare.preview.fillAgain')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const errorCls = (id: string) =>
+    errors[id]
+      ? 'border-red-400 focus:ring-red-400'
+      : 'border-gray-300 focus:ring-blue-500'
+
+  return (
+    <div className="p-8">
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
+        {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+      </div>
+
+      <div className="space-y-5">
+        {dataFields.map((field) => {
+          const val = values[field.id]
+          return (
+            <div key={field.id} className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                {field.label}
+                {field.required && <span className="ml-0.5 text-destructive">*</span>}
+              </label>
+              {(field.type === 'text' ||
+                field.type === 'number' ||
+                field.type === 'email') && (
+                <input
+                  type={field.type === 'email' ? 'email' : field.type}
+                  value={typeof val === 'string' ? val : ''}
+                  onChange={(e) => setVal(field.id, e.target.value)}
+                  placeholder={
+                    field.placeholder ||
+                    (field.type === 'email' ? 'name@beispiel.de' : field.label)
+                  }
+                  className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+                />
+              )}
+              {field.type === 'textarea' && (
+                <textarea
+                  rows={3}
+                  value={typeof val === 'string' ? val : ''}
+                  onChange={(e) => setVal(field.id, e.target.value)}
+                  placeholder={field.placeholder || field.label}
+                  className={`w-full resize-none rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+                />
+              )}
+              {field.type === 'select' && (
+                <select
+                  value={typeof val === 'string' ? val : ''}
+                  onChange={(e) => setVal(field.id, e.target.value)}
+                  className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+                >
+                  <option value="">{t('formulare.editor.selectPlaceholder')}</option>
+                  {field.options?.map((opt) => (
+                    <option key={opt}>{opt}</option>
+                  ))}
+                </select>
+              )}
+              {field.type === 'radio' && (
+                <div className="space-y-1.5">
+                  {field.options?.map((opt) => (
+                    <label
+                      key={opt}
+                      className="flex items-center gap-2 text-sm text-gray-700"
+                    >
+                      <input
+                        type="radio"
+                        name={field.id}
+                        checked={val === opt}
+                        onChange={() => setVal(field.id, opt)}
+                        className="h-4 w-4 text-blue-600"
+                      />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {field.type === 'checkbox' && (
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={val === true}
+                    onChange={(e) => setVal(field.id, e.target.checked)}
+                    className="h-4 w-4 rounded text-blue-600"
+                  />
+                  {field.label}
+                </label>
+              )}
+              {field.type === 'date' && (
+                <input
+                  type="date"
+                  value={typeof val === 'string' ? val : ''}
+                  onChange={(e) => setVal(field.id, e.target.value)}
+                  className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+                />
+              )}
+              {field.type === 'file' && (
+                <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                  <Paperclip className="h-4 w-4" />
+                  {t('formulare.editor.dateiZiehen')}
+                </div>
+              )}
+              {field.type === 'consent' && (
+                <label className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={val === true}
+                    onChange={(e) => setVal(field.id, e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded text-blue-600"
+                  />
+                  <span className="text-xs leading-relaxed text-gray-600">
+                    {field.consentText || DEFAULT_CONSENT_TEXT}
+                    {field.privacyUrl && (
+                      <a
+                        href={field.privacyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-1 text-blue-600 underline"
+                      >
+                        {t('formulare.consent.privacyLink')}
+                      </a>
+                    )}
+                  </span>
+                </label>
+              )}
+              {errors[field.id] && (
+                <p className="text-xs text-red-600">{errors[field.id]}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {dataFields.length > 0 && (
+        <button
+          onClick={handleSubmit}
+          className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+        >
+          {t('formulare.editor.absenden')}
+        </button>
+      )}
     </div>
   )
 }
