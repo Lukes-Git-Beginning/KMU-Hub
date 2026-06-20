@@ -93,7 +93,16 @@ import type {
   FormSubmissionStatus,
   ShareChannel,
 } from '@/api/formulare-types'
-import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader, type ActionItem } from '@/components/shared'
+import {
+  ItemActions,
+  ConfirmDialog,
+  EmptyState,
+  DetailModal,
+  PageHeader,
+  SortMenu,
+  type ActionItem,
+  type SortDirection,
+} from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -306,6 +315,15 @@ export default function FormularePage() {
 
   // Detail modal for a single form (360° view + actions)
   const [selectedForm, setSelectedForm] = useState<FormSchema | null>(null)
+  // FT-1 — tab inside the form detail modal (Details / Eingänge; FD-2 adds Verteilung)
+  const [formDetailTab, setFormDetailTab] = useState<'details' | 'eingaenge' | 'verteilung'>('details')
+  // FT-1 — template detail modal (clickable template cards)
+  const [selectedTemplate, setSelectedTemplate] = useState<FormSchema | null>(null)
+  // FT-1 — confirm archiving a form that still has unread submissions
+  const [archiveConfirm, setArchiveConfirm] = useState<{
+    schema: FormSchema
+    newCount: number
+  } | null>(null)
 
   // Standalone public-facing form preview (decoupled from the editor draft)
   const [previewSchema, setPreviewSchema] = useState<FormSchema | null>(null)
@@ -454,6 +472,12 @@ export default function FormularePage() {
     setShowAddFieldMenu(false)
   }
 
+  // FT-1 — open the form detail modal on its Details tab.
+  const openFormDetail = (schema: FormSchema) => {
+    setFormDetailTab('details')
+    setSelectedForm(schema)
+  }
+
   const closeEditor = () => {
     closeDraft()
     setShowAddFieldMenu(false)
@@ -535,8 +559,20 @@ export default function FormularePage() {
   const restoreForm = (schema: FormSchema) =>
     applyStatus(schema, 'draft', 'formulare.lifecycle.restored')
 
-  const archiveForm = (schema: FormSchema) =>
+  const doArchive = (schema: FormSchema) =>
     applyStatus(schema, 'archived', 'formulare.toast.archiviert')
+
+  /** FT-1 — guard: confirm before archiving a form with unread submissions. */
+  const archiveForm = (schema: FormSchema) => {
+    const newCount = (submissionsBySchemaId[schema.id] ?? []).filter(
+      (s) => s.status === 'new',
+    ).length
+    if (newCount > 0) {
+      setArchiveConfirm({ schema, newCount })
+      return
+    }
+    doArchive(schema)
+  }
 
   const openCloseDialog = (schema: FormSchema) => {
     setCloseMessageInput(schema.closedMessage ?? '')
@@ -737,6 +773,27 @@ export default function FormularePage() {
               name: schema.title,
               format: format.toUpperCase(),
             }),
+          ),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
+  }
+
+  // Shared submission status mutation (Eingänge tab + form-detail Eingänge tab).
+  const handleSubmissionStatus = (
+    sub: FormSubmission,
+    status: FormSubmissionStatus,
+    schemaId: string,
+  ) => {
+    updateSubStatus.mutate(
+      { id: sub.id, status, formSchemaId: schemaId },
+      {
+        onSuccess: () =>
+          toast.success(
+            status === 'read'
+              ? t('formulare.toast.alsGelesenMarkiert')
+              : t('formulare.toast.eingangArchiviert'),
           ),
         onError: (err) =>
           toast.error(err instanceof Error ? err.message : t('common.error')),
@@ -2073,11 +2130,11 @@ export default function FormularePage() {
                   key={schema.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedForm(schema)}
+                  onClick={() => openFormDetail(schema)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      setSelectedForm(schema)
+                      openFormDetail(schema)
                     }
                   }}
                   className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -2215,29 +2272,9 @@ export default function FormularePage() {
                       <SubmissionsPanel
                         schemaId={schema.id}
                         onSelectSubmission={setSelectedSubmission}
-                        onUpdateStatus={(sub, status) => {
-                          updateSubStatus.mutate(
-                            {
-                              id: sub.id,
-                              status,
-                              formSchemaId: schema.id,
-                            },
-                            {
-                              onSuccess: () =>
-                                toast.success(
-                                  status === 'read'
-                                    ? t('formulare.toast.alsGelesenMarkiert')
-                                    : t('formulare.toast.eingangArchiviert'),
-                                ),
-                              onError: (err) =>
-                                toast.error(
-                                  err instanceof Error
-                                    ? err.message
-                                    : t('common.error'),
-                                ),
-                            },
-                          )
-                        }}
+                        onUpdateStatus={(sub, status) =>
+                          handleSubmissionStatus(sub, status, schema.id)
+                        }
                         submissionStatusLabels={submissionStatusLabels}
                         submissionStatusColors={submissionStatusColors}
                         formatDateTime={formatDateTime}
@@ -2266,7 +2303,16 @@ export default function FormularePage() {
               {templates.map((tmpl) => (
                 <div
                   key={tmpl.id}
-                  className="rounded-lg border-2 border-dashed border-border bg-card p-4 hover:border-primary/40 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTemplate(tmpl)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedTemplate(tmpl)
+                    }
+                  }}
+                  className="cursor-pointer rounded-lg border-2 border-dashed border-border bg-card p-4 transition-colors hover:border-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
@@ -2304,7 +2350,10 @@ export default function FormularePage() {
                   </div>
 
                   <button
-                    onClick={() => handleUseTemplate(tmpl)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleUseTemplate(tmpl)
+                    }}
                     className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
                   >
                     {t('formulare.vorlagen.verwenden')}
@@ -2512,6 +2561,7 @@ export default function FormularePage() {
       <DetailModal
         open={!!selectedForm}
         onClose={() => setSelectedForm(null)}
+        maxWidth="max-w-3xl"
         title={selectedForm?.title ?? ''}
         subtitle={
           selectedForm
@@ -2670,6 +2720,35 @@ export default function FormularePage() {
       >
         {selectedForm && (
           <div className="space-y-5">
+            {/* FT-1 — tabs: Details / Eingänge (Verteilung added in FD-2) */}
+            <div className="flex items-center gap-4 border-b border-border">
+              {(
+                [
+                  { key: 'details' as const, label: t('formulare.detail.tabDetails') },
+                  {
+                    key: 'eingaenge' as const,
+                    label: t('formulare.detail.tabEingaenge', {
+                      count: selectedForm.submissionCount,
+                    }),
+                  },
+                ]
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setFormDetailTab(tab.key)}
+                  className={`-mb-px border-b-2 px-1 pb-2 text-sm transition-colors ${
+                    formDetailTab === tab.key
+                      ? 'border-primary text-primary font-medium'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {formDetailTab === 'details' && (
+              <div className="space-y-5">
             {selectedForm.description && (
               <p className="text-sm text-muted-foreground">
                 {selectedForm.description}
@@ -2768,6 +2847,25 @@ export default function FormularePage() {
                 </div>
               )}
             </div>
+              </div>
+            )}
+
+            {/* FT-1 — submissions for this form, without leaving the modal */}
+            {formDetailTab === 'eingaenge' && (
+              <div className="overflow-hidden rounded-lg border border-t-0 border-border">
+                <SubmissionsPanel
+                  schemaId={selectedForm.id}
+                  onSelectSubmission={setSelectedSubmission}
+                  onUpdateStatus={(sub, status) =>
+                    handleSubmissionStatus(sub, status, selectedForm.id)
+                  }
+                  submissionStatusLabels={submissionStatusLabels}
+                  submissionStatusColors={submissionStatusColors}
+                  formatDateTime={formatDateTime}
+                  t={t}
+                />
+              </div>
+            )}
           </div>
         )}
       </DetailModal>
@@ -3142,6 +3240,104 @@ export default function FormularePage() {
         </DialogContent>
       </Dialog>
 
+      {/* ====================== VORLAGEN DETAIL MODAL (FT-1) ====================== */}
+      <DetailModal
+        open={!!selectedTemplate}
+        onClose={() => setSelectedTemplate(null)}
+        title={selectedTemplate?.title ?? ''}
+        subtitle={
+          selectedTemplate
+            ? t('formulare.card.felder', {
+                count: (selectedTemplate.fields as FormField[]).filter(
+                  (f) => f.label !== '__page_break__',
+                ).length,
+              })
+            : ''
+        }
+        badge={
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {t('formulare.vorlagen.badge')}
+          </span>
+        }
+        footer={
+          selectedTemplate ? (
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => {
+                  const tmpl = selectedTemplate
+                  setSelectedTemplate(null)
+                  handleUseTemplate(tmpl)
+                }}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+              >
+                <Copy className="h-4 w-4" />
+                {t('formulare.vorlagen.verwenden')}
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
+        {selectedTemplate && (
+          <div className="space-y-5">
+            {selectedTemplate.description && (
+              <p className="text-sm text-muted-foreground">
+                {selectedTemplate.description}
+              </p>
+            )}
+            <div>
+              <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {t('formulare.editor.felder', {
+                  count: (selectedTemplate.fields as FormField[]).filter(
+                    (f) => f.label !== '__page_break__',
+                  ).length,
+                })}
+              </h4>
+              <div className="divide-y divide-border-muted rounded-lg border border-border">
+                {(selectedTemplate.fields as FormField[])
+                  .filter((f) => f.label !== '__page_break__')
+                  .map((field) => {
+                    const Icon = FIELD_TYPE_ICONS[field.type]
+                    return (
+                      <div key={field.id} className="flex items-center gap-3 px-3 py-2.5">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary-light">
+                          <Icon className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="flex-1 truncate text-sm text-foreground">
+                          {field.label}
+                        </span>
+                        {field.required && (
+                          <span className="shrink-0 rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error">
+                            {t('formulare.editor.pflicht')}
+                          </span>
+                        )}
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {FIELD_TYPE_LABELS[field.type]}
+                        </span>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          </div>
+        )}
+      </DetailModal>
+
+      {/* ====================== ARCHIVE CONFIRM (FT-1) ====================== */}
+      <ConfirmDialog
+        open={!!archiveConfirm}
+        onOpenChange={() => setArchiveConfirm(null)}
+        title={t('formulare.archiveConfirm.title')}
+        description={t('formulare.archiveConfirm.description', {
+          count: archiveConfirm?.newCount ?? 0,
+        })}
+        confirmLabel={t('formulare.actions.archivieren')}
+        variant="warning"
+        onConfirm={() => {
+          if (archiveConfirm) doArchive(archiveConfirm.schema)
+          setArchiveConfirm(null)
+        }}
+      />
+
       {/* ====================== CLOSE FORM DIALOG (FD-0) ====================== */}
       <Dialog
         open={!!closeDialogForm}
@@ -3441,7 +3637,38 @@ function SubmissionsPanel({
 }: SubmissionsPanelProps) {
   // Hits the warm cache populated by the page-level eager useQueries fetch.
   const { data, isLoading } = useSubmissions(schemaId)
-  const items = data?.items ?? []
+  const items = useMemo(() => data?.items ?? [], [data])
+
+  // FT-1 — per-group status quick-filter + sort (field + direction).
+  const [statusFilter, setStatusFilter] = useState<'all' | FormSubmissionStatus>('all')
+  const [sortField, setSortField] = useState<'submittedAt' | 'submittedBy'>('submittedAt')
+  const [sortDir, setSortDir] = useState<SortDirection>('desc')
+
+  const counts = useMemo(
+    () => ({
+      all: items.length,
+      new: items.filter((s) => s.status === 'new').length,
+      read: items.filter((s) => s.status === 'read').length,
+      archived: items.filter((s) => s.status === 'archived').length,
+    }),
+    [items],
+  )
+
+  const visible = useMemo(() => {
+    const filtered =
+      statusFilter === 'all'
+        ? items
+        : items.filter((s) => s.status === statusFilter)
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      if (sortField === 'submittedBy') {
+        return (
+          dir * (a.submittedBy ?? '').localeCompare(b.submittedBy ?? '', 'de')
+        )
+      }
+      return dir * a.submittedAt.localeCompare(b.submittedAt)
+    })
+  }, [items, statusFilter, sortField, sortDir])
 
   if (isLoading) {
     return (
@@ -3463,8 +3690,61 @@ function SubmissionsPanel({
     )
   }
 
+  const filterChips: { value: 'all' | FormSubmissionStatus; label: string; count: number }[] = [
+    { value: 'all', label: t('formulare.submission.filter.all'), count: counts.all },
+    { value: 'new', label: submissionStatusLabels.new, count: counts.new },
+    { value: 'read', label: submissionStatusLabels.read, count: counts.read },
+    { value: 'archived', label: submissionStatusLabels.archived, count: counts.archived },
+  ]
+
   return (
     <div className="border-t border-border">
+      {/* Toolbar: status quick-filter + sort */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-muted bg-secondary/20 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {filterChips.map((chip) => {
+            const active = statusFilter === chip.value
+            return (
+              <button
+                key={chip.value}
+                onClick={() => setStatusFilter(chip.value)}
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-colors ${
+                  active
+                    ? 'bg-primary-light text-primary font-medium'
+                    : 'text-muted-foreground hover:bg-secondary'
+                }`}
+              >
+                {chip.label}
+                <span
+                  className={`rounded-full px-1.5 text-[10px] ${
+                    active ? 'bg-primary/15' : 'bg-secondary'
+                  }`}
+                >
+                  {chip.count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <SortMenu
+          options={[
+            { value: 'submittedAt', label: t('formulare.submission.table.datum') },
+            { value: 'submittedBy', label: t('formulare.submission.table.absender') },
+          ]}
+          field={sortField}
+          direction={sortDir}
+          onChange={(f, d) => {
+            setSortField(f as 'submittedAt' | 'submittedBy')
+            setSortDir(d)
+          }}
+        />
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+          {t('formulare.submission.noFilterMatch')}
+        </div>
+      ) : (
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-muted bg-secondary/30">
@@ -3481,7 +3761,7 @@ function SubmissionsPanel({
           </tr>
         </thead>
         <tbody>
-          {items.map((sub) => (
+          {visible.map((sub) => (
             <tr
               key={sub.id}
               onClick={() => onSelectSubmission(sub)}
@@ -3532,6 +3812,7 @@ function SubmissionsPanel({
           ))}
         </tbody>
       </table>
+      )}
     </div>
   )
 }
