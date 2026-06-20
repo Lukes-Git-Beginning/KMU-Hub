@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useReportDocument, useUpdateReportDocument } from '@/api/hooks/useBerichte'
+import { Skeleton } from '@/components/shared'
 import { ReportStatusBadge } from './ReportStatusBadge'
 import { BLOCK_META, blockSummary, estimatePageCount } from './doc-utils'
 
@@ -47,7 +48,7 @@ export function ReportDocumentEditor({ documentId, onBack }: ReportDocumentEdito
             aria-label={t('berichte.docs.titleLabel')}
           />
         ) : (
-          <div className="flex-1" />
+          <Skeleton className="h-7 w-56 flex-1 max-w-xs rounded-md" />
         )}
 
         {doc && (
@@ -63,9 +64,12 @@ export function ReportDocumentEditor({ documentId, onBack }: ReportDocumentEdito
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-6">
         {isLoading || !doc ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            {t('berichte.docs.loading')}
-          </p>
+          <div className="mx-auto max-w-3xl space-y-3" aria-busy="true">
+            <Skeleton className="h-10 w-full rounded-lg" />
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
         ) : (
           <div className="mx-auto max-w-3xl space-y-3">
             <div className="rounded-lg border border-dashed border-border bg-secondary/20 p-3 text-xs text-muted-foreground">

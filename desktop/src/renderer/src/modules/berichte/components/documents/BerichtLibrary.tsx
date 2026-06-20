@@ -19,6 +19,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ItemActions,
+  SkeletonCard,
   SortMenu,
   type SortDirection,
 } from '@/components/shared'
@@ -207,9 +208,17 @@ export function BerichtLibrary({ onOpen, onNew }: BerichtLibraryProps) {
 
       {/* Grid / list */}
       {isLoading ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          {t('berichte.docs.loading')}
-        </p>
+        <div
+          className={
+            layout === 'grid'
+              ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'
+              : 'flex flex-col gap-2'
+          }
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={FileText}
