@@ -17,6 +17,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
 	"github.com/kmuhub/kmuhub/internal/vermietung"
 	vermietungv1 "github.com/kmuhub/kmuhub/proto/vermietung/v1"
@@ -50,9 +51,11 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			middleware.RecoveryUnaryInterceptor(),
 			metricsRegistry.GRPCUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
+			middleware.RecoveryStreamInterceptor(),
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)

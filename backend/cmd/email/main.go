@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/config"
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/email/attachment"
@@ -94,9 +95,13 @@ func main() {
 	messageService := message.NewService(messageRepo, folderRepo)
 	signatureService := signature.NewService(signatureRepo)
 
-	// Send service (needs account for SMTP creds, message for local storage, signature for appending)
+	// Send service (needs account for SMTP creds, message for local storage, signature for appending).
+	// R3-P0-4: enforce active email consent before sending contact-tagged mail. The asserter is
+	// nil-safe in send.Service and only fires when SendInput.ContactID is set — full enforcement
+	// additionally requires threading contact_id through SendEmailRequest (proto) + gateway + FE.
 	sendAccountAdapter := &sendAccountAdapter{accountService: accountService}
-	sendService := send.NewService(sendAccountAdapter, messageService, signatureService)
+	consentAsserter := consent.NewAsserter(consent.NewPostgresAssertRepo(pool), slog.Default())
+	sendService := send.NewServiceWithConsent(sendAccountAdapter, messageService, signatureService, consentAsserter)
 
 	// Attachment service (MinIO storage)
 	attachStore := attachment.NewStore(minioClient, cfg.MinIOBucket)
@@ -122,10 +127,12 @@ func main() {
 	// gRPC server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			middleware.RecoveryUnaryInterceptor(),
 			metricsRegistry.GRPCUnaryInterceptor(),
 			middleware.TenantInboundUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
+			middleware.RecoveryStreamInterceptor(),
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)

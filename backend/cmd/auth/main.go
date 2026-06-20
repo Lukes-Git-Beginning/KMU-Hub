@@ -116,10 +116,12 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			middleware.RecoveryUnaryInterceptor(),
 			metricsRegistry.GRPCUnaryInterceptor(),
 			middleware.TenantInboundUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
+			middleware.RecoveryStreamInterceptor(),
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
