@@ -1,5 +1,14 @@
 import { useTranslation } from 'react-i18next'
-import { FileText, TrendingDown, TrendingUp } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FileText,
+  Info,
+  Lightbulb,
+  TrendingDown,
+  TrendingUp,
+  type LucideIcon,
+} from 'lucide-react'
 import DOMPurify from 'dompurify'
 import type {
   CalloutVariant,
@@ -17,10 +26,17 @@ import { formatDate } from '@/lib/format'
 import { ChartRenderer } from '../charts/ChartRenderer'
 
 const CALLOUT_STYLE: Record<CalloutVariant, string> = {
-  info: 'border-info/30 bg-info-light',
-  success: 'border-success/30 bg-success-light',
-  warning: 'border-warning/30 bg-warning-light',
-  recommendation: 'border-primary/30 bg-primary-light',
+  info: 'border-info/25 bg-info-light',
+  success: 'border-success/25 bg-success-light',
+  warning: 'border-warning/25 bg-warning-light',
+  recommendation: 'border-primary/25 bg-primary-light',
+}
+
+const CALLOUT_ICON: Record<CalloutVariant, { icon: LucideIcon; tone: string }> = {
+  info: { icon: Info, tone: 'text-info' },
+  success: { icon: CheckCircle2, tone: 'text-success' },
+  warning: { icon: AlertTriangle, tone: 'text-warning' },
+  recommendation: { icon: Lightbulb, tone: 'text-primary' },
 }
 
 /** A row that is purely a page break — used as a sheet separator in read mode. */
@@ -32,12 +48,21 @@ function isPageBreakRow(row: ReportRow): boolean {
   )
 }
 
-/** Split the document into sheets on dedicated page-break rows. */
+/** Whether a row carries a cover block (which always gets its own sheet). */
+function rowHasCover(row: ReportRow): boolean {
+  return row.columns.some((col) => col.blocks.some((block) => block.type === 'cover'))
+}
+
+/** Split the document into sheets on page-break rows; a cover always stands alone. */
 function paginate(rows: ReportRow[]): ReportRow[][] {
   const pages: ReportRow[][] = [[]]
   for (const row of rows) {
-    if (isPageBreakRow(row)) pages.push([])
-    else pages[pages.length - 1].push(row)
+    if (isPageBreakRow(row)) {
+      pages.push([])
+      continue
+    }
+    pages[pages.length - 1].push(row)
+    if (rowHasCover(row)) pages.push([])
   }
   return pages.filter((page) => page.length > 0)
 }
@@ -193,37 +218,55 @@ function BlockView({ block, accent }: { block: ReportBlock; accent?: string }) {
     case 'table':
       return <ChartBlockView block={block} />
 
-    case 'callout':
+    case 'callout': {
+      const { icon: CalloutIcon, tone } = CALLOUT_ICON[block.variant]
       return (
-        <div className={`rounded-xl border p-4 ${CALLOUT_STYLE[block.variant]}`}>
-          {block.title && (
-            <p className="mb-1 text-sm font-semibold text-foreground">{block.title}</p>
-          )}
-          <div
-            className="prose prose-sm max-w-none text-foreground dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.html) }}
-          />
+        <div className={`flex gap-3 rounded-xl border p-4 ${CALLOUT_STYLE[block.variant]}`}>
+          <CalloutIcon className={`mt-0.5 h-4 w-4 shrink-0 ${tone}`} aria-hidden="true" />
+          <div className="min-w-0">
+            {block.title && (
+              <p className="mb-1 text-sm font-semibold text-foreground">{block.title}</p>
+            )}
+            <div
+              className="prose prose-sm max-w-[60ch] text-foreground dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.html) }}
+            />
+          </div>
         </div>
       )
+    }
 
-    case 'bullet':
-      return (
-        <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
-          {block.items.map((item, i) => (
+    case 'bullet': {
+      const items = block.items.filter((item) => item.trim().length > 0)
+      const cls = 'max-w-[65ch] space-y-1.5 pl-5 text-sm leading-relaxed text-foreground'
+      return block.ordered ? (
+        <ol className={`list-decimal marker:text-muted-foreground ${cls}`}>
+          {items.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ol>
+      ) : (
+        <ul className={`list-disc marker:text-muted-foreground/60 ${cls}`}>
+          {items.map((item, i) => (
             <li key={i}>{item}</li>
           ))}
         </ul>
       )
+    }
 
     case 'divider':
-      return <hr className="border-border" />
+      return <hr className="my-2 border-border-muted" />
 
     case 'image':
       return (
         <figure className="space-y-2">
-          <img src={block.url} alt={block.alt ?? ''} className="w-full rounded-lg" />
+          <img
+            src={block.url}
+            alt={block.alt ?? ''}
+            className="w-full rounded-lg border border-border-muted"
+          />
           {block.caption && (
-            <figcaption className="text-center text-xs text-muted-foreground">
+            <figcaption className="text-center text-xs italic text-muted-foreground">
               {block.caption}
             </figcaption>
           )}
@@ -295,18 +338,20 @@ function CoverView({ block, accent }: { block: CoverBlock; accent?: string }) {
 function KpiView({ block }: { block: KpiBlock }) {
   const positive = (block.changePercent ?? 0) >= 0
   return (
-    <div className="rounded-xl border border-border bg-secondary/20 p-4">
-      <p className="text-xs text-muted-foreground">{block.label}</p>
-      <p className="mt-1 text-2xl font-semibold text-foreground">
+    <div className="flex h-full flex-col rounded-lg border border-border-muted bg-card p-4">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {block.label}
+      </p>
+      <p className="mt-3 text-[1.75rem] font-semibold leading-none tracking-tight text-foreground tabular-nums">
         {block.value}
         {block.unit && (
           <span className="ml-1 text-base font-normal text-muted-foreground">{block.unit}</span>
         )}
       </p>
-      <div className="mt-1 flex items-center justify-between gap-2">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
         {block.changePercent != null ? (
           <span
-            className={`inline-flex items-center gap-1 text-xs ${positive ? 'text-success' : 'text-destructive'}`}
+            className={`inline-flex items-center gap-1 text-xs font-medium ${positive ? 'text-success' : 'text-destructive'}`}
           >
             {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {Math.abs(block.changePercent)} %
@@ -315,7 +360,7 @@ function KpiView({ block }: { block: KpiBlock }) {
           <span />
         )}
         {block.source && (
-          <span className="truncate text-[10px] uppercase tracking-wide text-muted-foreground/70">
+          <span className="truncate text-[10px] uppercase tracking-wide text-muted-foreground/60">
             {block.source}
           </span>
         )}
@@ -331,8 +376,8 @@ function ChartBlockView({ block }: { block: ChartBlock | TableBlock }) {
   const viz = block.type === 'table' ? 'table' : (block.viz ?? 'bar')
 
   return (
-    <figure className="space-y-2">
-      <div className="rounded-xl border border-border bg-card p-4">
+    <figure className="space-y-2.5">
+      <div className="rounded-lg border border-border-muted bg-card p-4">
         {result ? (
           <ChartRenderer result={result} viz={viz} height={280} />
         ) : isLoading ? (
@@ -344,7 +389,7 @@ function ChartBlockView({ block }: { block: ChartBlock | TableBlock }) {
         )}
       </div>
       {block.caption && (
-        <figcaption className="text-center text-xs text-muted-foreground">
+        <figcaption className="text-center text-xs italic text-muted-foreground">
           {block.caption}
         </figcaption>
       )}
