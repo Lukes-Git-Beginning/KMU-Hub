@@ -362,6 +362,7 @@
   "api.caldav.error.settingsUpdate": "Error updating settings",
   "api.caldav.passwordRevoked": "Password revoked",
   "api.caldav.settingsUpdated": "CalDAV settings updated",
+  "api.datev.belegRetrying": "Retrying document upload ({attempt}/{max}) …",
   "api.datev.belegUploaded": "Document uploaded to DATEV",
   "api.datev.buchungsstapelUploaded": "Journal batch uploaded to DATEV",
   "api.datev.configSaved": "DATEV configuration saved",

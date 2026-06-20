@@ -362,6 +362,7 @@
   "api.caldav.error.settingsUpdate": "Errore durante l'aggiornamento delle impostazioni",
   "api.caldav.passwordRevoked": "Password revocata",
   "api.caldav.settingsUpdated": "Impostazioni CalDAV aggiornate",
+  "api.datev.belegRetrying": "Nuovo tentativo di caricamento ({attempt}/{max}) …",
   "api.datev.belegUploaded": "Documento caricato su DATEV",
   "api.datev.buchungsstapelUploaded": "Batch contabile caricato su DATEV",
   "api.datev.configSaved": "Configurazione DATEV salvata",

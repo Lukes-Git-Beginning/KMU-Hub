@@ -362,6 +362,7 @@
   "api.caldav.error.settingsUpdate": "Fehler beim Aktualisieren der Einstellungen",
   "api.caldav.passwordRevoked": "Passwort widerrufen",
   "api.caldav.settingsUpdated": "CalDAV-Einstellungen aktualisiert",
+  "api.datev.belegRetrying": "Beleg-Upload wird wiederholt ({attempt}/{max}) …",
   "api.datev.belegUploaded": "Beleg an DATEV hochgeladen",
   "api.datev.buchungsstapelUploaded": "Buchungsstapel an DATEV hochgeladen",
   "api.datev.configSaved": "DATEV-Konfiguration gespeichert",

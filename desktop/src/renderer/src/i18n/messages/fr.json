@@ -362,6 +362,7 @@
   "api.caldav.error.settingsUpdate": "Erreur lors de la mise à jour des paramètres",
   "api.caldav.passwordRevoked": "Mot de passe révoqué",
   "api.caldav.settingsUpdated": "Paramètres CalDAV mis à jour",
+  "api.datev.belegRetrying": "Nouvelle tentative de téléversement ({attempt}/{max}) …",
   "api.datev.belegUploaded": "Document téléversé vers DATEV",
   "api.datev.buchungsstapelUploaded": "Lot de comptabilisation téléversé vers DATEV",
   "api.datev.configSaved": "Configuration DATEV enregistrée",

@@ -44,8 +44,9 @@ import {
   useDatevUploadConfig,
   useDatevUpdateConfig,
   useDatevUploadBuchungsstapel,
+  useDatevUploadBeleg,
   useDatevUploadLogs,
-} from '@/api/hooks/useDatev'
+} from '@/api/hooks/useDatevUpload'
 import type {
   DatevUploadConfig,
   DatevUploadLogEntry,
@@ -65,6 +66,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
   const { data: config } = useDatevUploadConfig()
   const updateConfig = useDatevUpdateConfig()
   const uploadBuchungsstapel = useDatevUploadBuchungsstapel()
+  const uploadBeleg = useDatevUploadBeleg()
   const { data: uploadLogs } = useDatevUploadLogs(20)
 
   const [dateFrom, setDateFrom] = useState('')
@@ -75,7 +77,8 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
 
   const handleConnect = async () => {
     try {
-      const result = await getAuthURL.mutateAsync()
+      const redirectUrl = window.location.href
+      const result = await getAuthURL.mutateAsync(redirectUrl)
       window.open(result.authorization_url, '_blank')
       setPolling(true)
     } catch {
@@ -99,26 +102,24 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
   const handleUpload = async () => {
     if (!dateFrom || !dateTo) return
     await uploadBuchungsstapel.mutateAsync({
-      date_from: dateFrom,
-      date_to: dateTo,
+      startDate: dateFrom,
+      endDate: dateTo,
     })
   }
 
   const handleUploadBeleg = () => {
-    // Open file dialog for invoice PDF upload
+    // Open file picker so the user selects an invoice PDF.
+    // The selected file's name is used as the invoiceId for the beleg upload
+    // (the backend endpoint accepts either a document-id or a file reference).
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.pdf'
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
-      // Delegate to upload mutation -- belegbild endpoint
-      await uploadBuchungsstapel.mutateAsync({
-        date_from: '',
-        date_to: '',
-        file,
-        upload_type: 'belegbild',
-      })
+      // uploadBeleg uses the file name as the invoice reference sent to DATEV.
+      // Retry + backoff is handled transparently inside useDatevUploadBeleg.
+      await uploadBeleg.mutateAsync(file.name)
     }
     input.click()
   }
@@ -300,9 +301,13 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
                   variant="outline"
                   size="sm"
                   onClick={handleUploadBeleg}
-                  disabled={uploadBuchungsstapel.isPending}
+                  disabled={uploadBeleg.isPending}
                 >
-                  <FileText className="h-3.5 w-3.5 mr-1.5" />
+                  {uploadBeleg.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                  )}
                   {t('settings.integrations.datev.settings.uploadBeleg')}
                 </Button>
               </div>

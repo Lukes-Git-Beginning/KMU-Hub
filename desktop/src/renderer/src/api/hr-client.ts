@@ -412,11 +412,48 @@ export const hrTimeApi = {
 // Absences
 // ---------------------------------------------------------------------------
 
+/**
+ * Adapts a raw backend AbsenceEntry (snake_case wire shape per OpenAPI spec)
+ * to the camelCase AbsenceEntry type used by the FE.
+ *
+ * The backend emits:
+ *   employee_id, employee_name, department, start_date, end_date,
+ *   leave_type_name, leave_type_color
+ *
+ * The MSW demo handler emits camelCase directly (masks the mismatch in demo
+ * mode). Using `?? ` chaining (snake_case first, camelCase fallback) keeps
+ * both modes working without changes to mock handlers.
+ *
+ * Note: leave_type_key, isHalfDayStart/End, halfDayPeriodStart/End are not
+ * part of the OpenAPI AbsenceEntry schema and default to safe fallback values.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptAbsenceEntry(raw: Record<string, any>): AbsenceEntry {
+  return {
+    employeeId:         raw.employee_id          ?? raw.employeeId         ?? '',
+    employeeName:       raw.employee_name        ?? raw.employeeName       ?? '',
+    department:         raw.department                                     ?? '',
+    leaveTypeName:      raw.leave_type_name      ?? raw.leaveTypeName      ?? '',
+    leaveTypeKey:       raw.leave_type_key       ?? raw.leaveTypeKey       ?? '',
+    color:              raw.leave_type_color     ?? raw.color              ?? '#6b7280',
+    startDate:          raw.start_date           ?? raw.startDate          ?? '',
+    endDate:            raw.end_date             ?? raw.endDate            ?? '',
+    isHalfDayStart:     raw.is_half_day_start    ?? raw.isHalfDayStart    ?? false,
+    halfDayPeriodStart: raw.half_day_period_start ?? raw.halfDayPeriodStart,
+    isHalfDayEnd:       raw.is_half_day_end      ?? raw.isHalfDayEnd      ?? false,
+    halfDayPeriodEnd:   raw.half_day_period_end  ?? raw.halfDayPeriodEnd,
+  }
+}
+
 export const hrAbsenceApi = {
-  getCalendar(params: Record<string, unknown>) {
-    return request<{ entries: AbsenceEntry[] }>(
+  async getCalendar(params: Record<string, unknown>) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<{ entries: any[] }>(
       `/api/v1/hr/absences/calendar${qs(params)}`,
     )
+    return {
+      entries: (raw.entries ?? []).map(adaptAbsenceEntry),
+    }
   },
 }
 

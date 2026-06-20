@@ -115,10 +115,44 @@ export function useDatevUploadBuchungsstapel() {
   })
 }
 
+/** Maximum upload attempts for belegbild (1 initial + 2 retries). */
+const BELEG_MAX_ATTEMPTS = 3
+/** Base backoff delay in milliseconds (doubles on each retry: 1s, 2s). */
+const BELEG_BACKOFF_MS = 1_000
+
+/**
+ * Uploads a belegbild invoice to DATEV with up to BELEG_MAX_ATTEMPTS
+ * attempts and exponential backoff. Shows a loading toast on each retry
+ * so the user is aware without seeing a false error prematurely.
+ *
+ * Idempotent: the backend endpoint is keyed by invoiceId, so repeated
+ * calls with the same id are safe.
+ */
+async function uploadBelegWithRetry(invoiceId: string) {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= BELEG_MAX_ATTEMPTS; attempt++) {
+    try {
+      const result = await datevUploadClient.uploadBeleg(invoiceId)
+      return result
+    } catch (err) {
+      lastError = err
+      if (attempt < BELEG_MAX_ATTEMPTS) {
+        const delayMs = BELEG_BACKOFF_MS * Math.pow(2, attempt - 1)
+        toast.loading(
+          i18next.t('api.datev.belegRetrying', { attempt, max: BELEG_MAX_ATTEMPTS }),
+          { id: `beleg-retry-${invoiceId}`, duration: delayMs },
+        )
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+  }
+  throw lastError
+}
+
 export function useDatevUploadBeleg() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (invoiceId: string) => datevUploadClient.uploadBeleg(invoiceId),
+    mutationFn: (invoiceId: string) => uploadBelegWithRetry(invoiceId),
     onSuccess: (data) => {
       if (data.success) {
         toast.success(i18next.t('api.datev.belegUploaded'))
