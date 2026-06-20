@@ -1,6 +1,18 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    # Custom image extends pgvector/pgvector:pg16 with postgresql-16-cron
+    # for automated partition management (R2-P1.10). See postgres/Dockerfile.
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    # pg_cron must be in shared_preload_libraries before the extension can be created.
+    # cron.database_name restricts which database the cron worker connects to.
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_cron"
+      - "-c"
+      - "cron.database_name=kmuhub"
     environment:
       POSTGRES_DB: kmuhub
       POSTGRES_USER: kmuhub

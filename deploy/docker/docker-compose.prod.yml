@@ -7,8 +7,16 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # Production command merges pg_cron preload (from base compose) with
+    # performance tuning. Both shared_preload_libraries and cron.database_name
+    # must be repeated here because docker-compose prod overlay replaces
+    # (not merges) the command array from the base file.
     command:
       - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_cron"
+      - "-c"
+      - "cron.database_name=kmuhub"
       - "-c"
       - "shared_buffers=4GB"
       - "-c"
