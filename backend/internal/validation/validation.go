@@ -84,6 +84,16 @@ func validate() *validator.Validate {
 			}
 			return d.GreaterThan(decimal.Zero)
 		})
+		// decimal_gte0 accepts a numeric decimal string greater than or equal to zero.
+		// Used for amounts/prices that may legitimately be zero (a free line item, a
+		// waived fee) but must never be negative or non-numeric.
+		mustRegister(v, "decimal_gte0", func(fl validator.FieldLevel) bool {
+			d, err := decimal.NewFromString(strings.TrimSpace(fl.Field().String()))
+			if err != nil {
+				return false
+			}
+			return d.GreaterThanOrEqual(decimal.Zero)
+		})
 
 		instance = v
 	})

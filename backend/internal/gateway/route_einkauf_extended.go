@@ -72,7 +72,7 @@ type createCatalogItemRequest struct {
 	Name        string `json:"name"          validate:"required"`
 	SKU         string `json:"sku,omitempty"`
 	Category    string `json:"category,omitempty"`
-	Price       string `json:"price"         validate:"required"`
+	Price       string `json:"price"         validate:"required,decimal_gte0"`
 	Currency    string `json:"currency,omitempty"`
 	Unit        string `json:"unit,omitempty"`
 	Available   bool   `json:"available"`
@@ -83,7 +83,7 @@ type updateCatalogItemRequest struct {
 	Name        *string `json:"name,omitempty"`
 	SKU         *string `json:"sku,omitempty"`
 	Category    *string `json:"category,omitempty"`
-	Price       *string `json:"price,omitempty"`
+	Price       *string `json:"price,omitempty" validate:"omitempty,decimal_gte0"`
 	Currency    *string `json:"currency,omitempty"`
 	Unit        *string `json:"unit,omitempty"`
 	Available   *bool   `json:"available,omitempty"`
@@ -102,7 +102,7 @@ type createFrameworkContractRequest struct {
 	ContractNr string `json:"contract_nr,omitempty"`
 	StartDate  string `json:"start_date,omitempty"`
 	EndDate    string `json:"end_date,omitempty"`
-	TotalValue string `json:"total_value,omitempty"`
+	TotalValue string `json:"total_value,omitempty" validate:"omitempty,decimal_gte0"`
 	Currency   string `json:"currency,omitempty"`
 	Status     string `json:"status,omitempty"`
 }
@@ -113,28 +113,28 @@ type updateFrameworkContractRequest struct {
 	ContractNr *string `json:"contract_nr,omitempty"`
 	StartDate  *string `json:"start_date,omitempty"`
 	EndDate    *string `json:"end_date,omitempty"`
-	TotalValue *string `json:"total_value,omitempty"`
+	TotalValue *string `json:"total_value,omitempty" validate:"omitempty,decimal_gte0"`
 	Currency   *string `json:"currency,omitempty"`
 	Status     *string `json:"status,omitempty"`
 }
 
 type createContractItemRequest struct {
 	Name      string `json:"name"       validate:"required"`
-	UnitPrice string `json:"unit_price,omitempty"`
+	UnitPrice string `json:"unit_price,omitempty" validate:"omitempty,decimal_gte0"`
 	Unit      string `json:"unit,omitempty"`
 	AgreedQty string `json:"agreed_qty,omitempty"`
 }
 
 type updateContractItemRequest struct {
 	Name      *string `json:"name,omitempty"`
-	UnitPrice *string `json:"unit_price,omitempty"`
+	UnitPrice *string `json:"unit_price,omitempty" validate:"omitempty,decimal_gte0"`
 	Unit      *string `json:"unit,omitempty"`
 	AgreedQty *string `json:"agreed_qty,omitempty"`
 }
 
 type createContractCallRequest struct {
 	POID     string `json:"po_id,omitempty"`
-	Amount   string `json:"amount"    validate:"required"`
+	Amount   string `json:"amount"    validate:"required,decimal_gte0"`
 	Currency string `json:"currency,omitempty"`
 	Notes    string `json:"notes,omitempty"`
 }

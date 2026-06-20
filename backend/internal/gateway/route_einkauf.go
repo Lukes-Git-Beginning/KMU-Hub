@@ -108,7 +108,7 @@ type createSupplierRequest struct {
 type updateSupplierRequest struct {
 	Name         *string `json:"name,omitempty"`
 	ContactID    *string `json:"contact_id,omitempty"` // empty string to clear
-	Email        *string `json:"email,omitempty"`
+	Email        *string `json:"email,omitempty"    validate:"omitempty,email"`
 	Phone        *string `json:"phone,omitempty"`
 	Address      *string `json:"address,omitempty"`
 	PaymentTerms *string `json:"payment_terms,omitempty"`
@@ -136,8 +136,8 @@ type updatePORequest struct {
 type addPOLineRequest struct {
 	ProductName  string `json:"product_name"          validate:"required"`
 	SKU          string `json:"sku,omitempty"`
-	Quantity     string `json:"quantity"              validate:"required"`
-	UnitPrice    string `json:"unit_price"            validate:"required"`
+	Quantity     string `json:"quantity"              validate:"required,decimal_gt0"`
+	UnitPrice    string `json:"unit_price"            validate:"required,decimal_gte0"`
 	TaxRate      string `json:"tax_rate,omitempty"`
 	LinePosition int32  `json:"line_position,omitempty"`
 }
@@ -145,8 +145,8 @@ type addPOLineRequest struct {
 type updatePOLineRequest struct {
 	ProductName  *string `json:"product_name,omitempty"`
 	SKU          *string `json:"sku,omitempty"`
-	Quantity     *string `json:"quantity,omitempty"`
-	UnitPrice    *string `json:"unit_price,omitempty"`
+	Quantity     *string `json:"quantity,omitempty"     validate:"omitempty,decimal_gt0"`
+	UnitPrice    *string `json:"unit_price,omitempty"   validate:"omitempty,decimal_gte0"`
 	TaxRate      *string `json:"tax_rate,omitempty"`
 	LinePosition *int32  `json:"line_position,omitempty"`
 }

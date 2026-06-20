@@ -177,6 +177,10 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if req.Customer != nil && !validateCustomerVAT(w, req.Customer.GetUstIdNr()) {
+		return
+	}
+
 	resp, err := client.UpdateInvoice(r.Context(), &bizv1.UpdateInvoiceRequest{
 		Id:           id,
 		TenantId:     tenantID,

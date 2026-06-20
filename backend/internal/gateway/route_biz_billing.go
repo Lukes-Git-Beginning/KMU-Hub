@@ -321,8 +321,8 @@ func (b *BizRoutes) HandleListDunnings(w http.ResponseWriter, r *http.Request) {
 type createDunningRequest struct {
 	InvoiceID string `json:"invoice_id" validate:"required,uuid"`
 	Level     int32  `json:"level"      validate:"required,gte=1,lte=3"`
-	Fee       string `json:"fee"`
-	Interest  string `json:"interest"`
+	Fee       string `json:"fee"        validate:"omitempty,decimal_gte0"`
+	Interest  string `json:"interest"   validate:"omitempty,decimal_gte0"`
 }
 
 func (b *BizRoutes) HandleCreateDunning(w http.ResponseWriter, r *http.Request) {

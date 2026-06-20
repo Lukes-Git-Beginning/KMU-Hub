@@ -150,6 +150,10 @@ func (b *BizRoutes) HandleUpdateQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Customer != nil && !validateCustomerVAT(w, req.Customer.GetUstIdNr()) {
+		return
+	}
+
 	resp, err := client.UpdateQuote(r.Context(), &bizv1.UpdateQuoteRequest{
 		Id:         id,
 		TenantId:   tenantID,

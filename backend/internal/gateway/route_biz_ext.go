@@ -41,7 +41,7 @@ type createInvoiceFromTimeRequest struct {
 	CustomerEmail   string `json:"customer_email" validate:"omitempty,email"`
 	DateFrom        string `json:"date_from" validate:"required,datetime=2006-01-02"` // YYYY-MM-DD
 	DateTo          string `json:"date_to" validate:"required,datetime=2006-01-02"`   // YYYY-MM-DD
-	HourlyRate      string `json:"hourly_rate" validate:"required"`
+	HourlyRate      string `json:"hourly_rate" validate:"required,decimal_gt0"`
 	Description     string `json:"description"`
 	TaxMode         string `json:"tax_mode" validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"` // default: "standard"
 }
