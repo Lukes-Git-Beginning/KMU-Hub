@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -278,6 +279,75 @@ func (r *PostgresRepository) GetByInvoiceID(ctx context.Context, tenantID, invoi
 	}
 
 	// Bulk-load line items for all credit notes in the result (avoids N+1).
+	if len(creditNotes) > 0 {
+		ids := make([]uuid.UUID, len(creditNotes))
+		for i, cn := range creditNotes {
+			ids[i] = cn.ID
+		}
+		linesByID, linesErr := loadCreditNoteLines(ctx, r.pool, ids)
+		if linesErr != nil {
+			return nil, linesErr
+		}
+		for _, cn := range creditNotes {
+			if lines, ok := linesByID[cn.ID]; ok {
+				raw, marshalErr := marshalLineItems(lines)
+				if marshalErr != nil {
+					return nil, marshalErr
+				}
+				cn.LineItems = raw
+			}
+		}
+	}
+
+	return creditNotes, nil
+}
+
+// ListForDATEVExport returns sent credit notes in [fromDate, toDate] (by created_at,
+// the whole end day inclusive), keyset-paged by (created_at, id) so a DATEV export
+// can stream pages without holding the whole result set in memory. Credit notes have
+// no dedicated issue-date column, so created_at is the period key. afterDate/afterID
+// are the cursor from the previous page (nil for the first page).
+func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.CreditNote, error) {
+	args := []any{tenantID, fromDate, toDate}
+	cursorClause := ""
+	if afterDate != nil && afterID != nil {
+		cursorClause = fmt.Sprintf(" AND (created_at, id) > ($%d, $%d)", len(args)+1, len(args)+2)
+		args = append(args, *afterDate, *afterID)
+	}
+	args = append(args, limit)
+
+	query := fmt.Sprintf(`SELECT id, tenant_id, credit_note_number, status,
+			original_invoice_id,
+			customer_name, customer_address, customer_email, customer_ust_id_nr,
+			tax_mode, line_items, tax_breakdown,
+			subtotal, total_tax, gross_total,
+			reason, created_by, created_at, updated_at
+		FROM finance_credit_notes
+		WHERE tenant_id = $1
+		  AND status = 'sent'
+		  AND created_at >= $2
+		  AND created_at < ($3::date + INTERVAL '1 day')%s
+		ORDER BY created_at ASC, id ASC
+		LIMIT $%d`, cursorClause, len(args))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list credit notes for DATEV export: %w", err)
+	}
+	defer rows.Close()
+
+	var creditNotes []*models.CreditNote
+	for rows.Next() {
+		cn, scanErr := r.scanCreditNoteFromRows(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		creditNotes = append(creditNotes, cn)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate DATEV export rows: %w", err)
+	}
+
 	if len(creditNotes) > 0 {
 		ids := make([]uuid.UUID, len(creditNotes))
 		for i, cn := range creditNotes {

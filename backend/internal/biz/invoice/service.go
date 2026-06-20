@@ -229,6 +229,12 @@ func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilte
 	return s.repo.List(ctx, tenantID, filter)
 }
 
+// ListForDATEVExport returns one keyset-paged page of sent/paid/overdue invoices in
+// [fromDate, toDate] for the DATEV export. See Repository.ListForDATEVExport.
+func (s *Service) ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.Invoice, error) {
+	return s.repo.ListForDATEVExport(ctx, tenantID, fromDate, toDate, afterDate, afterID, limit)
+}
+
 // UpdateInput contains the data that can be updated on a draft invoice.
 type UpdateInput struct {
 	CustomerName     *string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -108,6 +109,19 @@ func (m *MockRepository) GetByInvoiceID(ctx context.Context, tenantID, invoiceID
 	var result []*models.CreditNote
 	for _, cn := range m.creditNotes {
 		if cn.TenantID == tenantID && cn.OriginalInvoiceID == invoiceID {
+			result = append(result, cn)
+		}
+	}
+	return result, nil
+}
+
+// ListForDATEVExport returns sent credit notes in the date range (by created_at).
+// The mock ignores keyset paging (afterDate/afterID/limit) and returns all matches.
+func (m *MockRepository) ListForDATEVExport(_ context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, _ *time.Time, _ *uuid.UUID, _ int) ([]*models.CreditNote, error) {
+	var result []*models.CreditNote
+	for _, cn := range m.creditNotes {
+		if cn.TenantID == tenantID && cn.Status == models.CreditNoteStatusSent &&
+			!cn.CreatedAt.Before(fromDate) && cn.CreatedAt.Before(toDate.AddDate(0, 0, 1)) {
 			result = append(result, cn)
 		}
 	}

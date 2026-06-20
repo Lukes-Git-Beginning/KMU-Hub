@@ -1,6 +1,7 @@
 package datev
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -234,6 +235,88 @@ func TestExport_EmptyInput(t *testing.T) {
 	}
 	if bookingLines != 0 {
 		t.Errorf("expected 0 booking lines for empty input, got %d", bookingLines)
+	}
+}
+
+// TestStreamWriter_PagedMatchesSingleShot proves the streaming path (paged
+// WriteInvoices/WriteCreditNotes) produces byte-identical output to the in-memory
+// Export, i.e. the customerIndex/debitor state persists correctly across pages.
+// Gamma GmbH (first seen on page 2) is the discriminator: if the index reset per
+// page, it would be assigned a different debitor account and the bytes would differ.
+func TestStreamWriter_PagedMatchesSingleShot(t *testing.T) {
+	exporter := NewExporter()
+	tenant := uuid.New()
+	fy := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	gen := time.Date(2026, 3, 15, 10, 30, 0, 0, time.UTC)
+
+	mkInv := func(num, cust string, day int) *models.Invoice {
+		return &models.Invoice{
+			ID:            uuid.New(),
+			TenantID:      tenant,
+			InvoiceNumber: num,
+			Status:        models.InvoiceStatusSent,
+			CustomerName:  cust,
+			TaxMode:       models.TaxModeStandard,
+			LineItems: makeLineItems([]models.LineItem{{
+				ID: "1", Position: 1, Description: "Beratung",
+				Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromFloat(100.00),
+				TaxRate: decimal.NewFromInt(19), LineTotal: decimal.NewFromFloat(100.00),
+			}}),
+			InvoiceDate: time.Date(2026, 3, day, 0, 0, 0, 0, time.UTC),
+		}
+	}
+	invoices := []*models.Invoice{
+		mkInv("RE-2026-0001", "Alpha GmbH", 1),
+		mkInv("RE-2026-0002", "Beta GmbH", 2),
+		mkInv("RE-2026-0003", "Alpha GmbH", 3), // same customer as #1 -> same debitor
+		mkInv("RE-2026-0004", "Gamma GmbH", 4),
+	}
+	cn := &models.CreditNote{
+		ID:               uuid.New(),
+		TenantID:         tenant,
+		CreditNoteNumber: "GS-2026-0001",
+		Status:           models.CreditNoteStatusSent,
+		CustomerName:     "Beta GmbH",
+		TaxMode:          models.TaxModeStandard,
+		LineItems: makeLineItems([]models.LineItem{{
+			ID: "1", Position: 1, Description: "Gutschrift",
+			Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromFloat(50.00),
+			TaxRate: decimal.NewFromInt(19), LineTotal: decimal.NewFromFloat(50.00),
+		}}),
+		CreatedAt: time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC),
+	}
+
+	golden, err := exporter.Export(invoices, []*models.CreditNote{cn}, fy, gen)
+	if err != nil {
+		t.Fatalf("Export failed: %v", err)
+	}
+
+	// Same data, but written in pages via the streaming API.
+	var buf bytes.Buffer
+	sw, err := exporter.NewStreamWriter(&buf, fy, gen)
+	if err != nil {
+		t.Fatalf("NewStreamWriter failed: %v", err)
+	}
+	if err := sw.WriteInvoices(invoices[:2]); err != nil {
+		t.Fatalf("WriteInvoices page 1: %v", err)
+	}
+	if err := sw.WriteInvoices(invoices[2:]); err != nil {
+		t.Fatalf("WriteInvoices page 2: %v", err)
+	}
+	if err := sw.WriteCreditNotes([]*models.CreditNote{cn}); err != nil {
+		t.Fatalf("WriteCreditNotes: %v", err)
+	}
+	if err := sw.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	if !bytes.Equal(golden, buf.Bytes()) {
+		t.Errorf("paged stream bytes differ from single-shot Export\n--- golden ---\n%q\n--- paged ---\n%q", golden, buf.Bytes())
+	}
+
+	// 4 invoice booking lines + 1 credit note booking line.
+	if got := sw.LineCount(); got != 5 {
+		t.Errorf("expected LineCount 5, got %d", got)
 	}
 }
 

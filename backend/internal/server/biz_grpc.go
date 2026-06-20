@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1144,51 +1145,72 @@ func (s *BizGRPCServer) ExportDATEV(ctx context.Context, req *bizv1.ExportDATEVR
 		fiscalYearStart = fys
 	}
 
-	// Fetch invoices and credit notes in date range
-	invoices, _, invErr := s.invoiceService.List(ctx, tenantID, invoice.ListFilter{
-		DateFrom: &startDate,
-		DateTo:   &endDate,
-		Limit:    10000,
-	})
-	if invErr != nil {
-		return nil, mapBizError(invErr)
+	// Stream invoices and credit notes into a single CSV buffer, reading the rows
+	// keyset-paged so read-memory stays bounded regardless of the period size. The
+	// CSV is still materialized once (unary RPC, bytes response — no proto streaming).
+	const datevExportPageSize = 1000
+
+	var buf bytes.Buffer
+	sw, swErr := s.datevExporter.NewStreamWriter(&buf, fiscalYearStart, time.Now())
+	if swErr != nil {
+		return nil, status.Error(codes.Internal, "datev export init failed: "+swErr.Error())
 	}
 
-	creditNotes, _, cnErr := s.creditNoteService.List(ctx, tenantID, creditnote.ListFilter{
-		Limit: 10000,
-	})
-	if cnErr != nil {
-		return nil, mapBizError(cnErr)
-	}
-
-	csvData, err := s.datevExporter.Export(invoices, creditNotes, fiscalYearStart, time.Now())
-	if err != nil {
-		return nil, status.Error(codes.Internal, "datev export failed: "+err.Error())
-	}
-
-	// Count booking records
-	recordCount := int32(0)
-	for _, inv := range invoices {
-		if inv.Status == models.InvoiceStatusSent || inv.Status == models.InvoiceStatusPaid || inv.Status == models.InvoiceStatusOverdue {
-			var lineItems []models.LineItem
-			_ = json.Unmarshal(inv.LineItems, &lineItems)
-			recordCount += int32(len(lineItems))
+	// Invoices: keyset by (invoice_date, id).
+	var invCursorDate *time.Time
+	var invCursorID *uuid.UUID
+	for {
+		page, pErr := s.invoiceService.ListForDATEVExport(ctx, tenantID, startDate, endDate, invCursorDate, invCursorID, datevExportPageSize)
+		if pErr != nil {
+			return nil, mapBizError(pErr)
+		}
+		if len(page) == 0 {
+			break
+		}
+		if wErr := sw.WriteInvoices(page); wErr != nil {
+			return nil, status.Error(codes.Internal, "datev export failed: "+wErr.Error())
+		}
+		last := page[len(page)-1]
+		d, id := last.InvoiceDate, last.ID
+		invCursorDate, invCursorID = &d, &id
+		if len(page) < datevExportPageSize {
+			break
 		}
 	}
-	for _, cn := range creditNotes {
-		if cn.Status == models.CreditNoteStatusSent {
-			var lineItems []models.LineItem
-			_ = json.Unmarshal(cn.LineItems, &lineItems)
-			recordCount += int32(len(lineItems))
+
+	// Credit notes: keyset by (created_at, id). DateFrom/DateTo are honored here —
+	// previously this loaded every credit note of the tenant regardless of period.
+	var cnCursorDate *time.Time
+	var cnCursorID *uuid.UUID
+	for {
+		page, pErr := s.creditNoteService.ListForDATEVExport(ctx, tenantID, startDate, endDate, cnCursorDate, cnCursorID, datevExportPageSize)
+		if pErr != nil {
+			return nil, mapBizError(pErr)
 		}
+		if len(page) == 0 {
+			break
+		}
+		if wErr := sw.WriteCreditNotes(page); wErr != nil {
+			return nil, status.Error(codes.Internal, "datev export failed: "+wErr.Error())
+		}
+		last := page[len(page)-1]
+		d, id := last.CreatedAt, last.ID
+		cnCursorDate, cnCursorID = &d, &id
+		if len(page) < datevExportPageSize {
+			break
+		}
+	}
+
+	if closeErr := sw.Close(); closeErr != nil {
+		return nil, status.Error(codes.Internal, "datev export failed: "+closeErr.Error())
 	}
 
 	filename := fmt.Sprintf("DATEV_Buchungsstapel_%s_%s.csv", req.GetStartDate(), req.GetEndDate())
 
 	return &bizv1.ExportDATEVResponse{
-		CsvData:     csvData,
+		CsvData:     buf.Bytes(),
 		Filename:    filename,
-		RecordCount: recordCount,
+		RecordCount: int32(sw.LineCount()),
 	}, nil
 }
 

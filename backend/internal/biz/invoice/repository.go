@@ -58,6 +58,12 @@ type Repository interface {
 	// assigned and invoice_date within [fromDate, toDate], ordered by invoice_number.
 	// Used by GenerateGoBDExport to build the GoBD CSV.
 	ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error)
+	// ListForDATEVExport returns sent/paid/overdue invoices with invoice_date within
+	// [fromDate, toDate], keyset-paged by (invoice_date, id) for bounded-memory DATEV
+	// streaming. Pass afterDate/afterID = nil for the first page; for subsequent pages
+	// pass the last returned row's invoice_date and id. Returns up to limit invoices
+	// ordered by (invoice_date ASC, id ASC).
+	ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.Invoice, error)
 }
 
 // ListFilter contains filtering options for listing invoices.

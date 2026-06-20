@@ -155,6 +155,12 @@ func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilte
 	return s.repo.List(ctx, tenantID, filter)
 }
 
+// ListForDATEVExport returns one keyset-paged page of sent credit notes in
+// [fromDate, toDate] for the DATEV export. See Repository.ListForDATEVExport.
+func (s *Service) ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.CreditNote, error) {
+	return s.repo.ListForDATEVExport(ctx, tenantID, fromDate, toDate, afterDate, afterID, limit)
+}
+
 // Send transitions a draft credit note to sent and assigns a gap-free GS number.
 // Format: GS-{year}-{padded} e.g., GS-2026-0001
 func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) error {

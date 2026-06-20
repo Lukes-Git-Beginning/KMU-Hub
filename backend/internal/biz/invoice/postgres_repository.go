@@ -562,6 +562,77 @@ func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uui
 	return invoices, nil
 }
 
+// ListForDATEVExport returns sent/paid/overdue invoices in [fromDate, toDate],
+// keyset-paged by (invoice_date, id) so a DATEV export can stream pages without
+// holding the whole result set in memory. afterDate/afterID are the cursor from
+// the previous page (nil for the first page). Ordered by (invoice_date, id) ASC.
+func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, afterDate *time.Time, afterID *uuid.UUID, limit int) ([]*models.Invoice, error) {
+	args := []any{tenantID, fromDate, toDate}
+	cursorClause := ""
+	if afterDate != nil && afterID != nil {
+		cursorClause = fmt.Sprintf(" AND (invoice_date, id) > ($%d, $%d)", len(args)+1, len(args)+2)
+		args = append(args, *afterDate, *afterID)
+	}
+	args = append(args, limit)
+
+	query := fmt.Sprintf(`SELECT id, tenant_id, invoice_number, status,
+			customer_name, customer_address, customer_email, customer_ust_id_nr,
+			company_snapshot, tax_mode, line_items, tax_breakdown,
+			subtotal, total_tax, gross_total,
+			invoice_date, delivery_date, due_date, payment_terms,
+			snapshot_data, source_quote_id, notes,
+			zugferd_profile, time_tracking_source, locked_at, locked_by,
+			contact_id,
+			created_by, created_at, updated_at
+		FROM finance_invoices
+		WHERE tenant_id = $1
+		  AND status IN ('sent', 'paid', 'overdue')
+		  AND invoice_date >= $2
+		  AND invoice_date <= $3%s
+		ORDER BY invoice_date ASC, id ASC
+		LIMIT $%d`, cursorClause, len(args))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list invoices for DATEV export: %w", err)
+	}
+	defer rows.Close()
+
+	var invoices []*models.Invoice
+	for rows.Next() {
+		inv, scanErr := r.scanInvoiceFromRows(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		invoices = append(invoices, inv)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate DATEV export rows: %w", err)
+	}
+
+	if len(invoices) > 0 {
+		ids := make([]uuid.UUID, len(invoices))
+		for i, inv := range invoices {
+			ids[i] = inv.ID
+		}
+		linesByID, linesErr := loadInvoiceLines(ctx, r.pool, ids)
+		if linesErr != nil {
+			return nil, linesErr
+		}
+		for _, inv := range invoices {
+			if lines, ok := linesByID[inv.ID]; ok {
+				raw, marshalErr := marshalLineItems(lines)
+				if marshalErr != nil {
+					return nil, marshalErr
+				}
+				inv.LineItems = raw
+			}
+		}
+	}
+
+	return invoices, nil
+}
+
 // ============================================================================
 // Scan helpers
 // ============================================================================

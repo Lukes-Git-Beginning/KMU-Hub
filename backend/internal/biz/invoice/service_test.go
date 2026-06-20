@@ -193,6 +193,20 @@ func (m *MockRepository) ListForGoBDExport(_ context.Context, tenantID uuid.UUID
 	return result, nil
 }
 
+// ListForDATEVExport returns sent/paid/overdue invoices in the date range.
+// The mock ignores keyset paging (afterDate/afterID/limit) and returns all matches.
+func (m *MockRepository) ListForDATEVExport(_ context.Context, tenantID uuid.UUID, fromDate, toDate time.Time, _ *time.Time, _ *uuid.UUID, _ int) ([]*models.Invoice, error) {
+	var result []*models.Invoice
+	for _, inv := range m.invoices {
+		if inv.TenantID == tenantID &&
+			(inv.Status == models.InvoiceStatusSent || inv.Status == models.InvoiceStatusPaid || inv.Status == models.InvoiceStatusOverdue) &&
+			!inv.InvoiceDate.Before(fromDate) && !inv.InvoiceDate.After(toDate) {
+			result = append(result, inv)
+		}
+	}
+	return result, nil
+}
+
 // MockNumberSequenceRepo implements NumberSequenceRepo for testing.
 type MockNumberSequenceRepo struct {
 	nextNumber   string
