@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
+import { useQueries } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { formatDate as libFormatDate, formatDateTime as libFormatDateTime } from '@/lib/format'
 import {
@@ -50,9 +51,11 @@ import {
   useDuplicateFormSchema,
   useExportSubmissions,
   useUpdateSubmissionStatus,
+  formulareKeys,
 } from '@/api/hooks/useFormulare'
+import { listSubmissions } from '@/api/formulare-client'
 import type { FormSchema, FormSubmission, FormSubmissionStatus } from '@/api/formulare-types'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -229,9 +232,15 @@ export default function FormularePage() {
   const [tab, setTab] = useState<TabKey>('formulare')
   const [search, setSearch] = useState('')
 
-  // Detail panel for submissions
+  // Detail modal for a single submission
   const [selectedSubmission, setSelectedSubmission] =
     useState<FormSubmission | null>(null)
+
+  // Detail modal for a single form (360° view + actions)
+  const [selectedForm, setSelectedForm] = useState<FormSchema | null>(null)
+
+  // Standalone public-facing form preview (decoupled from the editor draft)
+  const [previewSchema, setPreviewSchema] = useState<FormSchema | null>(null)
 
   // Expanded submission groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -274,13 +283,26 @@ export default function FormularePage() {
   // 10.5 — Export dropdown state
   const [showExportMenu, setShowExportMenu] = useState(false)
 
-  // Submissions state: loaded lazily per schema when "Eingänge" tab opens.
-  // We keep a flat list of submissions gathered by opening groups.
-  // NOTE: The backend has per-schema submission endpoints. The Page shows
-  // all submissions grouped by schema — we load them on demand per group.
-  const [submissionsBySchemaId, setSubmissionsBySchemaId] = useState<
-    Record<string, FormSubmission[]>
-  >({})
+  // Submissions are fetched eagerly for every active form (one query per form,
+  // deduped with the per-group SubmissionsPanel via a shared query key). This
+  // keeps the header + stat cards accurate on first load instead of only after
+  // a group is expanded.
+  const submissionQueries = useQueries({
+    queries: activeForms.map((s) => ({
+      queryKey: formulareKeys.submissions.listBySchema(s.id),
+      queryFn: () => listSubmissions(s.id),
+    })),
+  })
+
+  const submissionsBySchemaId = useMemo(() => {
+    const map: Record<string, FormSubmission[]> = {}
+    activeForms.forEach((s, i) => {
+      const items = submissionQueries[i]?.data?.items
+      if (items) map[s.id] = items
+    })
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeForms, submissionQueries.map((q) => q.dataUpdatedAt).join(',')])
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -1777,8 +1799,16 @@ export default function FormularePage() {
               {filteredForms.map((schema) => (
                 <div
                   key={schema.id}
-                  onClick={() => openEditor(schema)}
-                  className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedForm(schema)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedForm(schema)
+                    }
+                  }}
+                  className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -1903,12 +1933,6 @@ export default function FormularePage() {
                     {isExpanded && (
                       <SubmissionsPanel
                         schemaId={schema.id}
-                        onLoaded={(subs) =>
-                          setSubmissionsBySchemaId((prev) => ({
-                            ...prev,
-                            [schema.id]: subs,
-                          }))
-                        }
                         onSelectSubmission={setSelectedSubmission}
                         onUpdateStatus={(sub, status) => {
                           updateSubStatus.mutate(
@@ -2011,8 +2035,8 @@ export default function FormularePage() {
         </>
       )}
 
-      {/* ====================== SUBMISSION DETAIL PANEL ====================== */}
-      <DetailPanel
+      {/* ====================== SUBMISSION DETAIL MODAL ====================== */}
+      <DetailModal
         open={!!selectedSubmission}
         onClose={() => setSelectedSubmission(null)}
         title={
@@ -2039,7 +2063,7 @@ export default function FormularePage() {
             </span>
           ) : undefined
         }
-        width="w-[440px]"
+        maxWidth="max-w-lg"
         footer={
           selectedSubmission ? (
             <div className="flex items-center gap-2">
@@ -2148,7 +2172,298 @@ export default function FormularePage() {
             </div>
           </div>
         )}
-      </DetailPanel>
+      </DetailModal>
+
+      {/* ====================== FORMULAR DETAIL MODAL ====================== */}
+      <DetailModal
+        open={!!selectedForm}
+        onClose={() => setSelectedForm(null)}
+        title={selectedForm?.title ?? ''}
+        subtitle={
+          selectedForm
+            ? t('formulare.detail.subtitle', {
+                fields: selectedForm.fields.filter(
+                  (f) => (f as FormField).label !== '__page_break__',
+                ).length,
+                submissions: selectedForm.submissionCount,
+              })
+            : ''
+        }
+        badge={
+          selectedForm ? (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                formStatusColors[selectedForm.status]
+              }`}
+            >
+              {formStatusLabels[selectedForm.status]}
+            </span>
+          ) : undefined
+        }
+        footer={
+          selectedForm ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    duplicateSchema.mutate(
+                      { id: selectedForm.id },
+                      {
+                        onSuccess: () => {
+                          toast.success(
+                            t('formulare.toast.dupliziert', {
+                              name: selectedForm.title,
+                            }),
+                          )
+                          setSelectedForm(null)
+                        },
+                        onError: (err) =>
+                          toast.error(
+                            err instanceof Error ? err.message : t('common.error'),
+                          ),
+                      },
+                    )
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  {t('formulare.actions.duplizieren')}
+                </button>
+                <button
+                  onClick={() => {
+                    const form = selectedForm
+                    setSelectedForm(null)
+                    setShowShareDialog(form)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  {t('formulare.actions.teilen')}
+                </button>
+                <button
+                  onClick={() => {
+                    const newStatus =
+                      selectedForm.status === 'archived' ? 'active' : 'archived'
+                    updateSchema.mutate(
+                      { id: selectedForm.id, status: newStatus },
+                      {
+                        onSuccess: () => {
+                          toast.success(
+                            selectedForm.status === 'archived'
+                              ? t('formulare.toast.aktiviert', {
+                                  name: selectedForm.title,
+                                })
+                              : t('formulare.toast.archiviert', {
+                                  name: selectedForm.title,
+                                }),
+                          )
+                          setSelectedForm({ ...selectedForm, status: newStatus })
+                        },
+                        onError: (err) =>
+                          toast.error(
+                            err instanceof Error ? err.message : t('common.error'),
+                          ),
+                      },
+                    )
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                  {selectedForm.status === 'archived'
+                    ? t('formulare.actions.aktivieren')
+                    : t('formulare.actions.archivieren')}
+                </button>
+                <button
+                  onClick={() => {
+                    const form = selectedForm
+                    setSelectedForm(null)
+                    setConfirmDelete(form)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-error hover:bg-error-light transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('common.delete')}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPreviewSchema(selectedForm)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <Eye className="h-4 w-4" />
+                  {t('formulare.editor.vorschau')}
+                </button>
+                <button
+                  onClick={() => {
+                    const form = selectedForm
+                    setSelectedForm(null)
+                    openEditor(form)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  {t('formulare.actions.bearbeiten')}
+                </button>
+              </div>
+            </div>
+          ) : undefined
+        }
+      >
+        {selectedForm && (
+          <div className="space-y-5">
+            {selectedForm.description && (
+              <p className="text-sm text-muted-foreground">
+                {selectedForm.description}
+              </p>
+            )}
+
+            {/* Meta grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  label: t('formulare.detail.visibility'),
+                  value: selectedForm.isPublic
+                    ? t('formulare.card.oeffentlich')
+                    : t('formulare.detail.private'),
+                },
+                {
+                  label: t('formulare.detail.submissions'),
+                  value: String(selectedForm.submissionCount),
+                },
+                {
+                  label: t('formulare.detail.createdBy'),
+                  value: selectedForm.createdBy ?? '--',
+                },
+                {
+                  label: t('formulare.detail.createdAt'),
+                  value: formatDate(selectedForm.createdAt),
+                },
+                {
+                  label: t('formulare.detail.updatedAt'),
+                  value: formatDate(selectedForm.updatedAt),
+                },
+                {
+                  label: t('formulare.detail.pages'),
+                  value: String(
+                    Math.max(1, selectedForm.pageCount),
+                  ),
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-lg border border-border bg-secondary/30 p-3"
+                >
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Field list */}
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                {t('formulare.editor.felder', {
+                  count: selectedForm.fields.filter(
+                    (f) => (f as FormField).label !== '__page_break__',
+                  ).length,
+                })}
+              </h4>
+              {selectedForm.fields.filter(
+                (f) => (f as FormField).label !== '__page_break__',
+              ).length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">
+                  {t('formulare.detail.noFields')}
+                </p>
+              ) : (
+                <div className="rounded-lg border border-border divide-y divide-border-muted">
+                  {(selectedForm.fields as FormField[])
+                    .filter((f) => f.label !== '__page_break__')
+                    .map((field) => {
+                      const Icon = FIELD_TYPE_ICONS[field.type]
+                      return (
+                        <div
+                          key={field.id}
+                          className="flex items-center gap-3 px-3 py-2.5"
+                        >
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-light shrink-0">
+                            <Icon className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="flex-1 text-sm text-foreground truncate">
+                            {field.label}
+                          </span>
+                          {field.required && (
+                            <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error shrink-0">
+                              {t('formulare.editor.pflicht')}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {FIELD_TYPE_LABELS[field.type]}
+                          </span>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </DetailModal>
+
+      {/* ====================== STANDALONE FORM PREVIEW ====================== */}
+      <DetailModal
+        open={!!previewSchema}
+        onClose={() => setPreviewSchema(null)}
+        title={previewSchema?.title || t('formulare.preview.formularname')}
+        subtitle={t('formulare.editor.vorschau')}
+        onBack={selectedForm ? () => setPreviewSchema(null) : undefined}
+      >
+        {previewSchema && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 rounded-lg bg-info-light px-3 py-2">
+              <Info className="h-4 w-4 text-info shrink-0" />
+              <p className="text-xs text-info">{t('formulare.preview.banner')}</p>
+            </div>
+            {previewSchema.description && (
+              <p className="text-sm text-muted-foreground">
+                {previewSchema.description}
+              </p>
+            )}
+            {(previewSchema.fields as FormField[]).filter(
+              (f) => f.label !== '__page_break__',
+            ).length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">
+                {t('formulare.detail.noFields')}
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {(previewSchema.fields as FormField[])
+                  .filter((f) => f.label !== '__page_break__')
+                  .map((field) => (
+                    <div key={field.id} className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                        {field.label}
+                        {field.required && (
+                          <span className="text-destructive">*</span>
+                        )}
+                      </label>
+                      {renderFieldPreview(field)}
+                    </div>
+                  ))}
+                <button
+                  disabled
+                  className="mt-2 rounded-lg bg-primary/50 px-4 py-2 text-sm text-primary-foreground cursor-not-allowed"
+                >
+                  {t('formulare.editor.absenden')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </DetailModal>
 
       {/* ====================== NEUES FORMULAR DIALOG ====================== */}
       <Dialog
@@ -2348,7 +2663,6 @@ export default function FormularePage() {
 
 interface SubmissionsPanelProps {
   schemaId: string
-  onLoaded: (subs: FormSubmission[]) => void
   onSelectSubmission: (sub: FormSubmission) => void
   onUpdateStatus: (sub: FormSubmission, status: FormSubmissionStatus) => void
   submissionStatusLabels: Record<FormSubmissionStatus, string>
@@ -2359,7 +2673,6 @@ interface SubmissionsPanelProps {
 
 function SubmissionsPanel({
   schemaId,
-  onLoaded,
   onSelectSubmission,
   onUpdateStatus,
   submissionStatusLabels,
@@ -2367,15 +2680,9 @@ function SubmissionsPanel({
   formatDateTime,
   t,
 }: SubmissionsPanelProps) {
+  // Hits the warm cache populated by the page-level eager useQueries fetch.
   const { data, isLoading } = useSubmissions(schemaId)
-
-  // Notify parent when data arrives. Must be an effect (not render-time work) —
-  // calling the parent's setState during render triggers a React warning.
   const items = data?.items ?? []
-  useEffect(() => {
-    if (items.length > 0) onLoaded(items)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items])
 
   if (isLoading) {
     return (

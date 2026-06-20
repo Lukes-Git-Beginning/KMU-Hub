@@ -23,11 +23,17 @@
 - **QA** (`scripts/qa-formulare-f1.mjs`, :5174): 6 Formular-Karten, 6 Eingangs-Gruppen, 13 sichtbare Submission-Zeilen, Detail öffnet, 2 Vorlagen mit Feld-Chips. **0 pageErrors, 0 console errors, 0 failedApi**. Screenshots gesichtet (forms/eingänge/detail/vorlagen) — sauber, keine Raw-Keys/`{{}}`.
 - Gescopter Typecheck `tsconfig.formularecheck.json` grün.
 
-**Offen / Depth-Notiz:** Header-Stat „neue Eingänge / Eingänge diese Woche" zeigt beim ersten Laden `0`, weil Submissions lazy erst beim Öffnen einer Gruppe geladen werden (nach Besuch des Eingänge-Tabs korrekt). → in F-2 eager laden.
+### F-2 — Zeilen → DetailModal (Tiefe) ✅
+- **Formular-Karte → `DetailModal`** (zentriert): 360°-Ansicht mit Meta-Grid (Sichtbarkeit, Eingänge, Erstellt von/am, Zuletzt geändert, Seiten), Feld-Liste (Icon + Pflicht-Badge + Typ) und Aktions-Footer: **Duplizieren · Teilen · Archivieren/Aktivieren · Löschen · Vorschau · Bearbeiten**. Karte ist `role="button"` + Tastatur (Enter/Space), innere `ItemActions` per `stopPropagation` isoliert.
+- **Standalone-Vorschau**: „Vorschau" öffnet ein zweites DetailModal (mit Zurück-Pfeil) das das Formular wie für externe Nutzer rendert (`renderFieldPreview`, alle Feldtypen inkl. E-Mail) — entkoppelt vom Editor-Draft.
+- **Submission-Zeile → `DetailModal`** statt Slide-over (`DetailPanel` → `DetailModal`, `width` → `maxWidth`). „Kein Slide-over" erfüllt.
+- **Eager-Stats-Fix** (Depth-Notiz aus F-1 erledigt): Submissions werden jetzt per `useQueries` für alle aktiven Formulare vorab geladen (geteilter Query-Key dedupliziert mit den Gruppen-Panels). Header + Stat-Cards sind ab dem ersten Laden korrekt („9 neue Eingänge", „16 diese Woche"). Lazy-`onLoaded`/`setState`-Muster komplett entfernt.
+- **i18n** `formulare.detail.*` ×4 (9 Keys: subtitle, visibility, private, submissions, createdBy/At, updatedAt, pages, noFields).
+- **QA** (`scripts/qa-formulare-f2.mjs`): Form-Modal (5 Feld-Zeilen, 6 Aktionen), Vorschau (4 Inputs), Submission-Modal zentriert. **0 pageErrors, 0 failedApi**, keine Raw-Keys. Screenshots gesichtet.
 
 ## Definition of Done
 - [x] Demo-Mode lebendig (0 failedApiRequests/pageErrors, Listen + Details + Submissions gefüllt) — F-1
-- [ ] Formular-Zeile + Submission-Zeile → DetailModal mit allen Infos/Aktionen — F-2
+- [x] Formular-Zeile + Submission-Zeile → DetailModal mit allen Infos/Aktionen — F-2
 - [ ] DnD-Formular-Builder, alle Feldtypen, Live-Vorschau, Reihenfolge persistent — F-3
 - [ ] DSGVO-Einwilligungsfeld + Consent im Submission-Detail + echter Export-Download — F-4
 - [ ] Moduleinstellungen (personal + tenant) via ModuleSettingsShell — F-5
