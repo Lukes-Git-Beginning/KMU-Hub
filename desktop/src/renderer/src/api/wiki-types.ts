@@ -23,6 +23,8 @@ export interface WikiArticle {
   author_id: string
   category_id: string | null
   published: boolean
+  /** Read counter — incremented by the backend on article detail GET. */
+  view_count?: number
   created_at: string
   updated_at: string
 }

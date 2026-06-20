@@ -87,9 +87,10 @@ const ARTICLES: WikiArticle[] = [
     content: tiptapDoc(
       'Dies ist die zentrale Wissensbasis des Unternehmens. Hier finden Sie alle wichtigen Prozesse, Anleitungen und Informationen.',
     ),
-    author_id: IDS.users.stefan,
+    author_id: CURRENT_USER.id,
     category_id: 'wcat-001',
     published: true,
+    view_count: 342,
     created_at: daysAgo(58) + 'T09:00:00Z',
     updated_at: daysAgo(5) + 'T10:30:00Z',
   },
@@ -104,6 +105,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.julia,
     category_id: 'wcat-004',
     published: true,
+    view_count: 158,
     created_at: daysAgo(45) + 'T08:00:00Z',
     updated_at: daysAgo(3) + 'T14:00:00Z',
   },
@@ -118,6 +120,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.markus,
     category_id: 'wcat-002',
     published: true,
+    view_count: 97,
     created_at: daysAgo(40) + 'T10:00:00Z',
     updated_at: daysAgo(10) + 'T16:00:00Z',
   },
@@ -132,6 +135,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.thomas,
     category_id: 'wcat-003',
     published: true,
+    view_count: 64,
     created_at: daysAgo(30) + 'T11:00:00Z',
     updated_at: daysAgo(8) + 'T09:15:00Z',
   },
@@ -146,6 +150,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.sarah,
     category_id: 'wcat-005',
     published: true,
+    view_count: 211,
     created_at: daysAgo(25) + 'T13:00:00Z',
     updated_at: daysAgo(2) + 'T11:00:00Z',
   },
@@ -160,6 +165,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.laura,
     category_id: 'wcat-002',
     published: true,
+    view_count: 129,
     created_at: daysAgo(20) + 'T08:30:00Z',
     updated_at: hoursAgo(36),
   },
@@ -174,6 +180,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.thomas,
     category_id: 'wcat-003',
     published: false,
+    view_count: 18,
     created_at: daysAgo(15) + 'T16:00:00Z',
     updated_at: daysAgo(1) + 'T17:45:00Z',
   },
@@ -186,7 +193,7 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       article_id: 'wart-001',
       version_number: 1,
       content: tiptapDoc('Erste Version des Willkommensartikels.'),
-      changed_by: IDS.users.stefan,
+      changed_by: CURRENT_USER.id,
       changed_at: daysAgo(58) + 'T09:00:00Z',
     },
     {
@@ -204,7 +211,7 @@ const VERSIONS: Record<string, WikiVersion[]> = {
       content: tiptapDoc(
         'Dies ist die zentrale Wissensbasis des Unternehmens. Hier finden Sie alle wichtigen Prozesse, Anleitungen und Informationen.',
       ),
-      changed_by: IDS.users.stefan,
+      changed_by: CURRENT_USER.id,
       changed_at: daysAgo(5) + 'T10:30:00Z',
     },
   ],
@@ -262,6 +269,23 @@ const ATTACHMENTS: Record<string, WikiAttachment[]> = {
 function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; total: number } {
   const start = (page - 1) * pageSize
   return { items: items.slice(start, start + pageSize), total: items.length }
+}
+
+/** Best-effort searchable plain text from the JSONB content field. */
+function contentText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (!content || typeof content !== 'object') return ''
+  const c = content as Record<string, unknown>
+  if (typeof c.html === 'string') return c.html.replace(/<[^>]*>/g, ' ')
+  if (typeof c.plain === 'string') return c.plain
+  // walk a TipTap doc collecting text nodes
+  const parts: string[] = []
+  const walk = (node: Record<string, unknown>) => {
+    if (typeof node.text === 'string') parts.push(node.text)
+    for (const child of (node.content as Array<Record<string, unknown>>) ?? []) walk(child)
+  }
+  walk(c)
+  return parts.join(' ')
 }
 
 /** Append a new version snapshot for an article (newest version_number wins). */
@@ -367,6 +391,8 @@ export const wikiHandlers = [
   http.get(`${BASE}/articles/:id`, ({ params }) => {
     const article = ARTICLES.find((a) => a.id === params.id)
     if (!article) return HttpResponse.json({ error: 'article not found' }, { status: 404 })
+    // Reading an article detail increments its view counter.
+    article.view_count = (article.view_count ?? 0) + 1
     return HttpResponse.json(article)
   }),
 
@@ -380,9 +406,10 @@ export const wikiHandlers = [
       title: body.title ?? 'Neuer Artikel',
       slug: (body.title ?? 'neuer-artikel').toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
       content: body.content ?? tiptapDoc(''),
-      author_id: IDS.users.stefan,
+      author_id: CURRENT_USER.id,
       category_id: body.category_id ?? null,
       published: body.published ?? false,
+      view_count: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -426,9 +453,8 @@ export const wikiHandlers = [
 
     const results = ARTICLES.filter(
       (a) =>
-        a.published &&
-        (a.title.toLowerCase().includes(q) ||
-          (typeof a.content === 'string' && (a.content as string).toLowerCase().includes(q))),
+        a.title.toLowerCase().includes(q) ||
+        contentText(a.content).toLowerCase().includes(q),
     ).slice(0, limit)
 
     return HttpResponse.json({ articles: results })
@@ -478,7 +504,7 @@ export const wikiHandlers = [
       file_ref: body.file_ref,
       mime: body.mime,
       size: body.size,
-      uploaded_by: IDS.users.stefan,
+      uploaded_by: CURRENT_USER.id,
       created_at: new Date().toISOString(),
     }
     if (!ATTACHMENTS[params.id as string]) {

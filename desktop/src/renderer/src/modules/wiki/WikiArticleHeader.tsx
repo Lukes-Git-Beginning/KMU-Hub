@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { WikiArticle } from '@/types/wiki'
 import { useUpdateArticle } from '@/api/hooks/useWiki'
+import { useWikiStore } from '@/stores/wiki'
 import { ItemActions } from '@/components/shared'
 import { formatDate as libFormatDate } from '@/lib/format'
 
@@ -40,6 +41,8 @@ interface WikiArticleHeaderProps {
   article: WikiArticle
   /** Live version count from the per-article versions query. */
   versionCount?: number
+  /** Live view count (incremented on detail GET). */
+  viewCount?: number
   onEdit: () => void
   onDelete: () => void
   onToggleVersions: () => void
@@ -49,6 +52,7 @@ interface WikiArticleHeaderProps {
 export function WikiArticleHeader({
   article,
   versionCount,
+  viewCount,
   onEdit,
   onDelete,
   onToggleVersions,
@@ -56,6 +60,7 @@ export function WikiArticleHeader({
 }: WikiArticleHeaderProps) {
   const { t } = useTranslation()
   const updateMutation = useUpdateArticle()
+  const togglePin = useWikiStore((s) => s.togglePin)
 
   const st = statusConfig[article.status]
 
@@ -80,7 +85,7 @@ export function WikiArticleHeader({
             <span>{formatShortDate(article.lastEditedAt)}</span>
             <span>·</span>
             <Eye className="h-3 w-3" />
-            <span>{t('wiki.header.views', { count: article.viewCount })}</span>
+            <span>{t('wiki.header.views', { count: viewCount ?? article.viewCount })}</span>
             <span>·</span>
             <History className="h-3 w-3" />
             <span>v{versionCount ?? (article.versions ?? []).length}</span>
@@ -115,8 +120,10 @@ export function WikiArticleHeader({
               {
                 label: article.isPinned ? t('wiki.actions.unpin') : t('wiki.actions.pin'),
                 icon: Pin,
-                // isPinned not yet in API — show toast until backend supports it
-                onClick: () => toast.info(t('wiki.actions.pinNotAvailable')),
+                onClick: () => {
+                  togglePin(article.id)
+                  toast.success(article.isPinned ? t('wiki.actions.unpinned') : t('wiki.actions.pinned'))
+                },
               },
               ...(article.status === 'draft'
                 ? [{

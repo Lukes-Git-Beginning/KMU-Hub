@@ -46,6 +46,26 @@ export const WIKI_TEMPLATES: WikiTemplate[] = [
 ]
 
 // ---------------------------------------------------------------------------
+// Article meta (mock-first — pin state + tags have no backend field yet)
+// ---------------------------------------------------------------------------
+
+export interface WikiArticleMeta {
+  pinned: boolean
+  tags: string[]
+}
+
+/** Demo seed so the list shows pins + tags before the backend exposes them. */
+const SEED_ARTICLE_META: Record<string, WikiArticleMeta> = {
+  'wart-001': { pinned: true, tags: ['Onboarding', 'Übersicht'] },
+  'wart-002': { pinned: true, tags: ['HR', 'Checkliste'] },
+  'wart-003': { pinned: false, tags: ['Finanzen', 'DATEV', 'Prozess'] },
+  'wart-004': { pinned: false, tags: ['IT', 'Notfall'] },
+  'wart-005': { pinned: false, tags: ['DSGVO', 'Recht'] },
+  'wart-006': { pinned: false, tags: ['CRM', 'Vertrieb'] },
+  'wart-007': { pinned: false, tags: ['IT', 'Intern'] },
+}
+
+// ---------------------------------------------------------------------------
 // UI state interface
 // ---------------------------------------------------------------------------
 
@@ -54,11 +74,14 @@ interface WikiUIState {
   selectedCategoryId: string | null
   isEditing: boolean
   searchQuery: string
+  /** Per-article pin + tag overrides (mock-first). */
+  articleMeta: Record<string, WikiArticleMeta>
 
   setSelectedArticle: (id: string | null) => void
   setSelectedCategory: (id: string | null) => void
   setEditing: (editing: boolean) => void
   setSearchQuery: (query: string) => void
+  togglePin: (id: string) => void
 }
 
 export const useWikiStore = create<WikiUIState>()(
@@ -68,15 +91,29 @@ export const useWikiStore = create<WikiUIState>()(
       selectedCategoryId: null,
       isEditing: false,
       searchQuery: '',
+      articleMeta: SEED_ARTICLE_META,
       setSelectedArticle: (selectedArticleId) => set({ selectedArticleId }),
       setSelectedCategory: (selectedCategoryId) => set({ selectedCategoryId }),
       setEditing: (isEditing) => set({ isEditing }),
       setSearchQuery: (searchQuery) => set({ searchQuery }),
+      togglePin: (id) =>
+        set((state) => {
+          const current = state.articleMeta[id] ?? { pinned: false, tags: [] }
+          return {
+            articleMeta: {
+              ...state.articleMeta,
+              [id]: { ...current, pinned: !current.pinned },
+            },
+          }
+        }),
     }),
     {
       name: 'cosmi-wiki',
-      version: 3,
-      partialize: (state) => ({ selectedCategoryId: state.selectedCategoryId }),
+      version: 4,
+      partialize: (state) => ({
+        selectedCategoryId: state.selectedCategoryId,
+        articleMeta: state.articleMeta,
+      }),
     },
   ),
 )

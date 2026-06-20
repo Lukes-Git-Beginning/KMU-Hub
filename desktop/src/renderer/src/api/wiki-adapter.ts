@@ -103,10 +103,11 @@ export function adaptArticle(api: ApiArticle): WikiArticle {
     authorId: api.author_id,
     // authorName not returned by API — needs a join/lookup
     authorName: '',
-    // tags, isPinned, viewCount not in API schema yet
+    // tags + isPinned are mock-first via the wiki store (no backend field yet)
     tags: [],
     isPinned: false,
-    viewCount: 0,
+    // view_count is backend-tracked; tags/isPinned are enriched in the page
+    viewCount: api.view_count ?? 0,
     lastEditedBy: '',
     lastEditedAt: api.updated_at,
     createdAt: api.created_at,

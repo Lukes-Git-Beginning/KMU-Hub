@@ -5,8 +5,9 @@ import { toast } from 'sonner'
 import { FileText } from 'lucide-react'
 import type { WikiArticle as WikiArticleType } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
-import { useUpdateArticle, useArticleVersions, useRestoreVersion } from '@/api/hooks/useWiki'
+import { useUpdateArticle, useArticleVersions, useRestoreVersion, useArticle } from '@/api/hooks/useWiki'
 import { adaptVersion } from '@/api/wiki-adapter'
+import { useWikiUsers } from './useWikiUsers'
 import { WikiArticleHeader } from './WikiArticleHeader'
 import { WikiEditor } from './WikiEditor'
 import { WikiVersionHistory } from './WikiVersionHistory'
@@ -32,10 +33,17 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
   const [editContent, setEditContent] = useState(article.content)
   const [showVersions, setShowVersions] = useState(false)
 
+  const resolveUser = useWikiUsers()
+
+  // Detail GET increments the view counter server-side; use its live count.
+  const { data: detail } = useArticle(article.id)
+  const viewCount = detail?.view_count ?? article.viewCount
+
   // Version history is loaded per-article via its own query.
   const { data: versionsData } = useArticleVersions(article.id)
   const versions = (versionsData ?? [])
     .map(adaptVersion)
+    .map((v) => ({ ...v, editorName: resolveUser(v.editorName) || v.editorName }))
     .sort((a, b) => b.version - a.version)
 
   const handleSave = async () => {
@@ -90,6 +98,7 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
         <WikiArticleHeader
           article={article}
           versionCount={versions.length}
+          viewCount={viewCount}
           onEdit={handleStartEdit}
           onDelete={onDelete}
           onToggleVersions={() => setShowVersions(!showVersions)}

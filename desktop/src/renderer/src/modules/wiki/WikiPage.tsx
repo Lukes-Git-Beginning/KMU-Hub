@@ -10,7 +10,7 @@
  * UI state via useWikiStore (selection, search, editing flag).
  * Type mapping via adaptArticle / adaptCategory from api/wiki-adapter.ts.
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   BookOpen,
@@ -20,10 +20,12 @@ import {
   Tag,
   Clock,
   AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import { useWikiStore } from '@/stores/wiki'
-import { useArticles, useCategories, useDeleteArticle } from '@/api/hooks/useWiki'
+import { useArticles, useCategories, useDeleteArticle, useSearchArticles } from '@/api/hooks/useWiki'
 import { adaptArticle, adaptCategory } from '@/api/wiki-adapter'
+import { useWikiUsers } from './useWikiUsers'
 import type { WikiArticle as WikiArticleType } from '@/types/wiki'
 import { EmptyState, ConfirmDialog } from '@/components/shared'
 import { WikiSidebar } from './WikiSidebar'
@@ -83,6 +85,17 @@ export default function WikiPage() {
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
   const searchQuery = useWikiStore((s) => s.searchQuery)
   const setSelectedArticle = useWikiStore((s) => s.setSelectedArticle)
+  const articleMeta = useWikiStore((s) => s.articleMeta)
+  const resolveUser = useWikiUsers()
+
+  // Debounce the search query for the server-side search call.
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(searchQuery), 300)
+    return () => clearTimeout(id)
+  }, [searchQuery])
+  const isSearching = debouncedQuery.trim().length > 1
+  const { data: searchData, isFetching: searchFetching } = useSearchArticles(debouncedQuery)
 
   // Dialogs
   const [showNewArticle, setShowNewArticle] = useState(false)
@@ -90,37 +103,50 @@ export default function WikiPage() {
   const [deleteTarget, setDeleteTarget] = useState<WikiArticleType | null>(null)
   const [shareTarget, setShareTarget] = useState<WikiArticleType | null>(null)
 
-  // Adapt API types → UI types
+  // Adapt API types → UI types, enriching with author name + mock-first meta.
+  const enrich = useMemo(() => {
+    return (a: WikiArticleType): WikiArticleType => {
+      const meta = articleMeta[a.id]
+      return {
+        ...a,
+        authorName: resolveUser(a.authorId) || a.authorName,
+        isPinned: meta?.pinned ?? a.isPinned,
+        tags: meta?.tags ?? a.tags,
+      }
+    }
+  }, [articleMeta, resolveUser])
+
   const articles = useMemo(
-    () => (articlesData?.articles ?? []).map(adaptArticle),
-    [articlesData],
+    () => (articlesData?.articles ?? []).map(adaptArticle).map(enrich),
+    [articlesData, enrich],
+  )
+  const searchResults = useMemo(
+    () => (searchData?.articles ?? []).map(adaptArticle).map(enrich),
+    [searchData, enrich],
   )
   const categories = useMemo(
     () => (categoriesData ?? []).map(adaptCategory),
     [categoriesData],
   )
 
-  // Filtered + sorted articles
+  // Filtered + sorted articles. Search is server-side and spans all categories;
+  // otherwise the category selection narrows the local list.
   const filteredArticles = useMemo(() => {
-    let result = articles
-    if (selectedCategoryId) {
-      result = result.filter((a) => a.categoryId === selectedCategoryId)
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(
-        (a) =>
-          a.title.toLowerCase().includes(q) ||
-          (a.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
-      )
-    }
+    const result = isSearching
+      ? [...searchResults]
+      : selectedCategoryId
+        ? articles.filter((a) => a.categoryId === selectedCategoryId)
+        : [...articles]
     return result.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
       return b.lastEditedAt.localeCompare(a.lastEditedAt)
     })
-  }, [articles, selectedCategoryId, searchQuery])
+  }, [articles, searchResults, isSearching, selectedCategoryId])
 
-  const selectedArticle = articles.find((a) => a.id === selectedArticleId) ?? null
+  const selectedArticle =
+    articles.find((a) => a.id === selectedArticleId) ??
+    searchResults.find((a) => a.id === selectedArticleId) ??
+    null
 
   const handleSelectArticle = (article: WikiArticleType) => {
     setSelectedArticle(article.id)
@@ -153,8 +179,13 @@ export default function WikiPage() {
             {/* List header */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
               <span className="text-xs font-medium text-muted-foreground">
-                {t('wiki.list.articleCount', { count: filteredArticles.length })}
+                {isSearching
+                  ? t('wiki.list.searchResults', { count: filteredArticles.length })
+                  : t('wiki.list.articleCount', { count: filteredArticles.length })}
               </span>
+              {isSearching && searchFetching && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
             </div>
 
             {/* List */}
