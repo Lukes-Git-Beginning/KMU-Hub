@@ -1,17 +1,23 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  AlertTriangle,
   BarChart3,
+  CheckCircle2,
   Columns2,
   Columns3,
   Gauge,
   GripVertical,
   Heading1,
   Heading2,
+  Image as ImageIcon,
+  Info,
+  Lightbulb,
   MoreVertical,
   Plus,
   RefreshCw,
   Square,
+  Table as TableIcon,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -37,12 +43,16 @@ import { Skeleton } from '@/components/shared'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useReportResult } from '@/api/hooks/useBerichte'
 import type {
+  CalloutBlock,
+  CalloutVariant,
   ChartBlock,
+  ImageBlock,
   KpiBlock,
   ReportBlock,
   ReportBlockType,
   ReportDocColumn,
   ReportRow,
+  TableBlock,
 } from '@/api/berichte-types'
 import { BLOCK_META } from './doc-utils'
 import { ChartBlockPicker } from './ChartBlockPicker'
@@ -51,16 +61,38 @@ import { ChartRenderer } from '../charts/ChartRenderer'
 /** Block id helper — unique per inserted block. */
 const uid = (p: string): string => `${p}-${crypto.randomUUID().slice(0, 8)}`
 
-/** Block types insertable in the core editor (table/callout/image = later R-1b). */
+/** Block types insertable in the core editor. */
 const INSERTABLE: ReportBlockType[] = [
   'heading',
   'text',
   'chart',
+  'table',
   'kpi',
+  'callout',
   'bullet',
+  'image',
   'divider',
   'pagebreak',
 ]
+
+/** Callout variants with their icon + active styling (mirrors the read mode). */
+const CALLOUT_VARIANTS: { variant: CalloutVariant; icon: typeof Info; active: string }[] = [
+  { variant: 'info', icon: Info, active: 'border-info/40 bg-info-light text-info' },
+  { variant: 'success', icon: CheckCircle2, active: 'border-success/40 bg-success-light text-success' },
+  { variant: 'warning', icon: AlertTriangle, active: 'border-warning/40 bg-warning-light text-warning' },
+  {
+    variant: 'recommendation',
+    icon: Lightbulb,
+    active: 'border-primary/40 bg-primary-light text-primary',
+  },
+]
+
+const CALLOUT_BG: Record<CalloutVariant, string> = {
+  info: 'border-info/30 bg-info-light',
+  success: 'border-success/30 bg-success-light',
+  warning: 'border-warning/30 bg-warning-light',
+  recommendation: 'border-primary/30 bg-primary-light',
+}
 
 /** Width presets per column count (flex weights, carried into the read mode). */
 const WIDTH_PRESETS: Record<number, { label: string; widths: number[] }[]> = {
@@ -82,8 +114,14 @@ function makeBlock(type: ReportBlockType): ReportBlock {
       return { id: uid('b'), type: 'bullet', items: [''] }
     case 'chart':
       return { id: uid('b'), type: 'chart' }
+    case 'table':
+      return { id: uid('b'), type: 'table' }
     case 'kpi':
       return { id: uid('b'), type: 'kpi', label: '', value: '' }
+    case 'callout':
+      return { id: uid('b'), type: 'callout', variant: 'info', html: '' }
+    case 'image':
+      return { id: uid('b'), type: 'image', url: '' }
     case 'divider':
       return { id: uid('b'), type: 'divider' }
     case 'pagebreak':
@@ -687,47 +725,54 @@ function BlockEdit({
       )
 
     case 'chart':
-      return <ChartBlockEdit block={block} onPatch={onPatch} />
+    case 'table':
+      return <EmbeddedBlockEdit block={block} onPatch={onPatch} />
 
     case 'kpi':
       return <KpiBlockEdit block={block} onPatch={onPatch} />
 
-    // table / callout / image — placeholder until their R-1b phase.
-    default: {
-      const meta = BLOCK_META[block.type]
-      const Icon = meta.icon
-      const caption = 'caption' in block ? block.caption : undefined
-      return (
-        <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-secondary/20 p-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-            <Icon className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-foreground">{t(meta.labelKey)}</p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {caption || t('berichte.docs.blockSoon')}
-            </p>
-          </div>
-        </div>
-      )
-    }
+    case 'callout':
+      return <CalloutBlockEdit block={block} onPatch={onPatch} />
+
+    case 'image':
+      return <ImageBlockEdit block={block} onPatch={onPatch} />
+
+    default:
+      return null
   }
 }
 
-/** Chart block: pick a saved definition, then preview + caption (R-1b). */
-function ChartBlockEdit({
+/** Chart or table block: pick a saved definition, then preview + caption (R-1b). */
+function EmbeddedBlockEdit({
   block,
   onPatch,
 }: {
-  block: ChartBlock
+  block: ChartBlock | TableBlock
   onPatch: (patch: Partial<ReportBlock>) => void
 }) {
   const { t } = useTranslation()
   const [pickerOpen, setPickerOpen] = useState(false)
   const { data, isLoading } = useReportResult(block.definitionId)
   const result = data?.result
+  const isTable = block.type === 'table'
+  const viz = block.type === 'table' ? 'table' : (block.viz ?? 'bar')
+  const labelKey = isTable ? 'berichte.docs.blockType.table' : 'berichte.docs.blockType.chart'
+  const configureKey = isTable ? 'berichte.docs.configureTable' : 'berichte.docs.configureChart'
+  const changeKey = isTable ? 'berichte.docs.changeTable' : 'berichte.docs.changeChart'
+  const Icon = isTable ? TableIcon : BarChart3
   const captionCls =
     'w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center text-xs text-muted-foreground hover:border-border focus:border-border focus:outline-none'
+
+  const picker = (
+    <ChartBlockPicker
+      open={pickerOpen}
+      onClose={() => setPickerOpen(false)}
+      mode={isTable ? 'table' : 'chart'}
+      onApply={(patch) =>
+        onPatch(isTable ? { definitionId: patch.definitionId } : patch)
+      }
+    />
+  )
 
   if (!block.definitionId) {
     return (
@@ -738,21 +783,14 @@ function ChartBlockEdit({
           className="flex w-full items-center gap-2.5 rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-            <BarChart3 className="h-4 w-4" />
+            <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium text-foreground">
-              {t('berichte.docs.blockType.chart')}
-            </p>
-            <p className="truncate text-[11px] text-primary">{t('berichte.docs.configureChart')}</p>
+            <p className="text-xs font-medium text-foreground">{t(labelKey)}</p>
+            <p className="truncate text-[11px] text-primary">{t(configureKey)}</p>
           </div>
         </button>
-        <ChartBlockPicker
-          open={pickerOpen}
-          onClose={() => setPickerOpen(false)}
-          mode="chart"
-          onApply={(patch) => onPatch(patch)}
-        />
+        {picker}
       </>
     )
   }
@@ -761,20 +799,18 @@ function ChartBlockEdit({
     <>
       <div className="space-y-2 rounded-xl border border-border bg-card p-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">
-            {t('berichte.docs.blockType.chart')}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">{t(labelKey)}</span>
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <RefreshCw className="h-3 w-3" />
-            {t('berichte.docs.changeChart')}
+            {t(changeKey)}
           </button>
         </div>
         {result ? (
-          <ChartRenderer result={result} viz={block.viz ?? 'bar'} height={220} />
+          <ChartRenderer result={result} viz={viz} height={220} />
         ) : isLoading ? (
           <Skeleton className="h-[200px] w-full rounded-lg" />
         ) : (
@@ -789,13 +825,101 @@ function ChartBlockEdit({
           className={captionCls}
         />
       </div>
-      <ChartBlockPicker
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        mode="chart"
-        onApply={(patch) => onPatch(patch)}
-      />
+      {picker}
     </>
+  )
+}
+
+/** Callout block: variant picker + optional title + rich text. */
+function CalloutBlockEdit({
+  block,
+  onPatch,
+}: {
+  block: CalloutBlock
+  onPatch: (patch: Partial<ReportBlock>) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className={`space-y-2 rounded-xl border p-3 ${CALLOUT_BG[block.variant]}`}>
+      <div className="flex items-center gap-1.5">
+        {CALLOUT_VARIANTS.map(({ variant, icon: Icon, active }) => (
+          <button
+            key={variant}
+            type="button"
+            onClick={() => onPatch({ variant })}
+            className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors ${
+              block.variant === variant
+                ? active
+                : 'border-transparent text-muted-foreground hover:bg-card/60'
+            }`}
+            aria-label={t(`berichte.docs.callout.${variant}`)}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        ))}
+      </div>
+      <input
+        value={block.title ?? ''}
+        onChange={(e) => onPatch({ title: e.target.value })}
+        placeholder={t('berichte.docs.ph.calloutTitle')}
+        className="w-full rounded-md border border-transparent bg-card/50 px-2 py-1 text-sm font-semibold text-foreground hover:border-border focus:border-border focus:outline-none"
+      />
+      <RichTextEditor
+        content={block.html}
+        onChange={(html) => onPatch({ html })}
+        compact
+        placeholder={t('berichte.docs.ph.calloutText')}
+      />
+    </div>
+  )
+}
+
+/** Image block: URL + alt + caption, with a live preview. */
+function ImageBlockEdit({
+  block,
+  onPatch,
+}: {
+  block: ImageBlock
+  onPatch: (patch: Partial<ReportBlock>) => void
+}) {
+  const { t } = useTranslation()
+  const inputCls =
+    'w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring'
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      {block.url ? (
+        <img
+          src={block.url}
+          alt={block.alt ?? ''}
+          className="max-h-56 w-full rounded-lg object-contain"
+        />
+      ) : (
+        <div className="flex h-28 flex-col items-center justify-center gap-1.5 rounded-lg bg-secondary/40 text-muted-foreground">
+          <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
+          <span className="text-[11px]">{t('berichte.docs.ph.imageHint')}</span>
+        </div>
+      )}
+      <input
+        value={block.url}
+        onChange={(e) => onPatch({ url: e.target.value })}
+        placeholder={t('berichte.docs.ph.imageUrl')}
+        className={inputCls}
+      />
+      <div className="flex gap-2">
+        <input
+          value={block.alt ?? ''}
+          onChange={(e) => onPatch({ alt: e.target.value })}
+          placeholder={t('berichte.docs.ph.imageAlt')}
+          className={inputCls}
+        />
+        <input
+          value={block.caption ?? ''}
+          onChange={(e) => onPatch({ caption: e.target.value })}
+          placeholder={t('berichte.docs.ph.caption')}
+          className={inputCls}
+        />
+      </div>
+    </div>
   )
 }
 
