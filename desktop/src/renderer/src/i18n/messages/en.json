@@ -945,6 +945,7 @@
   "berichte.docs.deleteBlock": "Delete block",
   "berichte.docs.saving": "Saving…",
   "berichte.docs.saved": "Saved",
+  "berichte.docs.noChartSource": "Choose a chart source in the editor",
   "berichte.docs.blockSoon": "Editable soon",
   "berichte.docs.ph.coverTitle": "Title",
   "berichte.docs.ph.coverSubtitle": "Subtitle",

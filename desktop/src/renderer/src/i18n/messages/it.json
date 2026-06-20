@@ -945,6 +945,7 @@
   "berichte.docs.deleteBlock": "Elimina blocco",
   "berichte.docs.saving": "Salvataggio…",
   "berichte.docs.saved": "Salvato",
+  "berichte.docs.noChartSource": "Scegli una fonte nell’editor",
   "berichte.docs.blockSoon": "Presto modificabile",
   "berichte.docs.ph.coverTitle": "Titolo",
   "berichte.docs.ph.coverSubtitle": "Sottotitolo",

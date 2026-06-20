@@ -6,7 +6,8 @@ import { useReportDocument, useUpdateReportDocument } from '@/api/hooks/useBeric
 import { Skeleton } from '@/components/shared'
 import { ReportStatusBadge } from './ReportStatusBadge'
 import { BlockEditor } from './BlockEditor'
-import { BLOCK_META, blockSummary, estimatePageCount } from './doc-utils'
+import { DocumentReader } from './DocumentReader'
+import { estimatePageCount } from './doc-utils'
 
 interface ReportDocumentEditorProps {
   documentId: string
@@ -154,50 +155,10 @@ function DocumentEditorInner({
         {mode === 'edit' && !locked ? (
           <BlockEditor rows={rows} onChange={setRows} />
         ) : (
-          <ReadOutline rows={rows} />
+          <DocumentReader rows={rows} settings={doc.settings} />
         )}
       </div>
     </div>
   )
 }
 
-/** Read mode (B1-3): structural outline. Clean document render lands in R-2. */
-function ReadOutline({ rows }: { rows: ReportRow[] }) {
-  const { t } = useTranslation()
-  return (
-    <div className="mx-auto max-w-3xl space-y-3">
-      {rows.map((row) => (
-        <div key={row.id} className={row.columns.length > 1 ? 'flex gap-2' : undefined}>
-          {row.columns.map((col) => (
-            <div key={col.id} className="space-y-1.5" style={{ flex: col.width ?? 1 }}>
-              {col.blocks.map((block) => {
-                const meta = BLOCK_META[block.type]
-                const Icon = meta.icon
-                const summary = blockSummary(block)
-                return (
-                  <div
-                    key={block.id}
-                    className="flex items-start gap-2 rounded-lg border border-border bg-card p-2.5"
-                  >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-                      <Icon className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-medium text-foreground">
-                        {t(meta.labelKey)}
-                        {block.type === 'heading' ? ` ${block.level}` : ''}
-                      </p>
-                      {summary && (
-                        <p className="truncate text-[11px] text-muted-foreground">{summary}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}

@@ -149,7 +149,7 @@ let DEMO_DOCUMENTS: ReportDocument[] = [
       r({ id: bid('h'), type: 'heading', level: 2, text: 'Umsatz nach Monat' }),
       rc(
         { width: 2, blocks: [{ id: bid('t'), type: 'text', html: '<p>Der Aufwärtstrend hält seit März an. Mai war der stärkste Monat seit Jahresbeginn.</p>' }] },
-        { width: 3, blocks: [{ id: bid('c'), type: 'chart', definitionId: 'def-umsatz', caption: 'Monatlicher Umsatz, letzte 12 Monate' }] },
+        { width: 3, blocks: [{ id: bid('c'), type: 'chart', definitionId: 'def-umsatz', viz: 'line', caption: 'Monatlicher Umsatz, letzte 12 Monate' }] },
       ),
       r({ id: bid('cl'), type: 'callout', variant: 'recommendation', title: 'Empfehlung', html: '<p>Vertriebskapazität in Region Süd ausbauen und das Verkaufsmodell an den höheren Abschlussraten ausrichten.</p>' }),
     ],
@@ -182,7 +182,7 @@ let DEMO_DOCUMENTS: ReportDocument[] = [
       ),
       r({ id: bid('t'), type: 'text', html: '<p>Der Monat verlief planmäßig. Die offenen Rechnungen sind gegenüber Mai gesunken.</p>' }),
       r({ id: bid('h'), type: 'heading', level: 2, text: 'Helpdesk-Auslastung' }),
-      r({ id: bid('c'), type: 'chart', definitionId: 'def-tickets', caption: 'Offene und gelöste Tickets pro Monat' }),
+      r({ id: bid('c'), type: 'chart', definitionId: 'def-tickets', viz: 'bar', caption: 'Offene und gelöste Tickets pro Monat' }),
       r({ id: bid('bl'), type: 'bullet', items: ['Reaktionszeit unter Zielwert', 'Zwei Eskalationen gelöst', 'CSAT stabil bei 4,5'] }),
     ],
   },

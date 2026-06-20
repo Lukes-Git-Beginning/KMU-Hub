@@ -945,6 +945,7 @@
   "berichte.docs.deleteBlock": "Supprimer le bloc",
   "berichte.docs.saving": "Enregistrement…",
   "berichte.docs.saved": "Enregistré",
+  "berichte.docs.noChartSource": "Choisir une source dans l’éditeur",
   "berichte.docs.blockSoon": "Bientôt modifiable",
   "berichte.docs.ph.coverTitle": "Titre",
   "berichte.docs.ph.coverSubtitle": "Sous-titre",

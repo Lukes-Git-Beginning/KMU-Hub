@@ -285,6 +285,16 @@ export function useReportTemplates() {
   })
 }
 
+/** Loads a definition's result (series/table) for rendering embedded charts. */
+export function useReportResult(definitionId?: string) {
+  return useQuery({
+    queryKey: ['berichte', 'result', definitionId],
+    queryFn: () => runReport(definitionId as string),
+    enabled: !!definitionId,
+    staleTime: 60_000,
+  })
+}
+
 export function useCreateReportDocument() {
   const qc = useQueryClient()
   return useMutation({

@@ -430,6 +430,8 @@ export interface ChartBlock extends ReportBlockBase {
   type: 'chart'
   definitionId?: string
   query?: BuilderQueryConfig
+  /** Visualization for definition-backed charts (builder queries carry their own). */
+  viz?: VisualizationType
   caption?: string
 }
 
