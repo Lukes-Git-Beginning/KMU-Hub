@@ -25,6 +25,9 @@ import type {
   PreviewReportResponse,
   ReportDocumentResponse,
   ReportFormat,
+  CreateReportShareInput,
+  ReportSharesResponse,
+  ReportShareResponse,
   RunReportInput,
   RunReportResponse,
   ScheduleResponse,
@@ -282,6 +285,32 @@ export function saveReportToDocuments(folderId: string, doc: ReportRef) {
     method: 'POST',
     path: '/api/v1/documents/files/upload',
     body: form,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// External share links (R-5c)
+// ---------------------------------------------------------------------------
+
+export function listReportShares(documentId: string) {
+  return request<ReportSharesResponse>({
+    method: 'GET',
+    path: `${BASE}/documents/${documentId}/shares`,
+  })
+}
+
+export function createReportShare(documentId: string, input: CreateReportShareInput) {
+  return request<ReportShareResponse>({
+    method: 'POST',
+    path: `${BASE}/documents/${documentId}/shares`,
+    body: input,
+  })
+}
+
+export function revokeReportShare(shareId: string) {
+  return request<void>({
+    method: 'DELETE',
+    path: `${BASE}/shares/${shareId}`,
   })
 }
 

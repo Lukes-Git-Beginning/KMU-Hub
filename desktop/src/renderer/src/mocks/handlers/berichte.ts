@@ -16,6 +16,7 @@ import type {
   ReportRow,
   ReportSchedule,
   ReportSeries,
+  ReportShareToken,
   ReportTemplate,
 } from '@/api/berichte-types'
 
@@ -532,6 +533,10 @@ let SCHEDULES: ReportSchedule[] = [
 
 let scheduleCounter = SCHEDULES.length
 
+// External read-only share links for report documents (R-5c) — demo-stateful.
+let SHARE_TOKENS: ReportShareToken[] = []
+let shareCounter = 0
+
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
@@ -851,4 +856,44 @@ export const berichteHandlers = [
     }
     return HttpResponse.json({ schedule: SCHEDULES[idx] })
   }),
+
+  // --- External share links (R-5c) ---
+  http.get(`${API}/api/v1/berichte/documents/:id/shares`, ({ params }) => {
+    const shares = SHARE_TOKENS.filter((s) => s.document_id === params.id)
+    return HttpResponse.json({ shares })
+  }),
+
+  http.post(`${API}/api/v1/berichte/documents/:id/shares`, async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      expires_in_days?: number | null
+      password?: string
+    }
+    shareCounter += 1
+    const days = body.expires_in_days ?? null
+    const expires_at =
+      days && days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString() : null
+    const share: ReportShareToken = {
+      id: `rsh-${shareCounter}`,
+      document_id: params.id as string,
+      token: `tok-${shareCounter}-${Math.abs(hashStr(`${params.id}-${shareCounter}`))}`,
+      expires_at,
+      has_password: Boolean(body.password && body.password.length > 0),
+      view_count: 0,
+      created_at: new Date().toISOString(),
+    }
+    SHARE_TOKENS = [share, ...SHARE_TOKENS]
+    return HttpResponse.json({ share }, { status: 201 })
+  }),
+
+  http.delete(`${API}/api/v1/berichte/shares/:shareId`, ({ params }) => {
+    SHARE_TOKENS = SHARE_TOKENS.filter((s) => s.id !== params.shareId)
+    return new HttpResponse(null, { status: 204 })
+  }),
 ]
+
+/** Tiny stable string hash for demo share tokens (no Math.random in seeds). */
+function hashStr(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+  return h
+}

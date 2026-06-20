@@ -576,6 +576,35 @@ export interface ReportDocumentResponse {
   document: ReportDocument
 }
 
+/**
+ * An external read-only share link for a report document (R-5c). The demo
+ * stores tokens FE-side; the actual unauthenticated public endpoint is Luke's.
+ */
+export interface ReportShareToken {
+  id: string
+  document_id: string
+  token: string
+  /** null = never expires. */
+  expires_at: string | null
+  has_password: boolean
+  view_count: number
+  created_at: string
+}
+
+export interface CreateReportShareInput {
+  /** Days until expiry; null/0 = never expires. */
+  expires_in_days?: number | null
+  password?: string
+}
+
+export interface ReportSharesResponse {
+  shares: ReportShareToken[]
+}
+
+export interface ReportShareResponse {
+  share: ReportShareToken
+}
+
 /** A starter template: a prebuilt block structure a new report is created from. */
 export interface ReportTemplate {
   id: string

@@ -26,7 +26,10 @@ import {
   listReportTemplates,
   attachReportToContact,
   attachReportToTask,
+  createReportShare,
+  listReportShares,
   listSchedules,
+  revokeReportShare,
   runScheduleNow,
   saveReportToDocuments,
   previewReport,
@@ -300,6 +303,40 @@ export function useSaveReportToDocuments() {
     mutationFn: ({ folderId, doc }: { folderId: string; doc: { id: string; title: string } }) =>
       saveReportToDocuments(folderId, doc),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+  })
+}
+
+// --- External share links (R-5c) ---
+
+export function useReportShares(documentId: string) {
+  return useQuery({
+    queryKey: ['berichte', 'shares', documentId],
+    queryFn: () => listReportShares(documentId),
+    enabled: !!documentId,
+  })
+}
+
+export function useCreateReportShare() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      documentId,
+      input,
+    }: {
+      documentId: string
+      input: { expires_in_days?: number | null; password?: string }
+    }) => createReportShare(documentId, input),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ['berichte', 'shares', vars.documentId] }),
+  })
+}
+
+export function useRevokeReportShare(documentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (shareId: string) => revokeReportShare(shareId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['berichte', 'shares', documentId] }),
   })
 }
 

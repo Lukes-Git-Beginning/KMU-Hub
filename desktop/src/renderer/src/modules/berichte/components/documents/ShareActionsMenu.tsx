@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckSquare, FolderDown, Share2, User } from 'lucide-react'
+import { CheckSquare, FolderDown, Link2, Share2, User } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { ReportDocument } from '@/api/berichte-types'
 import { AttachToTaskDialog } from './AttachToTaskDialog'
 import { AttachToContactDialog } from './AttachToContactDialog'
 import { SaveToDocumentsDialog } from './SaveToDocumentsDialog'
+import { ShareLinkDialog } from './ShareLinkDialog'
 
 interface ShareActionsMenuProps {
   doc: ReportDocument
@@ -23,6 +24,7 @@ export function ShareActionsMenu({ doc }: ShareActionsMenuProps) {
   const [attachTaskOpen, setAttachTaskOpen] = useState(false)
   const [attachContactOpen, setAttachContactOpen] = useState(false)
   const [saveDocOpen, setSaveDocOpen] = useState(false)
+  const [shareLinkOpen, setShareLinkOpen] = useState(false)
 
   const itemCls =
     'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary'
@@ -74,6 +76,17 @@ export function ShareActionsMenu({ doc }: ShareActionsMenuProps) {
             <FolderDown className="h-3.5 w-3.5 text-muted-foreground" />
             {t('berichte.docs.saveDoc.action')}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false)
+              setShareLinkOpen(true)
+            }}
+            className={itemCls}
+          >
+            <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('berichte.docs.share.linkAction')}
+          </button>
         </PopoverContent>
       </Popover>
 
@@ -84,6 +97,7 @@ export function ShareActionsMenu({ doc }: ShareActionsMenuProps) {
         onClose={() => setAttachContactOpen(false)}
       />
       <SaveToDocumentsDialog doc={doc} open={saveDocOpen} onClose={() => setSaveDocOpen(false)} />
+      <ShareLinkDialog doc={doc} open={shareLinkOpen} onClose={() => setShareLinkOpen(false)} />
     </>
   )
 }
