@@ -22,6 +22,7 @@ import LoginPage from '@/modules/auth/LoginPage'
 import RegisterPage from '@/modules/auth/RegisterPage'
 import ForgotPasswordPage from '@/modules/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/modules/auth/ResetPasswordPage'
+import { IdleLock } from '@/modules/auth/IdleLock'
 import { DEV_PROFILES } from '@/config/roles'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
@@ -337,6 +338,7 @@ export default function App() {
           <Toaster richColors position="bottom-right" closeButton />
           <NotificationToast />
           <OfflineBanner />
+          <IdleLock />
           {/* Dev profile switcher temporarily hidden per request (DEV_BYPASS_AUTH still drives the default mock user). */}
         </TooltipProvider>
       </I18nProvider>

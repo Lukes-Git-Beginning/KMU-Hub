@@ -9297,5 +9297,11 @@
   "helpdesk.routing.ruleName": "Rule name",
   "helpdesk.routing.newRulePlaceholder": "Enter rule name…",
   "helpdesk.stats.loading": "Loading statistics…",
-  "helpdesk.stats.loadError": "Failed to load statistics"
+  "helpdesk.stats.loadError": "Failed to load statistics",
+  "appLock.title": "Screen locked",
+  "appLock.subtitle": "Welcome back, {name}. Please enter your password.",
+  "appLock.passwordLabel": "Password",
+  "appLock.unlock": "Unlock",
+  "appLock.logout": "Sign out",
+  "appLock.wrongPassword": "Wrong password. Please try again."
 }

@@ -9263,5 +9263,11 @@
   "helpdesk.routing.ruleName": "Nome regola",
   "helpdesk.routing.newRulePlaceholder": "Inserire il nome della regola…",
   "helpdesk.stats.loading": "Caricamento statistiche…",
-  "helpdesk.stats.loadError": "Impossibile caricare le statistiche"
+  "helpdesk.stats.loadError": "Impossibile caricare le statistiche",
+  "appLock.title": "Schermo bloccato",
+  "appLock.subtitle": "Bentornato/a, {name}. Inserisci la tua password.",
+  "appLock.passwordLabel": "Password",
+  "appLock.unlock": "Sblocca",
+  "appLock.logout": "Disconnetti",
+  "appLock.wrongPassword": "Password errata. Riprova."
 }

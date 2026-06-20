@@ -9263,5 +9263,11 @@
   "helpdesk.routing.ruleName": "Nom de la règle",
   "helpdesk.routing.newRulePlaceholder": "Saisir le nom de la règle…",
   "helpdesk.stats.loading": "Chargement des statistiques…",
-  "helpdesk.stats.loadError": "Impossible de charger les statistiques"
+  "helpdesk.stats.loadError": "Impossible de charger les statistiques",
+  "appLock.title": "Écran verrouillé",
+  "appLock.subtitle": "Bienvenue, {name}. Veuillez saisir votre mot de passe.",
+  "appLock.passwordLabel": "Mot de passe",
+  "appLock.unlock": "Déverrouiller",
+  "appLock.logout": "Se déconnecter",
+  "appLock.wrongPassword": "Mot de passe incorrect. Veuillez réessayer."
 }

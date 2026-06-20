@@ -9297,5 +9297,11 @@
   "helpdesk.routing.ruleName": "Regelname",
   "helpdesk.routing.newRulePlaceholder": "Regelname eingeben…",
   "helpdesk.stats.loading": "Statistiken werden geladen…",
-  "helpdesk.stats.loadError": "Statistiken konnten nicht geladen werden"
+  "helpdesk.stats.loadError": "Statistiken konnten nicht geladen werden",
+  "appLock.title": "Bildschirm gesperrt",
+  "appLock.subtitle": "Willkommen zurück, {name}. Bitte Passwort eingeben.",
+  "appLock.passwordLabel": "Passwort",
+  "appLock.unlock": "Entsperren",
+  "appLock.logout": "Abmelden",
+  "appLock.wrongPassword": "Falsches Passwort. Bitte erneut versuchen."
 }
