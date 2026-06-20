@@ -193,6 +193,8 @@ func (s *BizGRPCServer) UpdateCompanySettings(ctx context.Context, req *bizv1.Up
 		IsKleinunternehmer:       ps.GetIsKleinunternehmer(),
 		DefaultPaymentTermsDays:  int(ps.GetDefaultPaymentTermsDays()),
 		DefaultQuoteValidityDays: int(ps.GetDefaultQuoteValidityDays()),
+		DatevBeraterNr:           ps.GetDatevBeraterNr(),
+		DatevMandantNr:           ps.GetDatevMandantNr(),
 		UpdatedAt:                time.Now(),
 	}
 
@@ -1145,13 +1147,20 @@ func (s *BizGRPCServer) ExportDATEV(ctx context.Context, req *bizv1.ExportDATEVR
 		fiscalYearStart = fys
 	}
 
+	// Beraternummer/Mandantennummer for the EXTF header come from company settings
+	// (empty until configured — header fields then stay blank, as before).
+	var beraterNr, mandantNr string
+	if cs, csErr := s.companySettings.GetByTenantID(ctx, tenantID); csErr == nil && cs != nil {
+		beraterNr, mandantNr = cs.DatevBeraterNr, cs.DatevMandantNr
+	}
+
 	// Stream invoices and credit notes into a single CSV buffer, reading the rows
 	// keyset-paged so read-memory stays bounded regardless of the period size. The
 	// CSV is still materialized once (unary RPC, bytes response — no proto streaming).
 	const datevExportPageSize = 1000
 
 	var buf bytes.Buffer
-	sw, swErr := s.datevExporter.NewStreamWriter(&buf, fiscalYearStart, time.Now())
+	sw, swErr := s.datevExporter.NewStreamWriter(&buf, beraterNr, mandantNr, fiscalYearStart, time.Now())
 	if swErr != nil {
 		return nil, status.Error(codes.Internal, "datev export init failed: "+swErr.Error())
 	}
@@ -1435,6 +1444,8 @@ func toProtoCompanySettings(s *models.CompanySettings) *bizv1.CompanySettings {
 		DefaultPaymentTermsDays:  int32(s.DefaultPaymentTermsDays),
 		DefaultQuoteValidityDays: int32(s.DefaultQuoteValidityDays),
 		Basiszinssatz:            s.Basiszinssatz.String(),
+		DatevBeraterNr:           s.DatevBeraterNr,
+		DatevMandantNr:           s.DatevMandantNr,
 	}
 }
 

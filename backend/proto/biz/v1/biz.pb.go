@@ -1570,6 +1570,8 @@ type CompanySettings struct {
 	Basiszinssatz            string                 `protobuf:"bytes,19,opt,name=basiszinssatz,proto3" json:"basiszinssatz,omitempty"` // Decimal as string (for Verzugszinsen calculation)
 	CreatedAt                *timestamppb.Timestamp `protobuf:"bytes,20,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt                *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	DatevBeraterNr           string                 `protobuf:"bytes,22,opt,name=datev_berater_nr,json=datevBeraterNr,proto3" json:"datev_berater_nr,omitempty"` // DATEV EXTF Beraternummer (empty until configured)
+	DatevMandantNr           string                 `protobuf:"bytes,23,opt,name=datev_mandant_nr,json=datevMandantNr,proto3" json:"datev_mandant_nr,omitempty"` // DATEV EXTF Mandantennummer (empty until configured)
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -1749,6 +1751,20 @@ func (x *CompanySettings) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *CompanySettings) GetDatevBeraterNr() string {
+	if x != nil {
+		return x.DatevBeraterNr
+	}
+	return ""
+}
+
+func (x *CompanySettings) GetDatevMandantNr() string {
+	if x != nil {
+		return x.DatevMandantNr
+	}
+	return ""
 }
 
 type FinanceDashboard struct {
@@ -9383,7 +9399,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\n" +
 	"level3_fee\x18\b \x01(\tR\tlevel3Fee\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xde\x05\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb2\x06\n" +
 	"\x0fCompanySettings\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
@@ -9408,7 +9424,9 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x14 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa5\x05\n" +
+	"updated_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12(\n" +
+	"\x10datev_berater_nr\x18\x16 \x01(\tR\x0edatevBeraterNr\x12(\n" +
+	"\x10datev_mandant_nr\x18\x17 \x01(\tR\x0edatevMandantNr\"\xa5\x05\n" +
 	"\x10FinanceDashboard\x12%\n" +
 	"\x0etotal_invoiced\x18\x01 \x01(\tR\rtotalInvoiced\x12\x1d\n" +
 	"\n" +

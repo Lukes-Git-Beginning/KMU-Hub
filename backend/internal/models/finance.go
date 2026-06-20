@@ -97,6 +97,10 @@ type CompanySettings struct {
 	Basiszinssatz           decimal.Decimal `json:"basiszinssatz"`
 	// DefaultCurrency is the ISO 4217 code applied to new finance documents (B6).
 	DefaultCurrency         string          `json:"default_currency"`
+	// DatevBeraterNr / DatevMandantNr fill the DATEV EXTF header so an imported
+	// Buchungsstapel is assigned to the right client. Empty until configured.
+	DatevBeraterNr          string          `json:"datev_berater_nr"`
+	DatevMandantNr          string          `json:"datev_mandant_nr"`
 	CreatedAt               time.Time       `json:"created_at"`
 	UpdatedAt               time.Time       `json:"updated_at"`
 }

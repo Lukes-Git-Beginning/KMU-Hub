@@ -33,11 +33,12 @@ func NewExporter() *Exporter {
 func (e *Exporter) Export(
 	invoices []*models.Invoice,
 	creditNotes []*models.CreditNote,
+	beraterNr, mandantNr string,
 	fiscalYearStart time.Time,
 	generatedAt time.Time,
 ) ([]byte, error) {
 	var buf bytes.Buffer
-	sw, err := e.NewStreamWriter(&buf, fiscalYearStart, generatedAt)
+	sw, err := e.NewStreamWriter(&buf, beraterNr, mandantNr, fiscalYearStart, generatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +68,7 @@ type StreamWriter struct {
 
 // NewStreamWriter writes the UTF-8 BOM, EXTF header and column headers to w and
 // returns a StreamWriter ready to accept booking lines.
-func (e *Exporter) NewStreamWriter(w io.Writer, fiscalYearStart, generatedAt time.Time) (*StreamWriter, error) {
+func (e *Exporter) NewStreamWriter(w io.Writer, beraterNr, mandantNr string, fiscalYearStart, generatedAt time.Time) (*StreamWriter, error) {
 	// Write UTF-8 BOM for DATEV compatibility
 	if _, err := w.Write([]byte{0xEF, 0xBB, 0xBF}); err != nil {
 		return nil, fmt.Errorf("write BOM: %w", err)
@@ -77,7 +78,7 @@ func (e *Exporter) NewStreamWriter(w io.Writer, fiscalYearStart, generatedAt tim
 	cw.Comma = ';'
 
 	// Line 1: EXTF header
-	if err := writeEXTFHeader(cw, fiscalYearStart, generatedAt); err != nil {
+	if err := writeEXTFHeader(cw, beraterNr, mandantNr, fiscalYearStart, generatedAt); err != nil {
 		return nil, fmt.Errorf("write EXTF header: %w", err)
 	}
 
@@ -112,7 +113,7 @@ func (sw *StreamWriter) WriteInvoices(invoices []*models.Invoice) error {
 		}
 
 		for _, item := range lineItems {
-			if err := writeBookingLine(sw.w, item, "S", debitorAccount, inv.TaxMode, inv.InvoiceDate, inv.InvoiceNumber, false); err != nil {
+			if err := writeBookingLine(sw.w, item, "S", debitorAccount, inv.TaxMode, inv.Currency, inv.InvoiceDate, inv.InvoiceNumber, false); err != nil {
 				return fmt.Errorf("write invoice booking line: %w", err)
 			}
 			sw.lineCount++
@@ -139,7 +140,7 @@ func (sw *StreamWriter) WriteCreditNotes(creditNotes []*models.CreditNote) error
 		}
 
 		for _, item := range lineItems {
-			if err := writeBookingLine(sw.w, item, "H", debitorAccount, cn.TaxMode, cn.CreatedAt, cn.CreditNoteNumber, true); err != nil {
+			if err := writeBookingLine(sw.w, item, "H", debitorAccount, cn.TaxMode, cn.Currency, cn.CreatedAt, cn.CreditNoteNumber, true); err != nil {
 				return fmt.Errorf("write credit note booking line: %w", err)
 			}
 			sw.lineCount++
@@ -176,8 +177,8 @@ func (sw *StreamWriter) Close() error {
 }
 
 // writeEXTFHeader writes the DATEV EXTF header line (line 1).
-func writeEXTFHeader(w *csv.Writer, fiscalYearStart, generatedAt time.Time) error {
-	// EXTF format: "EXTF";700;21;"Buchungsstapel";13;timestamp;;"KMU Hub";;;;fiscal_year_start_YYYYMMDD;4;...
+func writeEXTFHeader(w *csv.Writer, beraterNr, mandantNr string, fiscalYearStart, generatedAt time.Time) error {
+	// EXTF format: "EXTF";700;21;"Buchungsstapel";13;timestamp;;"KMU Hub";;;Berater;Mandant;fiscal_year_start_YYYYMMDD;4;...
 	record := []string{
 		"EXTF",                                      // Format
 		"700",                                       // Format version
@@ -185,12 +186,12 @@ func writeEXTFHeader(w *csv.Writer, fiscalYearStart, generatedAt time.Time) erro
 		"Buchungsstapel",                            // Format name
 		"13",                                        // Format version (inner)
 		generatedAt.Format("20060102150405000"),      // Generated timestamp
-		"",                                          // Reserved
+		"",                                          // Imported
 		"KMU Hub",                                   // Source application
-		"",                                          // Reserved
-		"",                                          // Reserved
-		"",                                          // Reserved
-		"",                                          // Reserved
+		"",                                          // Exported by
+		"",                                          // Imported by
+		beraterNr,                                   // Beraternummer
+		mandantNr,                                   // Mandantennummer
 		fiscalYearStart.Format("20060102"),           // Fiscal year start
 		"4",                                         // Account length (SKR03 = 4 digits)
 		"",                                          // Reserved
@@ -231,6 +232,7 @@ func writeBookingLine(
 	sollHaben string, // "S" for debit (invoice), "H" for credit (credit note)
 	debitorAccount int,
 	taxMode string,
+	currency string, // document currency (WKZ Umsatz); defaults to EUR
 	docDate time.Time,
 	docNumber string,
 	isCreditNote bool,
@@ -258,13 +260,22 @@ func writeBookingLine(
 		buchungstext = buchungstext[:60]
 	}
 
+	// WKZ Umsatz: the document's own currency. Hardcoding EUR mis-booked
+	// foreign-currency (CHF/USD) documents. Kurs / Basis-Umsatz stay empty —
+	// no per-document exchange rate is stored, so DATEV applies its own daily
+	// rate on import; at least the currency code is now truthful.
+	wkz := currency
+	if wkz == "" {
+		wkz = models.DefaultCurrency
+	}
+
 	record := []string{
 		formatDecimalForDATEV(grossAmount), // Umsatz
 		sollHaben,                          // Soll/Haben-Kennzeichen
-		"EUR",                              // WKZ Umsatz
-		"",                                 // Kurs (empty for EUR)
-		"",                                 // Basis-Umsatz (empty for EUR)
-		"",                                 // WKZ Basis-Umsatz (empty for EUR)
+		wkz,                                // WKZ Umsatz (document currency)
+		"",                                 // Kurs (empty: no stored exchange rate)
+		"",                                 // Basis-Umsatz (empty: EUR base not derivable without a rate)
+		"",                                 // WKZ Basis-Umsatz
 		fmt.Sprintf("%d", debitorAccount),  // Konto (debitor)
 		revenueAccount,                     // Gegenkonto (revenue account)
 		buSchluessel,                       // BU-Schluessel

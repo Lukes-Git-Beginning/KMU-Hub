@@ -218,6 +218,8 @@ type updateCompanySettingsRequest struct {
 	DefaultPaymentTermsDays  int32  `json:"default_payment_terms_days"  validate:"omitempty,gte=0"`
 	DefaultQuoteValidityDays int32  `json:"default_quote_validity_days" validate:"omitempty,gte=0"`
 	Basiszinssatz            string `json:"basiszinssatz"`
+	DatevBeraterNr           string `json:"datev_berater_nr"`
+	DatevMandantNr           string `json:"datev_mandant_nr"`
 }
 
 func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.Request) {
@@ -259,6 +261,8 @@ func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.R
 			DefaultPaymentTermsDays:  req.DefaultPaymentTermsDays,
 			DefaultQuoteValidityDays: req.DefaultQuoteValidityDays,
 			Basiszinssatz:            req.Basiszinssatz,
+			DatevBeraterNr:           req.DatevBeraterNr,
+			DatevMandantNr:           req.DatevMandantNr,
 		},
 	})
 	if err != nil {

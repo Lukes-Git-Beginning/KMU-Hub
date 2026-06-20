@@ -44,7 +44,7 @@ func TestExport_SingleInvoice19Percent(t *testing.T) {
 		},
 	}
 
-	csv, err := exporter.Export(invoices, nil, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
+	csv, err := exporter.Export(invoices, nil, "", "", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
 	if err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestExport_MixedTaxRates(t *testing.T) {
 		},
 	}
 
-	csv, err := exporter.Export(invoices, nil, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
+	csv, err := exporter.Export(invoices, nil, "", "", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
 	if err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestExport_CreditNote(t *testing.T) {
 		},
 	}
 
-	csv, err := exporter.Export(nil, creditNotes, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
+	csv, err := exporter.Export(nil, creditNotes, "", "", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
 	if err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestExport_CreditNote(t *testing.T) {
 func TestExport_EmptyInput(t *testing.T) {
 	exporter := NewExporter()
 
-	csv, err := exporter.Export(nil, nil, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
+	csv, err := exporter.Export(nil, nil, "", "", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
 	if err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
@@ -286,14 +286,14 @@ func TestStreamWriter_PagedMatchesSingleShot(t *testing.T) {
 		CreatedAt: time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC),
 	}
 
-	golden, err := exporter.Export(invoices, []*models.CreditNote{cn}, fy, gen)
+	golden, err := exporter.Export(invoices, []*models.CreditNote{cn}, "", "", fy, gen)
 	if err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
 
 	// Same data, but written in pages via the streaming API.
 	var buf bytes.Buffer
-	sw, err := exporter.NewStreamWriter(&buf, fy, gen)
+	sw, err := exporter.NewStreamWriter(&buf, "", "", fy, gen)
 	if err != nil {
 		t.Fatalf("NewStreamWriter failed: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestExport_EXTFHeaderFormat(t *testing.T) {
 	fiscalYear := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	generated := time.Date(2026, 3, 15, 10, 30, 0, 0, time.UTC)
 
-	csv, err := exporter.Export(nil, nil, fiscalYear, generated)
+	csv, err := exporter.Export(nil, nil, "", "", fiscalYear, generated)
 	if err != nil {
 		t.Fatalf("Export failed: %v", err)
 	}
@@ -365,5 +365,41 @@ func TestExport_EXTFHeaderFormat(t *testing.T) {
 	// Verify account length (SKR03 = 4 digits)
 	if !strings.Contains(headerLine, ";4;") {
 		t.Error("expected account length 4 in header")
+	}
+}
+
+// TestExport_HeaderConsultantClientAndForeignCurrency verifies the EXTF header
+// carries Beraternummer/Mandantennummer and that booking lines use the document
+// currency instead of a hardcoded EUR (R3-7c-4).
+func TestExport_HeaderConsultantClientAndForeignCurrency(t *testing.T) {
+	exporter := NewExporter()
+
+	invoices := []*models.Invoice{
+		{
+			ID:            uuid.New(),
+			TenantID:      uuid.New(),
+			InvoiceNumber: "RE-2026-0099",
+			Status:        models.InvoiceStatusSent,
+			CustomerName:  "Helvetia AG",
+			TaxMode:       models.TaxModeStandard,
+			Currency:      "CHF",
+			LineItems: makeLineItems([]models.LineItem{
+				{ID: "1", Position: 1, Description: "Beratung", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromFloat(100.00), TaxRate: decimal.NewFromInt(19), LineTotal: decimal.NewFromFloat(100.00)},
+			}),
+			InvoiceDate: time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	csv, err := exporter.Export(invoices, nil, "1234", "56789", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now())
+	if err != nil {
+		t.Fatalf("Export failed: %v", err)
+	}
+	content := string(csv)
+
+	if !strings.Contains(content, ";1234;56789;") {
+		t.Error("expected Beraternummer 1234 and Mandantennummer 56789 in the EXTF header")
+	}
+	if !strings.Contains(content, ";CHF;") {
+		t.Error("expected WKZ Umsatz to be the document currency CHF, not EUR")
 	}
 }

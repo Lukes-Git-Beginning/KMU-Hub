@@ -89,7 +89,9 @@ func (s *UploadService) Disconnect(ctx context.Context, tenantID uuid.UUID) erro
 
 // ExportAndUpload exports DATEV CSV and uploads via API. Falls back to export-only when no API credentials.
 func (s *UploadService) ExportAndUpload(ctx context.Context, tenantID uuid.UUID, invoices []*models.Invoice, creditNotes []*models.CreditNote, fiscalYearStart time.Time) ([]byte, error) {
-	csvData, err := s.exporter.Export(invoices, creditNotes, fiscalYearStart, time.Now().UTC())
+	// Berater/Mandant numbers live on company_settings, which the upload service
+	// does not load; the primary GoBD export (BizGRPCServer.ExportDATEV) fills them.
+	csvData, err := s.exporter.Export(invoices, creditNotes, "", "", fiscalYearStart, time.Now().UTC())
 	if err != nil {
 		return nil, fmt.Errorf("datev export: %w", err)
 	}

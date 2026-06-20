@@ -312,6 +312,8 @@ message CompanySettings {
   string basiszinssatz = 19;       // Decimal as string (for Verzugszinsen calculation)
   google.protobuf.Timestamp created_at = 20;
   google.protobuf.Timestamp updated_at = 21;
+  string datev_berater_nr = 22;    // DATEV EXTF Beraternummer (empty until configured)
+  string datev_mandant_nr = 23;    // DATEV EXTF Mandantennummer (empty until configured)
 }
 
 message FinanceDashboard {

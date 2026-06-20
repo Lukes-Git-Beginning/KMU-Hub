@@ -452,7 +452,7 @@ func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantI
 			bank_name, iban, bic,
 			logo_url, accent_color,
 			is_kleinunternehmer, default_payment_terms_days, default_quote_validity_days,
-			basiszinssatz, default_currency, created_at, updated_at
+			basiszinssatz, default_currency, datev_berater_nr, datev_mandant_nr, created_at, updated_at
 		FROM company_settings
 		WHERE tenant_id = $1`,
 		tenantID,
@@ -462,7 +462,7 @@ func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantI
 		&cs.BankName, &cs.IBAN, &cs.BIC,
 		&cs.LogoURL, &cs.AccentColor,
 		&cs.IsKleinunternehmer, &cs.DefaultPaymentTermsDays, &cs.DefaultQuoteValidityDays,
-		&basiszinssatzFloat, &cs.DefaultCurrency, &cs.CreatedAt, &cs.UpdatedAt,
+		&basiszinssatzFloat, &cs.DefaultCurrency, &cs.DatevBeraterNr, &cs.DatevMandantNr, &cs.CreatedAt, &cs.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil // No settings configured yet
@@ -492,8 +492,8 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 			bank_name, iban, bic,
 			logo_url, accent_color,
 			is_kleinunternehmer, default_payment_terms_days, default_quote_validity_days,
-			basiszinssatz, default_currency, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), $21)
+			basiszinssatz, default_currency, datev_berater_nr, datev_mandant_nr, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW(), $23)
 		ON CONFLICT (tenant_id)
 		DO UPDATE SET
 			name = EXCLUDED.name,
@@ -514,6 +514,8 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 			default_quote_validity_days = EXCLUDED.default_quote_validity_days,
 			basiszinssatz = EXCLUDED.basiszinssatz,
 			default_currency = EXCLUDED.default_currency,
+			datev_berater_nr = EXCLUDED.datev_berater_nr,
+			datev_mandant_nr = EXCLUDED.datev_mandant_nr,
 			updated_at = EXCLUDED.updated_at`,
 		settings.ID, settings.TenantID,
 		settings.Name, settings.Street, settings.PLZ, settings.City, settings.Country,
@@ -521,7 +523,8 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 		settings.BankName, settings.IBAN, settings.BIC,
 		settings.LogoURL, settings.AccentColor,
 		settings.IsKleinunternehmer, settings.DefaultPaymentTermsDays, settings.DefaultQuoteValidityDays,
-		settings.Basiszinssatz.InexactFloat64(), defaultCurrency, settings.UpdatedAt,
+		settings.Basiszinssatz.InexactFloat64(), defaultCurrency,
+		settings.DatevBeraterNr, settings.DatevMandantNr, settings.UpdatedAt,
 	)
 	return err
 }
