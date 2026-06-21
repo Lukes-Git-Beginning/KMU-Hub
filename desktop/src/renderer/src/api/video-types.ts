@@ -193,7 +193,9 @@ export interface Recording {
   status: RecordingStatus
   egress_id: string | null
   file_url: string | null
-  file_size_bytes: number | null
+  // protojson serializes int64 as a JSON string (proto3 spec); encoding/json
+  // emitted a number. Accept both and coerce at the call site.
+  file_size_bytes: number | string | null
   duration_seconds: number | null
   retention_expires_at: string | null
   created_at: string

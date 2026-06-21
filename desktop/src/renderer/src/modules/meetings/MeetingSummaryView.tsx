@@ -325,9 +325,9 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {rec.file_size_bytes && (
+                    {rec.file_size_bytes != null && Number(rec.file_size_bytes) > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        {(rec.file_size_bytes / 1024 / 1024).toFixed(1)} MB
+                        {(Number(rec.file_size_bytes) / 1024 / 1024).toFixed(1)} MB
                       </span>
                     )}
                     <Badge

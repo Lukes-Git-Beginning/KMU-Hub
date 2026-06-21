@@ -271,7 +271,7 @@ func (vr *VideoRoutes) HandleCreateCall(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (vr *VideoRoutes) HandleJoinCall(w http.ResponseWriter, r *http.Request) {
@@ -344,7 +344,7 @@ func (vr *VideoRoutes) HandleGetCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleListActiveCalls(w http.ResponseWriter, r *http.Request) {
@@ -364,7 +364,7 @@ func (vr *VideoRoutes) HandleListActiveCalls(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -409,7 +409,7 @@ func (vr *VideoRoutes) HandleStartRecording(w http.ResponseWriter, r *http.Reque
 		)
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (vr *VideoRoutes) HandleStopRecording(w http.ResponseWriter, r *http.Request) {
@@ -434,7 +434,7 @@ func (vr *VideoRoutes) HandleStopRecording(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleSetRecordingConsent(w http.ResponseWriter, r *http.Request) {
@@ -488,7 +488,7 @@ func (vr *VideoRoutes) HandleGetRecordingConsent(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleListRecordings(w http.ResponseWriter, r *http.Request) {
@@ -517,7 +517,7 @@ func (vr *VideoRoutes) HandleListRecordings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleDeleteRecording(w http.ResponseWriter, r *http.Request) {
@@ -592,7 +592,7 @@ func (vr *VideoRoutes) HandleCreateMeeting(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (vr *VideoRoutes) HandleGetMeeting(w http.ResponseWriter, r *http.Request) {
@@ -613,7 +613,7 @@ func (vr *VideoRoutes) HandleGetMeeting(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleUpdateMeeting(w http.ResponseWriter, r *http.Request) {
@@ -663,7 +663,7 @@ func (vr *VideoRoutes) HandleUpdateMeeting(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleDeleteMeeting(w http.ResponseWriter, r *http.Request) {
@@ -739,7 +739,7 @@ func (vr *VideoRoutes) HandleListMeetings(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleStartMeeting(w http.ResponseWriter, r *http.Request) {
@@ -764,7 +764,7 @@ func (vr *VideoRoutes) HandleStartMeeting(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleEndMeeting(w http.ResponseWriter, r *http.Request) {
@@ -789,7 +789,7 @@ func (vr *VideoRoutes) HandleEndMeeting(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -825,7 +825,7 @@ func (vr *VideoRoutes) HandleSaveMeetingNotes(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleGetMeetingNotes(w http.ResponseWriter, r *http.Request) {
@@ -850,7 +850,7 @@ func (vr *VideoRoutes) HandleGetMeetingNotes(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleGetPreviousMeetingNotes(w http.ResponseWriter, r *http.Request) {
@@ -875,7 +875,7 @@ func (vr *VideoRoutes) HandleGetPreviousMeetingNotes(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -912,7 +912,7 @@ func (vr *VideoRoutes) HandleCreateActionItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (vr *VideoRoutes) HandleUpdateActionItem(w http.ResponseWriter, r *http.Request) {
@@ -946,7 +946,7 @@ func (vr *VideoRoutes) HandleUpdateActionItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleDeleteActionItem(w http.ResponseWriter, r *http.Request) {
@@ -992,7 +992,7 @@ func (vr *VideoRoutes) HandleListActionItems(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleConvertActionItemsToTasks(w http.ResponseWriter, r *http.Request) {
@@ -1019,7 +1019,7 @@ func (vr *VideoRoutes) HandleConvertActionItemsToTasks(w http.ResponseWriter, r 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1043,7 +1043,7 @@ func (vr *VideoRoutes) HandleGetPresence(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleGetBulkPresence(w http.ResponseWriter, r *http.Request) {
@@ -1066,7 +1066,7 @@ func (vr *VideoRoutes) HandleGetBulkPresence(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleSetPresenceStatus(w http.ResponseWriter, r *http.Request) {
@@ -1145,7 +1145,7 @@ func (vr *VideoRoutes) HandleGetPresenceConfig(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1472,7 +1472,7 @@ func (vr *VideoRoutes) HandleUpdateRecordingMetadata(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGetRecordingStatus returns the current status of a single recording.
@@ -1497,7 +1497,7 @@ func (vr *VideoRoutes) HandleGetRecordingStatus(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleListRecordingsByMeeting lists recordings for a specific meeting with pagination.

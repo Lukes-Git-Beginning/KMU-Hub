@@ -1,13 +1,73 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/kmuhub/kmuhub/internal/server/response"
+	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 )
+
+// TestProtoMeeting_TimestampSerialisation verifies R3-P0-1 for Meeting responses:
+// google.protobuf.Timestamp fields must serialize as RFC3339 strings (not {seconds,nanos})
+// when response.Proto is used. This is the serialisation path used by HandleGetMeeting,
+// HandleCreateMeeting, HandleListMeetings, and all other Meeting handlers after the
+// route_video.go migration.
+//
+// A full handler-level test is omitted because it would require a complete
+// VideoServiceClient mock; the response_proto_test.go in internal/server/response
+// already covers the protojson contract at the marshaller level. This test locks in
+// the Meeting-specific field names and types the frontend consumes.
+func TestProtoMeeting_TimestampSerialisation(t *testing.T) {
+	now := time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)
+	meeting := &videov1.Meeting{
+		Id:             uuid.New().String(),
+		Title:          "Standup",
+		OrganizerId:    uuid.New().String(),
+		Status:         videov1.MeetingStatus_MEETING_STATUS_SCHEDULED,
+		ScheduledStart: timestamppb.New(now),
+		ScheduledEnd:   timestamppb.New(now.Add(time.Hour)),
+		CreatedAt:      timestamppb.New(now),
+		UpdatedAt:      timestamppb.New(now),
+	}
+
+	rec := httptest.NewRecorder()
+	response.Proto(rec, http.StatusOK, meeting)
+
+	body := rec.Body.String()
+
+	// Timestamps must be RFC3339 strings, never {seconds, nanos} objects.
+	for _, field := range []string{"scheduled_start", "scheduled_end", "created_at", "updated_at"} {
+		want := `"` + field + `":"2026-07-01T09:0` // prefix check is enough
+		if field == "scheduled_end" {
+			want = `"` + field + `":"2026-07-01T10:0`
+		}
+		if !strings.Contains(body, want) {
+			t.Errorf("field %q: expected RFC3339 timestamp prefix %q, got body: %s", field, want, body)
+		}
+	}
+	if strings.Contains(body, `"seconds"`) {
+		t.Errorf("Timestamp leaked {seconds,nanos} shape into body: %s", body)
+	}
+
+	// Status must be an integer (UseEnumNumbers=true), not a string.
+	if !strings.Contains(body, `"status":1`) {
+		t.Errorf("expected integer enum status:1 (MEETING_STATUS_SCHEDULED), got body: %s", body)
+	}
+
+	// Must be valid JSON.
+	var sink map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &sink); err != nil {
+		t.Errorf("Proto output is not valid JSON: %v", err)
+	}
+}
 
 // TestConfirmInitiatorConsent_ServiceUnavailable verifies 503 when the work service is not registered.
 func TestConfirmInitiatorConsent_ServiceUnavailable(t *testing.T) {
