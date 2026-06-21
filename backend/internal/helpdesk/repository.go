@@ -25,6 +25,14 @@ type Repository interface {
 	// Used by merge duplicate detection.
 	FindOpenTicketsByRequester(ctx context.Context, tenantID, requesterID uuid.UUID, subjectPrefix string) ([]*Ticket, error)
 
+	// MergeTicketTx atomically reassigns all messages from source to target and
+	// marks source as merged (status='merged', merged_into_id=targetID) in a
+	// single database transaction. The source ticket must have its Status,
+	// MergedIntoID, and UpdatedAt fields set before calling this method.
+	// Note: Partition/retention DDL (DROP TABLE) is unaffected and operates
+	// outside of row-level transactions.
+	MergeTicketTx(ctx context.Context, source *Ticket, targetID uuid.UUID) error
+
 	// -----------------------------------------------------------------------
 	// Ticket messages
 	// -----------------------------------------------------------------------

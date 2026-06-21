@@ -56,19 +56,16 @@ func MergeTickets(ctx context.Context, repo Repository, sourceID, targetID uuid.
 		return fmt.Errorf("merge tickets – load target: %w", err)
 	}
 
-	// Move messages.
-	if err := repo.ReassignMessages(ctx, sourceID, targetID); err != nil {
-		return fmt.Errorf("merge tickets – reassign messages: %w", err)
-	}
-
-	// Close source.
+	// Set source fields before the atomic TX so the UPDATE SQL inside sees
+	// the correct values.
 	now := time.Now().UTC()
 	source.Status = TicketStatusMerged
 	source.MergedIntoID = &targetID
 	source.UpdatedAt = now
 
-	if err := repo.UpdateTicket(ctx, source); err != nil {
-		return fmt.Errorf("merge tickets – update source: %w", err)
+	// Atomically reassign messages and close source in one transaction.
+	if err := repo.MergeTicketTx(ctx, source, targetID); err != nil {
+		return fmt.Errorf("merge tickets – atomic tx: %w", err)
 	}
 
 	return nil

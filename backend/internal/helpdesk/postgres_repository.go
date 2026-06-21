@@ -215,6 +215,45 @@ func (r *PostgresRepository) ReassignMessages(ctx context.Context, sourceTicketI
 	return err
 }
 
+// MergeTicketTx reassigns messages and closes source atomically in one
+// transaction. source must already have Status, MergedIntoID, and UpdatedAt
+// populated by the caller (merge.go sets these before invoking this method).
+func (r *PostgresRepository) MergeTicketTx(ctx context.Context, source *Ticket, targetID uuid.UUID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("merge tx begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
+
+	// 1. Reassign messages from source → target.
+	if _, err := tx.Exec(ctx,
+		`UPDATE ticket_messages SET ticket_id = $1 WHERE ticket_id = $2`,
+		targetID, source.ID,
+	); err != nil {
+		return fmt.Errorf("merge tx reassign messages: %w", err)
+	}
+
+	// 2. Close source ticket (mark as merged).
+	if _, err := tx.Exec(ctx,
+		`UPDATE tickets
+		 SET subject = $1, status = $2, priority = $3, assignee_id = $4,
+		     queue_id = $5, due_at = $6, merged_into_id = $7,
+		     first_response_at = $8, resolved_at = $9, updated_at = $10
+		 WHERE id = $11`,
+		source.Subject, source.Status, source.Priority, source.AssigneeID,
+		source.QueueID, source.DueAt, source.MergedIntoID,
+		source.FirstResponseAt, source.ResolvedAt, source.UpdatedAt,
+		source.ID,
+	); err != nil {
+		return fmt.Errorf("merge tx update source ticket: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("merge tx commit: %w", err)
+	}
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Queues
 // ---------------------------------------------------------------------------

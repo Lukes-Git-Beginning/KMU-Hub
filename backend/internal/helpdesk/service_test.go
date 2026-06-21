@@ -82,6 +82,22 @@ func (r *mockRepo) ReassignMessages(_ context.Context, sourceID, targetID uuid.U
 	return nil
 }
 
+// MergeTicketTx simulates the atomic TX: reassign messages then update ticket.
+// In the mock both operations are in-memory and therefore trivially atomic.
+func (r *mockRepo) MergeTicketTx(_ context.Context, source *Ticket, targetID uuid.UUID) error {
+	// Reassign messages.
+	msgs := r.messages[source.ID]
+	for _, m := range msgs {
+		m.TicketID = targetID
+	}
+	r.messages[targetID] = append(r.messages[targetID], msgs...)
+	delete(r.messages, source.ID)
+
+	// Update source ticket.
+	r.tickets[source.ID] = source
+	return nil
+}
+
 func (r *mockRepo) CreateQueue(_ context.Context, q *TicketQueue) error {
 	r.queues[q.ID] = q
 	return nil
@@ -498,6 +514,54 @@ func TestMergeTickets_CannotMergeSelf(t *testing.T) {
 	err := h.svc.MergeTickets(context.Background(), ticket.ID, ticket.ID)
 	if !errors.Is(err, ErrCannotMergeSelf) {
 		t.Errorf("expected ErrCannotMergeSelf, got %v", err)
+	}
+}
+
+// TestMergeTickets_AtomicTx verifies that MergeTicketTx (the transactional
+// path) moves messages AND marks the source as merged in a single call.
+// This guards against regressions where the two writes were separate (the
+// pre-fix bug: crash between writes left tickets in an inconsistent state).
+func TestMergeTickets_AtomicTx(t *testing.T) {
+	repo := newMockRepo()
+
+	source := &Ticket{
+		ID:     uuid.New(),
+		Status: TicketStatusOpen,
+	}
+	target := &Ticket{
+		ID:     uuid.New(),
+		Status: TicketStatusOpen,
+	}
+	repo.tickets[source.ID] = source
+	repo.tickets[target.ID] = target
+
+	// Seed a message on source.
+	msg := &TicketMessage{ID: uuid.New(), TicketID: source.ID}
+	repo.messages[source.ID] = []*TicketMessage{msg}
+
+	// Set the merge fields as merge.go does before calling MergeTicketTx.
+	source.Status = TicketStatusMerged
+	source.MergedIntoID = &target.ID
+
+	if err := repo.MergeTicketTx(context.Background(), source, target.ID); err != nil {
+		t.Fatalf("MergeTicketTx returned unexpected error: %v", err)
+	}
+
+	// Message must have moved to target.
+	if len(repo.messages[target.ID]) != 1 {
+		t.Errorf("expected 1 message on target after MergeTicketTx, got %d", len(repo.messages[target.ID]))
+	}
+	if len(repo.messages[source.ID]) != 0 {
+		t.Errorf("expected 0 messages on source after MergeTicketTx, got %d", len(repo.messages[source.ID]))
+	}
+
+	// Source ticket must be marked merged.
+	stored := repo.tickets[source.ID]
+	if stored.Status != TicketStatusMerged {
+		t.Errorf("expected source status merged, got %s", stored.Status)
+	}
+	if stored.MergedIntoID == nil || *stored.MergedIntoID != target.ID {
+		t.Errorf("expected merged_into_id=%s, got %v", target.ID, stored.MergedIntoID)
 	}
 }
 
