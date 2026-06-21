@@ -293,7 +293,7 @@ export default function VideoPage() {
   // Real meetings from the backend, merged with local mock meetings (R3-E4).
   const { data: apiMeetings } = useMeetings()
   const apiUIMeetings = useMemo(
-    () => (apiMeetings ?? []).map(backendMeetingToUI),
+    () => (Array.isArray(apiMeetings) ? apiMeetings : []).map(backendMeetingToUI),
     [apiMeetings],
   )
   const apiIds = useMemo(() => new Set(apiUIMeetings.map((m) => m.id)), [apiUIMeetings])

@@ -135,7 +135,9 @@ export const videoHandlers = [
       filtered = filtered.filter((m) => m.status === status)
     }
 
-    return HttpResponse.json({ meetings: filtered, total: filtered.length })
+    // Match the real wire shape: a bare array (gateway uses response.ProtoList),
+    // not a {meetings,total} envelope — the client maps the response directly.
+    return HttpResponse.json(filtered)
   }),
 
   // Meeting detail
@@ -144,6 +146,7 @@ export const videoHandlers = [
     if (!meeting) {
       return HttpResponse.json({ error: 'Meeting not found' }, { status: 404 })
     }
-    return HttpResponse.json({ meeting })
+    // Bare Meeting object — getMeeting() expects Meeting, not { meeting }.
+    return HttpResponse.json(meeting)
   }),
 ]

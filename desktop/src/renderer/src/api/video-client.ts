@@ -147,8 +147,16 @@ export const updateMeeting = (id: string, req: UpdateMeetingRequest) =>
 export const deleteMeeting = (id: string) =>
   del<void>(`/api/v1/meetings/${id}`)
 
-export const listMeetings = (filter?: MeetingFilter) =>
-  get<Meeting[]>('/api/v1/meetings', filter as RequestOptions['params'])
+export const listMeetings = async (filter?: MeetingFilter): Promise<Meeting[]> => {
+  // The gateway returns a bare Meeting[] (response.ProtoList). Older builds and
+  // the demo mock returned a wrapped {meetings,total} envelope; unwrap defensively
+  // so a stale persisted cache or mock never reaches the UI as a non-array.
+  const res = await get<Meeting[] | { meetings?: Meeting[] }>(
+    '/api/v1/meetings',
+    filter as RequestOptions['params'],
+  )
+  return Array.isArray(res) ? res : (res?.meetings ?? [])
+}
 
 export const startMeeting = (id: string) =>
   post<StartMeetingResponse>(`/api/v1/meetings/${id}/start`)

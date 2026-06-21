@@ -94,7 +94,7 @@ export default function MeetingsPage() {
   const joinMeetingMutation = useJoinMeeting()
 
   const apiUIMeetings = useMemo(
-    () => (apiMeetings ?? []).map(backendMeetingToUI),
+    () => (Array.isArray(apiMeetings) ? apiMeetings : []).map(backendMeetingToUI),
     [apiMeetings],
   )
   const apiIds = useMemo(() => new Set(apiUIMeetings.map((m) => m.id)), [apiUIMeetings])
