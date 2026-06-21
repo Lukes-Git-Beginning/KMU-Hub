@@ -9,7 +9,7 @@
  */
 import { useTranslation } from 'react-i18next'
 import { FileText } from 'lucide-react'
-import { isDocEmpty, type DocBlockBase, type DocRow } from './types'
+import { isDocEmpty, type DocRow } from './types'
 import type { BlockRegistry } from './block-registry'
 
 export interface DocReaderSettings {
