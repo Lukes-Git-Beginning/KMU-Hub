@@ -1,33 +1,32 @@
-# RESUME — nächster Einstieg (Stand 2026-06-21 Session-Ende)
+# RESUME — nächster Einstieg (Stand 2026-06-21, Session-Ende)
 
-> **Direkt-Wiedereinstieg für morgen.** main = `0623a32b`, working tree clean, alles gepusht.
+> **Direkt-Wiedereinstieg.** main = `f72aa2db` (Phase A gepusht), working tree clean, alles gepusht.
 > SCHRITT 0 (beide Terminals): `git pull --rebase origin main`
 
-## Was fertig ist
-- **berichte R-3/R-4 (Batch B5):** Print/PDF (B5-1) + Scheduling (B5-2…B5-5) — gepusht, von Darien reviewt („geht in die richtige Richtung").
-- **berichte R-5 Integration (Batch B6):** an Aufgabe/Kontakt anhängen, PDF→Dokumente, externer Share-Link + Verwaltung (B6-1…B6-5) + Kontakt-Verweis-Fix (`c940d762`) — gepusht, reviewt.
-  - Damit ist **berichte Report-Authoring R-0…R-5 komplett**. Nur **R-6 (Datenquellen)** fehlt für volle Review-Reife.
-- **wiki Batch 1 Tiefe (WT-1…WT-5, Sub-Terminal):** rekursive Kategorien + Verschieben, Tags/Titel-Rename, Versions-Diff, Anhänge/Share-Verwaltung, Suche-Fix — gepusht, von Darien reviewt.
-  - **Dariens Hauptbefund:** „das Erstellen sieht kein bisschen so aus wie beim berichte-Modul" → wiki Batch 2 priorisiert.
+## Was fertig ist (diese Session)
+- **berichte R-6 (Datenquellen) KOMPLETT** → berichte Report-Authoring R-0…R-6 fertig. **review-reif → Darien-Review** (Paket `.planning/berichte-REVIEW-paket.md`). Darien reviewt selbst, passt dann 1-2 Settings + Diagramm-Verlinkungen mit mir an.
+- **wiki Batch 2 (Sub, WP-1…WP-5)** gebaut, aber **Darien-Befund: „nicht gut" — der Sub hat den wiki-TipTap-Fließeditor verschönert statt das berichte-Block-System zu übernehmen.** Wird in Phase B ersetzt. Review-Paket `.planning/wiki-REVIEW-paket.md` (Drumherum bleibt).
+- **★ Dokument-Engine Phase A KOMPLETT** (commit `f72aa2db`): gemeinsame Block-Engine `components/shared/document/` (types, block-registry, CoreBlocks, DocumentBlockEditor, DocumentReader mode print|web). **berichte läuft transparent darauf** — Editor + Reader screenshot-identisch verifiziert. Kontext/Vision: [[project_document_engine]].
 
-## Nächster Batch (morgen) — 2 Terminals parallel (Vorschlag)
-- **Sub-Terminal: wiki Batch 2 (Editor auf berichte-Niveau, WP-1…WP-5) — ⭐ PRIORITÄT (Dariens Hauptanliegen).**
-  - Copy-paste-Paket: **`.planning/wiki-batch2-editor-SUB.md`** (fertig).
-  - Detail-Plan: `.planning/wiki-knowledge-base-VISION.md` (Batch 2, geschärft).
-- **Haupt-Terminal: berichte R-6 (Datenquellen-Ausbau).**
-  - Plan/Sub-Block (jetzt fürs Haupt nutzbar): `.planning/RESUME-batch-4.md` (R-6-Abschnitt) + `.planning/berichte-report-authoring-VISION.md` (R-6).
-  - Inhalt: 6 neue Quellen (HR, Zeiterfassung, Verträge, Einkauf, Fuhrpark, Rapporte) + 5 bestehende vertiefen; Merge-Punkt nur `registry.ts`.
+## ▶▶ NÄCHSTER BATCH — 2 Terminals parallel
+**Haupt-Terminal (`KMU Hub`, 5173) = wiki Phase B (Kern, PB-1…PB-5).**
+- Bauplan: **`.planning/wiki-phaseB-VISION.md`** (alle Entscheidungen drin). Engine-Doku: `components/shared/document/index.ts`.
+- Kurz: wiki vom TipTap-Fließeditor auf die Block-Engine. Demo-Artikel NEU als Block-Dokumente seeden. Long-Form-Text-Block = vollwertiger TipTap (flüssiges Schreiben) + Block-Struktur für Spezial-Elemente. @Mention/[[Wikilink]] mit **Vorschau-Popover beim Klick** (Ziel-Info + „weitere Infos" → Kontakte-Modul) — NEUES Feature, modulübergreifend. Spezialblöcke (Toggle/Code/Tabelle/Anhang) = Batch 2 danach.
 
-**OFFENE ENTSCHEIDUNG (morgen früh, 1 Satz):** wiki Batch 2 ins Sub (parallel zu R-6 im Haupt) — ODER wiki Batch 2 ins Haupt (volle Aufmerksamkeit), R-6 danach. Darien entscheidet die Terminal-Zuordnung; Pakete liegen für beide Varianten bereit.
+**Sub-Terminal (`KMU-Hub-review`, 5174) = notifications zu review-reif (N-1…N-5).**
+- Copy-paste-Paket: **`.planning/notifications-SUB.md`** (fertig, Block unten in der Datei). Disjunkt zu wiki.
+- Kurz: Quiet-Hours/DND durchsetzen, Store-Kohärenz, Sidebar-Nav + Demo-Seeds, Pin/Dismiss persistieren, Settings + Schlusscheck.
 
-## Danach in der wiki-Pipeline
-- Batch 3 (Vertrauen & Vernetzung: Lebenszyklus, Page-Owner/Review, Kommentare, Backlinks)
-- Batch 4 (CRM-Integration + Lese-KI: Zusammenfassen, „Frag das Wiki")
-- Alle in `.planning/wiki-knowledge-base-VISION.md`.
+**Terminal-Zuordnung:** Darien startet beide. Wenn der Sub läuft → Haupt beginnt PB-1. (Wer am cwd: `KMU Hub`=Haupt/wiki, `KMU-Hub-review`=Sub/notifications.)
+
+## Danach
+- wiki **Batch 2**: Spezialblöcke (Toggle/Code/Tabelle/Anhang) in `wikiBlockRegistry`.
+- berichte/wiki **Darien-Reviews** → Findings als FIX-Phasen → dann Nico.
+- **Großer Block (gemeinsam):** kaskadierende Datenquellen-Auswahl für Diagramm-Blöcke (Modul→Kategorie→Filter z.B. Kunde/Branche→Wert) → in alle Dokument-Erstellungs-Stellen. Siehe [[project_document_engine]].
 
 ## Build-+-Verify-Standard (beide Terminals, pro Phase)
 bauen → i18n ×4 (`{var}`, ICU-Plural) → gescopter Typecheck (foreground, echter Exit, NIE `| tail`) → Playwright-Screenshot-QA + PNGs WIRKLICH ansehen → ein Commit (explizite Pfade) → push (pull --rebase über parallele Pushes).
-Latenz-Hinweis: vorbestehende tsc-Fehler in `useTasks.ts`/`crm.ts:396`/`email-client.ts` ignorieren (nicht unsere Dateien) — nur eigene Dateien müssen sauber sein.
+Latenz-Hinweis: vorbestehender tsc-Fehler in `useTasks.ts` ignorieren (nicht unsere Datei).
 
-## Review-Findings-Ablage
-`.planning/berichte-r3r4-review-findings.md` (berichte) — falls morgen noch Punkte kommen.
+## Pläne/Pakete
+`.planning/wiki-phaseB-VISION.md` · `.planning/notifications-SUB.md` · `.planning/berichte-REVIEW-paket.md` · `.planning/wiki-REVIEW-paket.md` · `.planning/MASTER-TRACKER.md`. Detail-Verlauf: [[project_resume_log]].
