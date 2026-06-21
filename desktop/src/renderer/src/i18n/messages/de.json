@@ -8712,6 +8712,7 @@
   "wiki.dialog.deleteDescription": "\"{title}\" wird unwiderruflich gelöscht.",
   "wiki.dialog.deleteTitle": "Artikel löschen",
   "wiki.editor.placeholder": "Inhalt verfassen…",
+  "wiki.editor.titlePlaceholder": "Titel des Artikels",
   "wiki.editor.saving": "Speichern…",
   "wiki.editor.shortcutHint": "Ctrl+S speichern · Esc abbrechen · @ erwähnt · [[ verlinkt",
   "wiki.header.share": "Teilen",

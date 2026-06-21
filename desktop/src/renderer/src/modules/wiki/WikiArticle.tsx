@@ -33,10 +33,11 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   const setEditing = useWikiStore((s) => s.setEditing)
   const setSelectedArticle = useWikiStore((s) => s.setSelectedArticle)
   const readingWidth = useWikiPrefsStore((s) => s.readingWidth)
-  const widthClass = readingWidth === 'wide' ? 'max-w-none' : 'max-w-3xl mx-auto'
+  const widthClass = readingWidth === 'wide' ? 'max-w-none' : 'max-w-[65ch] mx-auto'
   const updateArticleMutation = useUpdateArticle()
   const restoreVersionMutation = useRestoreVersion()
   const [editContent, setEditContent] = useState(article.content)
+  const [editTitle, setEditTitle] = useState(article.title)
   const [showVersions, setShowVersions] = useState(false)
 
   const resolveUser = useWikiUsers()
@@ -53,10 +54,13 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
     .sort((a, b) => b.version - a.version)
 
   const handleSave = async (changeNote?: string) => {
+    const title = editTitle.trim()
     try {
       await updateArticleMutation.mutateAsync({
         id: article.id,
         content: { html: editContent } as Record<string, unknown>,
+        // Persist the title alongside the body when the editor heading changed.
+        ...(title && title !== article.title ? { title } : {}),
         change_note: changeNote?.trim() || undefined,
       })
       setEditing(false)
@@ -68,11 +72,13 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
 
   const handleCancel = () => {
     setEditContent(article.content)
+    setEditTitle(article.title)
     setEditing(false)
   }
 
   const handleStartEdit = () => {
     setEditContent(article.content)
+    setEditTitle(article.title)
     setEditing(true)
   }
 
@@ -101,23 +107,27 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
     <div className="flex flex-1 overflow-hidden">
       {/* Article content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <WikiArticleHeader
-          article={article}
-          categories={categories}
-          allTags={allTags}
-          versionCount={versions.length}
-          viewCount={viewCount}
-          onEdit={handleStartEdit}
-          onDelete={onDelete}
-          onToggleVersions={() => setShowVersions(!showVersions)}
-          onShare={onShare}
-        />
+        {/* Header — read mode only; the editor carries its own title heading. */}
+        {!isEditing && (
+          <WikiArticleHeader
+            article={article}
+            categories={categories}
+            allTags={allTags}
+            versionCount={versions.length}
+            viewCount={viewCount}
+            onEdit={handleStartEdit}
+            onDelete={onDelete}
+            onToggleVersions={() => setShowVersions(!showVersions)}
+            onShare={onShare}
+          />
+        )}
 
         {/* Content / Editor */}
         {isEditing ? (
           <WikiEditor
             key={article.id}
+            title={editTitle}
+            onTitleChange={setEditTitle}
             content={editContent}
             onChange={setEditContent}
             onSave={handleSave}
@@ -125,11 +135,11 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
             saving={updateArticleMutation.isPending}
           />
         ) : (
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className={widthClass}>
               {article.content.trim() ? (
                 <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
+                  className="tiptap-content wiki-canvas prose max-w-none dark:prose-invert"
                   onClick={handleBodyClick}
                   dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(article.content, {

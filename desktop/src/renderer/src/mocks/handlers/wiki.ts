@@ -85,9 +85,25 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Willkommen im Cosmi-Wiki',
     slug: 'willkommen-im-cosmi-wiki',
-    content: tiptapDoc(
-      'Dies ist die zentrale Wissensbasis des Unternehmens. Hier finden Sie alle wichtigen Prozesse, Anleitungen und Informationen.',
-    ),
+    content: {
+      html:
+        '<p>Dies ist die zentrale Wissensbasis des Unternehmens — ein ruhiger Ort für alles, ' +
+        'was das Team wissen muss: Prozesse, Anleitungen und Entscheidungen, an einem Ort und ' +
+        'immer aktuell.</p>' +
+        '<h2>Was du hier findest</h2>' +
+        '<p>Das Wiki ist nach Bereichen geordnet. Jeder Artikel hat eine verantwortliche Person ' +
+        'und wird regelmässig geprüft, damit du dich auf den Inhalt verlassen kannst.</p>' +
+        '<ul><li><strong>Onboarding</strong> — die ersten Tage und Wochen</li>' +
+        '<li><strong>Prozesse &amp; Workflows</strong> — wie wir arbeiten</li>' +
+        '<li><strong>IT &amp; Infrastruktur</strong> — Tools, Zugänge, Notfälle</li></ul>' +
+        '<h2>So schreibst du einen guten Artikel</h2>' +
+        '<p>Schreibe für die Person, die zum ersten Mal hier landet. Eine klare Überschrift, ' +
+        'kurze Absätze und eine Liste mit konkreten Schritten reichen oft schon aus.</p>' +
+        '<h3>Drei einfache Regeln</h3>' +
+        '<ol><li>Beginne mit dem Ergebnis, nicht mit dem Kontext.</li>' +
+        '<li>Verlinke verwandte Artikel statt sie zu kopieren.</li>' +
+        '<li>Halte den Artikel aktuell — markiere ihn als geprüft.</li></ol>',
+    } as Record<string, unknown>,
     author_id: CURRENT_USER.id,
     category_id: 'wcat-001',
     published: true,

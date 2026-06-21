@@ -8712,6 +8712,7 @@
   "wiki.dialog.deleteDescription": "\"{title}\" will be permanently deleted.",
   "wiki.dialog.deleteTitle": "Delete article",
   "wiki.editor.placeholder": "Write content…",
+  "wiki.editor.titlePlaceholder": "Article title",
   "wiki.editor.saving": "Saving…",
   "wiki.editor.shortcutHint": "Ctrl+S save · Esc cancel · @ mention · [[ link",
   "wiki.header.share": "Share",

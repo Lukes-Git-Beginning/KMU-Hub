@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./fonts.css";
 @import "./tiptap.css";
+@import "./wiki-content.css";
 @import "./animations.css";
 @import "./micro-interactions.css";
 @import "./nav-icons.css";

@@ -8678,6 +8678,7 @@
   "wiki.dialog.deleteDescription": "\"{title}\" verrà eliminato definitivamente.",
   "wiki.dialog.deleteTitle": "Elimina articolo",
   "wiki.editor.placeholder": "Scrivi il contenuto…",
+  "wiki.editor.titlePlaceholder": "Titolo dell'articolo",
   "wiki.editor.saving": "Salvataggio…",
   "wiki.editor.shortcutHint": "Ctrl+S salva · Esc annulla · @ menziona · [[ collega",
   "wiki.header.share": "Condividi",

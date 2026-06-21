@@ -1,0 +1,113 @@
+/*
+ * Wiki editorial canvas — shared by the article editor (WikiRichEditor) and the
+ * read view (WikiArticle). Lifts the wiki authoring/reading surface to the
+ * berichte "premium editorial" level, wiki-appropriate (a calm Notion-like page,
+ * not an A4 report). Layered on top of tiptap.css via the `.wiki-canvas` class.
+ *
+ * Imported after tiptap.css in globals.css so these rules win on shared tags.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Editorial body — generous measure, quiet rhythm, serif headings
+ * ------------------------------------------------------------------------- */
+
+.wiki-canvas {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--foreground);
+}
+
+.wiki-canvas > :first-child {
+  margin-top: 0;
+}
+
+/* Playfair (self-hosted, report-serif) for the heading voice — calm hierarchy. */
+.wiki-canvas h1,
+.wiki-canvas h2,
+.wiki-canvas h3 {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-feature-settings: 'liga' 1, 'kern' 1;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+.wiki-canvas h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.16;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.wiki-canvas h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 1.85rem;
+  margin-bottom: 0.55rem;
+}
+
+.wiki-canvas h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.wiki-canvas p {
+  margin-bottom: 0.9rem;
+}
+
+.wiki-canvas ul,
+.wiki-canvas ol {
+  margin-bottom: 0.9rem;
+}
+
+.wiki-canvas li {
+  margin-bottom: 0.3rem;
+}
+
+.wiki-canvas blockquote {
+  margin: 1.25rem 0;
+  font-size: 1.05rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Editorial title — a textarea that reads as the page's H1 (no input chrome)
+ * ------------------------------------------------------------------------- */
+
+.wiki-title-input {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-feature-settings: 'liga' 1, 'kern' 1;
+  font-size: 2.4rem;
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.018em;
+  color: var(--foreground);
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+}
+
+.wiki-title-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.4;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sticky editor toolbar — dezent, glass-aware (replaces the boxed frame)
+ * ------------------------------------------------------------------------- */
+
+.wiki-toolbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--background) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}

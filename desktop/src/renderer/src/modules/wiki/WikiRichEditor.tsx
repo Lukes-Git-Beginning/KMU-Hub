@@ -110,8 +110,8 @@ export function WikiRichEditor({ content, onChange, placeholder, autofocus, onSa
     onSelectionUpdate: () => detect(),
     editorProps: {
       attributes: {
-        class: cn('tiptap-content prose prose-sm dark:prose-invert max-w-none', 'focus:outline-none px-4 py-3'),
-        style: 'min-height: 320px;',
+        class: cn('tiptap-content wiki-canvas prose dark:prose-invert max-w-none', 'focus:outline-none'),
+        style: 'min-height: 52vh;',
       },
       handleKeyDown: (_view, event) => {
         const k = kbRef.current
@@ -222,8 +222,13 @@ export function WikiRichEditor({ content, onChange, placeholder, autofocus, onSa
   if (!editor) return null
 
   return (
-    <div className="relative rounded-lg border border-border bg-card text-card-foreground focus-within:ring-1 focus-within:ring-primary/30">
-      <EditorToolbar editor={editor} />
+    // `rounded-lg` is kept purely as the positioning anchor the shared
+    // EditorBubbleMenu looks up via closest('.rounded-lg') — visually the canvas
+    // is frameless (no border/bg), so the page reads as one quiet surface.
+    <div className="relative rounded-lg">
+      <div className="wiki-toolbar-sticky -mx-1 mb-3 rounded-md border-b border-border/60">
+        <EditorToolbar editor={editor} />
+      </div>
       <EditorBubbleMenu editor={editor} />
       <EditorContent editor={editor} />
 
