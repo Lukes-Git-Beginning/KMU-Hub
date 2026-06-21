@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { TimePicker } from '@/components/shared/TimePicker'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -59,6 +60,18 @@ const DAY_LABEL_KEYS = [
   'settings.notifications.day.fri',
   'settings.notifications.day.sat',
 ]
+
+const MUTED_TYPE_KEYS: Record<string, string> = {
+  channel: 'settings.notifications.muted.type.channel',
+  conversation: 'settings.notifications.muted.type.conversation',
+  thread: 'settings.notifications.muted.type.thread',
+}
+
+/** Readable label for a muted resource's type, falling back to the raw value. */
+function mutedTypeLabel(t: TFunction, type: string): string {
+  const key = MUTED_TYPE_KEYS[type]
+  return key ? (t(key) as string) : type
+}
 
 export function NotificationSettingsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
@@ -254,7 +267,7 @@ export function NotificationSettingsTab({ embedded = false }: { embedded?: boole
                 <div>
                   <p className="text-sm text-foreground">{mute.resource_label ?? mute.resource_id}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {mute.resource_type} · {t('settings.notifications.muted.since', { date: formatDate(mute.muted_at) })}
+                    {mutedTypeLabel(t, mute.resource_type)} · {t('settings.notifications.muted.since', { date: formatDate(mute.muted_at) })}
                   </p>
                 </div>
                 <button

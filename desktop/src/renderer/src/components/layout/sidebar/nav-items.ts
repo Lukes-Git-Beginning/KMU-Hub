@@ -27,6 +27,7 @@ import {
   BookOpen,
   PhoneCall,
   Workflow,
+  Bell,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -128,5 +129,6 @@ export const navItems: NavItemConfig[] = [
   // ── System (bottom) ──
   // Admin/organisation settings now live inside the module-settings overlay
   // (COSMI group), so there is no separate "Administration" entry point.
+  { id: 'notifications', to: '/notifications', icon: Bell, label: 'layout.navItems.notifications', enabled: true, section: 'bottom', color: { h: 280, s: 65 } },
   { id: 'settings', to: '/settings', icon: Cog, label: 'layout.navItems.settings', enabled: true, section: 'bottom', color: { h: 220, s: 18 } },
 ]

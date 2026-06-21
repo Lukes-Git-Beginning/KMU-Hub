@@ -29,6 +29,8 @@ interface SeedNotification {
   resource_id: string | null
   deep_link?: string
   created_at: string
+  /** When > 1, the center shows a "+N weitere" badge (grouped notifications). */
+  group_count?: number
 }
 
 const notifications: SeedNotification[] = [
@@ -73,6 +75,7 @@ const notifications: SeedNotification[] = [
     resource_id: IDS.channels.entwicklung,
     deep_link: '/kommunikation',
     created_at: hoursAgo(1),
+    group_count: 3,
   },
   {
     id: 'notif-004',
@@ -343,8 +346,33 @@ let dndState: DNDStatus = {
   is_active: false,
 }
 
-const mutesState: MutedResource[] = []
-let muteIdCounter = 1
+// A few muted resources seeded so the "Stummgeschaltet"-Liste is non-empty and
+// the unmute flow is demoable. resource_label is the human-readable name shown
+// in settings; resource_type is localized there.
+const mutesState: MutedResource[] = [
+  {
+    id: 'mute-seed-1',
+    resource_type: 'channel',
+    resource_id: IDS.channels.random,
+    resource_label: '#random',
+    muted_at: daysAgo(4),
+  },
+  {
+    id: 'mute-seed-2',
+    resource_type: 'conversation',
+    resource_id: IDS.dms.stefanThomas,
+    resource_label: 'Thomas Meier',
+    muted_at: daysAgo(1),
+  },
+  {
+    id: 'mute-seed-3',
+    resource_type: 'thread',
+    resource_id: 'thread-erp-angebot',
+    resource_label: 'ERP Migration — Angebot',
+    muted_at: hoursAgo(6),
+  },
+]
+let muteIdCounter = 4
 
 // ---------------------------------------------------------------------------
 // Handlers
