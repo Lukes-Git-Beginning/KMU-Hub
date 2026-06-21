@@ -79,6 +79,22 @@ function tiptapDoc(text: string): Record<string, unknown> {
   }
 }
 
+// Inline demo diagram (data URL) so the rich-block showcase article (wart-003)
+// renders a real figure without a backend upload pipeline.
+const DEMO_FLOW_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='520' height='150'>" +
+  "<rect width='520' height='150' fill='#f8fafc'/>" +
+  "<rect x='20' y='52' width='110' height='46' rx='8' fill='#e0e7ff'/>" +
+  "<rect x='205' y='52' width='110' height='46' rx='8' fill='#dbeafe'/>" +
+  "<rect x='390' y='52' width='110' height='46' rx='8' fill='#dcfce7'/>" +
+  "<text x='75' y='80' font-family='sans-serif' font-size='13' text-anchor='middle' fill='#3730a3'>Angebot</text>" +
+  "<text x='260' y='80' font-family='sans-serif' font-size='13' text-anchor='middle' fill='#1e40af'>Auftrag</text>" +
+  "<text x='445' y='80' font-family='sans-serif' font-size='13' text-anchor='middle' fill='#166534'>Rechnung</text>" +
+  "<line x1='130' y1='75' x2='205' y2='75' stroke='#94a3b8' stroke-width='2'/>" +
+  "<line x1='315' y1='75' x2='390' y2='75' stroke='#94a3b8' stroke-width='2'/>" +
+  '</svg>'
+const DEMO_FLOW_DATA_URL = 'data:image/svg+xml,' + encodeURIComponent(DEMO_FLOW_SVG)
+
 const ARTICLES: WikiArticle[] = [
   {
     id: 'wart-001',
@@ -133,9 +149,34 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Angebots- und Rechnungsprozess',
     slug: 'angebots-und-rechnungsprozess',
-    content: tiptapDoc(
-      'Beschreibt den vollständigen Prozess von der Angebotserstellung bis zur Rechnungsstellung inkl. Mahnwesen und DATEV-Export.',
-    ),
+    content: {
+      html:
+        '<p>Dieser Artikel beschreibt den vollständigen Prozess von der Angebotserstellung ' +
+        'bis zur Rechnungsstellung inklusive Mahnwesen und DATEV-Export.</p>' +
+        '<figure data-figure="" class="wiki-figure"><img src="' +
+        DEMO_FLOW_DATA_URL +
+        '" class="wiki-figure-img"><figcaption class="wiki-figure-caption">Die drei Phasen im Überblick</figcaption></figure>' +
+        '<h2>Angebot erstellen</h2>' +
+        '<p>Jedes Angebot startet aus einer Opportunity im CRM. Pflichtfelder sind Kunde, ' +
+        'Positionen und Gültigkeitsdauer.</p>' +
+        '<div data-callout="" data-variant="info" class="wiki-callout"><p>Angebote sind 30 Tage ' +
+        'gültig, sofern nicht anders vereinbart.</p></div>' +
+        '<div data-callout="" data-variant="warning" class="wiki-callout"><p>Rabatte über 15 % ' +
+        'müssen vor dem Versand von der Teamleitung freigegeben werden.</p></div>' +
+        '<h2>Auftrag &amp; Rechnung</h2>' +
+        '<p>Nach Auftragsbestätigung wird die Rechnung automatisch aus dem Angebot erzeugt. ' +
+        'Die Rechnungsnummer folgt dem Schema unten.</p>' +
+        '<pre class="wiki-code"><code class="language-typescript">function invoiceNumber(year: number, seq: number): string {\n  return `R-${year}-${String(seq).padStart(4, "0")}`\n}</code></pre>' +
+        '<div data-callout="" data-variant="tip" class="wiki-callout"><p>Tipp: Mit dem Kürzel ' +
+        '<strong>/code</strong> fügst du im Editor jederzeit einen Codeblock ein.</p></div>' +
+        '<details data-details="" class="wiki-details" open><summary class="wiki-details-summary">' +
+        'Mahnwesen im Detail</summary><div data-details-content="" class="wiki-details-body">' +
+        '<p>Die erste Mahnung erfolgt 14 Tage nach Fälligkeit, die zweite nach weiteren 10 Tagen. ' +
+        'Danach übernimmt das Inkasso.</p></div></details>' +
+        '<hr>' +
+        '<div data-callout="" data-variant="recommendation" class="wiki-callout"><p>Empfehlung: ' +
+        'Prüfe vor dem DATEV-Export immer die Kostenstellen-Zuordnung.</p></div>',
+    } as Record<string, unknown>,
     author_id: IDS.users.markus,
     category_id: 'wcat-002',
     published: true,

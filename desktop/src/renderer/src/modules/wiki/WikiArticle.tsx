@@ -9,10 +9,29 @@ import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { useUpdateArticle, useArticleVersions, useRestoreVersion, useArticle } from '@/api/hooks/useWiki'
 import { adaptVersion } from '@/api/wiki-adapter'
 import { useWikiUsers } from './useWikiUsers'
+import { highlightCodeBlocks } from './extensions/lowlight'
 import { WikiArticleHeader } from './WikiArticleHeader'
 import { WikiEditor } from './WikiEditor'
 import { WikiVersionHistory } from './WikiVersionHistory'
 import { WikiAttachments } from './WikiAttachments'
+
+// Read-view sanitiser config — allows the WP-2 rich blocks (callout/details/
+// figure) and the wiki link/mention data hooks through DOMPurify. Syntax-
+// highlight spans ride along on the already-allowed `class` attribute.
+const READ_SANITIZE = {
+  ADD_TAGS: ['details', 'summary', 'figure', 'figcaption'],
+  ADD_ATTR: [
+    'data-wiki-link',
+    'data-article-id',
+    'data-slug',
+    'data-mention-id',
+    'data-callout',
+    'data-variant',
+    'data-details',
+    'data-details-content',
+    'open',
+  ],
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -142,9 +161,7 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
                   className="tiptap-content wiki-canvas prose max-w-none dark:prose-invert"
                   onClick={handleBodyClick}
                   dangerouslySetInnerHTML={{
-                    __html: sanitizeHtml(article.content, {
-                      ADD_ATTR: ['data-wiki-link', 'data-article-id', 'data-slug', 'data-mention-id'],
-                    }),
+                    __html: sanitizeHtml(highlightCodeBlocks(article.content), READ_SANITIZE),
                   }}
                 />
               ) : (

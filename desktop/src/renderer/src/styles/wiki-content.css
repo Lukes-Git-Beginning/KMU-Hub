@@ -111,3 +111,332 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
+
+/* ===========================================================================
+ * Rich blocks (WP-2) — shared by the editor NodeViews and the read view.
+ * The same class + data-variant markup renders in both, so styling lives here.
+ * ======================================================================== */
+
+/* ---- Callout -------------------------------------------------------------- */
+
+.wiki-callout {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  gap: 0.65rem;
+  margin: 1.1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid;
+  border-radius: 0.75rem;
+}
+
+/* Variant icon — drawn via CSS mask so no SVG passes through DOMPurify. */
+.wiki-callout::before {
+  content: '';
+  grid-row: 1;
+  grid-column: 1;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+.wiki-callout-body {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.wiki-callout-body > :first-child {
+  margin-top: 0;
+}
+
+.wiki-callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+.wiki-callout[data-variant='info'] {
+  border-color: color-mix(in srgb, var(--info) 30%, transparent);
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.wiki-callout[data-variant='warning'] {
+  border-color: color-mix(in srgb, var(--warning) 30%, transparent);
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.wiki-callout[data-variant='tip'] {
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.wiki-callout[data-variant='recommendation'] {
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Body text stays in the normal foreground colour; only the icon/accent tints. */
+.wiki-callout-body,
+.wiki-callout-body * {
+  color: var(--foreground);
+}
+
+.wiki-callout[data-variant='info']::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E%3C/svg%3E");
+}
+
+.wiki-callout[data-variant='warning']::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+}
+
+.wiki-callout[data-variant='tip']::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'/%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'/%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3C/svg%3E");
+}
+
+.wiki-callout[data-variant='recommendation']::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0Z'/%3E%3C/svg%3E");
+}
+
+/* Variant switcher — editor-only chrome, fades in on hover/focus. */
+.wiki-callout-switch {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.wiki-callout:hover .wiki-callout-switch,
+.wiki-callout:focus-within .wiki-callout-switch {
+  opacity: 1;
+}
+
+.wiki-callout-switch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.35rem;
+  color: var(--muted-foreground);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wiki-callout-switch-btn:hover {
+  background: var(--secondary);
+}
+
+.wiki-callout-switch-btn.is-active[data-variant='info'] { color: var(--info); background: var(--info-light); }
+.wiki-callout-switch-btn.is-active[data-variant='warning'] { color: var(--warning); background: var(--warning-light); }
+.wiki-callout-switch-btn.is-active[data-variant='tip'] { color: var(--success); background: var(--success-light); }
+.wiki-callout-switch-btn.is-active[data-variant='recommendation'] { color: var(--primary); background: var(--primary-light); }
+
+/* ---- Details / Toggle ----------------------------------------------------- */
+
+.wiki-details {
+  margin: 1.1rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.35rem 0.85rem 0.6rem;
+  background: color-mix(in srgb, var(--secondary) 35%, transparent);
+}
+
+/* Editor head (NodeView): chevron + editable summary input. */
+.wiki-details-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0;
+}
+
+.wiki-details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0.35rem;
+  color: var(--muted-foreground);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.wiki-details-toggle:hover {
+  background: var(--secondary);
+}
+
+.wiki-details-toggle.is-open {
+  transform: rotate(90deg);
+}
+
+.wiki-details-summary-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--foreground);
+}
+
+.wiki-details-summary-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+.wiki-details-body {
+  padding-left: 1.8rem;
+}
+
+.wiki-details-body.is-hidden {
+  display: none;
+}
+
+.wiki-details-body > :first-child {
+  margin-top: 0;
+}
+
+/* Read view: native <details>/<summary>. */
+.wiki-canvas details.wiki-details > summary.wiki-details-summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.wiki-canvas details.wiki-details > summary.wiki-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.wiki-canvas details.wiki-details > summary.wiki-details-summary::before {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  background-color: var(--muted-foreground);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform 0.15s ease;
+}
+
+.wiki-canvas details.wiki-details[open] > summary.wiki-details-summary::before {
+  transform: rotate(90deg);
+}
+
+.wiki-canvas details.wiki-details > .wiki-details-body {
+  padding-left: 1.4rem;
+  padding-top: 0.25rem;
+}
+
+/* ---- Figure (image + caption) -------------------------------------------- */
+
+.wiki-figure {
+  margin: 1.25rem 0;
+}
+
+.wiki-figure-img {
+  width: 100%;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+}
+
+.wiki-figure-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--secondary) 30%, transparent);
+}
+
+.wiki-figure-caption,
+.wiki-figure-caption-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+
+.wiki-figure-caption-input {
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.wiki-figure-caption-input::placeholder {
+  font-style: italic;
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+/* ---- Code block (lowlight) ------------------------------------------------ */
+
+.wiki-canvas pre {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  margin: 1.1rem 0;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.wiki-canvas pre code {
+  background: transparent;
+  padding: 0;
+  font-family: 'JetBrains Mono', 'Geist Mono', monospace;
+  color: var(--foreground);
+}
+
+/* hljs token theme — token tints reuse the Cosmi palette so it tracks themes. */
+.hljs-comment,
+.hljs-quote { color: var(--muted-foreground); font-style: italic; }
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-name { color: var(--primary); font-weight: 600; }
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-addition { color: var(--success); }
+.hljs-number,
+.hljs-literal,
+.hljs-type,
+.hljs-link { color: var(--info); }
+.hljs-title,
+.hljs-section,
+.hljs-function .hljs-title { color: var(--warning); font-weight: 600; }
+.hljs-attribute,
+.hljs-variable,
+.hljs-tag { color: var(--foreground); }
+.hljs-deletion { color: var(--destructive); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
