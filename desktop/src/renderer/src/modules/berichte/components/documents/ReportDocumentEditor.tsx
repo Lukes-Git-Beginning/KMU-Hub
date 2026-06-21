@@ -12,11 +12,12 @@ import { Skeleton } from '@/components/shared'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatDate } from '@/lib/format'
 import { ReportStatusBadge } from './ReportStatusBadge'
-import { BlockEditor } from './BlockEditor'
-import { DocumentReader } from './DocumentReader'
+import { DocumentBlockEditor, DocumentReader, type DocRow } from '@/components/shared/document'
+import { berichteBlockRegistry, berichteFullPageTypes, berichteQuickInserts } from './berichte-blocks'
 import { ScheduleReportModal } from './ScheduleReportModal'
 import { ShareActionsMenu } from './ShareActionsMenu'
 import { blockCount, estimatePageCount } from './doc-utils'
+import './report-print.css'
 
 interface ReportDocumentEditorProps {
   documentId: string
@@ -240,9 +241,20 @@ function DocumentEditorInner({
 
       <div className="report-doc-body flex-1 overflow-y-auto p-6">
         {mode === 'edit' && !locked ? (
-          <BlockEditor rows={rows} onChange={setRows} />
+          <DocumentBlockEditor
+            rows={rows as DocRow[]}
+            onChange={(r) => setRows(r as ReportRow[])}
+            registry={berichteBlockRegistry}
+            quickInserts={berichteQuickInserts}
+          />
         ) : (
-          <DocumentReader rows={rows} settings={doc.settings} />
+          <DocumentReader
+            rows={rows as DocRow[]}
+            registry={berichteBlockRegistry}
+            mode="print"
+            settings={doc.settings}
+            fullPageTypes={berichteFullPageTypes}
+          />
         )}
       </div>
 
