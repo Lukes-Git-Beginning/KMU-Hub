@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PhoneCall, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -77,6 +77,18 @@ export default function DialerWorkspacePage() {
   const outcomes = outcomesData?.outcomes ?? []
   const selectedOutcome = outcomes.find((o) => o.id === selectedOutcomeId) ?? null
   const campaigns = campaignsData?.campaigns?.filter((c) => c.status === 2) ?? []
+
+  // The call phase lives in the (session-persistent) store, but the active
+  // contact is local component state. Leaving the workspace and returning
+  // remounts the page — dropping the contact while a non-idle phase lingers,
+  // which left the call phases with nothing to render (blank screen). Recover to
+  // idle whenever the phase has no contact to back it.
+  useEffect(() => {
+    if (callPhase !== 'idle' && !activeContact) {
+      resetStore()
+      setActiveContact(null)
+    }
+  }, [callPhase, activeContact, resetStore])
 
   // ── Actions ──
 
