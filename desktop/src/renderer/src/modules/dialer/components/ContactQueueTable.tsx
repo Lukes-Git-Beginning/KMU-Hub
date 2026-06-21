@@ -71,14 +71,14 @@ export default function ContactQueueTable({
       <TableHeader>
         <TableRow>
           <TableHead className="w-12">#</TableHead>
-          <TableHead>{t('dialer.settings.outcomes.label')}</TableHead>
+          <TableHead>{t('dialer.campaign.contacts.name')}</TableHead>
           <TableHead className="hidden md:table-cell">
             <Building2 className="h-3.5 w-3.5" />
           </TableHead>
           <TableHead>
             <Phone className="h-3.5 w-3.5" />
           </TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead>{t('common.status')}</TableHead>
           <TableHead className="text-center">
             <Phone className="h-3.5 w-3.5 mx-auto" />
           </TableHead>
@@ -99,7 +99,7 @@ export default function ContactQueueTable({
           }
           if ((contact.status === 4 || contact.status === 3) && campaignStatus === 2) {
             actions.push({
-              label: 'Wiedereinreihen',
+              label: t('dialer.campaign.contacts.requeue'),
               icon: RotateCcw,
               onClick: () => onRequeue?.(contact.id),
             })

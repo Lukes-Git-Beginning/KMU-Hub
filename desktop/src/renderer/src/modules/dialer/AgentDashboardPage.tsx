@@ -111,7 +111,7 @@ export default function AgentDashboardPage() {
               />
             ) : (
               <p className="text-sm text-muted-foreground py-8">
-                Noch keine Anrufe heute
+                {t('dialer.dashboard.noCallsToday')}
               </p>
             )}
           </CardContent>

@@ -74,30 +74,30 @@ export default function CampaignFormDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="space-y-1.5">
-            <Label htmlFor="campaign-name">{t('dialer.settings.outcomes.label')}</Label>
+            <Label htmlFor="campaign-name">{t('dialer.campaign.form.name')}</Label>
             <Input
               id="campaign-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="z.B. Kalt-Akquise Q2/2026"
+              placeholder={t('dialer.campaign.form.namePlaceholder')}
               autoFocus
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="campaign-description">Beschreibung</Label>
+            <Label htmlFor="campaign-description">{t('dialer.campaign.form.description')}</Label>
             <Textarea
               id="campaign-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Kurze Beschreibung der Kampagne..."
+              placeholder={t('dialer.campaign.form.descriptionPlaceholder')}
               rows={3}
             />
           </div>
 
           {/* Mode selector */}
           <div className="space-y-1.5">
-            <Label>Modus</Label>
+            <Label>{t('dialer.campaign.form.mode')}</Label>
             <div className="grid grid-cols-3 gap-2">
               {modes.map((m) => {
                 const Icon = m.icon
@@ -129,7 +129,7 @@ export default function CampaignFormDialog({
                     <span>{t(m.labelKey)}</span>
                     {m.disabled && (
                       <span className="absolute -top-1.5 -right-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">
-                        Soon
+                        {t('dialer.campaign.form.comingSoon')}
                       </span>
                     )}
                   </button>
@@ -144,7 +144,7 @@ export default function CampaignFormDialog({
               variant="ghost"
               onClick={() => onOpenChange(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={!name.trim() || isLoading} loading={isLoading}>
               {isEdit ? t('dialer.campaign.actions.edit') : t('dialer.campaigns.new')}

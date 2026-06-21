@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { OutcomeBreakdownEntry } from '@/api/dialer-client'
 
 interface OutcomeDonutChartProps {
@@ -13,6 +14,7 @@ export default function OutcomeDonutChart({
   size = 160,
   strokeWidth = 20,
 }: OutcomeDonutChartProps) {
+  const { t } = useTranslation()
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const center = size / 2
@@ -62,7 +64,7 @@ export default function OutcomeDonutChart({
         {/* Center label */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-2xl font-bold text-foreground tabular-nums">{total}</span>
-          <span className="text-xs text-muted-foreground">Anrufe</span>
+          <span className="text-xs text-muted-foreground">{t('dialer.dashboard.callsLabel')}</span>
         </div>
       </div>
 

@@ -88,10 +88,10 @@ export default function DialerWorkspacePage() {
         startDialing(contact.id, activeCampaignId)
       },
       onError: () => {
-        toast.info('Keine weiteren Kontakte in der Warteschlange')
+        toast.info(t('dialer.workspace.idle.noMoreContacts'))
       },
     })
-  }, [activeCampaignId, getNextMutation, startDialing])
+  }, [activeCampaignId, getNextMutation, startDialing, t])
 
   const handleDial = useCallback(() => {
     if (!activeContact) return
@@ -416,7 +416,9 @@ function IdlePhase({
 
         {agentStatus !== 1 && activeCampaign && (
           <p className="text-xs text-center text-muted-foreground">
-            Status auf "{t('dialer.agentStatus.available')}" setzen, um anzurufen
+            {t('dialer.workspace.idle.setAvailableHint', {
+              status: t('dialer.agentStatus.available'),
+            })}
           </p>
         )}
       </div>

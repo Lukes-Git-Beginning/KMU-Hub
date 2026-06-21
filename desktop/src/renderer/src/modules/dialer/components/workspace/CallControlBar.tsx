@@ -37,7 +37,7 @@ export default function CallControlBar({
             onClick={onCancel}
           >
             <X className="h-5 w-5" />
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             size="lg"
@@ -45,7 +45,7 @@ export default function CallControlBar({
             onClick={onDial}
           >
             <PhoneCall className="h-6 w-6" />
-            Anrufen
+            {t('dialer.workspace.dialing.call')}
           </Button>
         </>
       )}

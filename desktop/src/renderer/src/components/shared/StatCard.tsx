@@ -4,8 +4,13 @@ import { cn } from '@/lib'
 import { useTiltEffect } from '@/hooks/useTiltEffect'
 
 interface StatCardProps {
+  /**
+   * Numbers count up from 0 on mount. Strings (e.g. a "3:24" duration or a
+   * formatted ratio) render as-is without the count-up — passing a string to a
+   * numeric count-up would otherwise display NaN.
+   */
+  value: number | string
   label: string
-  value: number
   prefix?: string
   suffix?: string
   change?: { value: number; positive: boolean }
@@ -25,14 +30,15 @@ export function StatCard({
   className,
   hero = false,
 }: StatCardProps) {
-  const [displayValue, setDisplayValue] = useState(0)
+  const isNumeric = typeof value === 'number' && Number.isFinite(value)
+  const [displayValue, setDisplayValue] = useState<number>(0)
   const tiltRef = useTiltEffect<HTMLDivElement>({ maxAngle: 4, scale: 1.02, enabled: hero })
   const plainRef = useRef<HTMLDivElement>(null)
   const animated = useRef(false)
 
-   
+
   useEffect(() => {
-    if (animated.current) return
+    if (!isNumeric || animated.current) return
     animated.current = true
 
     const duration = 600
@@ -43,12 +49,12 @@ export function StatCard({
       const progress = Math.min(elapsed / duration, 1)
       // ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3)
-      setDisplayValue(Math.round(eased * value))
+      setDisplayValue(Math.round(eased * (value as number)))
       if (progress < 1) requestAnimationFrame(tick)
     }
 
     requestAnimationFrame(tick)
-  }, [value])
+  }, [value, isNumeric])
 
   return (
     <div
@@ -70,7 +76,7 @@ export function StatCard({
       </div>
       <div className="mt-3 flex items-baseline gap-1 relative z-[2]">
         <span className="text-3xl font-bold tracking-tight text-foreground">
-          {prefix}{displayValue.toLocaleString('de-DE')}{suffix}
+          {prefix}{isNumeric ? displayValue.toLocaleString('de-DE') : value}{suffix}
         </span>
       </div>
       {change && (

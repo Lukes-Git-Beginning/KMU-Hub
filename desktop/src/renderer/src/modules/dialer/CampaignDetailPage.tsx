@@ -71,7 +71,7 @@ export default function CampaignDetailPage() {
   if (!campaign) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
-        Kampagne nicht gefunden
+        {t('dialer.campaign.notFound')}
       </div>
     )
   }
@@ -176,7 +176,7 @@ export default function CampaignDetailPage() {
           {/* Stats strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatCard
-              label="Gesamt"
+              label={t('dialer.campaign.stats.total')}
               value={dashboard?.total_contacts ?? campaign.contact_count}
               icon={Users}
               className="animate-fade-up stagger-1"
@@ -257,7 +257,7 @@ export default function CampaignDetailPage() {
               <Card className="animate-fade-up stagger-2">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Performance
+                    {t('dialer.campaign.stats.performance')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -266,13 +266,13 @@ export default function CampaignDetailPage() {
                       <p className="text-2xl font-bold text-success tabular-nums">
                         {dashboard.positive_calls}
                       </p>
-                      <p className="text-xs text-muted-foreground">Positiv</p>
+                      <p className="text-xs text-muted-foreground">{t('dialer.campaign.stats.positive')}</p>
                     </div>
                     <div className="rounded-lg bg-primary/10 p-3 text-center">
                       <p className="text-2xl font-bold text-primary tabular-nums">
                         {dashboard.calls_per_hour.toFixed(1)}
                       </p>
-                      <p className="text-xs text-muted-foreground">Anrufe/h</p>
+                      <p className="text-xs text-muted-foreground">{t('dialer.campaign.stats.callsPerHour')}</p>
                     </div>
                   </div>
                   <div className="rounded-lg bg-accent/50 p-3 text-center">
@@ -319,7 +319,7 @@ export default function CampaignDetailPage() {
             {
               onSuccess: (data) => {
                 setAddContactsOpen(false)
-                toast.success(`${data.added_count} Kontakte hinzugefügt`)
+                toast.success(t('dialer.campaign.contacts.added', { count: data.added_count }))
               },
             },
           )

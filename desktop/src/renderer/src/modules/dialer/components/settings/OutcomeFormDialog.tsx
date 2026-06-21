@@ -95,7 +95,7 @@ export default function OutcomeFormDialog({
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="z.B. Erreicht, Nicht erreicht..."
+              placeholder={t('dialer.settings.outcomes.labelPlaceholder')}
               autoFocus
             />
           </div>
@@ -154,10 +154,10 @@ export default function OutcomeFormDialog({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={!label.trim() || isLoading} loading={isLoading}>
-              {isEdit ? 'Speichern' : t('dialer.settings.outcomes.new')}
+              {isEdit ? t('common.save') : t('dialer.settings.outcomes.new')}
             </Button>
           </div>
         </form>
