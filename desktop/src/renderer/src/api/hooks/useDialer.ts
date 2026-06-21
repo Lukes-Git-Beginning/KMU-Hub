@@ -26,6 +26,7 @@ import {
   setAgentStatus,
   getCampaignAgents,
   getSupervisorOverview,
+  getContactCalls,
   getAgentDashboard,
   getCampaignDashboard,
   listOutcomes,
@@ -52,6 +53,7 @@ export const dialerKeys = {
   agentStatus: () => ['dialer', 'agent-status'] as const,
   agentDashboard: () => ['dialer', 'dashboard', 'agent'] as const,
   supervisor: () => ['dialer', 'supervisor'] as const,
+  contactCalls: (ccId: string) => ['dialer', 'contacts', ccId, 'calls'] as const,
   outcomes: (includeInactive?: boolean) => ['dialer', 'outcomes', includeInactive] as const,
 }
 
@@ -132,6 +134,14 @@ export function useSupervisorOverview() {
     queryKey: dialerKeys.supervisor(),
     queryFn: () => getSupervisorOverview(),
     refetchInterval: 15_000,
+  })
+}
+
+export function useContactCalls(campaignContactId: string | undefined) {
+  return useQuery({
+    queryKey: dialerKeys.contactCalls(campaignContactId ?? ''),
+    queryFn: () => getContactCalls(campaignContactId!),
+    enabled: !!campaignContactId,
   })
 }
 

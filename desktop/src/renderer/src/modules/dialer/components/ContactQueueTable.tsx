@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '@/lib/format'
 import { SkipForward, RotateCcw, Phone, Clock, Building2 } from 'lucide-react'
@@ -12,8 +13,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { ItemActions } from '@/components/shared'
 import type { CampaignContact } from '@/api/dialer-client'
+import ContactDetailModal from './ContactDetailModal'
 
-const contactStatusConfig: Record<
+export const contactStatusConfig: Record<
   number,
   { key: string; color: string }
 > = {
@@ -40,6 +42,7 @@ export default function ContactQueueTable({
   onRequeue,
 }: ContactQueueTableProps) {
   const { t } = useTranslation()
+  const [detailContact, setDetailContact] = useState<CampaignContact | null>(null)
 
   if (isLoading) {
     return (
@@ -63,6 +66,7 @@ export default function ContactQueueTable({
   }
 
   return (
+    <>
     <Table>
       <TableHeader>
         <TableRow>
@@ -102,7 +106,19 @@ export default function ContactQueueTable({
           }
 
           return (
-            <TableRow key={contact.id}>
+            <TableRow
+              key={contact.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailContact(contact)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setDetailContact(contact)
+                }
+              }}
+              className="cursor-pointer transition-colors hover:bg-accent/50 focus:outline-none focus-visible:bg-accent/50"
+            >
               <TableCell className="text-xs text-muted-foreground tabular-nums">
                 {contact.position}
               </TableCell>
@@ -135,7 +151,7 @@ export default function ContactQueueTable({
                 {contact.call_count}
               </TableCell>
               {campaignStatus === 2 && (
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   {actions.length > 0 && <ItemActions items={actions} />}
                 </TableCell>
               )}
@@ -144,5 +160,12 @@ export default function ContactQueueTable({
         })}
       </TableBody>
     </Table>
+
+      <ContactDetailModal
+        contact={detailContact}
+        open={!!detailContact}
+        onClose={() => setDetailContact(null)}
+      />
+    </>
   )
 }

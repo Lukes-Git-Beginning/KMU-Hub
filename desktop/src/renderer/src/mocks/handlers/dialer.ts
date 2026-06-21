@@ -109,7 +109,7 @@ const campaignContacts: CampaignContact[] = [
     id: IDS.dialer.cc001, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.mueller, position: 1, status: 3,
     outcome_id: IDS.dialer.outcomeErreicht, notes: 'Interesse an CRM-Modul, Termin folgt.',
-    callback_at: null, last_called_at: daysAgo(5) + 'T10:15:00Z', call_count: 1,
+    callback_at: null, last_called_at: hoursAgo(5), call_count: 2,
     contact_name: 'Hans Müller', contact_phone: '+49 89 4523 1101',
     contact_company: 'Gruber Maschinenbau AG',
   },
@@ -739,6 +739,28 @@ export const dialerHandlers = [
       active_campaign_id: activeCampaignId,
       active_campaign_name: activeCamp?.name ?? null,
     })
+  }),
+
+  // --- Contact call history (D-3) ---
+
+  http.get(`${API}/api/v1/dialer/contacts/:ccId/calls`, ({ params }) => {
+    const calls = callSessions
+      .filter((s) => s.campaign_contact_id === params.ccId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .map((s) => {
+        const outcome = callOutcomes.find((o) => o.id === s.outcome_id)
+        return {
+          id: s.id,
+          outcome_label: outcome?.label ?? null,
+          outcome_color: outcome?.color ?? 'var(--text-muted)',
+          is_positive: outcome?.is_positive ?? false,
+          duration_seconds: s.duration_seconds ?? 0,
+          notes: s.notes,
+          agent_name: agentName(s.agent_id),
+          created_at: s.created_at,
+        }
+      })
+    return HttpResponse.json({ calls })
   }),
 
   // --- Supervisor overview (D-2) ---

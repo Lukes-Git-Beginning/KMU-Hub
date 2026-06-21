@@ -136,6 +136,17 @@ export interface RecentCallEntry {
   created_at: string
 }
 
+export interface ContactCallEntry {
+  id: string
+  outcome_label: string | null
+  outcome_color: string
+  is_positive: boolean
+  duration_seconds: number
+  notes: string | null
+  agent_name: string
+  created_at: string
+}
+
 export interface SupervisorOverview {
   agents: SupervisorAgent[]
   recent_calls: RecentCallEntry[]
@@ -362,6 +373,13 @@ export function getSupervisorOverview() {
   return request<SupervisorOverview>({
     method: 'GET',
     path: `${BASE}/supervisor`,
+  })
+}
+
+export function getContactCalls(campaignContactId: string) {
+  return request<{ calls: ContactCallEntry[] }>({
+    method: 'GET',
+    path: `${BASE}/contacts/${campaignContactId}/calls`,
   })
 }
 
