@@ -1,0 +1,12 @@
+-- no-op: VALIDATE CONSTRAINT is not reversible (forward-only).
+--
+-- VALIDATE CONSTRAINT promotes a NOT VALID FK to a fully enforced constraint.
+-- There is no SQL equivalent of "un-validating" a constraint (you would have
+-- to DROP and re-ADD it with NOT VALID, which is a destructive operation and
+-- would require re-running the entire NOT VALID → backfill cycle).
+--
+-- If you need to roll back the effects of migration 000223, the correct
+-- approach is to investigate and resolve any data issue that caused a problem
+-- in the VALIDATE step — not to revert this migration.
+--
+-- This file intentionally contains no SQL statements.
