@@ -9861,6 +9861,8 @@
   "berichte.sources.work.label": "Projekte & Aufgaben",
   "berichte.sources.hr.label": "Mitarbeiter",
   "berichte.sources.zeiterfassung.label": "Zeiterfassung",
+  "berichte.sources.vertraege.label": "Verträge",
+  "berichte.sources.einkauf.label": "Bestellungen",
   "berichte.fields.finanzen.issue_date": "Rechnungsdatum",
   "berichte.fields.finanzen.status": "Status",
   "berichte.fields.finanzen.customer_name": "Kunde",

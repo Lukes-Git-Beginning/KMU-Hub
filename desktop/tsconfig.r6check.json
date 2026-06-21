@@ -16,6 +16,8 @@
     "src/renderer/src/modules/berichte/report-sources/kommunikation.source.ts",
     "src/renderer/src/modules/berichte/report-sources/hr.source.ts",
     "src/renderer/src/modules/berichte/report-sources/zeiterfassung.source.ts",
+    "src/renderer/src/modules/berichte/report-sources/vertraege.source.ts",
+    "src/renderer/src/modules/berichte/report-sources/einkauf.source.ts",
     "src/renderer/src/modules/berichte/components/builder/SourcePicker.tsx"
   ]
 }

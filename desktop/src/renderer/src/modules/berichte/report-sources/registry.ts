@@ -15,6 +15,8 @@ import { helpdeskSource } from './helpdesk.source'
 import { kommunikationSource } from './kommunikation.source'
 import { hrSource } from './hr.source'
 import { zeiterfassungSource } from './zeiterfassung.source'
+import { vertraegeSource } from './vertraege.source'
+import { einkaufSource } from './einkauf.source'
 
 export const REPORT_SOURCES: ReportSource[] = [
   finanzenSource,
@@ -24,6 +26,8 @@ export const REPORT_SOURCES: ReportSource[] = [
   kommunikationSource,
   hrSource,
   zeiterfassungSource,
+  vertraegeSource,
+  einkaufSource,
 ]
 
 /** Resolve a source by its registry id. */
