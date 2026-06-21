@@ -744,7 +744,10 @@ func (vr *VideoRoutes) HandleListMeetings(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// The frontend (useMeetings) types this as Meeting[], so return a bare array
+	// rather than the wrapped {meetings:[...]} proto envelope. An empty result
+	// serializes as [] (not {}), which the desktop client maps with .map().
+	response.ProtoList(w, http.StatusOK, resp.Meetings)
 }
 
 func (vr *VideoRoutes) HandleStartMeeting(w http.ResponseWriter, r *http.Request) {

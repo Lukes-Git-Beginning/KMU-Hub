@@ -53,6 +53,26 @@ func Proto(w http.ResponseWriter, status int, msg proto.Message) {
 	_, _ = w.Write(b)
 }
 
+// ProtoList writes a slice of proto messages as a bare JSON array via protojson,
+// so a list endpoint returns `[item, ...]` (not a wrapped `{items:[...]}`) with the
+// same snake_case + RFC3339 encoding as Proto. The frontend types these endpoints
+// as T[]; an empty/nil slice serializes as `[]`.
+func ProtoList[T proto.Message](w http.ResponseWriter, status int, msgs []T) {
+	parts := make([]json.RawMessage, 0, len(msgs))
+	for _, m := range msgs {
+		b, err := protoMarshaler.Marshal(m)
+		if err != nil {
+			slog.Error("proto json marshal failed", "error", err)
+			Error(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+		parts = append(parts, b)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(parts)
+}
+
 func Error(w http.ResponseWriter, status int, message string) {
 	JSON(w, status, errorResponse{Error: message})
 }
