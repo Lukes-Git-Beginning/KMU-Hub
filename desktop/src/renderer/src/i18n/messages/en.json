@@ -10026,5 +10026,6 @@
   "wiki.link.openArticle": "Open article",
   "wiki.link.openProfile": "Open in team",
   "wiki.link.articleType": "Wiki article",
-  "wiki.link.teamMember": "Team member"
+  "wiki.link.teamMember": "Team member",
+  "wiki.heading.label": "Heading"
 }

@@ -161,19 +161,29 @@ function WikiHeadingEdit({ block, onPatch }: BlockEditProps<HeadingBlock>) {
             : 'text-xl font-semibold tracking-tight'
         }`}
       />
-      {/* Level toggle — hidden until the heading is hovered or focused. */}
-      <div className="absolute -top-2 right-0 hidden items-center overflow-hidden rounded-md border border-border bg-card shadow-sm group-hover/wh:flex group-focus-within/wh:flex">
+      {/* Heading-size switch — labelled so it reads as "Überschrift 1 / 2", not a
+          cryptic badge. Floats above the heading on hover/focus, clear of the
+          block's delete button at the top-right. */}
+      <div className="absolute -top-7 left-0 z-10 hidden items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 shadow-sm group-hover/wh:flex group-focus-within/wh:flex">
+        <span className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          {t('wiki.heading.label', { defaultValue: 'Überschrift' })}
+        </span>
         {([1, 2] as const).map((lvl) => {
           const Icon = lvl === 1 ? Heading1 : Heading2
+          const label = `${t('wiki.heading.label', { defaultValue: 'Überschrift' })} ${lvl}`
           return (
             <button
               key={lvl}
               type="button"
               onClick={() => onPatch({ level: lvl })}
-              className={`p-1 ${block.level === lvl ? 'bg-primary-light text-primary' : 'text-muted-foreground hover:bg-secondary'}`}
-              aria-label={`H${lvl}`}
+              title={label}
+              aria-label={label}
+              className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
+                block.level === lvl ? 'bg-primary-light text-primary' : 'text-muted-foreground hover:bg-secondary'
+              }`}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-3 w-3" />
+              {lvl}
             </button>
           )
         })}

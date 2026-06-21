@@ -9992,5 +9992,6 @@
   "wiki.link.openArticle": "Ouvrir l'article",
   "wiki.link.openProfile": "Ouvrir dans l'équipe",
   "wiki.link.articleType": "Article wiki",
-  "wiki.link.teamMember": "Membre de l'équipe"
+  "wiki.link.teamMember": "Membre de l'équipe",
+  "wiki.heading.label": "Titre"
 }
