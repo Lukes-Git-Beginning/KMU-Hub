@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { FileText } from 'lucide-react'
+import { cn } from '@/lib'
 import type { WikiArticle as WikiArticleType, WikiCategory } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
 import { useWikiPrefsStore } from '@/stores/wikiPrefs'
@@ -10,6 +11,8 @@ import { useUpdateArticle, useArticleVersions, useRestoreVersion, useArticle } f
 import { adaptVersion } from '@/api/wiki-adapter'
 import { useWikiUsers } from './useWikiUsers'
 import { highlightCodeBlocks } from './extensions/lowlight'
+import { addHeadingIds } from './wikiReading'
+import { WikiToc } from './WikiToc'
 import { WikiArticleHeader } from './WikiArticleHeader'
 import { WikiEditor } from './WikiEditor'
 import { WikiVersionHistory } from './WikiVersionHistory'
@@ -30,6 +33,7 @@ const READ_SANITIZE = {
     'data-details',
     'data-details-content',
     'open',
+    'id',
   ],
 }
 
@@ -52,7 +56,6 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   const setEditing = useWikiStore((s) => s.setEditing)
   const setSelectedArticle = useWikiStore((s) => s.setSelectedArticle)
   const readingWidth = useWikiPrefsStore((s) => s.readingWidth)
-  const widthClass = readingWidth === 'wide' ? 'max-w-none' : 'max-w-[65ch] mx-auto'
   const updateArticleMutation = useUpdateArticle()
   const restoreVersionMutation = useRestoreVersion()
   const [editContent, setEditContent] = useState(article.content)
@@ -60,6 +63,16 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   const [editIcon, setEditIcon] = useState(article.icon)
   const [editCover, setEditCover] = useState(article.coverUrl)
   const [showVersions, setShowVersions] = useState(false)
+
+  // Read-view scroll container (TOC scroll-spy root + smooth scroll target).
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Anchor the headings + collect the outline for the table of contents.
+  const { html: readHtml, headings } = useMemo(
+    () => addHeadingIds(highlightCodeBlocks(article.content)),
+    [article.content],
+  )
+  const hasToc = headings.length >= 2
 
   const resolveUser = useWikiUsers()
 
@@ -167,31 +180,46 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
             saving={updateArticleMutation.isPending}
           />
         ) : (
-          <div className="flex-1 overflow-y-auto px-6 py-6">
-            <div className={widthClass}>
-              {article.content.trim() ? (
-                <div
-                  className="tiptap-content wiki-canvas prose max-w-none dark:prose-invert"
-                  onClick={handleBodyClick}
-                  dangerouslySetInnerHTML={{
-                    __html: sanitizeHtml(highlightCodeBlocks(article.content), READ_SANITIZE),
-                  }}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                  <FileText className="h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t('wiki.article.empty')}</p>
-                  <button
-                    onClick={handleStartEdit}
-                    className="mt-1 h-8 rounded-md border border-border px-3 text-xs text-foreground hover:bg-accent transition-colors"
-                  >
-                    {t('wiki.article.startWriting')}
-                  </button>
-                </div>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
+            <div
+              className={cn(
+                'mx-auto flex gap-10',
+                hasToc ? 'max-w-[62rem]' : readingWidth === 'wide' ? 'max-w-none' : 'max-w-[65ch]',
               )}
+            >
+              {/* Article body */}
+              <div className={cn('min-w-0 flex-1', readingWidth === 'wide' ? '' : 'max-w-[65ch]')}>
+                {article.content.trim() ? (
+                  <div
+                    className="tiptap-content wiki-canvas prose max-w-none dark:prose-invert"
+                    onClick={handleBodyClick}
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeHtml(readHtml, READ_SANITIZE),
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                    <FileText className="h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">{t('wiki.article.empty')}</p>
+                    <button
+                      onClick={handleStartEdit}
+                      className="mt-1 h-8 rounded-md border border-border px-3 text-xs text-foreground hover:bg-accent transition-colors"
+                    >
+                      {t('wiki.article.startWriting')}
+                    </button>
+                  </div>
+                )}
 
-              {/* Attachments */}
-              <WikiAttachments articleId={article.id} />
+                {/* Attachments */}
+                <WikiAttachments articleId={article.id} />
+              </div>
+
+              {/* Table of contents (sticky, wide screens only) */}
+              {hasToc && (
+                <aside className="sticky top-0 hidden h-fit w-48 shrink-0 xl:block">
+                  <WikiToc headings={headings} scrollRef={scrollRef} />
+                </aside>
+              )}
             </div>
           </div>
         )}

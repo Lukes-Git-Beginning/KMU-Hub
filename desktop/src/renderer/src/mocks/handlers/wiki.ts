@@ -135,9 +135,27 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Onboarding neuer Mitarbeitender',
     slug: 'onboarding-neue-mitarbeitende',
-    content: tiptapDoc(
-      'Schritt-für-Schritt-Anleitung für den Einstieg neuer Teammitglieder: Zugänge einrichten, Systeme kennenlernen, erste Aufgaben.',
-    ),
+    content: {
+      html:
+        '<p>Diese Anleitung begleitet neue Teammitglieder durch die ersten Tage — von den ' +
+        'Zugängen über die Systeme bis zu den ersten Aufgaben.</p>' +
+        '<h2>Vor dem ersten Tag</h2>' +
+        '<p>Die Teamleitung legt rechtzeitig alle Zugänge an und bereitet den Arbeitsplatz vor.</p>' +
+        '<ul><li>E-Mail-Konto und Kalender</li><li>Zugang zu Cosmi und den Modulen</li>' +
+        '<li>Hardware (Laptop, Headset)</li></ul>' +
+        '<h2>Erste Woche</h2>' +
+        '<p>Der Fokus liegt auf Kennenlernen — Menschen, Prozesse, Werkzeuge.</p>' +
+        '<h3>Tag 1: Ankommen</h3>' +
+        '<p>Begrüssung, Arbeitsplatz einrichten, Team kennenlernen.</p>' +
+        '<h3>Tag 2–3: Systeme</h3>' +
+        '<p>Einführung in Cosmi: Kontakte, Aufgaben, Kalender und Kommunikation.</p>' +
+        '<div data-callout="" data-variant="tip" class="wiki-callout"><p>Plane für jede neue Person ' +
+        'eine Patin oder einen Paten ein — das senkt die Einstiegshürde spürbar.</p></div>' +
+        '<h2>Erster Monat</h2>' +
+        '<p>Eigenständige Aufgaben übernehmen, Feedback-Gespräch nach vier Wochen.</p>' +
+        '<h3>Feedback-Gespräch</h3>' +
+        '<p>Was lief gut, wo gibt es offene Fragen, was braucht die Person noch?</p>',
+    } as Record<string, unknown>,
     author_id: IDS.users.julia,
     category_id: 'wcat-004',
     published: true,

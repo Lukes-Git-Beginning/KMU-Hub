@@ -8684,6 +8684,8 @@
   "wiki.header.share": "Partager",
   "wiki.header.versionHistory": "Historique des versions",
   "wiki.header.views": "{count, plural, one {# vue} other {# vues}}",
+  "wiki.header.readingTime": "{min} min de lecture",
+  "wiki.toc.title": "Sommaire",
   "wiki.identity.iconLabel": "Icône",
   "wiki.identity.coverLabel": "Couverture",
   "wiki.identity.addIcon": "Icône",

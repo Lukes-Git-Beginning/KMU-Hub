@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import {
   Pin,
   Send,
@@ -9,6 +9,8 @@ import {
   Share2,
   Eye,
   Clock,
+  BookOpen,
+  ChevronRight,
   FolderInput,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -21,6 +23,7 @@ import { formatDate as libFormatDate } from '@/lib/format'
 import { WikiMoveDialog } from './WikiMoveDialog'
 import { WikiTagEditor } from './WikiTagEditor'
 import { WikiArticleIcon, coverBackground } from './wikiIdentity'
+import { categoryPath, readingTimeMinutes } from './wikiReading'
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -71,12 +74,15 @@ export function WikiArticleHeader({
   const { t } = useTranslation()
   const updateMutation = useUpdateArticle()
   const togglePin = useWikiStore((s) => s.togglePin)
+  const setSelectedCategory = useWikiStore((s) => s.setSelectedCategory)
   const [moveOpen, setMoveOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState(article.title)
 
   const st = statusConfig[article.status]
   const coverBg = coverBackground(article.coverUrl)
+  const crumbs = categoryPath(article.categoryId, categories)
+  const readMin = readingTimeMinutes(article.content)
 
   const commitTitle = async () => {
     const title = draftTitle.trim()
@@ -96,8 +102,25 @@ export function WikiArticleHeader({
 
   return (
     <div className="border-b border-border">
+      {/* Breadcrumbs (WP-4): area › category › … */}
+      {crumbs.length > 0 && (
+        <nav className="flex items-center gap-1 px-5 pt-2.5 text-[11px] text-muted-foreground">
+          {crumbs.map((cat, i) => (
+            <Fragment key={cat.id}>
+              {i > 0 && <ChevronRight className="h-3 w-3 shrink-0 opacity-60" />}
+              <button
+                onClick={() => setSelectedCategory(cat.id)}
+                className="min-w-0 truncate transition-colors hover:text-foreground"
+              >
+                {cat.name}
+              </button>
+            </Fragment>
+          ))}
+        </nav>
+      )}
+
       {/* Cover banner (WP-3) */}
-      {coverBg && <div className="h-24 w-full" style={{ background: coverBg }} />}
+      {coverBg && <div className="mt-2 h-24 w-full" style={{ background: coverBg }} />}
 
       <div className="px-5 py-3">
         {/* Row 1: Icon + Title + actions */}
@@ -150,6 +173,9 @@ export function WikiArticleHeader({
             <span>·</span>
             <Clock className="h-3 w-3" />
             <span>{formatShortDate(article.lastEditedAt)}</span>
+            <span>·</span>
+            <BookOpen className="h-3 w-3" />
+            <span>{t('wiki.header.readingTime', { min: readMin })}</span>
             <span>·</span>
             <Eye className="h-3 w-3" />
             <span>{t('wiki.header.views', { count: viewCount ?? article.viewCount })}</span>

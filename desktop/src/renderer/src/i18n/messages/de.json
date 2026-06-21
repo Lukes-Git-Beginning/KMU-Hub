@@ -8718,6 +8718,8 @@
   "wiki.header.share": "Teilen",
   "wiki.header.versionHistory": "Versionshistorie",
   "wiki.header.views": "{count, plural, one {# Aufruf} other {# Aufrufe}}",
+  "wiki.header.readingTime": "{min} Min. Lesezeit",
+  "wiki.toc.title": "Inhalt",
   "wiki.identity.iconLabel": "Symbol",
   "wiki.identity.coverLabel": "Titelbild",
   "wiki.identity.addIcon": "Symbol",
