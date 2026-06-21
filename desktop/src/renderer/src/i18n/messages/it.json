@@ -9825,6 +9825,8 @@
   "berichte.sources.helpdesk.label": "Ticket",
   "berichte.sources.kommunikation.label": "Posta in arrivo",
   "berichte.sources.work.label": "Progetti e attività",
+  "berichte.sources.hr.label": "Dipendenti",
+  "berichte.sources.zeiterfassung.label": "Rilevamento ore",
   "berichte.fields.finanzen.issue_date": "Data fattura",
   "berichte.fields.finanzen.status": "Stato",
   "berichte.fields.finanzen.customer_name": "Cliente",

@@ -9859,6 +9859,8 @@
   "berichte.sources.helpdesk.label": "Tickets",
   "berichte.sources.kommunikation.label": "Inbox",
   "berichte.sources.work.label": "Projects & Tasks",
+  "berichte.sources.hr.label": "Employees",
+  "berichte.sources.zeiterfassung.label": "Time Tracking",
   "berichte.fields.finanzen.issue_date": "Invoice date",
   "berichte.fields.finanzen.status": "Status",
   "berichte.fields.finanzen.customer_name": "Customer",

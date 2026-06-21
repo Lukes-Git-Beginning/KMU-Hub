@@ -13,6 +13,8 @@ import { kontakteSource } from './kontakte.source'
 import { workSource } from './work.source'
 import { helpdeskSource } from './helpdesk.source'
 import { kommunikationSource } from './kommunikation.source'
+import { hrSource } from './hr.source'
+import { zeiterfassungSource } from './zeiterfassung.source'
 
 export const REPORT_SOURCES: ReportSource[] = [
   finanzenSource,
@@ -20,6 +22,8 @@ export const REPORT_SOURCES: ReportSource[] = [
   workSource,
   helpdeskSource,
   kommunikationSource,
+  hrSource,
+  zeiterfassungSource,
 ]
 
 /** Resolve a source by its registry id. */
