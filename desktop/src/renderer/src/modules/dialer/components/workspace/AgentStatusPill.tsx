@@ -7,15 +7,17 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/cn'
 
-type AgentStatus = 1 | 2 | 3 | 4 | 5
+export type AgentStatus = 1 | 2 | 3 | 4 | 5
 
-const statusConfig: Record<AgentStatus, { key: string; color: string; dot: string }> = {
+export const agentStatusConfig: Record<AgentStatus, { key: string; color: string; dot: string }> = {
   1: { key: 'dialer.agentStatus.available', color: 'var(--success)', dot: 'bg-success' },
   2: { key: 'dialer.agentStatus.onCall', color: 'var(--info)', dot: 'bg-info' },
   3: { key: 'dialer.agentStatus.wrapUp', color: 'var(--warning)', dot: 'bg-warning' },
   4: { key: 'dialer.agentStatus.break', color: 'var(--accent-1)', dot: 'bg-accent-1' },
   5: { key: 'dialer.agentStatus.offline', color: 'var(--text-muted)', dot: 'bg-muted-foreground' },
 }
+
+const statusConfig = agentStatusConfig
 
 // Statuses the user can manually switch to
 const switchable: AgentStatus[] = [1, 4, 5]

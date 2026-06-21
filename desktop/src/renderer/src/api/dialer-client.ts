@@ -111,6 +111,42 @@ export interface OutcomeBreakdownEntry {
   count: number
 }
 
+export interface SupervisorAgent {
+  user_id: string
+  first_name: string
+  last_name: string
+  status: number
+  campaign_id: string | null
+  since: string
+  calls_today: number
+  avg_duration_seconds: number
+  active_campaign_name: string | null
+}
+
+export interface RecentCallEntry {
+  id: string
+  contact_name: string
+  contact_company: string | null
+  outcome_label: string | null
+  outcome_color: string
+  is_positive: boolean
+  duration_seconds: number
+  agent_name: string
+  campaign_name: string | null
+  created_at: string
+}
+
+export interface SupervisorOverview {
+  agents: SupervisorAgent[]
+  recent_calls: RecentCallEntry[]
+  totals: {
+    active_agents: number
+    on_call: number
+    calls_today: number
+    appointments_today: number
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Request helper
 // ---------------------------------------------------------------------------
@@ -319,6 +355,13 @@ export function getCampaignAgents(campaignId: string) {
   return request<{ agents: AgentStatusEntry[] }>({
     method: 'GET',
     path: `${BASE}/agent-status/campaign/${campaignId}`,
+  })
+}
+
+export function getSupervisorOverview() {
+  return request<SupervisorOverview>({
+    method: 'GET',
+    path: `${BASE}/supervisor`,
   })
 }
 

@@ -25,6 +25,7 @@ import {
   getAgentStatus,
   setAgentStatus,
   getCampaignAgents,
+  getSupervisorOverview,
   getAgentDashboard,
   getCampaignDashboard,
   listOutcomes,
@@ -50,6 +51,7 @@ export const dialerKeys = {
   campaignAgents: (id: string) => ['dialer', 'campaigns', id, 'agents'] as const,
   agentStatus: () => ['dialer', 'agent-status'] as const,
   agentDashboard: () => ['dialer', 'dashboard', 'agent'] as const,
+  supervisor: () => ['dialer', 'supervisor'] as const,
   outcomes: (includeInactive?: boolean) => ['dialer', 'outcomes', includeInactive] as const,
 }
 
@@ -122,6 +124,14 @@ export function useAgentDashboard() {
     queryKey: dialerKeys.agentDashboard(),
     queryFn: () => getAgentDashboard(),
     refetchInterval: 30_000,
+  })
+}
+
+export function useSupervisorOverview() {
+  return useQuery({
+    queryKey: dialerKeys.supervisor(),
+    queryFn: () => getSupervisorOverview(),
+    refetchInterval: 15_000,
   })
 }
 

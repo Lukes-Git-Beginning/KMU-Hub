@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
-import { daysAgo, hoursAgo } from '../data/date-helpers'
+import { daysAgo, hoursAgo, minutesAgo } from '../data/date-helpers'
 import { mockActivities } from '../data/contacts'
 
 const API = API_BASE_URL
@@ -174,7 +174,20 @@ const callOutcomes: CallOutcome[] = [
   { id: IDS.dialer.outcomeTermin, tenant_id: 'tenant-001', label: 'Termin vereinbart', color: '#3b82f6', is_positive: true, is_callback: false, is_appointment: true, sort_order: 3, is_active: true },
 ]
 
-const callSessions: Array<{
+// Team roster for this dialer floor — single source for agent identities used by
+// the per-campaign agent status and the supervisor overview (D-2).
+const dialerAgents = [
+  { user_id: IDS.users.thomas, first_name: 'Thomas', last_name: 'Meier' },
+  { user_id: IDS.users.laura, first_name: 'Sabine', last_name: 'Fischer' },
+  { user_id: IDS.users.david, first_name: 'Kevin', last_name: 'Baumann' },
+] as const
+
+function agentName(agentId: string): string {
+  const a = dialerAgents.find((x) => x.user_id === agentId)
+  return a ? `${a.first_name} ${a.last_name}` : 'Agent'
+}
+
+interface DialerCallSession {
   id: string
   campaign_contact_id: string
   call_session_id: string | null
@@ -186,7 +199,43 @@ const callSessions: Array<{
   appointment_id: string | null
   created_at: string
   wrap_up_completed_at: string | null
-}> = []
+}
+
+// Seeded call history — gives the supervisor recent-calls log (D-2) and the
+// contact-detail call history (D-3) real content on first load; live calls
+// append on top as they complete.
+const callSessions: DialerCallSession[] = [
+  {
+    id: 'dlr-sess-seed-1', campaign_contact_id: IDS.dialer.cc003, call_session_id: null,
+    agent_id: IDS.users.thomas, outcome_id: IDS.dialer.outcomeTermin, duration_seconds: 232,
+    notes: 'Demo am Freitag vereinbart.', next_action: 'appointment', appointment_id: null,
+    created_at: minutesAgo(24), wrap_up_completed_at: minutesAgo(20),
+  },
+  {
+    id: 'dlr-sess-seed-2', campaign_contact_id: IDS.dialer.cc001, call_session_id: null,
+    agent_id: IDS.users.thomas, outcome_id: IDS.dialer.outcomeErreicht, duration_seconds: 168,
+    notes: 'Interesse an CRM-Modul, Unterlagen zugesagt.', next_action: null, appointment_id: null,
+    created_at: minutesAgo(78), wrap_up_completed_at: minutesAgo(75),
+  },
+  {
+    id: 'dlr-sess-seed-3', campaign_contact_id: IDS.dialer.cc002, call_session_id: null,
+    agent_id: IDS.users.laura, outcome_id: IDS.dialer.outcomeNichtErreicht, duration_seconds: 34,
+    notes: 'Mailbox, kein Rückruf.', next_action: null, appointment_id: null,
+    created_at: minutesAgo(132), wrap_up_completed_at: minutesAgo(131),
+  },
+  {
+    id: 'dlr-sess-seed-4', campaign_contact_id: IDS.dialer.cc002, call_session_id: null,
+    agent_id: IDS.users.laura, outcome_id: IDS.dialer.outcomeNichtErreicht, duration_seconds: 21,
+    notes: '2. Versuch, weiterhin Mailbox.', next_action: null, appointment_id: null,
+    created_at: hoursAgo(3), wrap_up_completed_at: hoursAgo(3),
+  },
+  {
+    id: 'dlr-sess-seed-5', campaign_contact_id: IDS.dialer.cc001, call_session_id: null,
+    agent_id: IDS.users.thomas, outcome_id: IDS.dialer.outcomeWiedervorlage, duration_seconds: 96,
+    notes: 'Bittet um Rückruf nächste Woche.', next_action: 'callback', appointment_id: null,
+    created_at: hoursAgo(5), wrap_up_completed_at: hoursAgo(5),
+  },
+]
 
 // ============================================================================
 // Helpers
@@ -200,6 +249,46 @@ function agentStatusToInt(s: AgentDialerStatus): number {
 function intToAgentStatus(n: number): AgentDialerStatus {
   const map: Record<number, AgentDialerStatus> = { 1: 'available', 2: 'on_call', 3: 'wrap_up', 4: 'break', 5: 'offline' }
   return map[n] ?? 'offline'
+}
+
+function isToday(iso: string): boolean {
+  return new Date(iso).toDateString() === new Date().toDateString()
+}
+
+/**
+ * Live roster across the dialer floor (D-2). Thomas reflects the current agent's
+ * live status; the other agents are demo-fixed to cover the distinct states
+ * (im Gespräch / Pause). calls_today + avg are derived from seeded sessions.
+ */
+function buildAgentRoster() {
+  const activeCamp = campaigns.find((c) => c.id === activeCampaignId)
+  const statusFor = (agentId: string): number => {
+    if (agentId === IDS.users.thomas) return agentStatusToInt(agentStatus)
+    if (agentId === IDS.users.laura) return 2 // on_call
+    return 4 // break
+  }
+  return dialerAgents.map((a) => {
+    const sessions = callSessions.filter(
+      (s) => s.agent_id === a.user_id && s.outcome_id && isToday(s.created_at),
+    )
+    const durations = sessions.map((s) => s.duration_seconds ?? 0)
+    const avg = durations.length
+      ? Math.round(durations.reduce((x, y) => x + y, 0) / durations.length)
+      : 0
+    const status = statusFor(a.user_id)
+    const offDuty = status === 4 || status === 5
+    return {
+      user_id: a.user_id,
+      first_name: a.first_name,
+      last_name: a.last_name,
+      status,
+      campaign_id: offDuty ? null : activeCampaignId,
+      since: hoursAgo(status === 4 ? 1 : 2),
+      calls_today: sessions.length,
+      avg_duration_seconds: avg,
+      active_campaign_name: offDuty ? null : (activeCamp?.name ?? null),
+    }
+  })
 }
 
 function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; total: number } {
@@ -540,13 +629,7 @@ export const dialerHandlers = [
   }),
 
   http.get(`${API}/api/v1/dialer/agent-status/campaign/:campaignId`, () => {
-    return HttpResponse.json({
-      agents: [
-        { user_id: IDS.users.thomas, status: agentStatusToInt(agentStatus), campaign_id: activeCampaignId, since: hoursAgo(2), first_name: 'Thomas', last_name: 'Meier' },
-        { user_id: IDS.users.laura, status: 1, campaign_id: activeCampaignId, since: hoursAgo(1), first_name: 'Sabine', last_name: 'Fischer' },
-        { user_id: IDS.users.david, status: 5, campaign_id: null, since: daysAgo(1) + 'T18:00:00Z', first_name: 'Kevin', last_name: 'Baumann' },
-      ],
-    })
+    return HttpResponse.json({ agents: buildAgentRoster() })
   }),
 
   // --- Outcomes ---
@@ -655,6 +738,50 @@ export const dialerHandlers = [
       outcome_breakdown: breakdown,
       active_campaign_id: activeCampaignId,
       active_campaign_name: activeCamp?.name ?? null,
+    })
+  }),
+
+  // --- Supervisor overview (D-2) ---
+
+  http.get(`${API}/api/v1/dialer/supervisor`, () => {
+    const agents = buildAgentRoster()
+
+    const recentCalls = [...callSessions]
+      .filter((s) => s.outcome_id)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 8)
+      .map((s) => {
+        const cc = campaignContacts.find((c) => c.id === s.campaign_contact_id)
+        const outcome = callOutcomes.find((o) => o.id === s.outcome_id)
+        const campaign = cc ? campaigns.find((c) => c.id === cc.campaign_id) : null
+        return {
+          id: s.id,
+          contact_name: cc?.contact_name ?? 'Unbekannt',
+          contact_company: cc?.contact_company ?? null,
+          outcome_label: outcome?.label ?? null,
+          outcome_color: outcome?.color ?? 'var(--text-muted)',
+          is_positive: outcome?.is_positive ?? false,
+          duration_seconds: s.duration_seconds ?? 0,
+          agent_name: agentName(s.agent_id),
+          campaign_name: campaign?.name ?? null,
+          created_at: s.created_at,
+        }
+      })
+
+    const todays = callSessions.filter((s) => s.outcome_id && isToday(s.created_at))
+    const appointments = todays.filter(
+      (s) => callOutcomes.find((o) => o.id === s.outcome_id)?.is_appointment,
+    )
+
+    return HttpResponse.json({
+      agents,
+      recent_calls: recentCalls,
+      totals: {
+        active_agents: agents.filter((a) => a.status !== 4 && a.status !== 5).length,
+        on_call: agents.filter((a) => a.status === 2).length,
+        calls_today: todays.length,
+        appointments_today: appointments.length,
+      },
     })
   }),
 ]

@@ -1,6 +1,6 @@
 import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PhoneCall, LayoutDashboard, Settings, Headset } from 'lucide-react'
+import { PhoneCall, LayoutDashboard, Settings, Headset, Users, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useDialerStore } from '@/stores/dialer'
 
@@ -8,14 +8,23 @@ import CampaignListPage from './CampaignListPage'
 import CampaignDetailPage from './CampaignDetailPage'
 import DialerWorkspacePage from './DialerWorkspacePage'
 import AgentDashboardPage from './AgentDashboardPage'
+import SupervisorDashboardPage from './SupervisorDashboardPage'
 import DialerSettingsPage from './DialerSettingsPage'
 
-const dialerNavItems = [
+interface DialerNavItem {
+  to: string
+  icon: LucideIcon
+  labelKey: string
+  showLiveDot?: boolean
+}
+
+const dialerNavItems: DialerNavItem[] = [
   { to: '/dialer/campaigns', icon: PhoneCall, labelKey: 'dialer.nav.campaigns' },
   { to: '/dialer/workspace', icon: Headset, labelKey: 'dialer.nav.workspace', showLiveDot: true },
   { to: '/dialer/dashboard', icon: LayoutDashboard, labelKey: 'dialer.nav.dashboard' },
+  { to: '/dialer/supervisor', icon: Users, labelKey: 'dialer.nav.supervisor' },
   { to: '/dialer/settings', icon: Settings, labelKey: 'dialer.nav.settings' },
-] as const
+]
 
 export default function DialerLayout() {
   const { t } = useTranslation()
@@ -53,6 +62,7 @@ export default function DialerLayout() {
           <Route path="campaigns/:id" element={<CampaignDetailPage />} />
           <Route path="workspace" element={<DialerWorkspacePage />} />
           <Route path="dashboard" element={<AgentDashboardPage />} />
+          <Route path="supervisor" element={<SupervisorDashboardPage />} />
           <Route path="settings" element={<DialerSettingsPage />} />
         </Routes>
       </div>
