@@ -20,6 +20,7 @@ import { ItemActions } from '@/components/shared'
 import { formatDate as libFormatDate } from '@/lib/format'
 import { WikiMoveDialog } from './WikiMoveDialog'
 import { WikiTagEditor } from './WikiTagEditor'
+import { WikiArticleIcon, coverBackground } from './wikiIdentity'
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -75,6 +76,7 @@ export function WikiArticleHeader({
   const [draftTitle, setDraftTitle] = useState(article.title)
 
   const st = statusConfig[article.status]
+  const coverBg = coverBackground(article.coverUrl)
 
   const commitTitle = async () => {
     const title = draftTitle.trim()
@@ -93,12 +95,22 @@ export function WikiArticleHeader({
   }
 
   return (
-    <div className="border-b border-border px-5 py-3">
-      {/* Row 1: Title + actions */}
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            {article.isPinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
+    <div className="border-b border-border">
+      {/* Cover banner (WP-3) */}
+      {coverBg && <div className="h-24 w-full" style={{ background: coverBg }} />}
+
+      <div className="px-5 py-3">
+        {/* Row 1: Icon + Title + actions */}
+        <div className="flex items-start gap-3">
+          <WikiArticleIcon
+            icon={article.icon}
+            title={article.title}
+            size="md"
+            className={coverBg ? '-mt-7 shadow-sm ring-2 ring-card' : 'mt-0.5'}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {article.isPinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
             {editingTitle ? (
               <input
                 value={draftTitle}
@@ -208,8 +220,9 @@ export function WikiArticleHeader({
         </div>
       </div>
 
-      {/* Tags (editable) */}
-      <WikiTagEditor articleId={article.id} tags={article.tags ?? []} suggestions={allTags} />
+        {/* Tags (editable) */}
+        <WikiTagEditor articleId={article.id} tags={article.tags ?? []} suggestions={allTags} />
+      </div>
 
       <WikiMoveDialog
         open={moveOpen}

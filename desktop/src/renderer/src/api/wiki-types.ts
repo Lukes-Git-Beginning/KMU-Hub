@@ -25,6 +25,9 @@ export interface WikiArticle {
   published: boolean
   /** Free-form labels for filtering/grouping. */
   tags?: string[]
+  /** Identity (WP-3): icon = a lucide name or "" ; cover = image URL or "grad:id". */
+  icon?: string
+  cover_url?: string
   /** Read counter — incremented by the backend on article detail GET. */
   view_count?: number
   created_at: string
@@ -84,6 +87,8 @@ export interface CreateArticleInput {
   category_id?: string
   published?: boolean
   tags?: string[]
+  icon?: string
+  cover_url?: string
 }
 
 export interface UpdateArticleInput {
@@ -93,6 +98,8 @@ export interface UpdateArticleInput {
   category_id?: string | null
   published?: boolean
   tags?: string[]
+  icon?: string | null
+  cover_url?: string | null
   /** Optional note stored on the version snapshot a content edit produces. */
   change_note?: string
 }

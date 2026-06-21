@@ -57,6 +57,8 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   const restoreVersionMutation = useRestoreVersion()
   const [editContent, setEditContent] = useState(article.content)
   const [editTitle, setEditTitle] = useState(article.title)
+  const [editIcon, setEditIcon] = useState(article.icon)
+  const [editCover, setEditCover] = useState(article.coverUrl)
   const [showVersions, setShowVersions] = useState(false)
 
   const resolveUser = useWikiUsers()
@@ -78,8 +80,11 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
       await updateArticleMutation.mutateAsync({
         id: article.id,
         content: { html: editContent } as Record<string, unknown>,
-        // Persist the title alongside the body when the editor heading changed.
+        // Persist the title + identity alongside the body when they changed
+        // (null clears an icon/cover the writer removed).
         ...(title && title !== article.title ? { title } : {}),
+        ...(editIcon !== article.icon ? { icon: editIcon ?? null } : {}),
+        ...(editCover !== article.coverUrl ? { cover_url: editCover ?? null } : {}),
         change_note: changeNote?.trim() || undefined,
       })
       setEditing(false)
@@ -92,12 +97,16 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   const handleCancel = () => {
     setEditContent(article.content)
     setEditTitle(article.title)
+    setEditIcon(article.icon)
+    setEditCover(article.coverUrl)
     setEditing(false)
   }
 
   const handleStartEdit = () => {
     setEditContent(article.content)
     setEditTitle(article.title)
+    setEditIcon(article.icon)
+    setEditCover(article.coverUrl)
     setEditing(true)
   }
 
@@ -149,6 +158,10 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
             onTitleChange={setEditTitle}
             content={editContent}
             onChange={setEditContent}
+            icon={editIcon}
+            coverUrl={editCover}
+            onIconChange={setEditIcon}
+            onCoverChange={setEditCover}
             onSave={handleSave}
             onCancel={handleCancel}
             saving={updateArticleMutation.isPending}

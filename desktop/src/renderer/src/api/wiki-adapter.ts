@@ -105,6 +105,9 @@ export function adaptArticle(api: ApiArticle): WikiArticle {
     authorName: '',
     // tags are a real article field now; isPinned stays mock-first via the store
     tags: api.tags ?? [],
+    // identity (WP-3) — served by MSW; defaults to no icon/cover
+    icon: api.icon ?? undefined,
+    coverUrl: api.cover_url ?? undefined,
     isPinned: false,
     // view_count is backend-tracked; tags/isPinned are enriched in the page
     viewCount: api.view_count ?? 0,

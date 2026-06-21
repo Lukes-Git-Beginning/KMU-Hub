@@ -35,6 +35,7 @@ import { WikiTemplateDialog } from './WikiTemplateDialog'
 import { WikiCategoryDialog } from './WikiCategoryDialog'
 import { WikiShareDialog } from './WikiShareDialog'
 import { WikiHighlight, searchSnippet } from './WikiHighlight'
+import { WikiArticleIcon } from './wikiIdentity'
 import { formatDate as libFormatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
@@ -263,8 +264,9 @@ export default function WikiPage() {
                       >
                         {/* Title row */}
                         <div className="flex items-center gap-1.5">
+                          <WikiArticleIcon icon={article.icon} title={article.title} size="sm" />
                           {article.isPinned && <Pin className="h-3 w-3 shrink-0 text-primary" />}
-                          <span className="text-sm font-medium text-foreground truncate">
+                          <span className="min-w-0 truncate text-sm font-medium text-foreground">
                             {isSearching ? (
                               <WikiHighlight text={article.title} query={debouncedQuery} />
                             ) : (

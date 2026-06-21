@@ -37,6 +37,9 @@ export interface WikiArticle {
   authorId: string
   authorName: string
   tags: string[]
+  /** Identity (WP-3) — lucide icon name (or '') and cover (image URL or 'grad:id'). */
+  icon?: string
+  coverUrl?: string
   isPinned: boolean
   viewCount: number
   lastEditedBy: string

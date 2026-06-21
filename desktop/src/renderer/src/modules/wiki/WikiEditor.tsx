@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { WikiRichEditor } from './WikiRichEditor'
+import { WikiIdentityBar } from './WikiIdentityBar'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -13,6 +14,11 @@ interface WikiEditorProps {
   onTitleChange: (title: string) => void
   content: string
   onChange: (content: string) => void
+  /** Identity (WP-3) — icon + cover, edited in the head, saved with the rest. */
+  icon?: string
+  coverUrl?: string
+  onIconChange: (icon: string | undefined) => void
+  onCoverChange: (cover: string | undefined) => void
   /** Save the article; the optional change note annotates the new version. */
   onSave: (changeNote?: string) => void
   onCancel: () => void
@@ -35,6 +41,10 @@ export function WikiEditor({
   onTitleChange,
   content,
   onChange,
+  icon,
+  coverUrl,
+  onIconChange,
+  onCoverChange,
   onSave,
   onCancel,
   saving,
@@ -58,6 +68,15 @@ export function WikiEditor({
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Frameless canvas */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
+        {/* Identity — cover (full width) + icon (aligned to the measure) */}
+        <WikiIdentityBar
+          title={title}
+          icon={icon}
+          coverUrl={coverUrl}
+          onIconChange={onIconChange}
+          onCoverChange={onCoverChange}
+          widthClass={widthClass}
+        />
         <div className={widthClass}>
           {/* Editorial title heading (no input chrome) */}
           <textarea
