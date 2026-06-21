@@ -9829,6 +9829,8 @@
   "berichte.sources.zeiterfassung.label": "Rilevamento ore",
   "berichte.sources.vertraege.label": "Contratti",
   "berichte.sources.einkauf.label": "Ordini d'acquisto",
+  "berichte.sources.fuhrpark.label": "Parco veicoli",
+  "berichte.sources.rapporte.label": "Rapporti di lavoro",
   "berichte.fields.finanzen.issue_date": "Data fattura",
   "berichte.fields.finanzen.status": "Stato",
   "berichte.fields.finanzen.customer_name": "Cliente",

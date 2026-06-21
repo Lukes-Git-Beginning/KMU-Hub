@@ -9829,6 +9829,8 @@
   "berichte.sources.zeiterfassung.label": "Suivi du temps",
   "berichte.sources.vertraege.label": "Contrats",
   "berichte.sources.einkauf.label": "Commandes",
+  "berichte.sources.fuhrpark.label": "Parc automobile",
+  "berichte.sources.rapporte.label": "Rapports de travail",
   "berichte.fields.finanzen.issue_date": "Date de facturation",
   "berichte.fields.finanzen.status": "Statut",
   "berichte.fields.finanzen.customer_name": "Client",

@@ -9863,6 +9863,8 @@
   "berichte.sources.zeiterfassung.label": "Zeiterfassung",
   "berichte.sources.vertraege.label": "Verträge",
   "berichte.sources.einkauf.label": "Bestellungen",
+  "berichte.sources.fuhrpark.label": "Fuhrpark",
+  "berichte.sources.rapporte.label": "Arbeitsrapporte",
   "berichte.fields.finanzen.issue_date": "Rechnungsdatum",
   "berichte.fields.finanzen.status": "Status",
   "berichte.fields.finanzen.customer_name": "Kunde",
