@@ -1,6 +1,16 @@
-# RESUME — nächster Einstieg (Stand 2026-06-21, Session-Ende)
+# RESUME — nächster Einstieg (Stand 2026-06-22, Session-Ende)
 
-> **Direkt-Wiedereinstieg.** wiki Phase B komplett + gepusht. SCHRITT 0: `git pull --rebase origin main`.
+> **▶▶ MORGEN FRÜH — die zwei 10-Phasen-Pakete sind GESCHNÜRT, direkt loslegen:**
+> - **SCHRITT 0 (beide Terminals):** `git pull --rebase origin main` (Luke pusht nachts — heute schon LiveKit).
+> - **HAUPT-Terminal** (`KMU Hub`, 5173) = **Paket A: mails → review-reif** → `.planning/batch-NEXT-A-mails.md` (MA-1…MA-10).
+> - **SUB-Terminal** (`KMU-Hub-review`, 5174) = **Paket B: Block-Engine Spezialblöcke + Diagramm-Datenquellen** → `.planning/batch-NEXT-B-blockengine.md` (DB-1…DB-10).
+> - Ablauf je Terminal: **Recherche-Auftrag abarbeiten → gebündelte Gate-Fragen an Darien → erst dann autonom bauen.** Pakete sind disjunkt (A=`modules/mails`, B=`components/shared/document`); i18n-Keys getrennt (`mails.*` vs `document.*`/`blocks.*`).
+>
+> **Begründung Paket-Wahl (2026-06-22 Ist-Check):** Tracker war veraltet — *mails* ist KEIN Neubau (3455 Z., MSW da, nur Settings-Panel fehlt) → Tiefe-Pass bringt ein ganzes Modul für Nico. Block-Engine-Spezialblöcke (`defineBlock`-API steht; fehlend: toggle/code/table/attachment/columns/chart) zahlen auf wiki **und** berichte ein. Beide sind FE-mock-first, brauchen KEINE offenen Darien-Reviews als Input.
+> **Offen geblieben (Darien klärt beim Gate):** dein wiki-Phase-B- + berichte-Review steht noch aus → fließt NICHT in diese zwei Pakete (additiv gehalten), kann aber parallel laufen.
+> **Nebenstrang (separat, nicht Teil des Batches):** Cosmi-Prod-Desktop gegen Hetzner installiert (CORS-Fix `e25cc411` gepusht); Onboarding offen — Luke legt Darien/Nico als Mitarbeiter an (Anleitung in der Session). Untracked `desktop/scripts/qa-dialer-callflow.mjs` noch zu committen/verwerfen.
+
+> **Direkt-Wiedereinstieg (Vorgängerstand).** wiki Phase B komplett + gepusht.
 
 > **★ NEUER WORKFLOW ab jetzt ([[feedback_ten_phase_autonomous_batch]]):** 2 Terminals × **10 Phasen**. Ablauf: ich schnüre beide Pakete (disjunkt) → jedes Terminal **recherchiert** seine 10 Phasen → stellt Darien **gebündelt die offenen Fragen** (Gate VOR dem Bauen) → baut **autonom 10 Phasen** durch → Darien reviewt **alle 20** → Feedback als neue Phasen in `MASTER-TRACKER.md` → frisches Terminal. **Kandidaten-Scope fürs nächste Paket** (aus `MASTER-TRACKER.md` ziehen): wiki Phase B + berichte **Darien-Review-Findings** als Fix-Phasen · wiki **Batch 2** Spezialblöcke (Toggle/Code/Tabelle/Anhang) · kaskadierende Datenquellen-Auswahl (Diagramm-Blöcke) · nächste ⬜-Module (kommunikation, mails, security/DSGVO, settings P2). dialer macht aktuell der Sub.
 
