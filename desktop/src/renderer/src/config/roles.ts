@@ -24,7 +24,10 @@ export const RESTRICTED_NAV_ITEMS: Record<string, RoleId[]> = {
   infrastructure: ['admin', 'it_support'],
   'security-admin': ['admin'],
   admin:          ['admin', 'it_support'],
-  settings:       ['admin', 'it_support'],
+  // Module settings (bottom-left gear) opens the settings overlay, which gates
+  // its own tabs per role (SETTINGS_TAB_ROLES). The entry point itself is for
+  // everyone — every user needs their personal module settings — so it is not
+  // restricted here (mirrors the top-right profile menu's settings link).
 }
 
 // ---- Which settings tabs each role can see ----

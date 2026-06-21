@@ -27,7 +27,6 @@ import { useAuthStore } from '@/stores/auth'
 import { userHasRole } from '@/config/roles'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNav } from './SidebarNav'
-import { SidebarUser } from './SidebarUser'
 import { SidebarModulePanel } from './SidebarModulePanel'
 import type { NavItemConfig } from './nav-items'
 
@@ -115,9 +114,9 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
       {/* Main nav — only pinned modules */}
       <SidebarNav items={pinnedItems} collapsed={collapsed} onItemClick={onMobileClose} />
 
-      {/* Bottom: Security warning + Settings + User
-          Note: Administration-Hub-Icon liegt in nav-items.ts (id: 'admin')
-          und wird via SidebarNav mit den bottom-section Items gerendert. */}
+      {/* Bottom: Security warning + Benachrichtigungen + Modul-Einstellungen.
+          The user/account lives only in the top-right ProfileMenu (avatar) — no
+          duplicate user block here. */}
       <div className="mt-auto border-t border-sidebar-border p-2 space-y-0.5">
         {showPwWarning && (
           <button
@@ -137,7 +136,6 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
           </button>
         )}
         <SidebarNav items={bottomItems} collapsed={collapsed} onItemClick={onMobileClose} />
-        <SidebarUser collapsed={collapsed} />
       </div>
     </aside>
   )
