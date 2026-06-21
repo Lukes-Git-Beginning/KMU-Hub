@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useWikiPrefsStore } from '@/stores/wikiPrefs'
-import { WikiRichEditor } from './WikiRichEditor'
+import { DocumentBlockEditor, type DocRow } from '@/components/shared/document'
+import { wikiBlockRegistry } from './wiki-blocks'
 import { WikiIdentityBar } from './WikiIdentityBar'
 
 // ---------------------------------------------------------------------------
@@ -12,8 +13,9 @@ interface WikiEditorProps {
   /** Editorial title heading — editable inline, saved together with the body. */
   title: string
   onTitleChange: (title: string) => void
-  content: string
-  onChange: (content: string) => void
+  /** Block document (Phase B) — rows edited via the shared document engine. */
+  rows: DocRow[]
+  onChange: (rows: DocRow[]) => void
   /** Identity (WP-3) — icon + cover, edited in the head, saved with the rest. */
   icon?: string
   coverUrl?: string
@@ -26,20 +28,17 @@ interface WikiEditorProps {
 }
 
 /**
- * Article editor — a focused, frameless writing canvas (WP-1).
+ * Article editor — a focused, frameless writing canvas (WP-1) running on the
+ * shared block-document engine (Phase B).
  *
- * Instead of the former boxed TipTap card, the page reads as one quiet surface:
- * a large Playfair title heading, a generous 65ch measure, serif body headings
- * (via .wiki-canvas) and a dezent sticky toolbar that lives inside WikiRichEditor.
- *
- * The editor speaks HTML (onChange returns serialised HTML); the article store
- * persists it as `{ html }`. Ctrl/Cmd+S saves, Escape cancels — both handled
- * inside the editor so they cooperate with the @mention / [[link]] autocomplete.
+ * The page reads as one quiet surface: a large Playfair title heading, the
+ * block editor below (long-form text plus the special elements between it), and
+ * a dezent footer with the change-note + save. Ctrl/Cmd+S saves, Escape cancels.
  */
 export function WikiEditor({
   title,
   onTitleChange,
-  content,
+  rows,
   onChange,
   icon,
   coverUrl,
@@ -64,8 +63,17 @@ export function WikiEditor({
     el.style.height = `${el.scrollHeight}px`
   }, [title])
 
+  // Editor-shell shortcuts: Ctrl/Cmd+S saves, Escape cancels. Kept off inputs so
+  // they don't fight inline text editing inside a block.
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault()
+      onSave(changeNote)
+    }
+  }
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex flex-1 flex-col overflow-hidden" onKeyDown={handleKeyDown}>
       {/* Frameless canvas */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
         {/* Identity — cover (full width) + icon (aligned to the measure) */}
@@ -95,13 +103,11 @@ export function WikiEditor({
             }}
           />
 
-          <WikiRichEditor
-            content={content}
+          <DocumentBlockEditor
+            rows={rows}
             onChange={onChange}
-            placeholder={t('wiki.editor.placeholder')}
-            autofocus
-            onSave={() => onSave(changeNote)}
-            onCancel={onCancel}
+            registry={wikiBlockRegistry}
+            widthClass="max-w-none"
           />
         </div>
       </div>

@@ -12,6 +12,7 @@ import type {
   TipTapContent,
 } from './wiki-types'
 import type { WikiArticle, WikiCategory, WikiVersion } from '@/types/wiki'
+import type { DocBlockBase, DocRow } from '@/components/shared/document'
 
 // ---------------------------------------------------------------------------
 // Content normalisation
@@ -91,13 +92,70 @@ export function extractHtml(content: TipTapContent | string | null | undefined):
   return ''
 }
 
+// ---------------------------------------------------------------------------
+// Block-document bridge (Phase B)
+// ---------------------------------------------------------------------------
+
+/** Wrap legacy/normalised HTML into a single long-form text block. */
+export function htmlToRows(html: string): DocRow[] {
+  if (!html.trim()) return []
+  const textBlock = { id: 'b-legacy-text', type: 'text', html } as unknown as DocBlockBase
+  return [{ id: 'r-legacy', columns: [{ id: 'c-legacy', width: 1, blocks: [textBlock] }] }]
+}
+
+/**
+ * Resolve the article body to a block-document. Articles authored in Phase B
+ * carry `{ rows }`; anything older (`{ html }`, `{ plain }`, a TipTap doc, or a
+ * raw string) is bridged into a single long-form text block so nothing is lost.
+ */
+export function extractRows(content: TipTapContent | string | null | undefined): DocRow[] {
+  if (content && typeof content === 'object') {
+    const rows = (content as Record<string, unknown>).rows
+    if (Array.isArray(rows)) return rows as DocRow[]
+  }
+  return htmlToRows(extractHtml(content))
+}
+
+/** Minimal block → HTML projection, used only for search + reading-time. */
+function blockToHtml(block: DocBlockBase): string {
+  const b = block as unknown as Record<string, unknown>
+  switch (block.type) {
+    case 'heading':
+      return `<h${b.level === 1 ? 2 : 3}>${escapeHtml(String(b.text ?? ''))}</h${b.level === 1 ? 2 : 3}>`
+    case 'text':
+    case 'callout':
+      return String(b.html ?? '')
+    case 'bullet': {
+      const items = (b.items as string[] | undefined)?.filter((i) => i.trim()) ?? []
+      const tag = b.ordered ? 'ol' : 'ul'
+      return `<${tag}>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</${tag}>`
+    }
+    case 'image':
+      return b.caption ? `<p>${escapeHtml(String(b.caption))}</p>` : ''
+    default:
+      return ''
+  }
+}
+
+/** Flatten a block-document into HTML for the derived `content` field. */
+export function rowsToHtml(rows: DocRow[]): string {
+  return rows
+    .flatMap((row) => row.columns.flatMap((col) => col.blocks.map(blockToHtml)))
+    .filter(Boolean)
+    .join('\n')
+}
+
 export function adaptArticle(api: ApiArticle): WikiArticle {
+  const html = extractHtml(api.content)
+  const body = extractRows(api.content)
   return {
     id: api.id,
     title: api.title,
     slug: api.slug,
-    // content is TipTap JSONB — normalise to HTML for the editor + reader
-    content: extractHtml(api.content),
+    // Block document is the source of truth; content is a derived projection
+    // kept for search snippets + reading-time until those move onto blocks.
+    body,
+    content: html || rowsToHtml(body),
     categoryId: api.category_id ?? '',
     status: api.published ? 'published' : 'draft',
     authorId: api.author_id,

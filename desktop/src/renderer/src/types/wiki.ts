@@ -3,6 +3,7 @@
  *
  * Covers articles, categories, version history, and reusable templates.
  */
+import type { DocRow } from '@/components/shared/document'
 
 // ---------------------------------------------------------------------------
 // Enums / union types
@@ -31,6 +32,15 @@ export interface WikiArticle {
   id: string
   title: string
   slug: string
+  /**
+   * Block document (Phase B) — the source of truth the editor and reader use.
+   * A row → column → block tree, rendered by the shared document engine.
+   */
+  body: DocRow[]
+  /**
+   * Derived plain-HTML projection of {@link body}, kept only for search snippets
+   * and reading-time until those move onto the block model (PB-5).
+   */
   content: string
   categoryId: string
   status: WikiArticleStatus

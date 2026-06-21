@@ -96,31 +96,107 @@ const DEMO_FLOW_SVG =
   '</svg>'
 const DEMO_FLOW_DATA_URL = 'data:image/svg+xml,' + encodeURIComponent(DEMO_FLOW_SVG)
 
+// ----------------------------------------------------------------------------
+// Block-document builders (Phase B) — produce the `{ rows }` JSONB the shared
+// document engine consumes. IDs come from a load-time counter (stable per
+// session, deterministic across reloads since seeds build in the same order).
+// ----------------------------------------------------------------------------
+
+let _seedBlockId = 0
+const sbid = (p: string): string => `${p}-${(_seedBlockId += 1)}`
+type SeedBlock = Record<string, unknown> & { id: string; type: string }
+type SeedRow = { id: string; columns: { id: string; width: number; blocks: SeedBlock[] }[] }
+
+const h = (level: 1 | 2, text: string): SeedBlock => ({ id: sbid('b'), type: 'heading', level, text })
+const p = (html: string): SeedBlock => ({ id: sbid('b'), type: 'text', html })
+const ul = (items: string[]): SeedBlock => ({ id: sbid('b'), type: 'bullet', items })
+const ol = (items: string[]): SeedBlock => ({ id: sbid('b'), type: 'bullet', items, ordered: true })
+const callout = (
+  variant: 'info' | 'success' | 'warning' | 'recommendation',
+  html: string,
+  title?: string,
+): SeedBlock => ({ id: sbid('b'), type: 'callout', variant, html, ...(title ? { title } : {}) })
+const img = (url: string, caption?: string, alt?: string): SeedBlock => ({
+  id: sbid('b'),
+  type: 'image',
+  url,
+  ...(caption ? { caption } : {}),
+  ...(alt ? { alt } : {}),
+})
+const hr = (): SeedBlock => ({ id: sbid('b'), type: 'divider' })
+
+/** One full-width row holding the given blocks. */
+const row = (...blocks: SeedBlock[]): SeedRow => ({
+  id: sbid('r'),
+  columns: [{ id: sbid('c'), width: 1, blocks }],
+})
+/** A two-column row (text beside text/image), each column a block list. */
+const cols = (left: SeedBlock[], right: SeedBlock[], widths: [number, number] = [1, 1]): SeedRow => ({
+  id: sbid('r'),
+  columns: [
+    { id: sbid('c'), width: widths[0], blocks: left },
+    { id: sbid('c'), width: widths[1], blocks: right },
+  ],
+})
+/** Assemble a block document in the `{ rows }` JSONB shape. */
+const doc = (...rows: SeedRow[]): Record<string, unknown> => ({ rows })
+
 const ARTICLES: WikiArticle[] = [
   {
     id: 'wart-001',
     tenant_id: 'tenant-001',
     title: 'Willkommen im Cosmi-Wiki',
     slug: 'willkommen-im-cosmi-wiki',
-    content: {
-      html:
-        '<p>Dies ist die zentrale Wissensbasis des Unternehmens — ein ruhiger Ort für alles, ' +
-        'was das Team wissen muss: Prozesse, Anleitungen und Entscheidungen, an einem Ort und ' +
-        'immer aktuell.</p>' +
-        '<h2>Was du hier findest</h2>' +
-        '<p>Das Wiki ist nach Bereichen geordnet. Jeder Artikel hat eine verantwortliche Person ' +
-        'und wird regelmässig geprüft, damit du dich auf den Inhalt verlassen kannst.</p>' +
-        '<ul><li><strong>Onboarding</strong> — die ersten Tage und Wochen</li>' +
-        '<li><strong>Prozesse &amp; Workflows</strong> — wie wir arbeiten</li>' +
-        '<li><strong>IT &amp; Infrastruktur</strong> — Tools, Zugänge, Notfälle</li></ul>' +
-        '<h2>So schreibst du einen guten Artikel</h2>' +
-        '<p>Schreibe für die Person, die zum ersten Mal hier landet. Eine klare Überschrift, ' +
-        'kurze Absätze und eine Liste mit konkreten Schritten reichen oft schon aus.</p>' +
-        '<h3>Drei einfache Regeln</h3>' +
-        '<ol><li>Beginne mit dem Ergebnis, nicht mit dem Kontext.</li>' +
-        '<li>Verlinke verwandte Artikel statt sie zu kopieren.</li>' +
-        '<li>Halte den Artikel aktuell — markiere ihn als geprüft.</li></ol>',
-    } as Record<string, unknown>,
+    content: doc(
+      row(h(1, 'Willkommen im Cosmi-Wiki')),
+      row(
+        p(
+          '<p>Dies ist die zentrale Wissensbasis des Unternehmens — ein ruhiger Ort für alles, ' +
+            'was das Team wissen muss: Prozesse, Anleitungen und Entscheidungen, an einem Ort und ' +
+            'immer aktuell.</p>',
+        ),
+      ),
+      row(h(2, 'Was du hier findest')),
+      row(
+        p(
+          '<p>Das Wiki ist nach Bereichen geordnet. Jeder Artikel hat eine verantwortliche Person ' +
+            'und wird regelmässig geprüft, damit du dich auf den Inhalt verlassen kannst.</p>',
+        ),
+      ),
+      row(
+        ul([
+          'Onboarding — die ersten Tage und Wochen',
+          'Prozesse & Workflows — wie wir arbeiten',
+          'IT & Infrastruktur — Tools, Zugänge, Notfälle',
+        ]),
+      ),
+      cols(
+        [
+          callout(
+            'info',
+            '<p>Schreibe für die Person, die zum ersten Mal hier landet — eine klare Überschrift ' +
+              'und kurze Absätze reichen oft schon.</p>',
+            'Für Leser schreiben',
+          ),
+        ],
+        [
+          callout(
+            'recommendation',
+            '<p>Verlinke verwandte Artikel, statt sie zu kopieren. So bleibt Wissen an einer ' +
+              'Stelle aktuell.</p>',
+            'Statt kopieren: verlinken',
+          ),
+        ],
+      ),
+      row(h(2, 'So schreibst du einen guten Artikel')),
+      row(
+        ol([
+          'Beginne mit dem Ergebnis, nicht mit dem Kontext.',
+          'Verlinke verwandte Artikel statt sie zu kopieren.',
+          'Halte den Artikel aktuell — markiere ihn als geprüft.',
+        ]),
+      ),
+    ),
     author_id: CURRENT_USER.id,
     category_id: 'wcat-001',
     published: true,
@@ -136,27 +212,44 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Onboarding neuer Mitarbeitender',
     slug: 'onboarding-neue-mitarbeitende',
-    content: {
-      html:
-        '<p>Diese Anleitung begleitet neue Teammitglieder durch die ersten Tage — von den ' +
-        'Zugängen über die Systeme bis zu den ersten Aufgaben.</p>' +
-        '<h2>Vor dem ersten Tag</h2>' +
-        '<p>Die Teamleitung legt rechtzeitig alle Zugänge an und bereitet den Arbeitsplatz vor.</p>' +
-        '<ul><li>E-Mail-Konto und Kalender</li><li>Zugang zu Cosmi und den Modulen</li>' +
-        '<li>Hardware (Laptop, Headset)</li></ul>' +
-        '<h2>Erste Woche</h2>' +
-        '<p>Der Fokus liegt auf Kennenlernen — Menschen, Prozesse, Werkzeuge.</p>' +
-        '<h3>Tag 1: Ankommen</h3>' +
-        '<p>Begrüssung, Arbeitsplatz einrichten, Team kennenlernen.</p>' +
-        '<h3>Tag 2–3: Systeme</h3>' +
-        '<p>Einführung in Cosmi: Kontakte, Aufgaben, Kalender und Kommunikation.</p>' +
-        '<div data-callout="" data-variant="tip" class="wiki-callout"><p>Plane für jede neue Person ' +
-        'eine Patin oder einen Paten ein — das senkt die Einstiegshürde spürbar.</p></div>' +
-        '<h2>Erster Monat</h2>' +
-        '<p>Eigenständige Aufgaben übernehmen, Feedback-Gespräch nach vier Wochen.</p>' +
-        '<h3>Feedback-Gespräch</h3>' +
-        '<p>Was lief gut, wo gibt es offene Fragen, was braucht die Person noch?</p>',
-    } as Record<string, unknown>,
+    content: doc(
+      row(h(1, 'Onboarding neuer Mitarbeitender')),
+      row(
+        p(
+          '<p>Diese Anleitung begleitet neue Teammitglieder durch die ersten Tage — von den ' +
+            'Zugängen über die Systeme bis zu den ersten Aufgaben.</p>',
+        ),
+      ),
+      row(h(2, 'Vor dem ersten Tag')),
+      row(
+        p('<p>Die Teamleitung legt rechtzeitig alle Zugänge an und bereitet den Arbeitsplatz vor.</p>'),
+      ),
+      row(ul(['E-Mail-Konto und Kalender', 'Zugang zu Cosmi und den Modulen', 'Hardware (Laptop, Headset)'])),
+      row(h(2, 'Erste Woche')),
+      row(
+        p(
+          '<p>Der Fokus liegt auf Kennenlernen — Menschen, Prozesse, Werkzeuge. ' +
+            '<strong>Tag 1</strong> dient dem Ankommen: Begrüssung, Arbeitsplatz einrichten, Team ' +
+            'kennenlernen. <strong>Tag 2–3</strong> führen in Cosmi ein: Kontakte, Aufgaben, ' +
+            'Kalender und Kommunikation.</p>',
+        ),
+      ),
+      row(
+        callout(
+          'recommendation',
+          '<p>Plane für jede neue Person eine Patin oder einen Paten ein — das senkt die ' +
+            'Einstiegshürde spürbar.</p>',
+          'Patenschaft',
+        ),
+      ),
+      row(h(2, 'Erster Monat')),
+      row(
+        p(
+          '<p>Eigenständige Aufgaben übernehmen, Feedback-Gespräch nach vier Wochen: Was lief gut, ' +
+            'wo gibt es offene Fragen, was braucht die Person noch?</p>',
+        ),
+      ),
+    ),
     author_id: IDS.users.julia,
     category_id: 'wcat-004',
     published: true,
@@ -171,34 +264,57 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Angebots- und Rechnungsprozess',
     slug: 'angebots-und-rechnungsprozess',
-    content: {
-      html:
-        '<p>Dieser Artikel beschreibt den vollständigen Prozess von der Angebotserstellung ' +
-        'bis zur Rechnungsstellung inklusive Mahnwesen und DATEV-Export.</p>' +
-        '<figure data-figure="" class="wiki-figure"><img src="' +
-        DEMO_FLOW_DATA_URL +
-        '" class="wiki-figure-img"><figcaption class="wiki-figure-caption">Die drei Phasen im Überblick</figcaption></figure>' +
-        '<h2>Angebot erstellen</h2>' +
-        '<p>Jedes Angebot startet aus einer Opportunity im CRM. Pflichtfelder sind Kunde, ' +
-        'Positionen und Gültigkeitsdauer.</p>' +
-        '<div data-callout="" data-variant="info" class="wiki-callout"><p>Angebote sind 30 Tage ' +
-        'gültig, sofern nicht anders vereinbart.</p></div>' +
-        '<div data-callout="" data-variant="warning" class="wiki-callout"><p>Rabatte über 15 % ' +
-        'müssen vor dem Versand von der Teamleitung freigegeben werden.</p></div>' +
-        '<h2>Auftrag &amp; Rechnung</h2>' +
-        '<p>Nach Auftragsbestätigung wird die Rechnung automatisch aus dem Angebot erzeugt. ' +
-        'Die Rechnungsnummer folgt dem Schema unten.</p>' +
-        '<pre class="wiki-code"><code class="language-typescript">function invoiceNumber(year: number, seq: number): string {\n  return `R-${year}-${String(seq).padStart(4, "0")}`\n}</code></pre>' +
-        '<div data-callout="" data-variant="tip" class="wiki-callout"><p>Tipp: Mit dem Kürzel ' +
-        '<strong>/code</strong> fügst du im Editor jederzeit einen Codeblock ein.</p></div>' +
-        '<details data-details="" class="wiki-details" open><summary class="wiki-details-summary">' +
-        'Mahnwesen im Detail</summary><div data-details-content="" class="wiki-details-body">' +
-        '<p>Die erste Mahnung erfolgt 14 Tage nach Fälligkeit, die zweite nach weiteren 10 Tagen. ' +
-        'Danach übernimmt das Inkasso.</p></div></details>' +
-        '<hr>' +
-        '<div data-callout="" data-variant="recommendation" class="wiki-callout"><p>Empfehlung: ' +
-        'Prüfe vor dem DATEV-Export immer die Kostenstellen-Zuordnung.</p></div>',
-    } as Record<string, unknown>,
+    content: doc(
+      row(h(1, 'Angebots- und Rechnungsprozess')),
+      row(
+        p(
+          '<p>Dieser Artikel beschreibt den vollständigen Prozess von der Angebotserstellung ' +
+            'bis zur Rechnungsstellung inklusive Mahnwesen und DATEV-Export.</p>',
+        ),
+      ),
+      row(img(DEMO_FLOW_DATA_URL, 'Die drei Phasen im Überblick')),
+      row(h(2, 'Angebot erstellen')),
+      row(
+        p(
+          '<p>Jedes Angebot startet aus einer Opportunity im CRM. Pflichtfelder sind Kunde, ' +
+            'Positionen und Gültigkeitsdauer.</p>',
+        ),
+      ),
+      cols(
+        [callout('info', '<p>Angebote sind 30 Tage gültig, sofern nicht anders vereinbart.</p>', 'Gültigkeit')],
+        [
+          callout(
+            'warning',
+            '<p>Rabatte über 15 % müssen vor dem Versand von der Teamleitung freigegeben werden.</p>',
+            'Rabatt-Freigabe',
+          ),
+        ],
+      ),
+      row(h(2, 'Auftrag & Rechnung')),
+      row(
+        p(
+          '<p>Nach Auftragsbestätigung wird die Rechnung automatisch aus dem Angebot erzeugt. ' +
+            'Die Rechnungsnummer folgt dem Schema:</p>' +
+            '<pre><code>function invoiceNumber(year, seq) {\n' +
+            '  return `R-${year}-${String(seq).padStart(4, "0")}`\n}</code></pre>',
+        ),
+      ),
+      row(h(2, 'Mahnwesen')),
+      row(
+        p(
+          '<p>Die erste Mahnung erfolgt 14 Tage nach Fälligkeit, die zweite nach weiteren 10 Tagen. ' +
+            'Danach übernimmt das Inkasso.</p>',
+        ),
+      ),
+      row(hr()),
+      row(
+        callout(
+          'recommendation',
+          '<p>Prüfe vor dem DATEV-Export immer die Kostenstellen-Zuordnung.</p>',
+          'Vor dem Export',
+        ),
+      ),
+    ),
     author_id: IDS.users.markus,
     category_id: 'wcat-002',
     published: true,
@@ -214,8 +330,37 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Backup & Disaster Recovery',
     slug: 'backup-disaster-recovery',
-    content: tiptapDoc(
-      'Backup-Strategie, Wiederherstellungszeiten (RTO/RPO) und Schritt-für-Schritt-Anleitung im Notfall.',
+    content: doc(
+      row(h(1, 'Backup & Disaster Recovery')),
+      row(
+        p(
+          '<p>Diese Seite fasst die Backup-Strategie, die Wiederherstellungszeiten und die ' +
+            'Schritte im Notfall zusammen.</p>',
+        ),
+      ),
+      row(h(2, 'Strategie')),
+      row(
+        ul([
+          'Tägliche inkrementelle Backups, wöchentliches Vollbackup',
+          'Aufbewahrung 30 Tage, georedundant in der EU',
+          'Monatlicher Wiederherstellungs-Test',
+        ]),
+      ),
+      row(h(2, 'Zielzeiten')),
+      row(
+        p(
+          '<p><strong>RTO</strong> (Wiederherstellungszeit): 4 Stunden. ' +
+            '<strong>RPO</strong> (max. Datenverlust): 24 Stunden.</p>',
+        ),
+      ),
+      row(
+        callout(
+          'warning',
+          '<p>Im Notfall zuerst die IT-Teamleitung informieren — niemals eigenständig auf das ' +
+            'Produktivsystem zurückspielen.</p>',
+          'Notfall',
+        ),
+      ),
     ),
     author_id: IDS.users.thomas,
     category_id: 'wcat-003',
@@ -230,8 +375,30 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'DSGVO: Einwilligungen & Auskunftsrechte',
     slug: 'dsgvo-einwilligungen-auskunftsrechte',
-    content: tiptapDoc(
-      'Übersicht über die gesetzlichen Pflichten gemäß DSGVO: Einwilligungsverwaltung, Auskunftspflicht, Löschanfragen.',
+    content: doc(
+      row(h(1, 'DSGVO: Einwilligungen & Auskunftsrechte')),
+      row(
+        p(
+          '<p>Überblick über die gesetzlichen Pflichten gemäß DSGVO — von der ' +
+            'Einwilligungsverwaltung bis zur fristgerechten Auskunft.</p>',
+        ),
+      ),
+      row(h(2, 'Pflichten im Überblick')),
+      row(
+        ul([
+          'Einwilligungen dokumentiert und widerrufbar halten',
+          'Auskunftsanfragen innerhalb von 30 Tagen beantworten',
+          'Löschanfragen prüfen und protokollieren',
+        ]),
+      ),
+      row(
+        callout(
+          'info',
+          '<p>Cosmi protokolliert jede Einwilligung mit Zeitstempel und Zweck — die Nachweise ' +
+            'findest du im Kontakt unter „Consent".</p>',
+          'Nachweise in Cosmi',
+        ),
+      ),
     ),
     author_id: IDS.users.sarah,
     category_id: 'wcat-005',
@@ -247,8 +414,24 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'CRM: Kontakte und Deals verwalten',
     slug: 'crm-kontakte-deals',
-    content: tiptapDoc(
-      'Anleitung zur Pflege des CRM-Moduls: Kontakte anlegen, Deals verwalten, Pipeline-Phasen und Aktivitäten.',
+    content: doc(
+      row(h(1, 'CRM: Kontakte und Deals verwalten')),
+      row(p('<p>So pflegst du das CRM-Modul sauber — von der Kontaktanlage bis zur Deal-Pipeline.</p>')),
+      row(h(2, 'Kontakte')),
+      row(
+        ul([
+          'Pflichtfelder: Name, Firma, primäre E-Mail',
+          'Tags für Branche und Segment vergeben',
+          'Dubletten vor dem Anlegen prüfen',
+        ]),
+      ),
+      row(h(2, 'Deals & Pipeline')),
+      row(
+        p(
+          '<p>Jeder Deal durchläuft die Phasen von „Erstkontakt" bis „Abschluss". Aktivitäten ' +
+            'halten die Historie fest.</p>',
+        ),
+      ),
     ),
     author_id: IDS.users.laura,
     category_id: 'wcat-002',
@@ -263,8 +446,22 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Infrastruktur-Übersicht (intern)',
     slug: 'infrastruktur-uebersicht-intern',
-    content: tiptapDoc(
-      'Interne Übersicht der Server, Dienste und Netzwerkkonfiguration — nur für IT-Administratoren.',
+    content: doc(
+      row(h(1, 'Infrastruktur-Übersicht (intern)')),
+      row(
+        p(
+          '<p>Interne Übersicht der Server, Dienste und Netzwerkkonfiguration — nur für ' +
+            'IT-Administratoren.</p>',
+        ),
+      ),
+      row(
+        callout(
+          'warning',
+          '<p>Dieser Artikel ist als Entwurf nicht veröffentlicht und enthält sensible ' +
+            'Zugangsdetails.</p>',
+          'Vertraulich',
+        ),
+      ),
     ),
     author_id: IDS.users.thomas,
     category_id: 'wcat-003',
@@ -280,7 +477,7 @@ const ARTICLES: WikiArticle[] = [
     tenant_id: 'tenant-001',
     title: 'Reisekostenrichtlinie (Entwurf)',
     slug: 'reisekostenrichtlinie-entwurf',
-    content: { html: '' } as Record<string, unknown>,
+    content: doc(),
     author_id: CURRENT_USER.id,
     category_id: 'wcat-001',
     published: false,
@@ -473,11 +670,33 @@ function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; 
   return { items: items.slice(start, start + pageSize), total: items.length }
 }
 
+/** Collect searchable plain text from a block document's rows. */
+function rowsText(rows: unknown[]): string {
+  const parts: string[] = []
+  for (const row of rows) {
+    const columns = (row as Record<string, unknown>)?.columns
+    if (!Array.isArray(columns)) continue
+    for (const col of columns) {
+      const blocks = (col as Record<string, unknown>)?.blocks
+      if (!Array.isArray(blocks)) continue
+      for (const b of blocks as Record<string, unknown>[]) {
+        if (typeof b.text === 'string') parts.push(b.text)
+        if (typeof b.title === 'string') parts.push(b.title)
+        if (typeof b.html === 'string') parts.push(b.html.replace(/<[^>]*>/g, ' '))
+        if (typeof b.caption === 'string') parts.push(b.caption)
+        if (Array.isArray(b.items)) parts.push((b.items as string[]).join(' '))
+      }
+    }
+  }
+  return parts.join(' ')
+}
+
 /** Best-effort searchable plain text from the JSONB content field. */
 function contentText(content: unknown): string {
   if (typeof content === 'string') return content
   if (!content || typeof content !== 'object') return ''
   const c = content as Record<string, unknown>
+  if (Array.isArray(c.rows)) return rowsText(c.rows)
   if (typeof c.html === 'string') return c.html.replace(/<[^>]*>/g, ' ')
   if (typeof c.plain === 'string') return c.plain
   // walk a TipTap doc collecting text nodes
@@ -613,7 +832,7 @@ export const wikiHandlers = [
       tenant_id: 'tenant-001',
       title: body.title ?? 'Neuer Artikel',
       slug: (body.title ?? 'neuer-artikel').toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
-      content: body.content ?? tiptapDoc(''),
+      content: body.content ?? { rows: [] },
       author_id: CURRENT_USER.id,
       category_id: body.category_id ?? null,
       published: body.published ?? false,
