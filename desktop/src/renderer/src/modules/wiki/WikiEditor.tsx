@@ -4,12 +4,15 @@ import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { DocumentBlockEditor, type DocRow } from '@/components/shared/document'
 import { wikiBlockRegistry } from './wiki-blocks'
 import { WikiIdentityBar } from './WikiIdentityBar'
+import { WikiAttachments } from './WikiAttachments'
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 interface WikiEditorProps {
+  /** The article being edited — needed for inline attachment management. */
+  articleId: string
   /** Editorial title heading — editable inline, saved together with the body. */
   title: string
   onTitleChange: (title: string) => void
@@ -36,6 +39,7 @@ interface WikiEditorProps {
  * a dezent footer with the change-note + save. Ctrl/Cmd+S saves, Escape cancels.
  */
 export function WikiEditor({
+  articleId,
   title,
   onTitleChange,
   rows,
@@ -109,6 +113,11 @@ export function WikiEditor({
             registry={wikiBlockRegistry}
             widthClass="max-w-none"
           />
+
+          {/* Attachments — manageable while writing, not only when reading. */}
+          <div className="mt-8">
+            <WikiAttachments articleId={articleId} />
+          </div>
         </div>
       </div>
 

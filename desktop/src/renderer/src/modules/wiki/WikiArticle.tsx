@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib'
@@ -10,6 +10,8 @@ import { adaptVersion } from '@/api/wiki-adapter'
 import { DocumentReader, type DocRow } from '@/components/shared/document'
 import { wikiBlockRegistry } from './wiki-blocks'
 import { useWikiUsers } from './useWikiUsers'
+import { tocFromRows } from './wikiReading'
+import { WikiToc } from './WikiToc'
 import { WikiEmptyCanvas } from './WikiEmptyCanvas'
 import { WikiArticleHeader } from './WikiArticleHeader'
 import { WikiEditor } from './WikiEditor'
@@ -43,6 +45,12 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   const [showVersions, setShowVersions] = useState(false)
 
   const resolveUser = useWikiUsers()
+
+  // Read-view scroll container (TOC scroll-spy root + smooth-scroll target).
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // Outline straight from the heading blocks — no HTML parsing, stable anchors.
+  const headings = useMemo(() => tocFromRows(article.body), [article.body])
+  const hasToc = headings.length >= 2
 
   // Detail GET increments the view counter server-side; use its live count.
   const { data: detail } = useArticle(article.id)
@@ -126,6 +134,7 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
         {isEditing ? (
           <WikiEditor
             key={article.id}
+            articleId={article.id}
             title={editTitle}
             onTitleChange={setEditTitle}
             rows={editRows}
@@ -139,16 +148,31 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
             saving={updateArticleMutation.isPending}
           />
         ) : (
-          <div className="flex-1 overflow-y-auto px-6 py-6">
-            <div className={cn('mx-auto', readingWidth === 'wide' ? 'max-w-none' : 'max-w-[72ch]')}>
-              {hasBody ? (
-                <DocumentReader rows={article.body} registry={wikiBlockRegistry} mode="web" />
-              ) : (
-                <WikiEmptyCanvas onStart={handleStartEdit} />
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
+            <div
+              className={cn(
+                'mx-auto flex gap-10',
+                hasToc ? 'max-w-[62rem]' : readingWidth === 'wide' ? 'max-w-none' : 'max-w-[72ch]',
               )}
+            >
+              {/* Article body */}
+              <div className={cn('min-w-0 flex-1', readingWidth === 'wide' ? '' : 'max-w-[72ch]')}>
+                {hasBody ? (
+                  <DocumentReader rows={article.body} registry={wikiBlockRegistry} mode="web" />
+                ) : (
+                  <WikiEmptyCanvas onStart={handleStartEdit} />
+                )}
 
-              {/* Attachments */}
-              <WikiAttachments articleId={article.id} />
+                {/* Attachments */}
+                <WikiAttachments articleId={article.id} />
+              </div>
+
+              {/* Table of contents (sticky, wide screens only) */}
+              {hasToc && (
+                <aside className="sticky top-0 hidden h-fit w-48 shrink-0 xl:block">
+                  <WikiToc headings={headings} scrollRef={scrollRef} />
+                </aside>
+              )}
             </div>
           </div>
         )}

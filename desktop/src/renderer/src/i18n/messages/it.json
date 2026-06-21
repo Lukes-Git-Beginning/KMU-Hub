@@ -9982,5 +9982,10 @@
   "berichte.fields.work.project": "Progetto",
   "berichte.fields.work.assignee": "Assegnatario",
   "berichte.fields.work.estimated_hours": "Ore stimate",
-  "berichte.fields.work.progress": "Progresso"
+  "berichte.fields.work.progress": "Progresso",
+  "wiki.image.pick": "Scegli immagine",
+  "wiki.image.pickHint": "Dai tuoi file",
+  "wiki.image.replace": "Sostituisci immagine",
+  "wiki.image.useUrl": "o incolla un indirizzo immagine",
+  "wiki.image.urlPlaceholder": "https://… indirizzo immagine"
 }

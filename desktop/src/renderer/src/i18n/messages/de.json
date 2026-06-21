@@ -10016,5 +10016,10 @@
   "berichte.fields.work.project": "Projekt",
   "berichte.fields.work.assignee": "Zuständig",
   "berichte.fields.work.estimated_hours": "Geschätzte Stunden",
-  "berichte.fields.work.progress": "Fortschritt"
+  "berichte.fields.work.progress": "Fortschritt",
+  "wiki.image.pick": "Bild auswählen",
+  "wiki.image.pickHint": "Aus deinen Dateien",
+  "wiki.image.replace": "Bild ersetzen",
+  "wiki.image.useUrl": "oder Bild-Adresse einfügen",
+  "wiki.image.urlPlaceholder": "https://… Bild-Adresse"
 }

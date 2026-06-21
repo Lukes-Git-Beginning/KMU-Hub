@@ -1,13 +1,19 @@
 /**
- * Read-view helpers (WP-4) — reading time, heading anchors for the TOC, and the
- * category breadcrumb path.
+ * Read-view helpers — reading time, the table-of-contents outline (derived from
+ * the block document's heading blocks), and the category breadcrumb path.
  */
+import type { DocRow } from '@/components/shared/document'
 import type { WikiCategory } from '@/types/wiki'
 
 export interface TocHeading {
   id: string
   text: string
   level: number
+}
+
+/** Stable anchor id a wiki heading block renders, shared with the TOC. */
+export function headingAnchorId(blockId: string): string {
+  return `wh-${blockId}`
 }
 
 /** Rough reading time in minutes from the article HTML (~200 wpm). */
@@ -17,36 +23,25 @@ export function readingTimeMinutes(html: string): number {
   return Math.max(1, Math.round(words / 200))
 }
 
-function slugify(s: string): string {
-  const base = s
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\sÀ-ɏ-]/g, '')
-    .replace(/\s+/g, '-')
-    .slice(0, 60)
-  return base || 'section'
-}
-
 /**
- * Add stable anchor ids to H1–H3 in the article HTML and return the heading
- * outline for the table of contents. Ids are slugged from the heading text and
- * de-duplicated, so TOC links and scroll-spy can target each section.
+ * Build the table-of-contents outline from the block document's heading blocks.
+ * Each heading block renders a stable anchor (see {@link headingAnchorId}), so
+ * the TOC links + scroll-spy target the rendered sections without parsing HTML.
  */
-export function addHeadingIds(html: string): { html: string; headings: TocHeading[] } {
-  if (!html) return { html: '', headings: [] }
-  const doc = new DOMParser().parseFromString(html, 'text/html')
+export function tocFromRows(rows: DocRow[]): TocHeading[] {
   const headings: TocHeading[] = []
-  const seen = new Set<string>()
-  doc.querySelectorAll('h1, h2, h3').forEach((h, i) => {
-    const text = (h.textContent ?? '').trim()
-    if (!text) return
-    let id = slugify(text)
-    if (seen.has(id)) id = `${id}-${i}`
-    seen.add(id)
-    h.setAttribute('id', id)
-    headings.push({ id, text, level: Number(h.tagName[1]) })
-  })
-  return { html: doc.body.innerHTML, headings }
+  for (const row of rows) {
+    for (const col of row.columns) {
+      for (const block of col.blocks) {
+        if (block.type !== 'heading') continue
+        const b = block as unknown as { id: string; text?: string; level?: number }
+        const text = (b.text ?? '').trim()
+        if (!text) continue
+        headings.push({ id: headingAnchorId(b.id), text, level: b.level === 1 ? 1 : 2 })
+      }
+    }
+  }
+  return headings
 }
 
 /** Root → … → article category, for the breadcrumb trail (parentId chain). */

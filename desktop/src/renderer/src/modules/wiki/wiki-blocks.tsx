@@ -10,8 +10,9 @@
  * batch as additional definitions appended here — the engine and every other
  * surface stay untouched.
  */
+import { useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Heading1, Heading2 } from 'lucide-react'
+import { Heading1, Heading2, Image as ImageIcon } from 'lucide-react'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import {
   buildRegistry,
@@ -19,9 +20,12 @@ import {
   type BlockEditProps,
   type BlockRegistry,
   type BlockTypeDef,
+  type BlockViewProps,
   type HeadingBlock,
+  type ImageBlock,
   type TextBlock,
 } from '@/components/shared/document'
+import { headingAnchorId } from './wikiReading'
 
 /* ------------------------- frameless long-form text ----------------------- */
 
@@ -76,6 +80,108 @@ function WikiHeadingEdit({ block, onPatch }: BlockEditProps<HeadingBlock>) {
   )
 }
 
+/* ---------------------------- image (file-first) -------------------------- */
+// Most wiki images are local files, not web URLs — so lead with a file picker
+// (reads to a data URL) and keep the URL field as a secondary, opt-in option.
+
+function WikiImageEdit({ block, onPatch }: BlockEditProps<ImageBlock>) {
+  const { t } = useTranslation()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [showUrl, setShowUrl] = useState(false)
+  const inputCls =
+    'w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring'
+
+  const pick = () => fileRef.current?.click()
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => onPatch({ url: String(reader.result), alt: block.alt || file.name })
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      {block.url ? (
+        <img src={block.url} alt={block.alt ?? ''} className="max-h-56 w-full rounded-lg object-contain" />
+      ) : (
+        <button
+          type="button"
+          onClick={pick}
+          className="flex h-28 w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-secondary/30 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/50"
+        >
+          <ImageIcon className="h-6 w-6 text-muted-foreground/60" />
+          <span className="text-xs font-medium">{t('wiki.image.pick', { defaultValue: 'Bild auswählen' })}</span>
+          <span className="text-[11px] text-muted-foreground/70">
+            {t('wiki.image.pickHint', { defaultValue: 'Aus deinen Dateien' })}
+          </span>
+        </button>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={pick}
+          className="rounded-md border border-border px-2 py-1 text-xs text-foreground transition-colors hover:bg-secondary"
+        >
+          {block.url
+            ? t('wiki.image.replace', { defaultValue: 'Bild ersetzen' })
+            : t('wiki.image.pick', { defaultValue: 'Bild auswählen' })}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowUrl((v) => !v)}
+          className="text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+        >
+          {t('wiki.image.useUrl', { defaultValue: 'oder Bild-Adresse einfügen' })}
+        </button>
+      </div>
+      {showUrl && (
+        <input
+          value={block.url}
+          onChange={(e) => onPatch({ url: e.target.value })}
+          placeholder={t('wiki.image.urlPlaceholder', { defaultValue: 'https://… Bild-Adresse' })}
+          className={inputCls}
+        />
+      )}
+      <div className="flex gap-2">
+        <input
+          value={block.alt ?? ''}
+          onChange={(e) => onPatch({ alt: e.target.value })}
+          placeholder={t('document.block.image.altPlaceholder', { defaultValue: 'Alternativtext' })}
+          className={inputCls}
+        />
+        <input
+          value={block.caption ?? ''}
+          onChange={(e) => onPatch({ caption: e.target.value })}
+          placeholder={t('document.block.image.captionPlaceholder', { defaultValue: 'Bildunterschrift' })}
+          className={inputCls}
+        />
+      </div>
+    </div>
+  )
+}
+
+/** Read view — mirrors the core heading, plus a stable anchor id for the TOC. */
+function WikiHeadingView({ block }: BlockViewProps<HeadingBlock>) {
+  return block.level === 1 ? (
+    <h2
+      id={headingAnchorId(block.id)}
+      className="report-serif mt-2 scroll-mt-4 text-[2rem] font-semibold leading-tight tracking-tight text-foreground"
+    >
+      {block.text}
+    </h2>
+  ) : (
+    <h3
+      id={headingAnchorId(block.id)}
+      className="scroll-mt-4 text-lg font-semibold tracking-tight text-foreground"
+    >
+      {block.text}
+    </h3>
+  )
+}
+
 /* -------------------------------- registry -------------------------------- */
 
 // Core blocks, keyed so we can override text + heading and order the menu.
@@ -84,9 +190,16 @@ const core = Object.fromEntries(createCoreBlockDefs().map((d) => [d.type, d])) a
   BlockTypeDef
 >
 
-// Keep each core block's icon/label/factory/read-view; swap in the frameless edit.
+// Keep each core block's icon/label/factory; swap in the frameless edit. The
+// heading also gets a read-view with a stable anchor id so the TOC can target it.
 const wikiText: BlockTypeDef = { ...core.text, Edit: WikiTextEdit as BlockTypeDef['Edit'] }
-const wikiHeading: BlockTypeDef = { ...core.heading, Edit: WikiHeadingEdit as BlockTypeDef['Edit'] }
+const wikiHeading: BlockTypeDef = {
+  ...core.heading,
+  Edit: WikiHeadingEdit as BlockTypeDef['Edit'],
+  View: WikiHeadingView as BlockTypeDef['View'],
+}
+// File-first image picker; core read-view unchanged.
+const wikiImage: BlockTypeDef = { ...core.image, Edit: WikiImageEdit as BlockTypeDef['Edit'] }
 
 /**
  * Insert-menu order: prose first (the writer's default), then structure and the
@@ -97,6 +210,6 @@ export const wikiBlockRegistry: BlockRegistry = buildRegistry([
   wikiHeading,
   core.bullet,
   core.callout,
-  core.image,
+  wikiImage,
   core.divider,
 ])
