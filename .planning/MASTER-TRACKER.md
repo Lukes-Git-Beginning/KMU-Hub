@@ -111,9 +111,11 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [ ] **P4** Externer Zugang (GuestView, Share-Links, Zeit→Finanzen-Export)
 - [ ] Demo-Tiefe-Phase
 
-### wiki — ✅ Batch 1 + 1-Tiefe + 2 (Editor-Premium) review-reif (Darien-Review läuft → dann Nico)
+### wiki — ✅ Phase B (Block-Engine) review-reif (Darien-Review → dann Nico)
 - [x] **Batch 1 (W-1…W-5)** TipTap-Editor, Anhänge, @Mention/[[Wikilink]], Suche, Settings · **Batch 1 Tiefe (WT-1…WT-5)** rekursive Kategorien+Verschieben, Tags/Titel-Rename, Versions-Diff, Anhang/Share-Verwaltung, Suche-Fix — gepusht, von Darien reviewt.
-- [x] **Batch 2 (WP-1…WP-5)** Editor auf berichte-Niveau: frameless editorial Canvas+Playfair, Slash-Menü + reiche Blöcke (Callout/Code/Toggle/Trenner/Bild), Cover+Icon, Editorial-Reader+TOC, Vorlagen-CRUD+Joy-Empty-State. Commits `3fcc943d` `16806324` `004b87c2` `f2a12ed0` `24415497`. **Review-Paket: `.planning/wiki-REVIEW-paket.md`** (Dariens eigener Review VOR Nico).
+- [x] **Batch 2 (WP-1…WP-5)** Editorial-Premium-Editor (TipTap-Fließ) — **von Phase B ersetzt** (Drumherum wie Cover/Icon/Reader/Vorlagen bleibt).
+- [x] **Phase B (PB-1…PB-5, 2026-06-21)** wiki auf gemeinsame Block-Engine (`components/shared/document`, wie berichte): rows-Schema+Adapter, frameless Long-Form-Block (Seiten-Look) + Bubble H1/H2/H3+Listen, Block-Heading-TOC, **Anhänge im Edit-Modus**, **Bild-Datei-Picker**, **`shared/LinkPreviewPopover`** (Klick→Vorschau→Sprung), **Inline-`[[`/`@`-Autocomplete** (`WikiSuggest`, zero-dep), tote Extensions weg, Versions-Diff für Block-Snapshots. Commits `4b92105d` `3aefb538` `666a6798` `00e24706` `a30ba713` `26640b59` `714fa3d2` `3923f200`. QA: `qa-wiki-pb{1..5}.mjs`. **Bauplan: `.planning/wiki-phaseB-VISION.md`.**
+- [ ] **Batch 2 (Spezialblöcke)** Toggle/Code/Tabelle/Anhang-Block als Defs in `wikiBlockRegistry` (Erweiterungspunkt steht)
 - [ ] **P1** Backend-Swap (TanStack Query) 🔒
 - [ ] **P3** Zugang/Freigabe (Public-Modus, Kategorie-RBAC) — Share-Verwaltung (WT-4) da, Rest 🔒
 - [ ] **P4** Suche + KI (Artikel-aus-Ticket) 🔒
