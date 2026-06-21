@@ -111,12 +111,12 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [ ] **P4** Externer Zugang (GuestView, Share-Links, Zeit→Finanzen-Export)
 - [ ] Demo-Tiefe-Phase
 
-### wiki — 🔨 (Nico, tw.)
+### wiki — ✅ Batch 1 + 1-Tiefe + 2 (Editor-Premium) review-reif (Darien-Review läuft → dann Nico)
+- [x] **Batch 1 (W-1…W-5)** TipTap-Editor, Anhänge, @Mention/[[Wikilink]], Suche, Settings · **Batch 1 Tiefe (WT-1…WT-5)** rekursive Kategorien+Verschieben, Tags/Titel-Rename, Versions-Diff, Anhang/Share-Verwaltung, Suche-Fix — gepusht, von Darien reviewt.
+- [x] **Batch 2 (WP-1…WP-5)** Editor auf berichte-Niveau: frameless editorial Canvas+Playfair, Slash-Menü + reiche Blöcke (Callout/Code/Toggle/Trenner/Bild), Cover+Icon, Editorial-Reader+TOC, Vorlagen-CRUD+Joy-Empty-State. Commits `3fcc943d` `16806324` `004b87c2` `f2a12ed0` `24415497`. **Review-Paket: `.planning/wiki-REVIEW-paket.md`** (Dariens eigener Review VOR Nico).
 - [ ] **P1** Backend-Swap (TanStack Query) 🔒
-- [ ] **P2** Editor-Vollständigkeit (Anhänge, Tabellen, @Mention, [[Verlinkung]])
-- [ ] **P3** Zugang/Freigabe (Share-Links, Public-Modus, Kategorie-RBAC)
-- [ ] **P4** Suche + KI (Volltext, Artikel-aus-Ticket) 🔒
-- [ ] Demo-Tiefe-Phase
+- [ ] **P3** Zugang/Freigabe (Public-Modus, Kategorie-RBAC) — Share-Verwaltung (WT-4) da, Rest 🔒
+- [ ] **P4** Suche + KI (Artikel-aus-Ticket) 🔒
 
 ### formulare — 🔨 (Strom N, tw.)
 - [ ] **P1** DnD-Reordering + DSGVO-Feld + E-Mail-Benachrichtigung
@@ -285,7 +285,8 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 | 12 | **video / dialer** | LiveKit-FE | ⬜ |
 | 13 | **settings / admin** | Rest-Phasen | ⬜ |
 | 8b | **berichte** | Report-Authoring R-0…R-6 komplett | 🔁 review-reif → **Darien-Review** (`.planning/berichte-REVIEW-paket.md`), dann Nico |
-| 14 | **wiki / formulare / notifications** | Marathon-Reste fertig + Tiefe | ⬜ (Stand verifizieren) |
+| 8c | **wiki** | Batch 1 + 1-Tiefe + 2 (Editor-Premium) komplett | 🔁 review-reif → **Darien-Review** (`.planning/wiki-REVIEW-paket.md`), dann Nico |
+| 14 | **formulare / notifications** | Marathon-Reste fertig + Tiefe | ⬜ (Stand verifizieren) |
 | 15 | **Branchen ×7** | pilot-nah, zuletzt | ⬜ |
 
 > Reihenfolge ist ein Vorschlag — bei Bedarf umsortieren. **security/DSGVO** ist P0-Launch-Blocker und hängt an Luke → seine Backend-Arbeit dafür früh einplanen, auch wenn das FE-Review später kommt. Nach jedem fertigen Modul: Haken setzen, „→ Nico" markieren, Gesamtzahl aktualisieren.
