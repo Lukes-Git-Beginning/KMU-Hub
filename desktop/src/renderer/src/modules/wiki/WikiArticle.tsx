@@ -2,7 +2,6 @@ import { useState, useRef, useMemo } from 'react'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { FileText } from 'lucide-react'
 import { cn } from '@/lib'
 import type { WikiArticle as WikiArticleType, WikiCategory } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
@@ -13,6 +12,7 @@ import { useWikiUsers } from './useWikiUsers'
 import { highlightCodeBlocks } from './extensions/lowlight'
 import { addHeadingIds } from './wikiReading'
 import { WikiToc } from './WikiToc'
+import { WikiEmptyCanvas } from './WikiEmptyCanvas'
 import { WikiArticleHeader } from './WikiArticleHeader'
 import { WikiEditor } from './WikiEditor'
 import { WikiVersionHistory } from './WikiVersionHistory'
@@ -198,16 +198,7 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
                     }}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                    <FileText className="h-8 w-8 text-muted-foreground/40" />
-                    <p className="text-sm text-muted-foreground">{t('wiki.article.empty')}</p>
-                    <button
-                      onClick={handleStartEdit}
-                      className="mt-1 h-8 rounded-md border border-border px-3 text-xs text-foreground hover:bg-accent transition-colors"
-                    >
-                      {t('wiki.article.startWriting')}
-                    </button>
-                  </div>
+                  <WikiEmptyCanvas onStart={handleStartEdit} />
                 )}
 
                 {/* Attachments */}

@@ -134,6 +134,27 @@ export interface CreateShareTokenInput {
 }
 
 // ---------------------------------------------------------------------------
+// Templates (WP-5) — reusable content scaffolds, served by MSW (FE-mock).
+// The shape matches the UI type WikiTemplate (content is an HTML string).
+// ---------------------------------------------------------------------------
+
+export interface CreateTemplateInput {
+  name: string
+  description?: string
+  content?: string
+  icon?: string
+  category?: string
+}
+
+export interface UpdateTemplateInput {
+  name?: string
+  description?: string
+  content?: string
+  icon?: string
+  category?: string
+}
+
+// ---------------------------------------------------------------------------
 // Response wrapper types
 // ---------------------------------------------------------------------------
 

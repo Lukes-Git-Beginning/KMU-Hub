@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileText, AlertTriangle, BookOpen } from 'lucide-react'
+import { Settings2, FileText } from 'lucide-react'
 import { toast } from 'sonner'
-import { WIKI_TEMPLATES, useWikiStore } from '@/stores/wiki'
-import { useCreateArticle } from '@/api/hooks/useWiki'
+import { sanitizeHtml } from '@/lib/sanitize'
+import { useWikiStore } from '@/stores/wiki'
+import { useCreateArticle, useTemplates } from '@/api/hooks/useWiki'
 import {
   Dialog,
   DialogContent,
@@ -11,16 +12,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-
-// ---------------------------------------------------------------------------
-// Icon map for templates
-// ---------------------------------------------------------------------------
-
-const templateIconMap: Record<string, typeof FileText> = {
-  FileText,
-  AlertTriangle,
-  BookOpen,
-}
+import { cn } from '@/lib'
+import { WikiArticleIcon } from './wikiIdentity'
+import { WikiTemplateManager } from './WikiTemplateManager'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -34,19 +28,24 @@ interface WikiTemplateDialogProps {
 export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogProps) {
   const { t } = useTranslation()
   const createArticle = useCreateArticle()
+  const { data: templates } = useTemplates()
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
 
   const [title, setTitle] = useState('')
+  // null = blank document; otherwise the picked template id.
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [managerOpen, setManagerOpen] = useState(false)
+
+  const tpl = templates?.find((tm) => tm.id === selectedTemplate) ?? null
 
   const handleCreate = async () => {
     if (!title.trim()) return
-    const template = selectedTemplate ? WIKI_TEMPLATES.find((tmpl) => tmpl.id === selectedTemplate) : null
-    const content = template?.content ?? `<p>${t('wiki.article.defaultContent')}</p>`
+    const content = tpl?.content ?? `<p>${t('wiki.article.defaultContent')}</p>`
     try {
       await createArticle.mutateAsync({
         title: title.trim(),
-        content: { plain: content } as Record<string, unknown>,
+        content: { html: content } as Record<string, unknown>,
+        icon: tpl?.icon,
         category_id: selectedCategoryId ?? undefined,
         published: false,
       })
@@ -60,18 +59,27 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('wiki.article.newTitle')}</DialogTitle>
-          <DialogDescription>
-            {t('wiki.article.newDescription')}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <DialogTitle>{t('wiki.article.newTitle')}</DialogTitle>
+                <DialogDescription>{t('wiki.article.newDescription')}</DialogDescription>
+              </div>
+              <button
+                onClick={() => setManagerOpen(true)}
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                {t('wiki.template.manage')}
+              </button>
+            </div>
+          </DialogHeader>
 
-        <div className="space-y-4 pt-2">
           {/* Title */}
-          <div>
+          <div className="pt-1">
             <label className="mb-1 block text-sm font-medium text-foreground">{t('wiki.article.titleLabel')}</label>
             <input
               type="text"
@@ -84,31 +92,74 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
             />
           </div>
 
-          {/* Template selection */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              {t('wiki.article.templateLabel')} <span className="text-muted-foreground font-normal">({t('common.optional')})</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {WIKI_TEMPLATES.map((tmpl) => {
-                const TIcon = templateIconMap[tmpl.icon] ?? FileText
-                const isActive = selectedTemplate === tmpl.id
-                return (
-                  <button
-                    key={tmpl.id}
-                    onClick={() => setSelectedTemplate(isActive ? null : tmpl.id)}
-                    className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-center transition-colors ${
-                      isActive
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-border text-muted-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <TIcon className="h-5 w-5" />
-                    <span className="text-xs font-medium">{tmpl.name}</span>
-                    <span className="text-[10px] leading-tight">{tmpl.description}</span>
-                  </button>
-                )
-              })}
+          {/* Template picker + preview */}
+          <div className="grid grid-cols-[1fr_1.15fr] gap-3">
+            {/* Template list */}
+            <div className="space-y-1">
+              <p className="mb-1 text-xs font-medium text-foreground">{t('wiki.article.templateLabel')}</p>
+              <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                {/* Blank */}
+                <button
+                  onClick={() => setSelectedTemplate(null)}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors',
+                    selectedTemplate === null
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:bg-accent',
+                  )}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{t('wiki.template.blank')}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{t('wiki.template.blankHint')}</span>
+                  </span>
+                </button>
+
+                {(templates ?? []).map((tm) => {
+                  const active = selectedTemplate === tm.id
+                  return (
+                    <button
+                      key={tm.id}
+                      onClick={() => setSelectedTemplate(tm.id)}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors',
+                        active ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent',
+                      )}
+                    >
+                      <WikiArticleIcon icon={tm.icon} title={tm.name} size="md" />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-foreground">{tm.name}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{tm.description}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="flex flex-col">
+              <p className="mb-1 text-xs font-medium text-foreground">{t('wiki.template.preview')}</p>
+              <div className="max-h-72 flex-1 overflow-y-auto rounded-lg border border-border bg-secondary/20 p-3">
+                {tpl ? (
+                  <div
+                    className="tiptap-content prose prose-sm max-w-none dark:prose-invert"
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeHtml(tpl.content, {
+                        ADD_TAGS: ['details', 'summary', 'figure', 'figcaption'],
+                        ADD_ATTR: ['data-callout', 'data-variant', 'data-details', 'data-details-content', 'open'],
+                      }),
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full min-h-32 flex-col items-center justify-center gap-1.5 text-center">
+                    <FileText className="h-6 w-6 text-muted-foreground/40" />
+                    <p className="text-xs text-muted-foreground">{t('wiki.template.blankPreview')}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -116,20 +167,22 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
           <div className="flex justify-end gap-2 pt-1">
             <button
               onClick={() => { onOpenChange(false); setTitle(''); setSelectedTemplate(null) }}
-              className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
+              className="h-9 rounded-md border border-border px-4 text-sm text-foreground transition-colors hover:bg-accent"
             >
               {t('common.cancel')}
             </button>
             <button
               onClick={handleCreate}
-              disabled={!title.trim()}
-              className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              disabled={!title.trim() || createArticle.isPending}
+              className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {t('common.create')}
             </button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <WikiTemplateManager open={managerOpen} onOpenChange={setManagerOpen} />
+    </>
   )
 }

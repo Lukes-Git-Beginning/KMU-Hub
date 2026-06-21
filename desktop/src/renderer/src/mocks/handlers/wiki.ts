@@ -9,6 +9,7 @@ import type {
   WikiAttachment,
   WikiShareToken,
 } from '@/api/wiki-types'
+import type { WikiTemplate } from '@/types/wiki'
 
 const API = API_BASE_URL
 const BASE = `${API}/api/v1/wiki`
@@ -273,6 +274,22 @@ const ARTICLES: WikiArticle[] = [
     created_at: daysAgo(15) + 'T16:00:00Z',
     updated_at: daysAgo(1) + 'T17:45:00Z',
   },
+  {
+    // Empty draft — exercises the joy-moment empty canvas (WP-5)
+    id: 'wart-008',
+    tenant_id: 'tenant-001',
+    title: 'Reisekostenrichtlinie (Entwurf)',
+    slug: 'reisekostenrichtlinie-entwurf',
+    content: { html: '' } as Record<string, unknown>,
+    author_id: CURRENT_USER.id,
+    category_id: 'wcat-001',
+    published: false,
+    tags: ['Entwurf'],
+    icon: 'Briefcase',
+    view_count: 3,
+    created_at: daysAgo(2) + 'T10:00:00Z',
+    updated_at: daysAgo(2) + 'T10:00:00Z',
+  },
 ]
 
 const VERSIONS: Record<string, WikiVersion[]> = {
@@ -389,6 +406,61 @@ const SHARE_TOKENS: WikiShareToken[] = [
     expires_at: null,
     permissions: ['read'],
     created_at: daysAgo(6) + 'T08:00:00Z',
+  },
+]
+
+// Templates (WP-5) — reusable content scaffolds, stateful via MSW. Icons are
+// lucide names from the wiki identity palette so the picker/preview line up.
+const TEMPLATES: WikiTemplate[] = [
+  {
+    id: 'wtpl-001',
+    name: 'Meeting-Protokoll',
+    description: 'Standardvorlage für Meeting-Notizen',
+    content:
+      '<h2>Meeting: [Titel]</h2><p><strong>Datum:</strong> [Datum]<br><strong>Teilnehmer:</strong> [Namen]</p>' +
+      '<h3>Agenda</h3><ol><li>[Punkt 1]</li><li>[Punkt 2]</li></ol>' +
+      '<h3>Beschlüsse</h3><ul><li>[Beschluss]</li></ul>' +
+      '<h3>Nächste Schritte</h3><ul><li>[Aktion] — [Verantwortlich] — [Frist]</li></ul>',
+    icon: 'Calendar',
+    category: 'meetings',
+  },
+  {
+    id: 'wtpl-002',
+    name: 'Post-Mortem',
+    description: 'Analyse nach einem Vorfall oder Problem',
+    content:
+      '<h2>Post-Mortem: [Vorfall]</h2><p><strong>Datum:</strong> [Datum]<br><strong>Schweregrad:</strong> [Kritisch/Hoch/Mittel]</p>' +
+      '<h3>Zusammenfassung</h3><p>[Was ist passiert?]</p>' +
+      '<h3>Timeline</h3><ul><li>[HH:MM] — [Ereignis]</li></ul>' +
+      '<h3>Root Cause</h3><p>[Ursache]</p>' +
+      '<div data-callout="" data-variant="recommendation" class="wiki-callout"><p>[Wichtigste Massnahme zuerst]</p></div>' +
+      '<h3>Lessons Learned</h3><ul><li>[Erkenntnis]</li></ul>',
+    icon: 'ShieldCheck',
+    category: 'incidents',
+  },
+  {
+    id: 'wtpl-003',
+    name: 'How-To Anleitung',
+    description: 'Schritt-für-Schritt-Anleitung für Prozesse',
+    content:
+      '<h2>How-To: [Titel]</h2><p>[Kurzbeschreibung — was wird erreicht?]</p>' +
+      '<h3>Voraussetzungen</h3><ul><li>[Voraussetzung 1]</li></ul>' +
+      '<h3>Schritte</h3><ol><li>[Schritt 1]</li><li>[Schritt 2]</li><li>[Schritt 3]</li></ol>' +
+      '<div data-callout="" data-variant="tip" class="wiki-callout"><p>[Praktischer Tipp für diesen Prozess]</p></div>',
+    icon: 'GraduationCap',
+    category: 'howto',
+  },
+  {
+    id: 'wtpl-004',
+    name: 'Projekt-Steckbrief',
+    description: 'Kompakte Übersicht für ein neues Projekt',
+    content:
+      '<h2>[Projektname]</h2><p>[Ein Satz: worum geht es?]</p>' +
+      '<h3>Ziel</h3><p>[Was soll erreicht werden?]</p>' +
+      '<h3>Beteiligte</h3><ul><li>[Rolle] — [Person]</li></ul>' +
+      '<h3>Meilensteine</h3><ul><li>[Datum] — [Meilenstein]</li></ul>',
+    icon: 'Target',
+    category: 'projects',
   },
 ]
 
@@ -701,6 +773,45 @@ export const wikiHandlers = [
     const idx = SHARE_TOKENS.findIndex((t) => t.id === params.tokenId)
     if (idx === -1) return HttpResponse.json({ error: 'token not found' }, { status: 404 })
     SHARE_TOKENS.splice(idx, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // --- Templates (WP-5, stateful) ---
+
+  http.get(`${BASE}/templates`, () => {
+    return HttpResponse.json(TEMPLATES)
+  }),
+
+  http.post(`${BASE}/templates`, async ({ request }) => {
+    const body = (await request.json()) as Partial<WikiTemplate>
+    const template: WikiTemplate = {
+      id: `wtpl-${Date.now()}`,
+      name: body.name ?? 'Neue Vorlage',
+      description: body.description ?? '',
+      content: body.content ?? '<p></p>',
+      icon: body.icon ?? 'FileText',
+      category: body.category ?? 'custom',
+    }
+    TEMPLATES.push(template)
+    return HttpResponse.json(template, { status: 201 })
+  }),
+
+  http.put(`${BASE}/templates/:id`, async ({ params, request }) => {
+    const template = TEMPLATES.find((t) => t.id === params.id)
+    if (!template) return HttpResponse.json({ error: 'template not found' }, { status: 404 })
+    const body = (await request.json()) as Partial<WikiTemplate>
+    if (body.name !== undefined) template.name = body.name
+    if (body.description !== undefined) template.description = body.description
+    if (body.content !== undefined) template.content = body.content
+    if (body.icon !== undefined) template.icon = body.icon
+    if (body.category !== undefined) template.category = body.category
+    return HttpResponse.json(template)
+  }),
+
+  http.delete(`${BASE}/templates/:id`, ({ params }) => {
+    const idx = TEMPLATES.findIndex((t) => t.id === params.id)
+    if (idx === -1) return HttpResponse.json({ error: 'template not found' }, { status: 404 })
+    TEMPLATES.splice(idx, 1)
     return new HttpResponse(null, { status: 204 })
   }),
 ]

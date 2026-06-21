@@ -26,6 +26,10 @@ import {
   listShareTokens,
   createShareToken,
   revokeShareToken,
+  listTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
 } from '../wiki-client'
 import type {
   CreateArticleInput,
@@ -33,6 +37,8 @@ import type {
   ListArticlesParams,
   CreateCategoryInput,
   CreateShareTokenInput,
+  CreateTemplateInput,
+  UpdateTemplateInput,
 } from '../wiki-types'
 
 // ---------------------------------------------------------------------------
@@ -49,6 +55,7 @@ export const wikiKeys = {
   categories: () => ['wiki', 'categories'] as const,
   shareTokens: (articleId: string) => ['wiki', 'articles', articleId, 'share'] as const,
   search: (query: string) => ['wiki', 'search', query] as const,
+  templates: () => ['wiki', 'templates'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -281,5 +288,41 @@ export function useRevokeShareToken() {
       revokeShareToken(tokenId),
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: wikiKeys.shareTokens(variables.articleId) }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Templates (WP-5)
+// ---------------------------------------------------------------------------
+
+export function useTemplates() {
+  return useQuery({
+    queryKey: wikiKeys.templates(),
+    queryFn: listTemplates,
+  })
+}
+
+export function useCreateTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateTemplateInput) => createTemplate(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: wikiKeys.templates() }),
+  })
+}
+
+export function useUpdateTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateTemplateInput & { id: string }) =>
+      updateTemplate(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: wikiKeys.templates() }),
+  })
+}
+
+export function useDeleteTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteTemplate(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: wikiKeys.templates() }),
   })
 }

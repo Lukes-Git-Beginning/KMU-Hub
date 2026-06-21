@@ -16,9 +16,12 @@ import type {
   ListArticlesParams,
   CreateCategoryInput,
   CreateShareTokenInput,
+  CreateTemplateInput,
+  UpdateTemplateInput,
   ListArticlesResponse,
   SearchArticlesResponse,
 } from './wiki-types'
+import type { WikiTemplate } from '@/types/wiki'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
 // ---------------------------------------------------------------------------
@@ -170,4 +173,24 @@ export function createShareToken(articleId: string, body?: CreateShareTokenInput
 
 export function revokeShareToken(tokenId: string) {
   return request<void>({ method: 'DELETE', path: `${BASE}/share/${tokenId}` })
+}
+
+// ---------------------------------------------------------------------------
+// Templates (WP-5)
+// ---------------------------------------------------------------------------
+
+export function listTemplates() {
+  return request<WikiTemplate[]>({ method: 'GET', path: `${BASE}/templates` })
+}
+
+export function createTemplate(body: CreateTemplateInput) {
+  return request<WikiTemplate>({ method: 'POST', path: `${BASE}/templates`, body })
+}
+
+export function updateTemplate(id: string, body: UpdateTemplateInput) {
+  return request<WikiTemplate>({ method: 'PUT', path: `${BASE}/templates/${id}`, body })
+}
+
+export function deleteTemplate(id: string) {
+  return request<void>({ method: 'DELETE', path: `${BASE}/templates/${id}` })
 }
