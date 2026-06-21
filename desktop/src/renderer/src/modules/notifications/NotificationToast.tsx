@@ -25,6 +25,8 @@ import {
 } from 'lucide-react'
 import { useNotificationsStore, type Notification } from '../../stores/notifications'
 import { playNotificationSound, prefersReducedMotion } from '@/lib/notification-sound'
+import { useDNDStatus, useQuietHours } from '@/api/hooks/useNotifications'
+import { shouldSuppressToast } from './notification-gating'
 
 // ---------------------------------------------------------------------------
 // Icon mapping
@@ -219,9 +221,20 @@ export default function NotificationToast() {
   const notifications = useNotificationsStore((s) => s.notifications)
   const prevLengthRef = useRef(notifications.length)
 
+  // Respect DND + quiet hours before surfacing any live toast.
+  const { data: dnd } = useDNDStatus()
+  const { data: quietHours } = useQuietHours()
+
   useEffect(() => {
     const currentLen = notifications.length
     if (currentLen > prevLengthRef.current) {
+      // The user asked for quiet — acknowledge the new entries (so they don't
+      // toast in a backlog once DND lifts) but stay silent. The notification
+      // center + bell badge still reflect them.
+      if (shouldSuppressToast({ dnd, quietHours })) {
+        prevLengthRef.current = currentLen
+        return
+      }
       // New notification(s) added at the front
       const newCount = currentLen - prevLengthRef.current
       let chimed = false
@@ -240,7 +253,7 @@ export default function NotificationToast() {
       }
     }
     prevLengthRef.current = currentLen
-  }, [notifications])
+  }, [notifications, dnd, quietHours])
 
   return null
 }
