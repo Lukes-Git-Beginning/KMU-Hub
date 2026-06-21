@@ -2,6 +2,8 @@ import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS, CURRENT_USER } from '../data/shared-ids'
 import { daysAgo, hoursAgo } from '../data/date-helpers'
+import { WIKI_LINK_CLASS } from '@/modules/wiki/extensions/WikiLinkExtension'
+import { WIKI_MENTION_CLASS } from '@/modules/wiki/extensions/WikiMentionExtension'
 import type {
   WikiArticle,
   WikiCategory,
@@ -154,6 +156,15 @@ const ARTICLES: WikiArticle[] = [
           '<p>Dies ist die zentrale Wissensbasis des Unternehmens — ein ruhiger Ort für alles, ' +
             'was das Team wissen muss: Prozesse, Anleitungen und Entscheidungen, an einem Ort und ' +
             'immer aktuell.</p>',
+        ),
+      ),
+      row(
+        p(
+          '<p>Neu im Team? Starte mit <a data-wiki-link data-article-id="wart-002" ' +
+            `data-slug="onboarding-neue-mitarbeitende" class="${WIKI_LINK_CLASS}">` +
+            'Onboarding neuer Mitarbeitender</a>. Bei Fragen hilft dir ' +
+            `<span data-mention-id="${IDS.users.julia}" class="${WIKI_MENTION_CLASS}">@Julia</span> ` +
+            'gerne weiter.</p>',
         ),
       ),
       row(h(2, 'Was du hier findest')),

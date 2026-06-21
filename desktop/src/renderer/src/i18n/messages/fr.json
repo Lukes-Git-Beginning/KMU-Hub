@@ -9987,5 +9987,9 @@
   "wiki.image.pickHint": "Depuis vos fichiers",
   "wiki.image.replace": "Remplacer l'image",
   "wiki.image.useUrl": "ou coller une adresse d'image",
-  "wiki.image.urlPlaceholder": "https://… adresse de l'image"
+  "wiki.image.urlPlaceholder": "https://… adresse de l'image",
+  "wiki.link.openArticle": "Ouvrir l'article",
+  "wiki.link.openProfile": "Ouvrir dans l'équipe",
+  "wiki.link.articleType": "Article wiki",
+  "wiki.link.teamMember": "Membre de l'équipe"
 }

@@ -10021,5 +10021,9 @@
   "wiki.image.pickHint": "Aus deinen Dateien",
   "wiki.image.replace": "Bild ersetzen",
   "wiki.image.useUrl": "oder Bild-Adresse einfügen",
-  "wiki.image.urlPlaceholder": "https://… Bild-Adresse"
+  "wiki.image.urlPlaceholder": "https://… Bild-Adresse",
+  "wiki.link.openArticle": "Artikel öffnen",
+  "wiki.link.openProfile": "Im Team öffnen",
+  "wiki.link.articleType": "Wiki-Artikel",
+  "wiki.link.teamMember": "Teammitglied"
 }

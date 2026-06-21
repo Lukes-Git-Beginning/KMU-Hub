@@ -12,8 +12,10 @@
  */
 import { useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Heading1, Heading2, Image as ImageIcon } from 'lucide-react'
+import { AtSign, FileText, Heading1, Heading2, Image as ImageIcon } from 'lucide-react'
+import DOMPurify from 'dompurify'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
+import { LinkPreviewPopover } from '@/components/shared/LinkPreviewPopover'
 import {
   buildRegistry,
   createCoreBlockDefs,
@@ -25,7 +27,17 @@ import {
   type ImageBlock,
   type TextBlock,
 } from '@/components/shared/document'
+import { useArticles } from '@/api/hooks/useWiki'
+import { useWikiStore } from '@/stores/wiki'
 import { headingAnchorId } from './wikiReading'
+import { useWikiUsers } from './useWikiUsers'
+import { WikiLink } from './extensions/WikiLinkExtension'
+import { WikiMention } from './extensions/WikiMentionExtension'
+
+// Stable extension list so the editor isn't rebuilt on every render. Preserves
+// existing [[link]] / @mention nodes when a text block is edited (insertion UX
+// follows in PB-4b).
+const WIKI_TEXT_EXTENSIONS = [WikiLink, WikiMention]
 
 /* ------------------------- frameless long-form text ----------------------- */
 
@@ -38,7 +50,97 @@ function WikiTextEdit({ block, onPatch }: BlockEditProps<TextBlock>) {
       onChange={(html) => onPatch({ html })}
       minHeight="1.75rem"
       placeholder={t('document.block.text.placeholder', { defaultValue: 'Text schreiben…' })}
+      extraExtensions={WIKI_TEXT_EXTENSIONS}
     />
+  )
+}
+
+type LinkPreview = {
+  rect: DOMRect
+  kind: 'article' | 'user'
+  targetId: string | null
+  name: string
+  subtitle: string
+}
+
+/**
+ * Read view — renders the long-form HTML and turns the formerly dead inline
+ * cross-references into live ones: clicking a [[wiki link]] or @mention opens a
+ * shared preview popover (who/what is the target) with a jump to it.
+ */
+function WikiTextView({ block }: BlockViewProps<TextBlock>) {
+  const { t } = useTranslation()
+  const setSelectedArticle = useWikiStore((s) => s.setSelectedArticle)
+  const setEditing = useWikiStore((s) => s.setEditing)
+  const resolveUser = useWikiUsers()
+  const { data: articlesData } = useArticles()
+  const [preview, setPreview] = useState<LinkPreview | null>(null)
+
+  const onClick = (e: { target: EventTarget | null; preventDefault: () => void }) => {
+    const el = e.target as HTMLElement
+    const link = el.closest('[data-wiki-link]')
+    if (link) {
+      e.preventDefault()
+      const id = link.getAttribute('data-article-id')
+      const art = (articlesData?.articles ?? []).find((a) => a.id === id)
+      setPreview({
+        rect: link.getBoundingClientRect(),
+        kind: 'article',
+        targetId: id,
+        name: (link.textContent ?? '').trim() || art?.title || t('wiki.link.articleType', { defaultValue: 'Wiki-Artikel' }),
+        subtitle: t('wiki.link.articleType', { defaultValue: 'Wiki-Artikel' }),
+      })
+      return
+    }
+    const mention = el.closest('[data-mention-id]')
+    if (mention) {
+      e.preventDefault()
+      const id = mention.getAttribute('data-mention-id')
+      setPreview({
+        rect: mention.getBoundingClientRect(),
+        kind: 'user',
+        targetId: id,
+        name: resolveUser(id) || (mention.textContent ?? '').replace(/^@/, '').trim(),
+        subtitle: t('wiki.link.teamMember', { defaultValue: 'Teammitglied' }),
+      })
+    }
+  }
+
+  const onAction = () => {
+    if (!preview) return
+    if (preview.kind === 'article' && preview.targetId) {
+      setEditing(false)
+      setSelectedArticle(preview.targetId)
+    } else {
+      window.location.hash = '#/team'
+    }
+    setPreview(null)
+  }
+
+  return (
+    <>
+      <div
+        className="tiptap-content prose prose-sm max-w-[65ch] leading-relaxed text-foreground dark:prose-invert"
+        onClick={onClick}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.html) }}
+      />
+      {preview && (
+        <LinkPreviewPopover
+          anchor={preview.rect}
+          icon={preview.kind === 'article' ? <FileText className="h-4 w-4" /> : <AtSign className="h-4 w-4" />}
+          name={preview.name}
+          subtitle={preview.subtitle}
+          actionLabel={
+            preview.kind === 'article'
+              ? t('wiki.link.openArticle', { defaultValue: 'Artikel öffnen' })
+              : t('wiki.link.openProfile', { defaultValue: 'Im Team öffnen' })
+          }
+          onAction={onAction}
+          onClose={() => setPreview(null)}
+          closeLabel={t('common.close', { defaultValue: 'Schließen' })}
+        />
+      )}
+    </>
   )
 }
 
@@ -192,7 +294,11 @@ const core = Object.fromEntries(createCoreBlockDefs().map((d) => [d.type, d])) a
 
 // Keep each core block's icon/label/factory; swap in the frameless edit. The
 // heading also gets a read-view with a stable anchor id so the TOC can target it.
-const wikiText: BlockTypeDef = { ...core.text, Edit: WikiTextEdit as BlockTypeDef['Edit'] }
+const wikiText: BlockTypeDef = {
+  ...core.text,
+  Edit: WikiTextEdit as BlockTypeDef['Edit'],
+  View: WikiTextView as BlockTypeDef['View'],
+}
 const wikiHeading: BlockTypeDef = {
   ...core.heading,
   Edit: WikiHeadingEdit as BlockTypeDef['Edit'],
