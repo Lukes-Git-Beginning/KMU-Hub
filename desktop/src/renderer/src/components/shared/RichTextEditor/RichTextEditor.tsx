@@ -4,7 +4,8 @@
  * Used across Wiki, Kommunikation, Helpdesk, E-Mail, and Formulare modules.
  * Supports all standard formatting, tables, task lists, code blocks, and images.
  */
-import { useEditor, EditorContent as TipTapContent, type Extensions } from '@tiptap/react'
+import { useEffect } from 'react'
+import { useEditor, EditorContent as TipTapContent, type Editor, type Extensions } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
@@ -44,6 +45,8 @@ export interface RichTextEditorProps {
   frameless?: boolean
   /** Extra TipTap extensions (e.g. wiki [[link]] / @mention nodes). */
   extraExtensions?: Extensions
+  /** Receive the editor instance (e.g. to drive an inline suggestion popup). */
+  onEditorReady?: (editor: Editor | null) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +67,7 @@ export function RichTextEditor({
   compact = false,
   frameless = false,
   extraExtensions = [],
+  onEditorReady,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -108,6 +112,12 @@ export function RichTextEditor({
       },
     },
   })
+
+  // Hand the editor instance to the host once ready (and clear it on teardown).
+  useEffect(() => {
+    onEditorReady?.(editor)
+    return () => onEditorReady?.(null)
+  }, [editor, onEditorReady])
 
   if (!editor) return null
 

@@ -10005,5 +10005,7 @@
   "wiki.link.openProfile": "Apri nel team",
   "wiki.link.articleType": "Articolo wiki",
   "wiki.link.teamMember": "Membro del team",
-  "wiki.heading.label": "Titolo"
+  "wiki.heading.label": "Titolo",
+  "wiki.suggest.articles": "Collega articolo",
+  "wiki.suggest.people": "Menziona una persona"
 }

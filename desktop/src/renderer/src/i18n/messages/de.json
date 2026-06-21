@@ -10039,5 +10039,7 @@
   "wiki.link.openProfile": "Im Team öffnen",
   "wiki.link.articleType": "Wiki-Artikel",
   "wiki.link.teamMember": "Teammitglied",
-  "wiki.heading.label": "Überschrift"
+  "wiki.heading.label": "Überschrift",
+  "wiki.suggest.articles": "Artikel verlinken",
+  "wiki.suggest.people": "Person erwähnen"
 }

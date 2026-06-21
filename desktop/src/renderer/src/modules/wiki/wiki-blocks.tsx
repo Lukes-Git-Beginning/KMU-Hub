@@ -13,6 +13,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AtSign, FileText, Heading1, Heading2, Image as ImageIcon } from 'lucide-react'
+import type { Editor } from '@tiptap/react'
 import DOMPurify from 'dompurify'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { LinkPreviewPopover } from '@/components/shared/LinkPreviewPopover'
@@ -31,6 +32,7 @@ import { useArticles } from '@/api/hooks/useWiki'
 import { useWikiStore } from '@/stores/wiki'
 import { headingAnchorId } from './wikiReading'
 import { useWikiUsers } from './useWikiUsers'
+import { WikiSuggest } from './WikiSuggest'
 import { WikiLink } from './extensions/WikiLinkExtension'
 import { WikiMention } from './extensions/WikiMentionExtension'
 
@@ -43,15 +45,20 @@ const WIKI_TEXT_EXTENSIONS = [WikiLink, WikiMention]
 
 function WikiTextEdit({ block, onPatch }: BlockEditProps<TextBlock>) {
   const { t } = useTranslation()
+  const [editor, setEditor] = useState<Editor | null>(null)
   return (
-    <RichTextEditor
-      frameless
-      content={block.html}
-      onChange={(html) => onPatch({ html })}
-      minHeight="1.75rem"
-      placeholder={t('document.block.text.placeholder', { defaultValue: 'Text schreiben…' })}
-      extraExtensions={WIKI_TEXT_EXTENSIONS}
-    />
+    <>
+      <RichTextEditor
+        frameless
+        content={block.html}
+        onChange={(html) => onPatch({ html })}
+        minHeight="1.75rem"
+        placeholder={t('document.block.text.placeholder', { defaultValue: 'Text schreiben…' })}
+        extraExtensions={WIKI_TEXT_EXTENSIONS}
+        onEditorReady={setEditor}
+      />
+      <WikiSuggest editor={editor} />
+    </>
   )
 }
 
