@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-06-18
+updated: 2026-06-21
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -133,6 +133,16 @@ Aus Vorgaenger-Projekt (slot_booking_webapp) gelernt:
 - Version 2 erfordert `version: "2"` in `.golangci.yml`
 - `goimports` aus Formatters entfernt (CI-Issues)
 - Action: golangci-lint v2.8 (action v7)
+
+## protojson `int64` → JSON-String beim Umstieg auf `response.Proto` (R3-P0-1, 2026-06-21)
+- `response.Proto` (protojson) fixt `Timestamp` (`{seconds,nanos}`→RFC3339), rendert aber `int64`/`uint64` als JSON-**String** (proto3-Spec), waehrend `encoding/json` Zahlen liefert.
+- **Falle:** Beim Umstellen `response.JSON`→`response.Proto` pro Handler die FE auf int64-Felder pruefen. Beispiel: `Recording.file_size_bytes` (int64) wurde String → FE-Typ auf `number | string | null` geweitet + `Number()`-Coerce beim Lesen.
+- **Regel:** Kein globaler Blind-Sweep aller ~40 Route-Dateien — pro Modul int64-FE-Audit. Enums unkritisch (`encoding/json` rendert proto-Enums = int32-Typen ohnehin als Zahl, `UseEnumNumbers:true` aendert nichts).
+
+## CI Desktop „Run ESLint" rot, aber `eslint .` zeigt Hunderte Probleme (2026-06-21)
+- CI fuehrt `npm run lint` = **`eslint src/`** (nur `desktop/src/`), NICHT `eslint .`. Der `desktop/design-reference/`-Ordner ist Grundrauschen (~100 no-unused-vars/no-explicit-any) und **zaehlt nicht** fuer CI.
+- **Diagnose:** `npx eslint src/ -f json` aggregieren statt `eslint .`. Beim letzten Vorfall blockten genau **2** Fehler main (`unused-imports/no-unused-imports` + `react-hooks/refs` = ref-Mutation im Render).
+- **Regel:** Vor Push aus `desktop/`: `npm run lint` (exakt der CI-Befehl). „tsc gruen" ≠ „lint gruen".
 
 ## Radix Dialog Null-Access Pattern
 - Radix Dialog rendert `<DialogContent>` im DOM auch wenn `open={false}`

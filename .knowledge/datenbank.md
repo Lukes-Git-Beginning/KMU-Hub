@@ -1,6 +1,6 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-06-20
+updated: 2026-06-21
 ---
 # Datenbank
 

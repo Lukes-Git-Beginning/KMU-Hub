@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-18
+updated: 2026-06-21
 ---
 # Architektur
 
@@ -132,6 +132,12 @@ Komplett-Ausbau der drei Module, mock-first wo kein Backend existiert. **Noch NI
 - **dashboard:** Settings-Panel, Widget-Gating per `modules.<id>`-Flags (fail-open NUR dashboard-lokal — `useFeatureFlags`/`FeatureGate` app-weit fail-closed unangetastet), `hooks/useAlerts.ts` (aggregiert vertraege-expiring/invoices-overdue/helpdesk-SLA), Widget `cross-module-overview`, Scope-Umschalter Persönlich/Team mit zustand-persist **v1→v2-Migration** (flat `layouts`/`activeWidgets` → `personal*`/`team*`, verlustfrei, Team-Layout mock-first localStorage, debounced PUT nur personal), Widgets `team-worktime` (CSS-Bars) + `open-tickets`.
 - **Fremd-Touches:** FinanzenPage konsumiert `?invoice=<id>` reaktiv (wartet auf Laden, ignoriert unbekannte IDs); finance-MSW-Handler normalisiert `items`→`line_items`/`issue_date`→`invoice_date`.
 - QA-Belege (Playwright-Scripts `scripts/qa-phase*.mjs` + Screenshots + qa-result.json) sind pro Phase mitcommitted.
+
+### Backend R3 Welle F/G + Notifications/Wiki (2026-06-21, alle auf main, prod-deployt)
+- **R3 Welle F (Data-Integrity + P0-1-Rest):** alle 25 Proto-Handler in `route_video.go` auf `response.Proto` (protojson, RFC3339-Timestamps statt `{seconds,nanos}` — s. [[api]]); Helpdesk `MergeTickets` jetzt atomar via `Repository.MergeTicketTx` (eine pgx-TX `pool.Begin`→ReassignMessages+UpdateTicket→Commit, statt zwei getrennter Writes); `audit_log` DB-Level Append-Only-Trigger (Migr.222, GoBD — s. [[security]]); 29 aufgeschobene `tenant_id`-FKs validiert (Migr.223 — s. [[datenbank]]).
+- **R3 Welle G:** RBAC manager/member-Permission-Seed fuer 5 Module booking-pages/schichten/hr:time_*/inventar/einkauf (Migr.224, manager voll operativ / member Self-Service — s. [[security]]).
+- **Notifications (Darien, N-1…N-5):** DND/Quiet-Hours-Gating vor Live-Toasts (`modules/notifications/notification-gating.ts`), Toast+Widget auf einheitliche MSW-Pipeline mit Live-Arrivals, Sidebar-Nav-Eintrag + gruppierte/gemutete Demo-Seeds, Pin/Dismiss-Persistenz via MSW + Deep-Link zu konkreten Items, lesbare Modul-Labels in den Event-Type-Preferences.
+- **Wiki (Darien, PB-1):** Artikel-Authoring auf die **shared block-document engine** umgezogen — `WikiRichEditor.tsx` (≈490 Zeilen) entfernt, `wiki-blocks.tsx` + erweiterter `wiki-adapter.ts` neu, `WikiArticle`/`WikiEditor` schlanker.
 
 ### Standalone
 - Guest Chat: Separate Vite SPA unter `/guest/`

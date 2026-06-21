@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-20
+updated: 2026-06-21
 ---
 # Security & Compliance
 
@@ -35,6 +35,7 @@ Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Servic
 - 403 Forbidden bei unzureichenden Rechten
 - Neue Modul-Permissions landen als eigene Seed-Migration (`08x_seed_<modul>_permissions.up.sql`) mit Admin-Default-Grant
 - **Permission-Seed-Pflicht (Lesson 2026-06-05, Migration 129):** Diese Doktrin wurde fuer 35 Permissions NICHT befolgt — documents/email/finance/formulare/helpdesk/hr/inbox/wiki/automations/search/settings/recording hatten `RequirePermission`-Guards ohne DB-Rows → **403 fuer JEDEN inkl. Admin**, monatelang unbemerkt. Admin bekommt NICHT automatisch neue Permissions (Migration-000002-CROSS-JOIN galt nur fuer damals existierende). Migration 129 seedet die 35 **admin-only**; Manager/Member-Mapping pro Modul ist Produktentscheidung (Followup F1 in `docs/e2e-modernization-followups.md`). Diff-Check Code-vs-DB vor jedem Modul-Launch: `grep -rhoP 'RequirePermission\("\K[^"]+", "[^"]+' --include='*.go' internal/gateway internal/server | sed 's/", "/:/' | sort -u` gegen `select resource||':'||action from permissions`.
+- **Manager/Member-Mapping nachgezogen (Welle G, Migration 224, 2026-06-21):** Die 5 operativen Module `booking-pages` / `schichten` (shift/template/assignment/swap) / `hr:time_*` / `inventar` / `einkauf` waren komplett **admin-only** (403 fuer manager+member, kein operativer Zugriff). Migr.224 seedet die fehlenden `role_permissions`: **manager → voll operativ** (alle Actions ueber 19 Resources, **40 Grants**), **member → Self-Service** (`schichten:swap:read|create`, `booking-pages:read`, `inventar:*:read` = **8 Grants**). Reiner additiver Seed (Permissions existierten bereits, nur Grants fehlten); Resource/Name-Strings 1:1 gegen Seed-Migrationen verifiziert; **Prod-verifiziert** (`role_permissions`-Count manager=40/member=8, Migr.-Head 224 not dirty). Damit ist der F1-Followup fuer diese 5 Module erledigt (finance via Migr.214); weitere admin-only Module aus Migr.129 offen.
 - **JWT-Snapshot:** Rollen/Permissions werden beim Login ins Token gebacken (kein DB-Lookup zur Request-Zeit) — nach Rollenaenderung oder Permission-Seed ist Re-Login zwingend. E2E/Smoke nutzen deshalb `registerAndLoginAdmin` (DB-Promote + Re-Login), siehe [[testing]].
 
 ## Middleware-Stack (Reihenfolge)
@@ -226,6 +227,7 @@ Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handle
 
 ### Implementiert
 - Audit-Logging: `security_audit_logs` Tabelle — vollstaendig aktiv
+- **`audit_log` DB-Level Append-Only (Welle F, Migration 222, 2026-06-21):** `BEFORE UPDATE OR DELETE`-Row-Trigger `audit_log_append_only` (Funktion `prevent_audit_log_mutation`) wirft Exception auf jede Row-Mutation → DB-seitige Unveraenderbarkeit des Audit-Trails (GoBD / §257 HGB / §147 AO), Defense-in-Depth ueber die Service-Ebene hinaus. INSERT bleibt erlaubt; Partition-/Retention-DROP ist DDL und bleibt unberuehrt. Kein Produktivcode mutiert audit_log-Rows (nur ein RLS-Test, auf Append-Only-Assert umgestellt). Maintenance braucht `ALTER TABLE audit_log DISABLE TRIGGER` in einer Migration.
 - Erasure-Support: GDPR-Loeschbegehren via `gdpr_deletion_requests` Tabelle (status: pending/completed)
 - GDPR-Dateiexport: `/api/v1/security/gdpr/export` + `/gdpr/exports` + `/gdpr/download/{token}`
 - **Export-/Erasure-Handler ECHT seit 2026-06-10** (`47d210d9` — vorher waren ALLE 14 Handler Platzhalter-Stubs!): 7 Export-Handler (auth/crm/chat/work/calendar/sessions/notifications) mit tenant+user-gefilterten SQL-Queries und Datensparsamkeit (keine Token-Hashes/2FA-Secrets, Notifications max 90 Tage/1000). Erasure: anonymize (auth/crm/chat/work — PII → Sentinel, `NOT NULL`-FKs wie `created_by` bleiben auf anonymisiertem User-Record), delete (calendar/notifications), retain (audit, Art. 17(3)(e)). Wiring via Konstruktoren `gdpr.New*Handler(pool)` in `cmd/auth/main.go`

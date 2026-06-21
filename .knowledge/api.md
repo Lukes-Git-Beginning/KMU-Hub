@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-06-19
+updated: 2026-06-21
 ---
 # API-Referenz
 
@@ -80,6 +80,7 @@ updated: 2026-06-19
 - Rate Limiting: 100 rps pro User/IP, `429 Too Many Requests` mit `Retry-After: 1`
 - **Idempotency-Key Header (seit 2026-04-28, Welle 3):** Mutations (POST/PUT/PATCH) unter `/api/v1/` SOLLEN `Idempotency-Key: <UUIDv4>` mitschicken. Aktuell WarnMode (loggt fehlende Keys), HardMode in Welle 4. Replay → cached Response, Conflict → 422, In-Flight → 409+Retry-After:2. Whitelist `/auth/login|refresh|2fa`. Details: [[security]] "Idempotency-Konvention".
 - **Pre-Recording-Consent 412 (seit 2026-04-28, Welle 3):** `POST /api/v1/video/recordings/start` returniert 412 Precondition Failed wenn der Initiator nicht vorher `POST /api/v1/video/recordings/{id}/initiator-consent` aufgerufen hat. Frontend zeigt Pre-Dialog vor StartRecording. Details: [[security]] "Pre-Recording-Consent".
+- **Proto-Serialisierung via `response.Proto` (Welle F / R3-P0-1, 2026-06-21):** Proto-Message-zurueckgebende Handler serialisieren ueber `response.Proto` (protojson, `UseProtoNames`+`UseEnumNumbers`) statt `response.JSON` (encoding/json) → `google.protobuf.Timestamp` als **RFC3339** statt `{seconds,nanos}`, Enums als Integer (FE-kompatibel). Umgestellt: alle 25 Proto-Handler in `route_video.go` (Meetings/Recordings/Action-Items/Presence) + Dialer (7a). Hand-geschriebene Ext-Structs ohne `proto.Message` (z.B. `GetRecordingConsents`) bleiben `response.JSON`. ⚠ `response.Proto` rendert `int64`/`uint64` als JSON-**String** (proto3-Spec) — pro Modul FE-int64-Audit noetig vor Umstellung, kein globaler Blind-Sweep. Helper: `backend/internal/server/response/response.go`. Siehe [[troubleshooting]].
 
 ## Frontend-Integration
 - API-Client: `desktop/src/renderer/src/api/client.ts` (openapi-fetch)
