@@ -2351,6 +2351,7 @@
   "dialer.workspace.onCall.hangUp": "Riaggancia",
   "dialer.workspace.onCall.notes": "Note",
   "dialer.workspace.onCall.skip": "Salta",
+  "dialer.workspace.openInCrm": "Apri nel CRM",
   "dialer.workspace.wrapUp.callbackDate": "Data richiamata",
   "dialer.workspace.wrapUp.complete": "Completa",
   "dialer.workspace.wrapUp.completeFailed": "Impossibile completare il wrap-up. Riprovare.",

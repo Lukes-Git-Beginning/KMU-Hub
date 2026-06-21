@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
+import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { CampaignContact } from '@/api/dialer-client'
 
@@ -16,6 +18,7 @@ export default function ContactHeroPanel({
   children,
 }: ContactHeroPanelProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const initial = contact.contact_name.charAt(0).toUpperCase()
 
   return (
@@ -46,6 +49,18 @@ export default function ContactHeroPanel({
         <p className="font-mono text-2xl text-muted-foreground tracking-wide">
           {contact.contact_phone}
         </p>
+
+        {/* CRM deep-link (D-1) */}
+        {contact.contact_id && (
+          <button
+            type="button"
+            onClick={() => navigate(`/kontakte?contact=${contact.contact_id}`)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            {t('dialer.workspace.openInCrm')}
+          </button>
+        )}
 
         {/* Call attempt indicator */}
         {contact.call_count > 0 && (

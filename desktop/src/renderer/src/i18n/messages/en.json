@@ -2381,6 +2381,7 @@
   "dialer.workspace.onCall.hangUp": "Hang up",
   "dialer.workspace.onCall.notes": "Notes",
   "dialer.workspace.onCall.skip": "Skip",
+  "dialer.workspace.openInCrm": "Open in CRM",
   "dialer.workspace.wrapUp.callbackDate": "Callback date",
   "dialer.workspace.wrapUp.complete": "Complete",
   "dialer.workspace.wrapUp.completeFailed": "Failed to complete wrap-up. Please try again.",

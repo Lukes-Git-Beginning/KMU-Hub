@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
 import { daysAgo, hoursAgo } from '../data/date-helpers'
+import { mockActivities } from '../data/contacts'
 
 const API = API_BASE_URL
 
@@ -109,60 +110,60 @@ const campaignContacts: CampaignContact[] = [
     contact_id: IDS.contacts.mueller, position: 1, status: 3,
     outcome_id: IDS.dialer.outcomeErreicht, notes: 'Interesse an CRM-Modul, Termin folgt.',
     callback_at: null, last_called_at: daysAgo(5) + 'T10:15:00Z', call_count: 1,
-    contact_name: 'Hans Mueller', contact_phone: '+49 89 123456',
-    contact_company: 'Gruber Maschinenbau GmbH',
+    contact_name: 'Hans Müller', contact_phone: '+49 89 4523 1101',
+    contact_company: 'Gruber Maschinenbau AG',
   },
   {
     id: IDS.dialer.cc002, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.weber, position: 2, status: 3,
     outcome_id: IDS.dialer.outcomeNichtErreicht, notes: 'Mailbox, 2x versucht.',
     callback_at: null, last_called_at: daysAgo(4) + 'T11:30:00Z', call_count: 2,
-    contact_name: 'Klaus Weber', contact_phone: '+49 711 987654',
-    contact_company: 'Bavaria Elektro AG',
+    contact_name: 'Claudia Weber', contact_phone: '+49 89 4523 1115',
+    contact_company: 'Gruber Maschinenbau AG',
   },
   {
     id: IDS.dialer.cc003, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.gruber, position: 3, status: 3,
     outcome_id: IDS.dialer.outcomeTermin, notes: 'Demo am Freitag vereinbart.',
     callback_at: null, last_called_at: daysAgo(3) + 'T14:00:00Z', call_count: 1,
-    contact_name: 'Peter Gruber', contact_phone: '+43 1 55512345',
-    contact_company: 'Alpen Logistik GmbH',
+    contact_name: 'Friedrich Gruber', contact_phone: '+49 89 4523 1100',
+    contact_company: 'Gruber Maschinenbau AG',
   },
   // 5 pending
   {
     id: IDS.dialer.cc004, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.schneider, position: 4, status: 1,
     outcome_id: null, notes: null, callback_at: null, last_called_at: null, call_count: 0,
-    contact_name: 'Anna Schneider', contact_phone: '+49 30 445566',
-    contact_company: 'Helvetia Software AG',
+    contact_name: 'Lukas Schneider', contact_phone: '+41 44 678 90 12',
+    contact_company: 'Helvetia Software GmbH',
   },
   {
     id: IDS.dialer.cc005, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.huber, position: 5, status: 1,
     outcome_id: null, notes: null, callback_at: null, last_called_at: null, call_count: 0,
-    contact_name: 'Monika Huber', contact_phone: '+41 44 8765432',
-    contact_company: 'Zuerich Fintech Solutions',
+    contact_name: 'Andrea Huber', contact_phone: '+41 44 678 90 20',
+    contact_company: 'Helvetia Software GmbH',
   },
   {
     id: IDS.dialer.cc006, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.bauer, position: 6, status: 1,
     outcome_id: null, notes: null, callback_at: null, last_called_at: null, call_count: 0,
-    contact_name: 'Thomas Bauer', contact_phone: '+49 221 334455',
-    contact_company: 'Rhein Consulting GmbH',
+    contact_name: 'Karl Bauer', contact_phone: '+43 1 512 78 10',
+    contact_company: 'Alpen Logistik GmbH',
   },
   {
     id: IDS.dialer.cc007, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.wagner, position: 7, status: 1,
     outcome_id: null, notes: null, callback_at: null, last_called_at: null, call_count: 0,
-    contact_name: 'Sabine Wagner', contact_phone: '+49 40 556677',
-    contact_company: 'Nordlicht Media GmbH',
+    contact_name: 'Sabine Wagner', contact_phone: '+43 1 512 78 22',
+    contact_company: 'Alpen Logistik GmbH',
   },
   {
     id: IDS.dialer.cc008, campaign_id: IDS.dialer.kampagneKaltAkquise,
     contact_id: IDS.contacts.berger, position: 8, status: 1,
     outcome_id: null, notes: null, callback_at: null, last_called_at: null, call_count: 0,
-    contact_name: 'Michael Berger', contact_phone: '+43 316 667788',
-    contact_company: 'Wien Digital KG',
+    contact_name: 'Martin Berger', contact_phone: '+49 211 876 54 10',
+    contact_company: 'Rhein Consulting Partners',
   },
 ]
 
@@ -204,6 +205,44 @@ function intToAgentStatus(n: number): AgentDialerStatus {
 function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; total: number } {
   const start = (page - 1) * pageSize
   return { items: items.slice(start, start + pageSize), total: items.length }
+}
+
+function formatDuration(totalSeconds: number | null): string {
+  const s = totalSeconds ?? 0
+  const mm = Math.floor(s / 60)
+  const ss = String(s % 60).padStart(2, '0')
+  return `${mm}:${ss}`
+}
+
+/**
+ * CRM bridge (D-1): write a "call" activity onto the contact so the dialer
+ * outcome shows up in the CRM contact timeline (GET /crm/contacts/:id/timeline).
+ * Mirrors the seeded activity shape in mocks/data/contacts.ts.
+ */
+function writeCallActivity(
+  cc: CampaignContact,
+  outcome: CallOutcome | undefined,
+  durationSeconds: number | null,
+  agentId: string,
+  notes?: string | null,
+): void {
+  const parts = [
+    `Ergebnis: ${outcome?.label ?? 'Ohne Ergebnis'}`,
+    `Dauer ${formatDuration(durationSeconds)}`,
+  ]
+  if (notes) parts.push(notes)
+
+  mockActivities.activities.unshift({
+    id: `act-dlr-${Date.now()}-${cc.id}`,
+    type: 'call' as const,
+    subject: `Telefonanruf — ${cc.contact_name}`,
+    description: parts.join(' · '),
+    contact_id: cc.contact_id,
+    user_id: agentId,
+    completed: true,
+    due_date: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  } as unknown as (typeof mockActivities.activities)[number])
 }
 
 // ============================================================================
@@ -437,6 +476,10 @@ export const dialerHandlers = [
           cc.status = 3 // COMPLETED
         }
         cc.outcome_id = body.outcome_id
+        if (body.notes) cc.notes = body.notes
+
+        // CRM bridge (D-1): log the call onto the contact's timeline.
+        writeCallActivity(cc, outcome, session.duration_seconds, session.agent_id, body.notes)
 
         // Update campaign completed_count
         const campaign = campaigns.find(camp => camp.id === cc.campaign_id)
