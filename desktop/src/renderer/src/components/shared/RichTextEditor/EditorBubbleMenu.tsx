@@ -5,16 +5,30 @@
  * is no longer exported from @tiptap/react v3.
  */
 import type { Editor } from '@tiptap/react'
-import { Bold, Italic, Underline, Link, Unlink } from 'lucide-react'
+import {
+  Bold,
+  Italic,
+  Underline,
+  Link,
+  Unlink,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+} from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ToolbarButton } from './ToolbarButton'
+import { Separator } from '@/components/ui/separator'
 
 interface EditorBubbleMenuProps {
   editor: Editor
+  /** Long-form (frameless) mode: also offer heading + list toggles on selection. */
+  richBlocks?: boolean
 }
 
-export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
+export function EditorBubbleMenu({ editor, richBlocks = false }: EditorBubbleMenuProps) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -64,6 +78,41 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
       className="absolute z-50 flex items-center gap-0.5 rounded-lg border border-border bg-popover px-1.5 py-1 shadow-md"
       style={{ top: pos.top, left: pos.left }}
     >
+      {richBlocks && (
+        <>
+          <ToolbarButton
+            icon={Heading1}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            active={editor.isActive('heading', { level: 1 })}
+            tooltip={t('shared.editor.heading1')}
+          />
+          <ToolbarButton
+            icon={Heading2}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            active={editor.isActive('heading', { level: 2 })}
+            tooltip={t('shared.editor.heading2')}
+          />
+          <ToolbarButton
+            icon={Heading3}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            active={editor.isActive('heading', { level: 3 })}
+            tooltip={t('shared.editor.heading3')}
+          />
+          <ToolbarButton
+            icon={List}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            active={editor.isActive('bulletList')}
+            tooltip={t('shared.editor.bulletList')}
+          />
+          <ToolbarButton
+            icon={ListOrdered}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            active={editor.isActive('orderedList')}
+            tooltip={t('shared.editor.orderedList')}
+          />
+          <Separator orientation="vertical" className="mx-0.5 h-5" />
+        </>
+      )}
       <ToolbarButton
         icon={Bold}
         onClick={() => editor.chain().focus().toggleBold().run()}

@@ -36,6 +36,12 @@ export interface RichTextEditorProps {
   autofocus?: boolean
   /** Simplified toolbar for compact contexts (e.g. chat reply, email) */
   compact?: boolean
+  /**
+   * Frameless long-form mode (e.g. the wiki article text block): no card chrome,
+   * no persistent toolbar, no footer — formatting lives in the on-selection
+   * bubble menu, which gains heading + list controls so prose flows like a page.
+   */
+  frameless?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +60,7 @@ export function RichTextEditor({
   maxHeight = '500px',
   autofocus = false,
   compact = false,
+  frameless = false,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -88,10 +95,12 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: cn(
-          'tiptap-content prose prose-sm dark:prose-invert max-w-none',
-          'focus:outline-none px-4 py-3',
+          'tiptap-content prose prose-sm dark:prose-invert max-w-none focus:outline-none',
+          frameless ? 'px-0 py-0.5' : 'px-4 py-3',
         ),
-        style: `min-height: ${minHeight}; max-height: ${maxHeight}; overflow-y: auto;`,
+        style: frameless
+          ? `min-height: ${minHeight};`
+          : `min-height: ${minHeight}; max-height: ${maxHeight}; overflow-y: auto;`,
       },
     },
   })
@@ -101,21 +110,25 @@ export function RichTextEditor({
   return (
     <div
       className={cn(
-        'rounded-lg border border-border bg-card text-card-foreground',
-        'focus-within:ring-1 focus-within:ring-primary/30',
-        readOnly && 'border-transparent bg-transparent',
+        // `rounded-lg` is kept in both modes — the bubble menu positions itself
+        // relative to the closest `.rounded-lg` ancestor.
+        'relative rounded-lg',
+        frameless
+          ? 'bg-transparent'
+          : 'border border-border bg-card text-card-foreground focus-within:ring-1 focus-within:ring-primary/30',
+        readOnly && !frameless && 'border-transparent bg-transparent',
         className,
       )}
     >
-      {showToolbar && !readOnly && (
+      {showToolbar && !readOnly && !frameless && (
         <EditorToolbar editor={editor} compact={compact} />
       )}
 
-      <EditorBubbleMenu editor={editor} />
+      <EditorBubbleMenu editor={editor} richBlocks={frameless} />
 
       <TipTapContent editor={editor} />
 
-      {showFooter && !readOnly && <EditorFooter editor={editor} />}
+      {showFooter && !readOnly && !frameless && <EditorFooter editor={editor} />}
     </div>
   )
 }
