@@ -125,8 +125,10 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [ ] **P4** Zahlungen (Stripe) + E-Signatur 🔒
 - [ ] Demo-Tiefe-Phase
 
-### berichte — 🔨 Charts/Schedules/Export ✅ (B-1…B-5 + F1/F2) · Erstellen-Builder (E-1…E-5) offen
+### berichte — ✅ Report-Authoring R-0…R-6 review-reif (Darien-Review läuft → dann Nico) · Charts/Schedules/Export ✅
+- [x] **Report-Authoring R-0…R-6 KOMPLETT** (Dokument-Editor, Lese-Modus, R-2p-Premium, PDF-Print, Scheduling, Integration, 11 Datenquellen). **Review-Paket (phasenweise, für Dariens eigenen Review VOR Nico): `.planning/berichte-REVIEW-paket.md`.** R-6-Commits: `20f31e1c` `c84565c9` `77f1189c` `d1a9defb` `20f9b74b`. Findings → FIX-Phasen → erst danach an Nico.
 - [x] **P1 + P3 (B-1…B-5 + Live-Fixes, main `a046b0d9`):** echte recharts-Charts + Zeitraum-Filter + verschiebbare Kacheln · Export (PDF/CSV/XLSX als MSW-Blob) + geplante Berichte (stateful, Nächster-Lauf/Cron) + Alert-Schwellwerte · Schedule-Zeilen→DetailModal+Lauf-Historie · KPI-Sparklines mit Hover-Tooltip · SortMenu + Modul-Settings + 38 i18n-Keys ×4.
+- [ ] **Erstellen-Builder-Tab (E-1…E-5):** offene Produktfrage — Builder-Flow ist via Chart-Block-Picker realisiert; eigenständiger Tab ggf. obsolet (Darien entscheidet, siehe Review-Paket).
 - [ ] **P4** DATEV-EXTF-Detail + externe BI 🔒
 
 **▶ Erstellen-Builder** (= alte „P2 No-Code Query-Builder"; **FE-mock-first**, echter Query-Executor = Luke 🔒). Ist heute flach (`ReportBuilder.tsx`: System-Bericht-Dropdown + Zeitraum + Format/Export). Marktanalyse (Metabase/HubSpot/Looker Studio) → 5 Phasen. Detail-Roadmap + Bug-Kontext: `.planning/HANDOFF-berichte-work.md`.
@@ -282,7 +284,8 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 | 11 | **kommunikation** | 4 Phasen | ⬜ |
 | 12 | **video / dialer** | LiveKit-FE | ⬜ |
 | 13 | **settings / admin** | Rest-Phasen | ⬜ |
-| 14 | **berichte / wiki / formulare / notifications** | Marathon-Reste fertig + Tiefe | ⬜ (Stand verifizieren) |
+| 8b | **berichte** | Report-Authoring R-0…R-6 komplett | 🔁 review-reif → **Darien-Review** (`.planning/berichte-REVIEW-paket.md`), dann Nico |
+| 14 | **wiki / formulare / notifications** | Marathon-Reste fertig + Tiefe | ⬜ (Stand verifizieren) |
 | 15 | **Branchen ×7** | pilot-nah, zuletzt | ⬜ |
 
 > Reihenfolge ist ein Vorschlag — bei Bedarf umsortieren. **security/DSGVO** ist P0-Launch-Blocker und hängt an Luke → seine Backend-Arbeit dafür früh einplanen, auch wenn das FE-Review später kommt. Nach jedem fertigen Modul: Haken setzen, „→ Nico" markieren, Gesamtzahl aktualisieren.
