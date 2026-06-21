@@ -227,7 +227,7 @@ export function useNotificationWebSocket() {
 // Quiet Hours hooks
 // ---------------------------------------------------------------------------
 
-import { quietHoursApi, dndApi, mutingApi } from '../notification-client'
+import { quietHoursApi, dndApi, mutingApi, pinApi, dismissApi } from '../notification-client'
 import type { QuietHours, MutedResource } from '../notification-client'
 
 export const quietHoursKeys = {
@@ -308,6 +308,29 @@ export function useUnmuteResource() {
     mutationFn: (muteId: string) => mutingApi.unmute(muteId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: quietHoursKeys.mutes() })
+    },
+  })
+}
+
+/** Toggle a notification's pinned state (persisted via MSW). */
+export function useToggleNotificationPin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pinApi.toggle(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: notificationKeys.lists() })
+    },
+  })
+}
+
+/** Dismiss a notification — removes it from every list + the unread count. */
+export function useDismissNotification() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => dismissApi.dismiss(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: notificationKeys.lists() })
+      qc.invalidateQueries({ queryKey: notificationKeys.unreadCount() })
     },
   })
 }

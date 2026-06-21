@@ -31,6 +31,10 @@ interface SeedNotification {
   created_at: string
   /** When > 1, the center shows a "+N weitere" badge (grouped notifications). */
   group_count?: number
+  /** Pinned rows float to the top of the center (persisted via POST /:id/pin). */
+  is_pinned?: boolean
+  /** Dismissed rows are hidden from every list + count (POST /:id/dismiss). */
+  is_dismissed?: boolean
 }
 
 const notifications: SeedNotification[] = [
@@ -45,7 +49,7 @@ const notifications: SeedNotification[] = [
     actor_id: IDS.users.thomas,
     actor_name: 'Thomas Meier',
     resource_id: IDS.deals.kiBeratung,
-    deep_link: '/pipeline',
+    deep_link: `/kontakte/pipeline/${IDS.deals.kiBeratung}`,
     created_at: minutesAgo(15),
   },
   {
@@ -73,7 +77,7 @@ const notifications: SeedNotification[] = [
     actor_id: IDS.users.markus,
     actor_name: 'Markus Weber',
     resource_id: IDS.channels.entwicklung,
-    deep_link: '/kommunikation',
+    deep_link: '/kommunikation?bereich=team',
     created_at: hoursAgo(1),
     group_count: 3,
   },
@@ -89,7 +93,7 @@ const notifications: SeedNotification[] = [
     actor_id: IDS.users.felix,
     actor_name: 'Felix Krause',
     resource_id: 'lr-001',
-    deep_link: '/team',
+    deep_link: `/team/member/${IDS.users.felix}`,
     created_at: hoursAgo(2),
   },
   {
@@ -118,7 +122,7 @@ const notifications: SeedNotification[] = [
     actor_id: IDS.users.thomas,
     actor_name: 'Thomas Meier',
     resource_id: IDS.deals.erpMigration,
-    deep_link: '/pipeline',
+    deep_link: `/kontakte/pipeline/${IDS.deals.erpMigration}`,
     created_at: hoursAgo(8),
   },
   {
@@ -133,7 +137,7 @@ const notifications: SeedNotification[] = [
     actor_id: IDS.users.michael,
     actor_name: 'Petra Zimmermann',
     resource_id: IDS.invoices.inv007,
-    deep_link: '/finanzen',
+    deep_link: `/finanzen?invoice=${IDS.invoices.inv007}`,
     created_at: daysAgo(1),
   },
   {
@@ -254,7 +258,7 @@ const pendingArrivals: PendingArrival[] = [
     actor_id: IDS.users.julia,
     actor_name: 'Julia Fischer',
     resource_id: IDS.channels.vertrieb,
-    deep_link: '/kommunikation',
+    deep_link: '/kommunikation?bereich=team',
     created_at: minutesAgo(0),
     reveal_after_ms: 9000,
   },
@@ -388,7 +392,7 @@ export const notificationHandlers = [
     const moduleId = url.searchParams.get('module_id')
     const unreadOnly = url.searchParams.get('unread') === 'true'
 
-    let list = notifications.slice()
+    let list = notifications.filter((n) => !n.is_dismissed)
     if (moduleId) list = list.filter((n) => n.module_id === moduleId)
     if (isReadParam === 'true') list = list.filter((n) => n.is_read)
     else if (isReadParam === 'false') list = list.filter((n) => !n.is_read)
@@ -407,7 +411,7 @@ export const notificationHandlers = [
   // Unread count
   http.get(`${API}/api/v1/notifications/unread-count`, () => {
     flushArrivals()
-    const count = notifications.filter((n) => !n.is_read).length
+    const count = notifications.filter((n) => !n.is_read && !n.is_dismissed).length
     return HttpResponse.json({ count })
   }),
 
@@ -434,6 +438,26 @@ export const notificationHandlers = [
       n.read_at = now
     })
     return HttpResponse.json({ marked_count: target.length })
+  }),
+
+  // Pin / unpin a notification (toggle, stateful — pinned rows float in the center)
+  http.post(`${API}/api/v1/notifications/:id/pin`, ({ params }) => {
+    const notif = notifications.find((n) => n.id === params.id)
+    if (!notif) {
+      return HttpResponse.json({ error: 'Notification not found' }, { status: 404 })
+    }
+    notif.is_pinned = !notif.is_pinned
+    return HttpResponse.json(notif)
+  }),
+
+  // Dismiss a notification (stateful — hidden from every list + count)
+  http.post(`${API}/api/v1/notifications/:id/dismiss`, ({ params }) => {
+    const notif = notifications.find((n) => n.id === params.id)
+    if (!notif) {
+      return HttpResponse.json({ error: 'Notification not found' }, { status: 404 })
+    }
+    notif.is_dismissed = true
+    return HttpResponse.json({ id: notif.id, is_dismissed: true })
   }),
 
   // Notification preferences — list (per-event in-app/desktop toggles)

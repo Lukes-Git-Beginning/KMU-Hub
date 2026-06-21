@@ -105,3 +105,25 @@ export const mutingApi = {
     })
   },
 }
+
+// ---------------------------------------------------------------------------
+// Pin / Dismiss API — per-notification state not yet in the openapi spec.
+// ---------------------------------------------------------------------------
+
+export const pinApi = {
+  /** Toggle the pinned state; returns the updated notification (with is_pinned). */
+  toggle(id: string) {
+    return request<{ id?: string; is_pinned?: boolean }>(`/api/v1/notifications/${id}/pin`, {
+      method: 'POST',
+    })
+  },
+}
+
+export const dismissApi = {
+  /** Dismiss a notification — it disappears from every list + count. */
+  dismiss(id: string) {
+    return request<{ id?: string; is_dismissed?: boolean }>(`/api/v1/notifications/${id}/dismiss`, {
+      method: 'POST',
+    })
+  },
+}

@@ -22,6 +22,8 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreference,
   useEventTypes,
+  useToggleNotificationPin,
+  useDismissNotification,
   type Notification,
   type NotificationPreference,
 } from '@/api/hooks/useNotifications'
@@ -40,8 +42,8 @@ const PRIORITY_RANK: Record<string, number> = { urgent: 3, high: 2, normal: 1, l
 // Module ids whose readable label differs from the matching nav item label.
 const MODULE_LABEL_OVERRIDE: Record<string, string> = { settings: 'notifications.modules.security' }
 
-// Seeds carry actor_name beyond the openapi Notification type — read it safely.
-type NotificationWithActor = Notification & { actor_name?: string }
+// Seeds carry actor_name + server-backed pin state beyond the openapi type.
+type NotificationWithActor = Notification & { actor_name?: string; is_pinned?: boolean }
 
 /** Readable label for a notification's module_id, reusing the nav-item labels. */
 function moduleLabelOf(t: TFunction, moduleId?: string): string {
@@ -78,21 +80,21 @@ export default function NotificationCenter() {
   })
   const markRead = useMarkNotificationRead()
   const markAllRead = useMarkAllNotificationsRead()
+  // Pin + dismiss are persisted via MSW (POST /:id/pin, /:id/dismiss). The list
+  // query is invalidated on success, so pinned/dismissed survive a refetch.
+  const togglePinMutation = useToggleNotificationPin()
+  const dismissMutation = useDismissNotification()
 
-  // Local interaction state: open detail row + pinned/dismissed sets.
-  // Demo-stateful within the session (pin/dismiss are client-only until a backend exists).
+  // Only local interaction state: which row's detail modal is open.
   const [detailId, setDetailId] = useState<string | null>(null)
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set())
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
 
-  const rawNotifications = notificationsData?.notifications ?? []
-  const total = notificationsData?.total ?? 0
-
-  // Visible = loaded minus dismissed (before the module filter is applied).
+  // Dismissed rows are already filtered server-side; cast to read is_pinned.
   const visibleBeforeFilter = useMemo(
-    () => rawNotifications.filter((n) => !dismissedIds.has(n.id ?? '')),
-    [rawNotifications, dismissedIds]
+    () => (notificationsData?.notifications ?? []) as NotificationWithActor[],
+    [notificationsData]
   )
+  const rawNotifications = visibleBeforeFilter
+  const total = notificationsData?.total ?? 0
 
   // Per-module counts + the modules actually present, ordered like the sidebar.
   const moduleCounts = useMemo(() => {
@@ -120,8 +122,8 @@ export default function NotificationCenter() {
             : new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
         return sortDir === 'asc' ? cmp : -cmp
       })
-      .sort((a, b) => (pinnedIds.has(b.id ?? '') ? 1 : 0) - (pinnedIds.has(a.id ?? '') ? 1 : 0))
-  }, [visibleBeforeFilter, moduleFilter, sortField, sortDir, pinnedIds])
+      .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
+  }, [visibleBeforeFilter, moduleFilter, sortField, sortDir])
 
   const hasMore = !moduleFilter && rawNotifications.length === 20
   const displayTotal = moduleFilter ? notifications.length : total
@@ -135,16 +137,10 @@ export default function NotificationCenter() {
     [t]
   )
 
-  const togglePin = (id: string) =>
-    setPinnedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const togglePin = (id: string) => togglePinMutation.mutate(id)
 
   const dismiss = (id: string) => {
-    setDismissedIds((prev) => new Set(prev).add(id))
+    dismissMutation.mutate(id)
     setDetailId((cur) => (cur === id ? null : cur))
   }
 
@@ -268,7 +264,7 @@ export default function NotificationCenter() {
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    pinned={pinnedIds.has(notification.id ?? '')}
+                    pinned={Boolean(notification.is_pinned)}
                     onOpenDetail={() => setDetailId(notification.id ?? null)}
                     onMarkRead={() => {
                       if (notification.id) markRead.mutate(notification.id)
@@ -310,7 +306,7 @@ export default function NotificationCenter() {
       {detailNotification && (
         <NotificationDetailModal
           notification={detailNotification}
-          pinned={pinnedIds.has(detailNotification.id ?? '')}
+          pinned={Boolean(detailNotification.is_pinned)}
           onClose={() => setDetailId(null)}
           onOpen={() => {
             openNotification(detailNotification)
