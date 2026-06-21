@@ -178,6 +178,9 @@ export function adaptArticle(api: ApiArticle): WikiArticle {
 }
 
 export function adaptVersion(api: ApiVersion): WikiVersion {
+  // Project block-document versions ({rows}) to HTML so the (HTML-based) version
+  // diff works for both legacy and Phase-B snapshots.
+  const html = extractHtml(api.content) || rowsToHtml(extractRows(api.content))
   return {
     id: api.id,
     articleId: api.article_id,
@@ -185,7 +188,7 @@ export function adaptVersion(api: ApiVersion): WikiVersion {
     editorName: api.changed_by ?? '',
     editedAt: api.changed_at,
     changeNote: api.change_note ?? '',
-    content: extractHtml(api.content),
+    content: html,
   }
 }
 
