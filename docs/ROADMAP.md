@@ -404,11 +404,44 @@ Falls ein Modul bis zum Launch-Freeze (2026-05-28) nicht fertig ist: **Feature-F
 
 - Stripe/SEPA-Integration
 - Desktop-Installer-Pipeline (`electron-builder`)
-- Self-Hosted ORBIT-Paket (Docker auf Synology NAS)
+- **Orbit Appliance-Paket (Self-Hosted)** — Mini-PC + Standard-Linux statt Synology/DSM, siehe **ADR-008**. Detail-Plan unten.
 - Pricing-Seite auf zentria.tech
 - LinkedIn + Cold Outreach (UWG §7 konform)
 - FinAPI Banking
 - Pitch-Deck finalisieren
+
+#### Orbit Appliance — Roadmap (ADR-008)
+
+**Grundsatz:** Zentria = Integrator (kein Hardware-Hersteller). Cosmi auf neutralem Mini-PC + nacktem Standard-Linux + Docker, identisch zur Hetzner-Cloud. Kein eigenes OS, kein Synology/DSM. ⚠ Integrator-/CRA-Rechtslage vor Bau anwaltlich bestaetigen. Kein Launch-Blocker fuer 01.07.
+
+**Spikes / Gates (Vorarbeiten):**
+
+| # | Spike | Owner |
+|---|---|---|
+| SP-1 | Ressourcen-Spike (**HARTES GATE**) — ausgewachsener schlanker Stack auf Kandidaten-Mini-PC (2× NVMe) messen → Pod/Station-Modell + RAM-Profil fix. Erst wenn Stack feature-fertig. Inkl. Mini-PC-vs-Synology-Vergleich | Luke |
+| SP-2 | Legal — Produktrecht-Anwalt: Integrator-Linie + CRA-Software-Pflicht + AVV/§203/§43e-Vorlagen | Business |
+| SP-3 | Registry/CI-Design (Gitea vs Harbor; Multi-Service-Image-Bau; Rollback-/Migrate-Sicherheit) | Luke |
+| SP-4 | Remote-Layer-Konsolidierung (Headscale ↔ Portainer-Edge) | Luke |
+| SP-5 | Storage (RAID-1/LUKS) + DNS-01-Automation Proof | Luke |
+
+**Epics (Bau):**
+
+| # | Epic | Owner |
+|---|---|---|
+| E1 | Orbit-Image & Provisioning (Ubuntu + cloud-init + Docker + Compose-Tier-Profile, Zero-Touch-Image, LUKS, RAID-1) | Infra |
+| E2 | Deploy-Pipeline & Registry (versionierte Multi-Service-Images → private Registry; `compose pull`; Migrate forward-only; Rollback Tag-Pin) — **teilt sich mit Cloud, vorziehen** | Infra |
+| E3 | Orbit-Modul in Cosmi (Health/Backup/Update/Lizenz/User; Feature-Gate `orbit`; gebrandetes Onboarding ×2) | **Frontend (Darien)** |
+| E4 | Host-Agent (System-/SMART-/Backup-/Update-Status → Orbit-Modul + Aktionen) | Infra |
+| E5 | Fleet & Remote-Mgmt (Headscale + Tailscale; Portainer Business + Edge; self-hosted Hetzner) | Infra |
+| E6 | Monitoring & Alerting (lokaler Exporter + Remote-Aggregation Opt-in + lokale Minimal-Alarme) | Infra |
+| E7 | Backup & DR (lokal + verschluesseltes Cloud-Offsite, Restore-Test, Retention, No-Cloud-Opt-out) | Infra |
+| E8 | Lizenz & Aktivierung (Ed25519-Signing + Offline-Verifikation; Re-Issue/RMA; Security-Patch-ohne-Abo-Logik) | Infra |
+| E9 | TLS & Netzwerk (DNS-01 pro Kunde, Split-DNS-Doku, transparenter VPN) | Infra |
+| E10 | Security/Compliance/Legal (LUKS/Firewall/offizielle Images; AVV/§203/§43e; TOMs; Pentest-Budget; CRA) | Infra + Business |
+| E11 | Video-Tiering (Pod=SFU-light/Cloud, Recording ab Station/Mini-PC) | Infra |
+| E12 | GTM/Pricing-Ops (Erloes-Modell Kauf + optionales Service-Abo + Rueckkauf; Export-Tool Cloud↔Orbit; Beschaffung/RMA) | Business |
+
+**Reihenfolge:** SP-1 (Gate) + SP-2 + **E2 vorziehen** → E1 + (E3 ‖ E4 gekoppelt) → E5–E11 parallel → E12/E10 begleitend.
 
 ---
 

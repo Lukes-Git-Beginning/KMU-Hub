@@ -180,6 +180,51 @@ Datenbank muss relational (CRM-Daten), performant (Chat), und self-hostable sein
 
 **Konsequenz:** Finance-Test-Coverage via testcontainers-go (echtes PG16, `-tags=integration`): invoice 69.6 % · quote 63.7 % · creditnote 51.3 %. Schliesst R2-P1.12.
 
+## ADR-008: Orbit Appliance-Architektur — Mini-PC + Standard-Linux, kein eigenes OS
+
+**Status:** Akzeptiert (Richtungsentscheidung 2026-06-21, Luke + Darien) · Umsetzung Phase E / Q4 2026 · ⚠ Integrator-/CRA-Rechtslage durch Produktrecht-Anwalt zu bestaetigen VOR Bau
+
+**Kontext:**
+Orbit ist die Self-Hosted-Variante von Cosmi: dieselbe Software auf Hardware, die Zentria physisch liefert, einrichtet und remote wartet (Updates/Backup/Monitoring) — Managed-Appliance, kein "bring your own server". Zielgruppe: datenschutz-sensible Branchen (Aerzte, Anwaelte, Steuerberater, Behoerden) + Betriebe mit schlechter Konnektivitaet / No-Cloud-Wunsch. Orbit existiert im Code noch nicht (Phase E).
+
+Ausloeser war der Wunsch nach einem "eigenen System". Geklaert: gemeint ist ein produkt-eigenes, gebrandetes Appliance-Erlebnis — kein OS von Grund auf. Recherche (2026-06-21) ergab: der urspruenglich geplante Synology-NAS-Pfad (DSM umhuellen) bringt vermeidbare Last (Docker-Engine 24.0.2 EOL auf DSM, Port-80/443-Patch, "DSM verstecken", Synology-Plattformrisiko via Drive-Lock-Praezedenz). Ein neutraler Mini-PC mit nacktem Standard-Linux loest diese Probleme und schafft Paritaet mit der Hetzner-Cloud.
+
+**Optionen:**
+1. Synology-NAS + DSM umhuellen (Reverse-Proxy davor)
+2. Neutraler Mini-PC + Standard-Linux (Ubuntu Server) + Docker
+3. Eigenes OS / eigene Distro / Appliance-Image (Sisyphus, fuer 1-Dev nicht tragbar)
+
+**Entscheidung:** Option 2.
+
+**Grundsatz — Integrator, kein Hardware-Hersteller:** Fertige CE-zertifizierte Geraete kaufen + vom Hersteller vorgesehenes RAM/SSD einsetzen + unsere Software. Branding ausschliesslich in Software/Login/Domain/Verpackung — nichts aufs Gehaeuse, kein Eigenbau aus Losteilen (sonst eigene CE-Messung, ElektroG/stiftung-ear, Produkthaftung). ⚠ Die CRA-Security-Update-Pflicht trifft die Software Cosmi unabhaengig vom Hardware-Status.
+
+**Kern-Entscheidungen:**
+- **Hardware:** neutraler Mini-PC (Pod/Station), echter Tower/Rack-Server fuer Command-Tier (80–200+ User). Auswahlkriterien: 2× NVMe (RAID-1), 24/7-Eignung, ECC (Station/Command), bestaetigte CE. Exaktes Modell nach Ressourcen-Spike.
+- **Plattform-Paritaet Cloud↔Orbit:** identisches Linux+Docker-Setup → eine Deploy-Pipeline (private Registry + `docker compose pull`), ein Betriebsmodell, eine Test-Matrix.
+- **Schlankes Orbit-Profil je Tier** (Feature-Flags + Compose-Overlays); OnlyOffice/LiveKit-Egress auf Pod aus; Video gestaffelt (Pod=SFU-light/Cloud, Recording ab Station).
+- **Branding/UX:** Orbit-Console als gebrandetes Admin-Modul IN Cosmi (+ Host-Agent fuer System-Daten); Zero-Touch-Provisionierung; zwei Onboardings (Geraet + Modul); Domain pro Kunde via Split-DNS + Let's-Encrypt DNS-01; transparenter/automatischer VPN-Zugang.
+- **Betrieb:** Remote-Shell via Headscale + Tailscale, Fleet via Portainer Business + Edge (beide self-hosted auf Hetzner); Monitoring lokal schlank + Remote-Aggregation (Opt-in); Backup lokal + verschluesseltes Cloud-Offsite + Restore-Test-Pflicht.
+- **Security/Kommerz:** volle Haertung (LUKS-Disk-Encryption, Firewall, offizielle Image-Quellen); DSGVO/AVV + §203-StGB-/§43e-BRAO-Vertraege + TOMs; Offline-Ed25519-Lizenz (kein Default-Phone-Home); Erloes ueber Recurring (Kauf + optionales Service-Abo, **kritische Security-Patches auch ohne Abo**, Feature-Updates im Abo); offener Standard-Export (pg_dump + MinIO-mirror, kein Lock-in).
+
+**Begruendung:**
+- Ein Codepfad/Pipeline/Betriebsmodell fuer ein 1-Dev-Team (groesster Hebel).
+- Eliminiert DSM-spezifische Risiken (Engine-EOL, Port-Patch-Fragilitaet) und Synology-Plattformabhaengigkeit (Drive-Lock-Praezedenz, Modell-Lifecycle).
+- Hardware-agnostisches Image → Modellwechsel/RMA trivial (Ersatzgeraet in Minuten neu bespielt).
+- Integrator-Linie haelt CE-/Produkthaftungs-Last gering.
+
+**Konsequenzen:**
+- "DSM unsichtbar"/Port-Patch/Caddy-Trick entfallen; Disk-Encryption via LUKS.
+- Neue Zentria-Infra: private Registry, Headscale-Control, Portainer-Server, zentrales Monitoring, CI-Multi-Image-Pipeline, Lizenz-Signing (alles EU/Hetzner).
+- Registry-Pipeline ersetzt "Build-on-Host" auch in der Cloud (Nebengewinn).
+- Storage-Redundanz NICHT geschenkt (kein NAS-RAID) → selbst via RAID-1 + verschluesseltem Offsite-Backup.
+- Command-Tier ggf. echter Tower/Rack-Server statt Mini-PC.
+
+**Offene Spikes vor Bau:** (1) Ressourcen-Spike als HARTES Gate (ausgewachsener Stack auf Kandidaten-Mini-PC → Modell/RAM fix), (2) Produktrecht-Anwalt (Integrator + CRA + AVV/§203/§43e), (3) Registry/CI-Design, (4) Headscale/Portainer-Konsolidierung, (5) RAID-1/LUKS + DNS-01 Proof.
+
+**Verweis:** Roadmap (Spikes + Epics + Ownership) in `docs/ROADMAP.md` §Phase E.
+
+---
+
 ## System-Global Tables (No RLS)
 
 Folgende Tabellen sind bewusst NICHT RLS-aktiviert. Sie sind system-globaler Natur (Schema-Metadata, kontext-unabhaengige Konfiguration, Seed-Daten). Alle anderen Tabellen sind ab Sprint 4 Welle 4 RLS-pflichtig.
