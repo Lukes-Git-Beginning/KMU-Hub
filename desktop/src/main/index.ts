@@ -1,5 +1,5 @@
 import 'v8-compile-cache'
-import { app, BrowserWindow, shell, nativeImage } from 'electron'
+import { app, BrowserWindow, session, shell, nativeImage } from 'electron'
 import { join } from 'path'
 import { registerIPCHandlers } from './ipc/index'
 import { createMenu } from './menu'
@@ -53,7 +53,34 @@ function createWindow(): void {
   }
 }
 
+// Production API host. In packaged builds the renderer is served from file://
+// (an opaque origin), so calls to the remote API are cross-origin and would be
+// blocked by the gateway's CORS allowlist. We only talk to our own API host and
+// authenticate with bearer tokens (no cookies), so it is safe to inject
+// permissive CORS response headers for that host without weakening webSecurity.
+// Dev runs against the vite dev-server (ELECTRON_RENDERER_URL set) and needs no patch.
+const PROD_API_HOST = import.meta.env.MAIN_VITE_API_URL || 'https://app.zentria.tech'
+
+function patchApiCors(): void {
+  if (process.env.ELECTRON_RENDERER_URL || !PROD_API_HOST) return
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (!details.url.startsWith(PROD_API_HOST)) {
+      callback({})
+      return
+    }
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'access-control-allow-origin': ['*'],
+        'access-control-allow-headers': ['*'],
+        'access-control-allow-methods': ['GET,POST,PUT,DELETE,PATCH,OPTIONS'],
+      },
+    })
+  })
+}
+
 app.whenReady().then(() => {
+  patchApiCors()
   registerIPCHandlers(getMainWindow)
   createMenu()
   createWindow()
