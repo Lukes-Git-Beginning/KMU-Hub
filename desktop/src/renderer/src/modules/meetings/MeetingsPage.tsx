@@ -21,11 +21,13 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMeetingsStore, type Meeting } from '@/stores/meetings'
-import { useMeetings, useStartMeeting } from '@/api/hooks/useMeetings'
+import { useMeetings, useJoinMeeting } from '@/api/hooks/useMeetings'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MeetingFormDialog } from './MeetingFormDialog'
 import { MeetingDetailPanel } from './MeetingDetailPanel'
 import { MeetingRoomView } from './MeetingRoomView'
+import { VideoCallView } from '@/features/video/VideoCallView'
+import type { IceServer } from '@/api/video-types'
 import { backendMeetingToUI } from './mappers'
 import { formatDate } from '@/lib/format'
 
@@ -89,7 +91,7 @@ export default function MeetingsPage() {
   // remain the source for create/edit/delete/cancel/duplicate until the backend
   // meeting model gains the richer UI fields (R3-E3, pragmatic scope).
   const { data: apiMeetings } = useMeetings()
-  const startMeeting = useStartMeeting()
+  const joinMeetingMutation = useJoinMeeting()
 
   const apiUIMeetings = useMemo(
     () => (apiMeetings ?? []).map(backendMeetingToUI),
@@ -111,14 +113,24 @@ export default function MeetingsPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null)
   const [meetingRoomId, setMeetingRoomId] = useState<string | null>(null)
+  // Real LiveKit call overlay for backend meetings (token + ws_url + TURN
+  // ice_servers from the join response). Local mock meetings have no backend
+  // session and keep using the MeetingRoomView preview instead.
+  const [activeCall, setActiveCall] = useState<{
+    callId: string
+    token: string
+    wsUrl: string
+    iceServers?: IceServer[]
+  } | null>(null)
 
-  // Joining a backend meeting starts it server-side (transitions to in_progress
-  // and provisions the LiveKit room + token) before opening the room. Local mock
-  // meetings just open the room directly.
+  // Backend meetings: join server-side (organizer auto-starts, attendees get a
+  // token) and mount the real VideoCallView. Local mock meetings just open the
+  // MeetingRoomView preview directly.
   const handleJoin = (id: string) => {
     if (apiIds.has(id)) {
-      startMeeting.mutate(id, {
-        onSuccess: () => setMeetingRoomId(id),
+      joinMeetingMutation.mutate(id, {
+        onSuccess: (res) =>
+          setActiveCall({ callId: id, token: res.token, wsUrl: res.ws_url, iceServers: res.ice_servers }),
         onError: () => toast.error(t('meetings.toast.startFailed')),
       })
     } else {
@@ -393,13 +405,26 @@ export default function MeetingsPage() {
         onJoin={(id) => { setSelectedMeetingId(null); handleJoin(id) }}
       />
 
-      {/* Meeting Room */}
+      {/* Meeting Room — local mock meetings only (preview UI without LiveKit) */}
       {meetingRoomMeeting && (
         <MeetingRoomView
           meeting={meetingRoomMeeting}
           open={!!meetingRoomId}
           onLeave={() => { setMeetingRoomId(null); toast.info(t('meetings.toast.left')) }}
         />
+      )}
+
+      {/* Real LiveKit call — backend meetings, full-screen overlay */}
+      {activeCall && (
+        <div className="fixed inset-0 z-[60] bg-background">
+          <VideoCallView
+            callId={activeCall.callId}
+            token={activeCall.token}
+            wsUrl={activeCall.wsUrl}
+            iceServers={activeCall.iceServers}
+            onLeave={() => { setActiveCall(null); toast.info(t('meetings.toast.left')) }}
+          />
+        </div>
       )}
 
       {/* Delete Confirm */}

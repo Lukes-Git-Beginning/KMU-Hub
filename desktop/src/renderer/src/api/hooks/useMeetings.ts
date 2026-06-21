@@ -15,6 +15,7 @@ import {
   updateMeeting,
   deleteMeeting,
   startMeeting,
+  joinMeeting,
   endMeeting,
   saveMeetingNotes,
   createActionItem,
@@ -124,6 +125,21 @@ export function useStartMeeting() {
   return useMutation({
     mutationFn: (id: string) => startMeeting(id),
     onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', id] })
+    },
+  })
+}
+
+/**
+ * Join a meeting (idempotent): the organizer's first call starts it, any invited
+ * attendee then receives a LiveKit token + TURN ice_servers for the room.
+ */
+export function useJoinMeeting() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => joinMeeting(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
       queryClient.invalidateQueries({ queryKey: ['meetings', id] })
     },
   })

@@ -30,6 +30,10 @@ service VideoService {
   rpc DeleteMeeting(DeleteMeetingRequest) returns (google.protobuf.Empty);
   rpc ListMeetings(ListMeetingsRequest) returns (ListMeetingsResponse);
   rpc StartMeeting(StartMeetingRequest) returns (StartMeetingResponse);
+  // JoinMeeting is the idempotent participant entry point: the organizer's
+  // first call starts a scheduled meeting; any invited attendee then receives
+  // a LiveKit token (+ TURN ice_servers) for the in-progress room.
+  rpc JoinMeeting(JoinMeetingRequest) returns (JoinMeetingResponse);
   rpc EndMeeting(EndMeetingRequest) returns (MeetingSummary);
 
   // Meeting Notes and Action Items
@@ -384,6 +388,19 @@ message StartMeetingResponse {
   string token = 2;
   string room_name = 3;
   string ws_url = 4;
+}
+
+message JoinMeetingRequest {
+  string meeting_id = 1;
+  string user_id = 2;
+}
+
+message JoinMeetingResponse {
+  Meeting meeting = 1;
+  string token = 2;
+  string room_name = 3;
+  string ws_url = 4;
+  repeated IceServer ice_servers = 5;
 }
 
 message EndMeetingRequest {

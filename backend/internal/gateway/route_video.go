@@ -142,6 +142,11 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		// check — the permission guard here ensures the caller is at least an
 		// authenticated user with meetings:write capability.
 		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/start", vr.HandleStartMeeting)
+		// Join is the idempotent participant entry (organizer auto-starts, attendees
+		// get a token). The service enforces attendee/organizer membership; the
+		// guard mirrors start/end and uses meetings:write (seeded for all roles in
+		// 000131) so it never 403s the whole tenant.
+		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/join", vr.HandleJoinMeeting)
 		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/end", vr.HandleEndMeeting)
 
 		// Notes
@@ -764,6 +769,35 @@ func (vr *VideoRoutes) HandleStartMeeting(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleJoinMeeting is the idempotent participant entry point: POST /meetings/{id}/join.
+// Returns a LiveKit token, ws_url and per-session TURN ice_servers for the room.
+func (vr *VideoRoutes) HandleJoinMeeting(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.JoinMeeting(r.Context(), &videov1.JoinMeetingRequest{
+		MeetingId: meetingID,
+		UserId:    userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// protojson so ice_servers and the nested meeting timestamps serialize in the
+	// wire shape the frontend expects (RFC3339, not {seconds,nanos}).
 	response.Proto(w, http.StatusOK, resp)
 }
 

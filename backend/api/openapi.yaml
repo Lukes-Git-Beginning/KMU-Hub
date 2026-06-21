@@ -6816,6 +6816,27 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/meetings/{id}/join:
+    post:
+      summary: Join a meeting (idempotent; organizer auto-starts, attendees get a token)
+      tags: [meetings]
+      operationId: joinMeeting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: LiveKit token, ws_url and per-session TURN ice_servers for the room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinMeetingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/meetings/{id}/end:
     post:
       summary: End an active meeting
@@ -16805,6 +16826,36 @@ components:
         livekit_url:
           type: string
           description: LiveKit WebSocket URL
+
+    JoinMeetingResponse:
+      type: object
+      properties:
+        meeting:
+          $ref: "#/components/schemas/MeetingSchema"
+        token:
+          type: string
+          description: LiveKit JWT join token
+        ws_url:
+          type: string
+          description: LiveKit WebSocket signaling URL
+        room_name:
+          type: string
+        ice_servers:
+          type: array
+          description: >-
+            Per-session TURN credentials for the client RTCConfiguration;
+            empty/absent when TURN is not configured.
+          items:
+            type: object
+            properties:
+              urls:
+                type: array
+                items:
+                  type: string
+              username:
+                type: string
+              credential:
+                type: string
 
     EndMeetingResponse:
       type: object

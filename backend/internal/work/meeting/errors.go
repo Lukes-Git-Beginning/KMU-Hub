@@ -20,4 +20,6 @@ var (
 	ErrNoPreviousNotes       = errors.New("no previous meeting notes found")
 	ErrNoAttendeesProvided   = errors.New("at least one attendee is required")
 	ErrNotOrganizer          = errors.New("only the meeting organizer can perform this action")
+	ErrNotAttendee           = errors.New("only invited attendees can join this meeting")
+	ErrNotStarted            = errors.New("meeting has not been started by the organizer yet")
 )

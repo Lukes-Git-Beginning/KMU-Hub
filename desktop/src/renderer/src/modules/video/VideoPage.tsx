@@ -22,8 +22,9 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { useMeetingsStore, type CallHistoryEntry } from '../../stores/meetings'
-import { useMeetings, useStartMeeting } from '@/api/hooks/useMeetings'
+import { useMeetings, useJoinMeeting } from '@/api/hooks/useMeetings'
 import { VideoCallView } from '@/features/video/VideoCallView'
+import type { IceServer } from '@/api/video-types'
 import { backendMeetingToUI } from '../meetings/mappers'
 import { PageHeader } from '@/components/shared'
 import { formatDate } from '@/lib/format'
@@ -301,17 +302,22 @@ export default function VideoPage() {
     [apiUIMeetings, localMeetings],
   )
 
-  const startMeeting = useStartMeeting()
-  // Active LiveKit call overlay: starting a backend meeting yields a token +
-  // ws_url which mounts the real VideoCallView. Local mock meetings have no
-  // backend session, so they fall back to the (no-op) store join.
-  const [activeCall, setActiveCall] = useState<{ callId: string; token: string; wsUrl: string } | null>(null)
+  const joinMeetingMutation = useJoinMeeting()
+  // Active LiveKit call overlay: joining a backend meeting yields a token +
+  // ws_url (+ TURN ice_servers) which mounts the real VideoCallView. Local mock
+  // meetings have no backend session, so they fall back to the (no-op) store join.
+  const [activeCall, setActiveCall] = useState<{
+    callId: string
+    token: string
+    wsUrl: string
+    iceServers?: IceServer[]
+  } | null>(null)
 
   const handleJoin = (id: string) => {
     if (apiIds.has(id)) {
-      startMeeting.mutate(id, {
+      joinMeetingMutation.mutate(id, {
         onSuccess: (res) =>
-          setActiveCall({ callId: id, token: res.token, wsUrl: res.ws_url }),
+          setActiveCall({ callId: id, token: res.token, wsUrl: res.ws_url, iceServers: res.ice_servers }),
         onError: () => toast.error(t('meetings.toast.startFailed')),
       })
     } else {
@@ -500,6 +506,7 @@ export default function VideoPage() {
             callId={activeCall.callId}
             token={activeCall.token}
             wsUrl={activeCall.wsUrl}
+            iceServers={activeCall.iceServers}
             onLeave={() => setActiveCall(null)}
           />
         </div>

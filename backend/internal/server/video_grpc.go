@@ -835,6 +835,69 @@ func (s *VideoGRPCServer) StartMeeting(ctx context.Context, req *videov1.StartMe
 	}, nil
 }
 
+// JoinMeeting is the idempotent participant entry point. The organizer's first
+// call starts a scheduled meeting; any invited attendee then receives a LiveKit
+// token plus per-session TURN ice_servers for the in-progress room. Mirrors
+// StartMeeting's token minting and JoinCall's ice_servers handling.
+func (s *VideoGRPCServer) JoinMeeting(ctx context.Context, req *videov1.JoinMeetingRequest) (*videov1.JoinMeetingResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
+	id, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	m, err := s.meetingService.JoinMeeting(ctx, id, tenantID, userID)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+
+	mwa, getErr := s.meetingService.GetMeeting(ctx, m.ID, tenantID)
+	if getErr != nil {
+		return nil, mapMeetingError(getErr)
+	}
+
+	joinToken := ""
+	roomName := derefString(m.RoomName)
+	if s.tokenGen != nil && roomName != "" {
+		t, tokenErr := s.tokenGen.GenerateToken(roomName, req.UserId, "")
+		if tokenErr != nil {
+			slog.Error("failed to generate meeting join token", "meeting_id", m.ID, "error", tokenErr)
+			return nil, status.Error(codes.Internal, "failed to generate join token")
+		}
+		joinToken = t
+	}
+
+	resp := &videov1.JoinMeetingResponse{
+		Meeting:  meetingWithAttendeesToProto(mwa),
+		Token:    joinToken,
+		RoomName: roomName,
+		WsUrl:    s.publicWSURL,
+	}
+
+	// Per-session TURN credentials for the client's RTCConfiguration (same path
+	// as JoinCall) — empty when TURN is not configured.
+	if s.tokenGen != nil {
+		for _, ice := range s.tokenGen.TURNIceServers(userID.String()) {
+			resp.IceServers = append(resp.IceServers, &videov1.IceServer{
+				Urls:       ice.URLs,
+				Username:   ice.Username,
+				Credential: ice.Credential,
+			})
+		}
+	}
+
+	return resp, nil
+}
+
 func (s *VideoGRPCServer) EndMeeting(ctx context.Context, req *videov1.EndMeetingRequest) (*videov1.MeetingSummary, error) {
 	tenantID, tenantErr := middleware.GetTenantID(ctx)
 	if tenantErr != nil {
@@ -1636,6 +1699,10 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, meeting.ErrNotOrganizer):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, meeting.ErrNotAttendee):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, meeting.ErrNotStarted):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, meeting.ErrNotScheduled):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, meeting.ErrNotInProgress):

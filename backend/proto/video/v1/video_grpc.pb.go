@@ -37,6 +37,7 @@ const (
 	VideoService_DeleteMeeting_FullMethodName             = "/video.v1.VideoService/DeleteMeeting"
 	VideoService_ListMeetings_FullMethodName              = "/video.v1.VideoService/ListMeetings"
 	VideoService_StartMeeting_FullMethodName              = "/video.v1.VideoService/StartMeeting"
+	VideoService_JoinMeeting_FullMethodName               = "/video.v1.VideoService/JoinMeeting"
 	VideoService_EndMeeting_FullMethodName                = "/video.v1.VideoService/EndMeeting"
 	VideoService_SaveMeetingNotes_FullMethodName          = "/video.v1.VideoService/SaveMeetingNotes"
 	VideoService_GetMeetingNotes_FullMethodName           = "/video.v1.VideoService/GetMeetingNotes"
@@ -77,6 +78,10 @@ type VideoServiceClient interface {
 	DeleteMeeting(ctx context.Context, in *DeleteMeetingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListMeetings(ctx context.Context, in *ListMeetingsRequest, opts ...grpc.CallOption) (*ListMeetingsResponse, error)
 	StartMeeting(ctx context.Context, in *StartMeetingRequest, opts ...grpc.CallOption) (*StartMeetingResponse, error)
+	// JoinMeeting is the idempotent participant entry point: the organizer's
+	// first call starts a scheduled meeting; any invited attendee then receives
+	// a LiveKit token (+ TURN ice_servers) for the in-progress room.
+	JoinMeeting(ctx context.Context, in *JoinMeetingRequest, opts ...grpc.CallOption) (*JoinMeetingResponse, error)
 	EndMeeting(ctx context.Context, in *EndMeetingRequest, opts ...grpc.CallOption) (*MeetingSummary, error)
 	// Meeting Notes and Action Items
 	SaveMeetingNotes(ctx context.Context, in *SaveMeetingNotesRequest, opts ...grpc.CallOption) (*MeetingNotes, error)
@@ -273,6 +278,16 @@ func (c *videoServiceClient) StartMeeting(ctx context.Context, in *StartMeetingR
 	return out, nil
 }
 
+func (c *videoServiceClient) JoinMeeting(ctx context.Context, in *JoinMeetingRequest, opts ...grpc.CallOption) (*JoinMeetingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JoinMeetingResponse)
+	err := c.cc.Invoke(ctx, VideoService_JoinMeeting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *videoServiceClient) EndMeeting(ctx context.Context, in *EndMeetingRequest, opts ...grpc.CallOption) (*MeetingSummary, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MeetingSummary)
@@ -437,6 +452,10 @@ type VideoServiceServer interface {
 	DeleteMeeting(context.Context, *DeleteMeetingRequest) (*emptypb.Empty, error)
 	ListMeetings(context.Context, *ListMeetingsRequest) (*ListMeetingsResponse, error)
 	StartMeeting(context.Context, *StartMeetingRequest) (*StartMeetingResponse, error)
+	// JoinMeeting is the idempotent participant entry point: the organizer's
+	// first call starts a scheduled meeting; any invited attendee then receives
+	// a LiveKit token (+ TURN ice_servers) for the in-progress room.
+	JoinMeeting(context.Context, *JoinMeetingRequest) (*JoinMeetingResponse, error)
 	EndMeeting(context.Context, *EndMeetingRequest) (*MeetingSummary, error)
 	// Meeting Notes and Action Items
 	SaveMeetingNotes(context.Context, *SaveMeetingNotesRequest) (*MeetingNotes, error)
@@ -513,6 +532,9 @@ func (UnimplementedVideoServiceServer) ListMeetings(context.Context, *ListMeetin
 }
 func (UnimplementedVideoServiceServer) StartMeeting(context.Context, *StartMeetingRequest) (*StartMeetingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartMeeting not implemented")
+}
+func (UnimplementedVideoServiceServer) JoinMeeting(context.Context, *JoinMeetingRequest) (*JoinMeetingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method JoinMeeting not implemented")
 }
 func (UnimplementedVideoServiceServer) EndMeeting(context.Context, *EndMeetingRequest) (*MeetingSummary, error) {
 	return nil, status.Error(codes.Unimplemented, "method EndMeeting not implemented")
@@ -883,6 +905,24 @@ func _VideoService_StartMeeting_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VideoService_JoinMeeting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinMeetingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).JoinMeeting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_JoinMeeting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).JoinMeeting(ctx, req.(*JoinMeetingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VideoService_EndMeeting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EndMeetingRequest)
 	if err := dec(in); err != nil {
@@ -1209,6 +1249,10 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartMeeting",
 			Handler:    _VideoService_StartMeeting_Handler,
+		},
+		{
+			MethodName: "JoinMeeting",
+			Handler:    _VideoService_JoinMeeting_Handler,
 		},
 		{
 			MethodName: "EndMeeting",

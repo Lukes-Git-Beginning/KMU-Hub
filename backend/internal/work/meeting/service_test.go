@@ -433,6 +433,113 @@ func TestStartMeeting_OrganizerCanStart(t *testing.T) {
 	assert.NotNil(t, started.RoomName)
 }
 
+// joinTestInput builds a meeting with an explicit organizer + single attendee so
+// JoinMeeting authorization paths can be asserted against known identities.
+func joinTestInput(organizerID, attendeeID uuid.UUID) CreateMeetingInput {
+	return CreateMeetingInput{
+		TenantID:       testTenantID,
+		Title:          "Sync",
+		OrganizerID:    organizerID,
+		ScheduledStart: time.Now().Add(1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(2 * time.Hour),
+		AttendeeIDs:    []uuid.UUID{attendeeID},
+	}
+}
+
+func TestJoinMeeting_OrganizerStartsScheduled(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	organizerID := uuid.New()
+
+	m, err := svc.CreateMeeting(ctx, joinTestInput(organizerID, uuid.New()))
+	require.NoError(t, err)
+
+	joined, err := svc.JoinMeeting(ctx, m.ID, testTenantID, organizerID)
+	require.NoError(t, err)
+	assert.Equal(t, MeetingStatusInProgress, joined.Status)
+	assert.NotNil(t, joined.RoomName)
+}
+
+func TestJoinMeeting_AttendeeBeforeStartRejected(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	attendeeID := uuid.New()
+
+	m, err := svc.CreateMeeting(ctx, joinTestInput(uuid.New(), attendeeID))
+	require.NoError(t, err)
+
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, attendeeID)
+	assert.ErrorIs(t, err, ErrNotStarted)
+}
+
+func TestJoinMeeting_AttendeeAfterStart(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	organizerID := uuid.New()
+	attendeeID := uuid.New()
+
+	m, err := svc.CreateMeeting(ctx, joinTestInput(organizerID, attendeeID))
+	require.NoError(t, err)
+
+	// Organizer brings it live via join.
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, organizerID)
+	require.NoError(t, err)
+
+	// Invited attendee joins the in-progress room.
+	joined, err := svc.JoinMeeting(ctx, m.ID, testTenantID, attendeeID)
+	require.NoError(t, err)
+	assert.Equal(t, MeetingStatusInProgress, joined.Status)
+	assert.NotNil(t, joined.RoomName)
+}
+
+func TestJoinMeeting_NonAttendeeRejected(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	organizerID := uuid.New()
+
+	m, err := svc.CreateMeeting(ctx, joinTestInput(organizerID, uuid.New()))
+	require.NoError(t, err)
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, organizerID)
+	require.NoError(t, err)
+
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, uuid.New())
+	assert.ErrorIs(t, err, ErrNotAttendee)
+}
+
+func TestJoinMeeting_Idempotent(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	organizerID := uuid.New()
+
+	m, err := svc.CreateMeeting(ctx, joinTestInput(organizerID, uuid.New()))
+	require.NoError(t, err)
+
+	first, err := svc.JoinMeeting(ctx, m.ID, testTenantID, organizerID)
+	require.NoError(t, err)
+	second, err := svc.JoinMeeting(ctx, m.ID, testTenantID, organizerID)
+	require.NoError(t, err)
+	assert.Equal(t, MeetingStatusInProgress, second.Status)
+	require.NotNil(t, first.RoomName)
+	require.NotNil(t, second.RoomName)
+	assert.Equal(t, *first.RoomName, *second.RoomName)
+}
+
+func TestJoinMeeting_CompletedRejected(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	organizerID := uuid.New()
+
+	m, err := svc.CreateMeeting(ctx, joinTestInput(organizerID, uuid.New()))
+	require.NoError(t, err)
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, organizerID)
+	require.NoError(t, err)
+	_, err = svc.EndMeeting(ctx, m.ID, testTenantID)
+	require.NoError(t, err)
+
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, organizerID)
+	assert.ErrorIs(t, err, ErrNotInProgress)
+}
+
 func TestEndMeeting_Success(t *testing.T) {
 	svc, _ := newTestService()
 	ctx := context.Background()

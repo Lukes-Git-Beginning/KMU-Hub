@@ -135,6 +135,20 @@ export interface StartMeetingResponse {
   ws_url: string
 }
 
+/**
+ * Response for the idempotent meeting join (POST /meetings/{id}/join).
+ * The organizer's first call starts the meeting; any invited attendee then
+ * receives a LiveKit token + per-session TURN ice_servers for the room.
+ */
+export interface JoinMeetingResponse {
+  meeting: Meeting
+  token: string
+  ws_url: string
+  room_name?: string
+  /** Per-session TURN credentials; empty/absent when TURN is not configured. */
+  ice_servers?: IceServer[]
+}
+
 // ---------------------------------------------------------------------------
 // Notes entities
 // ---------------------------------------------------------------------------

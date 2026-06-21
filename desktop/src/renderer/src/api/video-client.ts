@@ -21,6 +21,7 @@ import type {
   MeetingFilter,
   MeetingSummary,
   StartMeetingResponse,
+  JoinMeetingResponse,
   MeetingNotes,
   SaveNotesRequest,
   ActionItem,
@@ -151,6 +152,13 @@ export const listMeetings = (filter?: MeetingFilter) =>
 
 export const startMeeting = (id: string) =>
   post<StartMeetingResponse>(`/api/v1/meetings/${id}/start`)
+
+/**
+ * Idempotent participant join: the organizer's first call starts the meeting,
+ * any invited attendee then gets a LiveKit token + TURN ice_servers for the room.
+ */
+export const joinMeeting = (id: string) =>
+  post<JoinMeetingResponse>(`/api/v1/meetings/${id}/join`)
 
 export const endMeeting = (id: string) =>
   post<MeetingSummary>(`/api/v1/meetings/${id}/end`)

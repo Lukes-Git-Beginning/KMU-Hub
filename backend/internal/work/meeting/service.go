@@ -275,6 +275,71 @@ func (s *Service) StartMeeting(ctx context.Context, id, tenantID, userID uuid.UU
 	return m, nil
 }
 
+// JoinMeeting is the idempotent participant entry point for a meeting room.
+//
+// The organizer's first call on a scheduled meeting starts it (transition to
+// in_progress + allocate the room); any invited attendee may then join while the
+// meeting is in progress and receive the room name for a LiveKit token. Calling
+// on a completed or cancelled meeting is rejected. Unlike StartMeeting it is
+// safe to call repeatedly and by non-organizers — the desktop client routes
+// every participant's "Beitreten" through here.
+func (s *Service) JoinMeeting(ctx context.Context, id, tenantID, userID uuid.UUID) (*Meeting, error) {
+	m, err := s.repo.GetMeeting(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch m.Status {
+	case MeetingStatusScheduled:
+		// Only the organizer can bring a scheduled meeting live; attendees must
+		// wait until it has been started.
+		if m.OrganizerID != userID {
+			return nil, ErrNotStarted
+		}
+		now := time.Now().UTC()
+		m.Status = MeetingStatusInProgress
+		m.ActualStart = &now
+		roomName := fmt.Sprintf("meeting-%s", m.ID.String())
+		m.RoomName = &roomName
+		m.UpdatedAt = now
+		if err := s.repo.UpdateMeeting(ctx, m); err != nil {
+			return nil, err
+		}
+		slog.Info("meeting started via join", "meeting_id", id, "room_name", roomName)
+		return m, nil
+
+	case MeetingStatusInProgress:
+		// Already live — the organizer or any invited attendee may join.
+		if m.OrganizerID != userID {
+			ok, attErr := s.isAttendee(ctx, id, userID)
+			if attErr != nil {
+				return nil, attErr
+			}
+			if !ok {
+				return nil, ErrNotAttendee
+			}
+		}
+		return m, nil
+
+	default: // completed or cancelled
+		return nil, ErrNotInProgress
+	}
+}
+
+// isAttendee reports whether userID is on the meeting's attendee list.
+func (s *Service) isAttendee(ctx context.Context, meetingID, userID uuid.UUID) (bool, error) {
+	attendees, err := s.repo.GetAttendees(ctx, meetingID)
+	if err != nil {
+		return false, fmt.Errorf("get attendees: %w", err)
+	}
+	for _, a := range attendees {
+		if a.UserID == userID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // EndMeeting transitions an in-progress meeting to completed and generates a summary
 func (s *Service) EndMeeting(ctx context.Context, id, tenantID uuid.UUID) (*MeetingSummary, error) {
 	m, err := s.repo.GetMeeting(ctx, id, tenantID)
