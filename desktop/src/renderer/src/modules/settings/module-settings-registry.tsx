@@ -22,6 +22,7 @@ import {
   Bell,
   FileInput,
   BookOpen,
+  PhoneCall,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -47,6 +48,7 @@ import { BerichteSettingsPanel } from '@/modules/berichte/settings/BerichteSetti
 import { NotificationsSettingsPanel } from './panels/NotificationsSettingsPanel'
 import { FormulareSettingsPanel } from '@/modules/formulare/settings/FormulareSettingsPanel'
 import { WikiSettingsPanel } from '@/modules/wiki/settings/WikiSettingsPanel'
+import { DialerSettingsPanel } from '@/modules/dialer/settings/DialerSettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -74,6 +76,7 @@ export interface SettingsEntry {
 export const SETTINGS_ENTRIES: SettingsEntry[] = [
   // ── MODULE ──
   { id: 'crm', group: 'module', labelKey: 'moduleSettings.entries.crm', icon: Contact, navMatch: ['/kontakte', '/crm'], component: CrmSettingsPanel },
+  { id: 'dialer', group: 'module', labelKey: 'moduleSettings.entries.dialer', icon: PhoneCall, navMatch: ['/dialer'], component: DialerSettingsPanel },
   { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsPanel },
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailSettingsTab },
