@@ -2,6 +2,8 @@
 
 > **Direkt-Wiedereinstieg.** wiki Phase B komplett + gepusht. SCHRITT 0: `git pull --rebase origin main`.
 
+> **★ NEUER WORKFLOW ab jetzt ([[feedback_ten_phase_autonomous_batch]]):** 2 Terminals × **10 Phasen**. Ablauf: ich schnüre beide Pakete (disjunkt) → jedes Terminal **recherchiert** seine 10 Phasen → stellt Darien **gebündelt die offenen Fragen** (Gate VOR dem Bauen) → baut **autonom 10 Phasen** durch → Darien reviewt **alle 20** → Feedback als neue Phasen in `MASTER-TRACKER.md` → frisches Terminal. **Kandidaten-Scope fürs nächste Paket** (aus `MASTER-TRACKER.md` ziehen): wiki Phase B + berichte **Darien-Review-Findings** als Fix-Phasen · wiki **Batch 2** Spezialblöcke (Toggle/Code/Tabelle/Anhang) · kaskadierende Datenquellen-Auswahl (Diagramm-Blöcke) · nächste ⬜-Module (kommunikation, mails, security/DSGVO, settings P2). dialer macht aktuell der Sub.
+
 ## Was diese Session fertig wurde
 - **★ wiki Phase B KOMPLETT — review-reif (Darien-Review → dann Nico).** Der wiki-Editor läuft jetzt auf der gemeinsamen Block-Engine (`components/shared/document`), wie berichte. Commits:
   - **PB-1** `4b92105d` — Kern-Switch: wiki-Registry, rows-Seeds (8 Demo-Artikel als Block-Dokumente), Adapter (`extractRows`/`rowsToHtml`/`htmlToRows`), Editor→`DocumentBlockEditor`, Reader→`DocumentReader` web.
