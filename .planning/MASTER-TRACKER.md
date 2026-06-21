@@ -286,8 +286,8 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 | 11 | **kommunikation** | 4 Phasen | ⬜ |
 | 12 | **video / dialer** | LiveKit-FE | ⬜ |
 | 13 | **settings / admin** | Rest-Phasen | ⬜ |
-| 8b | **berichte** | Report-Authoring R-0…R-6 komplett | 🔁 review-reif → **Darien-Review** (`.planning/berichte-REVIEW-paket.md`), dann Nico |
-| 8c | **wiki** | Batch 1 + 1-Tiefe + 2 (Editor-Premium) komplett | 🔁 review-reif → **Darien-Review** (`.planning/wiki-REVIEW-paket.md`), dann Nico |
+| 8b | **berichte** | Report-Authoring R-0…R-6 komplett | 🔁 review-reif → **Darien-Review** (Queue `.planning/DARIEN-REVIEW-QUEUE.md` · Paket `.planning/berichte-REVIEW-paket.md`), dann Nico |
+| 8c | **wiki** | **Phase B (PB-1…PB-5)** — gemeinsame Block-Engine (wie berichte) | 🔁 review-reif → **Darien-Review** (Queue `.planning/DARIEN-REVIEW-QUEUE.md` · Paket `.planning/wiki-REVIEW-paket.md`), dann Nico |
 | 14 | **formulare / notifications** | Marathon-Reste fertig + Tiefe | ⬜ (Stand verifizieren) |
 | 15 | **Branchen ×7** | pilot-nah, zuletzt | ⬜ |
 
