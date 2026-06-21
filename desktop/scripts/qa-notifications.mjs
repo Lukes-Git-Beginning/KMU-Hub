@@ -72,8 +72,8 @@ try {
   // ── Settings: notifications panel ──
   await page.goto(`${BASE}/#/settings`, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(2500)
-  const notifTab = page.getByText(/Benachrichtigung|Notification|Notifiche/i).first()
-  if (await has(notifTab)) { await notifTab.click(); await page.waitForTimeout(1200) }
+  const notifTab = page.locator('button', { hasText: /Benachrichtigung|Notification|Notifiche/i }).first()
+  if (await has(notifTab)) { await notifTab.click({ timeout: 5000 }).catch(() => {}); await page.waitForTimeout(1200) }
   await page.screenshot({ path: resolve(outDir, '5-settings-notifications.png'), fullPage: true })
   out.mutedList = await page.evaluate(() => {
     const txt = document.body.innerText

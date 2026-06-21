@@ -227,6 +227,65 @@ const notifications: SeedNotification[] = [
 ]
 
 // ---------------------------------------------------------------------------
+// Live arrivals — notifications that "land" a few seconds into the session so
+// the toast pipeline + bell badge demonstrate real-time delivery (analogous to
+// the chat module). `flushArrivals` is called by every list/unread-count read
+// and moves any due arrival into the live list, stamped with the current time.
+// ---------------------------------------------------------------------------
+
+const SERVER_BOOT = Date.now()
+
+interface PendingArrival extends SeedNotification {
+  reveal_after_ms: number
+}
+
+const pendingArrivals: PendingArrival[] = [
+  {
+    id: 'notif-live-1',
+    event_type_key: 'chat_mention',
+    module_id: 'chat',
+    priority: 'high',
+    title: 'Neue Erwähnung in #vertrieb',
+    body: 'Julia Fischer hat dich erwähnt: "@Stefan kannst du das Angebot freigeben?"',
+    is_read: false,
+    actor_id: IDS.users.julia,
+    actor_name: 'Julia Fischer',
+    resource_id: IDS.channels.vertrieb,
+    deep_link: '/kommunikation',
+    created_at: minutesAgo(0),
+    reveal_after_ms: 9000,
+  },
+  {
+    id: 'notif-live-2',
+    event_type_key: 'task_assigned',
+    module_id: 'tasks',
+    priority: 'normal',
+    title: 'Aufgabe zugewiesen',
+    body: 'Markus Weber hat dir "Q3-Reporting finalisieren" zugewiesen.',
+    is_read: false,
+    actor_id: IDS.users.markus,
+    actor_name: 'Markus Weber',
+    resource_id: 'task-042',
+    deep_link: '/work/my-tasks',
+    created_at: minutesAgo(0),
+    reveal_after_ms: 18000,
+  },
+]
+
+function flushArrivals(): void {
+  const elapsed = Date.now() - SERVER_BOOT
+  for (let i = pendingArrivals.length - 1; i >= 0; i--) {
+    if (pendingArrivals[i].reveal_after_ms <= elapsed) {
+      const { reveal_after_ms: _drop, ...notif } = pendingArrivals[i]
+      void _drop
+      notif.created_at = new Date().toISOString()
+      notifications.unshift(notif)
+      pendingArrivals.splice(i, 1)
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Notification preferences — per-event-type in-app/desktop toggles.
 //
 // Returned as an array of `NotificationPreference` (matching the hook + the
@@ -295,6 +354,7 @@ export const notificationHandlers = [
   // List notifications (neueste zuerst). Supports is_read + module_id filters
   // (sent by the hook) plus legacy `unread=true` and page/page_size paging.
   http.get(`${API}/api/v1/notifications`, ({ request }) => {
+    flushArrivals()
     const url = new URL(request.url)
     const isReadParam = url.searchParams.get('is_read')
     const moduleId = url.searchParams.get('module_id')
@@ -318,6 +378,7 @@ export const notificationHandlers = [
 
   // Unread count
   http.get(`${API}/api/v1/notifications/unread-count`, () => {
+    flushArrivals()
     const count = notifications.filter((n) => !n.is_read).length
     return HttpResponse.json({ count })
   }),

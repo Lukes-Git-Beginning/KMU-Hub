@@ -1,60 +1,86 @@
 /**
- * NotificationFeedWidget — compact list of the last 10 notifications
- * from the Zustand notification store.
+ * NotificationFeedWidget — compact list of the latest 10 notifications.
  *
- * Works offline (no API dependency). Click marks as read and navigates.
+ * Reads the MSW/React-Query pipeline (same source as the center + bell), so the
+ * widget, toast and badges never disagree. Click marks as read and navigates.
  */
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   Bell,
   BellOff,
   MessageSquare,
-  Mail,
   CheckSquare,
-  Clock,
-  Video,
-  LifeBuoy,
-  FileWarning,
-  AlertCircle,
-  AtSign,
-  Download,
+  TrendingUp,
+  Users,
+  FileText,
+  Receipt,
+  FileSignature,
+  FolderKanban,
+  ShieldAlert,
+  PhoneCall,
+  Megaphone,
   ArrowRight,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { cn } from '@/lib/cn'
-import { useNotificationsStore } from '@/stores/notifications'
+import {
+  useNotifications,
+  useUnreadNotificationCount,
+  useMarkNotificationRead,
+  type Notification,
+} from '@/api/hooks/useNotifications'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-const iconMap: Record<string, React.ElementType> = {
-  MessageSquare,
-  Mail,
-  CheckSquare,
-  Clock,
-  Video,
-  LifeBuoy,
-  FileWarning,
-  AlertCircle,
-  AtSign,
-  Download,
-  Bell,
+type FeedNotification = Notification & { actor_name?: string }
+
+const moduleIcon: Record<string, React.ElementType> = {
+  chat: MessageSquare,
+  tasks: CheckSquare,
+  contacts: TrendingUp,
+  team: Users,
+  documents: FileText,
+  finance: Receipt,
+  vertraege: FileSignature,
+  projects: FolderKanban,
+  settings: ShieldAlert,
+  dialer: PhoneCall,
+}
+
+function iconFor(moduleId?: string): React.ElementType {
+  return (moduleId && moduleIcon[moduleId]) || Megaphone
+}
+
+function initialsOf(name?: string): string {
+  if (!name) return ''
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? '')
+      .join('') || ''
+  )
 }
 
 function NotificationFeedWidget(_props: WidgetProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { notifications, markAsRead } = useNotificationsStore()
-  const unreadCount = notifications.filter((n) => !n.isRead).length
-  const displayedNotifications = notifications.slice(0, 10)
+  const { data } = useNotifications({ pageSize: 10 })
+  const { data: unreadCount = 0 } = useUnreadNotificationCount()
+  const markRead = useMarkNotificationRead()
 
-  const handleClick = (n: (typeof notifications)[0]) => {
-    if (!n.isRead) markAsRead(n.id)
-    if (n.actionUrl) navigate(n.actionUrl)
+  const displayed = useMemo(() => (data?.notifications ?? []) as FeedNotification[], [data])
+
+  const handleClick = (n: FeedNotification) => {
+    if (!n.is_read && n.id) markRead.mutate(n.id)
+    const target = n.deep_link || (n.module_id ? `/${n.module_id}` : null)
+    if (target) navigate(target)
   }
 
-  if (displayedNotifications.length === 0) {
+  if (displayed.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
@@ -71,17 +97,22 @@ function NotificationFeedWidget(_props: WidgetProps) {
       {unreadCount > 0 && (
         <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2">
           <Bell className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium text-primary">{t('dashboard.notifications.unread', { count: unreadCount })}</span>
+          <span className="text-xs font-medium text-primary">
+            {t('dashboard.notifications.unread', { count: unreadCount })}
+          </span>
         </div>
       )}
 
       {/* List */}
       <div className="flex-1 divide-y divide-border/40 overflow-auto">
-        {displayedNotifications.map((n) => {
-          const Icon = iconMap[n.icon] || Bell
+        {displayed.map((n) => {
+          const Icon = iconFor(n.module_id)
+          const initials = n.actor_id ? initialsOf(n.actor_name) : ''
           let timeAgo = ''
           try {
-            timeAgo = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: de })
+            timeAgo = n.created_at
+              ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: de })
+              : ''
           } catch {
             timeAgo = ''
           }
@@ -92,28 +123,25 @@ function NotificationFeedWidget(_props: WidgetProps) {
               onClick={() => handleClick(n)}
               className={cn(
                 'flex cursor-pointer items-start gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50',
-                !n.isRead && 'bg-primary/5',
+                !n.is_read && 'bg-primary/5'
               )}
             >
-              {n.actorInitials ? (
+              {initials ? (
                 <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
-                  {n.actorInitials}
+                  {initials}
                 </div>
               ) : (
                 <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted">
+                  {/* eslint-disable-next-line react-hooks/static-components -- Icon is a dynamic component variable */}
                   <Icon className="h-3 w-3 text-muted-foreground" />
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className={cn('truncate text-sm', !n.isRead && 'font-medium')}>
-                  {n.title}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">{n.body}</p>
+                <p className={cn('truncate text-sm', !n.is_read && 'font-medium')}>{n.title}</p>
+                {n.body && <p className="truncate text-xs text-muted-foreground">{n.body}</p>}
                 <span className="text-[10px] text-muted-foreground/70">{timeAgo}</span>
               </div>
-              {!n.isRead && (
-                <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />
-              )}
+              {!n.is_read && <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />}
             </div>
           )
         })}

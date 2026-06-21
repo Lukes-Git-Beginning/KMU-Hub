@@ -33,6 +33,8 @@ export function useNotifications(params?: {
   pageSize?: number
   isRead?: boolean
   moduleId?: string
+  /** Poll interval (ms) — used by the live toast surface to let new notifications "arrive". */
+  refetchInterval?: number
 }) {
   return useQuery({
     queryKey: notificationKeys.list({
@@ -54,6 +56,7 @@ export function useNotifications(params?: {
       if (error) throw new Error('Failed to load notifications')
       return data
     },
+    ...(params?.refetchInterval ? { refetchInterval: params.refetchInterval } : {}),
   })
 }
 
