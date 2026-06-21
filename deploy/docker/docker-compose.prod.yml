@@ -77,12 +77,11 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
       - ./livekit-secrets.yaml:/etc/livekit-secrets.yaml
-      # livekit-prod.yaml: prod-only overlay (use_external_ip:true) so the SFU
-      # announces the server's public IP — required for media across NATs.
-      - ./livekit-prod.yaml:/etc/livekit-prod.yaml
-      # - ./livekit-turn.yaml:/etc/livekit-turn.yaml  # obsolete: client-side TURN
-      #   is injected via the backend ice_servers response, not a LiveKit overlay.
-    command: --config /etc/livekit.yaml --config /etc/livekit-secrets.yaml --config /etc/livekit-prod.yaml
+      # - ./livekit-turn.yaml:/etc/livekit-turn.yaml  # uncomment when TURN active
+    # LiveKit v1.7.2 is last-wins on repeated --config (NOT a key merge), so the
+    # effective config is livekit-secrets.yaml — it carries keys + webhook + the
+    # full rtc block (incl. use_external_ip). See livekit-secrets.yaml.tmpl.
+    command: --config /etc/livekit.yaml --config /etc/livekit-secrets.yaml
     deploy:
       resources:
         limits:
