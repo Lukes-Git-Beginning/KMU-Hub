@@ -5734,6 +5734,7 @@
   "notifications.sort.date": "Datum",
   "notifications.sort.priority": "Priorität",
   "notifications.modules.security": "Sicherheit",
+  "notifications.modules.system": "System",
   "notifications.center.emptyUnread": "Alle gelesen",
   "notifications.center.emptyUnreadDescription": "Du hast alle Benachrichtigungen gelesen.",
   "notifications.center.forward": "Weiter",

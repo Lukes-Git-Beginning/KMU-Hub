@@ -40,7 +40,10 @@ import { navItems, moduleHsl } from '@/components/layout/sidebar/nav-items'
 const PRIORITY_RANK: Record<string, number> = { urgent: 3, high: 2, normal: 1, low: 0 }
 
 // Module ids whose readable label differs from the matching nav item label.
-const MODULE_LABEL_OVERRIDE: Record<string, string> = { settings: 'notifications.modules.security' }
+const MODULE_LABEL_OVERRIDE: Record<string, string> = {
+  settings: 'notifications.modules.security',
+  system: 'notifications.modules.system',
+}
 
 // Seeds carry actor_name + server-backed pin state beyond the openapi type.
 type NotificationWithActor = Notification & { actor_name?: string; is_pinned?: boolean }
@@ -620,8 +623,8 @@ function PreferencesPanel() {
           <div className="space-y-6">
             {Object.entries(moduleGroups).map(([moduleId, types]) => (
               <div key={moduleId}>
-                <h4 className="text-sm font-semibold text-foreground capitalize mb-3">
-                  {moduleId}
+                <h4 className="text-sm font-semibold text-foreground mb-3">
+                  {moduleLabelOf(t, moduleId)}
                 </h4>
                 <div className="space-y-3">
                   {types.map((eventType) => {

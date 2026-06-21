@@ -5700,6 +5700,7 @@
   "notifications.sort.date": "Data",
   "notifications.sort.priority": "Priorità",
   "notifications.modules.security": "Sicurezza",
+  "notifications.modules.system": "Sistema",
   "notifications.center.emptyUnread": "Tutte lette",
   "notifications.center.emptyUnreadDescription": "Hai letto tutte le notifiche.",
   "notifications.center.forward": "Avanti",
