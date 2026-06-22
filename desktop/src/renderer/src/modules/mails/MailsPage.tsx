@@ -21,7 +21,6 @@ import {
   Printer,
   Download,
   RefreshCw,
-  Users,
   Loader2,
   Settings,
   ShieldCheck,
@@ -48,7 +47,6 @@ import {
   useDeleteEmailMessage,
   useTriggerSync,
   useSyncStatus,
-  useEmailContactLinks,
   useEmailThread,
   useEmailLabels,
   useSetMessageLabels,
@@ -60,6 +58,7 @@ import type { ComposeMode } from '@/stores/mails'
 import { ComposeInline } from './ComposeInline'
 import { ItemActions, ConfirmDialog, EmptyState, SortMenu, ColorSwatchPicker, type ActionItem, type SortDirection } from '@/components/shared'
 import { RulesDialog } from './RulesDialog'
+import { MailCrmPanel } from './MailCrmPanel'
 import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
 import { userHasRole } from '@/config/roles'
 import { downloadAttachment, printMessage, exportMessageEml } from './lib/mail-export'
@@ -287,9 +286,6 @@ export default function MailsPage() {
   const moveToFolder = useMoveEmailToFolder()
   const deleteMessage = useDeleteEmailMessage()
 
-  // CRM links for selected message
-  const { data: linksData } = useEmailContactLinks(selectedMessageId ?? '')
-
   const selectedMessage = messages.find((m) => m.id === selectedMessageId) ?? null
   const deleteTarget = messages.find((m) => m.id === deleteConfirmId)
 
@@ -413,7 +409,6 @@ export default function MailsPage() {
 
   const showInlineCompose = composeOpen
   const showMessageDetail = selectedMessage && !showInlineCompose
-  const crmLinks = linksData?.links ?? []
 
   // No account configured
   if (!accountId && !accountData) {
@@ -799,15 +794,8 @@ export default function MailsPage() {
                 )}
               </div>
 
-              {/* CRM link badge */}
-              {crmLinks.length > 0 && (
-                <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
-                  <Users className="h-4 w-4 text-primary" />
-                  <span className="text-xs text-primary font-medium">
-                    {t('mails.detail.crmLinked', { count: crmLinks.length })}
-                  </span>
-                </div>
-              )}
+              {/* CRM panel: link contacts, create deal, log activity */}
+              <MailCrmPanel message={selectedMessage} />
 
               {/* DSGVO Aufbewahrungsfrist badge */}
               {(() => {

@@ -21,6 +21,9 @@ import {
   createRule,
   deleteRule,
   applyRules,
+  getContactLinks,
+  linkContact,
+  unlinkContact,
   type ListMessagesExtra,
 } from '../data/email-store'
 import type { EmailRuleInfo } from '@/api/email-types'
@@ -239,9 +242,37 @@ export const emailHandlers = [
     return HttpResponse.json({ status: 'started' })
   }),
 
-  // CRM links for a message (cross-module links — populated by the CRM store)
-  http.get(`${API}/api/v1/email/links/message/:id`, () => {
-    return HttpResponse.json({ links: [] })
+  // CRM links for a message
+  http.get(`${API}/api/v1/email/links/message/:id`, ({ params }) => {
+    const messageId = params.id as string
+    const links = getContactLinks(messageId).map((contactId, i) => ({
+      id: `lnk-${messageId}-${i}`,
+      message_id: messageId,
+      contact_id: contactId,
+      link_type: 'manual' as const,
+      created_at: now(),
+    }))
+    return HttpResponse.json({ links })
+  }),
+
+  // Link / unlink a contact to a message
+  http.post(`${API}/api/v1/email/links/`, async ({ request }) => {
+    const body = (await request.json()) as { message_id?: string; contact_id?: string; link_type?: string }
+    if (body.message_id && body.contact_id) linkContact(body.message_id, body.contact_id)
+    return HttpResponse.json({
+      link: {
+        id: `lnk-${body.message_id}-${body.contact_id}`,
+        message_id: body.message_id,
+        contact_id: body.contact_id,
+        link_type: body.link_type ?? 'manual',
+        created_at: now(),
+      },
+    }, { status: 201 })
+  }),
+  http.delete(`${API}/api/v1/email/links/`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { message_id?: string; contact_id?: string }
+    if (body.message_id && body.contact_id) unlinkContact(body.message_id, body.contact_id)
+    return HttpResponse.json({ success: true })
   }),
 
   // Contact emails — emails linked to a specific contact

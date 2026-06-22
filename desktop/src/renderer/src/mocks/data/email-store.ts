@@ -144,6 +144,8 @@ interface EmailState {
   signatures: EmailSignatureInfo[]
   labels: EmailLabelInfo[]
   rules: EmailRuleInfo[]
+  /** message id → linked CRM contact ids. */
+  contactLinks: Record<string, string[]>
 }
 
 const seedLabels: EmailLabelInfo[] = [
@@ -252,6 +254,7 @@ function seed(): EmailState {
     signatures,
     labels: seedLabels.map((l) => ({ ...l })),
     rules: seedRules.map((r) => ({ ...r })),
+    contactLinks: { 'em-001': [IDS.contacts.mueller] },
   }
 }
 
@@ -266,6 +269,7 @@ export function resetEmailStore(): void {
   state.signatures = fresh.signatures
   state.labels = fresh.labels
   state.rules = fresh.rules
+  state.contactLinks = fresh.contactLinks
 }
 
 // ---------------------------------------------------------------------------
@@ -569,4 +573,21 @@ export function applyRules(): number {
   }
   recomputeFolderCounts()
   return affected
+}
+
+// ---------------------------------------------------------------------------
+// CRM contact links
+// ---------------------------------------------------------------------------
+
+export function getContactLinks(messageId: string): string[] {
+  return state.contactLinks[messageId] ?? []
+}
+
+export function linkContact(messageId: string, contactId: string): void {
+  const existing = state.contactLinks[messageId] ?? []
+  if (!existing.includes(contactId)) state.contactLinks[messageId] = [...existing, contactId]
+}
+
+export function unlinkContact(messageId: string, contactId: string): void {
+  state.contactLinks[messageId] = (state.contactLinks[messageId] ?? []).filter((id) => id !== contactId)
 }
