@@ -316,6 +316,13 @@ func (s *NotificationGRPCServer) GetQuietHours(ctx context.Context, req *notific
 
 	qh, err := s.prefService.GetQuietHours(ctx, tenantID, userID)
 	if err != nil {
+		// No quiet-hours record yet is a normal state, not an error: return a
+		// disabled default so the client reads a clean 200 instead of a 404.
+		if errors.Is(err, preference.ErrQuietHoursNotFound) {
+			return &notificationv1.GetQuietHoursResponse{
+				QuietHours: &notificationv1.QuietHoursInfo{},
+			}, nil
+		}
 		return nil, mapNotificationError(err)
 	}
 

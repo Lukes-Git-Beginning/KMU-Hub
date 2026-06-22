@@ -61,7 +61,12 @@ func (n *NotificationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(ht
 		// Quiet Hours
 		r.With(middleware.RequirePermission("notifications", "read")).Get("/quiet-hours", n.HandleGetQuietHours)
 		r.With(middleware.RequirePermission("notifications", "write")).Put("/quiet-hours", n.HandleUpdateQuietHours)
+
+		// Do Not Disturb -- GET reads the current manual-DND status, POST enables it,
+		// DELETE disables it. All three return the flat DNDStatus shape {is_active, expires_at}.
+		r.With(middleware.RequirePermission("notifications", "read")).Get("/dnd", n.HandleGetDND)
 		r.With(middleware.RequirePermission("notifications", "write")).Post("/dnd", n.HandleToggleDND)
+		r.With(middleware.RequirePermission("notifications", "write")).Delete("/dnd", n.HandleDisableDND)
 	})
 }
 
@@ -495,5 +500,63 @@ func (n *NotificationRoutes) HandleToggleDND(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, dndStatusFromQuietHours(resp.GetQuietHours()))
+}
+
+// dndStatusFromQuietHours maps the QuietHours backing record to the flat DNDStatus
+// shape the desktop client expects: {is_active, expires_at?}.
+func dndStatusFromQuietHours(qh *notificationv1.QuietHoursInfo) map[string]any {
+	out := map[string]any{"is_active": false}
+	if qh == nil {
+		return out
+	}
+	out["is_active"] = qh.GetManualDnd()
+	if until := qh.GetManualDndUntil(); until != nil {
+		out["expires_at"] = until.AsTime().Format(time.RFC3339)
+	}
+	return out
+}
+
+// HandleGetDND returns the current manual Do-Not-Disturb status, derived from the
+// user's quiet-hours record. Returns a disabled default when no record exists.
+func (n *NotificationRoutes) HandleGetDND(w http.ResponseWriter, r *http.Request) {
+	client, err := n.getNotificationClient()
+	if err != nil {
+		respondServiceUnavailable(w, n.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.GetQuietHours(r.Context(), &notificationv1.GetQuietHoursRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, dndStatusFromQuietHours(resp.GetQuietHours()))
+}
+
+// HandleDisableDND turns off manual Do-Not-Disturb mode.
+func (n *NotificationRoutes) HandleDisableDND(w http.ResponseWriter, r *http.Request) {
+	client, err := n.getNotificationClient()
+	if err != nil {
+		respondServiceUnavailable(w, n.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.ToggleManualDND(r.Context(), &notificationv1.ToggleManualDNDRequest{
+		UserId:  userID,
+		Enabled: false,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, dndStatusFromQuietHours(resp.GetQuietHours()))
 }
