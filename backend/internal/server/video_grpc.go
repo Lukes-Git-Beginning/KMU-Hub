@@ -751,7 +751,13 @@ func (s *VideoGRPCServer) ListMeetings(ctx context.Context, req *videov1.ListMee
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	filter := meeting.MeetingFilter{
+		TenantID:   tenantID,
 		AttendeeID: &userID,
 		Limit:      int(req.PageSize),
 		Offset:     int((req.Page - 1) * req.PageSize),
