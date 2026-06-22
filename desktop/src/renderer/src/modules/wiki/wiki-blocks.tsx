@@ -329,7 +329,9 @@ const wikiImage: BlockTypeDef = { ...core.image, Edit: WikiImageEdit as BlockTyp
 // the structural elements (collapsible sections, code, tables, attachments,
 // quotes, bookmarks); each lands here as it's built — the engine and every other
 // surface stay untouched.
-const wikiSpecial = createSpecialBlockDefs({ only: ['toggle', 'code', 'simpletable', 'attachment'] })
+const wikiSpecial = createSpecialBlockDefs({
+  only: ['toggle', 'code', 'simpletable', 'attachment', 'quote', 'bookmark'],
+})
 
 /**
  * Insert-menu order: prose first (the writer's default), then structure and the

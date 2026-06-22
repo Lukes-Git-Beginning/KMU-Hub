@@ -52,5 +52,28 @@ export interface AttachmentBlock extends DocBlockBase {
   url?: string
 }
 
+/** Editorial pull-quote with an optional attribution. */
+export interface QuoteBlock extends DocBlockBase {
+  type: 'quote'
+  text: string
+  attribution?: string
+}
+
+/** A link rendered as a preview card (title + description + domain). */
+export interface BookmarkBlock extends DocBlockBase {
+  type: 'bookmark'
+  url: string
+  title?: string
+  description?: string
+  /** Optional preview image. */
+  image?: string
+}
+
 /** The union of every special block type. Grows as blocks land. */
-export type SpecialBlock = ToggleBlock | CodeBlock | SimpleTableBlock | AttachmentBlock
+export type SpecialBlock =
+  | ToggleBlock
+  | CodeBlock
+  | SimpleTableBlock
+  | AttachmentBlock
+  | QuoteBlock
+  | BookmarkBlock

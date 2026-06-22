@@ -155,6 +155,19 @@ const attach = (name: string, mime: string, text: string): SeedBlock => ({
   size: new Blob([text]).size,
   url: `data:${mime};charset=utf-8,${encodeURIComponent(text)}`,
 })
+const quote = (text: string, attribution?: string): SeedBlock => ({
+  id: sbid('b'),
+  type: 'quote',
+  text,
+  ...(attribution ? { attribution } : {}),
+})
+const bookmark = (url: string, title?: string, description?: string): SeedBlock => ({
+  id: sbid('b'),
+  type: 'bookmark',
+  url,
+  ...(title ? { title } : {}),
+  ...(description ? { description } : {}),
+})
 
 /** One full-width row holding the given blocks. */
 const row = (...blocks: SeedBlock[]): SeedRow => ({
@@ -194,6 +207,12 @@ const ARTICLES: WikiArticle[] = [
             'Onboarding neuer Mitarbeitender</a>. Bei Fragen hilft dir ' +
             `<span data-mention-id="${IDS.users.julia}" class="${WIKI_MENTION_CLASS}">@Julia</span> ` +
             'gerne weiter.</p>',
+        ),
+      ),
+      row(
+        quote(
+          'Wissen, das man teilt, multipliziert sich. Wissen, das man hortet, verliert man.',
+          'Leitsatz des Cosmi-Wikis',
         ),
       ),
       row(h(2, 'Was du hier findest')),
@@ -482,6 +501,14 @@ const ARTICLES: WikiArticle[] = [
           '<p>Cosmi protokolliert jede Einwilligung mit Zeitstempel und Zweck — die Nachweise ' +
             'findest du im Kontakt unter „Consent".</p>',
           'Nachweise in Cosmi',
+        ),
+      ),
+      row(h(2, 'Weiterführend')),
+      row(
+        bookmark(
+          'https://eur-lex.europa.eu/legal-content/DE/TXT/?uri=CELEX:32016R0679',
+          'Verordnung (EU) 2016/679 (DSGVO)',
+          'Der offizielle Verordnungstext auf EUR-Lex — maßgeblich bei Auslegungsfragen.',
         ),
       ),
     ),

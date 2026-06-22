@@ -17,10 +17,13 @@ import {
   FileImage,
   FileSpreadsheet,
   FileText,
+  Globe,
+  Link2,
   ListTree,
   Minus,
   Paperclip,
   Plus,
+  Quote as QuoteIcon,
   Table2,
   Trash2,
   Upload,
@@ -31,7 +34,23 @@ import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { docUid } from '../types'
 import { defineBlock, type BlockEditProps, type BlockTypeDef, type BlockViewProps } from '../block-registry'
 import { CODE_LANGUAGES, highlightToReact } from './code-highlight'
-import type { AttachmentBlock, CodeBlock, SimpleTableBlock, ToggleBlock } from './special-types'
+import type {
+  AttachmentBlock,
+  BookmarkBlock,
+  CodeBlock,
+  QuoteBlock,
+  SimpleTableBlock,
+  ToggleBlock,
+} from './special-types'
+
+/** Bare hostname of a URL for display (www. stripped), or the raw string. */
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
 
 /* ------------------------------ file helpers ------------------------------ */
 
@@ -431,6 +450,129 @@ function AttachmentView({ block }: BlockViewProps<AttachmentBlock>) {
   )
 }
 
+/* --------------------------------- quote ---------------------------------- */
+
+function QuoteEdit({ block, onPatch }: BlockEditProps<QuoteBlock>) {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      <div className="flex gap-2">
+        <QuoteIcon className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+        <textarea
+          value={block.text}
+          onChange={(e) => onPatch({ text: e.target.value })}
+          rows={Math.min(Math.max(block.text.split('\n').length, 2), 8)}
+          placeholder={t('document.block.quote.placeholder', { defaultValue: 'Zitat…' })}
+          className="min-w-0 flex-1 resize-y rounded-md border border-transparent bg-transparent px-1.5 py-1 text-base italic text-foreground hover:border-border focus:border-border focus:outline-none"
+        />
+      </div>
+      <input
+        value={block.attribution ?? ''}
+        onChange={(e) => onPatch({ attribution: e.target.value })}
+        placeholder={t('document.block.quote.attributionPlaceholder', { defaultValue: 'Quelle (optional)' })}
+        className="ml-6 w-[calc(100%-1.5rem)] rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm text-muted-foreground hover:border-border focus:border-border focus:outline-none"
+      />
+    </div>
+  )
+}
+
+function QuoteView({ block }: BlockViewProps<QuoteBlock>) {
+  if (!block.text.trim()) return null
+  return (
+    <figure className="report-keep border-l-2 border-primary/40 pl-5">
+      <blockquote className="report-serif max-w-[55ch] text-xl italic leading-relaxed text-foreground">
+        {block.text}
+      </blockquote>
+      {block.attribution && (
+        <figcaption className="mt-2 text-sm text-muted-foreground">— {block.attribution}</figcaption>
+      )}
+    </figure>
+  )
+}
+
+/* -------------------------------- bookmark -------------------------------- */
+
+function BookmarkCard({ block }: { block: BookmarkBlock }) {
+  const domain = domainOf(block.url)
+  return (
+    <div className="flex items-stretch overflow-hidden rounded-xl border border-border-muted bg-card transition-colors group-hover/bm:border-primary/40">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-3">
+        <p className="truncate text-sm font-medium text-foreground">{block.title || domain}</p>
+        {block.description && (
+          <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">{block.description}</p>
+        )}
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
+          <Globe className="h-3 w-3" aria-hidden="true" />
+          {domain}
+        </span>
+      </div>
+      {block.image ? (
+        <img src={block.image} alt="" className="w-28 shrink-0 object-cover" />
+      ) : (
+        <div className="flex w-14 shrink-0 items-center justify-center bg-secondary/50 text-muted-foreground">
+          <Link2 className="h-5 w-5" aria-hidden="true" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BookmarkEdit({ block, onPatch }: BlockEditProps<BookmarkBlock>) {
+  const { t } = useTranslation()
+  const inputCls =
+    'w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring'
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      {block.url.trim() ? (
+        <div className="group/bm">
+          <BookmarkCard block={block} />
+        </div>
+      ) : (
+        <div className="flex h-16 items-center justify-center gap-1.5 rounded-lg bg-secondary/40 text-muted-foreground">
+          <Link2 className="h-4 w-4 text-muted-foreground/50" />
+          <span className="text-[11px]">
+            {t('document.block.bookmark.hint', { defaultValue: 'Link einfügen für eine Vorschaukarte' })}
+          </span>
+        </div>
+      )}
+      <input
+        value={block.url}
+        onChange={(e) => onPatch({ url: e.target.value })}
+        placeholder={t('document.block.bookmark.urlPlaceholder', { defaultValue: 'https://…' })}
+        className={inputCls}
+      />
+      <div className="flex gap-2">
+        <input
+          value={block.title ?? ''}
+          onChange={(e) => onPatch({ title: e.target.value })}
+          placeholder={t('document.block.bookmark.titlePlaceholder', { defaultValue: 'Titel (optional)' })}
+          className={inputCls}
+        />
+        <input
+          value={block.description ?? ''}
+          onChange={(e) => onPatch({ description: e.target.value })}
+          placeholder={t('document.block.bookmark.descriptionPlaceholder', { defaultValue: 'Beschreibung (optional)' })}
+          className={inputCls}
+        />
+      </div>
+    </div>
+  )
+}
+
+function BookmarkView({ block }: BlockViewProps<BookmarkBlock>) {
+  if (!block.url.trim()) return null
+  return (
+    <a
+      href={block.url}
+      target="_blank"
+      rel="noreferrer"
+      className="report-keep group/bm block no-underline"
+    >
+      <BookmarkCard block={block} />
+    </a>
+  )
+}
+
 /* ------------------------------ registry defs ----------------------------- */
 
 /**
@@ -485,6 +627,25 @@ const SPECIAL_DEFS: Record<string, BlockTypeDef> = {
     makeDefault: () => ({ id: docUid('b'), type: 'attachment', name: '' }),
     Edit: AttachmentEdit,
     View: AttachmentView,
+  }),
+  quote: defineBlock<QuoteBlock>({
+    type: 'quote',
+    icon: QuoteIcon,
+    labelKey: 'document.block.quote.label',
+    group: 'content',
+    makeDefault: () => ({ id: docUid('b'), type: 'quote', text: '' }),
+    Edit: QuoteEdit,
+    View: QuoteView,
+  }),
+  bookmark: defineBlock<BookmarkBlock>({
+    type: 'bookmark',
+    icon: Link2,
+    labelKey: 'document.block.bookmark.label',
+    group: 'content',
+    atomic: true,
+    makeDefault: () => ({ id: docUid('b'), type: 'bookmark', url: '' }),
+    Edit: BookmarkEdit,
+    View: BookmarkView,
   }),
 }
 
