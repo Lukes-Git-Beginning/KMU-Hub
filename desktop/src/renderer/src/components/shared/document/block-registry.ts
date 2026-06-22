@@ -40,6 +40,16 @@ export interface BlockTypeDef<B extends DocBlockBase = DocBlockBase> {
   atomic?: boolean
   /** Factory for a fresh block of this type. */
   makeDefault: () => B
+  /**
+   * Convert family: blocks sharing a `convertGroup` can be turned into one
+   * another (e.g. text/heading/quote/callout all carry prose). A block opts in
+   * by also providing getText/setText so its content bridges across the change.
+   */
+  convertGroup?: string
+  /** Extract this block's text content for a type conversion. */
+  getText?: (block: B) => string
+  /** Carry text into a freshly made block of this type during a conversion. */
+  setText?: (block: B, text: string) => B
   Edit: ComponentType<BlockEditProps<B>>
   View: ComponentType<BlockViewProps<B>>
 }

@@ -24,6 +24,7 @@ import DOMPurify from 'dompurify'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { docUid } from '../types'
 import { defineBlock, type BlockEditProps, type BlockTypeDef, type BlockViewProps } from '../block-registry'
+import { htmlToText, textToHtml } from './convert-helpers'
 import type {
   BulletBlock,
   CalloutBlock,
@@ -311,6 +312,9 @@ export function createCoreBlockDefs(options?: { omit?: string[] }): BlockTypeDef
       icon: Heading,
       labelKey: 'document.block.heading.label',
       group: 'content',
+      convertGroup: 'text',
+      getText: (b) => b.text,
+      setText: (b, t) => ({ ...b, text: t }),
       makeDefault: () => ({ id: docUid('b'), type: 'heading', level: 1, text: '' }),
       Edit: HeadingEdit,
       View: HeadingView,
@@ -320,6 +324,9 @@ export function createCoreBlockDefs(options?: { omit?: string[] }): BlockTypeDef
       icon: AlignLeft,
       labelKey: 'document.block.text.label',
       group: 'content',
+      convertGroup: 'text',
+      getText: (b) => htmlToText(b.html),
+      setText: (b, t) => ({ ...b, html: textToHtml(t) }),
       makeDefault: () => ({ id: docUid('b'), type: 'text', html: '' }),
       Edit: TextEdit,
       View: TextView,
@@ -329,6 +336,9 @@ export function createCoreBlockDefs(options?: { omit?: string[] }): BlockTypeDef
       icon: List,
       labelKey: 'document.block.bullet.label',
       group: 'content',
+      convertGroup: 'text',
+      getText: (b) => b.items.filter((i) => i.trim().length > 0).join('\n'),
+      setText: (b, t) => ({ ...b, items: t ? t.split('\n') : [''] }),
       makeDefault: () => ({ id: docUid('b'), type: 'bullet', items: [''] }),
       Edit: BulletEdit,
       View: BulletView,
@@ -338,6 +348,9 @@ export function createCoreBlockDefs(options?: { omit?: string[] }): BlockTypeDef
       icon: Lightbulb,
       labelKey: 'document.block.callout.label',
       group: 'content',
+      convertGroup: 'text',
+      getText: (b) => htmlToText(b.html),
+      setText: (b, t) => ({ ...b, html: textToHtml(t) }),
       makeDefault: () => ({ id: docUid('b'), type: 'callout', variant: 'info', html: '' }),
       Edit: CalloutEdit,
       View: CalloutView,

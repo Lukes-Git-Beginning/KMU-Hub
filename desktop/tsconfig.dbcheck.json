@@ -11,6 +11,7 @@
     "src/renderer/src/components/shared/document/blocks/special-types.ts",
     "src/renderer/src/components/shared/document/blocks/SpecialBlocks.tsx",
     "src/renderer/src/components/shared/document/blocks/code-highlight.tsx",
+    "src/renderer/src/components/shared/document/blocks/convert-helpers.ts",
     "src/renderer/src/components/shared/document/DocumentBlockEditor.tsx",
     "src/renderer/src/components/shared/document/DocumentReader.tsx",
     "src/renderer/src/components/shared/document/index.ts",

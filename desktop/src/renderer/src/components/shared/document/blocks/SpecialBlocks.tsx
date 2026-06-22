@@ -34,6 +34,7 @@ import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { docUid } from '../types'
 import { defineBlock, type BlockEditProps, type BlockTypeDef, type BlockViewProps } from '../block-registry'
 import { CODE_LANGUAGES, highlightToReact } from './code-highlight'
+import { htmlToText, textToHtml } from './convert-helpers'
 import type {
   AttachmentBlock,
   BookmarkBlock,
@@ -586,6 +587,9 @@ const SPECIAL_DEFS: Record<string, BlockTypeDef> = {
     icon: ListTree,
     labelKey: 'document.block.toggle.label',
     group: 'content',
+    convertGroup: 'text',
+    getText: (b) => htmlToText(b.html),
+    setText: (b, t) => ({ ...b, html: textToHtml(t) }),
     makeDefault: () => ({ id: docUid('b'), type: 'toggle', title: '', html: '', open: false }),
     Edit: ToggleEdit,
     View: ToggleView,
@@ -633,6 +637,9 @@ const SPECIAL_DEFS: Record<string, BlockTypeDef> = {
     icon: QuoteIcon,
     labelKey: 'document.block.quote.label',
     group: 'content',
+    convertGroup: 'text',
+    getText: (b) => b.text,
+    setText: (b, t) => ({ ...b, text: t }),
     makeDefault: () => ({ id: docUid('b'), type: 'quote', text: '' }),
     Edit: QuoteEdit,
     View: QuoteView,

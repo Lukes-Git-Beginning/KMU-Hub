@@ -17,6 +17,7 @@ import {
   GripVertical,
   MoreVertical,
   Plus,
+  Replace,
   Square,
   Trash2,
   X,
@@ -39,7 +40,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { docUid, emptyDocColumn, type DocBlockBase, type DocColumn, type DocRow } from './types'
-import type { BlockRegistry } from './block-registry'
+import type { BlockRegistry, BlockTypeDef } from './block-registry'
 
 /** A module-supplied insert that adds a whole pre-shaped row (e.g. a KPI row). */
 export interface QuickInsert {
@@ -83,6 +84,29 @@ export function DocumentBlockEditor({
   const [pickerOpen, setPickerOpen] = useState(false)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const insertable = Object.values(registry).filter((d) => d.insertable !== false)
+  // The insert menu groups blocks by their declared `group` (content / data /
+  // layout). Layout-group blocks (divider, page break) join the layout section
+  // beside the column inserts.
+  const insertGroups = {
+    content: insertable.filter((d) => (d.group ?? 'content') === 'content'),
+    data: insertable.filter((d) => d.group === 'data'),
+    layout: insertable.filter((d) => d.group === 'layout'),
+  }
+
+  const insertButton = (def: BlockTypeDef) => {
+    const Icon = def.icon
+    return (
+      <button
+        key={def.type}
+        type="button"
+        onClick={() => addBlock(def.type)}
+        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
+      >
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        {t(def.labelKey)}
+      </button>
+    )
+  }
 
   function makeBlock(type: string): DocBlockBase {
     return registry[type].makeDefault()
@@ -152,6 +176,37 @@ export function DocumentBlockEditor({
     )
   }
 
+  /** Other block types this block can convert into (same convert family). */
+  function convertTargets(type: string): BlockTypeDef[] {
+    const def = registry[type]
+    if (!def?.convertGroup) return []
+    return Object.values(registry).filter(
+      (d) => d.convertGroup === def.convertGroup && d.type !== def.type && d.insertable !== false,
+    )
+  }
+
+  /** Convert a block to another type in its family, bridging the text content
+   *  and keeping the id so its position (and any references) stay put. */
+  function convertBlock(blockId: string, targetType: string) {
+    onChange(
+      rows.map((row) => ({
+        ...row,
+        columns: row.columns.map((col) => ({
+          ...col,
+          blocks: col.blocks.map((b) => {
+            if (b.id !== blockId) return b
+            const from = registry[b.type]
+            const to = registry[targetType]
+            if (!from || !to) return b
+            const text = from.getText ? from.getText(b) : ''
+            const next = to.setText ? to.setText(to.makeDefault(), text) : to.makeDefault()
+            return { ...next, id: b.id }
+          }),
+        })),
+      })),
+    )
+  }
+
   function addBlockToColumn(rowId: string, colId: string, type: string) {
     onChange(
       rows.map((row) =>
@@ -205,7 +260,7 @@ export function DocumentBlockEditor({
     onChange(arrayMove(rows, from, to))
   }
 
-  const hasLayoutSection = enableColumns || quickInserts.length > 0
+  const hasLayoutSection = enableColumns || quickInserts.length > 0 || insertGroups.layout.length > 0
 
   return (
     <div className={`mx-auto ${widthClass} space-y-4 pl-6`}>
@@ -240,6 +295,11 @@ export function DocumentBlockEditor({
                         <div key={block.id} className="group/block relative">
                           <Edit block={block} onPatch={(p) => patchBlock(block.id, p)} />
                           <div className="absolute -right-2 -top-2 z-20 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100">
+                            <BlockConvertButton
+                              targets={convertTargets(block.type)}
+                              ctrlCls={ctrlCls}
+                              onConvert={(target) => convertBlock(block.id, target)}
+                            />
                             {stacked && (
                               <>
                                 <button
@@ -304,28 +364,25 @@ export function DocumentBlockEditor({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {insertable.map((def) => {
-              const Icon = def.icon
-              return (
-                <button
-                  key={def.type}
-                  type="button"
-                  onClick={() => addBlock(def.type)}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
-                >
-                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                  {t(def.labelKey)}
-                </button>
-              )
-            })}
-          </div>
+          {(['content', 'data'] as const).map((group) =>
+            insertGroups[group].length === 0 ? null : (
+              <div key={group}>
+                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                  {t(`document.editor.group.${group}`, { defaultValue: group })}
+                </span>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  {insertGroups[group].map(insertButton)}
+                </div>
+              </div>
+            ),
+          )}
           {hasLayoutSection && (
             <div className="border-t border-border-muted pt-3">
               <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 {t('document.editor.layout', { defaultValue: 'Layout' })}
               </span>
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {insertGroups.layout.map(insertButton)}
                 {enableColumns && (
                   <>
                     <button
@@ -554,6 +611,59 @@ function ColumnInsert({
                 onClick={() => {
                   setOpen(false)
                   onAdd(def.type)
+                }}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary"
+              >
+                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                {t(def.labelKey)}
+              </button>
+            )
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Hover control that converts a block into another type of its convert family.
+ *  Renders nothing when the block has no conversion targets. */
+function BlockConvertButton({
+  targets,
+  ctrlCls,
+  onConvert,
+}: {
+  targets: BlockTypeDef[]
+  ctrlCls: string
+  onConvert: (targetType: string) => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  if (targets.length === 0) return null
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={ctrlCls}
+          aria-label={t('document.editor.convertBlock', { defaultValue: 'Block umwandeln' })}
+        >
+          <Replace className="h-3 w-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-44 p-1.5" align="end" sideOffset={4}>
+        <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('document.editor.convertTo', { defaultValue: 'Umwandeln in' })}
+        </p>
+        <div className="flex flex-col gap-0.5">
+          {targets.map((def) => {
+            const Icon = def.icon
+            return (
+              <button
+                key={def.type}
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  onConvert(def.type)
                 }}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary"
               >
