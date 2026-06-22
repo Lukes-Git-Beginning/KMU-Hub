@@ -353,6 +353,75 @@
 }
 
 /* ════════════════════════
+   AUTH LAUNCH — CosmiLaunch-Choreografie (Login-Screen)
+   Logo gleitet von der Screen-Mitte in die rechte Hälfte, das Login-Fenster
+   faded links ein. Ausschließlich transform/opacity (GPU).
+   ════════════════════════ */
+:root {
+  --dur-launch-settle: 1100ms;  /* Logo: Mitte → rechts */
+  --dur-launch-form:    560ms;   /* Login-Fenster fade-in */
+}
+
+/* Sanft twinkelnde Sterne im Weltraum-Hintergrund (SpaceBackground).
+   Pro Stern: --o = Basis-Opacity, Dauer/Delay inline gesetzt. GPU (opacity). */
+@keyframes cosmi-twinkle {
+  0%, 100% { opacity: calc(var(--o, 0.3) * 0.4); }
+  50%      { opacity: var(--o, 0.3); }
+}
+.cosmi-star {
+  animation-name: cosmi-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.cosmi-launch-logo {
+  position: absolute;
+  top: 50%;
+  left: 75%;
+  /* Intro: vom rechten Anker (75%) per -25vw in die Screen-Mitte, leicht größer */
+  transform: translate(-50%, -50%) translateX(-25vw) scale(1.06);
+  transition: transform var(--dur-launch-settle) var(--ease-page);
+  will-change: transform;
+  z-index: 10;
+}
+.cosmi-launch-logo.is-settled {
+  transform: translate(-50%, -50%) translateX(0) scale(1);
+}
+
+.cosmi-auth-form {
+  position: absolute;
+  top: 50%;
+  left: 25%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  opacity: 0;
+  transition: opacity var(--dur-launch-form) var(--ease-out-ui);
+  transition-delay: 220ms;
+  pointer-events: none;
+  z-index: 20;
+}
+.cosmi-auth-form.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Schmale Fenster: stapeln — Logo oben (kleiner), Login-Fenster darunter */
+@media (max-width: 860px) {
+  .cosmi-launch-logo,
+  .cosmi-launch-logo.is-settled {
+    top: 27%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.66);
+  }
+  .cosmi-auth-form {
+    top: auto;
+    bottom: 7%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* ════════════════════════
    REDUCED MOTION
    ════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
@@ -392,6 +461,15 @@
   }
 
   .menu-stagger > * {
+    animation: none !important;
+  }
+
+  .cosmi-launch-logo,
+  .cosmi-auth-form {
+    transition: none !important;
+  }
+
+  .cosmi-star {
     animation: none !important;
   }
 }

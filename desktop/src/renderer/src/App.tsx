@@ -299,6 +299,9 @@ const router = createHashRouter([
     path: '/reset-password',
     element: <ResetPasswordPage />,
   },
+  // Dev-/QA-only: Login-Screen ohne GuestRoute ansehbar (DEV_BYPASS_AUTH leitet
+  // /login sonst auf / um). In Produktions-Builds nicht registriert.
+  ...(import.meta.env.DEV ? [{ path: '/launch-preview', element: <LoginPage /> }] : []),
   {
     path: '/compose-window',
     element: lazyRoute(ComposeWindowPage),

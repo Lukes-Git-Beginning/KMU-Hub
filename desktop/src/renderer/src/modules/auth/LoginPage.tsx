@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AuthLayout } from './AuthLayout'
-import { branding } from '@/config/branding'
 
 type LoginStage = 'credentials' | '2fa_prompt'
 
@@ -195,24 +194,12 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       <div className="animate-fade-up space-y-8">
-        {/* Logo + headline */}
-        <div className="space-y-3">
-          <div className="flex h-11 w-11 items-center justify-center animate-scale-in-bounce">
-            <img
-              src={branding.cosmi.icon128}
-              alt="Cosmi"
-              width={44}
-              height={44}
-              className="h-11 w-11 object-contain"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {t('auth.login')}
-            </h1>
-            <p className="text-sm text-muted-foreground">Cosmi &mdash; by Zentria</p>
-          </div>
+        {/* Headline (Marke kommt aus der Launch-Animation, kein Inline-Icon) */}
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {t('auth.login')}
+          </h1>
+          <p className="text-sm text-muted-foreground">Cosmi &mdash; by Zentria</p>
         </div>
 
         {/* Form */}

@@ -31,26 +31,6 @@ export const AVAILABLE_LOCALES = SUPPORTED_LOCALES.map((code) => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Browser detection
-// ---------------------------------------------------------------------------
-
-/**
- * Detect the user's preferred language from the browser.
- * Returns a supported locale or the default (DE) if not supported.
- */
-function detectBrowserLocale(): SupportedLocale {
-  try {
-    const browserLang = navigator.language.split('-')[0].toLowerCase()
-    if ((SUPPORTED_LOCALES as readonly string[]).includes(browserLang)) {
-      return browserLang as SupportedLocale
-    }
-  } catch {
-    // navigator.language may not be available in all environments
-  }
-  return DEFAULT_LOCALE
-}
-
-// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
@@ -79,12 +59,12 @@ export function useLocale(): UseLocaleReturn {
 
   const isAutoDetected = storeLocale === null
 
-  const locale = useMemo<SupportedLocale>(() => {
-    if (storeLocale !== null) {
-      return storeLocale
-    }
-    return detectBrowserLocale()
-  }, [storeLocale])
+  // DACH-Produkt: ohne explizite Wahl ist Deutsch der Default (kein Browser-
+  // Auto-Detect → kein versehentliches Englisch). Eine gesetzte Sprache gewinnt.
+  const locale = useMemo<SupportedLocale>(
+    () => storeLocale ?? DEFAULT_LOCALE,
+    [storeLocale],
+  )
 
   const resetToAuto = useCallback(() => {
     resetLocale()
