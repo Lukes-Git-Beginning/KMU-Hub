@@ -419,6 +419,7 @@ export default function FormularePage() {
     updateDraftMeta,
     addField,
     removeField,
+    duplicateField,
     reorderFields,
     updateField,
   } = useFormulareStore()
@@ -1083,6 +1084,11 @@ export default function FormularePage() {
 
   const handleRemoveField = (fieldId: string) => {
     removeField(fieldId)
+  }
+
+  const handleDuplicateField = (fieldId: string) => {
+    duplicateField(fieldId)
+    toast.success(t('formulare.toast.feldDupliziert'))
   }
 
   const openFieldConfig = (field: FormField) => {
@@ -1767,6 +1773,7 @@ export default function FormularePage() {
                           typeLabel={FIELD_TYPE_LABELS[field.type]}
                           t={t}
                           onEdit={() => openFieldConfig(field)}
+                          onDuplicate={() => handleDuplicateField(field.id)}
                           onRemove={() => handleRemoveField(field.id)}
                         />
                       )
@@ -2434,9 +2441,11 @@ export default function FormularePage() {
               <ClipboardList className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-foreground">87%</p>
+              <p className="text-2xl font-semibold text-foreground">
+                {newSubmissionCount}
+              </p>
               <p className="text-xs text-muted-foreground">
-                {t('formulare.stats.completionRate')}
+                {t('formulare.stats.neueEingaenge')}
               </p>
             </div>
           </div>
@@ -4422,6 +4431,7 @@ interface SortableFieldItemProps {
   onPageTitleChange?: (value: string) => void
   t: (key: string, opts?: Record<string, unknown>) => string
   onEdit?: () => void
+  onDuplicate?: () => void
   onRemove: () => void
 }
 
@@ -4433,6 +4443,7 @@ function SortableFieldItem({
   onPageTitleChange,
   t,
   onEdit,
+  onDuplicate,
   onRemove,
 }: SortableFieldItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -4542,6 +4553,17 @@ function SortableFieldItem({
             title={t('formulare.actions.bearbeiten')}
           >
             <Edit className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            data-field-control
+            onPointerDown={stop}
+            onClick={onDuplicate}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary"
+            title={t('formulare.editor.feldDuplizieren')}
+          >
+            <Copy className="h-3.5 w-3.5" />
           </button>
         )}
         <button
@@ -4710,8 +4732,16 @@ function SubmissionsPanel({
           {visible.map((sub) => (
             <tr
               key={sub.id}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectSubmission(sub)}
-              className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onSelectSubmission(sub)
+                }
+              }}
+              className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:bg-secondary/50"
             >
               <td className="px-4 py-2.5 text-foreground">
                 {formatDateTime(sub.submittedAt)}

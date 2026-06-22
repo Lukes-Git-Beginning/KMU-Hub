@@ -114,6 +114,7 @@ interface FormulareClientState {
 
   addField: (field: Omit<FormField, 'id'>) => void
   removeField: (fieldId: string) => void
+  duplicateField: (fieldId: string) => void
   reorderFields: (fields: FormField[]) => void
   updateField: (fieldId: string, updates: Partial<Omit<FormField, 'id'>>) => void
 
@@ -161,6 +162,19 @@ export const useFormulareStore = create<FormulareClientState>()(
               fields: state.draft.fields.filter((f) => f.id !== fieldId),
             },
           }
+        }),
+
+      duplicateField: (fieldId) =>
+        set((state) => {
+          if (!state.draft) return state
+          const idx = state.draft.fields.findIndex((f) => f.id === fieldId)
+          if (idx === -1) return state
+          const source = state.draft.fields[idx]
+          const copy: FormField = { ...source, id: `field-${nextFieldId++}` }
+          const fields = [...state.draft.fields]
+          // Insert the copy directly after the source field.
+          fields.splice(idx + 1, 0, copy)
+          return { draft: { ...state.draft, fields } }
         }),
 
       reorderFields: (fields) =>
