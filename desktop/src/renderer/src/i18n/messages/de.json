@@ -1438,6 +1438,8 @@
   "chat.header.typingMany": "Mehrere Personen tippen...",
   "chat.header.typingOne": "{user} tippt...",
   "chat.header.typingTwo": "{user1} und {user2} tippen...",
+  "chat.files.download": "Herunterladen",
+  "chat.files.remove": "Entfernen",
   "chat.input.attachFile": "Datei anhängen",
   "chat.input.dragDropHint": "Dateien per Drag & Drop in den Chat ziehen",
   "chat.input.placeholder": "Nachricht schreiben... (@Erwähnung)",

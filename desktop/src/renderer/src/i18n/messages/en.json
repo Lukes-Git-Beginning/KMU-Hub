@@ -1438,6 +1438,8 @@
   "chat.header.typingMany": "Several people are typing...",
   "chat.header.typingOne": "{user} is typing...",
   "chat.header.typingTwo": "{user1} and {user2} are typing...",
+  "chat.files.download": "Download",
+  "chat.files.remove": "Remove",
   "chat.input.attachFile": "Attach file",
   "chat.input.dragDropHint": "Drag & drop files into the chat",
   "chat.input.placeholder": "Write a message... (@mention)",
