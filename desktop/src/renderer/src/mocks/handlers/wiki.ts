@@ -145,6 +145,16 @@ const table = (cells: string[][], hasHeader = true): SeedBlock => ({
   cells,
   hasHeader,
 })
+// Attachment seed: build a real (downloadable) data URL from plain text, with
+// the byte size derived so the card reads honestly.
+const attach = (name: string, mime: string, text: string): SeedBlock => ({
+  id: sbid('b'),
+  type: 'attachment',
+  name,
+  mime,
+  size: new Blob([text]).size,
+  url: `data:${mime};charset=utf-8,${encodeURIComponent(text)}`,
+})
 
 /** One full-width row holding the given blocks. */
 const row = (...blocks: SeedBlock[]): SeedRow => ({
@@ -421,6 +431,18 @@ const ARTICLES: WikiArticle[] = [
             '  --host staging.db.internal --username kmuhub \\\n' +
             '  --dbname cosmi "$latest"\n' +
             'echo "Restore abgeschlossen: $latest"',
+        ),
+      ),
+      row(h(2, 'Unterlagen')),
+      row(
+        attach(
+          'Notfall-Kontaktliste.txt',
+          'text/plain',
+          'IT-Notfall — Kontaktliste\n\n' +
+            '1. IT-Teamleitung: Thomas Meier, +49 30 1234-100\n' +
+            '2. Hosting (Hetzner) Support: +49 9831 505-0\n' +
+            '3. Datenschutz: Sarah König, +49 30 1234-180\n\n' +
+            'Reihenfolge im Ernstfall strikt einhalten.',
         ),
       ),
     ),

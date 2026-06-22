@@ -41,5 +41,16 @@ export interface SimpleTableBlock extends DocBlockBase {
   hasHeader?: boolean
 }
 
+/** A downloadable file: name, size, mime and the data (mock: a data URL). */
+export interface AttachmentBlock extends DocBlockBase {
+  type: 'attachment'
+  name: string
+  /** Size in bytes. */
+  size?: number
+  mime?: string
+  /** Data URL (mock store) or a remote URL. Empty until a file is attached. */
+  url?: string
+}
+
 /** The union of every special block type. Grows as blocks land. */
-export type SpecialBlock = ToggleBlock | CodeBlock | SimpleTableBlock
+export type SpecialBlock = ToggleBlock | CodeBlock | SimpleTableBlock | AttachmentBlock
