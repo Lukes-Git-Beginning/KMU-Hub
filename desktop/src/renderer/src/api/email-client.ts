@@ -25,6 +25,8 @@ import type {
   EmailSignatureInfo,
   CreateSignatureRequest,
   UpdateSignatureRequest,
+  EmailLabelInfo,
+  EmailRuleInfo,
   EmailContactLinkInfo,
   GetContactEmailsResponse,
   SyncStatusResponse,
@@ -289,6 +291,55 @@ export const emailLinkApi = {
     return request<GetContactEmailsResponse>(
       `/api/v1/email/links/contact/${contactId}${qs({ page, per_page: perPage })}`,
     )
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Labels & rules
+// ---------------------------------------------------------------------------
+
+export const emailLabelApi = {
+  list() {
+    return request<{ labels: EmailLabelInfo[] }>('/api/v1/email/labels')
+  },
+  create(name: string, color: string) {
+    return request<{ label: EmailLabelInfo }>('/api/v1/email/labels', {
+      method: 'POST',
+      body: JSON.stringify({ name, color }),
+    })
+  },
+  update(id: string, patch: { name?: string; color?: string }) {
+    return request<Record<string, never>>(`/api/v1/email/labels/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    })
+  },
+  delete(id: string) {
+    return request<Record<string, never>>(`/api/v1/email/labels/${id}`, { method: 'DELETE' })
+  },
+  assign(messageId: string, labelIds: string[]) {
+    return request<{ message: EmailMessageInfo }>(`/api/v1/email/messages/${messageId}/labels`, {
+      method: 'POST',
+      body: JSON.stringify({ label_ids: labelIds }),
+    })
+  },
+}
+
+export const emailRuleApi = {
+  list() {
+    return request<{ rules: EmailRuleInfo[] }>('/api/v1/email/rules')
+  },
+  create(rule: Omit<EmailRuleInfo, 'id'>) {
+    return request<{ rule: EmailRuleInfo }>('/api/v1/email/rules', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    })
+  },
+  delete(id: string) {
+    return request<Record<string, never>>(`/api/v1/email/rules/${id}`, { method: 'DELETE' })
+  },
+  apply() {
+    return request<{ affected: number }>('/api/v1/email/rules/apply', { method: 'POST' })
   },
 }
 

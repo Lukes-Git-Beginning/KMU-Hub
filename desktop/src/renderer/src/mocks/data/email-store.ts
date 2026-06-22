@@ -17,6 +17,8 @@ import type {
   EmailAccountInfo,
   EmailAttachmentInfo,
   EmailSignatureInfo,
+  EmailLabelInfo,
+  EmailRuleInfo,
   ListMessagesParams,
   ListMessagesResponse,
 } from '@/api/email-types'
@@ -140,6 +142,28 @@ interface EmailState {
   folders: EmailFolderInfo[]
   messages: EmailMessageInfo[]
   signatures: EmailSignatureInfo[]
+  labels: EmailLabelInfo[]
+  rules: EmailRuleInfo[]
+}
+
+const seedLabels: EmailLabelInfo[] = [
+  { id: 'lbl-wichtig', name: 'Wichtig', color: '#EF4444' },
+  { id: 'lbl-kunde', name: 'Kunde', color: '#10B981' },
+  { id: 'lbl-rechnung', name: 'Rechnung', color: '#F59E0B' },
+  { id: 'lbl-intern', name: 'Intern', color: '#6B7280' },
+]
+
+const seedRules: EmailRuleInfo[] = [
+  { id: 'rule-1', name: 'Rechnungen markieren', field: 'subject', op: 'contains', value: 'Rechnung', action_type: 'label', action_target: 'lbl-rechnung' },
+  { id: 'rule-2', name: 'Bewerbungen archivieren', field: 'subject', op: 'contains', value: 'Bewerbung', action_type: 'label', action_target: 'lbl-wichtig' },
+]
+
+// Messages that start out tagged so labels are visible immediately.
+const seedMessageLabels: Record<string, string[]> = {
+  'em-001': ['lbl-kunde'],
+  'em-003': ['lbl-rechnung'],
+  'em-009': ['lbl-kunde', 'lbl-wichtig'],
+  'em-011': ['lbl-intern'],
 }
 
 /**
@@ -217,11 +241,17 @@ function seed(): EmailState {
     updated_at: now(),
   }))
   const secondary = buildSecondary()
+  const allMessages = [...messages, ...secondary.messages]
+  for (const msg of allMessages) {
+    if (seedMessageLabels[msg.id]) msg.label_ids = [...seedMessageLabels[msg.id]]
+  }
   return {
     accounts: [account, ...secondary.accounts],
     folders: [...folders, ...secondary.folders],
-    messages: [...messages, ...secondary.messages],
+    messages: allMessages,
     signatures,
+    labels: seedLabels.map((l) => ({ ...l })),
+    rules: seedRules.map((r) => ({ ...r })),
   }
 }
 
@@ -234,6 +264,8 @@ export function resetEmailStore(): void {
   state.folders = fresh.folders
   state.messages = fresh.messages
   state.signatures = fresh.signatures
+  state.labels = fresh.labels
+  state.rules = fresh.rules
 }
 
 // ---------------------------------------------------------------------------
@@ -441,4 +473,100 @@ export function appendMessage(input: AppendMessageInput): EmailMessageInfo {
 
 export function getSignatures(): EmailSignatureInfo[] {
   return state.signatures
+}
+
+// ---------------------------------------------------------------------------
+// Labels
+// ---------------------------------------------------------------------------
+
+let labelCounter = 0
+let ruleCounter = 0
+
+export function getLabels(): EmailLabelInfo[] {
+  return state.labels
+}
+
+export function createLabel(name: string, color: string): EmailLabelInfo {
+  labelCounter += 1
+  const label: EmailLabelInfo = { id: `lbl-new-${labelCounter}`, name, color }
+  state.labels.push(label)
+  return label
+}
+
+export function updateLabel(id: string, patch: Partial<Pick<EmailLabelInfo, 'name' | 'color'>>): void {
+  const label = state.labels.find((l) => l.id === id)
+  if (label) Object.assign(label, patch)
+}
+
+export function deleteLabel(id: string): void {
+  state.labels = state.labels.filter((l) => l.id !== id)
+  for (const m of state.messages) {
+    if (m.label_ids?.includes(id)) m.label_ids = m.label_ids.filter((x) => x !== id)
+  }
+}
+
+/** Replace the label set of a message. */
+export function setMessageLabels(messageId: string, labelIds: string[]): EmailMessageInfo | undefined {
+  const m = getMessage(messageId)
+  if (m) {
+    m.label_ids = [...labelIds]
+    touch(m)
+  }
+  return m
+}
+
+// ---------------------------------------------------------------------------
+// Rules
+// ---------------------------------------------------------------------------
+
+export function getRules(): EmailRuleInfo[] {
+  return state.rules
+}
+
+export function createRule(rule: Omit<EmailRuleInfo, 'id'>): EmailRuleInfo {
+  ruleCounter += 1
+  const created: EmailRuleInfo = { id: `rule-new-${ruleCounter}`, ...rule }
+  state.rules.push(created)
+  return created
+}
+
+export function deleteRule(id: string): void {
+  state.rules = state.rules.filter((r) => r.id !== id)
+}
+
+function ruleMatches(rule: EmailRuleInfo, m: EmailMessageInfo): boolean {
+  const haystack =
+    rule.field === 'from'
+      ? `${m.from.name} ${m.from.email}`.toLowerCase()
+      : m.subject.toLowerCase()
+  return haystack.includes(rule.value.toLowerCase())
+}
+
+/** Run every rule over the non-trash messages; returns how many messages changed. */
+export function applyRules(): number {
+  let affected = 0
+  for (const m of state.messages) {
+    if (m.folder_id === IDS.emailFolders.trash) continue
+    let changed = false
+    for (const rule of state.rules) {
+      if (!ruleMatches(rule, m)) continue
+      if (rule.action_type === 'label') {
+        if (!m.label_ids?.includes(rule.action_target)) {
+          m.label_ids = [...(m.label_ids ?? []), rule.action_target]
+          changed = true
+        }
+      } else if (rule.action_type === 'move') {
+        if (m.folder_id !== rule.action_target) {
+          m.folder_id = rule.action_target
+          changed = true
+        }
+      }
+    }
+    if (changed) {
+      touch(m)
+      affected += 1
+    }
+  }
+  recomputeFolderCounts()
+  return affected
 }

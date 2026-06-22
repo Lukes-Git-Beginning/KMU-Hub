@@ -26,6 +26,11 @@ import {
   Settings,
   ShieldCheck,
   Layers,
+  Tag,
+  SlidersHorizontal,
+  Check,
+  Plus as PlusIcon,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -45,11 +50,16 @@ import {
   useSyncStatus,
   useEmailContactLinks,
   useEmailThread,
+  useEmailLabels,
+  useSetMessageLabels,
+  useCreateLabel,
+  useDeleteLabel,
 } from '@/api/hooks/useEmail'
 import type { EmailMessageInfo } from '@/api/email-types'
 import type { ComposeMode } from '@/stores/mails'
 import { ComposeInline } from './ComposeInline'
-import { ItemActions, ConfirmDialog, EmptyState, SortMenu, type ActionItem, type SortDirection } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, SortMenu, ColorSwatchPicker, type ActionItem, type SortDirection } from '@/components/shared'
+import { RulesDialog } from './RulesDialog'
 import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
 import { userHasRole } from '@/config/roles'
 import { downloadAttachment, printMessage, exportMessageEml } from './lib/mail-export'
@@ -139,6 +149,11 @@ export default function MailsPage() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'starred'>('all')
   const [sortField, setSortField] = useState('date')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
+  const [activeLabelId, setActiveLabelId] = useState<string | null>(null)
+  const [showRules, setShowRules] = useState(false)
+  const [addingLabel, setAddingLabel] = useState(false)
+  const [newLabelName, setNewLabelName] = useState('')
+  const [newLabelColor, setNewLabelColor] = useState('#3B82F6')
 
   // Default the active account to the primary one once it loads.
   useEffect(() => {
@@ -154,6 +169,27 @@ export default function MailsPage() {
     [accounts],
   )
 
+  // Labels & rules
+  const { data: labelsData } = useEmailLabels()
+  const labels = useMemo(() => labelsData?.labels ?? [], [labelsData?.labels])
+  const labelById = useMemo(() => Object.fromEntries(labels.map((l) => [l.id, l])), [labels])
+  const setMsgLabels = useSetMessageLabels()
+  const createLabel = useCreateLabel()
+  const deleteLabel = useDeleteLabel()
+
+  const selectLabel = (id: string) => {
+    setActiveLabelId(id)
+    setUnifiedView(false)
+    setSelectedMessageId(null)
+    setPage(1)
+  }
+  const submitNewLabel = () => {
+    if (!newLabelName.trim()) return
+    createLabel.mutate({ name: newLabelName.trim(), color: newLabelColor })
+    setNewLabelName('')
+    setAddingLabel(false)
+  }
+
   // Folders for the active account
   const { data: foldersData } = useEmailFolders(effectiveAccountId)
   const folders = useMemo(() => foldersData?.folders ?? [], [foldersData?.folders])
@@ -161,12 +197,14 @@ export default function MailsPage() {
   const handleSelectAccount = (id: string) => {
     setActiveAccountId(id)
     setUnifiedView(false)
+    setActiveLabelId(null)
     setActiveFolderId('')
     setSelectedMessageId(null)
     setPage(1)
   }
   const handleSelectUnified = () => {
     setUnifiedView(true)
+    setActiveLabelId(null)
     setSelectedMessageId(null)
     setPage(1)
   }
@@ -212,10 +250,14 @@ export default function MailsPage() {
       sort_by: sortField,
       sort_desc: sortDir === 'desc',
     }
+    if (activeLabelId) {
+      // Label view: all messages of the account carrying the label, across folders.
+      return { folder_id: '', account_id: effectiveAccountId || undefined, label_id: activeLabelId, ...common }
+    }
     return unifiedView
       ? { folder_id: '', view: 'unified' as const, ...common }
       : { folder_id: activeFolderId, account_id: effectiveAccountId || undefined, ...common }
-  }, [unifiedView, activeFolderId, effectiveAccountId, page, searchQuery, filter, sortField, sortDir])
+  }, [unifiedView, activeLabelId, activeFolderId, effectiveAccountId, page, searchQuery, filter, sortField, sortDir])
 
   const { data: messagesData, isLoading: messagesLoading } = useEmailMessages(messagesParams)
   const messages = messagesData?.messages ?? []
@@ -319,6 +361,22 @@ export default function MailsPage() {
       },
     })
 
+    // Label toggles
+    labels.forEach((label, i) => {
+      const assigned = msg.label_ids?.includes(label.id) ?? false
+      actions.push({
+        label: label.name,
+        icon: assigned ? Check : Tag,
+        onClick: () => {
+          const next = assigned
+            ? (msg.label_ids ?? []).filter((x) => x !== label.id)
+            : [...(msg.label_ids ?? []), label.id]
+          setMsgLabels.mutate({ messageId: msg.id, labelIds: next })
+        },
+        separator: i === 0,
+      })
+    })
+
     if (currentFolder?.folder_type !== 'archive') {
       actions.push({
         label: t('mails.actions.archive'),
@@ -415,11 +473,12 @@ export default function MailsPage() {
                 onClick={() => {
                   setActiveFolderId(folder.id)
                   setUnifiedView(false)
+                  setActiveLabelId(null)
                   setSelectedMessageId(null)
                   setPage(1)
                 }}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  activeFolderId === folder.id && !unifiedView
+                  activeFolderId === folder.id && !unifiedView && !activeLabelId
                     ? 'bg-primary-light text-primary font-medium'
                     : 'text-foreground hover:bg-secondary'
                 }`}
@@ -435,6 +494,74 @@ export default function MailsPage() {
             )
           })}
         </nav>
+
+        {/* Labels */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between px-3 mb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t('mails.labels.title', { defaultValue: 'Labels' })}
+            </span>
+            <button
+              onClick={() => setAddingLabel((v) => !v)}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label={t('mails.labels.add', { defaultValue: 'Label hinzufügen' })}
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="space-y-0.5">
+            {labels.map((label) => (
+              <div
+                key={label.id}
+                className={`group flex items-center gap-2 rounded-lg pr-1.5 transition-colors ${
+                  activeLabelId === label.id ? 'bg-primary-light' : 'hover:bg-secondary'
+                }`}
+              >
+                <button
+                  onClick={() => selectLabel(label.id)}
+                  className={`flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-sm ${
+                    activeLabelId === label.id ? 'text-primary font-medium' : 'text-foreground'
+                  }`}
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
+                  <span className="flex-1 text-left truncate">{label.name}</span>
+                </button>
+                <button
+                  onClick={() => { deleteLabel.mutate(label.id); if (activeLabelId === label.id) setActiveLabelId(null) }}
+                  className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-error transition-all"
+                  aria-label={t('common.delete')}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+          {addingLabel && (
+            <div className="mt-1.5 flex items-center gap-2 px-3">
+              <ColorSwatchPicker value={newLabelColor} onChange={setNewLabelColor} size={18} />
+              <input
+                autoFocus
+                value={newLabelName}
+                onChange={(e) => setNewLabelName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitNewLabel(); if (e.key === 'Escape') setAddingLabel(false) }}
+                placeholder={t('mails.labels.namePlaceholder', { defaultValue: 'Name' })}
+                className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              <button onClick={submitNewLabel} className="rounded p-1 text-primary hover:bg-secondary" aria-label={t('common.save', { defaultValue: 'Speichern' })}>
+                <Check className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Rules */}
+        <button
+          onClick={() => setShowRules(true)}
+          className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+        >
+          <SlidersHorizontal className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left truncate">{t('mails.rules.title', { defaultValue: 'Regeln & Filter' })}</span>
+        </button>
 
         {/* Sync button */}
         {effectiveAccountId && (
@@ -551,6 +678,16 @@ export default function MailsPage() {
                         {accountById[msg.account_id].email_address}
                       </span>
                     )}
+                    {(msg.label_ids ?? []).map((lid) => labelById[lid] && (
+                      <span
+                        key={lid}
+                        className="inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-[9px] font-medium"
+                        style={{ backgroundColor: `${labelById[lid].color}22`, color: labelById[lid].color }}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: labelById[lid].color }} />
+                        {labelById[lid].name}
+                      </span>
+                    ))}
                     {msg.has_attachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
                     {(() => {
                       const retention = getRetentionInfo(msg)
@@ -742,6 +879,9 @@ export default function MailsPage() {
           <MailServerSettingsTab />
         </DialogContent>
       </Dialog>
+
+      {/* Rules & filters */}
+      <RulesDialog open={showRules} onOpenChange={setShowRules} labels={labels} folders={folders} />
     </div>
   )
 }

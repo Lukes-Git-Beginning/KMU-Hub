@@ -12,8 +12,18 @@ import {
   deleteMessage,
   appendMessage,
   getSignatures,
+  getLabels,
+  createLabel,
+  updateLabel,
+  deleteLabel,
+  setMessageLabels,
+  getRules,
+  createRule,
+  deleteRule,
+  applyRules,
   type ListMessagesExtra,
 } from '../data/email-store'
+import type { EmailRuleInfo } from '@/api/email-types'
 import { IDS } from '../data/shared-ids'
 import { daysAgo, hoursAgo, now } from '../data/date-helpers'
 
@@ -171,6 +181,49 @@ export const emailHandlers = [
       thread_id: original?.thread_id,
     })
     return HttpResponse.json({ message: msg }, { status: 201 })
+  }),
+
+  // ── Labels ──
+  http.get(`${API}/api/v1/email/labels`, () => {
+    return HttpResponse.json({ labels: getLabels() })
+  }),
+  http.post(`${API}/api/v1/email/labels`, async ({ request }) => {
+    const body = (await request.json()) as { name?: string; color?: string }
+    const label = createLabel(body.name ?? 'Label', body.color ?? 'slate')
+    return HttpResponse.json({ label }, { status: 201 })
+  }),
+  http.patch(`${API}/api/v1/email/labels/:id`, async ({ params, request }) => {
+    const body = (await request.json()) as { name?: string; color?: string }
+    updateLabel(params.id as string, body)
+    return HttpResponse.json({ success: true })
+  }),
+  http.delete(`${API}/api/v1/email/labels/:id`, ({ params }) => {
+    deleteLabel(params.id as string)
+    return HttpResponse.json({ success: true })
+  }),
+
+  // Assign labels to a message
+  http.post(`${API}/api/v1/email/messages/:id/labels`, async ({ params, request }) => {
+    const body = (await request.json()) as { label_ids?: string[] }
+    const msg = setMessageLabels(params.id as string, body.label_ids ?? [])
+    return HttpResponse.json({ message: msg })
+  }),
+
+  // ── Rules ──
+  http.get(`${API}/api/v1/email/rules`, () => {
+    return HttpResponse.json({ rules: getRules() })
+  }),
+  http.post(`${API}/api/v1/email/rules`, async ({ request }) => {
+    const body = (await request.json()) as Omit<EmailRuleInfo, 'id'>
+    const rule = createRule(body)
+    return HttpResponse.json({ rule }, { status: 201 })
+  }),
+  http.delete(`${API}/api/v1/email/rules/:id`, ({ params }) => {
+    deleteRule(params.id as string)
+    return HttpResponse.json({ success: true })
+  }),
+  http.post(`${API}/api/v1/email/rules/apply`, () => {
+    return HttpResponse.json({ affected: applyRules() })
   }),
 
   // Signatures

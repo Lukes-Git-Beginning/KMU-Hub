@@ -168,6 +168,28 @@ export interface ListMessagesResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Labels & rules (client-side demo classification)
+// ---------------------------------------------------------------------------
+
+export interface EmailLabelInfo {
+  id: string
+  name: string
+  /** Hex swatch colour (from SWATCH_COLORS). */
+  color: string
+}
+
+export interface EmailRuleInfo {
+  id: string
+  name: string
+  field: 'from' | 'subject'
+  op: 'contains'
+  value: string
+  action_type: 'label' | 'move'
+  /** label id (action_type=label) or folder id (action_type=move). */
+  action_target: string
+}
+
+// ---------------------------------------------------------------------------
 // Send / Compose
 // ---------------------------------------------------------------------------
 

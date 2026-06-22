@@ -17,6 +17,7 @@
     "src/renderer/src/stores/mailTemplates.ts",
     "src/renderer/src/modules/mails/ThreadView.tsx",
     "src/renderer/src/modules/mails/AccountSwitcher.tsx",
+    "src/renderer/src/modules/mails/RulesDialog.tsx",
     "src/renderer/src/modules/mails/MailsPage.tsx"
   ]
 }

@@ -14,7 +14,10 @@ import {
   emailLinkApi,
   emailSyncApi,
   emailAttachmentApi,
+  emailLabelApi,
+  emailRuleApi,
 } from '../email-client'
+import type { EmailRuleInfo } from '../email-types'
 import type {
   CreateEmailAccountRequest,
   UpdateEmailAccountRequest,
@@ -46,6 +49,8 @@ export const emailKeys = {
   links: (messageId: string) => ['email', 'links', messageId] as const,
   contactEmails: (contactId: string) => ['email', 'contactEmails', contactId] as const,
   syncStatus: (accountId: string) => ['email', 'syncStatus', accountId] as const,
+  labels: () => ['email', 'labels'] as const,
+  rules: () => ['email', 'rules'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +146,7 @@ export function useEmailMessages(params: ListMessagesParams) {
   return useQuery({
     queryKey: emailKeys.messages(params),
     queryFn: () => emailMessageApi.list(params),
-    enabled: !!params.folder_id || params.view === 'unified',
+    enabled: !!params.folder_id || params.view === 'unified' || !!params.label_id,
   })
 }
 
@@ -408,5 +413,90 @@ export function useAttachmentDownloadURL(id: string) {
     queryKey: ['email', 'attachment', id],
     queryFn: () => emailAttachmentApi.getDownloadURL(id),
     enabled: !!id,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Label & rule hooks
+// ---------------------------------------------------------------------------
+
+export function useEmailLabels() {
+  return useQuery({
+    queryKey: emailKeys.labels(),
+    queryFn: () => emailLabelApi.list(),
+  })
+}
+
+export function useCreateLabel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, color }: { name: string; color: string }) => emailLabelApi.create(name, color),
+    onSuccess: () => qc.invalidateQueries({ queryKey: emailKeys.labels() }),
+  })
+}
+
+export function useUpdateLabel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: { name?: string; color?: string } }) =>
+      emailLabelApi.update(id, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: emailKeys.labels() })
+      qc.invalidateQueries({ queryKey: ['email', 'messages'] })
+    },
+  })
+}
+
+export function useDeleteLabel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => emailLabelApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: emailKeys.labels() })
+      qc.invalidateQueries({ queryKey: ['email', 'messages'] })
+    },
+  })
+}
+
+export function useSetMessageLabels() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ messageId, labelIds }: { messageId: string; labelIds: string[] }) =>
+      emailLabelApi.assign(messageId, labelIds),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['email', 'messages'] }),
+  })
+}
+
+export function useEmailRules() {
+  return useQuery({
+    queryKey: emailKeys.rules(),
+    queryFn: () => emailRuleApi.list(),
+  })
+}
+
+export function useCreateRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rule: Omit<EmailRuleInfo, 'id'>) => emailRuleApi.create(rule),
+    onSuccess: () => qc.invalidateQueries({ queryKey: emailKeys.rules() }),
+  })
+}
+
+export function useDeleteRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => emailRuleApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: emailKeys.rules() }),
+  })
+}
+
+export function useApplyRules() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => emailRuleApi.apply(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['email', 'messages'] })
+      qc.invalidateQueries({ queryKey: ['email', 'folders'] })
+    },
   })
 }
