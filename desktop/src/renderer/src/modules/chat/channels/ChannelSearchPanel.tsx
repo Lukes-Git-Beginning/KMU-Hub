@@ -14,9 +14,10 @@ import { Input } from '@/components/ui/input'
 interface ChannelSearchPanelProps {
   channelId: string
   onClose: () => void
+  onJumpToMessage?: (channelId: string, messageId: string) => void
 }
 
-export function ChannelSearchPanel({ channelId, onClose }: ChannelSearchPanelProps) {
+export function ChannelSearchPanel({ channelId, onClose, onJumpToMessage }: ChannelSearchPanelProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [allChannels, setAllChannels] = useState(false)
@@ -71,7 +72,12 @@ export function ChannelSearchPanel({ channelId, onClose }: ChannelSearchPanelPro
               {t('chat.search.resultCount', { count: results.length })}
             </p>
             {results.map((r) => (
-              <div key={`${r.id}-${r.channel_id}`} className="rounded-lg px-2.5 py-2 hover:bg-secondary/50">
+              <button
+                key={`${r.id}-${r.channel_id}`}
+                type="button"
+                className="w-full rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/50"
+                onClick={() => r.channel_id && r.id && onJumpToMessage?.(r.channel_id, r.id)}
+              >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-xs font-medium text-foreground">
                     {[r.first_name, r.last_name].filter(Boolean).join(' ') || t('chat.unknown')}
@@ -81,7 +87,7 @@ export function ChannelSearchPanel({ channelId, onClose }: ChannelSearchPanelPro
                   )}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{renderSnippet(r.snippet ?? '')}</p>
-              </div>
+              </button>
             ))}
           </div>
         )}

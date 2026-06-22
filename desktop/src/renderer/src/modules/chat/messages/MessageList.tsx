@@ -5,8 +5,9 @@
  * messages are in the DOM. Supports infinite scroll for older messages,
  * date separators, and real-time updates via WebSocket.
  */
-import { useEffect, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/cn'
 import { format, isToday, isYesterday } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Loader2 } from 'lucide-react'
@@ -21,17 +22,20 @@ import type { ReactionSummary } from '@/api/video-types'
 interface MessageListProps {
   channelId: string
   onOpenThread: (messageId: string) => void
+  /** When set, scroll to and briefly highlight this message (jump-to-search-result). */
+  highlightMessageId?: string | null
 }
 
 type FlatItem =
   | { type: 'date'; date: string }
   | { type: 'message'; message: MessageInfo }
 
-export function MessageList({ channelId, onOpenThread }: MessageListProps) {
+export function MessageList({ channelId, onOpenThread, highlightMessageId }: MessageListProps) {
   const { t } = useTranslation()
   const currentUserId = useAuthStore((s) => s.user?.id)
   const scrollRef = useRef<HTMLDivElement>(null)
   const wasAtBottomRef = useRef(true)
+  const [flashId, setFlashId] = useState<string | null>(null)
 
   const {
     allMessages: messages,
@@ -105,6 +109,19 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
     }
     wasAtBottomRef.current = true
   }, [channelId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Jump-to-search-result: scroll to the message and flash-highlight it briefly.
+  useEffect(() => {
+    if (!highlightMessageId || flatItems.length === 0) return
+    const index = flatItems.findIndex(
+      (it) => it.type === 'message' && it.message.id === highlightMessageId,
+    )
+    if (index < 0) return
+    virtualizer.scrollToIndex(index, { align: 'center' })
+    setFlashId(highlightMessageId)
+    const timer = setTimeout(() => setFlashId(null), 2200)
+    return () => clearTimeout(timer)
+  }, [highlightMessageId, flatItems, virtualizer])
 
   // Track scroll position to know if user is at bottom
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -194,6 +211,10 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
               key={virtualItem.key}
               data-index={virtualItem.index}
               ref={virtualizer.measureElement}
+              className={cn(
+                'transition-colors duration-700',
+                item.type === 'message' && flashId === item.message.id && 'bg-warning/15',
+              )}
               style={{
                 position: 'absolute',
                 top: 0,

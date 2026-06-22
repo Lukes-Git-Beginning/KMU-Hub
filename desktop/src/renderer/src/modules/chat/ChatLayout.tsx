@@ -29,12 +29,21 @@ export default function ChatLayout() {
   const [showSearch, setShowSearch] = useState(false)
   const [showMentions, setShowMentions] = useState(false)
   const [showBookmarks, setShowBookmarks] = useState(false)
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null)
 
   const handleSelectChannel = (id: string) => {
     setSelectedChannelId(id)
     setSelectedThreadMessageId(null)
     setShowMentions(false)
     setShowBookmarks(false)
+    setHighlightMessageId(null)
+  }
+
+  // Jump from a search result: switch channel if needed and flash the message.
+  const handleJumpToMessage = (channelId: string, messageId: string) => {
+    setSelectedChannelId(channelId)
+    setSelectedThreadMessageId(null)
+    setHighlightMessageId(messageId)
   }
 
   const handleLeftChannel = () => {
@@ -132,6 +141,7 @@ export default function ChatLayout() {
             <MessageList
               channelId={selectedChannelId}
               onOpenThread={handleOpenThread}
+              highlightMessageId={highlightMessageId}
             />
             <MessageInput channelId={selectedChannelId} />
           </>
@@ -171,7 +181,7 @@ export default function ChatLayout() {
       {/* Search panel (exclusive with thread/members) */}
       {showSearch && selectedChannelId && !selectedThreadMessageId && !showMembers && (
         <div className="w-[320px] shrink-0">
-          <ChannelSearchPanel channelId={selectedChannelId} onClose={() => setShowSearch(false)} />
+          <ChannelSearchPanel channelId={selectedChannelId} onClose={() => setShowSearch(false)} onJumpToMessage={handleJumpToMessage} />
         </div>
       )}
 
