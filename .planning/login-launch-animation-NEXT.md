@@ -69,7 +69,21 @@ beiden Pfaden, die den Skelett-Weiß-Flash überdeckt.
 - Build-+-Verify-Standard: i18n falls Texte, gescopter tsc (nur geänderte
   Dateien, App.tsx zieht den ganzen Graph → isolieren), ESLint, ein Commit+Push.
 
-## Offener Nebenpunkt (Distribution-Icon)
+## Offener Nebenpunkt — Icon (zwei getrennte Sachen)
+
+### (1) Lokaler Shortcut-Cache (Darien sieht noch das Atom)
+Die installierte `Cosmi.exe` trägt das korrekte dunkle Cosmi-C (per `rcedit`
+gesetzt, verifiziert). Die **Desktop-Verknüpfung zeigt aber noch das Electron-
+Atom** = **Windows-Icon-Cache**, NICHT das Icon-File (Darien-Files `icon-128/144/
+180.png` aus Temp sind byte-identisch zu `assets/branding/cosmi-icons/`). Fix
+(später, nicht dringend): Cache hart leeren —
+`ie4uinit.exe -ClearIconCache`, dann `iconcache*.db` /
+`%LOCALAPPDATA%\Microsoft\Windows\Explorer\iconcache_*.db` löschen +
+`Stop-Process -Name explorer -Force; Start-Process explorer` (schließt
+Explorer-Fenster). Ggf. Verknüpfung neu erstellen. Das `.exe`-Icon selbst muss
+NICHT neu gemacht werden.
+
+### (2) Distribution-Installer
 Das App-Icon ist im **gebauten/installierten** `.exe` korrekt (per `rcedit`
 nachträglich gesetzt; `electron-builder.yml` hat jetzt `signAndEditExecutable:
 true` + `win.icon: build/icon.ico`). ABER: auf dieser Dev-Maschine scheitert
