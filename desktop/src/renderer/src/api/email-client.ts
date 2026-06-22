@@ -140,7 +140,7 @@ export const emailFolderApi = {
 
 export const emailMessageApi = {
   list(params: ListMessagesParams) {
-    return request<ListMessagesResponse>(`/api/v1/email/messages/${qs(params as Record<string, unknown>)}`)
+    return request<ListMessagesResponse>(`/api/v1/email/messages/${qs(params as unknown as Record<string, unknown>)}`)
   },
 
   get(id: string) {

@@ -139,6 +139,8 @@ export interface EmailMessageInfo {
   attachments: EmailAttachmentInfo[]
   created_at: string
   updated_at: string
+  /** Label ids assigned to this message (client-side demo classification). */
+  label_ids?: string[]
 }
 
 export interface ListMessagesParams {

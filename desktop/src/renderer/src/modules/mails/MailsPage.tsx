@@ -50,6 +50,7 @@ import { ComposeInline } from './ComposeInline'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
 import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
 import { userHasRole } from '@/config/roles'
+import { downloadAttachment, printMessage, exportMessageEml } from './lib/mail-export'
 import {
   Dialog,
   DialogContent,
@@ -267,8 +268,8 @@ export default function MailsPage() {
     }
 
     actions.push(
-      { label: t('mails.actions.print'), icon: Printer, onClick: () => toast.success(t('mails.toast.printPreview')), separator: true },
-      { label: t('mails.actions.export'), icon: Download, onClick: () => toast.success(t('mails.toast.pdfExport')) },
+      { label: t('mails.actions.print'), icon: Printer, onClick: () => printMessage(msg), separator: true },
+      { label: t('mails.actions.export'), icon: Download, onClick: () => exportMessageEml(msg) },
     )
 
     actions.push({
@@ -599,7 +600,10 @@ export default function MailsPage() {
                     {selectedMessage.attachments.map((att) => (
                       <button
                         key={att.id}
-                        onClick={() => toast.success(t('mails.toast.downloading', { filename: att.filename }))}
+                        onClick={() => {
+                          downloadAttachment(att, selectedMessage.subject)
+                          toast.success(t('mails.toast.downloading', { filename: att.filename }))
+                        }}
                         className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 hover:bg-secondary hover:shadow-sm transition-all"
                       >
                         <Paperclip className="h-4 w-4 text-muted-foreground" />

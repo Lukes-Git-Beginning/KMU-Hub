@@ -1,130 +1,194 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import {
-  mockEmailAccount,
-  mockEmailFolders,
-  mockEmailMessages,
-  mockEmailMessagesById,
-  mockSignatures,
-} from '../data/emails'
+  getAccounts,
+  getFolders,
+  getMessage,
+  getThread,
+  listMessages,
+  setRead,
+  toggleStar,
+  moveToFolder,
+  deleteMessage,
+  appendMessage,
+  getSignatures,
+  type ListMessagesExtra,
+} from '../data/email-store'
 import { IDS } from '../data/shared-ids'
-import { daysAgo, hoursAgo } from '../data/date-helpers'
+import { daysAgo, hoursAgo, now } from '../data/date-helpers'
 
 const API = API_BASE_URL
 
+function parseListParams(url: URL): ListMessagesExtra {
+  const p = url.searchParams
+  const n = (k: string) => (p.get(k) ? Number(p.get(k)) : undefined)
+  return {
+    folder_id: p.get('folder_id') ?? '',
+    account_id: p.get('account_id') ?? undefined,
+    view: (p.get('view') as ListMessagesExtra['view']) ?? undefined,
+    filter: (p.get('filter') as ListMessagesExtra['filter']) ?? undefined,
+    label_id: p.get('label_id') ?? undefined,
+    search: p.get('search') ?? undefined,
+    sort_by: p.get('sort_by') ?? undefined,
+    sort_desc: p.get('sort_desc') ? p.get('sort_desc') === 'true' : undefined,
+    page: n('page'),
+    per_page: n('per_page'),
+  }
+}
+
 export const emailHandlers = [
-  // Get email account(s)
+  // Accounts: the page reads `.account`; the multi-account list lives under `.accounts`.
   http.get(`${API}/api/v1/email/accounts/`, () => {
-    return HttpResponse.json(mockEmailAccount)
+    const accounts = getAccounts()
+    return HttpResponse.json({ account: accounts[0], accounts })
   }),
 
-  // Get folders for account
-  http.get(`${API}/api/v1/email/folders/`, () => {
-    return HttpResponse.json(mockEmailFolders)
+  // Folders for an account
+  http.get(`${API}/api/v1/email/folders/`, ({ request }) => {
+    const accountId = new URL(request.url).searchParams.get('account_id') ?? undefined
+    return HttpResponse.json({ folders: getFolders(accountId) })
   }),
 
-  // List messages for a folder
+  // Thread — must precede the `:id` route below
+  http.get(`${API}/api/v1/email/messages/thread/:threadId`, ({ params }) => {
+    return HttpResponse.json({ messages: getThread(params.threadId as string) })
+  }),
+
+  // List messages (folder / unified / filtered / searched / sorted / paginated)
   http.get(`${API}/api/v1/email/messages/`, ({ request }) => {
-    const url = new URL(request.url)
-    const folderId = url.searchParams.get('folder_id')
-    if (folderId && mockEmailMessages[folderId]) {
-      return HttpResponse.json(mockEmailMessages[folderId])
-    }
-    // Default to inbox
-    const inbox = Object.values(mockEmailMessages)[0]
-    return HttpResponse.json(inbox ?? { messages: [], total: 0 })
+    return HttpResponse.json(listMessages(parseListParams(new URL(request.url))))
   }),
 
-  // Get single message
+  // Single message
   http.get(`${API}/api/v1/email/messages/:id`, ({ params }) => {
-    const msg = mockEmailMessagesById[params.id as string]
-    if (!msg) {
-      return HttpResponse.json({ error: 'not found' }, { status: 404 })
-    }
+    const msg = getMessage(params.id as string)
+    if (!msg) return HttpResponse.json({ error: 'not found' }, { status: 404 })
     return HttpResponse.json({ message: msg })
   }),
 
-  // Mark message as read
-  http.post(`${API}/api/v1/email/messages/:id/read`, () => {
+  // Mark read / unread
+  http.post(`${API}/api/v1/email/messages/:id/read`, ({ params }) => {
+    setRead(params.id as string, true)
+    return HttpResponse.json({ success: true })
+  }),
+  http.post(`${API}/api/v1/email/messages/:id/unread`, ({ params }) => {
+    setRead(params.id as string, false)
     return HttpResponse.json({ success: true })
   }),
 
   // Toggle star
-  http.post(`${API}/api/v1/email/messages/:id/star`, () => {
+  http.post(`${API}/api/v1/email/messages/:id/star`, ({ params }) => {
+    const isStarred = toggleStar(params.id as string)
+    return HttpResponse.json({ is_starred: isStarred })
+  }),
+
+  // Move to folder
+  http.post(`${API}/api/v1/email/messages/:id/move`, async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as { target_folder_id?: string }
+    if (body.target_folder_id) moveToFolder(params.id as string, body.target_folder_id)
     return HttpResponse.json({ success: true })
   }),
 
-  // Send email
+  // Delete (soft → trash, hard if already trash)
+  http.delete(`${API}/api/v1/email/messages/:id`, ({ params }) => {
+    deleteMessage(params.id as string)
+    return HttpResponse.json({ success: true })
+  }),
+
+  // Send
   http.post(`${API}/api/v1/email/send/`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json(
-      {
-        message: {
-          id: `em-sent-${Date.now()}`,
-          subject: body.subject ?? '',
-          from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
-          to: body.to ?? [],
-          date: new Date().toISOString(),
-          folder_id: 'ef-sent',
-          is_read: true,
-          is_starred: false,
-          has_attachments: false,
-          attachments: [],
-        },
-      },
-      { status: 201 },
-    )
+    const msg = appendMessage({
+      subject: (body.subject as string) ?? '',
+      to: (body.to as never) ?? [],
+      cc: (body.cc as never) ?? [],
+      bcc: (body.bcc as never) ?? [],
+      body_html: (body.body_html as string) ?? '',
+      body_text: (body.body_text as string) ?? '',
+      folderId: IDS.emailFolders.sent,
+    })
+    return HttpResponse.json({ message: msg }, { status: 201 })
   }),
 
   // Save draft
   http.post(`${API}/api/v1/email/send/draft`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json(
-      {
-        message: {
-          id: `em-draft-${Date.now()}`,
-          subject: body.subject ?? '(Kein Betreff)',
-          from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
-          to: body.to ?? [],
-          date: new Date().toISOString(),
-          folder_id: 'ef-drafts',
-          is_read: true,
-          is_starred: false,
-          has_attachments: false,
-          attachments: [],
-        },
-      },
-      { status: 201 },
-    )
-  }),
-
-  // List signatures
-  http.get(`${API}/api/v1/email/signatures/`, () => {
-    return HttpResponse.json(mockSignatures)
-  }),
-
-  // Sync status
-  http.get(`${API}/api/v1/email/sync/status`, () => {
-    return HttpResponse.json({
-      status: 'synced',
-      last_sync_at: new Date().toISOString(),
-      messages_synced: 1992,
+    const msg = appendMessage({
+      subject: (body.subject as string) ?? '(Kein Betreff)',
+      to: (body.to as never) ?? [],
+      cc: (body.cc as never) ?? [],
+      bcc: (body.bcc as never) ?? [],
+      body_html: (body.body_html as string) ?? '',
+      body_text: (body.body_text as string) ?? '',
+      folderId: IDS.emailFolders.drafts,
+      is_draft: true,
     })
+    return HttpResponse.json({ message: msg }, { status: 201 })
   }),
 
-  // Email links for a message (cross-module links)
+  // Reply — inherit thread + RE: subject + recipient from the original message
+  http.post(`${API}/api/v1/email/send/reply`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const original = getMessage((body.original_message_id as string) ?? '')
+    const subject = original
+      ? original.subject.replace(/^(RE|AW):\s*/i, 'RE: ').startsWith('RE:')
+        ? original.subject
+        : `RE: ${original.subject}`
+      : 'RE:'
+    const to = original ? [original.from] : []
+    const msg = appendMessage({
+      subject,
+      to,
+      body_html: (body.body_html as string) ?? '',
+      body_text: (body.body_text as string) ?? '',
+      folderId: IDS.emailFolders.sent,
+      thread_id: original?.thread_id,
+      in_reply_to: original?.message_id_header,
+    })
+    return HttpResponse.json({ message: msg }, { status: 201 })
+  }),
+
+  // Forward — inherit thread + FW: subject
+  http.post(`${API}/api/v1/email/send/forward`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const original = getMessage((body.original_message_id as string) ?? '')
+    const subject = original
+      ? original.subject.startsWith('FW:')
+        ? original.subject
+        : `FW: ${original.subject}`
+      : 'FW:'
+    const msg = appendMessage({
+      subject,
+      to: (body.to as never) ?? [],
+      body_html: (body.body_html as string) ?? '',
+      body_text: (body.body_text as string) ?? '',
+      folderId: IDS.emailFolders.sent,
+      thread_id: original?.thread_id,
+    })
+    return HttpResponse.json({ message: msg }, { status: 201 })
+  }),
+
+  // Signatures
+  http.get(`${API}/api/v1/email/signatures/`, () => {
+    return HttpResponse.json({ signatures: getSignatures() })
+  }),
+
+  // Sync status / trigger
+  http.get(`${API}/api/v1/email/sync/status`, () => {
+    return HttpResponse.json({ status: 'idle', last_sync_at: now(), error_message: '' })
+  }),
+  http.post(`${API}/api/v1/email/sync/trigger`, () => {
+    return HttpResponse.json({ status: 'started' })
+  }),
+
+  // CRM links for a message (cross-module links — populated by the CRM store)
   http.get(`${API}/api/v1/email/links/message/:id`, () => {
     return HttpResponse.json({ links: [] })
   }),
 
-  // Contact emails — get emails linked to a specific contact
-  // emailLinkApi.getContactEmails → GET /api/v1/email/links/contact/:id
+  // Contact emails — emails linked to a specific contact
   http.get(`${API}/api/v1/email/links/contact/:contactId`, ({ params }) => {
     const contactId = params.contactId as string
-
-    // Return contact-specific demo emails for contacts that have mock data.
-    // For the primary demo contact (mueller) return 3 plausible entries;
-    // for all others return 2 generic ones so the section is never empty.
     const isMueller = contactId === IDS.contacts.mueller
 
     const demoMessages = isMueller
