@@ -153,6 +153,38 @@ let DEMO_DOCUMENTS: ReportDocument[] = [
         { width: 3, blocks: [{ id: bid('c'), type: 'chart', definitionId: 'def-umsatz', viz: 'line', caption: 'Monatlicher Umsatz, letzte 12 Monate' }] },
       ),
       r({ id: bid('cl'), type: 'callout', variant: 'recommendation', title: 'Empfehlung', html: '<p>Vertriebskapazität in Region Süd ausbauen und das Verkaufsmodell an den höheren Abschlussraten ausrichten.</p>' }),
+      r({ id: bid('h'), type: 'heading', level: 2, text: 'Top-Kunden im Quartal' }),
+      r({
+        id: bid('st'),
+        type: 'simpletable',
+        hasHeader: true,
+        cells: [
+          ['Kunde', 'Umsatz', 'Deals'],
+          ['Müller Maschinenbau GmbH', '38.200 €', '6'],
+          ['Greentech Energie GmbH', '29.450 €', '4'],
+          ['Logistik Rhein-Main', '21.800 €', '5'],
+        ],
+      }),
+      r({
+        id: bid('q'),
+        type: 'quote',
+        text: 'Region Süd ist unser Wachstumsmotor — dort skalieren wir zuerst.',
+        attribution: 'Vertriebsleitung, Q2-Review',
+      }),
+      r({ id: bid('h'), type: 'heading', level: 2, text: 'Datengrundlage' }),
+      r({ id: bid('t'), type: 'text', html: '<p>Die Umsatzkennzahlen basieren auf folgender Abfrage über die Faktura-Daten:</p>' }),
+      r({
+        id: bid('code'),
+        type: 'code',
+        language: 'sql',
+        code:
+          'SELECT region, SUM(total_net) AS umsatz\n' +
+          'FROM invoices\n' +
+          "WHERE status = 'paid'\n" +
+          "  AND issue_date >= '2026-04-01'\n" +
+          'GROUP BY region\n' +
+          'ORDER BY umsatz DESC;',
+      }),
     ],
   },
   {

@@ -17,6 +17,7 @@
     "src/renderer/src/components/shared/document/index.ts",
     "src/renderer/src/modules/berichte/components/documents/berichte-blocks.tsx",
     "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx",
+    "src/renderer/src/mocks/handlers/berichte.ts",
     "src/renderer/src/modules/wiki/wiki-blocks.tsx",
     "src/renderer/src/modules/wiki/WikiEditor.tsx",
     "src/renderer/src/modules/wiki/WikiArticle.tsx",

@@ -8,6 +8,8 @@
  * the gateway serialises them as raw JSON objects (like wiki content).
  */
 
+import type { CodeBlock, QuoteBlock, SimpleTableBlock } from '@/components/shared/document'
+
 // ---------------------------------------------------------------------------
 // Enum-like string unions
 // ---------------------------------------------------------------------------
@@ -504,6 +506,10 @@ export type ReportBlock =
   | DividerBlock
   | ImageBlock
   | PageBreakBlock
+  // Shared document-engine special blocks registered in the berichte registry.
+  | CodeBlock
+  | SimpleTableBlock
+  | QuoteBlock
 
 export interface ReportDocColumn {
   id: string
