@@ -94,6 +94,17 @@ export const chatHandlers = [
     return HttpResponse.json({ success: true })
   }),
 
+  // Mark all channels/DMs as read (KO-7)
+  http.post(`${API}/api/v1/channels/read-all`, () => {
+    store.markAllRead()
+    return HttpResponse.json({ success: true })
+  }),
+
+  // Unified unread inbox across channels + DMs (KO-7)
+  http.get(`${API}/api/v1/messages/unread-inbox`, () => {
+    return HttpResponse.json({ entries: store.getUnreadInbox() })
+  }),
+
   // List messages for channel
   http.get(`${API}/api/v1/channels/:id/messages`, ({ params, request }) => {
     const url = new URL(request.url)

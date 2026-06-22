@@ -6,7 +6,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Hash, Plus, Search, AtSign, Users, PenSquare, Bookmark } from 'lucide-react'
+import { Hash, Plus, Search, AtSign, Users, PenSquare, Bookmark, Inbox } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
 import { usePresenceStore } from '@/stores/presence'
@@ -33,9 +33,11 @@ interface ChannelListProps {
   onToggleMentions?: () => void
   bookmarksActive?: boolean
   onToggleBookmarks?: () => void
+  unreadActive?: boolean
+  onToggleUnread?: () => void
 }
 
-export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive, onToggleMentions, bookmarksActive, onToggleBookmarks }: ChannelListProps) {
+export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive, onToggleMentions, bookmarksActive, onToggleBookmarks, unreadActive, onToggleUnread }: ChannelListProps) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -62,6 +64,7 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
   }, [dmsData, filter])
 
   const unreadCounts = unreadData?.unread_counts ?? {}
+  const totalUnread = Object.values(unreadCounts).reduce((sum: number, n) => sum + (Number(n) || 0), 0)
 
   return (
     <div className="flex h-full flex-col border-r border-border bg-card">
@@ -78,8 +81,26 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
         </div>
       </div>
 
-      {/* Mentions inbox entry */}
+      {/* Mentions / bookmarks / unread inbox entries */}
       <div className="px-3 pb-1">
+        <button
+          onClick={onToggleUnread}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+            unreadActive
+              ? 'bg-secondary text-secondary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )}
+          aria-pressed={unreadActive}
+        >
+          <Inbox className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate text-left">{t('chat.unread.title')}</span>
+          {totalUnread > 0 && (
+            <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs">
+              {totalUnread > 99 ? '99+' : totalUnread}
+            </Badge>
+          )}
+        </button>
         <button
           onClick={onToggleMentions}
           className={cn(

@@ -580,6 +580,40 @@ export function markChannelRead(channelId: string): void {
   delete state.unread[channelId]
 }
 
+export function markAllRead(): void {
+  state.unread = {}
+}
+
+export interface UnreadInboxEntry {
+  channel_id: string
+  channel_name: string
+  is_dm: boolean
+  unread_count: number
+  messages: ChatMessage[]
+}
+
+/**
+ * Unified inbox: every channel/DM with unread messages, plus the last N
+ * top-level messages (N = unread count) for focused triage across the workspace.
+ */
+export function getUnreadInbox(): UnreadInboxEntry[] {
+  const entries: UnreadInboxEntry[] = []
+  for (const [channelId, count] of Object.entries(state.unread)) {
+    if (count <= 0) continue
+    const channel = getChannel(channelId)
+    if (!channel) continue
+    const topLevel = (state.messagesByChannel[channelId] ?? []).filter((m) => !m.parent_message_id)
+    entries.push({
+      channel_id: channelId,
+      channel_name: channel.name,
+      is_dm: Boolean(channel.is_dm),
+      unread_count: count,
+      messages: topLevel.slice(-count),
+    })
+  }
+  return entries
+}
+
 // ---------------------------------------------------------------------------
 // Bookmarks (KO-4)
 // ---------------------------------------------------------------------------

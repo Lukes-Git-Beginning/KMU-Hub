@@ -16,6 +16,7 @@ import { ThreadPanel } from './threads/ThreadPanel'
 import { ChannelSearchPanel } from './channels/ChannelSearchPanel'
 import { MentionsPanel } from './MentionsPanel'
 import { BookmarksPanel } from './BookmarksPanel'
+import { UnreadInboxPanel } from './UnreadInboxPanel'
 import { ChannelMemberList } from '@/components/chat/ChannelMemberList'
 import { useNavigationStore } from '@/stores/navigation'
 
@@ -29,6 +30,7 @@ export default function ChatLayout() {
   const [showSearch, setShowSearch] = useState(false)
   const [showMentions, setShowMentions] = useState(false)
   const [showBookmarks, setShowBookmarks] = useState(false)
+  const [showUnread, setShowUnread] = useState(false)
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null)
 
   const handleSelectChannel = (id: string) => {
@@ -36,6 +38,7 @@ export default function ChatLayout() {
     setSelectedThreadMessageId(null)
     setShowMentions(false)
     setShowBookmarks(false)
+    setShowUnread(false)
     setHighlightMessageId(null)
   }
 
@@ -67,13 +70,18 @@ export default function ChatLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent])
 
-  // Thread, members, search, mentions and bookmarks share the right slot — keep them mutually exclusive.
-  const handleOpenThread = (messageId: string) => {
-    setSelectedThreadMessageId(messageId)
+  // Thread, members, search, mentions, bookmarks and unread inbox share the right slot — keep them mutually exclusive.
+  const closeAllPanels = () => {
     setShowMembers(false)
     setShowSearch(false)
     setShowMentions(false)
     setShowBookmarks(false)
+    setShowUnread(false)
+  }
+
+  const handleOpenThread = (messageId: string) => {
+    setSelectedThreadMessageId(messageId)
+    closeAllPanels()
   }
 
   const handleCloseThread = () => {
@@ -81,35 +89,38 @@ export default function ChatLayout() {
   }
 
   const handleToggleMembers = () => {
-    setShowMembers((v) => !v)
+    const next = !showMembers
     setSelectedThreadMessageId(null)
-    setShowSearch(false)
-    setShowMentions(false)
-    setShowBookmarks(false)
+    closeAllPanels()
+    setShowMembers(next)
   }
 
   const handleToggleSearch = () => {
-    setShowSearch((v) => !v)
+    const next = !showSearch
     setSelectedThreadMessageId(null)
-    setShowMembers(false)
-    setShowMentions(false)
-    setShowBookmarks(false)
+    closeAllPanels()
+    setShowSearch(next)
   }
 
   const handleToggleMentions = () => {
-    setShowMentions((v) => !v)
+    const next = !showMentions
     setSelectedThreadMessageId(null)
-    setShowMembers(false)
-    setShowSearch(false)
-    setShowBookmarks(false)
+    closeAllPanels()
+    setShowMentions(next)
   }
 
   const handleToggleBookmarks = () => {
-    setShowBookmarks((v) => !v)
+    const next = !showBookmarks
     setSelectedThreadMessageId(null)
-    setShowMembers(false)
-    setShowSearch(false)
-    setShowMentions(false)
+    closeAllPanels()
+    setShowBookmarks(next)
+  }
+
+  const handleToggleUnread = () => {
+    const next = !showUnread
+    setSelectedThreadMessageId(null)
+    closeAllPanels()
+    setShowUnread(next)
   }
 
   return (
@@ -123,6 +134,8 @@ export default function ChatLayout() {
           onToggleMentions={handleToggleMentions}
           bookmarksActive={showBookmarks}
           onToggleBookmarks={handleToggleBookmarks}
+          unreadActive={showUnread}
+          onToggleUnread={handleToggleUnread}
         />
       </aside>
 
@@ -200,6 +213,16 @@ export default function ChatLayout() {
         <div className="w-[320px] shrink-0">
           <BookmarksPanel
             onClose={() => setShowBookmarks(false)}
+            onSelectChannel={handleSelectChannel}
+          />
+        </div>
+      )}
+
+      {/* Unified unread inbox panel (cross-channel triage) */}
+      {showUnread && !selectedThreadMessageId && (
+        <div className="w-[320px] shrink-0">
+          <UnreadInboxPanel
+            onClose={() => setShowUnread(false)}
             onSelectChannel={handleSelectChannel}
           />
         </div>
