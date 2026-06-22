@@ -12,11 +12,17 @@ import (
 )
 
 // RoomManager abstracts LiveKit room operations needed by the meeting service.
-// Only the subset used by meeting lifecycle operations is required here;
-// the full video.RoomManager satisfies this interface.
+// Only the subset used by meeting lifecycle and moderation operations is required
+// here; the full video.RoomManager satisfies this interface.
 type RoomManager interface {
 	DeleteRoom(ctx context.Context, name string) error
 	ListParticipants(ctx context.Context, roomName string) ([]string, error)
+	// MuteParticipant server-mutes all published tracks of the given participant.
+	// Idempotent — no-op when the participant is not in the room.
+	MuteParticipant(ctx context.Context, roomName, identity string) error
+	// RemoveParticipant forcibly disconnects a participant from the room.
+	// Idempotent — no-op when the participant is not in the room.
+	RemoveParticipant(ctx context.Context, roomName, identity string) error
 }
 
 // Service handles meeting business logic
@@ -327,12 +333,23 @@ func (s *Service) JoinMeeting(ctx context.Context, id, tenantID, userID uuid.UUI
 	case MeetingStatusInProgress:
 		// Already live — the organizer or any invited attendee may join.
 		if m.OrganizerID != userID {
-			ok, attErr := s.isAttendee(ctx, id, userID)
-			if attErr != nil {
-				return nil, attErr
+			// Co-hosts bypass the lock check; check co-host before attendee.
+			coHost, coHostErr := s.repo.IsCoHost(ctx, m.TenantID, id, userID)
+			if coHostErr != nil {
+				return nil, coHostErr
 			}
-			if !ok {
-				return nil, ErrNotAttendee
+			if !coHost {
+				// Lock check: non-hosts cannot join a locked meeting.
+				if m.Locked {
+					return nil, ErrMeetingLocked
+				}
+				ok, attErr := s.isAttendee(ctx, id, userID)
+				if attErr != nil {
+					return nil, attErr
+				}
+				if !ok {
+					return nil, ErrNotAttendee
+				}
 			}
 		}
 		return m, nil
@@ -826,4 +843,208 @@ func (s *Service) ListChatMessages(ctx context.Context, meetingID, tenantID uuid
 	}
 
 	return s.repo.ListChatMessages(ctx, meetingID, tenantID, limit)
+}
+
+// =============================================================================
+// Host Controls (Wave 3)
+// =============================================================================
+
+// isHostOrCoHost reports whether userID is the meeting organizer OR a co-host.
+func (s *Service) isHostOrCoHost(ctx context.Context, m *Meeting, tenantID, userID uuid.UUID) (bool, error) {
+	if m.OrganizerID == userID {
+		return true, nil
+	}
+	return s.repo.IsCoHost(ctx, tenantID, m.ID, userID)
+}
+
+// PromoteCoHost grants co-host rights to targetUserID for the given meeting.
+// Only the meeting organizer may promote. Idempotent.
+func (s *Service) PromoteCoHost(ctx context.Context, meetingID, tenantID, callerID, targetUserID uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	if m.OrganizerID != callerID {
+		return ErrNotOrganizer
+	}
+	if err := s.repo.AddCoHost(ctx, tenantID, meetingID, targetUserID, callerID); err != nil {
+		return fmt.Errorf("promote co-host: %w", err)
+	}
+	slog.Info("co-host promoted",
+		"meeting_id", meetingID,
+		"user_id", targetUserID,
+		"granted_by", callerID,
+	)
+	return nil
+}
+
+// DemoteCoHost revokes co-host rights from targetUserID.
+// Only the meeting organizer may demote. Idempotent.
+func (s *Service) DemoteCoHost(ctx context.Context, meetingID, tenantID, callerID, targetUserID uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	if m.OrganizerID != callerID {
+		return ErrNotOrganizer
+	}
+	if err := s.repo.RemoveCoHost(ctx, tenantID, meetingID, targetUserID); err != nil {
+		return fmt.Errorf("demote co-host: %w", err)
+	}
+	slog.Info("co-host demoted",
+		"meeting_id", meetingID,
+		"user_id", targetUserID,
+		"by", callerID,
+	)
+	return nil
+}
+
+// ListCoHosts returns all current co-hosts for a meeting.
+func (s *Service) ListCoHosts(ctx context.Context, meetingID, tenantID uuid.UUID) ([]MeetingCoHost, error) {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListCoHosts(ctx, tenantID, meetingID)
+}
+
+// MuteMeetingParticipant server-mutes a single participant.
+// Caller must be the organizer or a co-host.
+func (s *Service) MuteMeetingParticipant(ctx context.Context, meetingID, tenantID, callerID, targetUserID uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	if m.Status != MeetingStatusInProgress {
+		return ErrNotInProgress
+	}
+	ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrNotHost
+	}
+	if s.roomMgr == nil || m.RoomName == nil {
+		slog.Warn("mute participant: no room manager or room not started",
+			"meeting_id", meetingID, "target_user_id", targetUserID)
+		return nil
+	}
+	if err := s.roomMgr.MuteParticipant(ctx, *m.RoomName, targetUserID.String()); err != nil {
+		return fmt.Errorf("mute participant: %w", err)
+	}
+	slog.Info("participant muted",
+		"meeting_id", meetingID,
+		"target_user_id", targetUserID,
+		"by", callerID,
+	)
+	return nil
+}
+
+// MuteAllMeetingParticipants server-mutes every non-host participant in the room.
+// Caller must be the organizer or a co-host.
+func (s *Service) MuteAllMeetingParticipants(ctx context.Context, meetingID, tenantID, callerID uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	if m.Status != MeetingStatusInProgress {
+		return ErrNotInProgress
+	}
+	ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrNotHost
+	}
+	if s.roomMgr == nil || m.RoomName == nil {
+		return nil
+	}
+	identities, err := s.roomMgr.ListParticipants(ctx, *m.RoomName)
+	if err != nil {
+		return fmt.Errorf("mute all: list participants: %w", err)
+	}
+	// Build a set of co-hosts so we skip them
+	cohosts, err := s.repo.ListCoHosts(ctx, tenantID, meetingID)
+	if err != nil {
+		return fmt.Errorf("mute all: list co-hosts: %w", err)
+	}
+	coHostSet := make(map[string]bool, len(cohosts))
+	for _, ch := range cohosts {
+		coHostSet[ch.UserID.String()] = true
+	}
+	organizerStr := m.OrganizerID.String()
+	for _, identity := range identities {
+		if identity == organizerStr || coHostSet[identity] {
+			continue // do not mute the host or co-hosts
+		}
+		if muteErr := s.roomMgr.MuteParticipant(ctx, *m.RoomName, identity); muteErr != nil {
+			slog.Warn("mute all: failed to mute participant",
+				"meeting_id", meetingID,
+				"identity", identity,
+				"error", muteErr,
+			)
+		}
+	}
+	slog.Info("all participants muted",
+		"meeting_id", meetingID,
+		"by", callerID,
+	)
+	return nil
+}
+
+// RemoveMeetingParticipant kicks a participant from the room.
+// Caller must be the organizer or a co-host.
+func (s *Service) RemoveMeetingParticipant(ctx context.Context, meetingID, tenantID, callerID, targetUserID uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	if m.Status != MeetingStatusInProgress {
+		return ErrNotInProgress
+	}
+	ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrNotHost
+	}
+	if s.roomMgr == nil || m.RoomName == nil {
+		return nil
+	}
+	if err := s.roomMgr.RemoveParticipant(ctx, *m.RoomName, targetUserID.String()); err != nil {
+		return fmt.Errorf("remove participant: %w", err)
+	}
+	slog.Info("participant removed from meeting",
+		"meeting_id", meetingID,
+		"target_user_id", targetUserID,
+		"by", callerID,
+	)
+	return nil
+}
+
+// SetMeetingLock locks or unlocks a meeting. When locked, only the host or
+// co-hosts may join. Caller must be the organizer or a co-host.
+func (s *Service) SetMeetingLock(ctx context.Context, meetingID, tenantID, callerID uuid.UUID, locked bool) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrNotHost
+	}
+	if err := s.repo.SetLocked(ctx, tenantID, meetingID, locked); err != nil {
+		return fmt.Errorf("set meeting lock: %w", err)
+	}
+	slog.Info("meeting lock updated",
+		"meeting_id", meetingID,
+		"locked", locked,
+		"by", callerID,
+	)
+	return nil
 }

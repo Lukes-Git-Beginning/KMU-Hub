@@ -74,6 +74,14 @@ func (m *mockRoomManager) ListParticipants(_ context.Context, _ string) ([]strin
 	return m.participants, nil
 }
 
+func (m *mockRoomManager) MuteParticipant(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (m *mockRoomManager) RemoveParticipant(_ context.Context, _, _ string) error {
+	return nil
+}
+
 // --- Mock Repository ---
 
 type mockRepo struct {

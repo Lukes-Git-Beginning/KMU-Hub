@@ -23,4 +23,7 @@ var (
 	ErrNotAttendee           = errors.New("only invited attendees can join this meeting")
 	ErrNotStarted            = errors.New("meeting has not been started by the organizer yet")
 	ErrChatMessageRequired   = errors.New("chat message content is required")
+	ErrNotHost               = errors.New("only the host or a co-host can perform this action")
+	ErrMeetingLocked         = errors.New("meeting is locked — only the host or a co-host may join")
+	ErrCoHostNotFound        = errors.New("co-host entry not found")
 )

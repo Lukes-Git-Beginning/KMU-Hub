@@ -168,6 +168,15 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		// Chat (persisted in-call messages)
 		r.Post("/{meetingId}/chat", vr.HandleSaveMeetingChatMessage)
 		r.Get("/{meetingId}/chat", vr.HandleListMeetingChatMessages)
+
+		// Host Controls (Wave 3 — meeting-scoped authz in the service, no RBAC guard)
+		r.Post("/{meetingId}/cohosts", vr.HandlePromoteCoHost)
+		r.Delete("/{meetingId}/cohosts/{userId}", vr.HandleDemoteCoHost)
+		r.Get("/{meetingId}/cohosts", vr.HandleListCoHosts)
+		r.Post("/{meetingId}/moderation/mute", vr.HandleMuteMeetingParticipant)
+		r.Post("/{meetingId}/moderation/mute-all", vr.HandleMuteAllMeetingParticipants)
+		r.Post("/{meetingId}/moderation/kick", vr.HandleRemoveMeetingParticipant)
+		r.Post("/{meetingId}/lock", vr.HandleSetMeetingLock)
 	})
 
 	// LiveKit webhook (no auth middleware -- validated via JWT signature)
@@ -249,6 +258,22 @@ type setPresenceStatusRequest struct {
 
 type bulkPresenceRequest struct {
 	UserIDs []string `json:"user_ids" validate:"required,min=1"`
+}
+
+type promoteCoHostHTTPRequest struct {
+	UserID string `json:"user_id" validate:"required,uuid"`
+}
+
+type muteMeetingParticipantHTTPRequest struct {
+	TargetUserID string `json:"target_user_id" validate:"required,uuid"`
+}
+
+type removeMeetingParticipantHTTPRequest struct {
+	TargetUserID string `json:"target_user_id" validate:"required,uuid"`
+}
+
+type setMeetingLockHTTPRequest struct {
+	Locked bool `json:"locked"`
 }
 
 type updatePresenceConfigHTTPRequest struct {
@@ -1770,4 +1795,197 @@ func (vr *VideoRoutes) HandleListMeetingChatMessages(w http.ResponseWriter, r *h
 
 	// response.Proto serialises via protojson — Timestamps become RFC3339 strings, not {seconds,nanos}.
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Host Controls Handlers (Wave 3)
+// ============================================================================
+
+// HandlePromoteCoHost grants co-host rights to a user.
+// POST /api/v1/meetings/{meetingId}/cohosts
+// Body: {"user_id": "<uuid>"}
+// Auth: organizer only (service enforces).
+func (vr *VideoRoutes) HandlePromoteCoHost(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+	req, ok := decodeAndValidate[promoteCoHostHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+	_, err = client.PromoteCoHost(r.Context(), &videov1.PromoteCoHostRequest{
+		MeetingId:    meetingID,
+		TargetUserId: req.UserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "co-host promoted"})
+}
+
+// HandleDemoteCoHost revokes co-host rights from a user.
+// DELETE /api/v1/meetings/{meetingId}/cohosts/{userId}
+// Auth: organizer only (service enforces).
+func (vr *VideoRoutes) HandleDemoteCoHost(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+	targetUserID, ok := validateUUIDParam(w, r, "userId")
+	if !ok {
+		return
+	}
+	_, err = client.DemoteCoHost(r.Context(), &videov1.DemoteCoHostRequest{
+		MeetingId:    meetingID,
+		TargetUserId: targetUserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "co-host demoted"})
+}
+
+// HandleListCoHosts returns all co-hosts for a meeting.
+// GET /api/v1/meetings/{meetingId}/cohosts
+func (vr *VideoRoutes) HandleListCoHosts(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+	resp, err := client.ListCoHosts(r.Context(), &videov1.ListCoHostsRequest{
+		MeetingId: meetingID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleMuteMeetingParticipant server-mutes a single participant.
+// POST /api/v1/meetings/{meetingId}/moderation/mute
+// Body: {"target_user_id": "<uuid>"}
+// Auth: host or co-host (service enforces).
+func (vr *VideoRoutes) HandleMuteMeetingParticipant(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+	req, ok := decodeAndValidate[muteMeetingParticipantHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+	_, err = client.MuteMeetingParticipant(r.Context(), &videov1.MuteMeetingParticipantRequest{
+		MeetingId:    meetingID,
+		TargetUserId: req.TargetUserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "participant muted"})
+}
+
+// HandleMuteAllMeetingParticipants server-mutes all non-host participants.
+// POST /api/v1/meetings/{meetingId}/moderation/mute-all
+// Auth: host or co-host (service enforces).
+func (vr *VideoRoutes) HandleMuteAllMeetingParticipants(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+	_, err = client.MuteAllMeetingParticipants(r.Context(), &videov1.MuteAllMeetingParticipantsRequest{
+		MeetingId: meetingID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "all participants muted"})
+}
+
+// HandleRemoveMeetingParticipant kicks a participant from the meeting room.
+// POST /api/v1/meetings/{meetingId}/moderation/kick
+// Body: {"target_user_id": "<uuid>"}
+// Auth: host or co-host (service enforces).
+func (vr *VideoRoutes) HandleRemoveMeetingParticipant(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+	req, ok := decodeAndValidate[removeMeetingParticipantHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+	_, err = client.RemoveMeetingParticipant(r.Context(), &videov1.RemoveMeetingParticipantRequest{
+		MeetingId:    meetingID,
+		TargetUserId: req.TargetUserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "participant removed"})
+}
+
+// HandleSetMeetingLock locks or unlocks a meeting.
+// POST /api/v1/meetings/{meetingId}/lock
+// Body: {"locked": true}
+// Auth: host or co-host (service enforces).
+func (vr *VideoRoutes) HandleSetMeetingLock(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+	req, ok := decodeAndValidate[setMeetingLockHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+	_, err = client.SetMeetingLock(r.Context(), &videov1.SetMeetingLockRequest{
+		MeetingId: meetingID,
+		Locked:    req.Locked,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "meeting lock updated"})
 }

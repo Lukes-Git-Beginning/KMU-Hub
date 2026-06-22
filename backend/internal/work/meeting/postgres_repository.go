@@ -38,13 +38,13 @@ func (r *PostgresRepository) CreateMeeting(ctx context.Context, m *Meeting) erro
 func (r *PostgresRepository) GetMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meeting, error) {
 	var m Meeting
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, title, description, agenda, organizer_id, status,
+		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
 		  calendar_event_id, recurring_meeting_id, created_at, updated_at
 		 FROM meetings WHERE id = $1 AND tenant_id = $2`,
 		id, tenantID,
 	).Scan(
-		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 		&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
 	)
@@ -61,11 +61,13 @@ func (r *PostgresRepository) UpdateMeeting(ctx context.Context, m *Meeting) erro
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE meetings SET title=$3, description=$4, agenda=$5, status=$6,
 		  scheduled_start=$7, scheduled_end=$8, actual_start=$9, actual_end=$10,
-		  room_name=$11, calendar_event_id=$12, recurring_meeting_id=$13, updated_at=$14
+		  room_name=$11, calendar_event_id=$12, recurring_meeting_id=$13, updated_at=$14,
+		  locked=$15
 		 WHERE id=$1 AND tenant_id=$2`,
 		m.ID, m.TenantID, m.Title, m.Description, m.Agenda, m.Status,
 		m.ScheduledStart, m.ScheduledEnd, m.ActualStart, m.ActualEnd,
 		m.RoomName, m.CalendarEventID, m.RecurringMeetingID, m.UpdatedAt,
+		m.Locked,
 	)
 	if err != nil {
 		return fmt.Errorf("update meeting: %w", err)
@@ -124,7 +126,7 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 		argIdx++
 	}
 
-	query := `SELECT m.id, m.tenant_id, m.title, m.description, m.agenda, m.organizer_id, m.status,
+	query := `SELECT m.id, m.tenant_id, m.title, m.description, m.agenda, m.organizer_id, m.status, m.locked,
 		m.scheduled_start, m.scheduled_end, m.actual_start, m.actual_end, m.room_name,
 		m.calendar_event_id, m.recurring_meeting_id, m.created_at, m.updated_at
 		FROM meetings m`
@@ -151,7 +153,7 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 	for rows.Next() {
 		var m Meeting
 		if err := rows.Scan(
-			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 			&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
 		); err != nil {
@@ -167,13 +169,13 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 func (r *PostgresRepository) GetMeetingByRoomName(ctx context.Context, roomName string) (*Meeting, error) {
 	var m Meeting
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, title, description, agenda, organizer_id, status,
+		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
 		  calendar_event_id, recurring_meeting_id, created_at, updated_at
 		 FROM meetings WHERE room_name = $1`,
 		roomName,
 	).Scan(
-		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 		&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
 	)
@@ -191,7 +193,7 @@ func (r *PostgresRepository) GetMeetingByRoomName(ctx context.Context, roomName 
 // must be called under WithSystemContext so RLS is bypassed.
 func (r *PostgresRepository) ListStaleMeetings(ctx context.Context, cutoff time.Time) ([]Meeting, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, title, description, agenda, organizer_id, status,
+		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
 		  calendar_event_id, recurring_meeting_id, created_at, updated_at
 		 FROM meetings
@@ -207,7 +209,7 @@ func (r *PostgresRepository) ListStaleMeetings(ctx context.Context, cutoff time.
 	for rows.Next() {
 		var m Meeting
 		if err := rows.Scan(
-			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 			&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
 		); err != nil {
@@ -489,4 +491,90 @@ func (r *PostgresRepository) ListChatMessages(ctx context.Context, meetingID, te
 		msgs = append(msgs, m)
 	}
 	return msgs, rows.Err()
+}
+
+// --- Co-hosts ---
+
+// AddCoHost inserts a co-host row. Idempotent via ON CONFLICT DO NOTHING.
+func (r *PostgresRepository) AddCoHost(ctx context.Context, tenantID, meetingID, userID, grantedBy uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO meeting_cohosts (tenant_id, meeting_id, user_id, granted_by)
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (meeting_id, user_id) DO NOTHING`,
+		tenantID, meetingID, userID, grantedBy,
+	)
+	if err != nil {
+		return fmt.Errorf("add co-host: %w", err)
+	}
+	return nil
+}
+
+// RemoveCoHost deletes the co-host row. Idempotent — no error when not found.
+func (r *PostgresRepository) RemoveCoHost(ctx context.Context, tenantID, meetingID, userID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM meeting_cohosts WHERE tenant_id=$1 AND meeting_id=$2 AND user_id=$3`,
+		tenantID, meetingID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("remove co-host: %w", err)
+	}
+	return nil
+}
+
+// IsCoHost reports whether userID has co-host rights for meetingID.
+func (r *PostgresRepository) IsCoHost(ctx context.Context, tenantID, meetingID, userID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		   SELECT 1 FROM meeting_cohosts
+		   WHERE tenant_id=$1 AND meeting_id=$2 AND user_id=$3
+		 )`,
+		tenantID, meetingID, userID,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("is co-host: %w", err)
+	}
+	return exists, nil
+}
+
+// ListCoHosts returns all co-host entries for a meeting.
+func (r *PostgresRepository) ListCoHosts(ctx context.Context, tenantID, meetingID uuid.UUID) ([]MeetingCoHost, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, meeting_id, user_id, granted_by, created_at
+		 FROM meeting_cohosts
+		 WHERE tenant_id=$1 AND meeting_id=$2
+		 ORDER BY created_at`,
+		tenantID, meetingID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list co-hosts: %w", err)
+	}
+	defer rows.Close()
+
+	var cohosts []MeetingCoHost
+	for rows.Next() {
+		var c MeetingCoHost
+		if err := rows.Scan(&c.ID, &c.TenantID, &c.MeetingID, &c.UserID, &c.GrantedBy, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan co-host: %w", err)
+		}
+		cohosts = append(cohosts, c)
+	}
+	return cohosts, rows.Err()
+}
+
+// --- Lock ---
+
+// SetLocked updates the locked flag on a meeting row.
+func (r *PostgresRepository) SetLocked(ctx context.Context, tenantID, meetingID uuid.UUID, locked bool) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE meetings SET locked=$3, updated_at=now() WHERE id=$1 AND tenant_id=$2`,
+		meetingID, tenantID, locked,
+	)
+	if err != nil {
+		return fmt.Errorf("set locked: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

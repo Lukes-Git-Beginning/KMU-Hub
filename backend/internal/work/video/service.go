@@ -39,6 +39,12 @@ type RoomManager interface {
 	// participants in the given room. Returns an empty slice when the room is empty
 	// or does not exist.
 	ListParticipants(ctx context.Context, roomName string) ([]string, error)
+	// MuteParticipant server-mutes all published tracks of the given participant.
+	// Idempotent — no-op when the participant is not in the room.
+	MuteParticipant(ctx context.Context, roomName, identity string) error
+	// RemoveParticipant forcibly disconnects a participant from the room.
+	// Idempotent — no-op when the participant is not in the room.
+	RemoveParticipant(ctx context.Context, roomName, identity string) error
 }
 
 // Service handles video call business logic

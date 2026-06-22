@@ -126,6 +126,56 @@ func (rm *RoomManager) GenerateToken(roomName, userID, displayName string) (stri
 	return at.ToJWT()
 }
 
+// MuteParticipant server-side mutes all published tracks of a participant in the
+// given room. The participant's client receives a mute instruction from the server.
+// Not-found participants are treated as a no-op (idempotent).
+func (rm *RoomManager) MuteParticipant(ctx context.Context, roomName, identity string) error {
+	apiCtx, cancel := context.WithTimeout(ctx, livekitAPITimeout)
+	defer cancel()
+
+	resp, err := rm.client.ListParticipants(apiCtx, &lkproto.ListParticipantsRequest{Room: roomName})
+	if err != nil {
+		return fmt.Errorf("livekit mute participant — list: %w", err)
+	}
+
+	for _, p := range resp.Participants {
+		if p.Identity != identity {
+			continue
+		}
+		for _, track := range p.Tracks {
+			muteCtx, muteCancel := context.WithTimeout(ctx, livekitAPITimeout)
+			_, muteErr := rm.client.MutePublishedTrack(muteCtx, &lkproto.MuteRoomTrackRequest{
+				Room:     roomName,
+				Identity: identity,
+				TrackSid: track.Sid,
+				Muted:    true,
+			})
+			muteCancel()
+			if muteErr != nil {
+				return fmt.Errorf("livekit mute track %s: %w", track.Sid, muteErr)
+			}
+		}
+		return nil
+	}
+	// participant not in room — no-op
+	return nil
+}
+
+// RemoveParticipant forcibly disconnects a participant from the given room.
+// Not-found participants are treated as a no-op (idempotent).
+func (rm *RoomManager) RemoveParticipant(ctx context.Context, roomName, identity string) error {
+	apiCtx, cancel := context.WithTimeout(ctx, livekitAPITimeout)
+	defer cancel()
+	_, err := rm.client.RemoveParticipant(apiCtx, &lkproto.RoomParticipantIdentity{
+		Room:     roomName,
+		Identity: identity,
+	})
+	if err != nil {
+		return fmt.Errorf("livekit remove participant: %w", err)
+	}
+	return nil
+}
+
 // TURNIceServers returns per-session coturn credentials for the user as
 // video.IceServerConfig, or nil when TURN is not configured on this manager.
 // This lets the gateway expose iceServers in the join response so clients can

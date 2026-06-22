@@ -20,6 +20,7 @@ type mockRepo struct {
 	notes        map[uuid.UUID][]MeetingNotes // keyed by meeting ID
 	actionItems  map[uuid.UUID][]MeetingActionItem
 	chatMessages map[uuid.UUID][]MeetingChatMessage // keyed by meeting ID
+	cohosts      map[uuid.UUID][]MeetingCoHost      // keyed by meeting ID
 }
 
 func newMockRepo() *mockRepo {
@@ -29,6 +30,7 @@ func newMockRepo() *mockRepo {
 		notes:        make(map[uuid.UUID][]MeetingNotes),
 		actionItems:  make(map[uuid.UUID][]MeetingActionItem),
 		chatMessages: make(map[uuid.UUID][]MeetingChatMessage),
+		cohosts:      make(map[uuid.UUID][]MeetingCoHost),
 	}
 }
 
@@ -263,11 +265,64 @@ func (m *mockRepo) ListChatMessages(_ context.Context, meetingID, _ uuid.UUID, l
 	return msgs, nil
 }
 
+func (m *mockRepo) AddCoHost(_ context.Context, tenantID, meetingID, userID, grantedBy uuid.UUID) error {
+	// idempotent
+	for _, ch := range m.cohosts[meetingID] {
+		if ch.UserID == userID {
+			return nil
+		}
+	}
+	m.cohosts[meetingID] = append(m.cohosts[meetingID], MeetingCoHost{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		MeetingID: meetingID,
+		UserID:    userID,
+		GrantedBy: grantedBy,
+		CreatedAt: time.Now().UTC(),
+	})
+	return nil
+}
+
+func (m *mockRepo) RemoveCoHost(_ context.Context, _, meetingID, userID uuid.UUID) error {
+	cohosts := m.cohosts[meetingID]
+	for i, ch := range cohosts {
+		if ch.UserID == userID {
+			m.cohosts[meetingID] = append(cohosts[:i], cohosts[i+1:]...)
+			return nil
+		}
+	}
+	return nil // idempotent
+}
+
+func (m *mockRepo) IsCoHost(_ context.Context, _, meetingID, userID uuid.UUID) (bool, error) {
+	for _, ch := range m.cohosts[meetingID] {
+		if ch.UserID == userID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *mockRepo) ListCoHosts(_ context.Context, _, meetingID uuid.UUID) ([]MeetingCoHost, error) {
+	return m.cohosts[meetingID], nil
+}
+
+func (m *mockRepo) SetLocked(_ context.Context, _, meetingID uuid.UUID, locked bool) error {
+	mtg, ok := m.meetings[meetingID]
+	if !ok {
+		return ErrNotFound
+	}
+	mtg.Locked = locked
+	return nil
+}
+
 // mockRoomManager implements RoomManager for tests.
 type mockRoomManager struct {
 	deletedRooms    []string
 	participantMap  map[string][]string // room -> participants
 	deleteRoomError error
+	mutedIdentities []string
+	kickedIdentities []string
 }
 
 func newMockRoomManager() *mockRoomManager {
@@ -284,6 +339,16 @@ func (m *mockRoomManager) DeleteRoom(_ context.Context, name string) error {
 
 func (m *mockRoomManager) ListParticipants(_ context.Context, roomName string) ([]string, error) {
 	return m.participantMap[roomName], nil
+}
+
+func (m *mockRoomManager) MuteParticipant(_ context.Context, _, identity string) error {
+	m.mutedIdentities = append(m.mutedIdentities, identity)
+	return nil
+}
+
+func (m *mockRoomManager) RemoveParticipant(_ context.Context, _, identity string) error {
+	m.kickedIdentities = append(m.kickedIdentities, identity)
+	return nil
 }
 
 // --- Helper Functions ---
@@ -1474,4 +1539,232 @@ func setupInProgressMeeting(t *testing.T, svc *Service, ctx context.Context) *Me
 	started, err := svc.StartMeeting(ctx, m.ID, testTenantID, orgID)
 	require.NoError(t, err)
 	return started
+}
+
+// =============================================================================
+// Wave 3 Host-Controls Tests
+// =============================================================================
+
+// helpers for host-controls tests
+
+func newInProgressMeetingWithRoomMgr(t *testing.T) (*Service, *mockRepo, *mockRoomManager, *Meeting, uuid.UUID) {
+	t.Helper()
+	repo := newMockRepo()
+	mgr := newMockRoomManager()
+	svc := NewServiceWithRoomManager(repo, mgr)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	input := CreateMeetingInput{
+		TenantID:       testTenantID,
+		Title:          "Host Controls Meeting",
+		OrganizerID:    orgID,
+		ScheduledStart: time.Now().Add(1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(2 * time.Hour),
+		AttendeeIDs:    []uuid.UUID{orgID},
+	}
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+	m, err = svc.StartMeeting(ctx, m.ID, testTenantID, orgID)
+	require.NoError(t, err)
+	// Seed the room participant list for mute-all tests
+	mgr.participantMap[*m.RoomName] = []string{orgID.String()}
+	return svc, repo, mgr, m, orgID
+}
+
+// --- PromoteCoHost / DemoteCoHost ---
+
+func TestPromoteCoHost_OrganizerSuccess(t *testing.T) {
+	svc, _, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	targetID := uuid.New()
+
+	err := svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, targetID)
+	require.NoError(t, err)
+
+	cohosts, err := svc.ListCoHosts(ctx, m.ID, testTenantID)
+	require.NoError(t, err)
+	require.Len(t, cohosts, 1)
+	assert.Equal(t, targetID, cohosts[0].UserID)
+}
+
+func TestPromoteCoHost_NonOrganizerDenied(t *testing.T) {
+	svc, _, _, m, _ := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	stranger := uuid.New()
+	target := uuid.New()
+
+	err := svc.PromoteCoHost(ctx, m.ID, testTenantID, stranger, target)
+	assert.ErrorIs(t, err, ErrNotOrganizer)
+}
+
+func TestPromoteCoHost_Idempotent(t *testing.T) {
+	svc, _, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	targetID := uuid.New()
+
+	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, targetID))
+	// Second call must not error
+	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, targetID))
+
+	cohosts, err := svc.ListCoHosts(ctx, m.ID, testTenantID)
+	require.NoError(t, err)
+	assert.Len(t, cohosts, 1) // still only one entry
+}
+
+func TestDemoteCoHost_OrganizerSuccess(t *testing.T) {
+	svc, _, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	targetID := uuid.New()
+
+	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, targetID))
+	require.NoError(t, svc.DemoteCoHost(ctx, m.ID, testTenantID, orgID, targetID))
+
+	cohosts, err := svc.ListCoHosts(ctx, m.ID, testTenantID)
+	require.NoError(t, err)
+	assert.Empty(t, cohosts)
+}
+
+func TestDemoteCoHost_NonOrganizerDenied(t *testing.T) {
+	svc, _, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	targetID := uuid.New()
+	stranger := uuid.New()
+
+	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, targetID))
+	err := svc.DemoteCoHost(ctx, m.ID, testTenantID, stranger, targetID)
+	assert.ErrorIs(t, err, ErrNotOrganizer)
+}
+
+func TestDemoteCoHost_Idempotent(t *testing.T) {
+	svc, _, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	targetID := uuid.New()
+
+	// Not a co-host — demotion is a no-op
+	err := svc.DemoteCoHost(ctx, m.ID, testTenantID, orgID, targetID)
+	assert.NoError(t, err)
+}
+
+// --- MuteMeetingParticipant ---
+
+func TestMuteMeetingParticipant_HostSuccess(t *testing.T) {
+	svc, _, mgr, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	targetID := uuid.New()
+	mgr.participantMap[*m.RoomName] = append(mgr.participantMap[*m.RoomName], targetID.String())
+
+	err := svc.MuteMeetingParticipant(ctx, m.ID, testTenantID, orgID, targetID)
+	require.NoError(t, err)
+	assert.Contains(t, mgr.mutedIdentities, targetID.String())
+}
+
+func TestMuteMeetingParticipant_CoHostSuccess(t *testing.T) {
+	svc, _, mgr, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	coHostID := uuid.New()
+	targetID := uuid.New()
+
+	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, coHostID))
+	mgr.participantMap[*m.RoomName] = append(mgr.participantMap[*m.RoomName], targetID.String())
+
+	err := svc.MuteMeetingParticipant(ctx, m.ID, testTenantID, coHostID, targetID)
+	require.NoError(t, err)
+	assert.Contains(t, mgr.mutedIdentities, targetID.String())
+}
+
+func TestMuteMeetingParticipant_NonHostDenied(t *testing.T) {
+	svc, _, _, m, _ := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	stranger := uuid.New()
+	targetID := uuid.New()
+
+	err := svc.MuteMeetingParticipant(ctx, m.ID, testTenantID, stranger, targetID)
+	assert.ErrorIs(t, err, ErrNotHost)
+}
+
+// --- RemoveMeetingParticipant (kick) ---
+
+func TestRemoveMeetingParticipant_HostSuccess(t *testing.T) {
+	svc, _, mgr, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	targetID := uuid.New()
+
+	err := svc.RemoveMeetingParticipant(ctx, m.ID, testTenantID, orgID, targetID)
+	require.NoError(t, err)
+	assert.Contains(t, mgr.kickedIdentities, targetID.String())
+}
+
+func TestRemoveMeetingParticipant_NonHostDenied(t *testing.T) {
+	svc, _, _, m, _ := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	stranger := uuid.New()
+	targetID := uuid.New()
+
+	err := svc.RemoveMeetingParticipant(ctx, m.ID, testTenantID, stranger, targetID)
+	assert.ErrorIs(t, err, ErrNotHost)
+}
+
+// --- SetMeetingLock ---
+
+func TestSetMeetingLock_HostSuccess(t *testing.T) {
+	svc, repo, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+
+	err := svc.SetMeetingLock(ctx, m.ID, testTenantID, orgID, true)
+	require.NoError(t, err)
+	assert.True(t, repo.meetings[m.ID].Locked)
+
+	err = svc.SetMeetingLock(ctx, m.ID, testTenantID, orgID, false)
+	require.NoError(t, err)
+	assert.False(t, repo.meetings[m.ID].Locked)
+}
+
+func TestSetMeetingLock_NonHostDenied(t *testing.T) {
+	svc, _, _, m, _ := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	stranger := uuid.New()
+
+	err := svc.SetMeetingLock(ctx, m.ID, testTenantID, stranger, true)
+	assert.ErrorIs(t, err, ErrNotHost)
+}
+
+func TestSetMeetingLock_CoHostCanLock(t *testing.T) {
+	svc, repo, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+	coHostID := uuid.New()
+
+	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, coHostID))
+	err := svc.SetMeetingLock(ctx, m.ID, testTenantID, coHostID, true)
+	require.NoError(t, err)
+	assert.True(t, repo.meetings[m.ID].Locked)
+}
+
+// --- Lock blocks non-host join ---
+
+func TestJoinMeeting_LockedBlocksNonHost(t *testing.T) {
+	svc, repo, _, m, orgID := newInProgressMeetingWithRoomMgr(t)
+	ctx := context.Background()
+
+	// Lock the meeting
+	require.NoError(t, svc.SetMeetingLock(ctx, m.ID, testTenantID, orgID, true))
+
+	// Add an attendee
+	attendeeID := uuid.New()
+	require.NoError(t, svc.AddAttendee(ctx, m.ID, attendeeID, testTenantID))
+
+	// Attendee should be blocked
+	_, err := svc.JoinMeeting(ctx, m.ID, testTenantID, attendeeID)
+	assert.ErrorIs(t, err, ErrMeetingLocked)
+
+	// Organizer can still join
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, orgID)
+	assert.NoError(t, err)
+
+	// Co-host can still join
+	coHostID := uuid.New()
+	require.NoError(t, repo.AddAttendee(ctx, m.ID, coHostID))
+	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, coHostID))
+	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, coHostID)
+	assert.NoError(t, err)
 }

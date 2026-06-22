@@ -47,6 +47,7 @@ type Meeting struct {
 	Agenda             *string    `json:"agenda,omitempty"`
 	OrganizerID        uuid.UUID  `json:"organizer_id"`
 	Status             string     `json:"status"`
+	Locked             bool       `json:"locked"`
 	ScheduledStart     time.Time  `json:"scheduled_start"`
 	ScheduledEnd       time.Time  `json:"scheduled_end"`
 	ActualStart        *time.Time `json:"actual_start,omitempty"`
@@ -56,6 +57,17 @@ type Meeting struct {
 	RecurringMeetingID *uuid.UUID `json:"recurring_meeting_id,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+// MeetingCoHost represents a user who has been granted co-host privileges
+// for a specific meeting by the meeting organizer.
+type MeetingCoHost struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	MeetingID uuid.UUID `json:"meeting_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	GrantedBy uuid.UUID `json:"granted_by"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // MeetingWithAttendees combines a meeting with its attendee list

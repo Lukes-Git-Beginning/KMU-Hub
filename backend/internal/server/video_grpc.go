@@ -1797,6 +1797,12 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, meeting.ErrInvalidRSVP):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, meeting.ErrNotHost):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, meeting.ErrMeetingLocked):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, meeting.ErrCoHostNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	default:
 		slog.Error("unhandled meeting service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
@@ -1876,5 +1882,175 @@ func meetingChatMessageToProto(m *meeting.MeetingChatMessage) *videov1.MeetingCh
 		SenderName: m.SenderName,
 		Message:    m.Message,
 		CreatedAt:  timestamppb.New(m.CreatedAt),
+	}
+}
+
+// ============================================================================
+// Meeting Host Controls (Wave 3)
+// ============================================================================
+
+func (s *VideoGRPCServer) PromoteCoHost(ctx context.Context, req *videov1.PromoteCoHostRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	targetID, err := uuid.Parse(req.TargetUserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid target_user_id")
+	}
+	if err := s.meetingService.PromoteCoHost(ctx, meetingID, tenantID, callerID, targetID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) DemoteCoHost(ctx context.Context, req *videov1.DemoteCoHostRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	targetID, err := uuid.Parse(req.TargetUserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid target_user_id")
+	}
+	if err := s.meetingService.DemoteCoHost(ctx, meetingID, tenantID, callerID, targetID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) ListCoHosts(ctx context.Context, req *videov1.ListCoHostsRequest) (*videov1.ListCoHostsResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	cohosts, err := s.meetingService.ListCoHosts(ctx, meetingID, tenantID)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+	var protoCoHosts []*videov1.MeetingCoHost
+	for _, ch := range cohosts {
+		protoCoHosts = append(protoCoHosts, meetingCoHostToProto(&ch))
+	}
+	return &videov1.ListCoHostsResponse{CoHosts: protoCoHosts}, nil
+}
+
+func (s *VideoGRPCServer) MuteMeetingParticipant(ctx context.Context, req *videov1.MuteMeetingParticipantRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	targetID, err := uuid.Parse(req.TargetUserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid target_user_id")
+	}
+	if err := s.meetingService.MuteMeetingParticipant(ctx, meetingID, tenantID, callerID, targetID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) MuteAllMeetingParticipants(ctx context.Context, req *videov1.MuteAllMeetingParticipantsRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	if err := s.meetingService.MuteAllMeetingParticipants(ctx, meetingID, tenantID, callerID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) RemoveMeetingParticipant(ctx context.Context, req *videov1.RemoveMeetingParticipantRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	targetID, err := uuid.Parse(req.TargetUserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid target_user_id")
+	}
+	if err := s.meetingService.RemoveMeetingParticipant(ctx, meetingID, tenantID, callerID, targetID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) SetMeetingLock(ctx context.Context, req *videov1.SetMeetingLockRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	if err := s.meetingService.SetMeetingLock(ctx, meetingID, tenantID, callerID, req.Locked); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func meetingCoHostToProto(ch *meeting.MeetingCoHost) *videov1.MeetingCoHost {
+	return &videov1.MeetingCoHost{
+		Id:        ch.ID.String(),
+		MeetingId: ch.MeetingID.String(),
+		UserId:    ch.UserID.String(),
+		GrantedBy: ch.GrantedBy.String(),
+		CreatedAt: timestamppb.New(ch.CreatedAt),
 	}
 }

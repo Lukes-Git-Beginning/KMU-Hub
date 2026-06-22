@@ -50,6 +50,15 @@ service VideoService {
   rpc SaveMeetingChatMessage(SaveMeetingChatMessageRequest) returns (MeetingChatMessage);
   rpc ListMeetingChatMessages(ListMeetingChatMessagesRequest) returns (ListMeetingChatMessagesResponse);
 
+  // Meeting Host Controls (Wave 3 — server-authoritative)
+  rpc PromoteCoHost(PromoteCoHostRequest) returns (google.protobuf.Empty);
+  rpc DemoteCoHost(DemoteCoHostRequest) returns (google.protobuf.Empty);
+  rpc ListCoHosts(ListCoHostsRequest) returns (ListCoHostsResponse);
+  rpc MuteMeetingParticipant(MuteMeetingParticipantRequest) returns (google.protobuf.Empty);
+  rpc MuteAllMeetingParticipants(MuteAllMeetingParticipantsRequest) returns (google.protobuf.Empty);
+  rpc RemoveMeetingParticipant(RemoveMeetingParticipantRequest) returns (google.protobuf.Empty);
+  rpc SetMeetingLock(SetMeetingLockRequest) returns (google.protobuf.Empty);
+
   // Presence
   rpc GetPresence(GetPresenceRequest) returns (PresenceStatus);
   rpc GetBulkPresence(GetBulkPresenceRequest) returns (GetBulkPresenceResponse);
@@ -553,4 +562,53 @@ message ListMeetingChatMessagesRequest {
 
 message ListMeetingChatMessagesResponse {
   repeated MeetingChatMessage messages = 1;
+}
+
+// ============================================================================
+// Meeting Host Controls RPCs (Wave 3)
+// ============================================================================
+
+message MeetingCoHost {
+  string id = 1;
+  string meeting_id = 2;
+  string user_id = 3;
+  string granted_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message PromoteCoHostRequest {
+  string meeting_id = 1;
+  string target_user_id = 2;
+}
+
+message DemoteCoHostRequest {
+  string meeting_id = 1;
+  string target_user_id = 2;
+}
+
+message ListCoHostsRequest {
+  string meeting_id = 1;
+}
+
+message ListCoHostsResponse {
+  repeated MeetingCoHost co_hosts = 1;
+}
+
+message MuteMeetingParticipantRequest {
+  string meeting_id = 1;
+  string target_user_id = 2;
+}
+
+message MuteAllMeetingParticipantsRequest {
+  string meeting_id = 1;
+}
+
+message RemoveMeetingParticipantRequest {
+  string meeting_id = 1;
+  string target_user_id = 2;
+}
+
+message SetMeetingLockRequest {
+  string meeting_id = 1;
+  bool locked = 2;
 }

@@ -43,6 +43,21 @@ type Repository interface {
 	// Chat
 	SaveChatMessage(ctx context.Context, msg *MeetingChatMessage) error
 	ListChatMessages(ctx context.Context, meetingID, tenantID uuid.UUID, limit int) ([]MeetingChatMessage, error)
+
+	// Co-hosts
+	// AddCoHost grants co-host rights to userID for the given meeting. Idempotent
+	// (ON CONFLICT DO NOTHING) — safe to call when already a co-host.
+	AddCoHost(ctx context.Context, tenantID, meetingID, userID, grantedBy uuid.UUID) error
+	// RemoveCoHost revokes co-host rights. Idempotent — returns nil when not found.
+	RemoveCoHost(ctx context.Context, tenantID, meetingID, userID uuid.UUID) error
+	// IsCoHost reports whether userID currently has co-host rights for meetingID.
+	IsCoHost(ctx context.Context, tenantID, meetingID, userID uuid.UUID) (bool, error)
+	// ListCoHosts returns all current co-hosts for a meeting.
+	ListCoHosts(ctx context.Context, tenantID, meetingID uuid.UUID) ([]MeetingCoHost, error)
+
+	// Lock
+	// SetLocked updates the locked column on the meeting row.
+	SetLocked(ctx context.Context, tenantID, meetingID uuid.UUID, locked bool) error
 }
 
 // MeetingFilter contains filtering parameters for listing meetings

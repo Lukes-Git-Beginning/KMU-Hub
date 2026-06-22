@@ -20,43 +20,50 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VideoService_CreateCall_FullMethodName                = "/video.v1.VideoService/CreateCall"
-	VideoService_JoinCall_FullMethodName                  = "/video.v1.VideoService/JoinCall"
-	VideoService_EndCall_FullMethodName                   = "/video.v1.VideoService/EndCall"
-	VideoService_GetCall_FullMethodName                   = "/video.v1.VideoService/GetCall"
-	VideoService_ListActiveCalls_FullMethodName           = "/video.v1.VideoService/ListActiveCalls"
-	VideoService_StartRecording_FullMethodName            = "/video.v1.VideoService/StartRecording"
-	VideoService_StopRecording_FullMethodName             = "/video.v1.VideoService/StopRecording"
-	VideoService_SetRecordingConsent_FullMethodName       = "/video.v1.VideoService/SetRecordingConsent"
-	VideoService_GetRecordingConsent_FullMethodName       = "/video.v1.VideoService/GetRecordingConsent"
-	VideoService_ListRecordings_FullMethodName            = "/video.v1.VideoService/ListRecordings"
-	VideoService_DeleteRecording_FullMethodName           = "/video.v1.VideoService/DeleteRecording"
-	VideoService_CreateMeeting_FullMethodName             = "/video.v1.VideoService/CreateMeeting"
-	VideoService_GetMeeting_FullMethodName                = "/video.v1.VideoService/GetMeeting"
-	VideoService_UpdateMeeting_FullMethodName             = "/video.v1.VideoService/UpdateMeeting"
-	VideoService_DeleteMeeting_FullMethodName             = "/video.v1.VideoService/DeleteMeeting"
-	VideoService_ListMeetings_FullMethodName              = "/video.v1.VideoService/ListMeetings"
-	VideoService_StartMeeting_FullMethodName              = "/video.v1.VideoService/StartMeeting"
-	VideoService_JoinMeeting_FullMethodName               = "/video.v1.VideoService/JoinMeeting"
-	VideoService_EndMeeting_FullMethodName                = "/video.v1.VideoService/EndMeeting"
-	VideoService_SaveMeetingNotes_FullMethodName          = "/video.v1.VideoService/SaveMeetingNotes"
-	VideoService_GetMeetingNotes_FullMethodName           = "/video.v1.VideoService/GetMeetingNotes"
-	VideoService_GetPreviousMeetingNotes_FullMethodName   = "/video.v1.VideoService/GetPreviousMeetingNotes"
-	VideoService_CreateActionItem_FullMethodName          = "/video.v1.VideoService/CreateActionItem"
-	VideoService_UpdateActionItem_FullMethodName          = "/video.v1.VideoService/UpdateActionItem"
-	VideoService_DeleteActionItem_FullMethodName          = "/video.v1.VideoService/DeleteActionItem"
-	VideoService_ListActionItems_FullMethodName           = "/video.v1.VideoService/ListActionItems"
-	VideoService_ConvertActionItemsToTasks_FullMethodName = "/video.v1.VideoService/ConvertActionItemsToTasks"
-	VideoService_SaveMeetingChatMessage_FullMethodName    = "/video.v1.VideoService/SaveMeetingChatMessage"
-	VideoService_ListMeetingChatMessages_FullMethodName   = "/video.v1.VideoService/ListMeetingChatMessages"
-	VideoService_GetPresence_FullMethodName               = "/video.v1.VideoService/GetPresence"
-	VideoService_GetBulkPresence_FullMethodName           = "/video.v1.VideoService/GetBulkPresence"
-	VideoService_SetPresenceStatus_FullMethodName         = "/video.v1.VideoService/SetPresenceStatus"
-	VideoService_UpdatePresenceConfig_FullMethodName      = "/video.v1.VideoService/UpdatePresenceConfig"
-	VideoService_GetPresenceConfig_FullMethodName         = "/video.v1.VideoService/GetPresenceConfig"
-	VideoService_CompleteRecordingByEgress_FullMethodName = "/video.v1.VideoService/CompleteRecordingByEgress"
-	VideoService_FailRecordingByEgress_FullMethodName     = "/video.v1.VideoService/FailRecordingByEgress"
-	VideoService_CompleteMeetingByRoom_FullMethodName     = "/video.v1.VideoService/CompleteMeetingByRoom"
+	VideoService_CreateCall_FullMethodName                 = "/video.v1.VideoService/CreateCall"
+	VideoService_JoinCall_FullMethodName                   = "/video.v1.VideoService/JoinCall"
+	VideoService_EndCall_FullMethodName                    = "/video.v1.VideoService/EndCall"
+	VideoService_GetCall_FullMethodName                    = "/video.v1.VideoService/GetCall"
+	VideoService_ListActiveCalls_FullMethodName            = "/video.v1.VideoService/ListActiveCalls"
+	VideoService_StartRecording_FullMethodName             = "/video.v1.VideoService/StartRecording"
+	VideoService_StopRecording_FullMethodName              = "/video.v1.VideoService/StopRecording"
+	VideoService_SetRecordingConsent_FullMethodName        = "/video.v1.VideoService/SetRecordingConsent"
+	VideoService_GetRecordingConsent_FullMethodName        = "/video.v1.VideoService/GetRecordingConsent"
+	VideoService_ListRecordings_FullMethodName             = "/video.v1.VideoService/ListRecordings"
+	VideoService_DeleteRecording_FullMethodName            = "/video.v1.VideoService/DeleteRecording"
+	VideoService_CreateMeeting_FullMethodName              = "/video.v1.VideoService/CreateMeeting"
+	VideoService_GetMeeting_FullMethodName                 = "/video.v1.VideoService/GetMeeting"
+	VideoService_UpdateMeeting_FullMethodName              = "/video.v1.VideoService/UpdateMeeting"
+	VideoService_DeleteMeeting_FullMethodName              = "/video.v1.VideoService/DeleteMeeting"
+	VideoService_ListMeetings_FullMethodName               = "/video.v1.VideoService/ListMeetings"
+	VideoService_StartMeeting_FullMethodName               = "/video.v1.VideoService/StartMeeting"
+	VideoService_JoinMeeting_FullMethodName                = "/video.v1.VideoService/JoinMeeting"
+	VideoService_EndMeeting_FullMethodName                 = "/video.v1.VideoService/EndMeeting"
+	VideoService_SaveMeetingNotes_FullMethodName           = "/video.v1.VideoService/SaveMeetingNotes"
+	VideoService_GetMeetingNotes_FullMethodName            = "/video.v1.VideoService/GetMeetingNotes"
+	VideoService_GetPreviousMeetingNotes_FullMethodName    = "/video.v1.VideoService/GetPreviousMeetingNotes"
+	VideoService_CreateActionItem_FullMethodName           = "/video.v1.VideoService/CreateActionItem"
+	VideoService_UpdateActionItem_FullMethodName           = "/video.v1.VideoService/UpdateActionItem"
+	VideoService_DeleteActionItem_FullMethodName           = "/video.v1.VideoService/DeleteActionItem"
+	VideoService_ListActionItems_FullMethodName            = "/video.v1.VideoService/ListActionItems"
+	VideoService_ConvertActionItemsToTasks_FullMethodName  = "/video.v1.VideoService/ConvertActionItemsToTasks"
+	VideoService_SaveMeetingChatMessage_FullMethodName     = "/video.v1.VideoService/SaveMeetingChatMessage"
+	VideoService_ListMeetingChatMessages_FullMethodName    = "/video.v1.VideoService/ListMeetingChatMessages"
+	VideoService_PromoteCoHost_FullMethodName              = "/video.v1.VideoService/PromoteCoHost"
+	VideoService_DemoteCoHost_FullMethodName               = "/video.v1.VideoService/DemoteCoHost"
+	VideoService_ListCoHosts_FullMethodName                = "/video.v1.VideoService/ListCoHosts"
+	VideoService_MuteMeetingParticipant_FullMethodName     = "/video.v1.VideoService/MuteMeetingParticipant"
+	VideoService_MuteAllMeetingParticipants_FullMethodName = "/video.v1.VideoService/MuteAllMeetingParticipants"
+	VideoService_RemoveMeetingParticipant_FullMethodName   = "/video.v1.VideoService/RemoveMeetingParticipant"
+	VideoService_SetMeetingLock_FullMethodName             = "/video.v1.VideoService/SetMeetingLock"
+	VideoService_GetPresence_FullMethodName                = "/video.v1.VideoService/GetPresence"
+	VideoService_GetBulkPresence_FullMethodName            = "/video.v1.VideoService/GetBulkPresence"
+	VideoService_SetPresenceStatus_FullMethodName          = "/video.v1.VideoService/SetPresenceStatus"
+	VideoService_UpdatePresenceConfig_FullMethodName       = "/video.v1.VideoService/UpdatePresenceConfig"
+	VideoService_GetPresenceConfig_FullMethodName          = "/video.v1.VideoService/GetPresenceConfig"
+	VideoService_CompleteRecordingByEgress_FullMethodName  = "/video.v1.VideoService/CompleteRecordingByEgress"
+	VideoService_FailRecordingByEgress_FullMethodName      = "/video.v1.VideoService/FailRecordingByEgress"
+	VideoService_CompleteMeetingByRoom_FullMethodName      = "/video.v1.VideoService/CompleteMeetingByRoom"
 )
 
 // VideoServiceClient is the client API for VideoService service.
@@ -100,6 +107,14 @@ type VideoServiceClient interface {
 	// Meeting Chat (persisted in-call messages)
 	SaveMeetingChatMessage(ctx context.Context, in *SaveMeetingChatMessageRequest, opts ...grpc.CallOption) (*MeetingChatMessage, error)
 	ListMeetingChatMessages(ctx context.Context, in *ListMeetingChatMessagesRequest, opts ...grpc.CallOption) (*ListMeetingChatMessagesResponse, error)
+	// Meeting Host Controls (Wave 3 — server-authoritative)
+	PromoteCoHost(ctx context.Context, in *PromoteCoHostRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DemoteCoHost(ctx context.Context, in *DemoteCoHostRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListCoHosts(ctx context.Context, in *ListCoHostsRequest, opts ...grpc.CallOption) (*ListCoHostsResponse, error)
+	MuteMeetingParticipant(ctx context.Context, in *MuteMeetingParticipantRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	MuteAllMeetingParticipants(ctx context.Context, in *MuteAllMeetingParticipantsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RemoveMeetingParticipant(ctx context.Context, in *RemoveMeetingParticipantRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetMeetingLock(ctx context.Context, in *SetMeetingLockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Presence
 	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*PresenceStatus, error)
 	GetBulkPresence(ctx context.Context, in *GetBulkPresenceRequest, opts ...grpc.CallOption) (*GetBulkPresenceResponse, error)
@@ -410,6 +425,76 @@ func (c *videoServiceClient) ListMeetingChatMessages(ctx context.Context, in *Li
 	return out, nil
 }
 
+func (c *videoServiceClient) PromoteCoHost(ctx context.Context, in *PromoteCoHostRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_PromoteCoHost_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) DemoteCoHost(ctx context.Context, in *DemoteCoHostRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_DemoteCoHost_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ListCoHosts(ctx context.Context, in *ListCoHostsRequest, opts ...grpc.CallOption) (*ListCoHostsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCoHostsResponse)
+	err := c.cc.Invoke(ctx, VideoService_ListCoHosts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) MuteMeetingParticipant(ctx context.Context, in *MuteMeetingParticipantRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_MuteMeetingParticipant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) MuteAllMeetingParticipants(ctx context.Context, in *MuteAllMeetingParticipantsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_MuteAllMeetingParticipants_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) RemoveMeetingParticipant(ctx context.Context, in *RemoveMeetingParticipantRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_RemoveMeetingParticipant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) SetMeetingLock(ctx context.Context, in *SetMeetingLockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_SetMeetingLock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *videoServiceClient) GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*PresenceStatus, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PresenceStatus)
@@ -531,6 +616,14 @@ type VideoServiceServer interface {
 	// Meeting Chat (persisted in-call messages)
 	SaveMeetingChatMessage(context.Context, *SaveMeetingChatMessageRequest) (*MeetingChatMessage, error)
 	ListMeetingChatMessages(context.Context, *ListMeetingChatMessagesRequest) (*ListMeetingChatMessagesResponse, error)
+	// Meeting Host Controls (Wave 3 — server-authoritative)
+	PromoteCoHost(context.Context, *PromoteCoHostRequest) (*emptypb.Empty, error)
+	DemoteCoHost(context.Context, *DemoteCoHostRequest) (*emptypb.Empty, error)
+	ListCoHosts(context.Context, *ListCoHostsRequest) (*ListCoHostsResponse, error)
+	MuteMeetingParticipant(context.Context, *MuteMeetingParticipantRequest) (*emptypb.Empty, error)
+	MuteAllMeetingParticipants(context.Context, *MuteAllMeetingParticipantsRequest) (*emptypb.Empty, error)
+	RemoveMeetingParticipant(context.Context, *RemoveMeetingParticipantRequest) (*emptypb.Empty, error)
+	SetMeetingLock(context.Context, *SetMeetingLockRequest) (*emptypb.Empty, error)
 	// Presence
 	GetPresence(context.Context, *GetPresenceRequest) (*PresenceStatus, error)
 	GetBulkPresence(context.Context, *GetBulkPresenceRequest) (*GetBulkPresenceResponse, error)
@@ -637,6 +730,27 @@ func (UnimplementedVideoServiceServer) SaveMeetingChatMessage(context.Context, *
 }
 func (UnimplementedVideoServiceServer) ListMeetingChatMessages(context.Context, *ListMeetingChatMessagesRequest) (*ListMeetingChatMessagesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMeetingChatMessages not implemented")
+}
+func (UnimplementedVideoServiceServer) PromoteCoHost(context.Context, *PromoteCoHostRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method PromoteCoHost not implemented")
+}
+func (UnimplementedVideoServiceServer) DemoteCoHost(context.Context, *DemoteCoHostRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DemoteCoHost not implemented")
+}
+func (UnimplementedVideoServiceServer) ListCoHosts(context.Context, *ListCoHostsRequest) (*ListCoHostsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCoHosts not implemented")
+}
+func (UnimplementedVideoServiceServer) MuteMeetingParticipant(context.Context, *MuteMeetingParticipantRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method MuteMeetingParticipant not implemented")
+}
+func (UnimplementedVideoServiceServer) MuteAllMeetingParticipants(context.Context, *MuteAllMeetingParticipantsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method MuteAllMeetingParticipants not implemented")
+}
+func (UnimplementedVideoServiceServer) RemoveMeetingParticipant(context.Context, *RemoveMeetingParticipantRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveMeetingParticipant not implemented")
+}
+func (UnimplementedVideoServiceServer) SetMeetingLock(context.Context, *SetMeetingLockRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetMeetingLock not implemented")
 }
 func (UnimplementedVideoServiceServer) GetPresence(context.Context, *GetPresenceRequest) (*PresenceStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPresence not implemented")
@@ -1205,6 +1319,132 @@ func _VideoService_ListMeetingChatMessages_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VideoService_PromoteCoHost_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PromoteCoHostRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).PromoteCoHost(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_PromoteCoHost_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).PromoteCoHost(ctx, req.(*PromoteCoHostRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_DemoteCoHost_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DemoteCoHostRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).DemoteCoHost(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_DemoteCoHost_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).DemoteCoHost(ctx, req.(*DemoteCoHostRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ListCoHosts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCoHostsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ListCoHosts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ListCoHosts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ListCoHosts(ctx, req.(*ListCoHostsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_MuteMeetingParticipant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MuteMeetingParticipantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).MuteMeetingParticipant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_MuteMeetingParticipant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).MuteMeetingParticipant(ctx, req.(*MuteMeetingParticipantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_MuteAllMeetingParticipants_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MuteAllMeetingParticipantsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).MuteAllMeetingParticipants(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_MuteAllMeetingParticipants_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).MuteAllMeetingParticipants(ctx, req.(*MuteAllMeetingParticipantsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_RemoveMeetingParticipant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveMeetingParticipantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).RemoveMeetingParticipant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_RemoveMeetingParticipant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).RemoveMeetingParticipant(ctx, req.(*RemoveMeetingParticipantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_SetMeetingLock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetMeetingLockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).SetMeetingLock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_SetMeetingLock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).SetMeetingLock(ctx, req.(*SetMeetingLockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VideoService_GetPresence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetPresenceRequest)
 	if err := dec(in); err != nil {
@@ -1471,6 +1711,34 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListMeetingChatMessages",
 			Handler:    _VideoService_ListMeetingChatMessages_Handler,
+		},
+		{
+			MethodName: "PromoteCoHost",
+			Handler:    _VideoService_PromoteCoHost_Handler,
+		},
+		{
+			MethodName: "DemoteCoHost",
+			Handler:    _VideoService_DemoteCoHost_Handler,
+		},
+		{
+			MethodName: "ListCoHosts",
+			Handler:    _VideoService_ListCoHosts_Handler,
+		},
+		{
+			MethodName: "MuteMeetingParticipant",
+			Handler:    _VideoService_MuteMeetingParticipant_Handler,
+		},
+		{
+			MethodName: "MuteAllMeetingParticipants",
+			Handler:    _VideoService_MuteAllMeetingParticipants_Handler,
+		},
+		{
+			MethodName: "RemoveMeetingParticipant",
+			Handler:    _VideoService_RemoveMeetingParticipant_Handler,
+		},
+		{
+			MethodName: "SetMeetingLock",
+			Handler:    _VideoService_SetMeetingLock_Handler,
 		},
 		{
 			MethodName: "GetPresence",
