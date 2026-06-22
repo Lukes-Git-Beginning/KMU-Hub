@@ -1075,6 +1075,8 @@
   "document.editor.layout": "Layout",
   "document.editor.columnCount": "{count} columns",
   "document.editor.deleteBlock": "Delete block",
+  "document.editor.moveBlockUp": "Move block up",
+  "document.editor.moveBlockDown": "Move block down",
   "document.editor.deleteRow": "Delete row",
   "document.editor.dragRow": "Move row",
   "document.editor.rowOptions": "Row options",

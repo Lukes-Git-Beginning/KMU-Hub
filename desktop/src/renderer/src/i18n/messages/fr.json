@@ -1075,6 +1075,8 @@
   "document.editor.layout": "Disposition",
   "document.editor.columnCount": "{count} colonnes",
   "document.editor.deleteBlock": "Supprimer le bloc",
+  "document.editor.moveBlockUp": "Déplacer le bloc vers le haut",
+  "document.editor.moveBlockDown": "Déplacer le bloc vers le bas",
   "document.editor.deleteRow": "Supprimer la ligne",
   "document.editor.dragRow": "Déplacer la ligne",
   "document.editor.rowOptions": "Options de ligne",

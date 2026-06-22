@@ -1075,6 +1075,8 @@
   "document.editor.layout": "Layout",
   "document.editor.columnCount": "{count} colonne",
   "document.editor.deleteBlock": "Elimina blocco",
+  "document.editor.moveBlockUp": "Sposta il blocco su",
+  "document.editor.moveBlockDown": "Sposta il blocco giù",
   "document.editor.deleteRow": "Elimina riga",
   "document.editor.dragRow": "Sposta riga",
   "document.editor.rowOptions": "Opzioni riga",

@@ -10,6 +10,8 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  ChevronDown,
+  ChevronUp,
   Columns2,
   Columns3,
   GripVertical,
@@ -127,6 +129,29 @@ export function DocumentBlockEditor({
     setPickerOpen(false)
   }
 
+  /** Reorder a block within its column (dir -1 = up, +1 = down). The engine's
+   *  drag-reorder moves whole rows; this gives nested column content an order. */
+  function moveBlock(rowId: string, colId: string, blockId: string, dir: -1 | 1) {
+    onChange(
+      rows.map((row) =>
+        row.id !== rowId
+          ? row
+          : {
+              ...row,
+              columns: row.columns.map((col) => {
+                if (col.id !== colId) return col
+                const i = col.blocks.findIndex((b) => b.id === blockId)
+                const j = i + dir
+                if (i === -1 || j < 0 || j >= col.blocks.length) return col
+                const blocks = col.blocks.slice()
+                ;[blocks[i], blocks[j]] = [blocks[j], blocks[i]]
+                return { ...col, blocks }
+              }),
+            },
+      ),
+    )
+  }
+
   function addBlockToColumn(rowId: string, colId: string, type: string) {
     onChange(
       rows.map((row) =>
@@ -204,21 +229,48 @@ export function DocumentBlockEditor({
               <div className={row.columns.length > 1 ? 'flex gap-3' : undefined}>
                 {row.columns.map((col) => (
                   <div key={col.id} className="min-w-0 space-y-4" style={{ flex: col.width ?? 1 }}>
-                    {col.blocks.map((block) => {
+                    {col.blocks.map((block, blockIndex) => {
                       const def = registry[block.type]
                       if (!def) return null
                       const Edit = def.Edit
+                      const stacked = col.blocks.length > 1
+                      const ctrlCls =
+                        'flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors enabled:hover:text-foreground disabled:opacity-30'
                       return (
                         <div key={block.id} className="group/block relative">
                           <Edit block={block} onPatch={(p) => patchBlock(block.id, p)} />
-                          <button
-                            type="button"
-                            onClick={() => deleteBlock(block.id)}
-                            className="absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-destructive group-hover/block:opacity-100"
-                            aria-label={t('document.editor.deleteBlock', { defaultValue: 'Block löschen' })}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          <div className="absolute -right-2 -top-2 z-20 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100">
+                            {stacked && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => moveBlock(row.id, col.id, block.id, -1)}
+                                  disabled={blockIndex === 0}
+                                  className={ctrlCls}
+                                  aria-label={t('document.editor.moveBlockUp', { defaultValue: 'Block nach oben' })}
+                                >
+                                  <ChevronUp className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveBlock(row.id, col.id, block.id, 1)}
+                                  disabled={blockIndex === col.blocks.length - 1}
+                                  className={ctrlCls}
+                                  aria-label={t('document.editor.moveBlockDown', { defaultValue: 'Block nach unten' })}
+                                >
+                                  <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => deleteBlock(block.id)}
+                              className={`${ctrlCls} hover:!text-destructive`}
+                              aria-label={t('document.editor.deleteBlock', { defaultValue: 'Block löschen' })}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
                       )
                     })}

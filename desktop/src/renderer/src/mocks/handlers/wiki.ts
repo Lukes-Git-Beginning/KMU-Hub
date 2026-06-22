@@ -218,6 +218,7 @@ const ARTICLES: WikiArticle[] = [
               'und kurze Absätze reichen oft schon.</p>',
             'Für Leser schreiben',
           ),
+          p('<p>Eine Spalte trägt mehrere Blöcke — im Bearbeiten-Modus ordnest du sie per Pfeil neu.</p>'),
         ],
         [
           callout(
