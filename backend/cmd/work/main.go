@@ -149,7 +149,7 @@ func main() {
 		Bucket:    cfg.MinIOBucket,
 	})
 
-	meetingService := meeting.NewService(meetingRepo)
+	meetingService := meeting.NewServiceWithRoomManager(meetingRepo, roomMgr)
 	presenceStore := presence.NewRedisStore(redisClient)
 	presenceService := presence.NewService(presenceStore, presenceConfigRepo)
 	reactionService := reaction.NewService(reactionRepo)
@@ -268,6 +268,15 @@ func main() {
 		}
 	}()
 
+	// Start meeting auto-close sweeper goroutine.
+	// Closes stale in_progress meetings (scheduled_end + grace < now) that have
+	// no active LiveKit participants. Only active when LiveKit is configured.
+	// Runs every 5 min after a 1-min startup delay.
+	// Uses a system context so the cross-tenant query bypasses RLS row filtering.
+	// Errors are logged but never propagate — a transient failure must not crash
+	// or degrade any other service in this binary.
+	startMeetingSweeper(ctx, meetingService, roomMgr, time.Duration(cfg.MeetingAutocloseGraceMinutes)*time.Minute)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -285,4 +294,96 @@ func main() {
 		slog.Error("health server shutdown failed", "error", err)
 	}
 	slog.Info("work service stopped")
+}
+
+// meetingSweepRoomManager is the subset of video.RoomManager needed by the sweeper.
+type meetingSweepRoomManager interface {
+	ListParticipants(ctx context.Context, roomName string) ([]string, error)
+}
+
+// meetingSweepService is the subset of meeting.Service needed by the sweeper.
+type meetingSweepService interface {
+	ListStaleMeetings(ctx context.Context, cutoff time.Time) ([]meeting.Meeting, error)
+	CompleteMeetingByRoom(ctx context.Context, roomName string) error
+}
+
+// startMeetingSweeper launches the backstop auto-close goroutine.
+// Noop when mgr is nil (LiveKit not configured).
+func startMeetingSweeper(ctx context.Context, svc meetingSweepService, mgr meetingSweepRoomManager, grace time.Duration) {
+	if mgr == nil {
+		slog.Info("meeting sweeper disabled: LiveKit not configured")
+		return
+	}
+
+	go func() {
+		sweeperCtx := database.WithSystemContext(ctx)
+
+		select {
+		case <-time.After(1 * time.Minute):
+		case <-ctx.Done():
+			return
+		}
+
+		sweeperTicker := time.NewTicker(5 * time.Minute)
+		defer sweeperTicker.Stop()
+
+		runSweeper := func() {
+			cutoff := time.Now().UTC().Add(-grace)
+			stale, err := svc.ListStaleMeetings(sweeperCtx, cutoff)
+			if err != nil {
+				slog.Error("meeting sweeper: list stale meetings failed", "error", err)
+				return
+			}
+			for _, m := range stale {
+				if m.RoomName == nil || *m.RoomName == "" {
+					slog.Warn("meeting sweeper: stale meeting has no room_name — skipping",
+						"meeting_id", m.ID,
+					)
+					continue
+				}
+				participants, listErr := mgr.ListParticipants(sweeperCtx, *m.RoomName)
+				if listErr != nil {
+					slog.Warn("meeting sweeper: list participants failed — skipping",
+						"meeting_id", m.ID,
+						"room_name", *m.RoomName,
+						"error", listErr,
+					)
+					continue
+				}
+				if len(participants) > 0 {
+					slog.Debug("meeting sweeper: active participants present — not closing",
+						"meeting_id", m.ID,
+						"room_name", *m.RoomName,
+						"participant_count", len(participants),
+					)
+					continue
+				}
+				// Room empty → close meeting. CompleteMeetingByRoom is idempotent.
+				if endErr := svc.CompleteMeetingByRoom(sweeperCtx, *m.RoomName); endErr != nil {
+					slog.Error("meeting sweeper: complete meeting failed",
+						"meeting_id", m.ID,
+						"room_name", *m.RoomName,
+						"error", endErr,
+					)
+					continue
+				}
+				slog.Info("meeting sweeper: auto-closed stale meeting",
+					"meeting_id", m.ID,
+					"room_name", *m.RoomName,
+					"scheduled_end", m.ScheduledEnd,
+				)
+			}
+		}
+
+		runSweeper() // initial run immediately after startup delay
+
+		for {
+			select {
+			case <-sweeperTicker.C:
+				runSweeper()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }

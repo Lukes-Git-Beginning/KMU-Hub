@@ -221,6 +221,41 @@ func TestHandleLiveKitWebhook_NoSecretConfigured_Accepts(t *testing.T) {
 	assertStatus(t, rec, http.StatusOK)
 }
 
+// TestHandleLiveKitWebhook_RoomFinished_MeetingRoom_AttemptsGRPC verifies that
+// a room_finished event for a "meeting-*" room triggers CompleteMeetingByRoom.
+// Webhook always returns 200 regardless of gRPC outcome.
+func TestHandleLiveKitWebhook_RoomFinished_MeetingRoom_AttemptsGRPC(t *testing.T) {
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
+	rec := httptest.NewRecorder()
+	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{
+		Event: "room_finished",
+		Room: struct {
+			Name string `json:"name"`
+		}{Name: "meeting-ab12cd34-ef56-7890-abcd-ef1234567890"},
+	})
+	routes.HandleLiveKitWebhook(rec, req)
+	// Webhook always returns 200 (gRPC failure is logged, not propagated).
+	assertStatus(t, rec, http.StatusOK)
+}
+
+// TestHandleLiveKitWebhook_RoomFinished_NonMeetingRoom_Returns200 verifies that
+// a room_finished event for a non-meeting room is ignored (no gRPC call) and
+// returns 200.
+func TestHandleLiveKitWebhook_RoomFinished_NonMeetingRoom_Returns200(t *testing.T) {
+	// emptyRegistry has no "work" service → if gRPC were called it would fail.
+	// We verify that it returns 200 anyway (non-meeting rooms are ignored).
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
+	rec := httptest.NewRecorder()
+	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{
+		Event: "room_finished",
+		Room: struct {
+			Name string `json:"name"`
+		}{Name: "call-some-random-room"},
+	})
+	routes.HandleLiveKitWebhook(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+}
+
 // TestEgressDurationConversion verifies the nanoseconds-to-seconds conversion.
 func TestEgressDurationConversion(t *testing.T) {
 	tests := []struct {

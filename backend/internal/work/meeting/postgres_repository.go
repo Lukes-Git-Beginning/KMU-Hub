@@ -162,6 +162,62 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 	return meetings, rows.Err()
 }
 
+// GetMeetingByRoomName looks up a meeting by its LiveKit room_name without a
+// tenant filter. Must be called under WithSystemContext so RLS is bypassed.
+func (r *PostgresRepository) GetMeetingByRoomName(ctx context.Context, roomName string) (*Meeting, error) {
+	var m Meeting
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, title, description, agenda, organizer_id, status,
+		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
+		  calendar_event_id, recurring_meeting_id, created_at, updated_at
+		 FROM meetings WHERE room_name = $1`,
+		roomName,
+	).Scan(
+		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
+		&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get meeting by room name: %w", err)
+	}
+	return &m, nil
+}
+
+// ListStaleMeetings returns all in_progress meetings whose scheduled_end is
+// strictly before cutoff (caller adds grace before passing). No tenant filter —
+// must be called under WithSystemContext so RLS is bypassed.
+func (r *PostgresRepository) ListStaleMeetings(ctx context.Context, cutoff time.Time) ([]Meeting, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, title, description, agenda, organizer_id, status,
+		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
+		  calendar_event_id, recurring_meeting_id, created_at, updated_at
+		 FROM meetings
+		 WHERE status = 'in_progress' AND scheduled_end < $1`,
+		cutoff,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list stale meetings: %w", err)
+	}
+	defer rows.Close()
+
+	var meetings []Meeting
+	for rows.Next() {
+		var m Meeting
+		if err := rows.Scan(
+			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
+			&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan stale meeting: %w", err)
+		}
+		meetings = append(meetings, m)
+	}
+	return meetings, rows.Err()
+}
+
 // --- Attendees ---
 
 func (r *PostgresRepository) AddAttendee(ctx context.Context, meetingID, userID uuid.UUID) error {

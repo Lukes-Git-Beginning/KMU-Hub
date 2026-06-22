@@ -358,6 +358,26 @@ func (s *Service) FailRecording(ctx context.Context, recordingID uuid.UUID, reas
 	return nil
 }
 
+// CompleteRecordingByEgressID updates a recording by egress ID after Egress
+// processing completes. Called by the LiveKit Egress webhook path.
+func (s *Service) CompleteRecordingByEgressID(ctx context.Context, egressID, fileURL string, fileSizeBytes int64, durationSeconds int) error {
+	rec, err := s.repo.GetRecordingByEgressID(ctx, egressID)
+	if err != nil {
+		return fmt.Errorf("get recording by egress id: %w", err)
+	}
+	return s.CompleteRecording(ctx, rec.ID, fileURL, fileSizeBytes, durationSeconds)
+}
+
+// FailRecordingByEgressID marks a recording as failed, looked up by egress ID.
+// Called by the LiveKit Egress webhook path on processing failure.
+func (s *Service) FailRecordingByEgressID(ctx context.Context, egressID, reason string) error {
+	rec, err := s.repo.GetRecordingByEgressID(ctx, egressID)
+	if err != nil {
+		return fmt.Errorf("get recording by egress id: %w", err)
+	}
+	return s.FailRecording(ctx, rec.ID, reason)
+}
+
 // CleanupExpiredRecordings deletes recordings past their retention period.
 // Returns the number of deleted recordings.
 func (s *Service) CleanupExpiredRecordings(ctx context.Context) (int, error) {

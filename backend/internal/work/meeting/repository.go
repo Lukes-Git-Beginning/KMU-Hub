@@ -16,6 +16,10 @@ type Repository interface {
 	DeleteMeeting(ctx context.Context, id, tenantID uuid.UUID) error
 	ListMeetings(ctx context.Context, filter MeetingFilter) ([]Meeting, error)
 
+	// Cross-tenant system queries (used under WithSystemContext, no tenant filter)
+	GetMeetingByRoomName(ctx context.Context, roomName string) (*Meeting, error)
+	ListStaleMeetings(ctx context.Context, cutoff time.Time) ([]Meeting, error)
+
 	// Attendees
 	AddAttendee(ctx context.Context, meetingID, userID uuid.UUID) error
 	RemoveAttendee(ctx context.Context, meetingID, userID uuid.UUID) error

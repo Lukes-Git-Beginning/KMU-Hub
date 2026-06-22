@@ -78,6 +78,25 @@ func (rm *RoomManager) DeleteRoom(ctx context.Context, name string) error {
 	return nil
 }
 
+// ListParticipants returns the identities of all participants currently in the
+// given room. Returns an empty slice when the room does not exist or is empty.
+func (rm *RoomManager) ListParticipants(ctx context.Context, roomName string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, livekitAPITimeout)
+	defer cancel()
+	resp, err := rm.client.ListParticipants(ctx, &lkproto.ListParticipantsRequest{
+		Room: roomName,
+	})
+	if err != nil {
+		// Not-found is idempotent — treat as empty room.
+		return nil, fmt.Errorf("livekit list participants: %w", err)
+	}
+	identities := make([]string, 0, len(resp.Participants))
+	for _, p := range resp.Participants {
+		identities = append(identities, p.Identity)
+	}
+	return identities, nil
+}
+
 // GenerateToken creates a JWT token for a user to join a specific LiveKit room.
 // When TURN is configured on this RoomManager, per-session coturn credentials
 // are embedded in the token Metadata field as JSON so that the LiveKit client

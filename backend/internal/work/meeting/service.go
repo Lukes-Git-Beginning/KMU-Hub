@@ -2,6 +2,7 @@ package meeting
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -10,14 +11,29 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service handles meeting business logic
-type Service struct {
-	repo Repository
+// RoomManager abstracts LiveKit room operations needed by the meeting service.
+// Only the subset used by meeting lifecycle operations is required here;
+// the full video.RoomManager satisfies this interface.
+type RoomManager interface {
+	DeleteRoom(ctx context.Context, name string) error
+	ListParticipants(ctx context.Context, roomName string) ([]string, error)
 }
 
-// NewService creates a new meeting service
+// Service handles meeting business logic
+type Service struct {
+	repo    Repository
+	roomMgr RoomManager // nil when LiveKit is not configured
+}
+
+// NewService creates a new meeting service without LiveKit integration.
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// NewServiceWithRoomManager creates a new meeting service with LiveKit
+// room management for explicit DeleteRoom on EndMeeting and sweeper support.
+func NewServiceWithRoomManager(repo Repository, roomMgr RoomManager) *Service {
+	return &Service{repo: repo, roomMgr: roomMgr}
 }
 
 // CreateMeetingInput contains the data needed to create a meeting
@@ -360,6 +376,19 @@ func (s *Service) EndMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meet
 		return nil, err
 	}
 
+	// Delete the LiveKit room so the slot is freed immediately.
+	// Not found is idempotent (LiveKit may have already closed it).
+	// Errors are non-fatal — the meeting is already marked completed.
+	if s.roomMgr != nil && m.RoomName != nil && *m.RoomName != "" {
+		if delErr := s.roomMgr.DeleteRoom(ctx, *m.RoomName); delErr != nil {
+			slog.Warn("meeting ended: failed to delete livekit room",
+				"meeting_id", id,
+				"room_name", *m.RoomName,
+				"error", delErr,
+			)
+		}
+	}
+
 	// Generate summary
 	summary, err := s.generateSummary(ctx, m)
 	if err != nil {
@@ -379,6 +408,61 @@ func (s *Service) EndMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meet
 	)
 
 	return summary, nil
+}
+
+// CompleteMeetingByRoom transitions a meeting to completed based on its LiveKit
+// room name. This is called by the room_finished webhook handler.
+// The meeting is looked up cross-tenant (caller must use WithSystemContext).
+// Idempotent: already completed or cancelled meetings return nil.
+func (s *Service) CompleteMeetingByRoom(ctx context.Context, roomName string) error {
+	m, err := s.repo.GetMeetingByRoomName(ctx, roomName)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			slog.Debug("room_finished: no meeting found for room", "room_name", roomName)
+			return nil
+		}
+		return fmt.Errorf("complete meeting by room: %w", err)
+	}
+
+	// Already in a terminal state — idempotent.
+	if m.Status == MeetingStatusCompleted || m.Status == MeetingStatusCancelled {
+		slog.Debug("room_finished: meeting already in terminal state",
+			"meeting_id", m.ID,
+			"status", m.Status,
+			"room_name", roomName,
+		)
+		return nil
+	}
+
+	if m.Status != MeetingStatusInProgress {
+		slog.Warn("room_finished: meeting not in_progress, skipping",
+			"meeting_id", m.ID,
+			"status", m.Status,
+			"room_name", roomName,
+		)
+		return nil
+	}
+
+	now := time.Now().UTC()
+	m.Status = MeetingStatusCompleted
+	m.ActualEnd = &now
+	m.UpdatedAt = now
+
+	if err := s.repo.UpdateMeeting(ctx, m); err != nil {
+		return fmt.Errorf("complete meeting by room — update: %w", err)
+	}
+
+	slog.Info("meeting completed via room_finished webhook",
+		"meeting_id", m.ID,
+		"room_name", roomName,
+	)
+	return nil
+}
+
+// ListStaleMeetings returns in_progress meetings past their scheduled_end + grace.
+// Must be called under WithSystemContext (cross-tenant query).
+func (s *Service) ListStaleMeetings(ctx context.Context, cutoff time.Time) ([]Meeting, error) {
+	return s.repo.ListStaleMeetings(ctx, cutoff)
 }
 
 // CancelMeeting cancels a scheduled meeting

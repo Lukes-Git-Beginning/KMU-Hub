@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/work/meeting"
 	"github.com/kmuhub/kmuhub/internal/work/presence"
@@ -24,7 +25,6 @@ import (
 // VideoGRPCServer implements the Video gRPC service and its recording-tagging extension.
 type VideoGRPCServer struct {
 	videov1.UnimplementedVideoServiceServer
-	videov1.UnimplementedVideoServiceEgressServer
 	videov1.UnimplementedVideoServiceRecordingTagServer
 	videov1.UnimplementedVideoServicePreConsentServer
 	videoService     *video.Service
@@ -1277,6 +1277,72 @@ func (s *VideoGRPCServer) GetPresenceConfig(ctx context.Context, _ *videov1.GetP
 	return &videov1.PresenceConfig{
 		AwayTimeoutSeconds: int32(cfg.AwayTimeoutSeconds),
 	}, nil
+}
+
+// ============================================================================
+// Egress / Auto-Close Callbacks (system-context, no tenant required)
+// ============================================================================
+
+// CompleteRecordingByEgress is called by the LiveKit egress_ended webhook handler
+// to transition a recording from "processing" to "completed".
+// Uses system context for cross-tenant DB access (no user tenant in webhook path).
+func (s *VideoGRPCServer) CompleteRecordingByEgress(ctx context.Context, req *videov1.CompleteRecordingByEgressRequest) (*emptypb.Empty, error) {
+	if req.EgressId == "" {
+		return nil, status.Error(codes.InvalidArgument, "egress_id is required")
+	}
+	sysCtx := database.WithSystemContext(ctx)
+	err := s.recordingService.CompleteRecordingByEgressID(
+		sysCtx,
+		req.EgressId,
+		req.FileUrl,
+		req.FileSizeBytes,
+		int(req.DurationSeconds),
+	)
+	if err != nil {
+		slog.Error("CompleteRecordingByEgress: service error",
+			"egress_id", req.EgressId,
+			"error", err,
+		)
+		return nil, mapRecordingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+// FailRecordingByEgress is called by the LiveKit egress_ended webhook handler
+// when egress processing fails.
+func (s *VideoGRPCServer) FailRecordingByEgress(ctx context.Context, req *videov1.FailRecordingByEgressRequest) (*emptypb.Empty, error) {
+	if req.EgressId == "" {
+		return nil, status.Error(codes.InvalidArgument, "egress_id is required")
+	}
+	sysCtx := database.WithSystemContext(ctx)
+	err := s.recordingService.FailRecordingByEgressID(sysCtx, req.EgressId, req.Reason)
+	if err != nil {
+		slog.Error("FailRecordingByEgress: service error",
+			"egress_id", req.EgressId,
+			"error", err,
+		)
+		return nil, mapRecordingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+// CompleteMeetingByRoom is called by the room_finished webhook handler to
+// transition an in-progress meeting to completed. Idempotent for already
+// completed/cancelled meetings.
+func (s *VideoGRPCServer) CompleteMeetingByRoom(ctx context.Context, req *videov1.CompleteMeetingByRoomRequest) (*emptypb.Empty, error) {
+	if req.RoomName == "" {
+		return nil, status.Error(codes.InvalidArgument, "room_name is required")
+	}
+	sysCtx := database.WithSystemContext(ctx)
+	err := s.meetingService.CompleteMeetingByRoom(sysCtx, req.RoomName)
+	if err != nil {
+		slog.Error("CompleteMeetingByRoom: service error",
+			"room_name", req.RoomName,
+			"error", err,
+		)
+		return nil, status.Error(codes.Internal, "failed to complete meeting")
+	}
+	return &emptypb.Empty{}, nil
 }
 
 // ============================================================================

@@ -228,12 +228,62 @@ func (m *mockRepo) UpdateActionItemTaskID(_ context.Context, itemID, taskID uuid
 	return ErrActionItemNotFound
 }
 
+func (m *mockRepo) GetMeetingByRoomName(_ context.Context, roomName string) (*Meeting, error) {
+	for _, mtg := range m.meetings {
+		if mtg.RoomName != nil && *mtg.RoomName == roomName {
+			cp := *mtg
+			return &cp, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (m *mockRepo) ListStaleMeetings(_ context.Context, cutoff time.Time) ([]Meeting, error) {
+	var result []Meeting
+	for _, mtg := range m.meetings {
+		if mtg.Status == MeetingStatusInProgress && mtg.ScheduledEnd.Before(cutoff) {
+			result = append(result, *mtg)
+		}
+	}
+	return result, nil
+}
+
+// mockRoomManager implements RoomManager for tests.
+type mockRoomManager struct {
+	deletedRooms    []string
+	participantMap  map[string][]string // room -> participants
+	deleteRoomError error
+}
+
+func newMockRoomManager() *mockRoomManager {
+	return &mockRoomManager{participantMap: make(map[string][]string)}
+}
+
+func (m *mockRoomManager) DeleteRoom(_ context.Context, name string) error {
+	if m.deleteRoomError != nil {
+		return m.deleteRoomError
+	}
+	m.deletedRooms = append(m.deletedRooms, name)
+	return nil
+}
+
+func (m *mockRoomManager) ListParticipants(_ context.Context, roomName string) ([]string, error) {
+	return m.participantMap[roomName], nil
+}
+
 // --- Helper Functions ---
 
 func newTestService() (*Service, *mockRepo) {
 	repo := newMockRepo()
 	svc := NewService(repo)
 	return svc, repo
+}
+
+func newTestServiceWithRoomMgr() (*Service, *mockRepo, *mockRoomManager) {
+	repo := newMockRepo()
+	mgr := newMockRoomManager()
+	svc := NewServiceWithRoomManager(repo, mgr)
+	return svc, repo, mgr
 }
 
 func validCreateInput() CreateMeetingInput {
@@ -1019,4 +1069,250 @@ func TestMeetingRepo_TenantIsolation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, listA, 1)
 	assert.Equal(t, mtgA.ID, listA[0].ID)
+}
+
+// ============================================================================
+// Wave 0 — auto-close tests
+// ============================================================================
+
+func TestEndMeeting_CallsDeleteRoom(t *testing.T) {
+	svc, repo, mgr := newTestServiceWithRoomMgr()
+	ctx := context.Background()
+
+	roomName := "meeting-abc123"
+	m := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-2 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-1 * time.Hour),
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, m))
+	repo.attendees[m.ID] = []MeetingAttendee{{MeetingID: m.ID, UserID: m.OrganizerID}}
+
+	_, err := svc.EndMeeting(ctx, m.ID, testTenantID)
+	require.NoError(t, err)
+
+	assert.Contains(t, mgr.deletedRooms, roomName, "DeleteRoom should be called with the meeting's room name")
+}
+
+func TestEndMeeting_NoRoomName_DoesNotPanic(t *testing.T) {
+	svc, repo, _ := newTestServiceWithRoomMgr()
+	ctx := context.Background()
+
+	m := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-2 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-1 * time.Hour),
+		RoomName:       nil, // no room
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, m))
+	repo.attendees[m.ID] = []MeetingAttendee{{MeetingID: m.ID, UserID: m.OrganizerID}}
+
+	_, err := svc.EndMeeting(ctx, m.ID, testTenantID)
+	require.NoError(t, err) // must not panic when RoomName is nil
+}
+
+func TestCompleteMeetingByRoom_InProgress(t *testing.T) {
+	svc, repo := newTestService()
+	ctx := context.Background()
+
+	roomName := "meeting-xyz"
+	m := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-2 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-1 * time.Hour),
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, m))
+
+	err := svc.CompleteMeetingByRoom(ctx, roomName)
+	require.NoError(t, err)
+
+	updated := repo.meetings[m.ID]
+	assert.Equal(t, MeetingStatusCompleted, updated.Status)
+	assert.NotNil(t, updated.ActualEnd)
+}
+
+func TestCompleteMeetingByRoom_AlreadyCompleted_Idempotent(t *testing.T) {
+	svc, repo := newTestService()
+	ctx := context.Background()
+
+	roomName := "meeting-done"
+	now := time.Now()
+	m := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusCompleted,
+		ScheduledStart: time.Now().Add(-2 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-1 * time.Hour),
+		ActualEnd:      &now,
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, m))
+
+	// Must return nil (idempotent) and must NOT overwrite ActualEnd
+	err := svc.CompleteMeetingByRoom(ctx, roomName)
+	require.NoError(t, err)
+	assert.Equal(t, MeetingStatusCompleted, repo.meetings[m.ID].Status)
+}
+
+func TestCompleteMeetingByRoom_AlreadyCancelled_Idempotent(t *testing.T) {
+	svc, repo := newTestService()
+	ctx := context.Background()
+
+	roomName := "meeting-cancelled"
+	m := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusCancelled,
+		ScheduledStart: time.Now().Add(-2 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-1 * time.Hour),
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, m))
+
+	err := svc.CompleteMeetingByRoom(ctx, roomName)
+	require.NoError(t, err)
+	assert.Equal(t, MeetingStatusCancelled, repo.meetings[m.ID].Status)
+}
+
+func TestCompleteMeetingByRoom_NotFound_Ignored(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	// Non-existent room → should not error (webhook might fire for old/test rooms)
+	err := svc.CompleteMeetingByRoom(ctx, "meeting-nonexistent")
+	require.NoError(t, err)
+}
+
+func TestGetMeetingByRoomName_Found(t *testing.T) {
+	_, repo := newTestService()
+	ctx := context.Background()
+
+	roomName := "meeting-findme"
+	m := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(1 * time.Hour),
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, m))
+
+	found, err := repo.GetMeetingByRoomName(ctx, roomName)
+	require.NoError(t, err)
+	assert.Equal(t, m.ID, found.ID)
+}
+
+func TestGetMeetingByRoomName_NotFound(t *testing.T) {
+	_, repo := newTestService()
+	ctx := context.Background()
+
+	_, err := repo.GetMeetingByRoomName(ctx, "meeting-ghost")
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestListStaleMeetings_BelowCutoff(t *testing.T) {
+	_, repo := newTestService()
+	ctx := context.Background()
+
+	// Meeting ended 30 min ago → stale if grace is 15 min
+	roomName := "meeting-stale"
+	stale := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Stale",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-2 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-30 * time.Minute),
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	// Meeting ending in future → not stale
+	roomName2 := "meeting-active"
+	active := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Active",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(1 * time.Hour),
+		RoomName:       &roomName2,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+
+	require.NoError(t, repo.CreateMeeting(ctx, stale))
+	require.NoError(t, repo.CreateMeeting(ctx, active))
+
+	// cutoff = now - 15min
+	cutoff := time.Now().Add(-15 * time.Minute)
+	results, err := repo.ListStaleMeetings(ctx, cutoff)
+	require.NoError(t, err)
+
+	ids := make([]uuid.UUID, len(results))
+	for i, r := range results {
+		ids[i] = r.ID
+	}
+	assert.Contains(t, ids, stale.ID, "stale meeting should be in results")
+	assert.NotContains(t, ids, active.ID, "active meeting should not be in results")
+}
+
+func TestListStaleMeetings_OnlyInProgress(t *testing.T) {
+	_, repo := newTestService()
+	ctx := context.Background()
+
+	roomName := "meeting-completed-old"
+	completed := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Done",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusCompleted, // already done
+		ScheduledStart: time.Now().Add(-3 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-2 * time.Hour),
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, completed))
+
+	cutoff := time.Now().Add(-15 * time.Minute)
+	results, err := repo.ListStaleMeetings(ctx, cutoff)
+	require.NoError(t, err)
+	assert.Empty(t, results, "completed meetings should not appear in stale list")
 }

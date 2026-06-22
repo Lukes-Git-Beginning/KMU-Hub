@@ -35,6 +35,10 @@ type RoomManager interface {
 	// TURNIceServers returns per-session TURN credentials for the given user, or
 	// nil when TURN is not configured. Callers must treat nil as "no relay".
 	TURNIceServers(userID string) []IceServerConfig
+	// ListParticipants returns the identity strings of all currently connected
+	// participants in the given room. Returns an empty slice when the room is empty
+	// or does not exist.
+	ListParticipants(ctx context.Context, roomName string) ([]string, error)
 }
 
 // Service handles video call business logic

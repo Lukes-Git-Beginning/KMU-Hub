@@ -110,6 +110,11 @@ type Config struct {
 	FuhrparkHealthPort     string `env:"FUHRPARK_HEALTH_PORT,default=:9116"`
 	VermietungHealthPort   string `env:"VERMIETUNG_HEALTH_PORT,default=:9117"`
 
+	// MeetingAutocloseGraceMinutes is the extra grace period (on top of
+	// scheduled_end) before the backstop sweeper auto-closes a stale meeting.
+	// Meetings with active participants are never closed by the sweeper regardless.
+	MeetingAutocloseGraceMinutes int `env:"MEETING_AUTOCLOSE_GRACE_MINUTES,default=15"`
+
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
 	LiveKitAPISecret string `env:"LIVEKIT_API_SECRET,default="`

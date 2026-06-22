@@ -52,6 +52,9 @@ const (
 	VideoService_SetPresenceStatus_FullMethodName         = "/video.v1.VideoService/SetPresenceStatus"
 	VideoService_UpdatePresenceConfig_FullMethodName      = "/video.v1.VideoService/UpdatePresenceConfig"
 	VideoService_GetPresenceConfig_FullMethodName         = "/video.v1.VideoService/GetPresenceConfig"
+	VideoService_CompleteRecordingByEgress_FullMethodName = "/video.v1.VideoService/CompleteRecordingByEgress"
+	VideoService_FailRecordingByEgress_FullMethodName     = "/video.v1.VideoService/FailRecordingByEgress"
+	VideoService_CompleteMeetingByRoom_FullMethodName     = "/video.v1.VideoService/CompleteMeetingByRoom"
 )
 
 // VideoServiceClient is the client API for VideoService service.
@@ -98,6 +101,10 @@ type VideoServiceClient interface {
 	SetPresenceStatus(ctx context.Context, in *SetPresenceStatusRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UpdatePresenceConfig(ctx context.Context, in *UpdatePresenceConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetPresenceConfig(ctx context.Context, in *GetPresenceConfigRequest, opts ...grpc.CallOption) (*PresenceConfig, error)
+	// Egress / auto-close callbacks (system-context only — called by webhook handler)
+	CompleteRecordingByEgress(ctx context.Context, in *CompleteRecordingByEgressRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	FailRecordingByEgress(ctx context.Context, in *FailRecordingByEgressRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CompleteMeetingByRoom(ctx context.Context, in *CompleteMeetingByRoomRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type videoServiceClient struct {
@@ -428,6 +435,36 @@ func (c *videoServiceClient) GetPresenceConfig(ctx context.Context, in *GetPrese
 	return out, nil
 }
 
+func (c *videoServiceClient) CompleteRecordingByEgress(ctx context.Context, in *CompleteRecordingByEgressRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_CompleteRecordingByEgress_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) FailRecordingByEgress(ctx context.Context, in *FailRecordingByEgressRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_FailRecordingByEgress_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) CompleteMeetingByRoom(ctx context.Context, in *CompleteMeetingByRoomRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_CompleteMeetingByRoom_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VideoServiceServer is the server API for VideoService service.
 // All implementations must embed UnimplementedVideoServiceServer
 // for forward compatibility.
@@ -472,6 +509,10 @@ type VideoServiceServer interface {
 	SetPresenceStatus(context.Context, *SetPresenceStatusRequest) (*emptypb.Empty, error)
 	UpdatePresenceConfig(context.Context, *UpdatePresenceConfigRequest) (*emptypb.Empty, error)
 	GetPresenceConfig(context.Context, *GetPresenceConfigRequest) (*PresenceConfig, error)
+	// Egress / auto-close callbacks (system-context only — called by webhook handler)
+	CompleteRecordingByEgress(context.Context, *CompleteRecordingByEgressRequest) (*emptypb.Empty, error)
+	FailRecordingByEgress(context.Context, *FailRecordingByEgressRequest) (*emptypb.Empty, error)
+	CompleteMeetingByRoom(context.Context, *CompleteMeetingByRoomRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedVideoServiceServer()
 }
 
@@ -577,6 +618,15 @@ func (UnimplementedVideoServiceServer) UpdatePresenceConfig(context.Context, *Up
 }
 func (UnimplementedVideoServiceServer) GetPresenceConfig(context.Context, *GetPresenceConfigRequest) (*PresenceConfig, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPresenceConfig not implemented")
+}
+func (UnimplementedVideoServiceServer) CompleteRecordingByEgress(context.Context, *CompleteRecordingByEgressRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteRecordingByEgress not implemented")
+}
+func (UnimplementedVideoServiceServer) FailRecordingByEgress(context.Context, *FailRecordingByEgressRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method FailRecordingByEgress not implemented")
+}
+func (UnimplementedVideoServiceServer) CompleteMeetingByRoom(context.Context, *CompleteMeetingByRoomRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteMeetingByRoom not implemented")
 }
 func (UnimplementedVideoServiceServer) mustEmbedUnimplementedVideoServiceServer() {}
 func (UnimplementedVideoServiceServer) testEmbeddedByValue()                      {}
@@ -1175,6 +1225,60 @@ func _VideoService_GetPresenceConfig_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VideoService_CompleteRecordingByEgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteRecordingByEgressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).CompleteRecordingByEgress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_CompleteRecordingByEgress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).CompleteRecordingByEgress(ctx, req.(*CompleteRecordingByEgressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_FailRecordingByEgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FailRecordingByEgressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).FailRecordingByEgress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_FailRecordingByEgress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).FailRecordingByEgress(ctx, req.(*FailRecordingByEgressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_CompleteMeetingByRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteMeetingByRoomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).CompleteMeetingByRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_CompleteMeetingByRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).CompleteMeetingByRoom(ctx, req.(*CompleteMeetingByRoomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VideoService_ServiceDesc is the grpc.ServiceDesc for VideoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1309,6 +1413,18 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPresenceConfig",
 			Handler:    _VideoService_GetPresenceConfig_Handler,
+		},
+		{
+			MethodName: "CompleteRecordingByEgress",
+			Handler:    _VideoService_CompleteRecordingByEgress_Handler,
+		},
+		{
+			MethodName: "FailRecordingByEgress",
+			Handler:    _VideoService_FailRecordingByEgress_Handler,
+		},
+		{
+			MethodName: "CompleteMeetingByRoom",
+			Handler:    _VideoService_CompleteMeetingByRoom_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

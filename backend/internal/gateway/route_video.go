@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	lkauth "github.com/livekit/protocol/auth"
 	lkwebhook "github.com/livekit/protocol/webhook"
@@ -77,13 +78,15 @@ func (vr *VideoRoutes) getVideoClient() (videov1.VideoServiceClient, error) {
 	return videov1.NewVideoServiceClient(conn), nil
 }
 
-// getVideoEgressClient obtains a gRPC client that includes the Egress-completion RPCs.
-func (vr *VideoRoutes) getVideoEgressClient() (videov1.VideoServiceEgressClient, error) {
+// getVideoEgressClient obtains a gRPC client for the Video service.
+// The Egress-completion and CompleteMeetingByRoom RPCs are now part of the
+// canonical VideoServiceClient (generated from video.proto), so no wrapper needed.
+func (vr *VideoRoutes) getVideoEgressClient() (videov1.VideoServiceClient, error) {
 	conn, err := vr.registry.GetConnection("work")
 	if err != nil {
 		return nil, err
 	}
-	return videov1.NewVideoServiceEgressClient(conn), nil
+	return videov1.NewVideoServiceClient(conn), nil
 }
 
 // RegisterRoutes registers all Video, Meeting, Recording, Presence, and Reaction HTTP routes.
@@ -1279,6 +1282,7 @@ func (vr *VideoRoutes) HandleLiveKitWebhook(w http.ResponseWriter, r *http.Reque
 		slog.Info("room finished via webhook",
 			"room", evt.Room.Name,
 		)
+		vr.handleRoomFinished(r, evt)
 
 	case "egress_ended":
 		vr.handleEgressEnded(r, evt)
@@ -1340,8 +1344,8 @@ func (vr *VideoRoutes) handleEgressEnded(r *http.Request, evt liveKitWebhookEven
 		durationSeconds := int32(durationNs / 1_000_000_000) //nolint:mnd
 
 		_, grpcErr := client.CompleteRecordingByEgress(ctx, &videov1.CompleteRecordingByEgressRequest{
-			EgressID:        egress.EgressID,
-			FileURL:         fileURL,
+			EgressId:        egress.EgressID,
+			FileUrl:         fileURL,
 			FileSizeBytes:   fileSizeBytes,
 			DurationSeconds: durationSeconds,
 		})
@@ -1374,7 +1378,7 @@ func (vr *VideoRoutes) handleEgressEnded(r *http.Request, evt liveKitWebhookEven
 	)
 
 	_, grpcErr := client.FailRecordingByEgress(ctx, &videov1.FailRecordingByEgressRequest{
-		EgressID: egress.EgressID,
+		EgressId: egress.EgressID,
 		Reason:   reason,
 	})
 	if grpcErr != nil {
@@ -1383,6 +1387,42 @@ func (vr *VideoRoutes) handleEgressEnded(r *http.Request, evt liveKitWebhookEven
 			"error", grpcErr,
 		)
 	}
+}
+
+// handleRoomFinished processes a room_finished webhook event.
+// Only rooms with names prefixed "meeting-" are acted upon (non-meeting rooms
+// are ignored with a debug log). For meeting rooms, it calls CompleteMeetingByRoom
+// on the video gRPC service (system-context, no tenant required in the gateway —
+// the server side resolves the tenant from the meeting row).
+func (vr *VideoRoutes) handleRoomFinished(r *http.Request, evt liveKitWebhookEvent) {
+	roomName := evt.Room.Name
+	if !strings.HasPrefix(roomName, "meeting-") {
+		slog.Debug("room_finished: ignoring non-meeting room", "room", roomName)
+		return
+	}
+
+	client, err := vr.getVideoEgressClient()
+	if err != nil {
+		slog.Error("room_finished: failed to obtain video gRPC client",
+			"room", roomName,
+			"error", err,
+		)
+		return
+	}
+
+	ctx := r.Context()
+	_, grpcErr := client.CompleteMeetingByRoom(ctx, &videov1.CompleteMeetingByRoomRequest{
+		RoomName: roomName,
+	})
+	if grpcErr != nil {
+		slog.Error("room_finished: CompleteMeetingByRoom failed",
+			"room", roomName,
+			"error", grpcErr,
+		)
+		return
+	}
+
+	slog.Info("meeting completed via room_finished webhook", "room", roomName)
 }
 
 // ============================================================================

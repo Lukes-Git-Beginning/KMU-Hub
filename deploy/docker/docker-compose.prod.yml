@@ -82,6 +82,12 @@ services:
     # effective config is livekit-secrets.yaml — it carries keys + webhook + the
     # full rtc block (incl. use_external_ip). See livekit-secrets.yaml.tmpl.
     command: --config /etc/livekit.yaml --config /etc/livekit-secrets.yaml
+    # Bump this revision whenever livekit-secrets.yaml.tmpl changes. LiveKit reads
+    # its config only at process start, and `compose up -d` will NOT recreate the
+    # container for a changed bind-mounted file alone — a changed label forces the
+    # recreate so the new webhook/room config actually loads.
+    labels:
+      com.cosmi.config-revision: "2026-06-23-webhook-urls-empty-timeout"
     deploy:
       resources:
         limits:

@@ -28,6 +28,8 @@ type mockRoomManager struct {
 	lastToken    string
 	deleteCalled bool
 	iceServers   []IceServerConfig
+	participants []string
+	listPartErr  error
 }
 
 func newMockRoomManager() *mockRoomManager {
@@ -63,6 +65,13 @@ func (m *mockRoomManager) GenerateToken(_, _, _ string) (string, error) {
 
 func (m *mockRoomManager) TURNIceServers(_ string) []IceServerConfig {
 	return m.iceServers
+}
+
+func (m *mockRoomManager) ListParticipants(_ context.Context, _ string) ([]string, error) {
+	if m.listPartErr != nil {
+		return nil, m.listPartErr
+	}
+	return m.participants, nil
 }
 
 // --- Mock Repository ---

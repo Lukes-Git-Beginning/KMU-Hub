@@ -52,6 +52,11 @@ service VideoService {
   rpc SetPresenceStatus(SetPresenceStatusRequest) returns (google.protobuf.Empty);
   rpc UpdatePresenceConfig(UpdatePresenceConfigRequest) returns (google.protobuf.Empty);
   rpc GetPresenceConfig(GetPresenceConfigRequest) returns (PresenceConfig);
+
+  // Egress / auto-close callbacks (system-context only — called by webhook handler)
+  rpc CompleteRecordingByEgress(CompleteRecordingByEgressRequest) returns (google.protobuf.Empty);
+  rpc FailRecordingByEgress(FailRecordingByEgressRequest) returns (google.protobuf.Empty);
+  rpc CompleteMeetingByRoom(CompleteMeetingByRoomRequest) returns (google.protobuf.Empty);
 }
 
 // ============================================================================
@@ -494,3 +499,23 @@ message UpdatePresenceConfigRequest {
 }
 
 message GetPresenceConfigRequest {}
+
+// ============================================================================
+// Egress / auto-close callback RPCs
+// ============================================================================
+
+message CompleteRecordingByEgressRequest {
+  string egress_id = 1;
+  string file_url = 2;
+  int64 file_size_bytes = 3;
+  int32 duration_seconds = 4;
+}
+
+message FailRecordingByEgressRequest {
+  string egress_id = 1;
+  string reason = 2;
+}
+
+message CompleteMeetingByRoomRequest {
+  string room_name = 1;
+}
