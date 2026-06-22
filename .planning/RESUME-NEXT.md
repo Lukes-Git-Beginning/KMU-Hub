@@ -1,8 +1,15 @@
 # RESUME — nächster Einstieg (Stand 2026-06-22, Session-Ende)
 
-> **✅ PAKET A (Haupt-Terminal) FERTIG — mails → review-reif.** Alle 10 Phasen (MA-1…MA-10) gebaut, je tsc+eslint+Playwright-QA grün, gepusht (`e2213408`…`86de8f53`). **Review-Paket: `.planning/mails-REVIEW-paket.md`.** Wartet auf Darien-Review → Findings als Fix-Phasen → dann Nico.
-> Highlights: Stateful-MSW (read/star/move/delete persistieren), Thread-Konversation + Inline-Bild + Zitat-Toggle, Multi-Account + Unified Inbox, Filter+Sort, Vorlagen-CRUD + Platzhalter, Labels + Wenn-Dann-Regeln, CRM-Panel (Verknüpfen/Deal/Aktivität), Bulk + Gmail-Shortcuts, Settings-Panel (ModuleSettingsShell).
-> **▶ Paket B (Sub-Terminal, Block-Engine) läuft separat weiter.** Nach beiden Reviews: Findings als neue Phasen in `MASTER-TRACKER.md`, frisches Terminal.
+> **▶▶▶ NÄCHSTER BATCH GESCHNÜRT — direkt in NEUEM Terminal loslegen:**
+> - **SCHRITT 0 (beide Terminals):** `git pull --rebase origin main`.
+> - **HAUPT-Terminal** (`KMU Hub`, 5173) = **Paket A: kommunikation/chat → review-reif** → `.planning/batch-NEXT2-A-kommunikation.md` (KO-1…KO-10).
+> - **SUB-Terminal** (`KMU-Hub-review`, 5174) = **Paket B: formulare → review-reif** → `.planning/batch-NEXT2-B-formulare.md` (FO-1…FO-10).
+> - Ablauf je Terminal: **Recherche-Auftrag abarbeiten → gebündelte Gate-Fragen an Darien → erst dann autonom 10 Phasen bauen.** Disjunkt (A=`modules/kommunikation`+`chat.ts`, B=`modules/formulare`+`formulare.ts`); i18n getrennt (`kommunikation.*`/`chat.*` vs `formulare.*`).
+> **Paket-Wahl (Begründung):** beide FE-mock-first, disjunkt, KEINE offenen Reviews als Input. kommunikation (3-Panel da, kein Settings-Panel, DMs/Suche/Edit-Löschen offen) + formulare (P1 DnD/DSGVO/Mail + Tiefe). Alternative falls Darien P0 priorisiert: **security/DSGVO** statt formulare (aber backend-lastiger 🔒).
+>
+> **✅ VORIGER BATCH FERTIG (beide):**
+> - **Paket A — mails → review-reif** (MA-1…MA-10, `e2213408`…`86de8f53`). Review-Paket: `.planning/mails-REVIEW-paket.md`. Stateful-MSW, Thread-Konversation+Inline-Bild+Zitat-Toggle, Multi-Account+Unified, Filter+Sort, Vorlagen-CRUD, Labels+Regeln, CRM-Panel, Bulk+Shortcuts, Settings-Panel. Wartet auf Darien-Review → dann Nico.
+> - **Paket B — Block-Engine Spezialblöcke (DB-1…DB-10)** gebaut (document/wiki/berichte), bis `b7f68afe`. Wartet ebenfalls auf Review.
 
 > **▶▶ (ARCHIV — Batch-Vorgabe, erledigt für Paket A):**
 > - **SCHRITT 0 (beide Terminals):** `git pull --rebase origin main` (Luke pusht nachts — heute schon LiveKit).
