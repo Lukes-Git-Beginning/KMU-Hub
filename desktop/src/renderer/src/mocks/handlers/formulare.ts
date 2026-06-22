@@ -837,6 +837,21 @@ export const formulareHandlers = [
           }))
         : undefined
 
+    // FO-8 — submissions over time: daily counts for the last 30 days (oldest
+    // → newest), computed live from the submission set.
+    const TIME_DAYS = 30
+    const submissionsOverTime: { date: string; count: number }[] = []
+    const idxByDate = new Map<string, number>()
+    for (let i = TIME_DAYS - 1; i >= 0; i--) {
+      const key = new Date(Date.now() - i * DAY).toISOString().slice(0, 10)
+      idxByDate.set(key, submissionsOverTime.length)
+      submissionsOverTime.push({ date: key, count: 0 })
+    }
+    for (const s of subs) {
+      const idx = idxByDate.get(s.submittedAt.slice(0, 10))
+      if (idx !== undefined) submissionsOverTime[idx].count++
+    }
+
     return HttpResponse.json({
       totalSubmissions: subs.length,
       newSubmissions: subs.filter((s) => s.status === 'new').length,
@@ -849,6 +864,7 @@ export const formulareHandlers = [
       totalViews,
       conversionRate,
       pageDropoff,
+      submissionsOverTime,
     })
   }),
 

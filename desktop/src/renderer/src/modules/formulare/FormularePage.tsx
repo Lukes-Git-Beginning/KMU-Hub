@@ -5415,6 +5415,36 @@ function EvaluationPanel({ schema, t }: EvaluationPanelProps) {
   const conversionPct = Math.round((stats.conversionRate ?? 0) * 100)
   const conversionSubs = Math.round((stats.conversionRate ?? 0) * totalViews)
 
+  // FO-8 — submissions-over-time area chart (last 30 days). Built from the live
+  // time series; x labels shortened to DD.MM. for a compact axis.
+  const timeSeries = stats.submissionsOverTime ?? []
+  const shortDate = (iso: string) => {
+    const [, m, d] = iso.split('-')
+    return d && m ? `${d}.${m}.` : iso
+  }
+  const timeResult: ReportResult | null =
+    timeSeries.length > 0
+      ? {
+          columns: [
+            { key: 'label', label: t('formulare.eval.timeAxis'), type: 'string' },
+            { key: 'count', label: t('formulare.eval.answers'), type: 'number' },
+          ],
+          rows: timeSeries.map((p) => ({ label: shortDate(p.date), count: p.count })),
+          series: [
+            {
+              id: 'count',
+              label: t('formulare.eval.answers'),
+              data: timeSeries.map((p) => ({ label: shortDate(p.date), value: p.count })),
+            },
+          ],
+          meta: {
+            generated_at: '1970-01-01T00:00:00Z',
+            row_count: timeSeries.length,
+            definition_id: 'subs-over-time',
+          },
+        }
+      : null
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -5427,6 +5457,21 @@ function EvaluationPanel({ schema, t }: EvaluationPanelProps) {
           </div>
         ))}
       </div>
+
+      {/* FO-8 — submissions over time */}
+      {timeResult && (
+        <div className="space-y-2.5 rounded-xl border border-border bg-card p-4">
+          <div>
+            <h4 className="text-sm font-medium text-foreground">
+              {t('formulare.eval.timeTitle')}
+            </h4>
+            <p className="text-[11px] text-muted-foreground">
+              {t('formulare.eval.timeHint')}
+            </p>
+          </div>
+          <ChartRenderer result={timeResult} viz="area" height={200} />
+        </div>
+      )}
 
       {/* FT-3b — conversion (share-link views → submissions) */}
       {totalViews > 0 && (

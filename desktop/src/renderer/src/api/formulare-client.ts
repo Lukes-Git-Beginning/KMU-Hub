@@ -271,6 +271,8 @@ export interface FormStatsResponse {
   conversionRate?: number
   /** FT-3b — simulated per-page drop-off (only for multi-page forms). */
   pageDropoff?: { page: number; percent: number }[]
+  /** FO-8 — daily submission counts for the last 30 days (oldest → newest). */
+  submissionsOverTime?: { date: string; count: number }[]
 }
 
 export function getFormStats(schemaId: string) {
