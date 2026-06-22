@@ -20,6 +20,7 @@ import { LinkPreviewPopover } from '@/components/shared/LinkPreviewPopover'
 import {
   buildRegistry,
   createCoreBlockDefs,
+  createSpecialBlockDefs,
   type BlockEditProps,
   type BlockRegistry,
   type BlockTypeDef,
@@ -324,6 +325,12 @@ const wikiHeading: BlockTypeDef = {
 // File-first image picker; core read-view unchanged.
 const wikiImage: BlockTypeDef = { ...core.image, Edit: WikiImageEdit as BlockTypeDef['Edit'] }
 
+// Wiki-specific special blocks, in insert-menu order. A knowledge article wants
+// the structural elements (collapsible sections, code, tables, attachments,
+// quotes, bookmarks); each lands here as it's built — the engine and every other
+// surface stay untouched.
+const wikiSpecial = createSpecialBlockDefs({ only: ['toggle'] })
+
 /**
  * Insert-menu order: prose first (the writer's default), then structure and the
  * special inline elements. Columns/layout come from the engine itself.
@@ -335,4 +342,5 @@ export const wikiBlockRegistry: BlockRegistry = buildRegistry([
   core.callout,
   wikiImage,
   core.divider,
+  ...wikiSpecial,
 ])

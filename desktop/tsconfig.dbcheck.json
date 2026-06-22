@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/components/shared/document/types.ts",
+    "src/renderer/src/components/shared/document/block-registry.ts",
+    "src/renderer/src/components/shared/document/blocks/core-types.ts",
+    "src/renderer/src/components/shared/document/blocks/CoreBlocks.tsx",
+    "src/renderer/src/components/shared/document/blocks/special-types.ts",
+    "src/renderer/src/components/shared/document/blocks/SpecialBlocks.tsx",
+    "src/renderer/src/components/shared/document/DocumentBlockEditor.tsx",
+    "src/renderer/src/components/shared/document/DocumentReader.tsx",
+    "src/renderer/src/components/shared/document/index.ts",
+    "src/renderer/src/modules/berichte/components/documents/berichte-blocks.tsx",
+    "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx",
+    "src/renderer/src/modules/wiki/wiki-blocks.tsx",
+    "src/renderer/src/modules/wiki/WikiEditor.tsx",
+    "src/renderer/src/modules/wiki/WikiArticle.tsx",
+    "src/renderer/src/mocks/handlers/wiki.ts"
+  ]
+}

@@ -126,6 +126,13 @@ const img = (url: string, caption?: string, alt?: string): SeedBlock => ({
   ...(alt ? { alt } : {}),
 })
 const hr = (): SeedBlock => ({ id: sbid('b'), type: 'divider' })
+const toggle = (title: string, html: string, open = false): SeedBlock => ({
+  id: sbid('b'),
+  type: 'toggle',
+  title,
+  html,
+  open,
+})
 
 /** One full-width row holding the given blocks. */
 const row = (...blocks: SeedBlock[]): SeedRow => ({
@@ -206,6 +213,22 @@ const ARTICLES: WikiArticle[] = [
           'Verlinke verwandte Artikel statt sie zu kopieren.',
           'Halte den Artikel aktuell — markiere ihn als geprüft.',
         ]),
+      ),
+      row(h(2, 'Häufige Fragen')),
+      row(
+        toggle(
+          'Wer darf Artikel bearbeiten?',
+          '<p>Jedes Teammitglied mit Schreibrechten. Die verantwortliche Person prüft grössere ' +
+            'Änderungen — kleine Korrekturen kannst du direkt vornehmen.</p>',
+          true,
+        ),
+      ),
+      row(
+        toggle(
+          'Wie oft wird ein Artikel geprüft?',
+          '<p>Mindestens alle drei Monate. Nach der Prüfung markierst du den Artikel als ' +
+            '<strong>geprüft</strong>, damit alle sehen, dass der Inhalt aktuell ist.</p>',
+        ),
       ),
     ),
     author_id: CURRENT_USER.id,
