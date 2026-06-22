@@ -49,7 +49,7 @@ import {
 import type { EmailMessageInfo } from '@/api/email-types'
 import type { ComposeMode } from '@/stores/mails'
 import { ComposeInline } from './ComposeInline'
-import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, SortMenu, type ActionItem, type SortDirection } from '@/components/shared'
 import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
 import { userHasRole } from '@/config/roles'
 import { downloadAttachment, printMessage, exportMessageEml } from './lib/mail-export'
@@ -136,6 +136,9 @@ export default function MailsPage() {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [filter, setFilter] = useState<'all' | 'unread' | 'starred'>('all')
+  const [sortField, setSortField] = useState('date')
+  const [sortDir, setSortDir] = useState<SortDirection>('desc')
 
   // Default the active account to the primary one once it loads.
   useEffect(() => {
@@ -200,27 +203,19 @@ export default function MailsPage() {
   }, [consumeIntent])
 
   // Messages for the active folder, or the merged unified inbox.
-  const messagesParams = useMemo(() => (
-    unifiedView
-      ? {
-          folder_id: '',
-          view: 'unified' as const,
-          page,
-          per_page: 50,
-          search: searchQuery || undefined,
-          sort_by: 'date',
-          sort_desc: true,
-        }
-      : {
-          folder_id: activeFolderId,
-          account_id: effectiveAccountId || undefined,
-          page,
-          per_page: 50,
-          search: searchQuery || undefined,
-          sort_by: 'date',
-          sort_desc: true,
-        }
-  ), [unifiedView, activeFolderId, effectiveAccountId, page, searchQuery])
+  const messagesParams = useMemo(() => {
+    const common = {
+      page,
+      per_page: 50,
+      search: searchQuery || undefined,
+      filter: filter === 'all' ? undefined : filter,
+      sort_by: sortField,
+      sort_desc: sortDir === 'desc',
+    }
+    return unifiedView
+      ? { folder_id: '', view: 'unified' as const, ...common }
+      : { folder_id: activeFolderId, account_id: effectiveAccountId || undefined, ...common }
+  }, [unifiedView, activeFolderId, effectiveAccountId, page, searchQuery, filter, sortField, sortDir])
 
   const { data: messagesData, isLoading: messagesLoading } = useEmailMessages(messagesParams)
   const messages = messagesData?.messages ?? []
@@ -474,7 +469,7 @@ export default function MailsPage() {
             (showMessageDetail || showInlineCompose) ? 'hidden md:flex w-80' : 'flex-1'
           }`}
         >
-          {/* Search bar */}
+          {/* Search bar + filter/sort row */}
           <div className="border-b border-border px-4 py-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -484,6 +479,32 @@ export default function MailsPage() {
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
                 className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                {(['all', 'unread', 'starred'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => { setFilter(f); setPage(1) }}
+                    className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                      filter === f ? 'bg-primary-light text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'
+                    }`}
+                    aria-pressed={filter === f}
+                  >
+                    {t(`mails.filter.${f}`)}
+                  </button>
+                ))}
+              </div>
+              <SortMenu
+                options={[
+                  { value: 'date', label: t('mails.sort.date') },
+                  { value: 'from', label: t('mails.sort.from') },
+                  { value: 'subject', label: t('mails.sort.subject') },
+                ]}
+                field={sortField}
+                direction={sortDir}
+                onChange={(fld, dir) => { setSortField(fld); setSortDir(dir); setPage(1) }}
               />
             </div>
           </div>
