@@ -78,6 +78,7 @@ function buildSchemas(): FormSchema[] {
     isPublic: false,
     pageCount: 1,
     submissionCount: 0,
+    notifications: { recipients: [], confirmToSubmitter: false },
     createdBy: 'Lena Hoffmann',
     createdAt: isoAgo(40 * DAY),
     updatedAt: isoAgo(2 * DAY),
@@ -93,6 +94,7 @@ function buildSchemas(): FormSchema[] {
       status: 'active',
       isPublic: true,
       submissionCount: 6,
+      notifications: { recipients: ['feedback@zentria.tech'], confirmToSubmitter: false },
       createdAt: isoAgo(58 * DAY),
       updatedAt: isoAgo(6 * HOUR),
       fields: (() => {
@@ -129,6 +131,7 @@ function buildSchemas(): FormSchema[] {
       status: 'active',
       isPublic: true,
       submissionCount: 4,
+      notifications: { recipients: ['vertrieb@zentria.tech'], confirmToSubmitter: true },
       createdAt: isoAgo(35 * DAY),
       updatedAt: isoAgo(1 * DAY),
       fields: [
@@ -153,6 +156,7 @@ function buildSchemas(): FormSchema[] {
       status: 'active',
       isPublic: true,
       submissionCount: 3,
+      notifications: { recipients: ['hr@zentria.tech', 'lena.hoffmann@zentria.tech'], confirmToSubmitter: true },
       createdAt: isoAgo(22 * DAY),
       updatedAt: isoAgo(3 * DAY),
       fields: [
@@ -400,7 +404,7 @@ function buildSubmissions(): FormSubmission[] {
     for (const field of schema.fields) {
       if (field.label in answersByLabel) answers[field.id] = answersByLabel[field.label]
     }
-    return {
+    const submission: FormSubmission = {
       id: `sub-${subSeq++}`,
       formSchemaId: schema.id,
       tenantId: TENANT,
@@ -415,6 +419,20 @@ function buildSubmissions(): FormSubmission[] {
       submittedAt: isoAgo(subSeq * 9 * HOUR),
       ...over,
     }
+    // FO-4 — attach a mocked dispatch record when the form notifies on submit.
+    const cfg = schema.notifications
+    if (!submission.notifications && cfg && (cfg.recipients.length > 0 || cfg.confirmToSubmitter)) {
+      const emailField = schema.fields.find((fld) => fld.type === 'email')
+      const submitterEmail = emailField
+        ? String(answersByLabel[emailField.label] ?? '').trim()
+        : ''
+      submission.notifications = {
+        recipients: [...cfg.recipients],
+        confirmationTo: cfg.confirmToSubmitter && submitterEmail ? submitterEmail : null,
+        sentAt: submission.submittedAt,
+      }
+    }
+    return submission
   }
 
   const byId = (id: string) => SCHEMAS.find((s) => s.id === id)!
@@ -764,6 +782,7 @@ export const formulareHandlers = [
       closedMessage: body.closedMessage,
       thankYouMessage: body.thankYouMessage,
       redirectUrl: body.redirectUrl,
+      notifications: body.notifications ?? { recipients: [], confirmToSubmitter: false },
       submissionCount: 0,
       createdBy: 'Du',
       createdAt: now,
@@ -856,6 +875,7 @@ export const formulareHandlers = [
     const schema = SCHEMAS.find((s) => s.id === params.schemaId)
     if (!schema) return new HttpResponse(null, { status: 404 })
     const body = (await request.json().catch(() => ({}))) as CreateSubmissionInput
+    const now = new Date().toISOString()
     const submission: FormSubmission = {
       id: newSubmissionId(),
       formSchemaId: schema.id,
@@ -864,7 +884,20 @@ export const formulareHandlers = [
       status: 'new',
       submittedBy: body.submittedBy ?? null,
       ipAddress: '127.0.0.1',
-      submittedAt: new Date().toISOString(),
+      submittedAt: now,
+    }
+    // FO-4 — mock the notification dispatch off the schema's config.
+    const cfg = schema.notifications
+    if (cfg && (cfg.recipients.length > 0 || cfg.confirmToSubmitter)) {
+      const emailField = schema.fields.find((fld) => fld.type === 'email')
+      const submitterEmail = emailField
+        ? String((body.answers ?? {})[emailField.id] ?? '').trim()
+        : ''
+      submission.notifications = {
+        recipients: [...cfg.recipients],
+        confirmationTo: cfg.confirmToSubmitter && submitterEmail ? submitterEmail : null,
+        sentAt: now,
+      }
     }
     SUBMISSIONS = [submission, ...SUBMISSIONS]
     recountSubmissions(schema.id)
@@ -974,6 +1007,7 @@ export const formulareHandlers = [
     if (body.closedMessage !== undefined) schema.closedMessage = body.closedMessage
     if (body.thankYouMessage !== undefined) schema.thankYouMessage = body.thankYouMessage
     if (body.redirectUrl !== undefined) schema.redirectUrl = body.redirectUrl
+    if (body.notifications !== undefined) schema.notifications = body.notifications
     schema.updatedAt = new Date().toISOString()
     return HttpResponse.json(schema)
   }),

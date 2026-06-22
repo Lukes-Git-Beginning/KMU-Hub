@@ -76,6 +76,17 @@ export interface FormField {
   page?: number
 }
 
+/**
+ * FO-4 — per-form submission-notification settings. `recipients` are notified
+ * when a submission arrives; `confirmToSubmitter` additionally sends a
+ * confirmation to the address entered in the form's email field. Demo dispatch
+ * is mocked (no real SMTP) — real delivery stays Luke's lane.
+ */
+export interface FormNotificationConfig {
+  recipients: string[]
+  confirmToSubmitter: boolean
+}
+
 export interface FormSchema {
   id: string
   tenantId: string
@@ -86,6 +97,8 @@ export interface FormSchema {
   isTemplate: boolean
   isPublic: boolean
   pageCount: number
+  /** FO-4 — submission-notification config (recipients + submitter confirmation). */
+  notifications?: FormNotificationConfig
   /** Message shown on the public fill-out page once the form is `closed`. */
   closedMessage?: string
   /** FT-2b — custom thank-you message shown after a successful submit. */
@@ -99,6 +112,17 @@ export interface FormSchema {
   deletedAt: string | null
 }
 
+/**
+ * FO-4 — record of the notifications dispatched when a submission arrived.
+ * Attached at create time from the schema's notification config; stored on the
+ * submission so the detail view can show what was sent (mocked in demo).
+ */
+export interface SubmissionNotificationDispatch {
+  recipients: string[]
+  confirmationTo: string | null
+  sentAt: string
+}
+
 export interface FormSubmission {
   id: string
   formSchemaId: string | null
@@ -108,6 +132,8 @@ export interface FormSubmission {
   submittedBy: string | null
   ipAddress: string | null
   submittedAt: string
+  /** FO-4 — notifications dispatched for this submission (mocked). */
+  notifications?: SubmissionNotificationDispatch
 }
 
 /**
@@ -198,6 +224,7 @@ export interface CreateFormSchemaInput {
   closedMessage?: string
   thankYouMessage?: string
   redirectUrl?: string
+  notifications?: FormNotificationConfig
 }
 
 export interface UpdateFormSchemaInput {
@@ -211,6 +238,7 @@ export interface UpdateFormSchemaInput {
   closedMessage?: string
   thankYouMessage?: string
   redirectUrl?: string
+  notifications?: FormNotificationConfig
 }
 
 export interface DuplicateFormSchemaInput {

@@ -79,6 +79,16 @@ export interface FormAction {
   config: Record<string, string>
 }
 
+/**
+ * FO-4 — per-form submission-notification settings. `recipients` get notified
+ * on a new submission; `confirmToSubmitter` also sends a confirmation to the
+ * submitter's email answer. Mirrors FormNotificationConfig in formulare-types.
+ */
+export interface FormNotificationConfig {
+  recipients: string[]
+  confirmToSubmitter: boolean
+}
+
 // ---------------------------------------------------------------------------
 // Draft schema: local representation while editing in the builder.
 // Mirrors FormSchema from API but includes frontend-only fields.
@@ -96,6 +106,8 @@ export interface DraftSchema {
   thankYouMessage?: string
   /** FT-2b — redirect URL applied after submit on the public page (optional). */
   redirectUrl?: string
+  /** FO-4 — submission-notification config (recipients + submitter confirmation). */
+  notifications: FormNotificationConfig
   /** Frontend-only: post-submission actions (not yet persisted to backend) */
   actions: FormAction[]
 }
@@ -110,7 +122,7 @@ interface FormulareClientState {
 
   openDraft: (draft: DraftSchema) => void
   closeDraft: () => void
-  updateDraftMeta: (updates: Partial<Pick<DraftSchema, 'title' | 'description' | 'isPublic' | 'pageCount' | 'thankYouMessage' | 'redirectUrl'>>) => void
+  updateDraftMeta: (updates: Partial<Pick<DraftSchema, 'title' | 'description' | 'isPublic' | 'pageCount' | 'thankYouMessage' | 'redirectUrl' | 'notifications'>>) => void
 
   addField: (field: Omit<FormField, 'id'>) => void
   removeField: (fieldId: string) => void

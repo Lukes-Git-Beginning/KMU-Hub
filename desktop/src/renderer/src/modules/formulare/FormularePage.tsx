@@ -67,6 +67,7 @@ import {
   Ruler,
   Star,
   BarChart3,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -388,6 +389,12 @@ function schemaToDraft(schema: FormSchema): DraftSchema {
     pageCount: schema.pageCount,
     thankYouMessage: schema.thankYouMessage,
     redirectUrl: schema.redirectUrl,
+    notifications: schema.notifications
+      ? {
+          recipients: [...schema.notifications.recipients],
+          confirmToSubmitter: schema.notifications.confirmToSubmitter,
+        }
+      : { recipients: [], confirmToSubmitter: false },
     actions: [],
   }
 }
@@ -500,6 +507,9 @@ export default function FormularePage() {
   const prefsConsentText = useFormularePrefsStore((s) => s.defaultConsentText)
   const prefsPrivacyUrl = useFormularePrefsStore((s) => s.defaultPrivacyUrl)
   const prefsThankYouMessage = useFormularePrefsStore((s) => s.defaultThankYouMessage)
+  // FO-4 — tenant notification default, used to seed new forms' recipient list.
+  const prefsNotifyOnSubmission = useFormularePrefsStore((s) => s.notifyOnSubmission)
+  const prefsNotifyEmail = useFormularePrefsStore((s) => s.notifyEmail)
   // FT-5 — the grid/list toggle reads + writes the persisted personal default.
   const formView = useFormularePrefsStore((s) => s.defaultFormView)
   const setFormView = useFormularePrefsStore((s) => s.setDefaultFormView)
@@ -592,6 +602,9 @@ export default function FormularePage() {
 
   // 10.4 — Public preview state
   const [showPublicPreview, setShowPublicPreview] = useState(false)
+
+  // FO-4 — staged email being typed into the notification recipient editor.
+  const [newRecipient, setNewRecipient] = useState('')
 
 
   // Submissions are fetched eagerly for every active form (one query per form,
@@ -733,12 +746,55 @@ export default function FormularePage() {
         pageCount: draft.pageCount,
         thankYouMessage: draft.thankYouMessage?.trim() || undefined,
         redirectUrl: draft.redirectUrl?.trim() || undefined,
+        notifications: draft.notifications,
       })
       toast.success(t('formulare.toast.gespeichert'))
       closeDraft()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.error'))
     }
+  }
+
+  // FO-4 — notification recipient management (operates on the draft).
+  const addRecipient = () => {
+    if (!draft) return
+    const email = newRecipient.trim()
+    if (!email) return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error(t('formulare.notify.invalidEmail'))
+      return
+    }
+    if (draft.notifications.recipients.includes(email)) {
+      setNewRecipient('')
+      return
+    }
+    updateDraftMeta({
+      notifications: {
+        ...draft.notifications,
+        recipients: [...draft.notifications.recipients, email],
+      },
+    })
+    setNewRecipient('')
+  }
+
+  const removeRecipient = (email: string) => {
+    if (!draft) return
+    updateDraftMeta({
+      notifications: {
+        ...draft.notifications,
+        recipients: draft.notifications.recipients.filter((r) => r !== email),
+      },
+    })
+  }
+
+  const toggleConfirmToSubmitter = () => {
+    if (!draft) return
+    updateDraftMeta({
+      notifications: {
+        ...draft.notifications,
+        confirmToSubmitter: !draft.notifications.confirmToSubmitter,
+      },
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -1232,6 +1288,14 @@ export default function FormularePage() {
           isTemplate: false,
           // FT-5 — seed the configurable tenant default thank-you message.
           thankYouMessage: prefsThankYouMessage.trim() || undefined,
+          // FO-4 — seed the recipient list from the tenant notification default.
+          notifications: {
+            recipients:
+              prefsNotifyOnSubmission && prefsNotifyEmail.trim()
+                ? [prefsNotifyEmail.trim()]
+                : [],
+            confirmToSubmitter: false,
+          },
         },
         {
           onSuccess: () => {
@@ -1946,6 +2010,99 @@ export default function FormularePage() {
           </div>
         </div>
 
+        {/* FO-4 — submission notifications: recipients + submitter confirmation */}
+        <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <div className="mb-1 flex items-center gap-2">
+            <Mail className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-foreground">
+              {t('formulare.notify.title')}
+            </h3>
+          </div>
+          <p className="mb-4 text-xs text-muted-foreground">
+            {t('formulare.notify.subtitle')}
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              {t('formulare.notify.recipientsLabel')}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={newRecipient}
+                onChange={(e) => setNewRecipient(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addRecipient()
+                  }
+                }}
+                placeholder={t('formulare.notify.recipientsPlaceholder')}
+                className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              <button
+                type="button"
+                onClick={addRecipient}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <Plus className="h-4 w-4" />
+                {t('formulare.notify.add')}
+              </button>
+            </div>
+            {draft.notifications.recipients.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {draft.notifications.recipients.map((email) => (
+                  <span
+                    key={email}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary-light px-2.5 py-1 text-xs text-primary"
+                  >
+                    {email}
+                    <button
+                      type="button"
+                      onClick={() => removeRecipient(email)}
+                      className="rounded-full p-0.5 transition-colors hover:bg-primary/15"
+                      aria-label={t('formulare.notify.remove', { email })}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="pt-1 text-xs text-muted-foreground">
+                {t('formulare.notify.noRecipients')}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-4 border-t border-border-muted pt-4">
+            <div className="min-w-0">
+              <label className="text-sm font-medium text-foreground">
+                {t('formulare.notify.confirmLabel')}
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {t('formulare.notify.confirmHint')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleConfirmToSubmitter}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                draft.notifications.confirmToSubmitter ? 'bg-primary' : 'bg-secondary'
+              }`}
+              aria-pressed={draft.notifications.confirmToSubmitter}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  draft.notifications.confirmToSubmitter
+                    ? 'translate-x-4.5'
+                    : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* ====================== 10.4 — PUBLIC PREVIEW MODAL ====================== */}
         <Dialog
           open={showPublicPreview && !!draft}
@@ -1976,6 +2133,7 @@ export default function FormularePage() {
               description={draft.description}
               thankYouMessage={draft.thankYouMessage}
               redirectUrl={draft.redirectUrl}
+              notifications={draft.notifications}
               t={t}
             />
           </DialogContent>
@@ -3143,6 +3301,44 @@ export default function FormularePage() {
                 )}
               </div>
             </div>
+
+            {/* FO-4 — notifications dispatched when this submission arrived (mocked) */}
+            {selectedSubmission.notifications &&
+              (selectedSubmission.notifications.recipients.length > 0 ||
+                selectedSubmission.notifications.confirmationTo) && (
+                <div>
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                    {t('formulare.submission.notifyTitle')}
+                  </h4>
+                  <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
+                    {selectedSubmission.notifications.recipients.length > 0 && (
+                      <div className="flex items-start gap-2 text-sm text-foreground">
+                        <Send className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span>
+                          {t('formulare.submission.notifySent', {
+                            list: selectedSubmission.notifications.recipients.join(', '),
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    {selectedSubmission.notifications.confirmationTo && (
+                      <div className="flex items-start gap-2 text-sm text-foreground">
+                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                        <span>
+                          {t('formulare.submission.notifyConfirmation', {
+                            email: selectedSubmission.notifications.confirmationTo,
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      {t('formulare.submission.notifySentAt', {
+                        date: formatDateTime(selectedSubmission.notifications.sentAt),
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
           </div>
         )}
       </DetailModal>
@@ -4093,6 +4289,8 @@ interface PreviewFillFormProps {
   /** FT-2b — custom thank-you message + optional redirect shown after submit. */
   thankYouMessage?: string
   redirectUrl?: string
+  /** FO-4 — config used to show the (mocked) dispatch summary after submit. */
+  notifications?: { recipients: string[]; confirmToSubmitter: boolean }
   t: (key: string, opts?: Record<string, unknown>) => string
 }
 
@@ -4102,6 +4300,7 @@ function PreviewFillForm({
   description,
   thankYouMessage,
   redirectUrl,
+  notifications,
   t,
 }: PreviewFillFormProps) {
   const dataFields = useMemo(
@@ -4166,6 +4365,16 @@ function PreviewFillForm({
   }
 
   if (submitted) {
+    // FO-4 — mocked dispatch summary derived from the form's notification config
+    // and the email answer just entered (no real send in the demo preview).
+    const emailField = dataFields.find((f) => f.type === 'email')
+    const submitterEmail = emailField
+      ? String(values[emailField.id] ?? '').trim()
+      : ''
+    const notifyRecipients = notifications?.recipients ?? []
+    const confirmationTo =
+      notifications?.confirmToSubmitter && submitterEmail ? submitterEmail : null
+    const hasDispatch = notifyRecipients.length > 0 || !!confirmationTo
     return (
       <div className="p-8">
         <div className="flex flex-col items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-6 py-10 text-center">
@@ -4183,6 +4392,28 @@ function PreviewFillForm({
               <ExternalLink className="h-3.5 w-3.5" />
               {t('formulare.preview.redirectHint', { url: redirectUrl.trim() })}
             </p>
+          )}
+          {hasDispatch && (
+            <div className="mt-2 w-full max-w-sm rounded-lg border border-green-200 bg-white px-4 py-3 text-left">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                <Mail className="h-3.5 w-3.5 text-green-600" />
+                {t('formulare.preview.notifyTitle')}
+              </div>
+              <ul className="mt-1.5 space-y-1 text-xs text-gray-600">
+                {notifyRecipients.length > 0 && (
+                  <li>
+                    {t('formulare.preview.notifyRecipients', {
+                      list: notifyRecipients.join(', '),
+                    })}
+                  </li>
+                )}
+                {confirmationTo && (
+                  <li>
+                    {t('formulare.preview.notifyConfirmation', { email: confirmationTo })}
+                  </li>
+                )}
+              </ul>
+            </div>
           )}
           <button
             onClick={reset}
