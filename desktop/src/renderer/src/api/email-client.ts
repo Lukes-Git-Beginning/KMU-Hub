@@ -187,6 +187,13 @@ export const emailMessageApi = {
       method: 'DELETE',
     })
   },
+
+  bulk(ids: string[], action: string, target?: string) {
+    return request<{ affected: number }>('/api/v1/email/messages/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action, target }),
+    })
+  },
 }
 
 // ---------------------------------------------------------------------------

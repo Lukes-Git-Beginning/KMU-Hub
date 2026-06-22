@@ -30,6 +30,8 @@ import {
   Check,
   Plus as PlusIcon,
   X,
+  CheckSquare,
+  Square,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -52,6 +54,7 @@ import {
   useSetMessageLabels,
   useCreateLabel,
   useDeleteLabel,
+  useBulkMessageAction,
 } from '@/api/hooks/useEmail'
 import type { EmailMessageInfo } from '@/api/email-types'
 import type { ComposeMode } from '@/stores/mails'
@@ -153,6 +156,7 @@ export default function MailsPage() {
   const [addingLabel, setAddingLabel] = useState(false)
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState('#3B82F6')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
 
   // Default the active account to the primary one once it loads.
   useEffect(() => {
@@ -187,6 +191,33 @@ export default function MailsPage() {
     createLabel.mutate({ name: newLabelName.trim(), color: newLabelColor })
     setNewLabelName('')
     setAddingLabel(false)
+  }
+
+  // Bulk selection
+  const bulkMutation = useBulkMessageAction()
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const clearSelection = () => setSelectedIds(new Set())
+  const runBulk = (action: string, target?: string) => {
+    const ids = [...selectedIds]
+    if (!ids.length) return
+    bulkMutation.mutate(
+      { ids, action, target },
+      {
+        onSuccess: (res) => {
+          toast.success(t('mails.bulk.done', { count: res.affected }))
+          if (selectedMessageId && ids.includes(selectedMessageId) && ['delete', 'archive', 'spam'].includes(action)) {
+            setSelectedMessageId(null)
+          }
+          clearSelection()
+        },
+      },
+    )
   }
 
   // Folders for the active account
@@ -406,6 +437,40 @@ export default function MailsPage() {
     return addr.email[0].toUpperCase()
   }
 
+
+  // Keyboard shortcuts (Gmail-style): j/k navigate, e archive, r reply,
+  // u unread, s star, # delete, x select, Esc clear.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tgt = e.target as HTMLElement | null
+      if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const rows = threadRows
+      const idx = rows.findIndex((m) => m.id === selectedMessageId)
+      switch (e.key) {
+        case 'j': case 'ArrowDown': {
+          const next = rows[Math.min(rows.length - 1, idx + 1)]
+          if (next) { e.preventDefault(); handleSelectMessage(next) }
+          break
+        }
+        case 'k': case 'ArrowUp': {
+          const prev = rows[Math.max(0, idx - 1)]
+          if (prev) { e.preventDefault(); handleSelectMessage(prev) }
+          break
+        }
+        case 'e': if (selectedMessage) { e.preventDefault(); handleArchive(selectedMessage.id) } break
+        case 'r': if (selectedMessage) { e.preventDefault(); openCompose('reply', selectedMessage) } break
+        case 'u': if (selectedMessage) { e.preventDefault(); markUnread.mutate(selectedMessage.id) } break
+        case 's': if (selectedMessage) { e.preventDefault(); toggleStar.mutate(selectedMessage.id) } break
+        case '#': case 'Delete': if (selectedMessage) { e.preventDefault(); setDeleteConfirmId(selectedMessage.id) } break
+        case 'x': if (selectedMessage) { e.preventDefault(); toggleSelect(selectedMessage.id) } break
+        case 'Escape': if (selectedIds.size) clearSelection(); else setSelectedMessageId(null); break
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+
+  }, [threadRows, selectedMessageId, selectedMessage, selectedIds])
 
   const showInlineCompose = composeOpen
   const showMessageDetail = selectedMessage && !showInlineCompose
@@ -631,6 +696,35 @@ export default function MailsPage() {
             </div>
           </div>
 
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-1 border-b border-border bg-secondary/50 px-3 py-2">
+              <span className="text-xs font-medium text-foreground">
+                {t('mails.bulk.selected', { count: selectedIds.size })}
+              </span>
+              <div className="flex-1" />
+              <button onClick={() => runBulk('read')} className="rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors" title={t('mails.actions.markRead')} aria-label={t('mails.actions.markRead')}>
+                <Eye className="h-4 w-4" />
+              </button>
+              <button onClick={() => runBulk('star')} className="rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors" title={t('mails.actions.star')} aria-label={t('mails.actions.star')}>
+                <Star className="h-4 w-4" />
+              </button>
+              <button onClick={() => runBulk('archive')} className="rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors" title={t('mails.actions.archive')} aria-label={t('mails.actions.archive')}>
+                <Archive className="h-4 w-4" />
+              </button>
+              <button onClick={() => runBulk('spam')} className="rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors" title={t('mails.bulk.spam', { defaultValue: 'Als Spam' })} aria-label={t('mails.bulk.spam', { defaultValue: 'Als Spam' })}>
+                <AlertCircle className="h-4 w-4" />
+              </button>
+              <button onClick={() => runBulk('delete')} className="rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-red-500 transition-colors" title={t('common.delete')} aria-label={t('common.delete')}>
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <span className="mx-1 h-5 w-px bg-border" />
+              <button onClick={clearSelection} className="rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors" title={t('mails.bulk.clear', { defaultValue: 'Auswahl aufheben' })} aria-label={t('mails.bulk.clear', { defaultValue: 'Auswahl aufheben' })}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* Message rows */}
           <div className="flex-1 overflow-y-auto">
             {messagesLoading && (
@@ -642,10 +736,20 @@ export default function MailsPage() {
               <div
                 key={msg.id}
                 className={`group flex w-full items-start gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer ${
-                  selectedMessageId === msg.id ? 'bg-primary-light/50' : ''
+                  selectedIds.has(msg.id) ? 'bg-primary-light/40' : selectedMessageId === msg.id ? 'bg-primary-light/50' : ''
                 } ${!msg.is_read ? 'bg-card' : ''}`}
                 onClick={() => handleSelectMessage(msg)}
               >
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleSelect(msg.id) }}
+                  className={`shrink-0 self-center text-muted-foreground transition-opacity hover:text-primary ${
+                    selectedIds.size > 0 || selectedIds.has(msg.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                  aria-label={t('mails.bulk.select', { defaultValue: 'Auswählen' })}
+                  aria-pressed={selectedIds.has(msg.id)}
+                >
+                  {selectedIds.has(msg.id) ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+                </button>
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary">
                   {getInitials(msg.from)}
                 </div>

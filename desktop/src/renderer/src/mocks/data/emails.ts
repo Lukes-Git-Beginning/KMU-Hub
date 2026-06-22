@@ -58,6 +58,14 @@ export const mockEmailFolders = {
       account_id: IDS.emailAccounts.main,
     },
     {
+      id: 'ef-spam',
+      name: 'Spam',
+      type: 'spam',
+      unread_count: 0,
+      total_count: 0,
+      account_id: IDS.emailAccounts.main,
+    },
+    {
       id: IDS.emailFolders.archive,
       name: 'Archiv',
       type: 'archive',

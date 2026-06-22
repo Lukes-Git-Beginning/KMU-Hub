@@ -421,6 +421,34 @@ export function deleteMessage(id: string): void {
   recomputeFolderCounts()
 }
 
+export type BulkAction = 'read' | 'unread' | 'star' | 'unstar' | 'archive' | 'spam' | 'delete' | 'move' | 'label'
+
+/** Apply an action to many messages at once; returns the number affected. */
+export function bulkAction(ids: string[], action: BulkAction, target?: string): number {
+  let affected = 0
+  for (const id of ids) {
+    const m = getMessage(id)
+    if (!m) continue
+    switch (action) {
+      case 'read': m.is_read = true; break
+      case 'unread': m.is_read = false; break
+      case 'star': m.is_starred = true; break
+      case 'unstar': m.is_starred = false; break
+      case 'archive': m.folder_id = IDS.emailFolders.archive; break
+      case 'spam': m.folder_id = 'ef-spam'; break
+      case 'delete': m.folder_id = IDS.emailFolders.trash; break
+      case 'move': if (target) m.folder_id = target; break
+      case 'label':
+        if (target && !m.label_ids?.includes(target)) m.label_ids = [...(m.label_ids ?? []), target]
+        break
+    }
+    touch(m)
+    affected += 1
+  }
+  recomputeFolderCounts()
+  return affected
+}
+
 export interface AppendMessageInput {
   subject?: string
   to?: EmailMessageInfo['to']

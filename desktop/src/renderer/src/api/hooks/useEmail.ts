@@ -221,6 +221,18 @@ export function useDeleteEmailMessage() {
   })
 }
 
+export function useBulkMessageAction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, action, target }: { ids: string[]; action: string; target?: string }) =>
+      emailMessageApi.bulk(ids, action, target),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['email', 'messages'] })
+      qc.invalidateQueries({ queryKey: ['email', 'folders'] })
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Send / Compose hooks
 // ---------------------------------------------------------------------------

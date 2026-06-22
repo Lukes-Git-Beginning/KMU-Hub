@@ -11,6 +11,8 @@ import {
   moveToFolder,
   deleteMessage,
   appendMessage,
+  bulkAction,
+  type BulkAction,
   getSignatures,
   getLabels,
   createLabel,
@@ -70,6 +72,13 @@ export const emailHandlers = [
   // Thread — must precede the `:id` route below
   http.get(`${API}/api/v1/email/messages/thread/:threadId`, ({ params }) => {
     return HttpResponse.json({ messages: getThread(params.threadId as string) })
+  }),
+
+  // Bulk action — must precede the `:id` routes
+  http.post(`${API}/api/v1/email/messages/bulk`, async ({ request }) => {
+    const body = (await request.json()) as { ids?: string[]; action?: BulkAction; target?: string }
+    const affected = bulkAction(body.ids ?? [], body.action ?? 'read', body.target)
+    return HttpResponse.json({ affected })
   }),
 
   // List messages (folder / unified / filtered / searched / sorted / paginated)
