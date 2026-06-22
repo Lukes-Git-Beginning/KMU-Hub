@@ -5441,6 +5441,8 @@
   "mails.detail.crmLinked": "Linked to {count} CRM contact(s)",
   "mails.detail.retentionObligation": "Retention obligation",
   "mails.detail.to": "To",
+  "mails.accounts.allInboxes": "All inboxes",
+  "mails.accounts.switch": "Switch account",
   "mails.thread.you": "You",
   "mails.thread.toggleQuote": "Show quoted history",
   "mails.thread.count": "{count, plural, one {# message} other {# messages}}",

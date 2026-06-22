@@ -8,8 +8,8 @@ import type { EmailMessageInfo, EmailAttachmentInfo } from '@/api/email-types'
 interface ThreadViewProps {
   /** Thread messages, sorted oldest → newest. */
   messages: EmailMessageInfo[]
-  /** The current account address — used to mark our own messages. */
-  selfEmail: string
+  /** Our own account addresses — used to mark/align our messages. */
+  selfEmails: string[]
   onDownloadAttachment: (att: EmailAttachmentInfo, subject: string) => void
 }
 
@@ -152,9 +152,10 @@ function MessageCard({
  * default; older ones collapse to a one-line header (click to expand), mirroring
  * modern mail clients. Quoted reply history hides behind a "···" toggle.
  */
-export function ThreadView({ messages, selfEmail, onDownloadAttachment }: ThreadViewProps) {
+export function ThreadView({ messages, selfEmails, onDownloadAttachment }: ThreadViewProps) {
   const latestId = messages.length ? messages[messages.length - 1].id : ''
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set([latestId]))
+  const isSelf = (email: string) => selfEmails.includes(email)
 
   const toggle = (id: string) =>
     setExpandedIds((prev) => {
@@ -173,7 +174,7 @@ export function ThreadView({ messages, selfEmail, onDownloadAttachment }: Thread
         <MessageCard
           msg={only}
           expanded
-          isSelf={only.from.email === selfEmail}
+          isSelf={isSelf(only.from.email)}
           onToggle={() => {}}
           onDownloadAttachment={onDownloadAttachment}
         />
@@ -188,7 +189,7 @@ export function ThreadView({ messages, selfEmail, onDownloadAttachment }: Thread
           key={msg.id}
           msg={msg}
           expanded={expandedIds.has(msg.id)}
-          isSelf={msg.from.email === selfEmail}
+          isSelf={isSelf(msg.from.email)}
           onToggle={() => toggle(msg.id)}
           onDownloadAttachment={onDownloadAttachment}
         />

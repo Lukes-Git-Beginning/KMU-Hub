@@ -5411,6 +5411,8 @@
   "mails.detail.crmLinked": "Lié à {count} contact(s) CRM",
   "mails.detail.retentionObligation": "Obligation de conservation",
   "mails.detail.to": "À",
+  "mails.accounts.allInboxes": "Toutes les boîtes",
+  "mails.accounts.switch": "Changer de compte",
   "mails.thread.you": "Vous",
   "mails.thread.toggleQuote": "Afficher l'historique cité",
   "mails.thread.count": "{count, plural, one {# message} other {# messages}}",

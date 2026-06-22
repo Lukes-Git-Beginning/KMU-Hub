@@ -25,6 +25,7 @@ import {
   Loader2,
   Settings,
   ShieldCheck,
+  Layers,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -32,6 +33,7 @@ import { useMailsStore } from '@/stores/mails'
 import { useNavigationStore } from '@/stores/navigation'
 import {
   useEmailAccount,
+  useEmailAccounts,
   useEmailFolders,
   useEmailMessages,
   useMarkEmailRead,
@@ -52,6 +54,7 @@ import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
 import { userHasRole } from '@/config/roles'
 import { downloadAttachment, printMessage, exportMessageEml } from './lib/mail-export'
 import { ThreadView } from './ThreadView'
+import { AccountSwitcher } from './AccountSwitcher'
 import {
   Dialog,
   DialogContent,
@@ -120,19 +123,50 @@ export default function MailsPage() {
   const canSeeMailSettings = userHasRole(user, ['admin', 'it_support'])
   const [showMailSettings, setShowMailSettings] = useState(false)
 
-  // Account
+  // Account(s)
   const { data: accountData } = useEmailAccount(userId)
   const accountId = accountData?.account?.id ?? ''
-
-  // Folders
-  const { data: foldersData } = useEmailFolders(accountId)
-  const folders = useMemo(() => foldersData?.folders ?? [], [foldersData?.folders])
+  const { data: accountsData } = useEmailAccounts()
+  const accounts = useMemo(() => accountsData?.accounts ?? [], [accountsData?.accounts])
 
   // UI state
+  const [activeAccountId, setActiveAccountId] = useState<string>('')
+  const [unifiedView, setUnifiedView] = useState(false)
   const [activeFolderId, setActiveFolderId] = useState<string>('')
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
+
+  // Default the active account to the primary one once it loads.
+  useEffect(() => {
+    if (!activeAccountId && accountId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- seed from loaded data
+      setActiveAccountId(accountId)
+    }
+  }, [accountId, activeAccountId])
+  const effectiveAccountId = activeAccountId || accountId
+  const accountEmails = useMemo(() => accounts.map((a) => a.email_address), [accounts])
+  const accountById = useMemo(
+    () => Object.fromEntries(accounts.map((a) => [a.id, a])),
+    [accounts],
+  )
+
+  // Folders for the active account
+  const { data: foldersData } = useEmailFolders(effectiveAccountId)
+  const folders = useMemo(() => foldersData?.folders ?? [], [foldersData?.folders])
+
+  const handleSelectAccount = (id: string) => {
+    setActiveAccountId(id)
+    setUnifiedView(false)
+    setActiveFolderId('')
+    setSelectedMessageId(null)
+    setPage(1)
+  }
+  const handleSelectUnified = () => {
+    setUnifiedView(true)
+    setSelectedMessageId(null)
+    setPage(1)
+  }
 
   // Compose state
   const [composeOpen, setComposeOpen] = useState(false)
@@ -165,19 +199,31 @@ export default function MailsPage() {
     }
   }, [consumeIntent])
 
-  // Messages for active folder
-  const messagesParams = useMemo(() => ({
-    folder_id: activeFolderId,
-    page,
-    per_page: 50,
-    search: searchQuery || undefined,
-    sort_by: 'date',
-    sort_desc: true,
-  }), [activeFolderId, page, searchQuery])
+  // Messages for the active folder, or the merged unified inbox.
+  const messagesParams = useMemo(() => (
+    unifiedView
+      ? {
+          folder_id: '',
+          view: 'unified' as const,
+          page,
+          per_page: 50,
+          search: searchQuery || undefined,
+          sort_by: 'date',
+          sort_desc: true,
+        }
+      : {
+          folder_id: activeFolderId,
+          account_id: effectiveAccountId || undefined,
+          page,
+          per_page: 50,
+          search: searchQuery || undefined,
+          sort_by: 'date',
+          sort_desc: true,
+        }
+  ), [unifiedView, activeFolderId, effectiveAccountId, page, searchQuery])
 
   const { data: messagesData, isLoading: messagesLoading } = useEmailMessages(messagesParams)
   const messages = messagesData?.messages ?? []
-  const accountEmail = accountData?.account?.email_address ?? ''
 
   // Collapse the list to one row per thread (newest message represents it).
   // `messages` is already sorted newest-first, so the first hit per thread wins.
@@ -194,7 +240,7 @@ export default function MailsPage() {
   }, [messages])
 
   // Sync
-  const { data: syncStatusData } = useSyncStatus(accountId)
+  const { data: syncStatusData } = useSyncStatus(effectiveAccountId)
   const triggerSync = useTriggerSync()
 
   // Mutations
@@ -341,6 +387,30 @@ export default function MailsPage() {
           {t('mails.newEmail')}
         </button>
 
+        {/* Account switcher (only with >1 connected account) */}
+        <AccountSwitcher
+          accounts={accounts}
+          activeAccountId={effectiveAccountId}
+          unifiedView={unifiedView}
+          onSelectAccount={handleSelectAccount}
+          onSelectUnified={handleSelectUnified}
+        />
+
+        {/* Unified inbox entry */}
+        {accounts.length > 1 && (
+          <button
+            onClick={handleSelectUnified}
+            className={`mb-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+              unifiedView ? 'bg-primary-light text-primary font-medium' : 'text-foreground hover:bg-secondary'
+            }`}
+          >
+            <Layers className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left truncate">
+              {t('mails.accounts.allInboxes', { defaultValue: 'Alle Eingänge' })}
+            </span>
+          </button>
+        )}
+
         <nav className="space-y-0.5">
           {folders.map((folder) => {
             const Icon = folderIcons[folder.folder_type] || Mail
@@ -349,11 +419,12 @@ export default function MailsPage() {
                 key={folder.id}
                 onClick={() => {
                   setActiveFolderId(folder.id)
+                  setUnifiedView(false)
                   setSelectedMessageId(null)
                   setPage(1)
                 }}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  activeFolderId === folder.id
+                  activeFolderId === folder.id && !unifiedView
                     ? 'bg-primary-light text-primary font-medium'
                     : 'text-foreground hover:bg-secondary'
                 }`}
@@ -371,9 +442,9 @@ export default function MailsPage() {
         </nav>
 
         {/* Sync button */}
-        {accountId && (
+        {effectiveAccountId && (
           <button
-            onClick={() => triggerSync.mutate(accountId)}
+            onClick={() => triggerSync.mutate(effectiveAccountId)}
             disabled={triggerSync.isPending || syncStatusData?.status === 'syncing'}
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
           >
@@ -454,6 +525,11 @@ export default function MailsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.preview}</p>
                   <div className="flex items-center gap-2 mt-1">
+                    {unifiedView && accountById[msg.account_id] && (
+                      <span className="inline-flex items-center rounded-full bg-secondary px-1.5 py-0 text-[9px] font-medium text-muted-foreground truncate max-w-[120px]">
+                        {accountById[msg.account_id].email_address}
+                      </span>
+                    )}
                     {msg.has_attachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
                     {(() => {
                       const retention = getRetentionInfo(msg)
@@ -596,7 +672,7 @@ export default function MailsPage() {
               {/* Conversation thread (newest expanded, older collapsed) */}
               <ThreadView
                 messages={threadMessages}
-                selfEmail={accountEmail}
+                selfEmails={accountEmails}
                 onDownloadAttachment={(att, subject) => {
                   downloadAttachment(att, subject)
                   toast.success(t('mails.toast.downloading', { filename: att.filename }))

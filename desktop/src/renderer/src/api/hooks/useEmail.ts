@@ -35,6 +35,7 @@ import type {
 export const emailKeys = {
   all: ['email'] as const,
   account: (userId: string) => ['email', 'account', userId] as const,
+  accounts: () => ['email', 'accounts'] as const,
   folders: (accountId: string) => ['email', 'folders', accountId] as const,
   folder: (id: string) => ['email', 'folder', id] as const,
   messages: (params: ListMessagesParams) => ['email', 'messages', params] as const,
@@ -56,6 +57,13 @@ export function useEmailAccount(userId: string) {
     queryKey: emailKeys.account(userId),
     queryFn: () => emailAccountApi.get(userId),
     enabled: !!userId,
+  })
+}
+
+export function useEmailAccounts() {
+  return useQuery({
+    queryKey: emailKeys.accounts(),
+    queryFn: () => emailAccountApi.list(),
   })
 }
 
@@ -133,7 +141,7 @@ export function useEmailMessages(params: ListMessagesParams) {
   return useQuery({
     queryKey: emailKeys.messages(params),
     queryFn: () => emailMessageApi.list(params),
-    enabled: !!params.folder_id,
+    enabled: !!params.folder_id || params.view === 'unified',
   })
 }
 

@@ -92,6 +92,10 @@ export const emailAccountApi = {
     return request<{ account: EmailAccountInfo }>(`/api/v1/email/accounts/${qs({ user_id: userId })}`)
   },
 
+  list() {
+    return request<{ accounts: EmailAccountInfo[] }>('/api/v1/email/accounts/list')
+  },
+
   update(id: string, req: Omit<UpdateEmailAccountRequest, 'id'>) {
     return request<{ account: EmailAccountInfo }>(`/api/v1/email/accounts/${id}`, {
       method: 'PUT',

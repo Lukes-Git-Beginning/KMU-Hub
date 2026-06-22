@@ -152,6 +152,14 @@ export interface ListMessagesParams {
   search?: string
   sort_by?: string
   sort_desc?: boolean
+  /** 'unified' merges the inbox of every account. */
+  view?: 'folder' | 'unified'
+  /** Restrict to a single account (used together with a folder or unified view). */
+  account_id?: string
+  /** Quick filter on read/starred state. */
+  filter?: 'all' | 'unread' | 'starred'
+  /** Restrict to messages carrying a given label. */
+  label_id?: string
 }
 
 export interface ListMessagesResponse {

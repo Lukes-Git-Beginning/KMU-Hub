@@ -27,7 +27,7 @@ import {
   mockSignatures,
 } from './emails'
 import { IDS } from './shared-ids'
-import { now } from './date-helpers'
+import { now, daysAgo, hoursAgo } from './date-helpers'
 
 // ---------------------------------------------------------------------------
 // Normalisation
@@ -142,6 +142,59 @@ interface EmailState {
   signatures: EmailSignatureInfo[]
 }
 
+/**
+ * Secondary demo accounts (shared mailboxes) so the account switcher and the
+ * unified inbox have something to show. Each gets its own inbox/sent/archive
+ * folder set plus a few messages.
+ */
+function buildSecondary(): { accounts: EmailAccountInfo[]; folders: EmailFolderInfo[]; messages: EmailMessageInfo[] } {
+  const accountsRaw: Raw[] = [
+    { id: 'email-acc-002', email: 'info@techvision.de', name: 'TechVision Info', imap_host: 'imap.techvision.de', smtp_host: 'smtp.techvision.de' },
+    { id: 'email-acc-003', email: 'support@techvision.de', name: 'TechVision Support', imap_host: 'imap.techvision.de', smtp_host: 'smtp.techvision.de' },
+  ]
+  const accounts = accountsRaw.map(normalizeAccount)
+
+  const folders: EmailFolderInfo[] = []
+  const messages: EmailMessageInfo[] = []
+  const folderTypes: EmailFolderInfo['folder_type'][] = ['inbox', 'sent', 'archive']
+  const folderNames: Record<string, string> = { inbox: 'Posteingang', sent: 'Gesendet', archive: 'Archiv' }
+
+  for (const acc of accounts) {
+    const short = acc.id.slice(-3) // '002' | '003'
+    folderTypes.forEach((type, i) => {
+      folders.push(
+        normalizeFolder(
+          { id: `ef-${short}-${type}`, name: folderNames[type], folder_type: type, sort_order: i },
+          acc.id,
+        ),
+      )
+    })
+  }
+
+  // info@ inbox — generic enquiries
+  const infoInbox = 'ef-002-inbox'
+  const infoMsgs: Raw[] = [
+    { id: 'em-i-001', subject: 'Frage zu Ihren Preisen', from: { name: 'Markus Lang', email: 'm.lang@beispiel.de' }, to: [{ name: 'Info', email: 'info@techvision.de' }], date: hoursAgo(3), snippet: 'Guten Tag, ich interessiere mich für Cosmi und hätte eine Frage zu den Preismodellen...', body_html: '<p>Guten Tag,</p><p>ich interessiere mich für Cosmi und hätte eine Frage zu den Preismodellen. Gibt es eine Übersicht?</p><p>Beste Grüße<br/>Markus Lang</p>', folder_id: infoInbox, is_read: false, is_starred: false, thread_id: 'th-i-001' },
+    { id: 'em-i-002', subject: 'Newsletter-Anmeldung', from: { name: 'Julia Berg', email: 'j.berg@example.com' }, to: [{ name: 'Info', email: 'info@techvision.de' }], date: hoursAgo(20), snippet: 'Bitte tragen Sie mich in Ihren Newsletter ein. Vielen Dank!', body_html: '<p>Bitte tragen Sie mich in Ihren Newsletter ein. Vielen Dank!</p><p>Julia Berg</p>', folder_id: infoInbox, is_read: true, is_starred: false, thread_id: 'th-i-002' },
+    { id: 'em-i-003', subject: 'Pressekontakt gesucht', from: { name: 'Redaktion KMU-Magazin', email: 'redaktion@kmu-magazin.de' }, to: [{ name: 'Info', email: 'info@techvision.de' }], date: daysAgo(2), snippet: 'Sehr geehrte Damen und Herren, für einen Artikel über DACH-CRM-Anbieter...', body_html: '<p>Sehr geehrte Damen und Herren,</p><p>für einen Artikel über DACH-CRM-Anbieter würden wir gerne ein kurzes Statement von Ihnen einholen.</p>', folder_id: infoInbox, is_read: false, is_starred: true, thread_id: 'th-i-003' },
+  ]
+
+  // support@ inbox — support tickets
+  const supInbox = 'ef-003-inbox'
+  const supMsgs: Raw[] = [
+    { id: 'em-su-001', subject: '[Ticket #4412] Login funktioniert nicht', from: { name: 'Petra Frank', email: 'p.frank@kunde-gmbh.de' }, to: [{ name: 'Support', email: 'support@techvision.de' }], date: hoursAgo(1), snippet: 'Hallo, seit heute morgen kann ich mich nicht mehr einloggen. Fehlermeldung: ungültige Sitzung...', body_html: '<p>Hallo,</p><p>seit heute Morgen kann ich mich nicht mehr einloggen. Fehlermeldung: „ungültige Sitzung". Können Sie helfen?</p><p>Petra Frank</p>', folder_id: supInbox, is_read: false, is_starred: false, thread_id: 'th-su-001' },
+    { id: 'em-su-002', subject: '[Ticket #4408] Export nach DATEV', from: { name: 'Bernd Klose', email: 'b.klose@handwerk-klose.de' }, to: [{ name: 'Support', email: 'support@techvision.de' }], date: hoursAgo(6), snippet: 'Der DATEV-Export erzeugt eine leere Datei. Anbei der Screenshot...', body_html: '<p>Der DATEV-Export erzeugt eine leere Datei. Was kann ich tun?</p><p>Bernd Klose</p>', folder_id: supInbox, is_read: true, is_starred: false, thread_id: 'th-su-002' },
+    { id: 'em-su-003', subject: '[Ticket #4399] Feature-Wunsch: Dunkelmodus', from: { name: 'Sarah Vogt', email: 's.vogt@vogt-design.ch' }, to: [{ name: 'Support', email: 'support@techvision.de' }], date: daysAgo(1), snippet: 'Gibt es bereits einen Dunkelmodus oder ist das geplant?', body_html: '<p>Gibt es bereits einen Dunkelmodus oder ist das geplant? Das wäre für uns sehr hilfreich.</p>', folder_id: supInbox, is_read: true, is_starred: false, thread_id: 'th-su-003' },
+  ]
+
+  for (const raw of [...infoMsgs, ...supMsgs]) {
+    const accId = (raw.folder_id as string).startsWith('ef-002') ? 'email-acc-002' : 'email-acc-003'
+    messages.push(normalizeMessage({ account_id: accId, ...raw }, accId))
+  }
+
+  return { accounts, folders, messages }
+}
+
 function seed(): EmailState {
   const account = normalizeAccount((mockEmailAccount.account as Raw) ?? {})
   const accountId = account.id
@@ -163,7 +216,13 @@ function seed(): EmailState {
     created_at: now(),
     updated_at: now(),
   }))
-  return { accounts: [account], folders, messages, signatures }
+  const secondary = buildSecondary()
+  return {
+    accounts: [account, ...secondary.accounts],
+    folders: [...folders, ...secondary.folders],
+    messages: [...messages, ...secondary.messages],
+    signatures,
+  }
 }
 
 const state: EmailState = seed()

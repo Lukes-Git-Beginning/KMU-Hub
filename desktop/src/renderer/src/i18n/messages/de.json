@@ -5441,6 +5441,8 @@
   "mails.detail.crmLinked": "Mit {count} CRM-Kontakt(en) verknüpft",
   "mails.detail.retentionObligation": "Aufbewahrungspflicht",
   "mails.detail.to": "An",
+  "mails.accounts.allInboxes": "Alle Eingänge",
+  "mails.accounts.switch": "Konto wechseln",
   "mails.thread.you": "Du",
   "mails.thread.toggleQuote": "Zitierten Verlauf anzeigen",
   "mails.thread.count": "{count, plural, one {# Nachricht} other {# Nachrichten}}",

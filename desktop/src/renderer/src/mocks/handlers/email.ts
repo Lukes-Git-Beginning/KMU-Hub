@@ -37,6 +37,11 @@ function parseListParams(url: URL): ListMessagesExtra {
 }
 
 export const emailHandlers = [
+  // Account list (multi-account switcher / unified inbox)
+  http.get(`${API}/api/v1/email/accounts/list`, () => {
+    return HttpResponse.json({ accounts: getAccounts() })
+  }),
+
   // Accounts: the page reads `.account`; the multi-account list lives under `.accounts`.
   http.get(`${API}/api/v1/email/accounts/`, () => {
     const accounts = getAccounts()
