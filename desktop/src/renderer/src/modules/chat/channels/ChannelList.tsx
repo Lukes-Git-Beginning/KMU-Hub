@@ -6,7 +6,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Hash, Plus, Search, AtSign } from 'lucide-react'
+import { Hash, Plus, Search, AtSign, Users, PenSquare } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
 import { usePresenceStore } from '@/stores/presence'
@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { CreateChannelDialog } from './CreateChannelDialog'
+import { NewDMDialog } from './NewDMDialog'
 
 const PRESENCE_DOT_COLORS: Record<string, string> = {
   online: 'bg-success',
@@ -36,6 +37,7 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
   const { t } = useTranslation()
   const [filter, setFilter] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showNewDM, setShowNewDM] = useState(false)
 
   const { data: channelsData } = useChannels()
   const { data: dmsData } = useDMs()
@@ -134,6 +136,15 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {t('chat.dms.title')}
             </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setShowNewDM(true)}
+              aria-label={t('chat.newDm.title')}
+            >
+              <PenSquare className="h-4 w-4" />
+            </Button>
           </div>
 
           <div className="space-y-0.5">
@@ -160,6 +171,15 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
         onOpenChange={setShowCreateDialog}
         onCreated={(channelId) => {
           setShowCreateDialog(false)
+          onSelectChannel(channelId)
+        }}
+      />
+
+      <NewDMDialog
+        open={showNewDM}
+        onOpenChange={setShowNewDM}
+        onCreated={(channelId) => {
+          setShowNewDM(false)
           onSelectChannel(channelId)
         }}
       />
@@ -213,6 +233,7 @@ function DMItem({
   const { t } = useTranslation()
   const presenceMap = usePresenceStore((s) => s.presenceMap)
   const name = channel.name || t('chat.unknown')
+  const isGroup = Boolean((channel as Record<string, unknown>).is_group_dm)
   const initials = name
     .split(' ')
     .slice(0, 2)
@@ -234,14 +255,20 @@ function DMItem({
       )}
       onClick={onClick}
     >
-      <div className="relative shrink-0">
-        <Avatar className="h-6 w-6">
-          <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-        </Avatar>
-        <span
-          className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-[1.5px] border-card ${PRESENCE_DOT_COLORS[presence] ?? 'bg-gray-400'}`}
-        />
-      </div>
+      {isGroup ? (
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+          <Users className="h-3.5 w-3.5" />
+        </div>
+      ) : (
+        <div className="relative shrink-0">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+          </Avatar>
+          <span
+            className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-[1.5px] border-card ${PRESENCE_DOT_COLORS[presence] ?? 'bg-gray-400'}`}
+          />
+        </div>
+      )}
       <span className="flex-1 truncate text-left">{name}</span>
       {unreadCount > 0 && (
         <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs">

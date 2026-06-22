@@ -155,6 +155,31 @@ export function useGetOrCreateDM() {
   })
 }
 
+/**
+ * Start a conversation with one or more users. A single id creates/opens a 1:1
+ * DM; multiple ids create a group DM (KO-2). The backend DM request type only
+ * declares `other_user_id`, so the group payload is sent via a narrow cast —
+ * the demo MSW handler understands `participant_ids`.
+ */
+export function useStartConversation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (userIds: string[]) => {
+      const body =
+        userIds.length > 1
+          ? ({ participant_ids: userIds } as unknown as { other_user_id: string })
+          : { other_user_id: userIds[0] ?? '' }
+      const { data, error } = await apiClient.POST('/api/v1/channels/dm', { body })
+      if (error) throw new Error('Failed to start conversation')
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: channelKeys.dms() })
+    },
+  })
+}
+
 /** Fetch unread message counts for all channels. */
 export function useUnreadCounts() {
   return useQuery({
