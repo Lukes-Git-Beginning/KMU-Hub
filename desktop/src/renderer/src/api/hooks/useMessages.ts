@@ -86,6 +86,10 @@ export function useSendMessage() {
       // WebSocket will push the new message for real-time display.
       // Invalidate as a fallback to ensure consistency.
       queryClient.invalidateQueries({ queryKey: messageKeys.list(variables.channelId) })
+      // A thread reply must also refresh the open thread panel (no WS in demo).
+      if (variables.parentMessageId) {
+        queryClient.invalidateQueries({ queryKey: messageKeys.thread(variables.parentMessageId) })
+      }
     },
   })
 }

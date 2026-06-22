@@ -170,21 +170,85 @@ function seedReactions(messages: ChatMessage[]): Record<string, ChatReaction[]> 
   return map
 }
 
+const SEED_REPLY_TEXTS = [
+  'Klingt gut, ich kümmere mich darum.',
+  'Danke für die schnelle Rückmeldung!',
+  'Können wir das morgen kurz im Daily besprechen?',
+  'Sehe ich genauso — passt für mich.',
+  'Ist erledigt, habe es gerade aktualisiert.',
+  'Guter Punkt, daran hatte ich nicht gedacht.',
+  'Ich hänge die Unterlagen gleich hier an.',
+  'Top, dann machen wir das so.',
+]
+
+function hashStr(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h
+}
+
+function splitName(name: string): [string, string] {
+  const parts = name.trim().split(/\s+/)
+  return [parts[0] ?? '', parts.slice(1).join(' ')]
+}
+
+/**
+ * Generate deterministic thread replies so reply_count indicators have real
+ * content instead of an empty thread panel. The parent's reply_count is aligned
+ * to the number actually generated (capped) for consistency.
+ */
+function generateThreadReplies(
+  messages: ChatMessage[],
+  members: ChatState['defaultMembers'],
+): ChatMessage[] {
+  const replies: ChatMessage[] = []
+  for (const parent of messages) {
+    const target = parent.reply_count ?? 0
+    const pool = members.filter((m) => m.user_id !== parent.created_by)
+    if (target <= 0 || pool.length === 0) continue
+    const count = Math.min(target, 4)
+    const base = new Date(parent.created_at).getTime()
+    const h = hashStr(parent.id)
+    for (let i = 0; i < count; i++) {
+      const member = pool[(h + i * 7) % pool.length]
+      const [first, last] = splitName(member.name)
+      replies.push({
+        id: `${parent.id}-r${i + 1}`,
+        content: SEED_REPLY_TEXTS[(h + i) % SEED_REPLY_TEXTS.length],
+        channel_id: parent.channel_id,
+        created_by: member.user_id,
+        sender_id: member.user_id,
+        sender_name: member.name,
+        sender_first_name: first,
+        sender_last_name: last,
+        created_at: new Date(base + (i + 1) * 7 * 60000).toISOString(),
+        reply_count: 0,
+        reactions: [],
+        edited_at: null,
+        parent_message_id: parent.id,
+      })
+    }
+    parent.reply_count = count
+  }
+  return replies
+}
+
 function seed(): ChatState {
   const channels = clone(mockChannels.channels) as ChatChannel[]
   const dms = clone(mockDMs.channels) as ChatChannel[]
+  const defaultMembers = clone(mockChannelMembers.members) as ChatState['defaultMembers']
   const messagesByChannel: Record<string, ChatMessage[]> = {}
   let allMessages: ChatMessage[] = []
 
   for (const [chId, bucket] of Object.entries(mockMessagesByChannel)) {
     const rawMsgs = (bucket as { messages?: unknown[] }).messages ?? []
     const msgs = (clone(rawMsgs) as unknown as ChatMessage[]).map(normalizeMessage)
-    messagesByChannel[chId] = msgs
-    allMessages = allMessages.concat(msgs)
+    const threadReplies = generateThreadReplies(msgs, defaultMembers)
+    messagesByChannel[chId] = [...msgs, ...threadReplies]
+    allMessages = allMessages.concat(msgs, threadReplies)
   }
 
   const reactionsByMessage = seedReactions(allMessages)
-  const defaultMembers = clone(mockChannelMembers.members) as ChatState['defaultMembers']
 
   return {
     channels,
