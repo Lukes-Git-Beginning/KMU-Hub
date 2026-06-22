@@ -774,3 +774,56 @@ func (s *Service) AddAttendee(ctx context.Context, meetingID, userID, tenantID u
 func (s *Service) RemoveAttendee(ctx context.Context, meetingID, userID uuid.UUID) error {
 	return s.repo.RemoveAttendee(ctx, meetingID, userID)
 }
+
+// --- Chat ---
+
+// SaveChatMessage persists a single in-call chat message for a meeting.
+// Allowed during in_progress and completed meetings (completed = post-call history view).
+func (s *Service) SaveChatMessage(ctx context.Context, meetingID, senderID, tenantID uuid.UUID, senderName, message string) (*MeetingChatMessage, error) {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Chat allowed while the meeting is live or viewing history post-completion.
+	if m.Status != MeetingStatusInProgress && m.Status != MeetingStatusCompleted {
+		return nil, ErrNotInProgress
+	}
+
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return nil, ErrChatMessageRequired
+	}
+
+	msg := &MeetingChatMessage{
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		MeetingID:  meetingID,
+		SenderID:   senderID,
+		SenderName: senderName,
+		Message:    message,
+		CreatedAt:  time.Now().UTC(),
+	}
+
+	if err := s.repo.SaveChatMessage(ctx, msg); err != nil {
+		return nil, fmt.Errorf("save chat message: %w", err)
+	}
+
+	slog.Info("chat message saved",
+		"meeting_id", meetingID,
+		"sender_id", senderID,
+	)
+
+	return msg, nil
+}
+
+// ListChatMessages returns chat messages for a meeting in ascending order.
+// limit=0 defaults to 100, capped at 500.
+func (s *Service) ListChatMessages(ctx context.Context, meetingID, tenantID uuid.UUID, limit int) ([]MeetingChatMessage, error) {
+	// Verify meeting exists and belongs to tenant (also applies RLS).
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
+		return nil, err
+	}
+
+	return s.repo.ListChatMessages(ctx, meetingID, tenantID, limit)
+}

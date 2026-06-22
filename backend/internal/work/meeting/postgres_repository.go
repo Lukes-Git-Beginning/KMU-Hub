@@ -448,3 +448,45 @@ func (r *PostgresRepository) UpdateActionItemTaskID(ctx context.Context, itemID,
 	}
 	return nil
 }
+
+// --- Chat ---
+
+func (r *PostgresRepository) SaveChatMessage(ctx context.Context, msg *MeetingChatMessage) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO meeting_chat (id, tenant_id, meeting_id, sender_id, sender_name, message, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		msg.ID, msg.TenantID, msg.MeetingID, msg.SenderID, msg.SenderName, msg.Message, msg.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("save chat message: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ListChatMessages(ctx context.Context, meetingID, tenantID uuid.UUID, limit int) ([]MeetingChatMessage, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, meeting_id, sender_id, sender_name, message, created_at
+		 FROM meeting_chat
+		 WHERE meeting_id = $1 AND tenant_id = $2
+		 ORDER BY created_at ASC
+		 LIMIT $3`,
+		meetingID, tenantID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list chat messages: %w", err)
+	}
+	defer rows.Close()
+
+	var msgs []MeetingChatMessage
+	for rows.Next() {
+		var m MeetingChatMessage
+		if err := rows.Scan(&m.ID, &m.TenantID, &m.MeetingID, &m.SenderID, &m.SenderName, &m.Message, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan chat message: %w", err)
+		}
+		msgs = append(msgs, m)
+	}
+	return msgs, rows.Err()
+}

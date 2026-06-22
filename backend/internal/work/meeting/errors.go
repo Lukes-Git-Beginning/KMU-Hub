@@ -22,4 +22,5 @@ var (
 	ErrNotOrganizer          = errors.New("only the meeting organizer can perform this action")
 	ErrNotAttendee           = errors.New("only invited attendees can join this meeting")
 	ErrNotStarted            = errors.New("meeting has not been started by the organizer yet")
+	ErrChatMessageRequired   = errors.New("chat message content is required")
 )

@@ -111,9 +111,20 @@ type MeetingActionItemWithAssignee struct {
 
 // MeetingSummary holds a post-meeting summary including duration, attendees, and actions
 type MeetingSummary struct {
-	MeetingID      uuid.UUID                       `json:"meeting_id"`
+	MeetingID       uuid.UUID                      `json:"meeting_id"`
 	DurationMinutes int                            `json:"duration_minutes"`
-	AttendeeCount  int                             `json:"attendee_count"`
-	NotesSummary   *string                         `json:"notes_summary,omitempty"`
-	ActionItems    []MeetingActionItemWithAssignee  `json:"action_items"`
+	AttendeeCount   int                            `json:"attendee_count"`
+	NotesSummary    *string                        `json:"notes_summary,omitempty"`
+	ActionItems     []MeetingActionItemWithAssignee `json:"action_items"`
+}
+
+// MeetingChatMessage represents a single persisted in-call chat message.
+type MeetingChatMessage struct {
+	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	MeetingID  uuid.UUID `json:"meeting_id"`
+	SenderID   uuid.UUID `json:"sender_id"`
+	SenderName string    `json:"sender_name"`
+	Message    string    `json:"message"`
+	CreatedAt  time.Time `json:"created_at"`
 }

@@ -47,6 +47,8 @@ const (
 	VideoService_DeleteActionItem_FullMethodName          = "/video.v1.VideoService/DeleteActionItem"
 	VideoService_ListActionItems_FullMethodName           = "/video.v1.VideoService/ListActionItems"
 	VideoService_ConvertActionItemsToTasks_FullMethodName = "/video.v1.VideoService/ConvertActionItemsToTasks"
+	VideoService_SaveMeetingChatMessage_FullMethodName    = "/video.v1.VideoService/SaveMeetingChatMessage"
+	VideoService_ListMeetingChatMessages_FullMethodName   = "/video.v1.VideoService/ListMeetingChatMessages"
 	VideoService_GetPresence_FullMethodName               = "/video.v1.VideoService/GetPresence"
 	VideoService_GetBulkPresence_FullMethodName           = "/video.v1.VideoService/GetBulkPresence"
 	VideoService_SetPresenceStatus_FullMethodName         = "/video.v1.VideoService/SetPresenceStatus"
@@ -95,6 +97,9 @@ type VideoServiceClient interface {
 	DeleteActionItem(ctx context.Context, in *DeleteActionItemRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListActionItems(ctx context.Context, in *ListActionItemsRequest, opts ...grpc.CallOption) (*ListActionItemsResponse, error)
 	ConvertActionItemsToTasks(ctx context.Context, in *ConvertActionItemsToTasksRequest, opts ...grpc.CallOption) (*ConvertActionItemsToTasksResponse, error)
+	// Meeting Chat (persisted in-call messages)
+	SaveMeetingChatMessage(ctx context.Context, in *SaveMeetingChatMessageRequest, opts ...grpc.CallOption) (*MeetingChatMessage, error)
+	ListMeetingChatMessages(ctx context.Context, in *ListMeetingChatMessagesRequest, opts ...grpc.CallOption) (*ListMeetingChatMessagesResponse, error)
 	// Presence
 	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*PresenceStatus, error)
 	GetBulkPresence(ctx context.Context, in *GetBulkPresenceRequest, opts ...grpc.CallOption) (*GetBulkPresenceResponse, error)
@@ -385,6 +390,26 @@ func (c *videoServiceClient) ConvertActionItemsToTasks(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *videoServiceClient) SaveMeetingChatMessage(ctx context.Context, in *SaveMeetingChatMessageRequest, opts ...grpc.CallOption) (*MeetingChatMessage, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MeetingChatMessage)
+	err := c.cc.Invoke(ctx, VideoService_SaveMeetingChatMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ListMeetingChatMessages(ctx context.Context, in *ListMeetingChatMessagesRequest, opts ...grpc.CallOption) (*ListMeetingChatMessagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMeetingChatMessagesResponse)
+	err := c.cc.Invoke(ctx, VideoService_ListMeetingChatMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *videoServiceClient) GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*PresenceStatus, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PresenceStatus)
@@ -503,6 +528,9 @@ type VideoServiceServer interface {
 	DeleteActionItem(context.Context, *DeleteActionItemRequest) (*emptypb.Empty, error)
 	ListActionItems(context.Context, *ListActionItemsRequest) (*ListActionItemsResponse, error)
 	ConvertActionItemsToTasks(context.Context, *ConvertActionItemsToTasksRequest) (*ConvertActionItemsToTasksResponse, error)
+	// Meeting Chat (persisted in-call messages)
+	SaveMeetingChatMessage(context.Context, *SaveMeetingChatMessageRequest) (*MeetingChatMessage, error)
+	ListMeetingChatMessages(context.Context, *ListMeetingChatMessagesRequest) (*ListMeetingChatMessagesResponse, error)
 	// Presence
 	GetPresence(context.Context, *GetPresenceRequest) (*PresenceStatus, error)
 	GetBulkPresence(context.Context, *GetBulkPresenceRequest) (*GetBulkPresenceResponse, error)
@@ -603,6 +631,12 @@ func (UnimplementedVideoServiceServer) ListActionItems(context.Context, *ListAct
 }
 func (UnimplementedVideoServiceServer) ConvertActionItemsToTasks(context.Context, *ConvertActionItemsToTasksRequest) (*ConvertActionItemsToTasksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConvertActionItemsToTasks not implemented")
+}
+func (UnimplementedVideoServiceServer) SaveMeetingChatMessage(context.Context, *SaveMeetingChatMessageRequest) (*MeetingChatMessage, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveMeetingChatMessage not implemented")
+}
+func (UnimplementedVideoServiceServer) ListMeetingChatMessages(context.Context, *ListMeetingChatMessagesRequest) (*ListMeetingChatMessagesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMeetingChatMessages not implemented")
 }
 func (UnimplementedVideoServiceServer) GetPresence(context.Context, *GetPresenceRequest) (*PresenceStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPresence not implemented")
@@ -1135,6 +1169,42 @@ func _VideoService_ConvertActionItemsToTasks_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VideoService_SaveMeetingChatMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveMeetingChatMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).SaveMeetingChatMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_SaveMeetingChatMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).SaveMeetingChatMessage(ctx, req.(*SaveMeetingChatMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ListMeetingChatMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMeetingChatMessagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ListMeetingChatMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ListMeetingChatMessages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ListMeetingChatMessages(ctx, req.(*ListMeetingChatMessagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VideoService_GetPresence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetPresenceRequest)
 	if err := dec(in); err != nil {
@@ -1393,6 +1463,14 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConvertActionItemsToTasks",
 			Handler:    _VideoService_ConvertActionItemsToTasks_Handler,
+		},
+		{
+			MethodName: "SaveMeetingChatMessage",
+			Handler:    _VideoService_SaveMeetingChatMessage_Handler,
+		},
+		{
+			MethodName: "ListMeetingChatMessages",
+			Handler:    _VideoService_ListMeetingChatMessages_Handler,
 		},
 		{
 			MethodName: "GetPresence",

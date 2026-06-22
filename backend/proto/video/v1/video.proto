@@ -46,6 +46,10 @@ service VideoService {
   rpc ListActionItems(ListActionItemsRequest) returns (ListActionItemsResponse);
   rpc ConvertActionItemsToTasks(ConvertActionItemsToTasksRequest) returns (ConvertActionItemsToTasksResponse);
 
+  // Meeting Chat (persisted in-call messages)
+  rpc SaveMeetingChatMessage(SaveMeetingChatMessageRequest) returns (MeetingChatMessage);
+  rpc ListMeetingChatMessages(ListMeetingChatMessagesRequest) returns (ListMeetingChatMessagesResponse);
+
   // Presence
   rpc GetPresence(GetPresenceRequest) returns (PresenceStatus);
   rpc GetBulkPresence(GetBulkPresenceRequest) returns (GetBulkPresenceResponse);
@@ -518,4 +522,35 @@ message FailRecordingByEgressRequest {
 
 message CompleteMeetingByRoomRequest {
   string room_name = 1;
+}
+
+// ============================================================================
+// Meeting Chat RPCs
+// ============================================================================
+
+message MeetingChatMessage {
+  string id = 1;
+  string meeting_id = 2;
+  string sender_id = 3;
+  string sender_name = 4;
+  string message = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message SaveMeetingChatMessageRequest {
+  string meeting_id = 1;
+  // sender_name is supplied by the client (user's display name from auth session).
+  // The server overrides sender_id from the JWT — clients cannot spoof sender_id.
+  string sender_name = 2;
+  string message = 3;
+}
+
+message ListMeetingChatMessagesRequest {
+  string meeting_id = 1;
+  // limit defaults to 100 if unset (0), capped at 500 server-side.
+  int32 limit = 2;
+}
+
+message ListMeetingChatMessagesResponse {
+  repeated MeetingChatMessage messages = 1;
 }

@@ -39,6 +39,10 @@ type Repository interface {
 	DeleteActionItem(ctx context.Context, id, tenantID uuid.UUID) error
 	ListActionItems(ctx context.Context, meetingID, tenantID uuid.UUID) ([]MeetingActionItem, error)
 	UpdateActionItemTaskID(ctx context.Context, itemID, taskID uuid.UUID) error
+
+	// Chat
+	SaveChatMessage(ctx context.Context, msg *MeetingChatMessage) error
+	ListChatMessages(ctx context.Context, meetingID, tenantID uuid.UUID, limit int) ([]MeetingChatMessage, error)
 }
 
 // MeetingFilter contains filtering parameters for listing meetings

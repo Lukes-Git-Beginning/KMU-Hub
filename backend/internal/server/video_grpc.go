@@ -1785,6 +1785,8 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, meeting.ErrActionDescRequired):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, meeting.ErrChatMessageRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, meeting.ErrActionItemNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, meeting.ErrNotRecurring):
@@ -1810,5 +1812,69 @@ func mapPresenceError(err error) error {
 	default:
 		slog.Error("unhandled presence service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
+	}
+}
+
+// ============================================================================
+// Meeting Chat
+// ============================================================================
+
+func (s *VideoGRPCServer) SaveMeetingChatMessage(ctx context.Context, req *videov1.SaveMeetingChatMessageRequest) (*videov1.MeetingChatMessage, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
+	senderIDStr := middleware.GetUserID(ctx)
+	senderID, err := uuid.Parse(senderIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+
+	msg, err := s.meetingService.SaveChatMessage(ctx, meetingID, senderID, tenantID, req.SenderName, req.Message)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+
+	return meetingChatMessageToProto(msg), nil
+}
+
+func (s *VideoGRPCServer) ListMeetingChatMessages(ctx context.Context, req *videov1.ListMeetingChatMessagesRequest) (*videov1.ListMeetingChatMessagesResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+
+	msgs, err := s.meetingService.ListChatMessages(ctx, meetingID, tenantID, int(req.Limit))
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+
+	protoMsgs := make([]*videov1.MeetingChatMessage, len(msgs))
+	for i := range msgs {
+		protoMsgs[i] = meetingChatMessageToProto(&msgs[i])
+	}
+
+	return &videov1.ListMeetingChatMessagesResponse{Messages: protoMsgs}, nil
+}
+
+func meetingChatMessageToProto(m *meeting.MeetingChatMessage) *videov1.MeetingChatMessage {
+	return &videov1.MeetingChatMessage{
+		Id:         m.ID.String(),
+		MeetingId:  m.MeetingID.String(),
+		SenderId:   m.SenderID.String(),
+		SenderName: m.SenderName,
+		Message:    m.Message,
+		CreatedAt:  timestamppb.New(m.CreatedAt),
 	}
 }

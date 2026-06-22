@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -163,6 +164,10 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Put("/action-items/{itemId}", vr.HandleUpdateActionItem)
 		r.Delete("/action-items/{itemId}", vr.HandleDeleteActionItem)
 		r.Post("/{id}/action-items/convert", vr.HandleConvertActionItemsToTasks)
+
+		// Chat (persisted in-call messages)
+		r.Post("/{meetingId}/chat", vr.HandleSaveMeetingChatMessage)
+		r.Get("/{meetingId}/chat", vr.HandleListMeetingChatMessages)
 	})
 
 	// LiveKit webhook (no auth middleware -- validated via JWT signature)
@@ -211,6 +216,13 @@ type updateMeetingHTTPRequest struct {
 type saveMeetingNotesRequest struct {
 	Content   string `json:"content" validate:"required"`
 	IsPrivate bool   `json:"is_private"`
+}
+
+type saveMeetingChatMessageRequest struct {
+	// SenderName is the display name of the authenticated user (from auth session).
+	// The server resolves sender_id from the JWT — clients cannot spoof it.
+	SenderName string `json:"sender_name"`
+	Message    string `json:"message" validate:"required"`
 }
 
 type createActionItemHTTPRequest struct {
@@ -1685,3 +1697,77 @@ func (vr *VideoRoutes) HandleConfirmInitiatorConsent(w http.ResponseWriter, r *h
 }
 
 // parseTimestamp is defined in route_work.go and shared across gateway routes.
+
+// ============================================================================
+// Meeting Chat Handlers
+// ============================================================================
+
+// HandleSaveMeetingChatMessage persists a single in-call chat message.
+// POST /api/v1/meetings/{meetingId}/chat
+// Response 201: flat MeetingChatMessage JSON (created_at as ISO-8601 string).
+func (vr *VideoRoutes) HandleSaveMeetingChatMessage(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[saveMeetingChatMessageRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.SaveMeetingChatMessage(r.Context(), &videov1.SaveMeetingChatMessageRequest{
+		MeetingId:  meetingID,
+		SenderName: req.SenderName,
+		Message:    req.Message,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// response.Proto serialises via protojson — Timestamps become RFC3339 strings, not {seconds,nanos}.
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+// HandleListMeetingChatMessages returns the persisted chat history for a meeting.
+// GET /api/v1/meetings/{meetingId}/chat?limit=100
+// Response 200: {"messages":[...]} with created_at as ISO-8601 strings.
+func (vr *VideoRoutes) HandleListMeetingChatMessages(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+
+	limit := int32(100)
+	if lStr := r.URL.Query().Get("limit"); lStr != "" {
+		var parsed int32
+		if _, scanErr := fmt.Sscanf(lStr, "%d", &parsed); scanErr == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	resp, err := client.ListMeetingChatMessages(r.Context(), &videov1.ListMeetingChatMessagesRequest{
+		MeetingId: meetingID,
+		Limit:     limit,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// response.Proto serialises via protojson — Timestamps become RFC3339 strings, not {seconds,nanos}.
+	response.Proto(w, http.StatusOK, resp)
+}

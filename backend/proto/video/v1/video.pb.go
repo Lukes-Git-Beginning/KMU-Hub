@@ -4042,6 +4042,249 @@ func (x *CompleteMeetingByRoomRequest) GetRoomName() string {
 	return ""
 }
 
+type MeetingChatMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	MeetingId     string                 `protobuf:"bytes,2,opt,name=meeting_id,json=meetingId,proto3" json:"meeting_id,omitempty"`
+	SenderId      string                 `protobuf:"bytes,3,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	SenderName    string                 `protobuf:"bytes,4,opt,name=sender_name,json=senderName,proto3" json:"sender_name,omitempty"`
+	Message       string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MeetingChatMessage) Reset() {
+	*x = MeetingChatMessage{}
+	mi := &file_proto_video_v1_video_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MeetingChatMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MeetingChatMessage) ProtoMessage() {}
+
+func (x *MeetingChatMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_video_v1_video_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MeetingChatMessage.ProtoReflect.Descriptor instead.
+func (*MeetingChatMessage) Descriptor() ([]byte, []int) {
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *MeetingChatMessage) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MeetingChatMessage) GetMeetingId() string {
+	if x != nil {
+		return x.MeetingId
+	}
+	return ""
+}
+
+func (x *MeetingChatMessage) GetSenderId() string {
+	if x != nil {
+		return x.SenderId
+	}
+	return ""
+}
+
+func (x *MeetingChatMessage) GetSenderName() string {
+	if x != nil {
+		return x.SenderName
+	}
+	return ""
+}
+
+func (x *MeetingChatMessage) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *MeetingChatMessage) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type SaveMeetingChatMessageRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	MeetingId string                 `protobuf:"bytes,1,opt,name=meeting_id,json=meetingId,proto3" json:"meeting_id,omitempty"`
+	// sender_name is supplied by the client (user's display name from auth session).
+	// The server overrides sender_id from the JWT — clients cannot spoof sender_id.
+	SenderName    string `protobuf:"bytes,2,opt,name=sender_name,json=senderName,proto3" json:"sender_name,omitempty"`
+	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveMeetingChatMessageRequest) Reset() {
+	*x = SaveMeetingChatMessageRequest{}
+	mi := &file_proto_video_v1_video_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveMeetingChatMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveMeetingChatMessageRequest) ProtoMessage() {}
+
+func (x *SaveMeetingChatMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_video_v1_video_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveMeetingChatMessageRequest.ProtoReflect.Descriptor instead.
+func (*SaveMeetingChatMessageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *SaveMeetingChatMessageRequest) GetMeetingId() string {
+	if x != nil {
+		return x.MeetingId
+	}
+	return ""
+}
+
+func (x *SaveMeetingChatMessageRequest) GetSenderName() string {
+	if x != nil {
+		return x.SenderName
+	}
+	return ""
+}
+
+func (x *SaveMeetingChatMessageRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type ListMeetingChatMessagesRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	MeetingId string                 `protobuf:"bytes,1,opt,name=meeting_id,json=meetingId,proto3" json:"meeting_id,omitempty"`
+	// limit defaults to 100 if unset (0), capped at 500 server-side.
+	Limit         int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMeetingChatMessagesRequest) Reset() {
+	*x = ListMeetingChatMessagesRequest{}
+	mi := &file_proto_video_v1_video_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMeetingChatMessagesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMeetingChatMessagesRequest) ProtoMessage() {}
+
+func (x *ListMeetingChatMessagesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_video_v1_video_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMeetingChatMessagesRequest.ProtoReflect.Descriptor instead.
+func (*ListMeetingChatMessagesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ListMeetingChatMessagesRequest) GetMeetingId() string {
+	if x != nil {
+		return x.MeetingId
+	}
+	return ""
+}
+
+func (x *ListMeetingChatMessagesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListMeetingChatMessagesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*MeetingChatMessage  `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMeetingChatMessagesResponse) Reset() {
+	*x = ListMeetingChatMessagesResponse{}
+	mi := &file_proto_video_v1_video_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMeetingChatMessagesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMeetingChatMessagesResponse) ProtoMessage() {}
+
+func (x *ListMeetingChatMessagesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_video_v1_video_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMeetingChatMessagesResponse.ProtoReflect.Descriptor instead.
+func (*ListMeetingChatMessagesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *ListMeetingChatMessagesResponse) GetMessages() []*MeetingChatMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 var File_proto_video_v1_video_proto protoreflect.FileDescriptor
 
 const file_proto_video_v1_video_proto_rawDesc = "" +
@@ -4415,7 +4658,29 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\tegress_id\x18\x01 \x01(\tR\begressId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\";\n" +
 	"\x1cCompleteMeetingByRoomRequest\x12\x1b\n" +
-	"\troom_name\x18\x01 \x01(\tR\broomName*T\n" +
+	"\troom_name\x18\x01 \x01(\tR\broomName\"\xd6\x01\n" +
+	"\x12MeetingChatMessage\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"meeting_id\x18\x02 \x01(\tR\tmeetingId\x12\x1b\n" +
+	"\tsender_id\x18\x03 \x01(\tR\bsenderId\x12\x1f\n" +
+	"\vsender_name\x18\x04 \x01(\tR\n" +
+	"senderName\x12\x18\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"y\n" +
+	"\x1dSaveMeetingChatMessageRequest\x12\x1d\n" +
+	"\n" +
+	"meeting_id\x18\x01 \x01(\tR\tmeetingId\x12\x1f\n" +
+	"\vsender_name\x18\x02 \x01(\tR\n" +
+	"senderName\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"U\n" +
+	"\x1eListMeetingChatMessagesRequest\x12\x1d\n" +
+	"\n" +
+	"meeting_id\x18\x01 \x01(\tR\tmeetingId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"[\n" +
+	"\x1fListMeetingChatMessagesResponse\x128\n" +
+	"\bmessages\x18\x01 \x03(\v2\x1c.video.v1.MeetingChatMessageR\bmessages*T\n" +
 	"\bCallType\x12\x19\n" +
 	"\x15CALL_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14CALL_TYPE_ONE_TO_ONE\x10\x01\x12\x13\n" +
@@ -4452,7 +4717,7 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\fRSVP_PENDING\x10\x01\x12\x11\n" +
 	"\rRSVP_ACCEPTED\x10\x02\x12\x11\n" +
 	"\rRSVP_DECLINED\x10\x03\x12\x12\n" +
-	"\x0eRSVP_TENTATIVE\x10\x042\xe3\x15\n" +
+	"\x0eRSVP_TENTATIVE\x10\x042\xb4\x17\n" +
 	"\fVideoService\x12@\n" +
 	"\n" +
 	"CreateCall\x12\x1b.video.v1.CreateCallRequest\x1a\x15.video.v1.CallSession\x12A\n" +
@@ -4483,7 +4748,9 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\x10UpdateActionItem\x12!.video.v1.UpdateActionItemRequest\x1a\x14.video.v1.ActionItem\x12M\n" +
 	"\x10DeleteActionItem\x12!.video.v1.DeleteActionItemRequest\x1a\x16.google.protobuf.Empty\x12V\n" +
 	"\x0fListActionItems\x12 .video.v1.ListActionItemsRequest\x1a!.video.v1.ListActionItemsResponse\x12t\n" +
-	"\x19ConvertActionItemsToTasks\x12*.video.v1.ConvertActionItemsToTasksRequest\x1a+.video.v1.ConvertActionItemsToTasksResponse\x12E\n" +
+	"\x19ConvertActionItemsToTasks\x12*.video.v1.ConvertActionItemsToTasksRequest\x1a+.video.v1.ConvertActionItemsToTasksResponse\x12_\n" +
+	"\x16SaveMeetingChatMessage\x12'.video.v1.SaveMeetingChatMessageRequest\x1a\x1c.video.v1.MeetingChatMessage\x12n\n" +
+	"\x17ListMeetingChatMessages\x12(.video.v1.ListMeetingChatMessagesRequest\x1a).video.v1.ListMeetingChatMessagesResponse\x12E\n" +
 	"\vGetPresence\x12\x1c.video.v1.GetPresenceRequest\x1a\x18.video.v1.PresenceStatus\x12V\n" +
 	"\x0fGetBulkPresence\x12 .video.v1.GetBulkPresenceRequest\x1a!.video.v1.GetBulkPresenceResponse\x12O\n" +
 	"\x11SetPresenceStatus\x12\".video.v1.SetPresenceStatusRequest\x1a\x16.google.protobuf.Empty\x12U\n" +
@@ -4506,7 +4773,7 @@ func file_proto_video_v1_video_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_video_v1_video_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_proto_video_v1_video_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
+var file_proto_video_v1_video_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
 var file_proto_video_v1_video_proto_goTypes = []any{
 	(CallType)(0),                             // 0: video.v1.CallType
 	(CallStatus)(0),                           // 1: video.v1.CallStatus
@@ -4571,49 +4838,53 @@ var file_proto_video_v1_video_proto_goTypes = []any{
 	(*CompleteRecordingByEgressRequest)(nil),  // 60: video.v1.CompleteRecordingByEgressRequest
 	(*FailRecordingByEgressRequest)(nil),      // 61: video.v1.FailRecordingByEgressRequest
 	(*CompleteMeetingByRoomRequest)(nil),      // 62: video.v1.CompleteMeetingByRoomRequest
-	(*timestamppb.Timestamp)(nil),             // 63: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                     // 64: google.protobuf.Empty
+	(*MeetingChatMessage)(nil),                // 63: video.v1.MeetingChatMessage
+	(*SaveMeetingChatMessageRequest)(nil),     // 64: video.v1.SaveMeetingChatMessageRequest
+	(*ListMeetingChatMessagesRequest)(nil),    // 65: video.v1.ListMeetingChatMessagesRequest
+	(*ListMeetingChatMessagesResponse)(nil),   // 66: video.v1.ListMeetingChatMessagesResponse
+	(*timestamppb.Timestamp)(nil),             // 67: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                     // 68: google.protobuf.Empty
 }
 var file_proto_video_v1_video_proto_depIdxs = []int32{
 	0,  // 0: video.v1.CallSession.call_type:type_name -> video.v1.CallType
 	1,  // 1: video.v1.CallSession.status:type_name -> video.v1.CallStatus
-	63, // 2: video.v1.CallSession.created_at:type_name -> google.protobuf.Timestamp
-	63, // 3: video.v1.CallSession.ended_at:type_name -> google.protobuf.Timestamp
+	67, // 2: video.v1.CallSession.created_at:type_name -> google.protobuf.Timestamp
+	67, // 3: video.v1.CallSession.ended_at:type_name -> google.protobuf.Timestamp
 	7,  // 4: video.v1.CallSession.participants:type_name -> video.v1.CallParticipant
-	63, // 5: video.v1.CallParticipant.joined_at:type_name -> google.protobuf.Timestamp
-	63, // 6: video.v1.CallParticipant.left_at:type_name -> google.protobuf.Timestamp
+	67, // 5: video.v1.CallParticipant.joined_at:type_name -> google.protobuf.Timestamp
+	67, // 6: video.v1.CallParticipant.left_at:type_name -> google.protobuf.Timestamp
 	2,  // 7: video.v1.Meeting.status:type_name -> video.v1.MeetingStatus
-	63, // 8: video.v1.Meeting.scheduled_start:type_name -> google.protobuf.Timestamp
-	63, // 9: video.v1.Meeting.scheduled_end:type_name -> google.protobuf.Timestamp
-	63, // 10: video.v1.Meeting.actual_start:type_name -> google.protobuf.Timestamp
-	63, // 11: video.v1.Meeting.actual_end:type_name -> google.protobuf.Timestamp
-	63, // 12: video.v1.Meeting.created_at:type_name -> google.protobuf.Timestamp
-	63, // 13: video.v1.Meeting.updated_at:type_name -> google.protobuf.Timestamp
+	67, // 8: video.v1.Meeting.scheduled_start:type_name -> google.protobuf.Timestamp
+	67, // 9: video.v1.Meeting.scheduled_end:type_name -> google.protobuf.Timestamp
+	67, // 10: video.v1.Meeting.actual_start:type_name -> google.protobuf.Timestamp
+	67, // 11: video.v1.Meeting.actual_end:type_name -> google.protobuf.Timestamp
+	67, // 12: video.v1.Meeting.created_at:type_name -> google.protobuf.Timestamp
+	67, // 13: video.v1.Meeting.updated_at:type_name -> google.protobuf.Timestamp
 	9,  // 14: video.v1.Meeting.attendees:type_name -> video.v1.MeetingAttendee
 	5,  // 15: video.v1.MeetingAttendee.rsvp_status:type_name -> video.v1.RsvpStatus
-	63, // 16: video.v1.MeetingNotes.created_at:type_name -> google.protobuf.Timestamp
-	63, // 17: video.v1.MeetingNotes.updated_at:type_name -> google.protobuf.Timestamp
-	63, // 18: video.v1.ActionItem.created_at:type_name -> google.protobuf.Timestamp
+	67, // 16: video.v1.MeetingNotes.created_at:type_name -> google.protobuf.Timestamp
+	67, // 17: video.v1.MeetingNotes.updated_at:type_name -> google.protobuf.Timestamp
+	67, // 18: video.v1.ActionItem.created_at:type_name -> google.protobuf.Timestamp
 	11, // 19: video.v1.MeetingSummary.action_items:type_name -> video.v1.ActionItem
 	3,  // 20: video.v1.Recording.status:type_name -> video.v1.RecordingStatus
-	63, // 21: video.v1.Recording.retention_expires_at:type_name -> google.protobuf.Timestamp
-	63, // 22: video.v1.Recording.created_at:type_name -> google.protobuf.Timestamp
+	67, // 21: video.v1.Recording.retention_expires_at:type_name -> google.protobuf.Timestamp
+	67, // 22: video.v1.Recording.created_at:type_name -> google.protobuf.Timestamp
 	15, // 23: video.v1.RecordingConsentStatus.consents:type_name -> video.v1.RecordingConsent
-	63, // 24: video.v1.RecordingConsent.responded_at:type_name -> google.protobuf.Timestamp
+	67, // 24: video.v1.RecordingConsent.responded_at:type_name -> google.protobuf.Timestamp
 	4,  // 25: video.v1.PresenceStatus.status:type_name -> video.v1.PresenceLevel
-	63, // 26: video.v1.PresenceStatus.last_activity:type_name -> google.protobuf.Timestamp
+	67, // 26: video.v1.PresenceStatus.last_activity:type_name -> google.protobuf.Timestamp
 	0,  // 27: video.v1.CreateCallRequest.call_type:type_name -> video.v1.CallType
 	6,  // 28: video.v1.JoinCallResponse.call:type_name -> video.v1.CallSession
 	20, // 29: video.v1.JoinCallResponse.ice_servers:type_name -> video.v1.IceServer
 	6,  // 30: video.v1.ListActiveCallsResponse.calls:type_name -> video.v1.CallSession
 	13, // 31: video.v1.ListRecordingsResponse.recordings:type_name -> video.v1.Recording
-	63, // 32: video.v1.CreateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
-	63, // 33: video.v1.CreateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
-	63, // 34: video.v1.UpdateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
-	63, // 35: video.v1.UpdateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
+	67, // 32: video.v1.CreateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
+	67, // 33: video.v1.CreateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
+	67, // 34: video.v1.UpdateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
+	67, // 35: video.v1.UpdateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
 	2,  // 36: video.v1.ListMeetingsRequest.status_filter:type_name -> video.v1.MeetingStatus
-	63, // 37: video.v1.ListMeetingsRequest.start_after:type_name -> google.protobuf.Timestamp
-	63, // 38: video.v1.ListMeetingsRequest.start_before:type_name -> google.protobuf.Timestamp
+	67, // 37: video.v1.ListMeetingsRequest.start_after:type_name -> google.protobuf.Timestamp
+	67, // 38: video.v1.ListMeetingsRequest.start_before:type_name -> google.protobuf.Timestamp
 	8,  // 39: video.v1.ListMeetingsResponse.meetings:type_name -> video.v1.Meeting
 	8,  // 40: video.v1.StartMeetingResponse.meeting:type_name -> video.v1.Meeting
 	8,  // 41: video.v1.JoinMeetingResponse.meeting:type_name -> video.v1.Meeting
@@ -4622,81 +4893,87 @@ var file_proto_video_v1_video_proto_depIdxs = []int32{
 	11, // 44: video.v1.ConvertActionItemsToTasksResponse.action_items:type_name -> video.v1.ActionItem
 	16, // 45: video.v1.GetBulkPresenceResponse.statuses:type_name -> video.v1.PresenceStatus
 	4,  // 46: video.v1.SetPresenceStatusRequest.status:type_name -> video.v1.PresenceLevel
-	18, // 47: video.v1.VideoService.CreateCall:input_type -> video.v1.CreateCallRequest
-	19, // 48: video.v1.VideoService.JoinCall:input_type -> video.v1.JoinCallRequest
-	22, // 49: video.v1.VideoService.EndCall:input_type -> video.v1.EndCallRequest
-	23, // 50: video.v1.VideoService.GetCall:input_type -> video.v1.GetCallRequest
-	24, // 51: video.v1.VideoService.ListActiveCalls:input_type -> video.v1.ListActiveCallsRequest
-	26, // 52: video.v1.VideoService.StartRecording:input_type -> video.v1.StartRecordingRequest
-	27, // 53: video.v1.VideoService.StopRecording:input_type -> video.v1.StopRecordingRequest
-	28, // 54: video.v1.VideoService.SetRecordingConsent:input_type -> video.v1.SetRecordingConsentRequest
-	29, // 55: video.v1.VideoService.GetRecordingConsent:input_type -> video.v1.GetRecordingConsentRequest
-	30, // 56: video.v1.VideoService.ListRecordings:input_type -> video.v1.ListRecordingsRequest
-	32, // 57: video.v1.VideoService.DeleteRecording:input_type -> video.v1.DeleteRecordingRequest
-	33, // 58: video.v1.VideoService.CreateMeeting:input_type -> video.v1.CreateMeetingRequest
-	34, // 59: video.v1.VideoService.GetMeeting:input_type -> video.v1.GetMeetingRequest
-	35, // 60: video.v1.VideoService.UpdateMeeting:input_type -> video.v1.UpdateMeetingRequest
-	36, // 61: video.v1.VideoService.DeleteMeeting:input_type -> video.v1.DeleteMeetingRequest
-	37, // 62: video.v1.VideoService.ListMeetings:input_type -> video.v1.ListMeetingsRequest
-	39, // 63: video.v1.VideoService.StartMeeting:input_type -> video.v1.StartMeetingRequest
-	41, // 64: video.v1.VideoService.JoinMeeting:input_type -> video.v1.JoinMeetingRequest
-	43, // 65: video.v1.VideoService.EndMeeting:input_type -> video.v1.EndMeetingRequest
-	44, // 66: video.v1.VideoService.SaveMeetingNotes:input_type -> video.v1.SaveMeetingNotesRequest
-	45, // 67: video.v1.VideoService.GetMeetingNotes:input_type -> video.v1.GetMeetingNotesRequest
-	46, // 68: video.v1.VideoService.GetPreviousMeetingNotes:input_type -> video.v1.GetPreviousMeetingNotesRequest
-	47, // 69: video.v1.VideoService.CreateActionItem:input_type -> video.v1.CreateActionItemRequest
-	48, // 70: video.v1.VideoService.UpdateActionItem:input_type -> video.v1.UpdateActionItemRequest
-	49, // 71: video.v1.VideoService.DeleteActionItem:input_type -> video.v1.DeleteActionItemRequest
-	50, // 72: video.v1.VideoService.ListActionItems:input_type -> video.v1.ListActionItemsRequest
-	52, // 73: video.v1.VideoService.ConvertActionItemsToTasks:input_type -> video.v1.ConvertActionItemsToTasksRequest
-	54, // 74: video.v1.VideoService.GetPresence:input_type -> video.v1.GetPresenceRequest
-	55, // 75: video.v1.VideoService.GetBulkPresence:input_type -> video.v1.GetBulkPresenceRequest
-	57, // 76: video.v1.VideoService.SetPresenceStatus:input_type -> video.v1.SetPresenceStatusRequest
-	58, // 77: video.v1.VideoService.UpdatePresenceConfig:input_type -> video.v1.UpdatePresenceConfigRequest
-	59, // 78: video.v1.VideoService.GetPresenceConfig:input_type -> video.v1.GetPresenceConfigRequest
-	60, // 79: video.v1.VideoService.CompleteRecordingByEgress:input_type -> video.v1.CompleteRecordingByEgressRequest
-	61, // 80: video.v1.VideoService.FailRecordingByEgress:input_type -> video.v1.FailRecordingByEgressRequest
-	62, // 81: video.v1.VideoService.CompleteMeetingByRoom:input_type -> video.v1.CompleteMeetingByRoomRequest
-	6,  // 82: video.v1.VideoService.CreateCall:output_type -> video.v1.CallSession
-	21, // 83: video.v1.VideoService.JoinCall:output_type -> video.v1.JoinCallResponse
-	64, // 84: video.v1.VideoService.EndCall:output_type -> google.protobuf.Empty
-	6,  // 85: video.v1.VideoService.GetCall:output_type -> video.v1.CallSession
-	25, // 86: video.v1.VideoService.ListActiveCalls:output_type -> video.v1.ListActiveCallsResponse
-	13, // 87: video.v1.VideoService.StartRecording:output_type -> video.v1.Recording
-	13, // 88: video.v1.VideoService.StopRecording:output_type -> video.v1.Recording
-	64, // 89: video.v1.VideoService.SetRecordingConsent:output_type -> google.protobuf.Empty
-	14, // 90: video.v1.VideoService.GetRecordingConsent:output_type -> video.v1.RecordingConsentStatus
-	31, // 91: video.v1.VideoService.ListRecordings:output_type -> video.v1.ListRecordingsResponse
-	64, // 92: video.v1.VideoService.DeleteRecording:output_type -> google.protobuf.Empty
-	8,  // 93: video.v1.VideoService.CreateMeeting:output_type -> video.v1.Meeting
-	8,  // 94: video.v1.VideoService.GetMeeting:output_type -> video.v1.Meeting
-	8,  // 95: video.v1.VideoService.UpdateMeeting:output_type -> video.v1.Meeting
-	64, // 96: video.v1.VideoService.DeleteMeeting:output_type -> google.protobuf.Empty
-	38, // 97: video.v1.VideoService.ListMeetings:output_type -> video.v1.ListMeetingsResponse
-	40, // 98: video.v1.VideoService.StartMeeting:output_type -> video.v1.StartMeetingResponse
-	42, // 99: video.v1.VideoService.JoinMeeting:output_type -> video.v1.JoinMeetingResponse
-	12, // 100: video.v1.VideoService.EndMeeting:output_type -> video.v1.MeetingSummary
-	10, // 101: video.v1.VideoService.SaveMeetingNotes:output_type -> video.v1.MeetingNotes
-	10, // 102: video.v1.VideoService.GetMeetingNotes:output_type -> video.v1.MeetingNotes
-	10, // 103: video.v1.VideoService.GetPreviousMeetingNotes:output_type -> video.v1.MeetingNotes
-	11, // 104: video.v1.VideoService.CreateActionItem:output_type -> video.v1.ActionItem
-	11, // 105: video.v1.VideoService.UpdateActionItem:output_type -> video.v1.ActionItem
-	64, // 106: video.v1.VideoService.DeleteActionItem:output_type -> google.protobuf.Empty
-	51, // 107: video.v1.VideoService.ListActionItems:output_type -> video.v1.ListActionItemsResponse
-	53, // 108: video.v1.VideoService.ConvertActionItemsToTasks:output_type -> video.v1.ConvertActionItemsToTasksResponse
-	16, // 109: video.v1.VideoService.GetPresence:output_type -> video.v1.PresenceStatus
-	56, // 110: video.v1.VideoService.GetBulkPresence:output_type -> video.v1.GetBulkPresenceResponse
-	64, // 111: video.v1.VideoService.SetPresenceStatus:output_type -> google.protobuf.Empty
-	64, // 112: video.v1.VideoService.UpdatePresenceConfig:output_type -> google.protobuf.Empty
-	17, // 113: video.v1.VideoService.GetPresenceConfig:output_type -> video.v1.PresenceConfig
-	64, // 114: video.v1.VideoService.CompleteRecordingByEgress:output_type -> google.protobuf.Empty
-	64, // 115: video.v1.VideoService.FailRecordingByEgress:output_type -> google.protobuf.Empty
-	64, // 116: video.v1.VideoService.CompleteMeetingByRoom:output_type -> google.protobuf.Empty
-	82, // [82:117] is the sub-list for method output_type
-	47, // [47:82] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	67, // 47: video.v1.MeetingChatMessage.created_at:type_name -> google.protobuf.Timestamp
+	63, // 48: video.v1.ListMeetingChatMessagesResponse.messages:type_name -> video.v1.MeetingChatMessage
+	18, // 49: video.v1.VideoService.CreateCall:input_type -> video.v1.CreateCallRequest
+	19, // 50: video.v1.VideoService.JoinCall:input_type -> video.v1.JoinCallRequest
+	22, // 51: video.v1.VideoService.EndCall:input_type -> video.v1.EndCallRequest
+	23, // 52: video.v1.VideoService.GetCall:input_type -> video.v1.GetCallRequest
+	24, // 53: video.v1.VideoService.ListActiveCalls:input_type -> video.v1.ListActiveCallsRequest
+	26, // 54: video.v1.VideoService.StartRecording:input_type -> video.v1.StartRecordingRequest
+	27, // 55: video.v1.VideoService.StopRecording:input_type -> video.v1.StopRecordingRequest
+	28, // 56: video.v1.VideoService.SetRecordingConsent:input_type -> video.v1.SetRecordingConsentRequest
+	29, // 57: video.v1.VideoService.GetRecordingConsent:input_type -> video.v1.GetRecordingConsentRequest
+	30, // 58: video.v1.VideoService.ListRecordings:input_type -> video.v1.ListRecordingsRequest
+	32, // 59: video.v1.VideoService.DeleteRecording:input_type -> video.v1.DeleteRecordingRequest
+	33, // 60: video.v1.VideoService.CreateMeeting:input_type -> video.v1.CreateMeetingRequest
+	34, // 61: video.v1.VideoService.GetMeeting:input_type -> video.v1.GetMeetingRequest
+	35, // 62: video.v1.VideoService.UpdateMeeting:input_type -> video.v1.UpdateMeetingRequest
+	36, // 63: video.v1.VideoService.DeleteMeeting:input_type -> video.v1.DeleteMeetingRequest
+	37, // 64: video.v1.VideoService.ListMeetings:input_type -> video.v1.ListMeetingsRequest
+	39, // 65: video.v1.VideoService.StartMeeting:input_type -> video.v1.StartMeetingRequest
+	41, // 66: video.v1.VideoService.JoinMeeting:input_type -> video.v1.JoinMeetingRequest
+	43, // 67: video.v1.VideoService.EndMeeting:input_type -> video.v1.EndMeetingRequest
+	44, // 68: video.v1.VideoService.SaveMeetingNotes:input_type -> video.v1.SaveMeetingNotesRequest
+	45, // 69: video.v1.VideoService.GetMeetingNotes:input_type -> video.v1.GetMeetingNotesRequest
+	46, // 70: video.v1.VideoService.GetPreviousMeetingNotes:input_type -> video.v1.GetPreviousMeetingNotesRequest
+	47, // 71: video.v1.VideoService.CreateActionItem:input_type -> video.v1.CreateActionItemRequest
+	48, // 72: video.v1.VideoService.UpdateActionItem:input_type -> video.v1.UpdateActionItemRequest
+	49, // 73: video.v1.VideoService.DeleteActionItem:input_type -> video.v1.DeleteActionItemRequest
+	50, // 74: video.v1.VideoService.ListActionItems:input_type -> video.v1.ListActionItemsRequest
+	52, // 75: video.v1.VideoService.ConvertActionItemsToTasks:input_type -> video.v1.ConvertActionItemsToTasksRequest
+	64, // 76: video.v1.VideoService.SaveMeetingChatMessage:input_type -> video.v1.SaveMeetingChatMessageRequest
+	65, // 77: video.v1.VideoService.ListMeetingChatMessages:input_type -> video.v1.ListMeetingChatMessagesRequest
+	54, // 78: video.v1.VideoService.GetPresence:input_type -> video.v1.GetPresenceRequest
+	55, // 79: video.v1.VideoService.GetBulkPresence:input_type -> video.v1.GetBulkPresenceRequest
+	57, // 80: video.v1.VideoService.SetPresenceStatus:input_type -> video.v1.SetPresenceStatusRequest
+	58, // 81: video.v1.VideoService.UpdatePresenceConfig:input_type -> video.v1.UpdatePresenceConfigRequest
+	59, // 82: video.v1.VideoService.GetPresenceConfig:input_type -> video.v1.GetPresenceConfigRequest
+	60, // 83: video.v1.VideoService.CompleteRecordingByEgress:input_type -> video.v1.CompleteRecordingByEgressRequest
+	61, // 84: video.v1.VideoService.FailRecordingByEgress:input_type -> video.v1.FailRecordingByEgressRequest
+	62, // 85: video.v1.VideoService.CompleteMeetingByRoom:input_type -> video.v1.CompleteMeetingByRoomRequest
+	6,  // 86: video.v1.VideoService.CreateCall:output_type -> video.v1.CallSession
+	21, // 87: video.v1.VideoService.JoinCall:output_type -> video.v1.JoinCallResponse
+	68, // 88: video.v1.VideoService.EndCall:output_type -> google.protobuf.Empty
+	6,  // 89: video.v1.VideoService.GetCall:output_type -> video.v1.CallSession
+	25, // 90: video.v1.VideoService.ListActiveCalls:output_type -> video.v1.ListActiveCallsResponse
+	13, // 91: video.v1.VideoService.StartRecording:output_type -> video.v1.Recording
+	13, // 92: video.v1.VideoService.StopRecording:output_type -> video.v1.Recording
+	68, // 93: video.v1.VideoService.SetRecordingConsent:output_type -> google.protobuf.Empty
+	14, // 94: video.v1.VideoService.GetRecordingConsent:output_type -> video.v1.RecordingConsentStatus
+	31, // 95: video.v1.VideoService.ListRecordings:output_type -> video.v1.ListRecordingsResponse
+	68, // 96: video.v1.VideoService.DeleteRecording:output_type -> google.protobuf.Empty
+	8,  // 97: video.v1.VideoService.CreateMeeting:output_type -> video.v1.Meeting
+	8,  // 98: video.v1.VideoService.GetMeeting:output_type -> video.v1.Meeting
+	8,  // 99: video.v1.VideoService.UpdateMeeting:output_type -> video.v1.Meeting
+	68, // 100: video.v1.VideoService.DeleteMeeting:output_type -> google.protobuf.Empty
+	38, // 101: video.v1.VideoService.ListMeetings:output_type -> video.v1.ListMeetingsResponse
+	40, // 102: video.v1.VideoService.StartMeeting:output_type -> video.v1.StartMeetingResponse
+	42, // 103: video.v1.VideoService.JoinMeeting:output_type -> video.v1.JoinMeetingResponse
+	12, // 104: video.v1.VideoService.EndMeeting:output_type -> video.v1.MeetingSummary
+	10, // 105: video.v1.VideoService.SaveMeetingNotes:output_type -> video.v1.MeetingNotes
+	10, // 106: video.v1.VideoService.GetMeetingNotes:output_type -> video.v1.MeetingNotes
+	10, // 107: video.v1.VideoService.GetPreviousMeetingNotes:output_type -> video.v1.MeetingNotes
+	11, // 108: video.v1.VideoService.CreateActionItem:output_type -> video.v1.ActionItem
+	11, // 109: video.v1.VideoService.UpdateActionItem:output_type -> video.v1.ActionItem
+	68, // 110: video.v1.VideoService.DeleteActionItem:output_type -> google.protobuf.Empty
+	51, // 111: video.v1.VideoService.ListActionItems:output_type -> video.v1.ListActionItemsResponse
+	53, // 112: video.v1.VideoService.ConvertActionItemsToTasks:output_type -> video.v1.ConvertActionItemsToTasksResponse
+	63, // 113: video.v1.VideoService.SaveMeetingChatMessage:output_type -> video.v1.MeetingChatMessage
+	66, // 114: video.v1.VideoService.ListMeetingChatMessages:output_type -> video.v1.ListMeetingChatMessagesResponse
+	16, // 115: video.v1.VideoService.GetPresence:output_type -> video.v1.PresenceStatus
+	56, // 116: video.v1.VideoService.GetBulkPresence:output_type -> video.v1.GetBulkPresenceResponse
+	68, // 117: video.v1.VideoService.SetPresenceStatus:output_type -> google.protobuf.Empty
+	68, // 118: video.v1.VideoService.UpdatePresenceConfig:output_type -> google.protobuf.Empty
+	17, // 119: video.v1.VideoService.GetPresenceConfig:output_type -> video.v1.PresenceConfig
+	68, // 120: video.v1.VideoService.CompleteRecordingByEgress:output_type -> google.protobuf.Empty
+	68, // 121: video.v1.VideoService.FailRecordingByEgress:output_type -> google.protobuf.Empty
+	68, // 122: video.v1.VideoService.CompleteMeetingByRoom:output_type -> google.protobuf.Empty
+	86, // [86:123] is the sub-list for method output_type
+	49, // [49:86] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_proto_video_v1_video_proto_init() }
@@ -4726,7 +5003,7 @@ func file_proto_video_v1_video_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_video_v1_video_proto_rawDesc), len(file_proto_video_v1_video_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   57,
+			NumMessages:   61,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

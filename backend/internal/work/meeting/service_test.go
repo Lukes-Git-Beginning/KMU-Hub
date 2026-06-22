@@ -15,18 +15,20 @@ import (
 var testTenantID = uuid.New()
 
 type mockRepo struct {
-	meetings    map[uuid.UUID]*Meeting
-	attendees   map[uuid.UUID][]MeetingAttendee
-	notes       map[uuid.UUID][]MeetingNotes // keyed by meeting ID
-	actionItems map[uuid.UUID][]MeetingActionItem
+	meetings     map[uuid.UUID]*Meeting
+	attendees    map[uuid.UUID][]MeetingAttendee
+	notes        map[uuid.UUID][]MeetingNotes // keyed by meeting ID
+	actionItems  map[uuid.UUID][]MeetingActionItem
+	chatMessages map[uuid.UUID][]MeetingChatMessage // keyed by meeting ID
 }
 
 func newMockRepo() *mockRepo {
 	return &mockRepo{
-		meetings:    make(map[uuid.UUID]*Meeting),
-		attendees:   make(map[uuid.UUID][]MeetingAttendee),
-		notes:       make(map[uuid.UUID][]MeetingNotes),
-		actionItems: make(map[uuid.UUID][]MeetingActionItem),
+		meetings:     make(map[uuid.UUID]*Meeting),
+		attendees:    make(map[uuid.UUID][]MeetingAttendee),
+		notes:        make(map[uuid.UUID][]MeetingNotes),
+		actionItems:  make(map[uuid.UUID][]MeetingActionItem),
+		chatMessages: make(map[uuid.UUID][]MeetingChatMessage),
 	}
 }
 
@@ -246,6 +248,19 @@ func (m *mockRepo) ListStaleMeetings(_ context.Context, cutoff time.Time) ([]Mee
 		}
 	}
 	return result, nil
+}
+
+func (m *mockRepo) SaveChatMessage(_ context.Context, msg *MeetingChatMessage) error {
+	m.chatMessages[msg.MeetingID] = append(m.chatMessages[msg.MeetingID], *msg)
+	return nil
+}
+
+func (m *mockRepo) ListChatMessages(_ context.Context, meetingID, _ uuid.UUID, limit int) ([]MeetingChatMessage, error) {
+	msgs := m.chatMessages[meetingID]
+	if limit > 0 && len(msgs) > limit {
+		msgs = msgs[:limit]
+	}
+	return msgs, nil
 }
 
 // mockRoomManager implements RoomManager for tests.
@@ -1315,4 +1330,148 @@ func TestListStaleMeetings_OnlyInProgress(t *testing.T) {
 	results, err := repo.ListStaleMeetings(ctx, cutoff)
 	require.NoError(t, err)
 	assert.Empty(t, results, "completed meetings should not appear in stale list")
+}
+
+// ============================================================================
+// Meeting Chat Tests
+// ============================================================================
+
+func TestSaveChatMessage_InProgress(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	m := setupInProgressMeeting(t, svc, ctx)
+
+	senderID := uuid.New()
+	msg, err := svc.SaveChatMessage(ctx, m.ID, senderID, testTenantID, "Alice", "Hello!")
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, msg.ID)
+	assert.Equal(t, m.ID, msg.MeetingID)
+	assert.Equal(t, senderID, msg.SenderID)
+	assert.Equal(t, "Alice", msg.SenderName)
+	assert.Equal(t, "Hello!", msg.Message)
+	assert.Equal(t, testTenantID, msg.TenantID)
+	assert.False(t, msg.CreatedAt.IsZero())
+}
+
+func TestSaveChatMessage_EmptyMessage(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	m := setupInProgressMeeting(t, svc, ctx)
+
+	_, err := svc.SaveChatMessage(ctx, m.ID, uuid.New(), testTenantID, "Alice", "   ")
+	require.ErrorIs(t, err, ErrChatMessageRequired)
+}
+
+func TestSaveChatMessage_NotInProgress(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	start := time.Now().Add(time.Hour)
+	end := start.Add(time.Hour)
+	input := CreateMeetingInput{
+		TenantID:       testTenantID,
+		Title:          "Scheduled Meeting",
+		OrganizerID:    orgID,
+		ScheduledStart: start,
+		ScheduledEnd:   end,
+		AttendeeIDs:    []uuid.UUID{orgID},
+	}
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	_, err = svc.SaveChatMessage(ctx, m.ID, uuid.New(), testTenantID, "Bob", "Hi")
+	require.ErrorIs(t, err, ErrNotInProgress)
+}
+
+func TestListChatMessages_RoundTrip(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	m := setupInProgressMeeting(t, svc, ctx)
+
+	// Empty history
+	msgs, err := svc.ListChatMessages(ctx, m.ID, testTenantID, 0)
+	require.NoError(t, err)
+	assert.Empty(t, msgs)
+
+	// Save two messages
+	_, err = svc.SaveChatMessage(ctx, m.ID, uuid.New(), testTenantID, "Alice", "First")
+	require.NoError(t, err)
+	_, err = svc.SaveChatMessage(ctx, m.ID, uuid.New(), testTenantID, "Bob", "Second")
+	require.NoError(t, err)
+
+	msgs, err = svc.ListChatMessages(ctx, m.ID, testTenantID, 0)
+	require.NoError(t, err)
+	require.Len(t, msgs, 2)
+	assert.Equal(t, "First", msgs[0].Message)
+	assert.Equal(t, "Second", msgs[1].Message)
+}
+
+func TestListChatMessages_TenantScoping(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	m := setupInProgressMeeting(t, svc, ctx)
+
+	_, err := svc.SaveChatMessage(ctx, m.ID, uuid.New(), testTenantID, "Alice", "Secret")
+	require.NoError(t, err)
+
+	// Different tenant should get ErrNotFound (meeting not found in that tenant).
+	otherTenant := uuid.New()
+	_, err = svc.ListChatMessages(ctx, m.ID, otherTenant, 0)
+	require.ErrorIs(t, err, ErrNotFound, "cross-tenant list must be rejected")
+}
+
+func TestListChatMessages_Limit(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	m := setupInProgressMeeting(t, svc, ctx)
+
+	for i := 0; i < 5; i++ {
+		_, err := svc.SaveChatMessage(ctx, m.ID, uuid.New(), testTenantID, "User", "msg")
+		require.NoError(t, err)
+	}
+
+	msgs, err := svc.ListChatMessages(ctx, m.ID, testTenantID, 3)
+	require.NoError(t, err)
+	assert.Len(t, msgs, 3)
+}
+
+func TestSaveChatMessage_Completed(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	m := setupInProgressMeeting(t, svc, ctx)
+	_, err := svc.EndMeeting(ctx, m.ID, testTenantID)
+	require.NoError(t, err)
+
+	// Completed meetings still allow chat (post-call history write).
+	_, err = svc.SaveChatMessage(ctx, m.ID, uuid.New(), testTenantID, "Alice", "Late message")
+	require.NoError(t, err)
+}
+
+// setupInProgressMeeting is a helper that creates and starts a meeting.
+func setupInProgressMeeting(t *testing.T, svc *Service, ctx context.Context) *Meeting {
+	t.Helper()
+	orgID := uuid.New()
+	start := time.Now().Add(-time.Hour) // in the past so it can be started
+	end := start.Add(2 * time.Hour)
+	input := CreateMeetingInput{
+		TenantID:       testTenantID,
+		Title:          "Test Meeting",
+		OrganizerID:    orgID,
+		ScheduledStart: start,
+		ScheduledEnd:   end,
+		AttendeeIDs:    []uuid.UUID{orgID},
+	}
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	started, err := svc.StartMeeting(ctx, m.ID, testTenantID, orgID)
+	require.NoError(t, err)
+	return started
 }
