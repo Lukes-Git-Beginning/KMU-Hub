@@ -24,17 +24,20 @@ Das **kommunikation/chat**-Modul (Team-Messaging, 3-Panel da) von „gebaut" auf
 - **Threads:** Antworten als Inline-Thread (wie Slack) oder flach mit Zitat?
 - **Settings-Scope:** personal (Status, Benachrichtigungen, Lese-Bestätigungen) vs. tenant (Kanal-Erstellungs-Policy, Nachrichten-Aufbewahrung)?
 
-## Phasen (vorläufig — beim Gate verfeinern)
-- [ ] **KO-1** Demo-Tiefe-Standard: stateful MSW (send/edit/delete/read persistieren), ganze Nachricht/Zeile klickbar, tote Buttons/Stubs fixen, Downloads wirken ([[feedback_module_depth_standard]] [[feedback_detail_modal_standard]])
-- [ ] **KO-2** Direktnachrichten (1:1, ggf. Gruppen): DM-Liste, „Neue Nachricht"-Personen-Picker, DM↔Kanal-Umschalten
-- [ ] **KO-3** Volltextsuche über Nachrichten + Unread-Tracking (pro Kanal/DM) + Jump-to-Result
-- [ ] **KO-4** Nachricht bearbeiten / löschen / Lesezeichen (Bookmarks) — stateful, mit „bearbeitet"-Markierung
-- [ ] **KO-5** Unified Inbox: „Alle ungelesenen" über Kanäle + DMs, fokussiertes Abarbeiten
-- [ ] **KO-6** Reaktionen (Emoji) + Threads/Antworten (Inline-Thread oder Zitat je Gate)
-- [ ] **KO-7** @Mentions + Mention-Benachrichtigung + Kanal-Verwaltung (erstellen/umbenennen/verlassen, privat/öffentlich)
-- [ ] **KO-8** Dateien/Anhänge im Chat (Upload-Mock + Vorschau + echter Download) + Link-Vorschau (`shared/LinkPreviewPopover` wiederverwenden)
-- [ ] **KO-9** Settings-Panel `modules/kommunikation/settings` (`ModuleSettingsShell`, personal: Status/Benachrichtigungen/Lese-Bestätigung; tenant: Kanal-Policy/Aufbewahrung)
-- [ ] **KO-10** i18n ×4 Vollständigkeit (`kommunikation.*`/`chat.*`, `{var}`, ICU-Plural) + Demo-Tiefe-Schlusscheck + Playwright-QA + Screenshots WIRKLICH ansehen
+## Phasen (FINALISIERT nach Gate 2026-06-22)
+
+> **Gate-Ergebnis:** Modul ist weiter als gedacht — Settings-Panel, 1:1-DMs, Suche, Reaktionen, Inline-Threads, @Mentions, Datei-Upload existieren bereits funktional. **Kern-Mangel = MSW NICHT stateful.** Darien-Entscheidungen: (1) Fokus = Demo-Tiefe/Stateful statt Neubau; (2) beide Bereiche (Team-Chat `modules/chat` + Posteingang `modules/kommunikation`); (3) Gruppenchats im **internen** Team-Chat bauen (extern = Anbindung); (4) `/poll`+`/reminder` echt machen, `/giphy` bleibt Stub.
+
+- [ ] **KO-1** **Fundament: `chat-store.ts`** (stateful, analog `email-store.ts`) — send/edit/delete/read/reactions persistieren In-Memory; `chat.ts`-Handler komplett auf Store umstellen (GET liest aus Store). Kern-Demo-Tiefe.
+- [ ] **KO-2** **Gruppen-DMs (intern):** Datenmodell `participants[]`, Multi-Personen-Picker, Gruppen-DM-Header/Avatare, stateful get-or-create.
+- [ ] **KO-3** **Threads wirksam + Seeds:** Thread-Replies im Store (senden persistiert), Seed-Replies für Demo-Tiefe (Panel nicht mehr leer).
+- [ ] **KO-4** **Bookmarks/Lesezeichen:** stateful Toggle an Nachricht, Bookmark-Panel (gespeicherte Nachrichten), klickbar→Jump.
+- [ ] **KO-5** **Datei-Download + Anhang-Tiefe:** echter Blob-Download aus `FileAttachmentCard`, Anhang-Seeds breiter, Bild-Vorschau.
+- [ ] **KO-6** **Suche klickbar (Jump-to-Result, scroll+highlight) + Unread persistiert** (read im Store, Badge bleibt weg).
+- [ ] **KO-7** **Unified Inbox „Alle ungelesenen"** über Kanäle + DMs (fokussiertes Abarbeiten im Team-Chat).
+- [ ] **KO-8** **Posteingang-Tiefe:** `/poll`+`/reminder` echt (stateful, im Thread sichtbar), `/giphy` sauber als Stub markiert, ganze Zeile klickbar, Stars persistieren, tote Buttons fixen.
+- [ ] **KO-9** **Kanal-Verwaltung wirksam:** create/rename/leave/join stateful + sichtbar, privat/öffentlich, `ChannelSettingsDialog` wirkt; Settings-Panel-Feinschliff.
+- [ ] **KO-10** **i18n ×4** (`kommunikation.*`/`chat.*`, `{var}`, ICU-Plural) + Demo-Tiefe-Schlusscheck + Playwright-QA + Screenshots WIRKLICH ansehen.
 
 ## Disjunktheit / Konflikt-Vermeidung
 - **NUR** `modules/kommunikation/**`, `mocks/handlers/chat.ts`, `mocks/data/chat*.ts`, neu `modules/kommunikation/settings/**`.

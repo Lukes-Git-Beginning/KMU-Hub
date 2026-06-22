@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/mocks/data/chat-store.ts",
+    "src/renderer/src/mocks/data/chat-data.ts",
+    "src/renderer/src/mocks/handlers/chat.ts",
+    "src/renderer/src/api/hooks/useChannels.ts",
+    "src/renderer/src/api/hooks/useMessages.ts",
+    "src/renderer/src/api/hooks/useReactions.ts",
+    "src/renderer/src/api/hooks/useChatSearch.ts",
+    "src/renderer/src/api/hooks/useChatFileUpload.ts",
+    "src/renderer/src/modules/chat/**/*.ts",
+    "src/renderer/src/modules/chat/**/*.tsx",
+    "src/renderer/src/modules/kommunikation/**/*.ts",
+    "src/renderer/src/modules/kommunikation/**/*.tsx"
+  ],
+  "exclude": [
+    "src/renderer/src/modules/chat/__tests__",
+    "src/renderer/src/modules/kommunikation/__tests__"
+  ]
+}

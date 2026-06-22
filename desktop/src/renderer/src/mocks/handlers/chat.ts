@@ -1,38 +1,30 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import {
-  mockChannels,
-  mockDMs,
-  mockUnread,
-  mockMessagesByChannel,
-  mockChannelMembers,
-  mockMentions,
-} from '../data/chat-data'
-import { EMPLOYEES } from '../mock-db'
+import * as store from '../data/chat-store'
 
 const API = API_BASE_URL
 
 export const chatHandlers = [
   // List channels
-  http.get(`${API}/api/v1/channels`, () => {
-    return HttpResponse.json(mockChannels)
+  http.get(`${API}/api/v1/channels`, ({ request }) => {
+    const url = new URL(request.url)
+    const includeArchived = url.searchParams.get('include_archived') === 'true'
+    return HttpResponse.json({ channels: store.getChannels(includeArchived) })
   }),
 
   // List DMs
   http.get(`${API}/api/v1/channels/dm`, () => {
-    return HttpResponse.json(mockDMs)
+    return HttpResponse.json({ channels: store.getDMs() })
   }),
 
   // Unread counts
   http.get(`${API}/api/v1/channels/unread`, () => {
-    return HttpResponse.json(mockUnread)
+    return HttpResponse.json({ unread_counts: store.getUnreadCounts() })
   }),
 
   // Channel detail
   http.get(`${API}/api/v1/channels/:id`, ({ params }) => {
-    const { id } = params
-    const all = [...mockChannels.channels, ...mockDMs.channels]
-    const channel = all.find((c) => c.id === id)
+    const channel = store.getChannel(String(params.id))
     if (!channel) {
       return HttpResponse.json({ error: 'not found' }, { status: 404 })
     }
@@ -40,123 +32,115 @@ export const chatHandlers = [
   }),
 
   // Channel members
-  http.get(`${API}/api/v1/channels/:id/members`, () => {
-    return HttpResponse.json(mockChannelMembers)
+  http.get(`${API}/api/v1/channels/:id/members`, ({ params }) => {
+    return HttpResponse.json({ members: store.getMembers(String(params.id)) })
   }),
 
   // Create channel
   http.post(`${API}/api/v1/channels`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json(
-      {
-        channel: {
-          id: `ch-new-${Date.now()}`,
-          name: body.name ?? 'new-channel',
-          is_dm: false,
-          is_private: body.is_private ?? false,
-          description: body.description ?? '',
-          member_count: 1,
-          created_at: new Date().toISOString(),
-        },
-      },
-      { status: 201 },
-    )
-  }),
-
-  // Join channel
-  http.post(`${API}/api/v1/channels/:id/join`, () => {
-    return HttpResponse.json({ success: true })
-  }),
-
-  // Leave channel
-  http.post(`${API}/api/v1/channels/:id/leave`, () => {
-    return HttpResponse.json({ success: true })
-  }),
-
-  // Create DM (get-or-create: reuses an existing DM for the same user and
-  // registers new DMs in mockDMs so detail/list lookups resolve afterwards)
-  http.post(`${API}/api/v1/channels/dm`, async ({ request }) => {
-    const body = (await request.json()) as Record<string, unknown>
-    const otherUserId = String(body.other_user_id ?? body.user_id ?? '')
-
-    const existing = mockDMs.channels.find((c) => c.other_user_id === otherUserId)
-    if (existing) {
-      return HttpResponse.json({ channel: existing }, { status: 200 })
-    }
-
-    const employee = EMPLOYEES.find((e) => `usr-${e.id}` === otherUserId)
-    const otherUserName = employee ? `${employee.firstName} ${employee.lastName}` : 'Neuer Kontakt'
-    const channel = {
-      id: `dm-new-${Date.now()}`,
-      name: otherUserName,
-      is_dm: true,
-      is_private: true,
-      other_user_id: otherUserId,
-      other_user_name: otherUserName,
-      member_count: 2,
-      created_at: new Date().toISOString(),
-    }
-    mockDMs.channels.push(channel as (typeof mockDMs.channels)[number])
+    const channel = store.createChannel({
+      name: String(body.name ?? ''),
+      description: body.description ? String(body.description) : undefined,
+      is_private: Boolean(body.is_private),
+    })
     return HttpResponse.json({ channel }, { status: 201 })
   }),
 
+  // Rename / update channel
+  http.patch(`${API}/api/v1/channels/:id`, async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const channel = store.renameChannel(String(params.id), {
+      name: body.name !== undefined ? String(body.name) : undefined,
+      description: body.description !== undefined ? String(body.description) : undefined,
+      is_private: body.is_private !== undefined ? Boolean(body.is_private) : undefined,
+    })
+    if (!channel) return HttpResponse.json({ error: 'not found' }, { status: 404 })
+    return HttpResponse.json({ channel })
+  }),
+
+  // Join channel
+  http.post(`${API}/api/v1/channels/:id/join`, ({ params }) => {
+    const channel = store.joinChannel(String(params.id))
+    return HttpResponse.json({ success: true, channel })
+  }),
+
+  // Leave channel
+  http.post(`${API}/api/v1/channels/:id/leave`, ({ params }) => {
+    store.leaveChannel(String(params.id))
+    return HttpResponse.json({ success: true })
+  }),
+
+  // Create DM (get-or-create). A `participant_ids` array creates a group DM (KO-2).
+  http.post(`${API}/api/v1/channels/dm`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const participantIds = Array.isArray(body.participant_ids)
+      ? (body.participant_ids as string[])
+      : null
+
+    if (participantIds && participantIds.length > 1) {
+      const { channel, created } = store.createGroupDM(participantIds)
+      return HttpResponse.json({ channel }, { status: created ? 201 : 200 })
+    }
+
+    const otherUserId = String(body.other_user_id ?? body.user_id ?? participantIds?.[0] ?? '')
+    const { channel, created } = store.getOrCreateDM(otherUserId)
+    return HttpResponse.json({ channel }, { status: created ? 201 : 200 })
+  }),
+
   // Mark channel as read
-  http.post(`${API}/api/v1/channels/:id/read`, () => {
+  http.post(`${API}/api/v1/channels/:id/read`, ({ params }) => {
+    store.markChannelRead(String(params.id))
     return HttpResponse.json({ success: true })
   }),
 
   // List messages for channel
-  http.get(`${API}/api/v1/channels/:id/messages`, ({ params }) => {
-    const { id } = params
-    const data = mockMessagesByChannel[id as string]
-    if (!data) {
-      return HttpResponse.json({ messages: [], has_more: false })
-    }
-    return HttpResponse.json(data)
+  http.get(`${API}/api/v1/channels/:id/messages`, ({ params, request }) => {
+    const url = new URL(request.url)
+    const before = url.searchParams.get('before') ?? undefined
+    const limit = Number(url.searchParams.get('limit') ?? 50)
+    return HttpResponse.json(store.listMessages(String(params.id), before, limit))
   }),
 
   // Send message
   http.post(`${API}/api/v1/channels/:id/messages`, async ({ params, request }) => {
-    const { id } = params
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json(
-      {
-        message: {
-          id: `msg-new-${Date.now()}`,
-          content: body.content ?? '',
-          channel_id: id,
-          sender_id: 'usr-e1',
-          sender_name: 'Stefan Vogel',
-          created_at: new Date().toISOString(),
-          reply_count: 0,
-          reactions: [],
-          edited_at: null,
-        },
-      },
-      { status: 201 },
-    )
+    const message = store.appendMessage({
+      channelId: String(params.id),
+      content: String(body.content ?? ''),
+      parentMessageId: body.parent_message_id ? String(body.parent_message_id) : null,
+    })
+    return HttpResponse.json({ message }, { status: 201 })
   }),
 
   // Edit message
   http.put(`${API}/api/v1/messages/:id`, async ({ params, request }) => {
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json({
-      message: {
-        id: params.id,
-        content: body.content ?? '',
-        edited_at: new Date().toISOString(),
-      },
-    })
+    const message = store.editMessage(String(params.id), String(body.content ?? ''))
+    if (!message) return HttpResponse.json({ error: 'not found' }, { status: 404 })
+    return HttpResponse.json({ message })
   }),
 
   // Delete message
-  http.delete(`${API}/api/v1/messages/:id`, () => {
+  http.delete(`${API}/api/v1/messages/:id`, ({ params }) => {
+    store.deleteMessage(String(params.id))
     return HttpResponse.json({ success: true })
+  }),
+
+  // Toggle bookmark (KO-4)
+  http.post(`${API}/api/v1/messages/:id/bookmark`, ({ params }) => {
+    const bookmarked = store.toggleBookmark(String(params.id))
+    return HttpResponse.json({ bookmarked })
+  }),
+
+  // List bookmarked messages (KO-4)
+  http.get(`${API}/api/v1/messages/bookmarks`, () => {
+    return HttpResponse.json({ messages: store.getBookmarks() })
   }),
 
   // User mentions across all channels
   http.get(`${API}/api/v1/messages/mentions`, () => {
-    return HttpResponse.json(mockMentions)
+    return HttpResponse.json(store.getMentions())
   }),
 
   // File upload (multipart) — echoes a FileInfo so demo mode works
@@ -177,9 +161,9 @@ export const chatHandlers = [
           filename: name,
           mime_type: mime,
           file_size: size,
-          uploaded_by: 'usr-e1',
-          uploader_first_name: 'Stefan',
-          uploader_last_name: 'Vogel',
+          uploaded_by: store.CHAT_CURRENT_USER.id,
+          uploader_first_name: store.CHAT_CURRENT_USER.firstName,
+          uploader_last_name: store.CHAT_CURRENT_USER.lastName,
           has_thumbnail: false,
           created_at: new Date().toISOString(),
         },
@@ -189,110 +173,41 @@ export const chatHandlers = [
   }),
 
   // Thread replies
-  http.get(`${API}/api/v1/messages/:id/thread`, () => {
-    return HttpResponse.json({ messages: [], has_more: false })
+  http.get(`${API}/api/v1/messages/:id/thread`, ({ params }) => {
+    const { parent, replies, has_more } = store.getThread(String(params.id))
+    return HttpResponse.json({ parent, messages: replies, replies, has_more })
   }),
 
   // -------------------------------------------------------------------------
-  // Reactions (Phase 8 — /api/v1/messages)
+  // Reactions
   // -------------------------------------------------------------------------
 
-  // Toggle reaction (POST /{id}/reactions)
+  // Toggle reaction
   http.post(`${API}/api/v1/messages/:id/reactions`, async ({ params, request }) => {
-    const { id } = params
     const body = (await request.json()) as Record<string, unknown>
     const emoji = (body.emoji as string) ?? '👍'
-    // Return a minimal ToggleReactionResponse mirroring the proto shape
-    return HttpResponse.json({
-      reactions: [
-        {
-          message_id: id,
-          user_id: 'usr-demo',
-          emoji,
-          created_at: new Date().toISOString(),
-          first_name: 'Demo',
-          last_name: 'User',
-        },
-      ],
-      added: true,
-    })
+    const { reactions, added } = store.toggleReaction(String(params.id), emoji)
+    return HttpResponse.json({ reactions, added })
   }),
 
-  // List reactions (GET /{id}/reactions)
+  // List reactions
   http.get(`${API}/api/v1/messages/:id/reactions`, ({ params }) => {
-    const { id } = params
-    // Deterministic seed: same logic as old chatReactions store
-    let hash = 0
-    const idStr = String(id)
-    for (let i = 0; i < idStr.length; i++) hash = (hash + idStr.charCodeAt(i)) % 997
-    const reactions =
-      hash % 2 === 0
-        ? [
-            { message_id: id, user_id: 'usr-u1', emoji: '👍', created_at: new Date().toISOString() },
-            { message_id: id, user_id: 'usr-u2', emoji: '👍', created_at: new Date().toISOString() },
-          ]
-        : []
-    return HttpResponse.json({ reactions })
+    return HttpResponse.json({ reactions: store.getReactions(String(params.id)) })
   }),
 
-  // Reaction summary batch (POST /reactions/summary)
+  // Reaction summary batch
   http.post(`${API}/api/v1/messages/reactions/summary`, async ({ request }) => {
     const body = (await request.json()) as { message_ids?: string[] }
-    const messageIds = body.message_ids ?? []
-    const summaries = messageIds.flatMap((mid) => {
-      let hash = 0
-      for (let i = 0; i < mid.length; i++) hash = (hash + mid.charCodeAt(i)) % 997
-      if (hash % 2 !== 0) return []
-      return [
-        {
-          message_id: mid,
-          emoji: '👍',
-          count: 2,
-          user_ids: ['usr-u1', 'usr-u2'],
-          current_user_reacted: false,
-        },
-      ]
-    })
+    const summaries = store.getReactionSummary(body.message_ids ?? [])
     return HttpResponse.json({ summaries })
   }),
 
-  // Full-text search across channel messages (demo: scans mock messages)
+  // Full-text search across channel messages
   http.get(`${API}/api/v1/chat/search`, ({ request }) => {
     const url = new URL(request.url)
-    const q = (url.searchParams.get('q') ?? '').toLowerCase().trim()
+    const q = url.searchParams.get('q') ?? ''
     const channelFilter = url.searchParams.get('channel_id')
-    const channels = mockChannels.channels ?? []
-    const channelName = (id: string) => channels.find((c) => c.id === id)?.name ?? ''
-
-    const results: Record<string, unknown>[] = []
-    if (q.length >= 2) {
-      for (const [chId, bucket] of Object.entries(mockMessagesByChannel)) {
-        if (channelFilter && chId !== channelFilter) continue
-        const msgs = (bucket as { messages?: Array<Record<string, string>> }).messages ?? []
-        for (const m of msgs) {
-          const content = m.content ?? ''
-          const idx = content.toLowerCase().indexOf(q)
-          if (idx < 0) continue
-          const snippet =
-            content.slice(0, idx) +
-            '<mark>' +
-            content.slice(idx, idx + q.length) +
-            '</mark>' +
-            content.slice(idx + q.length)
-          results.push({
-            type: 'message',
-            id: m.id,
-            channel_id: chId,
-            channel_name: channelName(chId),
-            score: 1,
-            snippet,
-            created_at: m.created_at,
-            first_name: m.sender_first_name,
-            last_name: m.sender_last_name,
-          })
-        }
-      }
-    }
+    const results = store.searchMessages(q, channelFilter)
     return HttpResponse.json({ results, total: results.length })
   }),
 ]

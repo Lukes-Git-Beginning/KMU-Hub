@@ -92,6 +92,7 @@ export function useSendMessage() {
 
 /** Edit a message (author only). */
 export function useEditMessage() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
       const { data, error } = await apiClient.PUT('/api/v1/messages/{id}', {
@@ -101,17 +102,26 @@ export function useEditMessage() {
       if (error) throw new Error('Failed to edit message')
       return data
     },
+    // In demo mode there is no WebSocket push, so re-fetch to reflect the edit.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messageKeys.all })
+    },
   })
 }
 
 /** Delete a message (author or channel admin/owner). */
 export function useDeleteMessage() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (messageId: string) => {
       const { error } = await apiClient.DELETE('/api/v1/messages/{id}', {
         params: { path: { id: messageId } },
       })
       if (error) throw new Error('Failed to delete message')
+    },
+    // In demo mode there is no WebSocket push, so re-fetch to reflect the deletion.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messageKeys.all })
     },
   })
 }
