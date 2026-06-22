@@ -29,7 +29,7 @@ import type { RoleId } from '@/config/roles'
 import { CrmSettingsPanel } from './panels/CrmSettingsPanel'
 import { FinanceSettingsPanel } from './panels/FinanceSettingsPanel'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
-import { MailSettingsTab } from './tabs/MailSettingsTab'
+import { MailsSettingsPanel } from '@/modules/mails/settings/MailsSettingsPanel'
 import { KommunikationSettingsPanel } from '@/modules/kommunikation/KommunikationSettingsPanel'
 import { TeamSettingsPanel } from './panels/TeamSettingsPanel'
 import { WorkSettingsPanel } from './panels/WorkSettingsPanel'
@@ -79,7 +79,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'dialer', group: 'module', labelKey: 'moduleSettings.entries.dialer', icon: PhoneCall, navMatch: ['/dialer'], component: DialerSettingsPanel },
   { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsPanel },
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
-  { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailSettingsTab },
+  { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailsSettingsPanel },
   { id: 'kommunikation', group: 'module', labelKey: 'moduleSettings.entries.kommunikation', icon: MessagesSquare, navMatch: ['/kommunikation', '/chat'], component: KommunikationSettingsPanel },
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
   { id: 'work', group: 'module', labelKey: 'moduleSettings.entries.work', icon: KanbanSquare, navMatch: ['/work'], component: WorkSettingsPanel },

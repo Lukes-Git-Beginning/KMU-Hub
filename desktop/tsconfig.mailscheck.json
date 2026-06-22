@@ -19,6 +19,8 @@
     "src/renderer/src/modules/mails/AccountSwitcher.tsx",
     "src/renderer/src/modules/mails/RulesDialog.tsx",
     "src/renderer/src/modules/mails/MailCrmPanel.tsx",
+    "src/renderer/src/stores/mailPrefs.ts",
+    "src/renderer/src/modules/mails/settings/MailsSettingsPanel.tsx",
     "src/renderer/src/modules/mails/MailsPage.tsx"
   ]
 }
