@@ -139,6 +139,12 @@ const code = (language: string, source: string): SeedBlock => ({
   language,
   code: source,
 })
+const table = (cells: string[][], hasHeader = true): SeedBlock => ({
+  id: sbid('b'),
+  type: 'simpletable',
+  cells,
+  hasHeader,
+})
 
 /** One full-width row holding the given blocks. */
 const row = (...blocks: SeedBlock[]): SeedRow => ({
@@ -487,6 +493,15 @@ const ARTICLES: WikiArticle[] = [
           '<p>Jeder Deal durchläuft die Phasen von „Erstkontakt" bis „Abschluss". Aktivitäten ' +
             'halten die Historie fest.</p>',
         ),
+      ),
+      row(
+        table([
+          ['Phase', 'Ziel', 'Typische Dauer'],
+          ['Erstkontakt', 'Bedarf qualifizieren', '1–3 Tage'],
+          ['Angebot', 'Lösung und Preis abstimmen', '1–2 Wochen'],
+          ['Verhandlung', 'Konditionen finalisieren', '3–7 Tage'],
+          ['Abschluss', 'Vertrag unterzeichnen', '1–2 Tage'],
+        ]),
       ),
     ),
     author_id: IDS.users.laura,

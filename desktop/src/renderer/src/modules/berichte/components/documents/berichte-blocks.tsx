@@ -450,7 +450,7 @@ const byType = Object.fromEntries(core.map((d) => [d.type, d]))
 // comparison table and an editorial pull-quote. Toggle/attachment/bookmark stay
 // wiki-only (collapse and downloads don't translate to a printed report).
 const special = Object.fromEntries(
-  createSpecialBlockDefs({ only: ['code'] }).map((d) => [d.type, d]),
+  createSpecialBlockDefs({ only: ['code', 'simpletable'] }).map((d) => [d.type, d]),
 )
 
 /** Insert-menu order mirrors the original berichte block editor. */
@@ -463,6 +463,7 @@ export const berichteBlockRegistry: BlockRegistry = buildRegistry([
   byType.callout,
   byType.bullet,
   special.code,
+  special.simpletable,
   byType.image,
   byType.divider,
   pageBreakDef,

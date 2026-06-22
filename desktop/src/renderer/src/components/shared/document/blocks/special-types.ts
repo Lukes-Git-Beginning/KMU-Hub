@@ -29,5 +29,17 @@ export interface CodeBlock extends DocBlockBase {
   language: string
 }
 
+/**
+ * A hand-authored table (not query-backed — that is berichte's data `table`).
+ * `cells` is row-major and kept rectangular; the first row is the header when
+ * `hasHeader` is set.
+ */
+export interface SimpleTableBlock extends DocBlockBase {
+  type: 'simpletable'
+  cells: string[][]
+  /** Render the first row as a header. Default true. */
+  hasHeader?: boolean
+}
+
 /** The union of every special block type. Grows as blocks land. */
-export type SpecialBlock = ToggleBlock | CodeBlock
+export type SpecialBlock = ToggleBlock | CodeBlock | SimpleTableBlock

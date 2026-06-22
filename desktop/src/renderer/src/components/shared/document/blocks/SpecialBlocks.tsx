@@ -6,13 +6,23 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronRight, Code2, Copy, ListTree } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  Code2,
+  Copy,
+  ListTree,
+  Minus,
+  Plus,
+  Table2,
+  Trash2,
+} from 'lucide-react'
 import DOMPurify from 'dompurify'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { docUid } from '../types'
 import { defineBlock, type BlockEditProps, type BlockTypeDef, type BlockViewProps } from '../block-registry'
 import { CODE_LANGUAGES, highlightToReact } from './code-highlight'
-import type { CodeBlock, ToggleBlock } from './special-types'
+import type { CodeBlock, SimpleTableBlock, ToggleBlock } from './special-types'
 
 /** Copy-to-clipboard button with a brief "copied" confirmation. */
 function CopyButton({ value, className }: { value: string; className?: string }) {
@@ -162,6 +172,147 @@ function CodeView({ block }: BlockViewProps<CodeBlock>) {
   )
 }
 
+/* ------------------------------ simple table ------------------------------ */
+
+function SimpleTableEdit({ block, onPatch }: BlockEditProps<SimpleTableBlock>) {
+  const { t } = useTranslation()
+  const cells = block.cells
+  const cols = cells[0]?.length ?? 0
+  const hasHeader = block.hasHeader ?? true
+
+  const setCell = (r: number, c: number, value: string) => {
+    const next = cells.map((row) => row.slice())
+    next[r][c] = value
+    onPatch({ cells: next })
+  }
+  const addRow = () => onPatch({ cells: [...cells.map((r) => r.slice()), Array(cols).fill('')] })
+  const removeRow = (r: number) => onPatch({ cells: cells.filter((_, i) => i !== r) })
+  const addCol = () => onPatch({ cells: cells.map((r) => [...r, '']) })
+  const removeCol = (c: number) => onPatch({ cells: cells.map((r) => r.filter((_, j) => j !== c)) })
+
+  const cellCls =
+    'min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring'
+
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      <label className="flex w-fit cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={hasHeader}
+          onChange={(e) => onPatch({ hasHeader: e.target.checked })}
+          className="h-3.5 w-3.5 accent-primary"
+        />
+        {t('document.block.simpletable.header', { defaultValue: 'Kopfzeile' })}
+      </label>
+
+      {/* Per-column remove strip (aligned with the cells + trailing row-remove slot). */}
+      {cols > 1 && (
+        <div className="flex items-center gap-1">
+          {Array.from({ length: cols }).map((_, c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => removeCol(c)}
+              className="flex flex-1 items-center justify-center rounded-md py-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              aria-label={t('document.block.simpletable.removeColumn', { defaultValue: 'Spalte entfernen' })}
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+          ))}
+          <span className="w-7 shrink-0" />
+        </div>
+      )}
+
+      <div className="space-y-1">
+        {cells.map((row, r) => (
+          <div key={r} className="flex items-center gap-1">
+            {row.map((cell, c) => (
+              <input
+                key={c}
+                value={cell}
+                onChange={(e) => setCell(r, c, e.target.value)}
+                placeholder={
+                  r === 0 && hasHeader
+                    ? t('document.block.simpletable.headerCell', { defaultValue: 'Spaltentitel' })
+                    : t('document.block.simpletable.cell', { defaultValue: 'Zelle' })
+                }
+                className={`${cellCls} ${r === 0 && hasHeader ? 'bg-secondary/40 font-semibold' : ''}`}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => removeRow(r)}
+              disabled={cells.length <= 1}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              aria-label={t('document.block.simpletable.removeRow', { defaultValue: 'Zeile entfernen' })}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 pt-0.5">
+        <button
+          type="button"
+          onClick={addRow}
+          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Plus className="h-3 w-3" />
+          {t('document.block.simpletable.addRow', { defaultValue: 'Zeile' })}
+        </button>
+        <button
+          type="button"
+          onClick={addCol}
+          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Plus className="h-3 w-3" />
+          {t('document.block.simpletable.addColumn', { defaultValue: 'Spalte' })}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SimpleTableView({ block }: BlockViewProps<SimpleTableBlock>) {
+  const cells = block.cells
+  if (!cells.length || !cells[0]?.length) return null
+  const hasHeader = block.hasHeader ?? true
+  const header = hasHeader ? cells[0] : null
+  const bodyRows = hasHeader ? cells.slice(1) : cells
+  return (
+    <div className="report-keep overflow-x-auto rounded-xl border border-border-muted">
+      <table className="w-full border-collapse text-sm">
+        {header && (
+          <thead>
+            <tr>
+              {header.map((cell, i) => (
+                <th
+                  key={i}
+                  className="border-b border-border bg-secondary/50 px-3 py-2 text-left font-semibold text-foreground"
+                >
+                  {cell}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {bodyRows.map((row, r) => (
+            <tr key={r} className="border-b border-border-muted last:border-0">
+              {row.map((cell, i) => (
+                <td key={i} className="px-3 py-2 align-top text-foreground">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 /* ------------------------------ registry defs ----------------------------- */
 
 /**
@@ -188,6 +339,24 @@ const SPECIAL_DEFS: Record<string, BlockTypeDef> = {
     makeDefault: () => ({ id: docUid('b'), type: 'code', code: '', language: 'plaintext' }),
     Edit: CodeEdit,
     View: CodeView,
+  }),
+  simpletable: defineBlock<SimpleTableBlock>({
+    type: 'simpletable',
+    icon: Table2,
+    labelKey: 'document.block.simpletable.label',
+    group: 'content',
+    atomic: true,
+    makeDefault: () => ({
+      id: docUid('b'),
+      type: 'simpletable',
+      hasHeader: true,
+      cells: [
+        ['Spalte 1', 'Spalte 2'],
+        ['', ''],
+      ],
+    }),
+    Edit: SimpleTableEdit,
+    View: SimpleTableView,
   }),
 }
 
