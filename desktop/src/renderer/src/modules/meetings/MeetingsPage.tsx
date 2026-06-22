@@ -25,7 +25,6 @@ import { useMeetings, useJoinMeeting } from '@/api/hooks/useMeetings'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MeetingFormDialog } from './MeetingFormDialog'
 import { MeetingDetailPanel } from './MeetingDetailPanel'
-import { MeetingRoomView } from './MeetingRoomView'
 import { VideoCallView } from '@/features/video/VideoCallView'
 import type { IceServer } from '@/api/video-types'
 import { backendMeetingToUI } from './mappers'
@@ -97,7 +96,6 @@ export default function MeetingsPage() {
     () => (Array.isArray(apiMeetings) ? apiMeetings : []).map(backendMeetingToUI),
     [apiMeetings],
   )
-  const apiIds = useMemo(() => new Set(apiUIMeetings.map((m) => m.id)), [apiUIMeetings])
   const meetings = useMemo(
     () => [...apiUIMeetings, ...localMeetings],
     [apiUIMeetings, localMeetings],
@@ -112,10 +110,9 @@ export default function MeetingsPage() {
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null)
-  const [meetingRoomId, setMeetingRoomId] = useState<string | null>(null)
-  // Real LiveKit call overlay for backend meetings (token + ws_url + TURN
-  // ice_servers from the join response). Local mock meetings have no backend
-  // session and keep using the MeetingRoomView preview instead.
+  // Real LiveKit call overlay — VideoCallView is the sole in-call UI.
+  // Only backend meetings (apiIds) can be joined; local-store-only meetings
+  // are display-only since they have no server session.
   const [activeCall, setActiveCall] = useState<{
     callId: string
     token: string
@@ -123,19 +120,14 @@ export default function MeetingsPage() {
     iceServers?: IceServer[]
   } | null>(null)
 
-  // Backend meetings: join server-side (organizer auto-starts, attendees get a
-  // token) and mount the real VideoCallView. Local mock meetings just open the
-  // MeetingRoomView preview directly.
+  // All meetings are joinable via the backend. Local-store meetings that are
+  // not yet synced to the backend show a start-failed toast on join attempt.
   const handleJoin = (id: string) => {
-    if (apiIds.has(id)) {
-      joinMeetingMutation.mutate(id, {
-        onSuccess: (res) =>
-          setActiveCall({ callId: id, token: res.token, wsUrl: res.ws_url, iceServers: res.ice_servers }),
-        onError: () => toast.error(t('meetings.toast.startFailed')),
-      })
-    } else {
-      setMeetingRoomId(id)
-    }
+    joinMeetingMutation.mutate(id, {
+      onSuccess: (res) =>
+        setActiveCall({ callId: id, token: res.token, wsUrl: res.ws_url, iceServers: res.ice_servers }),
+      onError: () => toast.error(t('meetings.toast.startFailed')),
+    })
   }
 
   const filtered = meetings.filter((m) => {
@@ -156,7 +148,6 @@ export default function MeetingsPage() {
   ]
 
   const selectedMeeting = meetings.find((m) => m.id === selectedMeetingId) || null
-  const meetingRoomMeeting = meetings.find((m) => m.id === meetingRoomId)
   const deleteTarget = meetings.find((m) => m.id === deleteConfirmId)
   const cancelTarget = meetings.find((m) => m.id === cancelConfirmId)
 
@@ -405,16 +396,7 @@ export default function MeetingsPage() {
         onJoin={(id) => { setSelectedMeetingId(null); handleJoin(id) }}
       />
 
-      {/* Meeting Room — local mock meetings only (preview UI without LiveKit) */}
-      {meetingRoomMeeting && (
-        <MeetingRoomView
-          meeting={meetingRoomMeeting}
-          open={!!meetingRoomId}
-          onLeave={() => { setMeetingRoomId(null); toast.info(t('meetings.toast.left')) }}
-        />
-      )}
-
-      {/* Real LiveKit call — backend meetings, full-screen overlay */}
+      {/* LiveKit call -- full-screen overlay */}
       {activeCall && (
         <div className="fixed inset-0 z-[60] bg-background">
           <VideoCallView

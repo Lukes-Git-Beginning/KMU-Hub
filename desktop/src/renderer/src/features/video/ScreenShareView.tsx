@@ -7,6 +7,7 @@
  * When screen sharing ends the parent (VideoCallView) reverts to
  * the previous view mode (gallery or speaker).
  */
+import { useTranslation } from 'react-i18next'
 import {
   VideoTrack,
   ParticipantTile,
@@ -37,6 +38,10 @@ export function ScreenShareView({
   participantTracks,
   className,
 }: ScreenShareViewProps) {
+  const { t } = useTranslation()
+  const sharerName =
+    screenShareTrack.participant.name || screenShareTrack.participant.identity
+
   return (
     <div className={cn('flex h-full w-full gap-2 p-2', className)}>
       {/* Main area: screen share */}
@@ -46,7 +51,7 @@ export function ScreenShareView({
           className="h-full w-full object-contain"
         />
         <div className="absolute bottom-3 left-3 rounded bg-black/60 px-2 py-1 text-xs text-white backdrop-blur-sm">
-          {screenShareTrack.participant.name || screenShareTrack.participant.identity} teilt den Bildschirm
+          {t('features.video.screenShare.sharingLabel', { name: sharerName })}
         </div>
       </div>
 
