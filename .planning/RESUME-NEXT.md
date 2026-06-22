@@ -1,11 +1,11 @@
 # RESUME — nächster Einstieg (Stand 2026-06-22, Session-Ende)
 
-> **▶▶▶ NÄCHSTER BATCH GESCHNÜRT — direkt in NEUEM Terminal loslegen:**
-> - **SCHRITT 0 (beide Terminals):** `git pull --rebase origin main`.
-> - **HAUPT-Terminal** (`KMU Hub`, 5173) = **Paket A: kommunikation/chat → review-reif** → `.planning/batch-NEXT2-A-kommunikation.md` (KO-1…KO-10).
-> - **SUB-Terminal** (`KMU-Hub-review`, 5174) = **Paket B: formulare → review-reif** → `.planning/batch-NEXT2-B-formulare.md` (FO-1…FO-10).
-> - Ablauf je Terminal: **Recherche-Auftrag abarbeiten → gebündelte Gate-Fragen an Darien → erst dann autonom 10 Phasen bauen.** Disjunkt (A=`modules/kommunikation`+`chat.ts`, B=`modules/formulare`+`formulare.ts`); i18n getrennt (`kommunikation.*`/`chat.*` vs `formulare.*`).
-> **Paket-Wahl (Begründung):** beide FE-mock-first, disjunkt, KEINE offenen Reviews als Input. kommunikation (3-Panel da, kein Settings-Panel, DMs/Suche/Edit-Löschen offen) + formulare (P1 DnD/DSGVO/Mail + Tiefe). Alternative falls Darien P0 priorisiert: **security/DSGVO** statt formulare (aber backend-lastiger 🔒).
+> **✅✅ AKTUELLER BATCH FERTIG — Paket A kommunikation/chat → review-reif KOMPLETT** (KO-1…KO-10, Commits `e40d688f`…`5d40eede`). **Review-Paket: `.planning/kommunikation-REVIEW-paket.md`.** Stateful chat-store (+ „Unbekannt"-Sender-Bug gefixt), Gruppen-DMs, echte Thread-Antworten, Lesezeichen, Datei-Download+Bild-Vorschau, klickbare Suche+Jump, Unified „Alle ungelesenen"-Inbox, echte `/umfrage`+`/erinnerung`-Slash-Commands im Posteingang, Kanal-bearbeiten. i18n ×4 vollständig (chat.* 104, kommunikation.* 287), voller `eslint src/` grün. **Wartet auf Darien-Review → Findings als Fix-Phasen → Nico.** Scoped tsc: `tsconfig.kommunikationcheck.json`. QA: `desktop/scripts/qa-komm-ko{1..9}.mjs` + `qa-komm-ko10-holistic.mjs`. **Dev-Server lief auf 5173 (ggf. noch offen).**
+>
+> **▶▶▶ NÄCHSTER BATCH (in NEUEM Terminal schnüren):**
+> - **SCHRITT 0:** `git pull --rebase origin main`. Dann **Darien-Reviews** von kommunikation (Paket A) + formulare (Paket B, Sub-Terminal) einsammeln → Findings als Fix-Phasen in `MASTER-TRACKER.md`.
+> - **Kandidaten fürs nächste 2-Terminal-Paket** (aus `MASTER-TRACKER.md`): nächste ⬜-Module auf Markt-Parität (security/DSGVO 🔒backend-lastig, settings P2, weitere). Pakete disjunkt + i18n-getrennt halten.
+> - Ablauf wie gehabt: **Recherche → gebündelte Gate-Fragen an Darien → autonom 10 Phasen.**
 >
 > **✅ VORIGER BATCH FERTIG (beide):**
 > - **Paket A — mails → review-reif** (MA-1…MA-10, `e2213408`…`86de8f53`). Review-Paket: `.planning/mails-REVIEW-paket.md`. Stateful-MSW, Thread-Konversation+Inline-Bild+Zitat-Toggle, Multi-Account+Unified, Filter+Sort, Vorlagen-CRUD, Labels+Regeln, CRM-Panel, Bulk+Shortcuts, Settings-Panel. Wartet auf Darien-Review → dann Nico.
