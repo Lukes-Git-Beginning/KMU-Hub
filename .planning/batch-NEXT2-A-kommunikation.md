@@ -1,5 +1,8 @@
 # Batch-NEXT2 · Paket A (HAUPT-Terminal) — kommunikation/chat → review-reif
 
+> **✅ KOMPLETT — review-reif (2026-06-22).** Alle 10 Phasen (KO-1…KO-10) gebaut, gescopt typecheck + voller `eslint src/` grün, jede Phase Playwright-Screenshot-verifiziert. i18n ×4 vollständig (chat.* 104, kommunikation.* 287 Keys je Sprache, 0 fehlend, keine Doppelklammern). **Review-Paket: `.planning/kommunikation-REVIEW-paket.md`.** Commits `e40d688f`…(KO-10). Wartet auf Darien-Review → Findings als Fix-Phasen → Nico.
+
+
 > **10-Phasen-Autonom-Batch** ([[feedback_ten_phase_autonomous_batch]]). Fährt das **Haupt-Terminal** (`KMU Hub`, Port 5173).
 > **Disjunkt zu Paket B** (formulare, Sub-Terminal). Berührt NUR `modules/kommunikation/**`, `mocks/handlers/chat.ts`, `mocks/data/chat*.ts`, neu `modules/kommunikation/settings/**`, i18n-Keys `kommunikation.*` / `chat.*`.
 
@@ -28,16 +31,16 @@ Das **kommunikation/chat**-Modul (Team-Messaging, 3-Panel da) von „gebaut" auf
 
 > **Gate-Ergebnis:** Modul ist weiter als gedacht — Settings-Panel, 1:1-DMs, Suche, Reaktionen, Inline-Threads, @Mentions, Datei-Upload existieren bereits funktional. **Kern-Mangel = MSW NICHT stateful.** Darien-Entscheidungen: (1) Fokus = Demo-Tiefe/Stateful statt Neubau; (2) beide Bereiche (Team-Chat `modules/chat` + Posteingang `modules/kommunikation`); (3) Gruppenchats im **internen** Team-Chat bauen (extern = Anbindung); (4) `/poll`+`/reminder` echt machen, `/giphy` bleibt Stub.
 
-- [ ] **KO-1** **Fundament: `chat-store.ts`** (stateful, analog `email-store.ts`) — send/edit/delete/read/reactions persistieren In-Memory; `chat.ts`-Handler komplett auf Store umstellen (GET liest aus Store). Kern-Demo-Tiefe.
-- [ ] **KO-2** **Gruppen-DMs (intern):** Datenmodell `participants[]`, Multi-Personen-Picker, Gruppen-DM-Header/Avatare, stateful get-or-create.
-- [ ] **KO-3** **Threads wirksam + Seeds:** Thread-Replies im Store (senden persistiert), Seed-Replies für Demo-Tiefe (Panel nicht mehr leer).
-- [ ] **KO-4** **Bookmarks/Lesezeichen:** stateful Toggle an Nachricht, Bookmark-Panel (gespeicherte Nachrichten), klickbar→Jump.
-- [ ] **KO-5** **Datei-Download + Anhang-Tiefe:** echter Blob-Download aus `FileAttachmentCard`, Anhang-Seeds breiter, Bild-Vorschau.
-- [ ] **KO-6** **Suche klickbar (Jump-to-Result, scroll+highlight) + Unread persistiert** (read im Store, Badge bleibt weg).
-- [ ] **KO-7** **Unified Inbox „Alle ungelesenen"** über Kanäle + DMs (fokussiertes Abarbeiten im Team-Chat).
-- [ ] **KO-8** **Posteingang-Tiefe:** `/poll`+`/reminder` echt (stateful, im Thread sichtbar), `/giphy` sauber als Stub markiert, ganze Zeile klickbar, Stars persistieren, tote Buttons fixen.
-- [ ] **KO-9** **Kanal-Verwaltung wirksam:** create/rename/leave/join stateful + sichtbar, privat/öffentlich, `ChannelSettingsDialog` wirkt; Settings-Panel-Feinschliff.
-- [ ] **KO-10** **i18n ×4** (`kommunikation.*`/`chat.*`, `{var}`, ICU-Plural) + Demo-Tiefe-Schlusscheck + Playwright-QA + Screenshots WIRKLICH ansehen.
+- [x] **KO-1** **Fundament: `chat-store.ts`** (stateful, analog `email-store.ts`) — send/edit/delete/read/reactions persistieren In-Memory; `chat.ts`-Handler komplett auf Store umstellen (GET liest aus Store). Kern-Demo-Tiefe.
+- [x] **KO-2** **Gruppen-DMs (intern):** Datenmodell `participants[]`, Multi-Personen-Picker, Gruppen-DM-Header/Avatare, stateful get-or-create.
+- [x] **KO-3** **Threads wirksam + Seeds:** Thread-Replies im Store (senden persistiert), Seed-Replies für Demo-Tiefe (Panel nicht mehr leer).
+- [x] **KO-4** **Bookmarks/Lesezeichen:** stateful Toggle an Nachricht, Bookmark-Panel (gespeicherte Nachrichten), klickbar→Jump.
+- [x] **KO-5** **Datei-Download + Anhang-Tiefe:** echter Blob-Download aus `FileAttachmentCard`, Anhang-Seeds breiter, Bild-Vorschau.
+- [x] **KO-6** **Suche klickbar (Jump-to-Result, scroll+highlight) + Unread persistiert** (read im Store, Badge bleibt weg).
+- [x] **KO-7** **Unified Inbox „Alle ungelesenen"** über Kanäle + DMs (fokussiertes Abarbeiten im Team-Chat).
+- [x] **KO-8** **Posteingang-Tiefe:** `/poll`+`/reminder` echt (stateful, im Thread sichtbar), `/giphy` sauber als Stub markiert, ganze Zeile klickbar, Stars persistieren, tote Buttons fixen.
+- [x] **KO-9** **Kanal-Verwaltung wirksam:** create/rename/leave/join stateful + sichtbar, privat/öffentlich, `ChannelSettingsDialog` wirkt; Settings-Panel-Feinschliff.
+- [x] **KO-10** **i18n ×4** (`kommunikation.*`/`chat.*`, `{var}`, ICU-Plural) + Demo-Tiefe-Schlusscheck + Playwright-QA + Screenshots WIRKLICH ansehen.
 
 ## Disjunktheit / Konflikt-Vermeidung
 - **NUR** `modules/kommunikation/**`, `mocks/handlers/chat.ts`, `mocks/data/chat*.ts`, neu `modules/kommunikation/settings/**`.
