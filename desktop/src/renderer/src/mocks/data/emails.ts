@@ -72,6 +72,11 @@ export const mockEmailFolders = {
 // Email Messages
 // ---------------------------------------------------------------------------
 
+// A small valid embedded banner image (320x72 gradient) to demonstrate that
+// inline mail images render. Sanitised via sanitizeMailBody (raster data: only).
+const INLINE_BANNER =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAABICAYAAACHtCxzAAACyElEQVR4nO3U6zZUcQAHUG8w86QVyd0MiaKUSohSQverRJ7utM6aNc2c//wewIf9Yb/CHmtfLVf//Q0ua0sDF8Gf4LzUrdq/C2fBr+BnrdP0o/A9+FZarNpfgy/B58KnvoWBj8GH4H3hdH7USXAcvOub6zkK3gZvSrNV+7DwOngVHPTNDOwXXgZ7o1q706N2gheF7WFTPc+DZ8HTwlbtTtOT4HGw2TfZ8yh4GGwE67ebHgT3g7VhEz2rhXvBSnC3Nt60HCwVuqVbVasTLAYLhfnazaa5YDaYGXajak0HUwNjAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgAIUoAAFKEABClCAAhSgAAUoQAEKUIACFKAABShAAQpQgNcjwH+y+GojTVXzpgAAAABJRU5ErkJggg=='
+
 const inboxMessages = [
   {
     id: 'em-001',
@@ -496,6 +501,64 @@ const inboxMessages = [
     attachments: [],
     thread_id: 'th-020',
   },
+  // ─── Thread th-100: multi-message conversation (Nordwind GmbH) ───
+  {
+    id: 'em-021',
+    subject: 'Anfrage: Cosmi-Einführung für 35 Mitarbeiter',
+    from: { name: 'Klara Sommer', email: 'k.sommer@nordwind-gmbh.de' },
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
+    date: daysAgo(5),
+    snippet:
+      'Guten Tag Herr Vogel, wir sind auf Cosmi aufmerksam geworden und überlegen eine Einführung für unsere 35 Mitarbeiter...',
+    body_text:
+      'Guten Tag Herr Vogel,\n\nwir sind auf Cosmi aufmerksam geworden und überlegen eine Einführung für unsere 35 Mitarbeiter. Besonders interessieren uns das CRM und die EU-Datenhaltung.\n\nKönnten Sie uns erste Informationen und eine grobe Preisindikation zukommen lassen?\n\nMit freundlichen Grüßen\nKlara Sommer\nNordwind GmbH',
+    body_html:
+      '<p>Guten Tag Herr Vogel,</p><p>wir sind auf Cosmi aufmerksam geworden und überlegen eine Einführung für unsere 35 Mitarbeiter. Besonders interessieren uns das CRM und die EU-Datenhaltung.</p><p>Könnten Sie uns erste Informationen und eine grobe Preisindikation zukommen lassen?</p><p>Mit freundlichen Grüßen<br/>Klara Sommer<br/>Nordwind GmbH</p>',
+    folder_id: IDS.emailFolders.inbox,
+    is_read: true,
+    is_starred: false,
+    has_attachments: false,
+    attachments: [],
+    thread_id: 'th-100',
+  },
+  {
+    id: 'em-022',
+    subject: 'RE: Cosmi-Einführung für 35 Mitarbeiter',
+    from: { name: 'Klara Sommer', email: 'k.sommer@nordwind-gmbh.de' },
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
+    date: daysAgo(3),
+    snippet:
+      'Vielen Dank für die schnelle Antwort! Eine Rückfrage noch zur Migration unserer bestehenden Kontakte...',
+    body_text:
+      'Vielen Dank für die schnelle Antwort!\n\nEine Rückfrage noch: Wie aufwändig ist die Migration unserer bestehenden Kontakte aus Outlook? Und gibt es eine Testphase?\n\nViele Grüße\nKlara Sommer',
+    body_html:
+      `<p><img src="${INLINE_BANNER}" alt="Nordwind GmbH"/></p><p>Vielen Dank für die schnelle Antwort!</p><p>Eine Rückfrage noch: Wie aufwändig ist die Migration unserer bestehenden Kontakte aus Outlook? Und gibt es eine Testphase?</p><p>Viele Grüße<br/>Klara Sommer</p>`,
+    folder_id: IDS.emailFolders.inbox,
+    is_read: true,
+    is_starred: false,
+    has_attachments: false,
+    attachments: [],
+    thread_id: 'th-100',
+  },
+  {
+    id: 'em-023',
+    subject: 'RE: Cosmi-Einführung für 35 Mitarbeiter',
+    from: { name: 'Klara Sommer', email: 'k.sommer@nordwind-gmbh.de' },
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
+    date: hoursAgo(5),
+    snippet:
+      'Das Angebot überzeugt uns. Wir möchten gerne mit der Testphase starten — wie sind die nächsten Schritte?',
+    body_text:
+      'Hallo Herr Vogel,\n\ndas Angebot überzeugt uns. Wir möchten gerne mit der 30-tägigen Testphase starten. Wie sind die nächsten Schritte und was benötigen Sie von uns?\n\nWir freuen uns auf die Zusammenarbeit!\n\nBeste Grüße\nKlara Sommer\nNordwind GmbH',
+    body_html:
+      '<p>Hallo Herr Vogel,</p><p>das Angebot überzeugt uns. Wir möchten gerne mit der 30-tägigen Testphase starten. Wie sind die nächsten Schritte und was benötigen Sie von uns?</p><p>Wir freuen uns auf die Zusammenarbeit!</p><p>Beste Grüße<br/>Klara Sommer<br/>Nordwind GmbH</p>',
+    folder_id: IDS.emailFolders.inbox,
+    is_read: false,
+    is_starred: true,
+    has_attachments: false,
+    attachments: [],
+    thread_id: 'th-100',
+  },
 ]
 
 const sentMessages = [
@@ -602,6 +665,56 @@ const sentMessages = [
     has_attachments: false,
     attachments: [],
     thread_id: 'th-021',
+  },
+  // ─── Thread th-100: our replies (with quoted history) ───
+  {
+    id: 'em-s-006',
+    subject: 'RE: Cosmi-Einführung für 35 Mitarbeiter',
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
+    to: [{ name: 'Klara Sommer', email: 'k.sommer@nordwind-gmbh.de' }],
+    date: daysAgo(4),
+    snippet:
+      'Guten Tag Frau Sommer, vielen Dank für Ihr Interesse! Cosmi ist für KMUs wie Ihres ideal...',
+    body_text:
+      'Guten Tag Frau Sommer,\n\nvielen Dank für Ihr Interesse! Cosmi ist für KMUs wie Ihres ideal — CRM, EU-Hosting und alle Module aus einer Hand. Für 35 Mitarbeiter liegen wir je nach Modulauswahl bei ca. EUR 14–18/User/Monat.\n\nGerne stelle ich Ihnen ein konkretes Angebot zusammen.\n\nMit freundlichen Grüßen\nStefan Vogel',
+    body_html:
+      '<p>Guten Tag Frau Sommer,</p><p>vielen Dank für Ihr Interesse! Cosmi ist für KMUs wie Ihres ideal — CRM, EU-Hosting und alle Module aus einer Hand. Für 35 Mitarbeiter liegen wir je nach Modulauswahl bei ca. EUR 14–18/User/Monat.</p><p>Gerne stelle ich Ihnen ein konkretes Angebot zusammen.</p><p>Mit freundlichen Grüßen<br/>Stefan Vogel</p><hr><p><em>Am ' +
+      daysAgo(5) +
+      ' schrieb Klara Sommer:</em></p><blockquote><p>Guten Tag Herr Vogel, wir sind auf Cosmi aufmerksam geworden und überlegen eine Einführung für unsere 35 Mitarbeiter. Besonders interessieren uns das CRM und die EU-Datenhaltung.</p></blockquote>',
+    folder_id: IDS.emailFolders.sent,
+    is_read: true,
+    is_starred: false,
+    has_attachments: false,
+    attachments: [],
+    thread_id: 'th-100',
+  },
+  {
+    id: 'em-s-007',
+    subject: 'RE: Cosmi-Einführung für 35 Mitarbeiter',
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
+    to: [{ name: 'Klara Sommer', email: 'k.sommer@nordwind-gmbh.de' }],
+    date: daysAgo(2),
+    snippet:
+      'Anbei das versprochene Angebot. Die Migration aus Outlook übernehmen wir, eine 30-tägige Testphase ist inklusive...',
+    body_text:
+      'Hallo Frau Sommer,\n\nanbei das versprochene Angebot. Die Migration Ihrer Outlook-Kontakte übernehmen wir kostenfrei beim Onboarding. Eine 30-tägige Testphase ist selbstverständlich inklusive.\n\nMelden Sie sich gerne bei Fragen.\n\nViele Grüße\nStefan Vogel',
+    body_html:
+      '<p>Hallo Frau Sommer,</p><p>anbei das versprochene Angebot. Die Migration Ihrer Outlook-Kontakte übernehmen wir kostenfrei beim Onboarding. Eine 30-tägige Testphase ist selbstverständlich inklusive.</p><p>Melden Sie sich gerne bei Fragen.</p><p>Viele Grüße<br/>Stefan Vogel</p><hr><p><em>Am ' +
+      daysAgo(3) +
+      ' schrieb Klara Sommer:</em></p><blockquote><p>Vielen Dank für die schnelle Antwort! Eine Rückfrage noch zur Migration unserer bestehenden Kontakte aus Outlook?</p></blockquote>',
+    folder_id: IDS.emailFolders.sent,
+    is_read: true,
+    is_starred: false,
+    has_attachments: true,
+    attachments: [
+      {
+        id: 'att-100',
+        filename: 'Angebot_Nordwind_Cosmi_2026.pdf',
+        size: 312000,
+        content_type: 'application/pdf',
+      },
+    ],
+    thread_id: 'th-100',
   },
 ]
 

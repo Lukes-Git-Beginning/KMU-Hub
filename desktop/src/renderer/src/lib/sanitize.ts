@@ -66,6 +66,30 @@ export function sanitizeHtml(raw: string, config?: DOMPurify.Config): string {
   })
 }
 
+/**
+ * URI regexp for mail bodies: same as the default safe set, but additionally
+ * permits inline raster image data URIs (base64 PNG/JPEG/GIF/WebP). These are
+ * standard in email (embedded/CID images) and cannot execute. SVG and other
+ * data: payloads remain blocked.
+ */
+const MAIL_BODY_URI_REGEXP =
+  /^(?:(?:https?|mailto|tel):|data:image\/(?:png|jpe?g|gif|webp);base64,|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/i
+
+/**
+ * Sanitize an email message body. Like {@link sanitizeHtml} but allows inline
+ * raster images (data:image base64) so embedded mail images render. Use ONLY
+ * for rendering received mail content, never for user-authored HTML.
+ */
+export function sanitizeMailBody(raw: string): string {
+  return purify.sanitize(raw, {
+    ALLOWED_TAGS: DEFAULT_ALLOWED_TAGS,
+    ALLOWED_ATTR: DEFAULT_ALLOWED_ATTR,
+    FORBID_TAGS: DEFAULT_FORBID_TAGS,
+    FORBID_ATTR: DEFAULT_FORBID_ATTR,
+    ALLOWED_URI_REGEXP: MAIL_BODY_URI_REGEXP,
+  })
+}
+
 const STRICT_ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'span']
 
 /**

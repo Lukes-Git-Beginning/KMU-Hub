@@ -270,7 +270,11 @@ export function listMessages(params: ListMessagesExtra): ListMessagesResponse {
   const page = params.page ?? 1
   const perPage = params.per_page ?? 50
   const start = (page - 1) * perPage
-  return { messages: list.slice(start, start + perPage), total }
+  const slice = list.slice(start, start + perPage).map((m) => ({
+    ...m,
+    thread_count: state.messages.filter((x) => x.thread_id === m.thread_id).length,
+  }))
+  return { messages: slice, total }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import {
   Mail,
@@ -43,6 +42,7 @@ import {
   useTriggerSync,
   useSyncStatus,
   useEmailContactLinks,
+  useEmailThread,
 } from '@/api/hooks/useEmail'
 import type { EmailMessageInfo } from '@/api/email-types'
 import type { ComposeMode } from '@/stores/mails'
@@ -51,13 +51,14 @@ import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/compo
 import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
 import { userHasRole } from '@/config/roles'
 import { downloadAttachment, printMessage, exportMessageEml } from './lib/mail-export'
+import { ThreadView } from './ThreadView'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { formatDate, formatTime } from '@/lib/format'
+import { formatTime } from '@/lib/format'
 
 const folderIcons: Record<string, typeof Inbox> = {
   inbox: Inbox,
@@ -176,6 +177,21 @@ export default function MailsPage() {
 
   const { data: messagesData, isLoading: messagesLoading } = useEmailMessages(messagesParams)
   const messages = messagesData?.messages ?? []
+  const accountEmail = accountData?.account?.email_address ?? ''
+
+  // Collapse the list to one row per thread (newest message represents it).
+  // `messages` is already sorted newest-first, so the first hit per thread wins.
+  const threadRows = useMemo(() => {
+    const seen = new Set<string>()
+    const rows: EmailMessageInfo[] = []
+    for (const m of messages) {
+      if (!seen.has(m.thread_id)) {
+        seen.add(m.thread_id)
+        rows.push(m)
+      }
+    }
+    return rows
+  }, [messages])
 
   // Sync
   const { data: syncStatusData } = useSyncStatus(accountId)
@@ -193,6 +209,10 @@ export default function MailsPage() {
 
   const selectedMessage = messages.find((m) => m.id === selectedMessageId) ?? null
   const deleteTarget = messages.find((m) => m.id === deleteConfirmId)
+
+  // Full conversation for the selected message's thread (across folders).
+  const { data: threadData } = useEmailThread(selectedMessage?.thread_id ?? '')
+  const threadMessages = threadData?.messages ?? (selectedMessage ? [selectedMessage] : [])
 
   const handleSelectMessage = (msg: EmailMessageInfo) => {
     setSelectedMessageId(msg.id)
@@ -404,7 +424,7 @@ export default function MailsPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
-            {!messagesLoading && messages.map((msg) => (
+            {!messagesLoading && threadRows.map((msg) => (
               <div
                 key={msg.id}
                 className={`group flex w-full items-start gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer ${
@@ -424,8 +444,13 @@ export default function MailsPage() {
                       <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime(msg.date)}</span>
                     </div>
                   </div>
-                  <p className={`text-sm truncate ${!msg.is_read ? 'font-medium text-foreground' : 'text-text-body'}`}>
-                    {msg.subject}
+                  <p className={`flex items-center gap-1.5 text-sm truncate ${!msg.is_read ? 'font-medium text-foreground' : 'text-text-body'}`}>
+                    <span className="truncate">{msg.subject}</span>
+                    {(msg.thread_count ?? 0) > 1 && (
+                      <span className="shrink-0 rounded-full bg-secondary px-1.5 text-[10px] font-medium text-muted-foreground">
+                        {msg.thread_count}
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.preview}</p>
                   <div className="flex items-center gap-2 mt-1">
@@ -457,7 +482,7 @@ export default function MailsPage() {
                 </div>
               </div>
             ))}
-            {!messagesLoading && messages.length === 0 && (
+            {!messagesLoading && threadRows.length === 0 && (
               <EmptyState
                 icon={Mail}
                 title={t('mails.empty.title')}
@@ -531,23 +556,13 @@ export default function MailsPage() {
 
             {/* Detail body */}
             <div className="flex-1 overflow-y-auto px-6 py-4">
-              <h2 className="text-foreground mb-4">{selectedMessage.subject}</h2>
-              <div className="flex items-start gap-3 mb-6">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
-                  {getInitials(selectedMessage.from)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{selectedMessage.from.name || selectedMessage.from.email}</span>
-                    <span className="text-xs text-muted-foreground truncate">&lt;{selectedMessage.from.email}&gt;</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t('mails.detail.to')}: {selectedMessage.to.map((a) => a.name || a.email).join(', ')}
-                    {selectedMessage.cc.length > 0 && ` · Cc: ${selectedMessage.cc.map((a) => a.name || a.email).join(', ')}`}
-                    {' · '}
-                    {formatDate(selectedMessage.date)} {t('mails.detail.at')} {formatTime(selectedMessage.date)}
-                  </p>
-                </div>
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-foreground">{selectedMessage.subject}</h2>
+                {threadMessages.length > 1 && (
+                  <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {t('mails.thread.count', { count: threadMessages.length })}
+                  </span>
+                )}
               </div>
 
               {/* CRM link badge */}
@@ -578,44 +593,15 @@ export default function MailsPage() {
                 ) : null
               })()}
 
-              {/* HTML body or text fallback */}
-              {selectedMessage.body_html ? (
-                <div
-                  className="text-sm text-text-body leading-relaxed prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedMessage.body_html) }}
-                />
-              ) : (
-                <div className="text-sm text-text-body whitespace-pre-line leading-relaxed">
-                  {selectedMessage.body_text}
-                </div>
-              )}
-
-              {/* Attachments */}
-              {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
-                <div className="mt-6 border-t border-border pt-4">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    {t('mails.detail.attachments')} ({selectedMessage.attachments.length})
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedMessage.attachments.map((att) => (
-                      <button
-                        key={att.id}
-                        onClick={() => {
-                          downloadAttachment(att, selectedMessage.subject)
-                          toast.success(t('mails.toast.downloading', { filename: att.filename }))
-                        }}
-                        className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 hover:bg-secondary hover:shadow-sm transition-all"
-                      >
-                        <Paperclip className="h-4 w-4 text-muted-foreground" />
-                        <div className="text-left">
-                          <p className="text-sm text-foreground">{att.filename}</p>
-                          <p className="text-[10px] text-muted-foreground">{(att.size_bytes / 1024).toFixed(0)} KB</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Conversation thread (newest expanded, older collapsed) */}
+              <ThreadView
+                messages={threadMessages}
+                selfEmail={accountEmail}
+                onDownloadAttachment={(att, subject) => {
+                  downloadAttachment(att, subject)
+                  toast.success(t('mails.toast.downloading', { filename: att.filename }))
+                }}
+              />
 
               {/* Quick reply */}
               <div className="mt-6 border-t border-border pt-4">

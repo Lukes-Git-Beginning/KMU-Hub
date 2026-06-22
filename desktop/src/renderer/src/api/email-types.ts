@@ -141,6 +141,8 @@ export interface EmailMessageInfo {
   updated_at: string
   /** Label ids assigned to this message (client-side demo classification). */
   label_ids?: string[]
+  /** Total number of messages in this thread across all folders (list grouping). */
+  thread_count?: number
 }
 
 export interface ListMessagesParams {

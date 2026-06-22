@@ -8,8 +8,11 @@
     "src/renderer/src/api/email-client.ts",
     "src/renderer/src/api/hooks/useEmail.ts",
     "src/renderer/src/mocks/data/email-store.ts",
+    "src/renderer/src/mocks/data/emails.ts",
     "src/renderer/src/mocks/handlers/email.ts",
+    "src/renderer/src/lib/sanitize.ts",
     "src/renderer/src/modules/mails/lib/mail-export.ts",
+    "src/renderer/src/modules/mails/ThreadView.tsx",
     "src/renderer/src/modules/mails/MailsPage.tsx"
   ]
 }
