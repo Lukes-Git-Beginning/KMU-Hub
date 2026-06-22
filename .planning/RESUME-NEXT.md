@@ -1,6 +1,10 @@
 # RESUME — nächster Einstieg (Stand 2026-06-22, Session-Ende)
 
-> **▶▶ MORGEN FRÜH — die zwei 10-Phasen-Pakete sind GESCHNÜRT, direkt loslegen:**
+> **✅ PAKET A (Haupt-Terminal) FERTIG — mails → review-reif.** Alle 10 Phasen (MA-1…MA-10) gebaut, je tsc+eslint+Playwright-QA grün, gepusht (`e2213408`…`86de8f53`). **Review-Paket: `.planning/mails-REVIEW-paket.md`.** Wartet auf Darien-Review → Findings als Fix-Phasen → dann Nico.
+> Highlights: Stateful-MSW (read/star/move/delete persistieren), Thread-Konversation + Inline-Bild + Zitat-Toggle, Multi-Account + Unified Inbox, Filter+Sort, Vorlagen-CRUD + Platzhalter, Labels + Wenn-Dann-Regeln, CRM-Panel (Verknüpfen/Deal/Aktivität), Bulk + Gmail-Shortcuts, Settings-Panel (ModuleSettingsShell).
+> **▶ Paket B (Sub-Terminal, Block-Engine) läuft separat weiter.** Nach beiden Reviews: Findings als neue Phasen in `MASTER-TRACKER.md`, frisches Terminal.
+
+> **▶▶ (ARCHIV — Batch-Vorgabe, erledigt für Paket A):**
 > - **SCHRITT 0 (beide Terminals):** `git pull --rebase origin main` (Luke pusht nachts — heute schon LiveKit).
 > - **HAUPT-Terminal** (`KMU Hub`, 5173) = **Paket A: mails → review-reif** → `.planning/batch-NEXT-A-mails.md` (MA-1…MA-10).
 > - **SUB-Terminal** (`KMU-Hub-review`, 5174) = **Paket B: Block-Engine Spezialblöcke + Diagramm-Datenquellen** → `.planning/batch-NEXT-B-blockengine.md` (DB-1…DB-10).
