@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import {
@@ -16,8 +16,20 @@ import {
   UserPlus,
   CreditCard,
   Search,
+  Plus,
+  Pencil,
+  Trash2,
+  ArrowLeft,
+  Save,
+  User as UserIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import {
+  useMailTemplatesStore,
+  extractPlaceholders,
+  fillPlaceholders,
+  type UserTemplate,
+} from '@/stores/mailTemplates'
 
 // ---------------------------------------------------------------------------
 // Template definitions
@@ -175,44 +187,224 @@ interface EmailTemplateDialogProps {
   onSelect: (template: { subject: string; body: string }) => void
 }
 
-export function EmailTemplateDialog({
-  open,
-  onOpenChange,
-  onSelect,
-}: EmailTemplateDialogProps) {
+interface DisplayTemplate {
+  id: string
+  name: string
+  category: string
+  subject: string
+  body: string
+  placeholders: string[]
+  builtin: boolean
+  icon: LucideIcon
+}
+
+type Mode = 'browse' | 'editor' | 'fill'
+type EditorForm = { id?: string; name: string; category: UserTemplate['category']; subject: string; body: string }
+
+const CATEGORIES: UserTemplate['category'][] = ['vertrieb', 'kommunikation', 'finanzen']
+
+// ── Right-panel: preview ─────────────────────────────────────────
+function TemplatePreview({ template }: { template: DisplayTemplate }) {
   const { t } = useTranslation()
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs text-muted-foreground mb-1">{t('mails.compose.subject')}</p>
+        <p className="text-sm font-medium text-foreground">{template.subject}</p>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground mb-2">{t('mails.templates.preview')}</p>
+        <div
+          className="rounded-lg border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none text-sm"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(template.body) }}
+        />
+      </div>
+      {template.placeholders.length > 0 && (
+        <div>
+          <p className="text-xs text-muted-foreground mb-1.5">{t('mails.templates.placeholders')}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {template.placeholders.map((p) => (
+              <span key={p} className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-mono text-amber-700 dark:text-amber-300">
+                {`{{${p}}}`}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Right-panel: create / edit a user template ───────────────────
+function TemplateEditor({ form, setForm }: { form: EditorForm; setForm: (f: EditorForm) => void }) {
+  const { t } = useTranslation()
+  const inputCls = 'w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-focus-ring'
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">{t('mails.templates.fieldName', { defaultValue: 'Name' })}</label>
+        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">{t('mails.templates.fieldCategory', { defaultValue: 'Kategorie' })}</label>
+        <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as UserTemplate['category'] })} className={inputCls}>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{t(categoryLabelKeys[c])}</option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">{t('mails.compose.subject')}</label>
+        <input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className={inputCls} />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">{t('mails.templates.fieldBody', { defaultValue: 'Inhalt (HTML)' })}</label>
+        <textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={9} className={`${inputCls} resize-none font-mono text-xs`} />
+        <p className="text-[10px] text-muted-foreground">{t('mails.templates.placeholderHint', { defaultValue: 'Doppelte geschweifte Klammern markieren Platzhalter — sie werden beim Einfügen abgefragt.' })}</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Right-panel: fill placeholders before inserting ──────────────
+function PlaceholderFill({
+  template,
+  values,
+  setValues,
+}: {
+  template: DisplayTemplate
+  values: Record<string, string>
+  setValues: (v: Record<string, string>) => void
+}) {
+  const { t } = useTranslation()
+  const preview = fillPlaceholders(template.body, values)
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5">{t('mails.templates.fillTitle', { defaultValue: 'Platzhalter ausfüllen' })}</p>
+        <div className="space-y-2">
+          {template.placeholders.map((p) => (
+            <div key={p} className="flex items-center gap-2">
+              <span className="w-24 shrink-0 font-mono text-xs text-amber-700 dark:text-amber-300">{`{{${p}}}`}</span>
+              <input
+                value={values[p] ?? ''}
+                onChange={(e) => setValues({ ...values, [p]: e.target.value })}
+                placeholder={p}
+                className="flex-1 rounded-md border border-border bg-background px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground mb-2">{t('mails.templates.preview')}</p>
+        <div className="rounded-lg border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(preview) }} />
+      </div>
+    </div>
+  )
+}
+
+export function EmailTemplateDialog({ open, onOpenChange, onSelect }: EmailTemplateDialogProps) {
+  const { t } = useTranslation()
+  const userTemplates = useMailTemplatesStore((s) => s.userTemplates)
+  const addTemplate = useMailTemplatesStore((s) => s.addTemplate)
+  const updateTemplate = useMailTemplatesStore((s) => s.updateTemplate)
+  const removeTemplate = useMailTemplatesStore((s) => s.removeTemplate)
+
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [mode, setMode] = useState<Mode>('browse')
+  const [form, setForm] = useState<EditorForm>({ name: '', category: 'kommunikation', subject: '', body: '' })
+  const [fillValues, setFillValues] = useState<Record<string, string>>({})
 
-  const filtered = templates.filter(
-    (tpl) =>
-      !search ||
-      t(tpl.nameKey).toLowerCase().includes(search.toLowerCase()) ||
-      tpl.category.includes(search.toLowerCase()),
+  // Merge built-in + user templates into a single display list
+  const allTemplates: DisplayTemplate[] = useMemo(() => {
+    const builtins: DisplayTemplate[] = templates.map((tpl) => ({
+      id: tpl.id,
+      name: t(tpl.nameKey),
+      category: tpl.category,
+      subject: t(tpl.subjectKey),
+      body: tpl.body,
+      placeholders: tpl.placeholders,
+      builtin: true,
+      icon: tpl.icon,
+    }))
+    const users: DisplayTemplate[] = userTemplates.map((tpl) => ({
+      id: tpl.id,
+      name: tpl.name,
+      category: tpl.category,
+      subject: tpl.subject,
+      body: tpl.body,
+      placeholders: extractPlaceholders(tpl.subject, tpl.body),
+      builtin: false,
+      icon: UserIcon,
+    }))
+    return [...users, ...builtins]
+  }, [t, userTemplates])
+
+  const filtered = allTemplates.filter(
+    (tpl) => !search || tpl.name.toLowerCase().includes(search.toLowerCase()) || tpl.category.includes(search.toLowerCase()),
   )
+  const selected = allTemplates.find((tpl) => tpl.id === selectedId) ?? null
 
-  const selected = templates.find((tpl) => tpl.id === selectedId)
+  const grouped = filtered.reduce((acc, tpl) => {
+    ;(acc[tpl.category] ??= []).push(tpl)
+    return acc
+  }, {} as Record<string, DisplayTemplate[]>)
 
-  const handleInsert = () => {
-    if (!selected) return
-    onSelect({ subject: t(selected.subjectKey), body: selected.body })
+  const resetAndClose = () => {
     onOpenChange(false)
     setSelectedId(null)
     setSearch('')
+    setMode('browse')
+    setFillValues({})
   }
 
-  // Group by category
-  const grouped = filtered.reduce(
-    (acc, tpl) => {
-      if (!acc[tpl.category]) acc[tpl.category] = []
-      acc[tpl.category].push(tpl)
-      return acc
-    },
-    {} as Record<string, EmailTemplate[]>,
-  )
+  const startInsert = () => {
+    if (!selected) return
+    if (selected.placeholders.length > 0) {
+      setFillValues(Object.fromEntries(selected.placeholders.map((p) => [p, ''])))
+      setMode('fill')
+    } else {
+      onSelect({ subject: selected.subject, body: selected.body })
+      resetAndClose()
+    }
+  }
+
+  const confirmFill = () => {
+    if (!selected) return
+    onSelect({
+      subject: fillPlaceholders(selected.subject, fillValues),
+      body: fillPlaceholders(selected.body, fillValues),
+    })
+    resetAndClose()
+  }
+
+  const startNew = () => {
+    setForm({ name: '', category: 'kommunikation', subject: '', body: '' })
+    setMode('editor')
+  }
+  const startEdit = (tpl: DisplayTemplate) => {
+    setForm({ id: tpl.id, name: tpl.name, category: tpl.category as UserTemplate['category'], subject: tpl.subject, body: tpl.body })
+    setMode('editor')
+  }
+  const saveForm = () => {
+    if (!form.name.trim()) return
+    if (form.id) {
+      updateTemplate(form.id, { name: form.name, category: form.category, subject: form.subject, body: form.body })
+    } else {
+      const created = addTemplate({ name: form.name, category: form.category, subject: form.subject, body: form.body })
+      setSelectedId(created.id)
+    }
+    setMode('browse')
+  }
+  const deleteUser = (id: string) => {
+    removeTemplate(id)
+    if (selectedId === id) setSelectedId(null)
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(o) : resetAndClose())}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{t('mails.templates.title')}</DialogTitle>
@@ -221,6 +413,12 @@ export function EmailTemplateDialog({
         <div className="flex flex-1 overflow-hidden gap-4 min-h-0">
           {/* Left: template list */}
           <div className="w-64 shrink-0 flex flex-col border-r border-border pr-4 overflow-hidden">
+            <button
+              onClick={startNew}
+              className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              <Plus className="h-4 w-4" /> {t('mails.templates.new', { defaultValue: 'Neue Vorlage' })}
+            </button>
             <div className="relative mb-3">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
@@ -232,82 +430,65 @@ export function EmailTemplateDialog({
               />
             </div>
             <div className="flex-1 overflow-y-auto space-y-4">
-              {Object.entries(grouped).map(([category, items]) => (
+              {CATEGORIES.filter((c) => grouped[c]?.length).map((category) => (
                 <div key={category}>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                    {categoryLabelKeys[category] ? t(categoryLabelKeys[category]) : category}
+                    {t(categoryLabelKeys[category])}
                   </p>
                   <div className="space-y-0.5">
-                    {items.map((tpl) => {
+                    {grouped[category].map((tpl) => {
                       const Icon = tpl.icon
                       return (
-                        <button
+                        <div
                           key={tpl.id}
-                          onClick={() => setSelectedId(tpl.id)}
-                          className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors ${
-                            selectedId === tpl.id
-                              ? 'bg-primary-light text-primary font-medium'
-                              : 'text-foreground hover:bg-secondary'
+                          className={`group flex items-center gap-1 rounded-md pr-1 transition-colors ${
+                            selectedId === tpl.id ? 'bg-primary-light' : 'hover:bg-secondary'
                           }`}
                         >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          {t(tpl.nameKey)}
-                        </button>
+                          <button
+                            onClick={() => { setSelectedId(tpl.id); setMode('browse') }}
+                            className={`flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-sm ${
+                              selectedId === tpl.id ? 'text-primary font-medium' : 'text-foreground'
+                            }`}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{tpl.name}</span>
+                          </button>
+                          {!tpl.builtin && (
+                            <div className="flex shrink-0 items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => startEdit(tpl)} className="rounded p-1 text-muted-foreground hover:text-foreground" aria-label={t('common.edit', { defaultValue: 'Bearbeiten' })}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button onClick={() => deleteUser(tpl.id)} className="rounded p-1 text-muted-foreground hover:text-error" aria-label={t('common.delete')}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
                 </div>
               ))}
               {filtered.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {t('mails.templates.noResults')}
-                </p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('mails.templates.noResults')}</p>
               )}
             </div>
           </div>
 
-          {/* Right: preview */}
+          {/* Right: preview / editor / fill */}
           <div className="flex-1 overflow-y-auto">
-            {selected ? (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">{t('mails.compose.subject')}</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {t(selected.subjectKey)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {t('mails.templates.preview')}
-                  </p>
-                  <div
-                    className="rounded-lg border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none text-sm"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.body) }}
-                  />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">
-                    {t('mails.templates.placeholders')}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selected.placeholders.map((p) => (
-                      <span
-                        key={p}
-                        className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-mono text-amber-700 dark:text-amber-300"
-                      >
-                        {`{{${p}}}`}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            {mode === 'editor' ? (
+              <TemplateEditor form={form} setForm={setForm} />
+            ) : mode === 'fill' && selected ? (
+              <PlaceholderFill template={selected} values={fillValues} setValues={setFillValues} />
+            ) : selected ? (
+              <TemplatePreview template={selected} />
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground">
                 <div className="text-center">
                   <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">
-                    {t('mails.templates.selectFromList')}
-                  </p>
+                  <p className="text-sm">{t('mails.templates.selectFromList')}</p>
                 </div>
               </div>
             )}
@@ -316,13 +497,37 @@ export function EmailTemplateDialog({
 
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-3 border-t border-border">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button onClick={handleInsert} disabled={!selected}>
-            <FileText className="h-4 w-4 mr-1.5" />
-            {t('mails.compose.insertTemplate')}
-          </Button>
+          {mode === 'editor' ? (
+            <>
+              <Button variant="outline" onClick={() => setMode('browse')}>
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={saveForm} disabled={!form.name.trim()}>
+                <Save className="h-4 w-4 mr-1.5" />
+                {t('common.save', { defaultValue: 'Speichern' })}
+              </Button>
+            </>
+          ) : mode === 'fill' ? (
+            <>
+              <Button variant="outline" onClick={() => setMode('browse')}>
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                {t('common.back', { defaultValue: 'Zurück' })}
+              </Button>
+              <Button onClick={confirmFill}>
+                <FileText className="h-4 w-4 mr-1.5" />
+                {t('mails.compose.insertTemplate')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={resetAndClose}>{t('common.cancel')}</Button>
+              <Button onClick={startInsert} disabled={!selected}>
+                <FileText className="h-4 w-4 mr-1.5" />
+                {t('mails.compose.insertTemplate')}
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

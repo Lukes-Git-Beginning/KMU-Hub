@@ -12,6 +12,9 @@
     "src/renderer/src/mocks/handlers/email.ts",
     "src/renderer/src/lib/sanitize.ts",
     "src/renderer/src/modules/mails/lib/mail-export.ts",
+    "src/renderer/src/modules/mails/EmailTemplateDialog.tsx",
+    "src/renderer/src/modules/mails/ComposeInline.tsx",
+    "src/renderer/src/stores/mailTemplates.ts",
     "src/renderer/src/modules/mails/ThreadView.tsx",
     "src/renderer/src/modules/mails/AccountSwitcher.tsx",
     "src/renderer/src/modules/mails/MailsPage.tsx"
