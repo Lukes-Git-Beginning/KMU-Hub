@@ -15,6 +15,7 @@ import { MessageInput } from './messages/MessageInput'
 import { ThreadPanel } from './threads/ThreadPanel'
 import { ChannelSearchPanel } from './channels/ChannelSearchPanel'
 import { MentionsPanel } from './MentionsPanel'
+import { BookmarksPanel } from './BookmarksPanel'
 import { ChannelMemberList } from '@/components/chat/ChannelMemberList'
 import { useNavigationStore } from '@/stores/navigation'
 
@@ -27,11 +28,13 @@ export default function ChatLayout() {
   const [showMembers, setShowMembers] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [showMentions, setShowMentions] = useState(false)
+  const [showBookmarks, setShowBookmarks] = useState(false)
 
   const handleSelectChannel = (id: string) => {
     setSelectedChannelId(id)
     setSelectedThreadMessageId(null)
     setShowMentions(false)
+    setShowBookmarks(false)
   }
 
   const handleLeftChannel = () => {
@@ -55,12 +58,13 @@ export default function ChatLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent])
 
-  // Thread, members, search and mentions share the right slot — keep them mutually exclusive.
+  // Thread, members, search, mentions and bookmarks share the right slot — keep them mutually exclusive.
   const handleOpenThread = (messageId: string) => {
     setSelectedThreadMessageId(messageId)
     setShowMembers(false)
     setShowSearch(false)
     setShowMentions(false)
+    setShowBookmarks(false)
   }
 
   const handleCloseThread = () => {
@@ -72,6 +76,7 @@ export default function ChatLayout() {
     setSelectedThreadMessageId(null)
     setShowSearch(false)
     setShowMentions(false)
+    setShowBookmarks(false)
   }
 
   const handleToggleSearch = () => {
@@ -79,6 +84,7 @@ export default function ChatLayout() {
     setSelectedThreadMessageId(null)
     setShowMembers(false)
     setShowMentions(false)
+    setShowBookmarks(false)
   }
 
   const handleToggleMentions = () => {
@@ -86,6 +92,15 @@ export default function ChatLayout() {
     setSelectedThreadMessageId(null)
     setShowMembers(false)
     setShowSearch(false)
+    setShowBookmarks(false)
+  }
+
+  const handleToggleBookmarks = () => {
+    setShowBookmarks((v) => !v)
+    setSelectedThreadMessageId(null)
+    setShowMembers(false)
+    setShowSearch(false)
+    setShowMentions(false)
   }
 
   return (
@@ -97,6 +112,8 @@ export default function ChatLayout() {
           onSelectChannel={handleSelectChannel}
           mentionsActive={showMentions}
           onToggleMentions={handleToggleMentions}
+          bookmarksActive={showBookmarks}
+          onToggleBookmarks={handleToggleBookmarks}
         />
       </aside>
 
@@ -163,6 +180,16 @@ export default function ChatLayout() {
         <div className="w-[320px] shrink-0">
           <MentionsPanel
             onClose={() => setShowMentions(false)}
+            onSelectChannel={handleSelectChannel}
+          />
+        </div>
+      )}
+
+      {/* Bookmarks panel (cross-channel saved messages) */}
+      {showBookmarks && !selectedThreadMessageId && (
+        <div className="w-[320px] shrink-0">
+          <BookmarksPanel
+            onClose={() => setShowBookmarks(false)}
             onSelectChannel={handleSelectChannel}
           />
         </div>

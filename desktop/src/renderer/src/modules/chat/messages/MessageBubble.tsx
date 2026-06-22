@@ -11,7 +11,7 @@ import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { MessageSquare, Pencil, Trash2, SmilePlus } from 'lucide-react'
+import { MessageSquare, Pencil, Trash2, SmilePlus, Bookmark } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { UserProfileTrigger } from '@/components/user/UserProfileCard'
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/tooltip'
 import { usePresenceStore } from '@/stores/presence'
 import { useToggleReaction } from '@/api/hooks/useReactions'
+import { useToggleBookmark } from '@/api/hooks/useBookmarks'
 import { ReactionBar } from './ReactionBar'
 import type { Reaction } from './ReactionBar'
 import { ReactionPicker } from './ReactionPicker'
@@ -62,6 +63,8 @@ export function MessageBubble({ message, isOwn, reactionSummaries, currentUserId
   const [draft, setDraft] = useState('')
   const presenceMap = usePresenceStore((s) => s.presenceMap)
   const toggleReactionMutation = useToggleReaction()
+  const toggleBookmarkMutation = useToggleBookmark()
+  const bookmarked = Boolean((message as { bookmarked?: boolean }).bookmarked)
 
   // Convert ReactionSummary[] (batch-fetched by parent) to Reaction[] for ReactionBar.
   // Falls back to empty array when summaries are not yet available.
@@ -282,6 +285,22 @@ export function MessageBubble({ message, isOwn, reactionSummaries, currentUserId
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t('chat.messages.reply')}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('h-6 w-6', bookmarked && 'text-primary')}
+                onClick={() => message.id && toggleBookmarkMutation.mutate(message.id)}
+              >
+                <Bookmark className={cn('h-3.5 w-3.5', bookmarked && 'fill-current')} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {bookmarked ? t('chat.bookmarks.remove') : t('chat.bookmarks.add')}
+            </TooltipContent>
           </Tooltip>
 
           {isOwn && (

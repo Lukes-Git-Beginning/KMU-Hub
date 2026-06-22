@@ -6,7 +6,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Hash, Plus, Search, AtSign, Users, PenSquare } from 'lucide-react'
+import { Hash, Plus, Search, AtSign, Users, PenSquare, Bookmark } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
 import { usePresenceStore } from '@/stores/presence'
@@ -31,9 +31,11 @@ interface ChannelListProps {
   onSelectChannel: (id: string) => void
   mentionsActive?: boolean
   onToggleMentions?: () => void
+  bookmarksActive?: boolean
+  onToggleBookmarks?: () => void
 }
 
-export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive, onToggleMentions }: ChannelListProps) {
+export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive, onToggleMentions, bookmarksActive, onToggleBookmarks }: ChannelListProps) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -90,6 +92,19 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
         >
           <AtSign className="h-4 w-4 shrink-0" />
           <span className="flex-1 truncate text-left">{t('chat.mentions.title')}</span>
+        </button>
+        <button
+          onClick={onToggleBookmarks}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+            bookmarksActive
+              ? 'bg-secondary text-secondary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )}
+          aria-pressed={bookmarksActive}
+        >
+          <Bookmark className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate text-left">{t('chat.bookmarks.title')}</span>
         </button>
       </div>
 
