@@ -7,8 +7,9 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Hash, Users, Search, MoreVertical, LogOut, UserPlus } from 'lucide-react'
+import { Hash, Users, Search, MoreVertical, LogOut, UserPlus, Pencil } from 'lucide-react'
 import { useChannel, useChannelMembers, useJoinChannel, useLeaveChannel } from '@/api/hooks/useChannels'
+import { EditChannelDialog } from './EditChannelDialog'
 import { useTypingIndicator } from '@/api/hooks/useMessages'
 import { Button } from '@/components/ui/button'
 import {
@@ -50,12 +51,14 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers, searc
   const joinChannel = useJoinChannel()
   const leaveChannel = useLeaveChannel()
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
 
   const channel = channelData?.channel
   const memberCount = membersData?.total ?? channel?.member_count ?? 0
   const isDM = channel?.is_dm ?? false
   const isMember = !!channel?.my_role
   const isOwner = channel?.my_role === 'owner'
+  const canEdit = !isDM && (isOwner || channel?.my_role === 'admin')
   const canJoin = !isMember && !isDM && !channel?.is_private
 
   const typingText = getTypingText(typingUsers, t)
@@ -142,6 +145,12 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers, searc
                 <TooltipContent>{t('chat.header.menu')}</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end">
+                {canEdit && (
+                  <DropdownMenuItem onSelect={() => setShowEdit(true)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    {t('chat.editChannel.menuItem')}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   disabled={isOwner}
@@ -188,6 +197,8 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers, searc
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditChannelDialog open={showEdit} onOpenChange={setShowEdit} channel={channel} />
     </div>
   )
 }

@@ -6,6 +6,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
+import { API_BASE_URL } from '@/lib/constants'
 import type { components } from '@/api/types'
 
 type ChannelInfo = components['schemas']['ChannelInfo']
@@ -86,6 +87,37 @@ export function useCreateChannel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: channelKeys.lists() })
+    },
+  })
+}
+
+/**
+ * Update a channel's name / description / privacy (owner or admin). The PATCH
+ * endpoint is demo-only, so this uses a raw fetch (MSW intercepts).
+ */
+export function useUpdateChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...patch
+    }: {
+      id: string
+      name?: string
+      description?: string
+      is_private?: boolean
+    }) => {
+      const res = await fetch(`${API_BASE_URL}/api/v1/channels/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) throw new Error('Failed to update channel')
+      return (await res.json()) as { channel: ChannelInfo }
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: channelKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: channelKeys.detail(vars.id) })
     },
   })
 }
