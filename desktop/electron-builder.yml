@@ -13,7 +13,10 @@ files:
 win:
   target: nsis
   icon: build/icon.ico
-  signAndEditExecutable: false
+  # true → electron-builder editiert die .exe via rcedit (brennt Icon + Version
+  # ein). Bei false bleibt das Electron-Default-Icon. Signieren passiert nur mit
+  # konfiguriertem Zertifikat (sonst übersprungen) — der Icon-Edit greift trotzdem.
+  signAndEditExecutable: true
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
