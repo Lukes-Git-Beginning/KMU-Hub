@@ -82,6 +82,37 @@ try {
   await pageN.waitForTimeout(9000)
   await shot(pageN, '7-narrow-settled')
   await ctxN.close()
+
+  // ── 4) Fall A — Startup-Splash auf #/ (Logo-Intro → Fly-in → Dashboard) ──
+  // DEV_BYPASS_AUTH (vite dev) gilt als „mit Token": initStartupLaunch() legt
+  // das Overlay vor dem ersten Frame über das ladende Dashboard.
+  const ctxA = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  await ctxA.addInitScript(ELECTRON_STUB)
+  await ctxA.addInitScript(SUPPRESS_ONBOARDING)
+  const pageA = await ctxA.newPage()
+  pageA.on('pageerror', (e) => out.pageErrors.push('startup:' + String(e).split('\n')[0]))
+  await pageA.goto(`${BASE}/#/`, { waitUntil: 'domcontentloaded', timeout: 25000 })
+  out.startupOverlayAtBoot = await pageA.locator('.cosmi-startup').first().isVisible().catch(() => false)
+  await pageA.waitForTimeout(1700);  await shot(pageA, 'A1-intro-gather')
+  await pageA.waitForTimeout(2100);  await shot(pageA, 'A2-intro-cform')     // ~3.8s
+  await pageA.waitForTimeout(2600);  await shot(pageA, 'A3-intro-wordmark')  // ~6.4s
+  await pageA.waitForTimeout(1000);  await shot(pageA, 'A4-flyin')           // ~7.4s (Zoom)
+  await pageA.waitForTimeout(1600);  await shot(pageA, 'A5-revealed')        // Overlay weg
+  out.startupOverlayGone = !(await pageA.locator('.cosmi-startup').first().isVisible().catch(() => true))
+  await ctxA.close()
+
+  // ── 5) Fall B — geteilte Fly-in-Animation isoliert (#/flyin-preview) ─────
+  const ctxB = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  await ctxB.addInitScript(ELECTRON_STUB)
+  await ctxB.addInitScript(SUPPRESS_ONBOARDING)
+  const pageB = await ctxB.newPage()
+  pageB.on('pageerror', (e) => out.pageErrors.push('flyin:' + String(e).split('\n')[0]))
+  await pageB.goto(`${BASE}/#/flyin-preview`, { waitUntil: 'domcontentloaded', timeout: 25000 })
+  await pageB.waitForTimeout(160);  await shot(pageB, 'B1-flyin-start')
+  await pageB.waitForTimeout(560);  await shot(pageB, 'B2-flyin-mid')
+  await pageB.waitForTimeout(1300); await shot(pageB, 'B3-revealed')
+  out.flyinOverlayGone = !(await pageB.locator('.cosmi-startup').first().isVisible().catch(() => true))
+  await ctxB.close()
 } catch (err) {
   out.error = String(err).split('\n')[0]
 }

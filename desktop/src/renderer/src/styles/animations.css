@@ -360,6 +360,8 @@
 :root {
   --dur-launch-settle: 1100ms;  /* Logo: Mitte → rechts */
   --dur-launch-form:    560ms;   /* Login-Fenster fade-in */
+  --dur-flyin:          1200ms;  /* Öffnungs-/Flug-Animation rein ins Dashboard */
+  --ease-flyin:         cubic-bezier(0.42, 0, 1, 1);  /* ease-in: nach vorn beschleunigen */
 }
 
 /* Sanft twinkelnde Sterne im Weltraum-Hintergrund (SpaceBackground).
@@ -448,6 +450,53 @@
 }
 
 /* ════════════════════════
+   APP-WEITE ÖFFNUNG — Fly-in/Zoom über dem Router (LaunchOverlay)
+   Liegt opak über Route-Wechsel + Suspense-Fallback und maskiert so den
+   weißen Skelett-Flash. Beim Reinfliegen rauscht das Logo nach vorn + faded,
+   die Szene gibt das (dahinter geladene) Dashboard frei. Nur transform/opacity.
+   ════════════════════════ */
+.cosmi-startup {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #090c14; /* opak ab erstem Frame → Flash maskiert (= SpaceBackground BG_DARK) */
+  overflow: hidden;
+}
+
+/* Logo bildschirm-zentriert über der Szene */
+.cosmi-startup-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  will-change: transform, opacity;
+}
+
+/* Fly-in aktiv: die ganze Weltraum-Szene rauscht nach vorn (subtile Skalierung
+   + fade), das Logo führt den Flug mit stärkerem Zoom an und blendet beim
+   „Vorbeifliegen" aus → dahinter wird das Dashboard frei. Damit der Flug
+   LESBAR ist: Skalierung wächst sichtbar, während das Logo noch opak ist; die
+   Opazität fällt erst im letzten Drittel. Beschleunigung via ease-in-Kurve. */
+.cosmi-startup.is-flying {
+  animation: cosmi-flyin-scene var(--dur-flyin) var(--ease-flyin) both;
+}
+.cosmi-startup-logo.is-flying {
+  animation: cosmi-flyin-zoom var(--dur-flyin) var(--ease-flyin) both;
+}
+
+@keyframes cosmi-flyin-scene {
+  0%   { opacity: 1; transform: scale(1); }
+  45%  { opacity: 1; }          /* maskieren, bis das Dashboard dahinter geladen ist */
+  100% { opacity: 0; transform: scale(1.45); } /* dann freigeben, ganze Szene fliegt mit */
+}
+@keyframes cosmi-flyin-zoom {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  55%  { opacity: 1; }          /* bis hierhin voll sichtbar → der Zoom-Zuwachs ist lesbar */
+  100% { transform: translate(-50%, -50%) scale(4); opacity: 0; } /* rauscht vorbei + faded */
+}
+
+/* ════════════════════════
    REDUCED MOTION
    ════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
@@ -498,5 +547,17 @@
 
   .cosmi-star {
     animation: none !important;
+  }
+
+  /* Defensiv: Fly-in wird unter reduced-motion gar nicht erst gestartet
+     (Boot-Guard + LoginPage). Falls die Klassen doch greifen → sofort rein,
+     kein Zoom; der JS-Fallback-Timer schließt das Overlay. */
+  .cosmi-startup.is-flying {
+    animation: none !important;
+    opacity: 0;
+  }
+  .cosmi-startup-logo.is-flying {
+    animation: none !important;
+    opacity: 0;
   }
 }

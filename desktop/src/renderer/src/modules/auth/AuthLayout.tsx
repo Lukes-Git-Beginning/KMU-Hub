@@ -89,8 +89,9 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   )
 }
 
-/** Statische Marke für reduced-motion / Wiederbesuch (kein Re-Play der Formung). */
-function StaticBrandMark() {
+/** Statische Marke für reduced-motion / Wiederbesuch (kein Re-Play der Formung).
+ *  Auch vom Fly-in-Overlay (Fall B) als zentriertes Logo wiederverwendet. */
+export function StaticBrandMark() {
   return (
     <div className="flex select-none flex-col items-center gap-4">
       <img

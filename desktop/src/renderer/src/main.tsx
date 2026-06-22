@@ -9,6 +9,7 @@ import { onlineManager } from '@tanstack/react-query'
 import './styles/globals.css'
 import App from './App'
 import { useAuthStore } from './stores/auth'
+import { initStartupLaunch } from './stores/launch'
 
 // Clear stale query cache in demo mode.
 startDemoMode()
@@ -33,6 +34,10 @@ onlineManager.setEventListener((setOnline) => {
 // This runs asynchronously -- the App component shows a loading state
 // while isLoading is true in the auth store.
 useAuthStore.getState().initialize()
+
+// Decide the startup opening animation (Fall A) BEFORE first render so the
+// overlay covers frame one and masks the Suspense/skeleton flash.
+initStartupLaunch()
 
 const root = document.getElementById('root')
 if (root) {

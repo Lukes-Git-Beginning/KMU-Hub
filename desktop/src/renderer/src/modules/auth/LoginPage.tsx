@@ -15,6 +15,7 @@ import { useState, useCallback, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
+import { useLaunchStore, prefersReducedMotion } from '@/stores/launch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -41,7 +42,15 @@ export default function LoginPage() {
 
   const login = useAuthStore((s) => s.login)
   const complete2FALogin = useAuthStore((s) => s.complete2FALogin)
+  const startFlyin = useLaunchStore((s) => s.startFlyin)
   const navigate = useNavigate()
+
+  /** Fall B: gemeinsame Fly-in-/Öffnungs-Animation über das ladende Dashboard
+   *  legen (sofern Motion erlaubt), dann zur App navigieren. */
+  const enterDashboard = useCallback(() => {
+    if (!prefersReducedMotion()) startFlyin()
+    navigate('/', { replace: true })
+  }, [startFlyin, navigate])
 
   const handleCredentialsSubmit = useCallback(
     async (e: FormEvent) => {
@@ -51,8 +60,8 @@ export default function LoginPage() {
 
       try {
         await login(email, password, rememberMe)
-        // If we get here without 2FA, login succeeded -- redirect
-        navigate('/', { replace: true })
+        // If we get here without 2FA, login succeeded -- fly into the app
+        enterDashboard()
       } catch (err) {
         if (err instanceof Error && err.message === '2FA_REQUIRED') {
           // Login returned a pending token -- switch to 2FA prompt
@@ -70,7 +79,7 @@ export default function LoginPage() {
         setIsSubmitting(false)
       }
     },
-    [email, password, rememberMe, login, navigate, t],
+    [email, password, rememberMe, login, enterDashboard, t],
   )
 
   const handle2FASubmit = useCallback(
@@ -82,7 +91,7 @@ export default function LoginPage() {
 
       try {
         await complete2FALogin(pendingToken, totpCode, rememberMe)
-        navigate('/', { replace: true })
+        enterDashboard()
       } catch (err) {
         setError(
           err instanceof Error
@@ -93,7 +102,7 @@ export default function LoginPage() {
         setIsSubmitting(false)
       }
     },
-    [pendingToken, totpCode, rememberMe, complete2FALogin, navigate, t],
+    [pendingToken, totpCode, rememberMe, complete2FALogin, enterDashboard, t],
   )
 
   const handleBackToCredentials = useCallback(() => {

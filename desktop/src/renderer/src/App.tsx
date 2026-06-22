@@ -23,6 +23,8 @@ import RegisterPage from '@/modules/auth/RegisterPage'
 import ForgotPasswordPage from '@/modules/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/modules/auth/ResetPasswordPage'
 import { IdleLock } from '@/modules/auth/IdleLock'
+import { LaunchOverlay } from '@/modules/auth/LaunchOverlay'
+import { useLaunchStore } from '@/stores/launch'
 import { DEV_PROFILES } from '@/config/roles'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
@@ -174,6 +176,23 @@ function lazyRoute(Component: React.LazyExoticComponent<() => JSX.Element>, vari
   )
 }
 
+/**
+ * Dev-/QA-only: löst die geteilte Fly-in-/Öffnungs-Animation (Fall B) isoliert
+ * über einem repräsentativen Dashboard-Hintergrund aus, damit der Übergang ohne
+ * echten Login screenshot-bar ist. In Produktions-Builds nicht registriert.
+ */
+function FlyinPreview() {
+  const startFlyin = useLaunchStore((s) => s.startFlyin)
+  useEffect(() => {
+    startFlyin()
+  }, [startFlyin])
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-background text-muted-foreground">
+      <span className="text-sm">Dashboard-Hintergrund (Fly-in-Preview)</span>
+    </div>
+  )
+}
+
 // Hash router -- Electron loads from file:// in production, which
 // breaks HTML5 history API. Hash routing (#/crm, #/chat) works everywhere.
 /** Catch-all error boundary so a failed lazy-load or bad route doesn't blank the screen */
@@ -301,7 +320,13 @@ const router = createHashRouter([
   },
   // Dev-/QA-only: Login-Screen ohne GuestRoute ansehbar (DEV_BYPASS_AUTH leitet
   // /login sonst auf / um). In Produktions-Builds nicht registriert.
-  ...(import.meta.env.DEV ? [{ path: '/launch-preview', element: <LoginPage /> }] : []),
+  ...(import.meta.env.DEV
+    ? [
+        { path: '/launch-preview', element: <LoginPage /> },
+        // Fly-in-/Öffnungs-Animation (Fall B) isoliert ansehen/screenshotten.
+        { path: '/flyin-preview', element: <FlyinPreview /> },
+      ]
+    : []),
   {
     path: '/compose-window',
     element: lazyRoute(ComposeWindowPage),
@@ -338,6 +363,9 @@ export default function App() {
       <I18nProvider>
         <TooltipProvider>
           <RouterProvider router={router} />
+          {/* App-weites Öffnungs-/Flug-Overlay — maskiert den Suspense-Flash
+              beim Übergang ins Dashboard (Fall A Startup + Fall B post-login). */}
+          <LaunchOverlay />
           <Toaster richColors position="bottom-right" closeButton />
           <NotificationToast />
           <OfflineBanner />
