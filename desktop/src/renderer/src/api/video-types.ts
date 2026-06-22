@@ -321,6 +321,31 @@ export interface ReactionSummaryApiResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Meeting chat entities (Wave 2)
+// ---------------------------------------------------------------------------
+
+/** A persisted chat message for a meeting (POST/GET /api/v1/meetings/{id}/chat). */
+export interface MeetingChatMessage {
+  id: string
+  meeting_id: string
+  sender_id: string
+  /** Display hint — authoritative identity is sender_id; use this only as fallback. */
+  sender_name: string
+  message: string
+  /** ISO-8601 string */
+  created_at: string
+}
+
+export interface MeetingChatHistoryResponse {
+  messages: MeetingChatMessage[]
+}
+
+export interface SendMeetingChatMessageRequest {
+  message: string
+  sender_name: string
+}
+
+// ---------------------------------------------------------------------------
 // Incoming call data (for WebSocket push)
 // ---------------------------------------------------------------------------
 

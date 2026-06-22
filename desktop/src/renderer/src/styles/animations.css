@@ -421,6 +421,32 @@
   }
 }
 
+/* ── Reaction Float (for in-call emoji reactions — content layer, not UI chrome) ──
+   GPU-only: animates exclusively transform + opacity.
+   --rx: horizontal drift offset (set inline per reaction instance). */
+@keyframes reaction-float {
+  0% {
+    opacity: 1;
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-24px) translateX(var(--rx, 0px)) scale(1.15);
+  }
+  80% {
+    opacity: 0.7;
+    transform: translateY(-80px) translateX(calc(var(--rx, 0px) * 1.6)) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-120px) translateX(calc(var(--rx, 0px) * 2)) scale(0.8);
+  }
+}
+
+.animate-reaction-float {
+  animation: reaction-float 2200ms var(--ease-out-ui) both;
+}
+
 /* ════════════════════════
    REDUCED MOTION
    ════════════════════════ */
@@ -443,7 +469,8 @@
   .page-exit,
   .page-enter-up,
   .anim-check-circle,
-  .anim-check-tick {
+  .anim-check-tick,
+  .animate-reaction-float {
     animation: none !important;
   }
 

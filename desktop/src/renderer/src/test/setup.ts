@@ -38,6 +38,10 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 }
 
+// Polyfill scrollIntoView — jsdom lacks it, but components that auto-scroll
+// (chat panels, autocomplete, time pickers) call it on render and throw without this stub.
+Element.prototype.scrollIntoView = vi.fn()
+
 // Mock import.meta.env
 vi.stubEnv('RENDERER_VITE_API_URL', 'http://localhost:8080')
 

@@ -35,6 +35,9 @@ import type {
   ToggleReactionResponse,
   ListReactionsApiResponse,
   ReactionSummaryApiResponse,
+  MeetingChatMessage,
+  MeetingChatHistoryResponse,
+  SendMeetingChatMessageRequest,
 } from './video-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
@@ -238,3 +241,21 @@ export const getReactionSummary = (messageIds: string[]) =>
   post<ReactionSummaryApiResponse>('/api/v1/messages/reactions/summary', {
     message_ids: messageIds,
   })
+
+// ---------------------------------------------------------------------------
+// Meeting Chat (Wave 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the persisted chat history for a meeting (up to 100 messages, ascending by created_at).
+ * Called once on join — live messages during the session come via LiveKit useChat DataChannel.
+ */
+export const getMeetingChatHistory = (meetingId: string) =>
+  get<MeetingChatHistoryResponse>(`/api/v1/meetings/${meetingId}/chat`, { limit: 100 })
+
+/**
+ * Persist a chat message for a meeting (fire-and-forget; live delivery via useChat).
+ * sender_id is resolved server-side from the JWT; sender_name is a display hint only.
+ */
+export const sendMeetingChatMessage = (meetingId: string, req: SendMeetingChatMessageRequest) =>
+  post<MeetingChatMessage>(`/api/v1/meetings/${meetingId}/chat`, req)

@@ -25,3 +25,8 @@ export type { IncomingCallOverlayProps } from './IncomingCallOverlay'
 
 export { RecordingConsentDialog } from './RecordingConsentDialog'
 export type { RecordingConsentDialogProps } from './RecordingConsentDialog'
+
+export { InCallChat } from './InCallChat'
+export type { InCallChatProps } from './InCallChat'
+
+export { ReactionLayer, ReactionPicker, useReactionChannel } from './ReactionLayer'

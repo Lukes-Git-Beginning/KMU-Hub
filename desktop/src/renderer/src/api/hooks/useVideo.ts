@@ -21,8 +21,10 @@ import {
   stopRecording,
   setRecordingConsent,
   confirmInitiatorConsent,
+  getMeetingChatHistory,
+  sendMeetingChatMessage,
 } from '../video-client'
-import type { CreateCallRequest, RecordingStatus, ConsentSnapshotEntry, UpdateRecordingMetadataRequest } from '../video-types'
+import type { CreateCallRequest, RecordingStatus, ConsentSnapshotEntry, UpdateRecordingMetadataRequest, SendMeetingChatMessageRequest } from '../video-types'
 
 // Terminal states — polling stops when one of these is reached.
 const RECORDING_TERMINAL_STATES: RecordingStatus[] = ['completed', 'failed', 'deleted']
@@ -291,5 +293,36 @@ export function useListRecordingsByMeeting(
         page_size: opts?.pageSize,
       }),
     enabled: !!meetingId,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Meeting Chat hooks (Wave 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the persisted chat history for a meeting once on join.
+ * Live messages during the session arrive via LiveKit useChat DataChannel.
+ * This query is fetched once (staleTime: Infinity) — no mid-session refetch.
+ */
+export function useMeetingChatHistory(meetingId: string) {
+  return useQuery({
+    queryKey: ['meetings', meetingId, 'chat'],
+    queryFn: () => getMeetingChatHistory(meetingId),
+    enabled: !!meetingId,
+    staleTime: Infinity,
+    select: (data) => data.messages,
+  })
+}
+
+/**
+ * Persist a chat message to the backend (fire-and-forget from the UI perspective).
+ * The live delivery to peers happens via LiveKit useChat; this mutation just ensures
+ * the message is stored in the DB for future reference.
+ */
+export function useSaveMeetingChatMessage(meetingId: string) {
+  return useMutation({
+    mutationFn: (req: SendMeetingChatMessageRequest) =>
+      sendMeetingChatMessage(meetingId, req),
   })
 }

@@ -11,7 +11,7 @@
  * Uses LiveKit hooks to read and toggle local track state.
  * Visual indicators: red dot when recording, highlight when sharing screen.
  */
-import { useCallback, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import {
   useLocalParticipant,
   useRoomContext,
@@ -36,13 +36,18 @@ export interface CallControlsProps {
   className?: string
   /** Called when the user clicks the device-settings button (1.2). */
   onOpenDeviceSelector?: () => void
+  /**
+   * Optional leading controls rendered before the mic button.
+   * Used by VideoCallView (Wave 2) to inject hand-raise + reaction picker.
+   */
+  leadingControls?: React.ReactNode
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function CallControls({ callId, onLeave, className, onOpenDeviceSelector }: CallControlsProps) {
+export function CallControls({ callId, onLeave, className, onOpenDeviceSelector, leadingControls }: CallControlsProps) {
   const room = useRoomContext()
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant()
@@ -148,6 +153,14 @@ export function CallControls({ callId, onLeave, className, onOpenDeviceSelector 
         className,
       )}
     >
+      {/* Leading controls slot (Wave 2: hand-raise, reactions) */}
+      {leadingControls && (
+        <>
+          {leadingControls}
+          <div className="mx-1 h-8 w-px bg-zinc-700" />
+        </>
+      )}
+
       {/* Mute / Unmute Mic */}
       <ControlButton
         active={isMicrophoneEnabled}

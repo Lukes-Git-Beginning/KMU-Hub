@@ -35,6 +35,7 @@ import {
   useLocalParticipant,
   useRoomContext,
   useConnectionQualityIndicator,
+  useDataChannel,
   isTrackReference,
   type TrackReferenceOrPlaceholder,
 } from '@livekit/components-react'
@@ -46,7 +47,21 @@ import type { IceServer } from '@/api/video-types'
 import { CallControls } from './CallControls'
 import { RecordingActiveBanner } from './RecordingActiveBanner'
 import { ScreenShareView } from './ScreenShareView'
+import { InCallChat } from './InCallChat'
+import { ReactionLayer, ReactionPicker, useReactionChannel } from './ReactionLayer'
 import { cn } from '@/lib'
+
+// ---------------------------------------------------------------------------
+// Hand-raise DataChannel topic & payload
+// ---------------------------------------------------------------------------
+
+const HAND_TOPIC = 'cosmi-hand'
+
+interface HandPayload {
+  type: 'hand'
+  raised: boolean
+  identity: string
+}
 
 // Public STUN fallback used alongside any self-hosted TURN servers so plain NAT
 // traversal still works when TURN is not configured.
@@ -162,10 +177,11 @@ function ConnectionQualityIcon({ participant, className }: ConnectionQualityIcon
 interface ParticipantRosterProps {
   participants: Participant[]
   localParticipant: Participant
+  raisedHands?: Map<string, boolean>
   onClose: () => void
 }
 
-function ParticipantRoster({ participants, localParticipant, onClose }: ParticipantRosterProps) {
+function ParticipantRoster({ participants, localParticipant, raisedHands, onClose }: ParticipantRosterProps) {
   const { t } = useTranslation()
 
   return (
@@ -194,6 +210,8 @@ function ParticipantRoster({ participants, localParticipant, onClose }: Particip
           const isMicOn = p.isMicrophoneEnabled
           const isCamOn = p.isCameraEnabled
 
+          const isHandRaised = raisedHands?.get(p.identity) ?? false
+
           return (
             <div
               key={p.identity}
@@ -216,6 +234,23 @@ function ParticipantRoster({ participants, localParticipant, onClose }: Particip
 
               {/* Status icons */}
               <div className="flex shrink-0 items-center gap-1.5">
+                {/* Hand raised indicator (Wave 2) */}
+                {isHandRaised && (
+                  <span
+                    className="text-amber-400"
+                    title={t('features.video.handRaise.raised')}
+                    aria-label={t('features.video.handRaise.raised')}
+                  >
+                    {/* Hand SVG (no emoji in UI chrome) */}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2" />
+                      <path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2" />
+                      <path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8" />
+                      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+                    </svg>
+                  </span>
+                )}
+
                 {/* Mic */}
                 <span
                   className={isMicOn ? 'text-zinc-500' : 'text-red-500'}
@@ -357,6 +392,80 @@ interface InnerCallViewProps {
   onLeave?: () => void
 }
 
+// ---------------------------------------------------------------------------
+// Hand-raise hook (synced via DataChannel)
+// ---------------------------------------------------------------------------
+
+function useHandRaise() {
+  const { localParticipant } = useLocalParticipant()
+  // Map of participant identity → raised state
+  const [raisedHands, setRaisedHands] = useState<Map<string, boolean>>(new Map())
+
+  const onMessage = useCallback(
+    (msg: { payload: Uint8Array; from?: { identity?: string } }) => {
+      try {
+        const decoded = new TextDecoder().decode(msg.payload)
+        const parsed = JSON.parse(decoded) as HandPayload
+        if (parsed.type !== 'hand') return
+        setRaisedHands((prev) => {
+          const next = new Map(prev)
+          if (parsed.raised) {
+            next.set(parsed.identity, true)
+          } else {
+            next.delete(parsed.identity)
+          }
+          return next
+        })
+      } catch {
+        // Ignore malformed payloads
+      }
+    },
+    [],
+  )
+
+  const { send } = useDataChannel(HAND_TOPIC, onMessage)
+
+  const [isLocalHandRaised, setIsLocalHandRaised] = useState(false)
+
+  const toggleHand = useCallback(() => {
+    const nextRaised = !isLocalHandRaised
+    setIsLocalHandRaised(nextRaised)
+
+    // Update local state immediately
+    setRaisedHands((prev) => {
+      const next = new Map(prev)
+      if (nextRaised) {
+        next.set(localParticipant.identity, true)
+      } else {
+        next.delete(localParticipant.identity)
+      }
+      return next
+    })
+
+    // Broadcast to peers
+    const payload: HandPayload = {
+      type: 'hand',
+      raised: nextRaised,
+      identity: localParticipant.identity,
+    }
+    send(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true })
+  }, [isLocalHandRaised, localParticipant.identity, send])
+
+  // Clear own hand on unmount (e.g. leaving call)
+  useEffect(() => {
+    return () => {
+      if (isLocalHandRaised) {
+        const payload: HandPayload = { type: 'hand', raised: false, identity: localParticipant.identity }
+        send(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true })
+      }
+    }
+    // Only run on unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return { raisedHands, isLocalHandRaised, toggleHand }
+}
+
 function InnerCallView({
   callId,
   viewMode,
@@ -372,6 +481,13 @@ function InnerCallView({
 
   const [showRoster, setShowRoster] = useState(false)
   const [showDeviceSelector, setShowDeviceSelector] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+
+  // Wave 2: hand raise (synced DataChannel)
+  const { raisedHands, isLocalHandRaised, toggleHand } = useHandRaise()
+
+  // Wave 2: emoji reactions (DataChannel floats)
+  const { floats, sendReaction } = useReactionChannel()
 
   const setRoomControls = useVideoStore((s) => s.setRoomControls)
 
@@ -478,6 +594,8 @@ function InnerCallView({
     return 'grid-cols-5'
   }, [cameraTracks.length])
 
+  const localDisplayName = localParticipant.name ?? localParticipant.identity
+
   return (
     <div className="relative flex h-full w-full flex-col bg-zinc-950">
       {/* DSGVO: visible recording indicator for every participant. Self-renders
@@ -485,10 +603,12 @@ function InnerCallView({
           lives in CallControls, so no activeRecordingId is needed here. */}
       <RecordingActiveBanner activeRecordingId={null} />
 
-      {/* Main content: video area + optional roster sidebar */}
+      {/* Main content: video area + optional roster/chat sidebar */}
       <div className="relative flex flex-1 overflow-hidden">
-        {/* Video area */}
+        {/* Video area (reaction floats are overlaid here) */}
         <div className="relative flex-1 overflow-hidden">
+          {/* Wave 2: Reaction float overlay */}
+          <ReactionLayer floats={floats} />
           {isScreenSharing ? (
             <ScreenShareView
               screenShareTrack={screenShareTracks[0] as TrackReferenceOrPlaceholder}
@@ -581,7 +701,11 @@ function InnerCallView({
                 ? 'bg-primary text-white'
                 : 'bg-zinc-800/80 text-white hover:bg-zinc-700',
             )}
-            onClick={() => setShowRoster((v) => !v)}
+            onClick={() => {
+              setShowRoster((v) => !v)
+              // Collapse chat when opening roster (and vice versa for clean sidebar)
+              if (!showRoster) setShowChat(false)
+            }}
             title={t('features.video.roster.title')}
             aria-label={t('features.video.roster.title')}
           >
@@ -603,6 +727,38 @@ function InnerCallView({
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
           </button>
+
+          {/* Chat toggle button (top-left, offset from roster) */}
+          <button
+            className={cn(
+              'absolute left-16 top-4 z-30 rounded-lg p-2 backdrop-blur-sm transition-colors',
+              showChat
+                ? 'bg-primary text-white'
+                : 'bg-zinc-800/80 text-white hover:bg-zinc-700',
+            )}
+            onClick={() => {
+              setShowChat((v) => !v)
+              if (!showChat) setShowRoster(false)
+            }}
+            title={t('features.video.chat.title')}
+            aria-label={t('features.video.chat.title')}
+          >
+            {/* Chat bubble SVG */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
         </div>
 
         {/* Live participant roster sidebar (1.3) */}
@@ -610,7 +766,17 @@ function InnerCallView({
           <ParticipantRoster
             participants={participants}
             localParticipant={localParticipant}
+            raisedHands={raisedHands}
             onClose={() => setShowRoster(false)}
+          />
+        )}
+
+        {/* In-call chat panel (Wave 2) */}
+        {showChat && (
+          <InCallChat
+            meetingId={callId}
+            localDisplayName={localDisplayName}
+            onClose={() => setShowChat(false)}
           />
         )}
       </div>
@@ -624,6 +790,33 @@ function InnerCallView({
           callId={callId}
           onLeave={onLeave}
           onOpenDeviceSelector={() => setShowDeviceSelector((v) => !v)}
+          leadingControls={
+            <>
+              {/* Wave 2: Hand-raise button */}
+              <button
+                className={cn(
+                  'flex h-11 w-11 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900',
+                  isLocalHandRaised
+                    ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white',
+                )}
+                onClick={toggleHand}
+                title={t(isLocalHandRaised ? 'features.video.handRaise.lower' : 'features.video.handRaise.raise')}
+                aria-label={t(isLocalHandRaised ? 'features.video.handRaise.lower' : 'features.video.handRaise.raise')}
+              >
+                {/* Hand SVG (no emoji in UI chrome) */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2" />
+                  <path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2" />
+                  <path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8" />
+                  <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+                </svg>
+              </button>
+
+              {/* Wave 2: Reaction picker */}
+              <ReactionPicker onSend={sendReaction} />
+            </>
+          }
         />
       </div>
 
