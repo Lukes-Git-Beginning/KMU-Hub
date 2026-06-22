@@ -95,20 +95,32 @@ function buildSchemas(): FormSchema[] {
       submissionCount: 6,
       createdAt: isoAgo(58 * DAY),
       updatedAt: isoAgo(6 * HOUR),
-      fields: [
-        f({ type: 'text', label: 'Name', required: false, placeholder: 'Vor- und Nachname' }),
-        f({ type: 'email', label: 'E-Mail', required: true, placeholder: 'name@beispiel.de' }),
-        f({ type: 'select', label: 'Gesamtbewertung', required: true, options: ['Sehr zufrieden', 'Zufrieden', 'Neutral', 'Unzufrieden'] }),
-        f({ type: 'textarea', label: 'Was können wir verbessern?', required: false, placeholder: 'Ihr Kommentar …' }),
-        f({
-          type: 'consent',
-          label: 'Datenschutz-Einwilligung',
-          required: true,
-          consentText:
-            'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.',
-          privacyUrl: 'https://www.zentria.tech/datenschutz',
-        }),
-      ],
+      fields: (() => {
+        // Capture the rating field so the conditional follow-up can target it.
+        const rating = f({ type: 'select', label: 'Gesamtbewertung', required: true, options: ['Sehr zufrieden', 'Zufrieden', 'Neutral', 'Unzufrieden'] })
+        return [
+          f({ type: 'text', label: 'Name', required: false, placeholder: 'Vor- und Nachname' }),
+          f({ type: 'email', label: 'E-Mail', required: true, placeholder: 'name@beispiel.de' }),
+          rating,
+          f({ type: 'textarea', label: 'Was können wir verbessern?', required: false, placeholder: 'Ihr Kommentar …' }),
+          // FO-6 — conditional follow-up: only asked when the rating is 'Unzufrieden'.
+          f({
+            type: 'textarea',
+            label: 'Was genau lief schief?',
+            required: false,
+            placeholder: 'Bitte beschreiben Sie, was schiefgelaufen ist …',
+            conditionalLogic: { fieldId: rating.id, operator: 'equals', value: 'Unzufrieden' },
+          }),
+          f({
+            type: 'consent',
+            label: 'Datenschutz-Einwilligung',
+            required: true,
+            consentText:
+              'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.',
+            privacyUrl: 'https://www.zentria.tech/datenschutz',
+          }),
+        ]
+      })(),
     }),
     base({
       id: 'form-kontakt',
@@ -412,7 +424,7 @@ function buildSubmissions(): FormSubmission[] {
     make(feedback, { Name: 'Max Mustermann', 'E-Mail': 'max@example.com', Gesamtbewertung: 'Sehr zufrieden', 'Was können wir verbessern?': 'Weiter so, top Service!', 'Datenschutz-Einwilligung': true }, { status: 'new', submittedAt: isoAgo(5 * HOUR) }),
     make(feedback, { Name: 'Anna Schmidt', 'E-Mail': 'anna@example.com', Gesamtbewertung: 'Zufrieden', 'Was können wir verbessern?': 'Lieferung war etwas langsam.', 'Datenschutz-Einwilligung': true }, { status: 'read', submittedAt: isoAgo(1 * DAY) }),
     make(feedback, { 'E-Mail': 'gast@example.com', Gesamtbewertung: 'Neutral', 'Was können wir verbessern?': '', 'Datenschutz-Einwilligung': true }, { status: 'read', submittedAt: isoAgo(2 * DAY), submittedBy: null }),
-    make(feedback, { Name: 'Thomas Weber', 'E-Mail': 'thomas@example.com', Gesamtbewertung: 'Unzufrieden', 'Was können wir verbessern?': 'Support hat nicht reagiert.', 'Datenschutz-Einwilligung': true }, { status: 'new', submittedAt: isoAgo(3 * DAY) }),
+    make(feedback, { Name: 'Thomas Weber', 'E-Mail': 'thomas@example.com', Gesamtbewertung: 'Unzufrieden', 'Was können wir verbessern?': 'Support hat nicht reagiert.', 'Was genau lief schief?': 'Der Support hat 3 Tage nicht auf mein Ticket reagiert.', 'Datenschutz-Einwilligung': true }, { status: 'new', submittedAt: isoAgo(3 * DAY) }),
     make(feedback, { Name: 'Julia Becker', 'E-Mail': 'julia@example.com', Gesamtbewertung: 'Sehr zufrieden', 'Was können wir verbessern?': 'Alles bestens.', 'Datenschutz-Einwilligung': true }, { status: 'archived', submittedAt: isoAgo(10 * DAY) }),
     make(feedback, { Name: 'Stefan Wagner', 'E-Mail': 'stefan@example.com', Gesamtbewertung: 'Zufrieden', 'Was können wir verbessern?': 'Mehr Zahlungsarten wären schön.', 'Datenschutz-Einwilligung': true }, { status: 'read', submittedAt: isoAgo(14 * DAY) }),
   )

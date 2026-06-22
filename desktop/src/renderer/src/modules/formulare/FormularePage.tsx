@@ -271,6 +271,30 @@ function validateFieldValue(field: FormField, rawValue: unknown): ValidationErro
   return null
 }
 
+/**
+ * FO-6 — evaluate a field's conditional-logic rule against a set of answers.
+ * Returns true when the field should be visible (no rule = always visible).
+ * Module-scoped so both the page component and the interactive fill preview
+ * (`PreviewFillForm`) apply the exact same visibility logic.
+ */
+function evaluateCondition(
+  logic: FormField['conditionalLogic'],
+  answers: Record<string, unknown>,
+): boolean {
+  if (!logic) return true
+  const sourceVal = String(answers[logic.fieldId] ?? '')
+  switch (logic.operator) {
+    case 'equals':
+      return sourceVal === logic.value
+    case 'not_equals':
+      return sourceVal !== logic.value
+    case 'contains':
+      return sourceVal.toLowerCase().includes(logic.value.toLowerCase())
+    default:
+      return true
+  }
+}
+
 // ---------------------------------------------------------------------------
 // FT-2b — rating field renderer (1–5 stars or 1–10 NPS scale). Reused by the
 // builder preview (disabled), the submission detail (read-only value) and the
@@ -1346,24 +1370,6 @@ export default function FormularePage() {
   // ---------------------------------------------------------------------------
   // 10.1 — Conditional logic evaluation helper
   // ---------------------------------------------------------------------------
-
-  const evaluateCondition = (
-    logic: FormField['conditionalLogic'],
-    answers: Record<string, unknown>,
-  ): boolean => {
-    if (!logic) return true
-    const sourceVal = String(answers[logic.fieldId] ?? '')
-    switch (logic.operator) {
-      case 'equals':
-        return sourceVal === logic.value
-      case 'not_equals':
-        return sourceVal !== logic.value
-      case 'contains':
-        return sourceVal.toLowerCase().includes(logic.value.toLowerCase())
-      default:
-        return true
-    }
-  }
 
   // ---------------------------------------------------------------------------
   // Render helpers
@@ -4132,6 +4138,8 @@ function PreviewFillForm({
   const handleSubmit = () => {
     const next: Record<string, string> = {}
     for (const field of dataFields) {
+      // FO-6 — skip validation for fields hidden by their conditional rule.
+      if (!evaluateCondition(field.conditionalLogic, values)) continue
       const raw = values[field.id]
       const str = typeof raw === 'string' ? raw : raw == null ? '' : String(raw)
       const missing =
@@ -4193,6 +4201,8 @@ function PreviewFillForm({
       : 'border-gray-300 focus:ring-blue-500'
 
   const renderField = (field: FormField) => {
+    // FO-6 — hide fields whose conditional rule isn't met by the current answers.
+    if (!evaluateCondition(field.conditionalLogic, values)) return null
     const val = values[field.id]
     return (
       <div key={field.id} className="space-y-1.5">
