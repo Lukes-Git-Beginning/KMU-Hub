@@ -28,12 +28,15 @@ interface ReplyComposerProps {
   channel: CommunicationChannel
   onSendReply: (content: string) => void
   onSendInternalNote: (content: string) => void
+  /** Handle a chosen slash command (poll/reminder are real; giphy is a stub). */
+  onSlashCommand?: (cmd: SlashCommand) => void
 }
 
 export function ReplyComposer({
   channel,
   onSendReply,
   onSendInternalNote,
+  onSlashCommand,
 }: ReplyComposerProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
@@ -53,9 +56,12 @@ export function ReplyComposer({
   const slashQuery = slashMatch ? slashMatch[1] : null
 
   const handleSlashSelect = (cmd: SlashCommand) => {
-    // Mock-shell: no bot backend yet (backend-gaps.md)
-    toast.info(t('kommunikation.slash.executed', { command: cmd.name }))
     setText('')
+    if (onSlashCommand) {
+      onSlashCommand(cmd)
+    } else {
+      toast.info(t('kommunikation.slash.executed', { command: cmd.name }))
+    }
   }
 
   return (

@@ -42,6 +42,24 @@ export interface MessageAttachment {
   url?: string
 }
 
+export interface ConversationPollOption {
+  id: string
+  label: string
+  votes: number
+}
+
+export interface ConversationPoll {
+  question: string
+  options: ConversationPollOption[]
+  /** Option the current user voted for, if any. */
+  votedOptionId?: string | null
+}
+
+export interface ConversationReminder {
+  text: string
+  dueAt: string
+}
+
 export interface ConversationMessage {
   id: string
   conversationId: string
@@ -53,6 +71,9 @@ export interface ConversationMessage {
   timestamp: string
   isRead: boolean
   attachments: MessageAttachment[]
+  /** Slash-command payloads (KO-8): rendered as interactive blocks. */
+  poll?: ConversationPoll
+  reminder?: ConversationReminder
 }
 
 // ---------------------------------------------------------------------------

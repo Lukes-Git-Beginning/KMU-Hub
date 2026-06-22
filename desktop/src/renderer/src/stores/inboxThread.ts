@@ -23,6 +23,8 @@ interface InboxThreadState {
   appended: Record<string, ConversationMessage[]>
   getAppended: (convId: string) => ConversationMessage[]
   appendMessage: (convId: string, message: ConversationMessage) => void
+  /** Cast/move a vote on a poll message (KO-8 slash command). */
+  votePoll: (convId: string, messageId: string, optionId: string) => void
 }
 
 export const useInboxThread = create<InboxThreadState>()(
@@ -35,6 +37,24 @@ export const useInboxThread = create<InboxThreadState>()(
           appended: {
             ...state.appended,
             [convId]: [...(state.appended[convId] ?? []), message],
+          },
+        })),
+      votePoll: (convId, messageId, optionId) =>
+        set((state) => ({
+          appended: {
+            ...state.appended,
+            [convId]: (state.appended[convId] ?? []).map((m) => {
+              if (m.id !== messageId || !m.poll) return m
+              const prev = m.poll.votedOptionId
+              if (prev === optionId) return m
+              const options = m.poll.options.map((o) => {
+                let votes = o.votes
+                if (o.id === optionId) votes += 1
+                if (o.id === prev) votes = Math.max(0, votes - 1)
+                return { ...o, votes }
+              })
+              return { ...m, poll: { ...m.poll, options, votedOptionId: optionId } }
+            }),
           },
         })),
     }),

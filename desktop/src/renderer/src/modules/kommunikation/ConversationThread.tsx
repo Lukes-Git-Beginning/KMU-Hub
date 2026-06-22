@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MessageSquareText, Loader2, Eye } from 'lucide-react'
+import { toast } from 'sonner'
 import { getCollision } from '@/lib/inbox-collision'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import { useInboxMessage, useMarkRead, useReplyToMessage } from '@/api/hooks/useInbox'
@@ -8,8 +9,10 @@ import { useInboxThread, buildThreadSeed } from '@/stores/inboxThread'
 import { ConversationThreadHeader } from './ConversationThreadHeader'
 import { MessageTimeline } from './MessageTimeline'
 import { ReplyComposer } from './ReplyComposer'
+import { PollDialog, ReminderDialog } from './SlashCommandDialogs'
+import type { SlashCommand } from './SlashCommandPalette'
 import type { InboxChannel } from '@/api/inbox-types'
-import type { ConversationMessage } from '@/types/communication'
+import type { ConversationMessage, ConversationPoll, ConversationReminder } from '@/types/communication'
 
 // ---------------------------------------------------------------------------
 // Channel mapping helper
@@ -37,6 +40,8 @@ export function ConversationThread() {
   const replyMutation = useReplyToMessage()
   const appended = useInboxThread((s) => (selectedId ? s.appended[selectedId] : undefined))
   const appendMessage = useInboxThread((s) => s.appendMessage)
+  const [showPoll, setShowPoll] = useState(false)
+  const [showReminder, setShowReminder] = useState(false)
 
   // Mock-first thread: deterministic seed history + persisted replies/notes.
   // Replace with a backend thread API when available (backend-gaps.md).
@@ -122,6 +127,48 @@ export function ConversationThread() {
     })
   }
 
+  const senderName = message.assigned_to || t('kommunikation.thread.you')
+  const senderId = message.assigned_to ?? message.user_id
+
+  // Slash commands: /umfrage + /erinnerung are real; /giphy is a labelled stub.
+  const handleSlashCommand = (cmd: SlashCommand) => {
+    if (cmd.name === 'umfrage') setShowPoll(true)
+    else if (cmd.name === 'erinnerung') setShowReminder(true)
+    else toast.info(t('kommunikation.slash.comingSoon'))
+  }
+
+  const handleCreatePoll = (poll: ConversationPoll) => {
+    appendMessage(message.id, {
+      id: `${message.id}-poll-${threadMessages.length}`,
+      conversationId: message.id,
+      direction: 'outbound',
+      senderName,
+      senderId,
+      content: '',
+      timestamp: new Date().toISOString(),
+      isRead: true,
+      attachments: [],
+      poll,
+    })
+    setShowPoll(false)
+  }
+
+  const handleCreateReminder = (reminder: ConversationReminder) => {
+    appendMessage(message.id, {
+      id: `${message.id}-reminder-${threadMessages.length}`,
+      conversationId: message.id,
+      direction: 'internal',
+      senderName,
+      senderId,
+      content: '',
+      timestamp: new Date().toISOString(),
+      isRead: true,
+      attachments: [],
+      reminder,
+    })
+    setShowReminder(false)
+  }
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Header: subject, channel, tags */}
@@ -145,7 +192,12 @@ export function ConversationThread() {
         channel={mapChannelForComposer(message.channel)}
         onSendReply={handleReply}
         onSendInternalNote={handleInternalNote}
+        onSlashCommand={handleSlashCommand}
       />
+
+      {/* Slash-command dialogs (poll / reminder) */}
+      <PollDialog open={showPoll} onOpenChange={setShowPoll} onCreate={handleCreatePoll} />
+      <ReminderDialog open={showReminder} onOpenChange={setShowReminder} onCreate={handleCreateReminder} nowMs={Date.now()} />
     </div>
   )
 }

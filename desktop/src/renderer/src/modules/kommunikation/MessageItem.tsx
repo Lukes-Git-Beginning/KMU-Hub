@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { FileText, Image, File, Reply, Forward, Copy } from 'lucide-react'
+import { FileText, Image, File, Reply, Forward, Copy, BarChart3, AlarmClock, Check } from 'lucide-react'
 import { toast } from 'sonner'
-import type { ConversationMessage } from '@/types/communication'
+import type { ConversationMessage, ConversationPoll, ConversationReminder } from '@/types/communication'
+import { useInboxThread } from '@/stores/inboxThread'
 import { formatDate as libFormatDate, formatTime as libFormatTime } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
@@ -122,9 +123,15 @@ export function MessageItem({ message: msg, showDate }: MessageItemProps) {
                   : 'bg-secondary/80'
             }`}
           >
-            <p className="text-[13px] text-foreground/90 whitespace-pre-line leading-relaxed">
-              {msg.content}
-            </p>
+            {msg.poll ? (
+              <PollView poll={msg.poll} convId={msg.conversationId} messageId={msg.id} />
+            ) : msg.reminder ? (
+              <ReminderView reminder={msg.reminder} />
+            ) : (
+              <p className="text-[13px] text-foreground/90 whitespace-pre-line leading-relaxed">
+                {msg.content}
+              </p>
+            )}
 
             {/* Attachments */}
             {msg.attachments.length > 0 && (
@@ -148,5 +155,68 @@ export function MessageItem({ message: msg, showDate }: MessageItemProps) {
         </div>
       </div>
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Slash-command blocks (KO-8)
+// ---------------------------------------------------------------------------
+
+function PollView({ poll, convId, messageId }: { poll: ConversationPoll; convId: string; messageId: string }) {
+  const { t } = useTranslation()
+  const votePoll = useInboxThread((s) => s.votePoll)
+  const total = poll.options.reduce((sum, o) => sum + o.votes, 0)
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <BarChart3 className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[13px] font-medium text-foreground">{poll.question}</span>
+      </div>
+      <div className="space-y-1">
+        {poll.options.map((o) => {
+          const pct = total ? Math.round((o.votes / total) * 100) : 0
+          const voted = poll.votedOptionId === o.id
+          return (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => votePoll(convId, messageId, o.id)}
+              className={`relative flex w-full items-center justify-between overflow-hidden rounded-md border px-2.5 py-1.5 text-left text-[12px] transition-colors ${
+                voted ? 'border-primary/50' : 'border-border hover:bg-accent'
+              }`}
+            >
+              <span className="absolute inset-y-0 left-0 bg-primary/10" style={{ width: `${pct}%` }} aria-hidden />
+              <span className="relative flex items-center gap-1.5 text-foreground">
+                {voted && <Check className="h-3 w-3 text-primary" />}
+                {o.label}
+              </span>
+              <span className="relative shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                {o.votes} · {pct}%
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="text-[10px] text-muted-foreground">{t('kommunikation.poll.totalVotes', { count: total })}</p>
+    </div>
+  )
+}
+
+function ReminderView({ reminder }: { reminder: ConversationReminder }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-start gap-2">
+      <AlarmClock className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+      <div className="min-w-0">
+        <p className="text-[13px] text-foreground">{reminder.text}</p>
+        <p className="text-[10px] text-muted-foreground">
+          {t('kommunikation.reminder.due', {
+            date: libFormatDate(reminder.dueAt, { weekday: 'short', day: '2-digit', month: 'short' }),
+            time: libFormatTime(reminder.dueAt, { hour: '2-digit', minute: '2-digit' }),
+          })}
+        </p>
+      </div>
+    </div>
   )
 }
