@@ -75,11 +75,11 @@ export const dndApi = {
   enable(expiresAt?: string) {
     return request<DNDStatus>('/api/v1/notifications/dnd', {
       method: 'POST',
-      body: JSON.stringify({ expires_at: expiresAt }),
+      body: JSON.stringify({ enabled: true, until: expiresAt }),
     })
   },
   disable() {
-    return request<Record<string, never>>('/api/v1/notifications/dnd', {
+    return request<DNDStatus>('/api/v1/notifications/dnd', {
       method: 'DELETE',
     })
   },

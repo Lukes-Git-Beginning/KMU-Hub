@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { DEMO_MODE } from '@/mocks/demo-mode'
 
 export interface MeetingParticipant {
   id: string
@@ -385,8 +386,10 @@ let nextId = 9
 export const useMeetingsStore = create<MeetingsState>()(
   persist(
     (set, get) => ({
-      meetings: mockMeetings,
-      callHistory: mockCallHistory,
+      // Seed sample data only in demo mode; production starts empty so the
+      // real backend meetings are the single source of truth.
+      meetings: DEMO_MODE ? mockMeetings : [],
+      callHistory: DEMO_MODE ? mockCallHistory : [],
       activeMeetingId: null,
       activeCallContactId: null,
       activeCallContactName: null,
@@ -551,6 +554,24 @@ export const useMeetingsStore = create<MeetingsState>()(
           videoMeeting: { ...state.videoMeeting, activeSpeakerId: userId },
         })),
     }),
-    { name: 'cosmi-meetings' }
+    {
+      name: 'cosmi-meetings',
+      version: 1,
+      // v1 drops the seeded sample meetings/call-history that older builds
+      // persisted to localStorage, so existing installs no longer show mock
+      // data alongside the real backend meetings. User-created local meetings
+      // (m9+) and call entries are preserved.
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<MeetingsState>
+        if (DEMO_MODE) return state as MeetingsState
+        const MOCK_MEETING_IDS = new Set(['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8'])
+        const MOCK_CALL_IDS = new Set(['ch1', 'ch2', 'ch3', 'ch4', 'ch5', 'ch6', 'ch7', 'ch8'])
+        return {
+          ...state,
+          meetings: (state.meetings ?? []).filter((m) => !MOCK_MEETING_IDS.has(m.id)),
+          callHistory: (state.callHistory ?? []).filter((c) => !MOCK_CALL_IDS.has(c.id)),
+        } as MeetingsState
+      },
+    }
   )
 )
