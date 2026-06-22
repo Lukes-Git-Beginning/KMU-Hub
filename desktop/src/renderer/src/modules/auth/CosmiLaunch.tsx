@@ -1,5 +1,5 @@
-// @ts-nocheck
 /* eslint-disable */
+// @ts-nocheck
 // Vendored launch animation (aus der Claude-App). Die SVG-Pfad-/Glyph-Daten sind
 // handgetunt und bleiben verbatim. Type-/Lint-Checks NUR fuer diese Datei aus;
 // die Orchestrierung (LaunchScreen/AuthLayout) folgt den Projekt-Konventionen.
