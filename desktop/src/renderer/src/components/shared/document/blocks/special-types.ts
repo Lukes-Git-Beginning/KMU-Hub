@@ -20,5 +20,14 @@ export interface ToggleBlock extends DocBlockBase {
   open?: boolean
 }
 
+/** Syntax-highlighted code listing with a language and a copy affordance. */
+export interface CodeBlock extends DocBlockBase {
+  type: 'code'
+  /** Raw source. */
+  code: string
+  /** Highlight grammar id (lowlight `common`), e.g. 'typescript'. 'plaintext' = no tint. */
+  language: string
+}
+
 /** The union of every special block type. Grows as blocks land. */
-export type SpecialBlock = ToggleBlock
+export type SpecialBlock = ToggleBlock | CodeBlock

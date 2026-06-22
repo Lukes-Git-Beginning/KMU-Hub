@@ -6,12 +6,44 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, ListTree } from 'lucide-react'
+import { Check, ChevronRight, Code2, Copy, ListTree } from 'lucide-react'
 import DOMPurify from 'dompurify'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { docUid } from '../types'
 import { defineBlock, type BlockEditProps, type BlockTypeDef, type BlockViewProps } from '../block-registry'
-import type { ToggleBlock } from './special-types'
+import { CODE_LANGUAGES, highlightToReact } from './code-highlight'
+import type { CodeBlock, ToggleBlock } from './special-types'
+
+/** Copy-to-clipboard button with a brief "copied" confirmation. */
+function CopyButton({ value, className }: { value: string; className?: string }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      // Clipboard unavailable (e.g. headless) — silently no-op.
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className={
+        className ??
+        'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground'
+      }
+      aria-label={t('document.block.code.copy', { defaultValue: 'Kopieren' })}
+    >
+      {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+      {copied
+        ? t('document.block.code.copied', { defaultValue: 'Kopiert' })
+        : t('document.block.code.copy', { defaultValue: 'Kopieren' })}
+    </button>
+  )
+}
 
 /* --------------------------------- toggle --------------------------------- */
 
@@ -78,6 +110,58 @@ function ToggleView({ block }: BlockViewProps<ToggleBlock>) {
   )
 }
 
+/* ---------------------------------- code ---------------------------------- */
+
+function CodeEdit({ block, onPatch }: BlockEditProps<CodeBlock>) {
+  const { t } = useTranslation()
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-[var(--secondary)]/40">
+      <div className="flex items-center justify-between gap-2 border-b border-border-muted px-3 py-1.5">
+        <select
+          value={block.language}
+          onChange={(e) => onPatch({ language: e.target.value })}
+          aria-label={t('document.block.code.language', { defaultValue: 'Sprache' })}
+          className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+        >
+          {CODE_LANGUAGES.map((lang) => (
+            <option key={lang.value} value={lang.value}>
+              {lang.label}
+            </option>
+          ))}
+        </select>
+        {block.code.trim().length > 0 && <CopyButton value={block.code} />}
+      </div>
+      <textarea
+        value={block.code}
+        onChange={(e) => onPatch({ code: e.target.value })}
+        spellCheck={false}
+        rows={Math.min(Math.max(block.code.split('\n').length, 3), 20)}
+        placeholder={t('document.block.code.placeholder', { defaultValue: 'Code einfügen…' })}
+        className="block w-full resize-y bg-transparent px-3 py-2.5 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+        style={{ fontFamily: "'JetBrains Mono', 'Geist Mono', monospace" }}
+      />
+    </div>
+  )
+}
+
+function CodeView({ block }: BlockViewProps<CodeBlock>) {
+  const lang = CODE_LANGUAGES.find((l) => l.value === block.language)
+  if (!block.code.trim()) return null
+  return (
+    <div className="report-keep overflow-hidden rounded-xl border border-border-muted bg-[var(--secondary)]/40">
+      <div className="flex items-center justify-between gap-2 border-b border-border-muted px-3 py-1.5">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {lang?.label ?? block.language}
+        </span>
+        <CopyButton value={block.code} />
+      </div>
+      <pre className="overflow-x-auto px-3 py-2.5 text-[13px] leading-relaxed" style={{ fontFamily: "'JetBrains Mono', 'Geist Mono', monospace" }}>
+        <code className="hljs bg-transparent p-0 text-foreground">{highlightToReact(block.code, block.language)}</code>
+      </pre>
+    </div>
+  )
+}
+
 /* ------------------------------ registry defs ----------------------------- */
 
 /**
@@ -94,6 +178,16 @@ const SPECIAL_DEFS: Record<string, BlockTypeDef> = {
     makeDefault: () => ({ id: docUid('b'), type: 'toggle', title: '', html: '', open: false }),
     Edit: ToggleEdit,
     View: ToggleView,
+  }),
+  code: defineBlock<CodeBlock>({
+    type: 'code',
+    icon: Code2,
+    labelKey: 'document.block.code.label',
+    group: 'content',
+    atomic: true,
+    makeDefault: () => ({ id: docUid('b'), type: 'code', code: '', language: 'plaintext' }),
+    Edit: CodeEdit,
+    View: CodeView,
   }),
 }
 

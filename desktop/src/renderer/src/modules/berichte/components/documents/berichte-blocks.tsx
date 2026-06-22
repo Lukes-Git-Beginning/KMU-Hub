@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/shared'
 import {
   buildRegistry,
   createCoreBlockDefs,
+  createSpecialBlockDefs,
   defineBlock,
   docUid,
   emptyDocColumn,
@@ -445,6 +446,13 @@ const pageBreakDef = defineBlock<PageBreakBlock>({
 const core = createCoreBlockDefs({ omit: ['heading'] })
 const byType = Object.fromEntries(core.map((d) => [d.type, d]))
 
+// Shared special blocks that make sense on paper: a code listing, a manual
+// comparison table and an editorial pull-quote. Toggle/attachment/bookmark stay
+// wiki-only (collapse and downloads don't translate to a printed report).
+const special = Object.fromEntries(
+  createSpecialBlockDefs({ only: ['code'] }).map((d) => [d.type, d]),
+)
+
 /** Insert-menu order mirrors the original berichte block editor. */
 export const berichteBlockRegistry: BlockRegistry = buildRegistry([
   headingDef,
@@ -454,6 +462,7 @@ export const berichteBlockRegistry: BlockRegistry = buildRegistry([
   kpiDef,
   byType.callout,
   byType.bullet,
+  special.code,
   byType.image,
   byType.divider,
   pageBreakDef,

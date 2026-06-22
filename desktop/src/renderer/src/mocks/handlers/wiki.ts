@@ -133,6 +133,12 @@ const toggle = (title: string, html: string, open = false): SeedBlock => ({
   html,
   open,
 })
+const code = (language: string, source: string): SeedBlock => ({
+  id: sbid('b'),
+  type: 'code',
+  language,
+  code: source,
+})
 
 /** One full-width row holding the given blocks. */
 const row = (...blocks: SeedBlock[]): SeedRow => ({
@@ -393,6 +399,22 @@ const ARTICLES: WikiArticle[] = [
           '<p>Im Notfall zuerst die IT-Teamleitung informieren — niemals eigenständig auf das ' +
             'Produktivsystem zurückspielen.</p>',
           'Notfall',
+        ),
+      ),
+      row(h(2, 'Wiederherstellung (Staging)')),
+      row(
+        p('<p>Das jüngste Vollbackup in die Staging-Datenbank einspielen — nur nach Freigabe:</p>'),
+      ),
+      row(
+        code(
+          'bash',
+          '# Letztes Vollbackup auf Staging zurückspielen\n' +
+            'export PGPASSWORD="$STAGING_PW"\n' +
+            'latest=$(ls -t /backups/full/*.dump | head -n1)\n' +
+            'pg_restore --clean --no-owner \\\n' +
+            '  --host staging.db.internal --username kmuhub \\\n' +
+            '  --dbname cosmi "$latest"\n' +
+            'echo "Restore abgeschlossen: $latest"',
         ),
       ),
     ),
