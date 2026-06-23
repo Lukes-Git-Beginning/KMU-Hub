@@ -1113,6 +1113,7 @@ type Recording struct {
 	DurationSeconds    *int32                 `protobuf:"varint,8,opt,name=duration_seconds,json=durationSeconds,proto3,oneof" json:"duration_seconds,omitempty"`
 	RetentionExpiresAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=retention_expires_at,json=retentionExpiresAt,proto3,oneof" json:"retention_expires_at,omitempty"`
 	CreatedAt          *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	StartedBy          *string                `protobuf:"bytes,11,opt,name=started_by,json=startedBy,proto3,oneof" json:"started_by,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1215,6 +1216,13 @@ func (x *Recording) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *Recording) GetStartedBy() string {
+	if x != nil && x.StartedBy != nil {
+		return *x.StartedBy
+	}
+	return ""
 }
 
 type RecordingConsentStatus struct {
@@ -4971,7 +4979,7 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\x0eattendee_count\x18\x03 \x01(\x05R\rattendeeCount\x12(\n" +
 	"\rnotes_summary\x18\x04 \x01(\tH\x00R\fnotesSummary\x88\x01\x01\x127\n" +
 	"\faction_items\x18\x05 \x03(\v2\x14.video.v1.ActionItemR\vactionItemsB\x10\n" +
-	"\x0e_notes_summary\"\xb5\x04\n" +
+	"\x0e_notes_summary\"\xe8\x04\n" +
 	"\tRecording\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1c\n" +
 	"\acall_id\x18\x02 \x01(\tH\x00R\x06callId\x88\x01\x01\x12\"\n" +
@@ -4985,7 +4993,9 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\x14retention_expires_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampH\x06R\x12retentionExpiresAt\x88\x01\x01\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\"\n" +
+	"\n" +
+	"started_by\x18\v \x01(\tH\aR\tstartedBy\x88\x01\x01B\n" +
 	"\n" +
 	"\b_call_idB\r\n" +
 	"\v_meeting_idB\f\n" +
@@ -4994,7 +5004,8 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\t_file_urlB\x12\n" +
 	"\x10_file_size_bytesB\x13\n" +
 	"\x11_duration_secondsB\x17\n" +
-	"\x15_retention_expires_at\"\x98\x01\n" +
+	"\x15_retention_expires_atB\r\n" +
+	"\v_started_by\"\x98\x01\n" +
 	"\x16RecordingConsentStatus\x12!\n" +
 	"\frecording_id\x18\x01 \x01(\tR\vrecordingId\x126\n" +
 	"\bconsents\x18\x02 \x03(\v2\x1a.video.v1.RecordingConsentR\bconsents\x12#\n" +

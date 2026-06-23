@@ -1565,6 +1565,10 @@ func recordingToProto(r *recording.Recording) *videov1.Recording {
 	if r.RetentionExpiresAt != nil {
 		proto.RetentionExpiresAt = timestamppb.New(*r.RetentionExpiresAt)
 	}
+	if r.StartedBy != nil {
+		s := r.StartedBy.String()
+		proto.StartedBy = &s
+	}
 	return proto
 }
 

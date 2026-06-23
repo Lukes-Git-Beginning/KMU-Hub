@@ -225,6 +225,7 @@ message Recording {
   optional int32 duration_seconds = 8;
   optional google.protobuf.Timestamp retention_expires_at = 9;
   google.protobuf.Timestamp created_at = 10;
+  optional string started_by = 11;
 }
 
 message RecordingConsentStatus {
