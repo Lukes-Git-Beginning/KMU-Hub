@@ -1,8 +1,27 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-06-21
+updated: 2026-06-22
 ---
 # Troubleshooting & Bekannte Probleme
+
+## LiveKit-Webhook-Delivery: Prod sandte keine Webhooks (✅ BEHOBEN Wave 0, 2026-06-23)
+
+**Symptom:** Recordings werden in Prod nie `completed`; Auto-Close (`room_finished`) unmöglich.
+**Ursache:** `deploy/docker/livekit-secrets.yaml.tmpl` ist **last-wins** (effektive Prod-Config = letztes
+`--config`, KEIN key-merge mit Base-`livekit.yaml`) und enthält `webhook.api_key`, aber **kein
+`webhook.urls`** und **keinen `room`-Block** → LiveKit hat kein Sende-Ziel + kein `empty_timeout`.
+**Diagnose (read-only):** `docker exec docker-livekit-1 cat /etc/livekit-secrets.yaml | grep -A4 webhook`
+(zeigt nur api_key) + `docker logs docker-gateway-1 | grep -i webhook` (leer = nie empfangen).
+**Lehre:** Last-wins gilt für den GANZEN Config-Baum — fehlende Top-Level-Keys (`webhook.urls`, `room`)
+werden NICHT aus der Base ergänzt; das Secrets-Template muss self-contained sein (keys + webhook.urls +
+room + voller rtc-Block). Gleiche Falle wie der rtc-only-Overlay-Crash (Video-Resume 2026-06-21) und der
+Compose-Overlay-Gap (unten). **Fix-Spec:** `.planning/meeting-parity/wave-0-autoclose.md` (Wave 0.1/0.2).
+**✅ BEHOBEN (Wave 0, 2026-06-23, `d1be2bd4`):** `webhook.urls` + `room.empty_timeout:900` ins Secrets-Template;
+`room_finished`→gRPC `CompleteMeetingByRoom` + Backstop-Sweeper (prod-verifiziert aktiv). **2-Schicht-Bug:** der
+Egress-gRPC (`CompleteRecordingByEgress`/`FailRecordingByEgress`) war NIE in die `VideoService_ServiceDesc`
+registriert (Hand-Stub `video_egress_ext.go`) → `codes.Unimplemented`; via Proto-Regen behoben. **⚠ DEPLOY-FALLE:**
+`compose up -d livekit` lädt geänderte Mount-Config NICHT → Config-Revision-`labels` am `livekit`-Service in
+`docker-compose.prod.yml` bumpen erzwingt Container-Recreate (sonst greift kein tmpl-Change).
 
 ## Compose-Overlay-Gap: Dev-Secrets liefen in Production (2026-06-05)
 

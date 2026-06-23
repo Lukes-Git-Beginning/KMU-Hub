@@ -1,6 +1,6 @@
 ---
 tags: [integrationen, bexio, lexware, livekit, plugin, wasm, brevo, smtp]
-updated: 2026-06-20
+updated: 2026-06-22
 ---
 # Externe Integrationen
 
@@ -71,6 +71,7 @@ Quelle: `.planning/bexio-scope-check.md`. Stand: G1–G5 + G10 zu, Integration t
 - **Verifikations-Muster:** Login → `POST /api/v1/video/calls` → `POST /calls/{id}/join` → `GET https://app.zentria.tech/rtc/validate?access_token=<token>` → 200.
 - **Offen:** Calendar-Event-`GenerateJoinToken` liefert in `ws_url` einen Meeting-LINK (`…/room/{name}`) statt der Signaling-URL — Event-Flow-Verdrahtung pruefen (Sprint 4/5).
 - **Webhook-Validierung:** Gateway validiert LiveKit-Webhooks mit dem API-Pair, siehe [[security]] "Realtime-Haertung".
+- **✅ Webhook-DELIVERY-Gap BEHOBEN (Wave 0, 2026-06-23, `d1be2bd4`):** war (verifiziert 2026-06-22): Prod sandte GAR KEINE LiveKit-Webhooks. `deploy/docker/livekit-secrets.yaml.tmpl` ist **last-wins** (effektive Prod-Config = letztes `--config`, KEIN key-merge mit Base-`livekit.yaml`) und hat `webhook.api_key`, aber **kein `webhook.urls`** + **keinen `room`-Block** → LiveKit hat kein Sende-Ziel + kein `empty_timeout`. Folge: `egress_ended` feuert nie → **Recordings werden in Prod nie `completed`** (stiller Bestandsbug); `room_finished`/Auto-Close unmöglich. Verifiziert via `docker exec docker-livekit-1 cat /etc/livekit-secrets.yaml | grep -A4 webhook` (nur api_key, NO_ROOM_BLOCK) + `docker logs docker-gateway-1 | grep webhook` (leer = nie empfangen). **Last-wins gilt für den GANZEN Config-Baum** — das Secrets-Template muss self-contained sein (keys + `webhook.urls` + `room` + voller rtc-Block); fehlende Top-Level-Keys werden NICHT aus der Base ergänzt. Webhook-Empfänger im Gateway existiert + validiert bereits (`route_video.go:1220-1288`). **FIX (Wave 0):** `webhook.urls` (→`http://gateway:8080/api/v1/webhooks/livekit`) + `room.empty_timeout:900` ins `livekit-secrets.yaml.tmpl`; `room_finished`→neue gRPC `CompleteMeetingByRoom` verdrahtet; Backstop-Sweeper im `work`-Binary (prod-verifiziert aktiv). **2-Schicht-Bug:** zusätzlich war der Egress-gRPC (`CompleteRecordingByEgress`/`FailRecordingByEgress`) NIE in die `VideoService_ServiceDesc` registriert (Hand-Stub `video_egress_ext.go`, Kommentar „registered by R2-B" nie ausgeführt) → lief in `codes.Unimplemented`; sauber via Proto-Regen behoben (Stub gelöscht). **⚠ DEPLOY-FALLE:** `compose up -d livekit` lädt die geänderte Mount-Config NICHT (Container nicht recreated) → Config-Revision-Label am `livekit`-Service in `docker-compose.prod.yml` bumpen erzwingt Recreate; ohne das greift kein `livekit-secrets.yaml.tmpl`-Change. Siehe MEMORY `feedback_livekit_config_reload`.
 
 ## TURN-Server (coturn, self-hosted, seit 2026-04-19)
 - **Zweck:** Relay-Fallback fuer WebRTC-Clients hinter symmetric NAT / restriktiven Firewalls
