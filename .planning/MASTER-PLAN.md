@@ -203,7 +203,8 @@
 
 ### Welle 1 — Echt-Schaltung & Fundament  ·  ~15–20 Pakete  ·  gut parallel
 - [x] **kontakte echt-geschaltet (Referenz-Pattern etabliert, `aec2df49`, 23.06.)** — READ + voller CRUD live. `api/casing.ts` `dual()` + `mocks/demo-mode-flag.ts` mode-branch sind die Vorlage für jede weitere Echt-Schaltung. Casing-Entscheidung **Option C** (per-Modul, kein globaler Transform). Bericht/Risiko-Set: `.planning/kontakte-mock-exit-DONE.md`.
-- [ ] Restliche mock-fertige Module ans **echte Backend** hängen (🔌): notifications, dialer-Supervisor, zeiterfassung, work-Labels, dashboard, settings-Persistenz. **Nächste nach Risiko-Set:** crm/companies → crm/deals + pipeline-stages (DealInfo-Casing). + **X-3** OpenAPI-Specs + **X-4** Settings-Backend + **X-5** Demo-Seeds + **X-6** echter Build. + Bugs **B-1/B-2** (CI grün).
+- [x] **crm komplett echt-geschaltet (23.06.):** companies (CRUD, `domain→website`-Drift), deals + pipeline-stages (DealInfo/PipelineStageInfo-Casing, Liste + Auswertungen live), contact-tags (entity_type). Alle PATCH→PUT-Drift gefixt. → das gesamte crm-Casing-Risiko-Set ist erledigt.
+- [ ] Restliche mock-fertige Module ans **echte Backend** hängen (🔌): notifications, dialer-Supervisor, zeiterfassung, **work + finanzen (Sub-Terminal Lane B in Arbeit, `sub-terminal-work-finanzen-paket.md`)**, work-Labels, dashboard, settings-Persistenz. + **X-3** OpenAPI-Specs + **X-4** Settings-Backend + **X-5** Demo-Seeds + **X-6** echter Build. + Bugs **B-1/B-2** (CI grün).
 *Lanes:* je-Modul-Echtschaltung in 2 Terminals aufteilbar; **aber** cross-cutting-Bausteine (X-4 Settings-Backend, X-5 Seeds) = **Main-Lane, nicht doppeln** (Hot-Files).
 
 ### Welle 2 — Lücken-Module bauen  ·  ~20 Phasen  ·  gut parallel (3 disjunkte Lanes)

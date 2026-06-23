@@ -48,14 +48,15 @@ Die generierte Spec weicht vom Gateway ab:
 
 Nur diese Module lesen über OpenAPI-Typen (`components['schemas']`/`apiClient`) camelCase → brauchen `dual()`-Adapter beim Echt-Schalten. **Rest matcht schon** (handgetippte snake_case-Clients).
 
-| Modul | Entität | Datei(en) | camelCase-Leser | Fetch-Layer |
+| Modul | Entität | Datei(en) | camelCase-Leser | Status |
 |---|---|---|---|---|
-| crm/companies | CompanyInfo | `modules/crm/companies/CompaniesListPage.tsx` | `createdAt`, `contactCount`, `entityType` | apiClient `useCompanies` |
-| crm/deals (Pipeline) | DealInfo | `modules/crm/deals/DealPipelineView.tsx` | `contactName`, `expectedCloseDate`, `stageId` | apiClient `useDeals` |
-| crm/deals (Analytics) | DealInfo, PipelineStageInfo | `modules/kontakte/AuswertungenPage.tsx` | `stageId`, `isWon`/`isLost` (teils Fallback) | apiClient |
-| crm/pipeline-stages | PipelineStageInfo | `DealPipelineView.tsx`, `AuswertungenPage.tsx`, `PipelineStagesEditor.tsx` | `sortOrder`, `isWon`, `isLost`, `totalValue`, `dealCount` | apiClient `usePipelineStages` |
-| work/CustomFields | CustomFieldInfo | `modules/work/components/CustomFieldsSection.tsx` | `isRequired`, `fieldType`, `entityType`, `sortOrder` | apiClient |
-| crm/tags | TagInfo | `useContactTags.ts` | `entityType` (nur Hook-intern) | apiClient |
+| crm/companies | CompanyInfo | `modules/crm/companies/*` | `createdAt`, `contactCount`, `domain→website` | ✅ echt (`adapters.ts` backendCompanyToUI) |
+| crm/deals | DealInfo | `useDeals.ts` (Pipeline + 360°) | `contactName`, `expectedCloseDate`, `stageId/stageName` | ✅ echt (backendDealToUI im Hook) |
+| crm/pipeline-stages | PipelineStageInfo | `usePipelineStages.ts`, AuswertungenPage | `sortOrder`, `isWon`, `isLost`, `totalValue`, `dealCount` | ✅ echt (backendStageToUI im Hook) |
+| crm/tags | TagInfo | `useContactTags.ts` | `entityType` (Hook-intern) | ✅ echt (dual()) |
+| work/CustomFields | CustomFieldInfo | `modules/work/components/CustomFieldsSection.tsx` | `isRequired`, `fieldType`, `entityType`, `sortOrder` | ⬜ Sub-Terminal Lane B (work) |
+
+**Alle crm-Module echt-geschaltet (23.06.):** kontakte, companies, deals, pipeline-stages, tags. Muster je Modul: Read-Normalizer (`dual()` + ggf. Feldname-Drift) im Hook/Adapter, Write mode-branched (`custom_fields:[]` real), Update PATCH→PUT (Hook + Mock), live per Playwright verifiziert.
 
 **„Matcht schon" (snake_case, kein Casing-Fix):** chat (messages/channels/mentions), notifications, work (tasks/comments/activities/files/entity-links), email, timeline, activities, contact-tags (normalisiert).
 
