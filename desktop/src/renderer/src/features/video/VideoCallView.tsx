@@ -57,12 +57,13 @@ import { InCallChat } from './InCallChat'
 import { ReactionLayer, ReactionPicker, useReactionChannel } from './ReactionLayer'
 import { useAuthStore } from '@/stores/auth'
 import { useMeeting } from '@/api/hooks/useMeetings'
-import { useMeetingCoHosts } from '@/api/hooks/useVideo'
+import { useMeetingCoHosts, useActiveMeetingRecording } from '@/api/hooks/useVideo'
 import {
   ParticipantActions,
   GlobalHostControls,
   MeetingLockIndicator,
 } from './HostControls'
+import { RecordingConsentDialog } from './RecordingConsentDialog'
 import { cn } from '@/lib'
 
 // ---------------------------------------------------------------------------
@@ -441,6 +442,10 @@ interface InnerCallViewProps {
   coHosts: string[]
   /** Whether the room is currently locked (Wave 3). */
   isLocked: boolean
+  /** ID of the currently active recording for this meeting (from useActiveMeetingRecording). */
+  activeMeetingRecordingId: string | null
+  /** User ID of the recording initiator (null when unknown). */
+  recordingInitiatorId: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -529,6 +534,8 @@ function InnerCallView({
   currentUserId,
   coHosts,
   isLocked,
+  activeMeetingRecordingId,
+  recordingInitiatorId,
 }: InnerCallViewProps) {
   const { t } = useTranslation()
   const room = useRoomContext()
@@ -545,6 +552,14 @@ function InnerCallView({
   // Wave 4.3: Background blur/virtual BG selector
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false)
   const [isBackgroundActive, setIsBackgroundActive] = useState(false)
+
+  // B2: track which recordings this user has already responded to (prevent re-opening)
+  const [respondedRecordingIds, setRespondedRecordingIds] = useState<Set<string>>(new Set())
+  // Derive whether to show consent dialog for a non-initiator participant
+  const showInCallConsent =
+    !!activeMeetingRecordingId &&
+    currentUserId !== recordingInitiatorId &&
+    !respondedRecordingIds.has(activeMeetingRecordingId)
 
   // Wave 2: hand raise (synced DataChannel)
   const { raisedHands, isLocalHandRaised, toggleHand } = useHandRaise()
@@ -720,7 +735,7 @@ function InnerCallView({
       {/* DSGVO: visible recording indicator for every participant. Self-renders
           only while a recording is active (useIsRecording). The stop control
           lives in CallControls, so no activeRecordingId is needed here. */}
-      <RecordingActiveBanner activeRecordingId={null} />
+      <RecordingActiveBanner activeRecordingId={activeMeetingRecordingId} />
 
       {/* Wave 3: Global host controls bar (mute-all, lock) + lock indicator */}
       {isHost && meetingId && (
@@ -930,6 +945,7 @@ function InnerCallView({
         )}
         <CallControls
           callId={callId}
+          meetingId={meetingId}
           onLeave={onLeave}
           onOpenDeviceSelector={() => setShowDeviceSelector((v) => !v)}
           onScreenShareClick={!isScreenShareEnabled ? handleScreenShareButtonClick : undefined}
@@ -965,6 +981,17 @@ function InnerCallView({
         />
       </div>
 
+      {/* B2: in-call DSGVO consent dialog for non-initiator participants */}
+      {showInCallConsent && activeMeetingRecordingId && (
+        <RecordingConsentDialog
+          recordingId={activeMeetingRecordingId}
+          open={showInCallConsent}
+          onRespond={() => {
+            setRespondedRecordingIds((prev) => new Set([...prev, activeMeetingRecordingId]))
+          }}
+        />
+      )}
+
       {/* Hidden audio renderer for all remote audio tracks */}
       <RoomAudioRenderer />
       <ConnectionStateToast />
@@ -993,9 +1020,11 @@ export function VideoCallView({
   const { data: meeting } = useMeeting(meetingId ?? '')
   const { data: coHosts = [] } = useMeetingCoHosts(meetingId ?? '')
 
-  // Lock state: tracked locally; meeting refetch after lock mutation provides ground truth.
-  // Backend will expose meeting.locked once the column is added; for now always false.
-  const isLocked = false
+  // B3: Lock state from meeting data (backend exposes meeting.locked).
+  const isLocked = meeting?.locked ?? false
+
+  // B1/B2: Active recording for this meeting - used by CallControls and consent dialog.
+  const { data: activeMeetingRecording = null } = useActiveMeetingRecording(meetingId)
 
   const clearActiveCall = useVideoStore((s) => s.clearActiveCall)
 
@@ -1039,6 +1068,8 @@ export function VideoCallView({
         currentUserId={currentUserId}
         coHosts={coHosts}
         isLocked={isLocked}
+        activeMeetingRecordingId={activeMeetingRecording?.id ?? null}
+        recordingInitiatorId={activeMeetingRecording?.started_by ?? null}
       />
     </LiveKitRoom>
   )

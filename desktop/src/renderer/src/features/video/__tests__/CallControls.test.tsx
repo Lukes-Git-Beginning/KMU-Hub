@@ -51,6 +51,7 @@ vi.mock('@/api/hooks/useVideo', () => ({
     mutateAsync: mockConfirmInitiatorConsentMutateAsync,
     isPending: false,
   }),
+  useActiveMeetingRecording: () => ({ data: null }),
 }))
 
 // ---------------------------------------------------------------------------

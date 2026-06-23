@@ -91,6 +91,7 @@ export interface Meeting {
   attendees: MeetingAttendee[] | null
   created_at: string
   updated_at: string
+  locked: boolean
 }
 
 export interface CreateMeetingRequest {
@@ -213,6 +214,7 @@ export interface Recording {
   duration_seconds: number | null
   retention_expires_at: string | null
   created_at: string
+  started_by: string | null
 }
 
 export interface RecordingConsent {

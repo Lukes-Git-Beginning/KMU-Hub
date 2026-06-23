@@ -134,6 +134,10 @@ export const getRecordingStatus = (recordingId: string) =>
 export const listRecordingsByMeeting = (meetingId: string, params?: { page?: number; page_size?: number }) =>
   get<RecordingsByMeetingResponse>(`/api/v1/video/meetings/${meetingId}/recordings`, params as RequestOptions['params'])
 
+/** Get a presigned download URL for a completed recording (Wave 5). */
+export const getRecordingDownloadURL = (recordingId: string) =>
+  get<{ url: string; expires_at: string }>(`/api/v1/video/recordings/${recordingId}/download`)
+
 // ---------------------------------------------------------------------------
 // Meetings
 // ---------------------------------------------------------------------------

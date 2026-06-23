@@ -31,8 +31,11 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
+import { useListRecordingsByMeeting } from '@/api/hooks/useVideo'
+import { RecordingPlayerModal } from '@/features/video/RecordingPlayerModal'
 import { useMeetingsStore } from '@/stores/meetings'
 import type { Meeting } from '@/stores/meetings'
+import type { Recording } from '@/api/video-types'
 
 interface MeetingDetailPanelProps {
   meeting: Meeting | null
@@ -64,7 +67,7 @@ const reminderLabelKeys: Record<string, string> = {
   '1h': 'meetings.reminder.1hShort',
 }
 
-type TabId = 'details' | 'agenda' | 'notes'
+type TabId = 'details' | 'agenda' | 'notes' | 'recordings'
 
 /** Darken a hex color by a given amount (0-1) */
 function darkenColor(hex: string, amount: number): string {
@@ -126,6 +129,12 @@ export function MeetingDetailPanel({
     }
   }, [open, handleKeyDown])
 
+  // B4: recordings tab state (before early return to satisfy Rules of Hooks)
+  const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null)
+  const [showRecordingPlayer, setShowRecordingPlayer] = useState(false)
+  const { data: recordingsData } = useListRecordingsByMeeting(meeting?.id ?? '')
+  const meetingRecordings = recordingsData?.recordings ?? []
+
   if (!open || !meeting) return null
 
   const status = statusConfig[meeting.status]
@@ -154,6 +163,7 @@ export function MeetingDetailPanel({
     { id: 'details', label: t('common.details'), icon: FileText },
     { id: 'agenda', label: t('meetings.form.agenda'), icon: ListChecks },
     { id: 'notes', label: t('meetings.detail.notes'), icon: StickyNote },
+    { id: 'recordings', label: t('meetings.detail.recordings'), icon: Video },
   ]
 
   return (
@@ -318,6 +328,15 @@ export function MeetingDetailPanel({
               onReorder={(agendaId, dir) => reorderAgendaItem(meeting.id, agendaId, dir)}
             />
           )}
+          {activeTab === 'recordings' && (
+            <RecordingsTab
+              recordings={meetingRecordings}
+              onPlay={(rec) => {
+                setSelectedRecording(rec)
+                setShowRecordingPlayer(true)
+              }}
+            />
+          )}
           {activeTab === 'notes' && (
             <NotesTab
               value={notesValue}
@@ -327,6 +346,15 @@ export function MeetingDetailPanel({
           )}
         </div>
       </div>
+      {/* B4: Recording playback modal */}
+      <RecordingPlayerModal
+        recording={selectedRecording}
+        open={showRecordingPlayer}
+        onClose={() => {
+          setShowRecordingPlayer(false)
+          setSelectedRecording(null)
+        }}
+      />
     </>
   )
 }
@@ -753,6 +781,108 @@ function NotesTab({
           {t('meetings.notes.lastEdited')}: {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
+    </div>
+  )
+}
+
+/* ===============================================================
+   Recordings Tab (B4)
+   =============================================================== */
+
+interface RecordingsTabProps {
+  recordings: Recording[]
+  onPlay: (recording: Recording) => void
+}
+
+function RecordingsTab({ recordings, onPlay }: RecordingsTabProps) {
+  const { t } = useTranslation()
+
+  if (recordings.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="mb-3 text-[var(--muted)]"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" />
+        </svg>
+        <p className="text-sm text-[var(--muted)]">{t('meetings.detail.recordingsEmpty')}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{t('meetings.detail.recordingsEmptyHint')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {recordings.map((rec) => {
+        const daysLeft = rec.retention_expires_at
+          ? Math.max(0, Math.floor((new Date(rec.retention_expires_at).getTime() - Date.now()) / 86_400_000))
+          : null
+        const isPlayable = rec.status === 'completed'
+        const fileSizeMB = rec.file_size_bytes ? (Number(rec.file_size_bytes) / 1024 / 1024).toFixed(1) : null
+
+        return (
+          <div
+            key={rec.id}
+            className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:bg-secondary/40"
+          >
+            {/* Play button */}
+            <button
+              onClick={() => isPlayable && onPlay(rec)}
+              disabled={!isPlayable}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={t('meetings.detail.playRecording')}
+              title={isPlayable ? t('meetings.detail.playRecording') : t('meetings.detail.recordingNotReady')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            </button>
+
+            {/* Metadata */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-[var(--body)]">
+                  {rec.duration_seconds
+                    ? `${Math.round(rec.duration_seconds / 60)} min`
+                    : t('meetings.detail.recordingDurationUnknown')}
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    rec.status === 'completed'
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      : rec.status === 'processing' || rec.status === 'active'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {t(`meetings.detail.recordingStatus.${rec.status}`, { defaultValue: rec.status })}
+                </span>
+              </div>
+              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
+                <span>{new Date(rec.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                {fileSizeMB && <span>{fileSizeMB} MB</span>}
+                {daysLeft !== null && (
+                  <span className={daysLeft <= 7 ? 'text-destructive font-medium' : daysLeft <= 30 ? 'text-amber-500' : ''}>
+                    {daysLeft === 0
+                      ? t('meetings.detail.retentionExpirestoday')
+                      : t('meetings.detail.retentionExpiresIn', { days: daysLeft })}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

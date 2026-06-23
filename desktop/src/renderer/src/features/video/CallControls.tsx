@@ -20,7 +20,7 @@ import {
 } from '@livekit/components-react'
 import { toast } from 'sonner'
 
-import { useEndCall, useStartRecording, useStopRecording, useConfirmInitiatorConsent } from '@/api/hooks/useVideo'
+import { useEndCall, useStartRecording, useStopRecording, useConfirmInitiatorConsent, useActiveMeetingRecording } from '@/api/hooks/useVideo'
 import { RecordingInitiatorDialog } from './RecordingInitiatorDialog'
 import { cn } from '@/lib'
 
@@ -31,6 +31,8 @@ import { cn } from '@/lib'
 export interface CallControlsProps {
   /** Active call ID for API mutations. */
   callId: string
+  /** Meeting ID — used to look up any recording started by a host/co-host (B1). */
+  meetingId?: string
   /** Called after the local participant leaves the call. */
   onLeave?: () => void
   /** Optional CSS class for the container. */
@@ -64,7 +66,7 @@ export interface CallControlsProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export function CallControls({ callId, onLeave, className, onOpenDeviceSelector, leadingControls, onScreenShareClick, onOpenBackgroundSelector, isBackgroundActive }: CallControlsProps) {
+export function CallControls({ callId, meetingId, onLeave, className, onOpenDeviceSelector, leadingControls, onScreenShareClick, onOpenBackgroundSelector, isBackgroundActive }: CallControlsProps) {
   const room = useRoomContext()
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant()
@@ -82,6 +84,11 @@ export function CallControls({ callId, onLeave, className, onOpenDeviceSelector,
   // a call where someone else already started recording, this stays null and the
   // stop button is hidden — Sprint 3 backlog: query the active recording by call id.
   const [activeRecordingId, setActiveRecordingId] = useState<string | null>(null)
+
+  // B1: Poll for a meeting-level active recording (host/co-host started it without local state).
+  const { data: activeMeetingRecording = null } = useActiveMeetingRecording(meetingId)
+  // Effective recording ID: prefer locally-started one, fall back to meeting-level recording.
+  const effectiveRecordingId = activeRecordingId ?? activeMeetingRecording?.id ?? null
   // Controls the initiator pre-dialog (R2-P0.4)
   const [showInitiatorDialog, setShowInitiatorDialog] = useState(false)
   // Pending recording id used to confirm consent then start in two steps
@@ -116,15 +123,15 @@ export function CallControls({ callId, onLeave, className, onOpenDeviceSelector,
     if (startRecording.isPending || stopRecording.isPending || confirmInitiatorConsent.isPending) {
       return
     }
-    if (isRecording && activeRecordingId) {
-      await stopRecording.mutateAsync(activeRecordingId)
+    if (isRecording && effectiveRecordingId) {
+      await stopRecording.mutateAsync(effectiveRecordingId)
       setActiveRecordingId(null)
     } else if (!isRecording) {
       const recording = await startRecording.mutateAsync(callId)
       setPendingRecordingId(recording.id)
       setShowInitiatorDialog(true)
     }
-  }, [isRecording, activeRecordingId, callId, startRecording, stopRecording, confirmInitiatorConsent])
+  }, [isRecording, effectiveRecordingId, callId, startRecording, stopRecording, confirmInitiatorConsent])
 
   // Initiator confirmed the pre-dialog: stamp consent and register active recording.
   // Dialog only closes on success; on failure the user gets a toast and can retry
@@ -249,6 +256,7 @@ export function CallControls({ callId, onLeave, className, onOpenDeviceSelector,
       <ControlButton
         active={isRecording}
         onClick={handleRecordToggle}
+        disabled={isRecording && !effectiveRecordingId}
         title={isRecording ? 'Aufnahme stoppen' : 'Aufnahme starten'}
         aria-label={isRecording ? 'Aufnahme stoppen' : 'Aufnahme starten'}
         className={isRecording ? 'bg-destructive/20 text-destructive hover:bg-destructive/30' : ''}

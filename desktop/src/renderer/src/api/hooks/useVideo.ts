@@ -30,6 +30,7 @@ import {
   muteAllParticipants,
   kickParticipant,
   setMeetingLock,
+  getRecordingDownloadURL,
 } from '../video-client'
 import type { CreateCallRequest, RecordingStatus, ConsentSnapshotEntry, UpdateRecordingMetadataRequest, SendMeetingChatMessageRequest } from '../video-types'
 
@@ -414,5 +415,19 @@ export function useSetMeetingLock(meetingId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings', meetingId] })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Recording Download URL (Wave 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Get a presigned download URL for a completed recording.
+ * Returns { url, expires_at } valid for a short window (backend-configured TTL).
+ */
+export function useGetRecordingDownloadURL() {
+  return useMutation({
+    mutationFn: (recordingId: string) => getRecordingDownloadURL(recordingId),
   })
 }
