@@ -1455,7 +1455,7 @@ func toProtoQuote(q *models.Quote) *bizv1.Quote {
 	}
 
 	lineItems := parseProtoLineItems(q.LineItems)
-	taxBreakdown := parseProtoTaxBreakdown(q.TaxBreakdownRaw)
+	taxBreakdown := protoTaxBreakdown(q.TaxBreakdownRaw, q.Subtotal, q.TotalTax, q.GrossTotal)
 
 	pq := &bizv1.Quote{
 		Id:           q.ID.String(),
@@ -1491,7 +1491,7 @@ func toProtoInvoice(inv *models.Invoice) *bizv1.Invoice {
 	}
 
 	lineItems := parseProtoLineItems(inv.LineItems)
-	taxBreakdown := parseProtoTaxBreakdown(inv.TaxBreakdownRaw)
+	taxBreakdown := protoTaxBreakdown(inv.TaxBreakdownRaw, inv.Subtotal, inv.TotalTax, inv.GrossTotal)
 
 	pi := &bizv1.Invoice{
 		Id:            inv.ID.String(),
@@ -1549,7 +1549,7 @@ func toProtoCreditNote(cn *models.CreditNote) *bizv1.CreditNote {
 	}
 
 	lineItems := parseProtoLineItems(cn.LineItems)
-	taxBreakdown := parseProtoTaxBreakdown(cn.TaxBreakdownRaw)
+	taxBreakdown := protoTaxBreakdown(cn.TaxBreakdownRaw, cn.Subtotal, cn.TotalTax, cn.GrossTotal)
 
 	return &bizv1.CreditNote{
 		Id:                cn.ID.String(),
@@ -1739,6 +1739,23 @@ func parseProtoTaxBreakdown(raw json.RawMessage) *bizv1.TaxBreakdown {
 		TaxByRate:  taxByRate,
 		TotalTax:   tb.TotalTax.String(),
 		GrossTotal: tb.GrossTotal.String(),
+	}
+}
+
+// protoTaxBreakdown builds the proto TaxBreakdown for a finance document. It
+// prefers the persisted tax_breakdown JSONB but falls back to the denormalised
+// subtotal/total_tax/gross_total columns when that JSONB is absent — e.g. seed
+// rows or any document written without the JSONB. Without this fallback such
+// documents serialise with a nil breakdown and the list UI shows 0,00 €.
+// tax_by_rate is unavailable in the fallback (not stored as a column).
+func protoTaxBreakdown(raw json.RawMessage, subtotal, totalTax, grossTotal decimal.Decimal) *bizv1.TaxBreakdown {
+	if tb := parseProtoTaxBreakdown(raw); tb != nil {
+		return tb
+	}
+	return &bizv1.TaxBreakdown{
+		Subtotal:   subtotal.String(),
+		TotalTax:   totalTax.String(),
+		GrossTotal: grossTotal.String(),
 	}
 }
 
