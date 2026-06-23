@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { normalizeWireTimestamps } from '../wire-time'
 import type { components } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -33,7 +34,7 @@ export function useTaskComments(taskId: string, page?: number) {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -63,7 +64,7 @@ export function useCreateComment() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -96,7 +97,7 @@ export function useUpdateComment() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -123,7 +124,7 @@ export function useDeleteComment() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

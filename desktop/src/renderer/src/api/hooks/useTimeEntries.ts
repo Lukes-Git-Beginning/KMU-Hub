@@ -6,6 +6,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { normalizeWireTimestamps } from '../wire-time'
 
 // ---------------------------------------------------------------------------
 // Timer queries
@@ -21,7 +22,7 @@ export function useActiveTimer() {
     queryFn: async () => {
       const { data, error } = await apiClient.GET('/api/v1/timer/active')
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     refetchInterval: 60_000,
   })
@@ -45,7 +46,7 @@ export function useTimeEntries(taskId: string, page = 1, pageSize = 20) {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -62,7 +63,7 @@ export function useTaskTimeSummary(taskId: string) {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -83,7 +84,7 @@ export function useStartTimer() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, taskId) => {
       queryClient.invalidateQueries({ queryKey: ['timer', 'active'] })
@@ -99,7 +100,7 @@ export function useStopTimer() {
     mutationFn: async () => {
       const { data, error } = await apiClient.POST('/api/v1/timer/stop')
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timer'] })
@@ -135,7 +136,7 @@ export function useAddManualTimeEntry() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -169,7 +170,7 @@ export function useUpdateTimeEntry() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -198,7 +199,7 @@ export function useDeleteTimeEntry() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

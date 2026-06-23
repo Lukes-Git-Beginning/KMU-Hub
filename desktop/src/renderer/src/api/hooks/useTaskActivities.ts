@@ -6,6 +6,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { normalizeWireTimestamps } from '../wire-time'
 import type { components } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -32,7 +33,7 @@ export function useTaskActivities(taskId: string, page?: number) {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })

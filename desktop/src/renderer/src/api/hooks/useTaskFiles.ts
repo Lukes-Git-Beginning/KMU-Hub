@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { normalizeWireTimestamps } from '../wire-time'
 import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 import type { components } from '../types'
 
@@ -31,7 +32,7 @@ export function useTaskFiles(taskId: string) {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -86,7 +87,7 @@ export function useAttachFile() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -116,7 +117,7 @@ export function useRemoveFile() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
