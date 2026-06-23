@@ -82,7 +82,8 @@ export function useCompanySettings() {
     queryKey: financeKeys.companySettings(),
     queryFn: () => financeSettingsApi.get(),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    select: (data) => data.settings,
+    // Real backend returns the entity flat; the mock wraps it ({settings}). X-3.
+    select: (data) => (data.settings ?? data) as typeof data.settings,
   })
 }
 
@@ -113,7 +114,7 @@ export function useQuote(id: string) {
     queryKey: financeKeys.quote(id),
     queryFn: () => financeQuoteApi.get(id),
     enabled: !!id,
-    select: (data) => data.quote,
+    select: (data) => (data.quote ?? data) as typeof data.quote,
   })
 }
 
@@ -224,7 +225,7 @@ export function useInvoice(id: string) {
     queryKey: financeKeys.invoice(id),
     queryFn: () => financeInvoiceApi.get(id),
     enabled: !!id,
-    select: (data) => data.invoice,
+    select: (data) => (data.invoice ?? data) as typeof data.invoice,
   })
 }
 
@@ -515,7 +516,7 @@ export function useFinanceDashboard(dateFrom?: string, dateTo?: string) {
         date_from: dateFrom,
         date_to: dateTo,
       }),
-    select: (data) => data.dashboard,
+    select: (data) => (data.dashboard ?? data) as typeof data.dashboard,
   })
 }
 

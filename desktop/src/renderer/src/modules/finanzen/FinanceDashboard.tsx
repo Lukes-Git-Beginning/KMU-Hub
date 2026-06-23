@@ -100,7 +100,8 @@ export function FinanceDashboard({ onOpenInvoice, onOpenQuote, onOpenDunnings }:
   const totalOutstanding = Number(dashboard?.total_outstanding ?? 0)
   const overdueAmount = Number(dashboard?.overdue_amount ?? 0)
   const quotesPending = dashboard?.quotes_pending ?? 0
-  const conversionRate = dashboard?.conversion_rate ?? 0
+  // conversion_rate arrives as a protojson decimal STRING — coerce before .toFixed.
+  const conversionRate = Number(dashboard?.conversion_rate ?? 0)
   const avgDealSize = Number(dashboard?.average_deal_size ?? 0)
   const revenueForecast = Number(dashboard?.revenue_forecast ?? 0)
   const statusBreakdown = dashboard?.status_breakdown ?? {} as Record<InvoiceStatus, number>
