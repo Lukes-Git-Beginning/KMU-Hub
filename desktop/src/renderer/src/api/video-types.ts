@@ -355,3 +355,32 @@ export interface IncomingCallData {
   callerAvatar?: string
   callType: CallType
 }
+
+// ---------------------------------------------------------------------------
+// Host / moderation entities (Wave 3)
+// ---------------------------------------------------------------------------
+
+/** Response for GET /meetings/{meetingId}/cohosts */
+export interface MeetingCoHostsResponse {
+  user_ids: string[]
+}
+
+/** Request body for POST /meetings/{meetingId}/cohosts */
+export interface PromoteCoHostRequest {
+  user_id: string
+}
+
+/** Request body for POST /meetings/{meetingId}/moderation/mute */
+export interface MuteParticipantRequest {
+  target_user_id: string
+}
+
+/** Request body for POST /meetings/{meetingId}/moderation/kick */
+export interface KickParticipantRequest {
+  target_user_id: string
+}
+
+/** Request body for POST /meetings/{meetingId}/lock */
+export interface SetMeetingLockRequest {
+  locked: boolean
+}

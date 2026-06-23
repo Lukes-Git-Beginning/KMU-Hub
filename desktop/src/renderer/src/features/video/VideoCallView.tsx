@@ -17,6 +17,10 @@
  *   1.4 Connection quality indicator per roster entry via useConnectionQualityIndicator
  *   1.5 Room controls (mic/cam toggle callbacks + state) injected into video store
  *       so FloatingCallBar can toggle without needing LiveKitRoom context
+ *
+ * Wave 3 additions:
+ *   3.1 Host-Controls (server-authoritative): mute, kick, co-host, mute-all, lock
+ *       Visible only to the meeting host (organizer or co-host).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -49,6 +53,14 @@ import { RecordingActiveBanner } from './RecordingActiveBanner'
 import { ScreenShareView } from './ScreenShareView'
 import { InCallChat } from './InCallChat'
 import { ReactionLayer, ReactionPicker, useReactionChannel } from './ReactionLayer'
+import { useAuthStore } from '@/stores/auth'
+import { useMeeting } from '@/api/hooks/useMeetings'
+import { useMeetingCoHosts } from '@/api/hooks/useVideo'
+import {
+  ParticipantActions,
+  GlobalHostControls,
+  MeetingLockIndicator,
+} from './HostControls'
 import { cn } from '@/lib'
 
 // ---------------------------------------------------------------------------
@@ -82,6 +94,12 @@ export interface VideoCallViewProps {
   iceServers?: IceServer[]
   /** Called when the local participant leaves the call. */
   onLeave?: () => void
+  /**
+   * Meeting ID (distinct from callId for meeting-based calls).
+   * Required to enable host-controls (co-host list, moderation routes).
+   * When absent, host-controls are hidden.
+   */
+  meetingId?: string
 }
 
 type ViewMode = 'gallery' | 'speaker'
@@ -179,9 +197,15 @@ interface ParticipantRosterProps {
   localParticipant: Participant
   raisedHands?: Map<string, boolean>
   onClose: () => void
+  /** Host-control props -- undefined when the local user is not a host. */
+  hostControls?: {
+    meetingId: string
+    isOrganizer: boolean
+    coHosts: string[]
+  }
 }
 
-function ParticipantRoster({ participants, localParticipant, raisedHands, onClose }: ParticipantRosterProps) {
+function ParticipantRoster({ participants, localParticipant, raisedHands, onClose, hostControls }: ParticipantRosterProps) {
   const { t } = useTranslation()
 
   return (
@@ -228,6 +252,11 @@ function ParticipantRoster({ participants, localParticipant, raisedHands, onClos
                 {isLocal && (
                   <span className="ml-1.5 text-xs text-zinc-500">
                     ({t('features.video.roster.you')})
+                  </span>
+                )}
+                {!isLocal && (hostControls?.coHosts.includes(p.identity) ?? false) && (
+                  <span className="ml-1.5 text-xs text-violet-400">
+                    {t('features.video.hostControls.coHostBadge')}
                   </span>
                 )}
               </span>
@@ -304,6 +333,16 @@ function ParticipantRoster({ participants, localParticipant, raisedHands, onClos
 
                 {/* Connection quality (1.4) */}
                 <ConnectionQualityIcon participant={p} />
+
+                {/* Host-controls actions (Wave 3): only for other participants when local is host */}
+                {hostControls && !isLocal && (
+                  <ParticipantActions
+                    participantIdentity={p.identity}
+                    meetingId={hostControls.meetingId}
+                    isOrganizer={hostControls.isOrganizer}
+                    isCoHost={hostControls.coHosts.includes(p.identity)}
+                  />
+                )}
               </div>
             </div>
           )
@@ -390,6 +429,16 @@ interface InnerCallViewProps {
   focusedParticipant: Participant | null
   setFocusedParticipant: (p: Participant | null) => void
   onLeave?: () => void
+  /** Meeting ID for host-controls (Wave 3). Undefined = no host features. */
+  meetingId?: string
+  /** Organizer user ID derived from meeting data. */
+  organizerId?: string
+  /** Current authenticated user ID. */
+  currentUserId?: string
+  /** Co-host user IDs from the server (Wave 3). */
+  coHosts: string[]
+  /** Whether the room is currently locked (Wave 3). */
+  isLocked: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -473,6 +522,11 @@ function InnerCallView({
   focusedParticipant,
   setFocusedParticipant,
   onLeave,
+  meetingId,
+  organizerId,
+  currentUserId,
+  coHosts,
+  isLocked,
 }: InnerCallViewProps) {
   const { t } = useTranslation()
   const room = useRoomContext()
@@ -488,6 +542,10 @@ function InnerCallView({
 
   // Wave 2: emoji reactions (DataChannel floats)
   const { floats, sendReaction } = useReactionChannel()
+
+  // Wave 3: derive host role from meeting organizer + co-host list
+  const isOrganizer = !!currentUserId && currentUserId === organizerId
+  const isHost = isOrganizer || (!!currentUserId && coHosts.includes(currentUserId))
 
   const setRoomControls = useVideoStore((s) => s.setRoomControls)
 
@@ -596,12 +654,25 @@ function InnerCallView({
 
   const localDisplayName = localParticipant.name ?? localParticipant.identity
 
+  // Host-controls props for the roster (only defined when local user is host)
+  const rosterHostControls = (isHost && meetingId)
+    ? { meetingId, isOrganizer, coHosts }
+    : undefined
+
   return (
     <div className="relative flex h-full w-full flex-col bg-zinc-950">
       {/* DSGVO: visible recording indicator for every participant. Self-renders
           only while a recording is active (useIsRecording). The stop control
           lives in CallControls, so no activeRecordingId is needed here. */}
       <RecordingActiveBanner activeRecordingId={null} />
+
+      {/* Wave 3: Global host controls bar (mute-all, lock) + lock indicator */}
+      {isHost && meetingId && (
+        <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/80 px-4 py-1.5">
+          <MeetingLockIndicator isLocked={isLocked} />
+          <GlobalHostControls meetingId={meetingId} isLocked={isLocked} />
+        </div>
+      )}
 
       {/* Main content: video area + optional roster/chat sidebar */}
       <div className="relative flex flex-1 overflow-hidden">
@@ -768,6 +839,7 @@ function InnerCallView({
             localParticipant={localParticipant}
             raisedHands={raisedHands}
             onClose={() => setShowRoster(false)}
+            hostControls={rosterHostControls}
           />
         )}
 
@@ -837,10 +909,20 @@ export function VideoCallView({
   wsUrl,
   iceServers,
   onLeave,
+  meetingId,
 }: VideoCallViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('gallery')
   const [focusedParticipant, setFocusedParticipant] =
     useState<Participant | null>(null)
+
+  // Wave 3: meeting data + co-host list for host-controls
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const { data: meeting } = useMeeting(meetingId ?? '')
+  const { data: coHosts = [] } = useMeetingCoHosts(meetingId ?? '')
+
+  // Lock state: tracked locally; meeting refetch after lock mutation provides ground truth.
+  // Backend will expose meeting.locked once the column is added; for now always false.
+  const isLocked = false
 
   const clearActiveCall = useVideoStore((s) => s.clearActiveCall)
 
@@ -879,6 +961,11 @@ export function VideoCallView({
         focusedParticipant={focusedParticipant}
         setFocusedParticipant={setFocusedParticipant}
         onLeave={onLeave}
+        meetingId={meetingId}
+        organizerId={meeting?.organizer_id}
+        currentUserId={currentUserId}
+        coHosts={coHosts}
+        isLocked={isLocked}
       />
     </LiveKitRoom>
   )

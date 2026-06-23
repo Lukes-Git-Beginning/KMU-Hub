@@ -23,6 +23,13 @@ import {
   confirmInitiatorConsent,
   getMeetingChatHistory,
   sendMeetingChatMessage,
+  getMeetingCoHosts,
+  promoteCoHost,
+  demoteCoHost,
+  muteParticipant,
+  muteAllParticipants,
+  kickParticipant,
+  setMeetingLock,
 } from '../video-client'
 import type { CreateCallRequest, RecordingStatus, ConsentSnapshotEntry, UpdateRecordingMetadataRequest, SendMeetingChatMessageRequest } from '../video-types'
 
@@ -324,5 +331,88 @@ export function useSaveMeetingChatMessage(meetingId: string) {
   return useMutation({
     mutationFn: (req: SendMeetingChatMessageRequest) =>
       sendMeetingChatMessage(meetingId, req),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Meeting Co-Host hooks (Wave 3)
+// ---------------------------------------------------------------------------
+
+
+/**
+ * Fetch the list of co-host user IDs for a meeting.
+ * Refetches every 30 s while the component is mounted so the roster stays
+ * in sync when the organizer promotes / demotes during the call.
+ */
+export function useMeetingCoHosts(meetingId: string) {
+  return useQuery({
+    queryKey: ['meetings', meetingId, 'cohosts'],
+    queryFn: async () => {
+      const res = await getMeetingCoHosts(meetingId)
+      return res.user_ids ?? []
+    },
+    enabled: !!meetingId,
+    refetchInterval: 30_000,
+  })
+}
+
+/** Promote a participant to co-host (organizer only). */
+export function usePromoteCoHost(meetingId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) => promoteCoHost(meetingId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', meetingId, 'cohosts'] })
+    },
+  })
+}
+
+/** Demote a co-host back to regular participant (organizer only). */
+export function useDemoteCoHost(meetingId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) => demoteCoHost(meetingId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', meetingId, 'cohosts'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Meeting Moderation hooks (Wave 3)
+// ---------------------------------------------------------------------------
+
+/** Mute a specific participant server-side (host/co-host only). */
+export function useMuteParticipant(meetingId: string) {
+  return useMutation({
+    mutationFn: (targetUserId: string) => muteParticipant(meetingId, targetUserId),
+  })
+}
+
+/** Mute every participant except the caller (host/co-host only). */
+export function useMuteAllParticipants(meetingId: string) {
+  return useMutation({
+    mutationFn: () => muteAllParticipants(meetingId),
+  })
+}
+
+/** Kick a participant from the room (host/co-host only). */
+export function useKickParticipant(meetingId: string) {
+  return useMutation({
+    mutationFn: (targetUserId: string) => kickParticipant(meetingId, targetUserId),
+  })
+}
+
+/**
+ * Lock or unlock the meeting room (host/co-host only).
+ * `locked: true` prevents new participants from joining.
+ */
+export function useSetMeetingLock(meetingId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (locked: boolean) => setMeetingLock(meetingId, locked),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', meetingId] })
+    },
   })
 }

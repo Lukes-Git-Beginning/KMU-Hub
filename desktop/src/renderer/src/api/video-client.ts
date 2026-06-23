@@ -259,3 +259,65 @@ export const getMeetingChatHistory = (meetingId: string) =>
  */
 export const sendMeetingChatMessage = (meetingId: string, req: SendMeetingChatMessageRequest) =>
   post<MeetingChatMessage>(`/api/v1/meetings/${meetingId}/chat`, req)
+
+// ---------------------------------------------------------------------------
+// Meeting Co-Hosts (Wave 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * List current co-hosts for a meeting.
+ * Returns an array of user IDs that have co-host privileges.
+ */
+export const getMeetingCoHosts = (meetingId: string) =>
+  get<{ user_ids: string[] }>(`/api/v1/meetings/${meetingId}/cohosts`)
+
+/**
+ * Promote a participant to co-host.
+ * Only the organizer may call this.
+ */
+export const promoteCoHost = (meetingId: string, userId: string) =>
+  post<void>(`/api/v1/meetings/${meetingId}/cohosts`, { user_id: userId })
+
+/**
+ * Demote a co-host back to regular participant.
+ * Only the organizer may call this.
+ */
+export const demoteCoHost = (meetingId: string, userId: string) =>
+  del<void>(`/api/v1/meetings/${meetingId}/cohosts/${userId}`)
+
+// ---------------------------------------------------------------------------
+// Meeting Moderation (Wave 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Mute a specific participant (server-authoritative — LiveKit mutes via RoomServiceClient).
+ * Callable by host or co-host.
+ */
+export const muteParticipant = (meetingId: string, targetUserId: string) =>
+  post<void>(`/api/v1/meetings/${meetingId}/moderation/mute`, {
+    target_user_id: targetUserId,
+  })
+
+/**
+ * Mute all participants except the caller.
+ * Callable by host or co-host.
+ */
+export const muteAllParticipants = (meetingId: string) =>
+  post<void>(`/api/v1/meetings/${meetingId}/moderation/mute-all`)
+
+/**
+ * Remove (kick) a participant from the meeting room.
+ * Callable by host or co-host.
+ */
+export const kickParticipant = (meetingId: string, targetUserId: string) =>
+  post<void>(`/api/v1/meetings/${meetingId}/moderation/kick`, {
+    target_user_id: targetUserId,
+  })
+
+/**
+ * Lock or unlock the meeting room.
+ * When locked, new participants cannot join.
+ * Callable by host or co-host.
+ */
+export const setMeetingLock = (meetingId: string, locked: boolean) =>
+  post<void>(`/api/v1/meetings/${meetingId}/lock`, { locked })
