@@ -56,7 +56,12 @@
 
 ## Sub-Paket (Format, von Main geschrieben)
 - Ablage: `.planning/parallel-batch/sub-<lane>.md` + ein **fertiger Start-Text** zum Reinkopieren ins 2. Terminal.
-- Inhalt: Lane-Module + die 5 Phasen, Backend-Check-Ergebnis (🔌/🔒) je Phase, Referenz-Pfade, Verify-Checkliste, **Pre-Flight** (`git pull` + Migrations-Kopf), „committet+pusht atomar, bleibt in seiner Lane".
+- **Der Start-Text beginnt IMMER mit dem Ziel-Verzeichnis als kopierbarem Öffnen-Befehl** (der jeweils ANDERE Klon als Main), damit Darien das Terminal direkt dort öffnen kann — Format:
+  ```
+  ▶ Zweites Terminal hier öffnen:  cd "C:\Users\darie\Documents\KMU Hub"   (oder …\KMU-Hub-review)
+     dann:  claude   → diesen Text einfügen.   Dev-Port: 5173 (bzw. 5174, der andere als Main)
+  ```
+- Inhalt danach: Lane-Module + die 5 Phasen, Backend-Check-Ergebnis (🔌/🔒) je Phase, Referenz-Pfade, Verify-Checkliste, **Pre-Flight** (`git pull` + Migrations-Kopf), „committet+pusht atomar, bleibt in seiner Lane".
 - Muster: `.planning/parallel-batch/` (`main-*.md` / `sub-*.md` / `qa-combined.md`) + `archiv/two-terminal-nico-workflow.md`.
 
 ## „Durch" — Definition of Done für 1.0
