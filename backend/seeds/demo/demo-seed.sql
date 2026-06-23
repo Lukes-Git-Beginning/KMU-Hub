@@ -696,17 +696,86 @@ ON CONFLICT (tenant_id, document_type, fiscal_year) DO NOTHING;
 -- =============================================================================
 -- 10. FINANCE — Rechnungen (3 Demo-Rechnungen)
 -- =============================================================================
--- contact_id REFERENCES contacts — ohne FK auf tenant_id, daher kompatibel
+-- line_items ist eine JSONB-Spalte (NICHT separate Tabelle). LineItem-Felder
+-- quantity/unit_price/tax_rate/line_total sind STRINGS (protojson). Beträge der
+-- Nummernkreis-Zählung (RE current_number=3) entsprechend.
 
--- ENTFERNT: finance_invoices nutzt eine separate finance_line_items-Tabelle,
--- nicht eine line_items-JSON-Spalte. Separat fixen (nicht Teil des ersten
--- Mock-Exit-Ziels kontakte/work).
+-- Positionen liegen in der normalisierten Tabelle finance_invoice_lines
+-- (NICHT als JSONB-Spalte am Kopf). FK-Reihenfolge: Köpfe zuerst, dann Zeilen.
+INSERT INTO finance_invoices (
+    id, tenant_id, invoice_number, status,
+    customer_name, customer_address, customer_email,
+    tax_mode, subtotal, total_tax, gross_total,
+    invoice_date, due_date, payment_terms, notes, currency, created_by
+) VALUES
+(
+    'cccccccc-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    'RE-2026-001', 'sent',
+    'Müller & Söhne GmbH', 'Hauptstraße 12, 70173 Stuttgart', 'buchhaltung@mueller-soehne.de',
+    'standard', 1500.00, 285.00, 1785.00,
+    '2026-05-01', '2026-05-31', 'Zahlbar innerhalb 30 Tagen ohne Abzug', '', 'EUR',
+    '11111111-1111-1111-1111-111111111111'
+),
+(
+    'cccccccc-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
+    'RE-2026-002', 'paid',
+    'Bäcker Konditorei Huber KG', 'Bahnhofstraße 7, 6020 Innsbruck', 'thomas@konditorei-huber.at',
+    'standard', 870.00, 165.30, 1035.30,
+    '2026-04-10', '2026-05-10', 'Zahlbar innerhalb 30 Tagen ohne Abzug', '', 'EUR',
+    '11111111-1111-1111-1111-111111111111'
+),
+(
+    'cccccccc-0000-0000-0000-000000000003',
+    '00000000-0000-0000-0000-000000000001',
+    'RE-2026-003', 'draft',
+    'Elektro Brandner GmbH', 'Gewerbestraße 4, 6300 Wörgl', 's.brandner@elektro-brandner.de',
+    'standard', 2900.00, 551.00, 3451.00,
+    '2026-06-15', '2026-07-15', 'Zahlbar innerhalb 30 Tagen ohne Abzug', '', 'EUR',
+    '11111111-1111-1111-1111-111111111111'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO finance_invoice_lines (id, invoice_id, tenant_id, position, description, quantity, unit_price, tax_rate, line_total) VALUES
+('ccccaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 1, 'Wartung Heizungsanlage (Jahrespauschale)', 1, 1500.00, 19, 1500.00),
+('ccccaaaa-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 1, 'Cosmi CRM Basis-Lizenz (3 Monate)', 3, 290.00, 19, 870.00),
+('ccccaaaa-0000-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 1, 'Dialer-Modul Einrichtung & Schulung', 1, 2900.00, 19, 2900.00)
+ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
--- 11. FINANCE — Angebot (1 Demo-Angebot)
+-- 11. FINANCE — Angebote (2 Demo-Angebote)
 -- =============================================================================
+-- line_items = JSONB mit String-Werten (wie Rechnungen). AN current_number=2.
 
--- ENTFERNT: finance_quotes — gleicher line_items-Mismatch wie finance_invoices.
+INSERT INTO finance_quotes (
+    id, tenant_id, quote_number, status,
+    customer_name, customer_address, customer_email,
+    tax_mode, subtotal, total_tax, gross_total,
+    valid_until, notes, created_by
+) VALUES
+(
+    'dddddddd-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    'AN-2026-001', 'sent',
+    'Weidemann Logistik e.K.', 'Industriering 22, 49074 Osnabrück', 'g.weidemann@weidemann-logistik.de',
+    'standard', 22000.00, 4180.00, 26180.00,
+    '2026-07-31', '', '11111111-1111-1111-1111-111111111111'
+),
+(
+    'dddddddd-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
+    'AN-2026-002', 'draft',
+    'Zimmerei Schreinerei Vogel AG', 'Dorfstrasse 9, 3920 Zermatt', 'm.vogel@vogel-holzbau.ch',
+    'standard', 9800.00, 1862.00, 11662.00,
+    '2026-08-15', '', '11111111-1111-1111-1111-111111111111'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO finance_quote_lines (id, quote_id, tenant_id, position, description, quantity, unit_price, tax_rate, line_total) VALUES
+('ddddaaaa-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 1, 'Cosmi Vollpaket (CRM + Dialer + Finanzen), Jahreslizenz', 1, 22000.00, 19, 22000.00),
+('ddddaaaa-0000-0000-0000-000000000002', 'dddddddd-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 1, 'Cosmi CRM-Einführung inkl. Onboarding-Workshop', 1, 9800.00, 19, 9800.00)
+ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 -- FERTIG — Zusammenfassung:

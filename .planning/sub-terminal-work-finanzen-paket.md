@@ -1,5 +1,15 @@
 # Sub-Terminal-Paket — work + finanzen echt-schalten (Mock-Exit Lane B)
 
+> **⚠️ UPDATE 23.06. (Main-Terminal hat Backend + Seed gemacht + live geprobt):** Zwei Research-Annahmen waren FALSCH — hier die verifizierte Realität:
+> 1. **work+biz-Backend läuft bereits** (`docker compose ... up -d --no-deps minio createbucket work biz` + **Gateway-Restart** nötig, sonst „name resolver error: produced zero addresses" für biz). Beide healthy.
+> 2. **Finance-Seed ist FERTIG + korrekt** (3 Rechnungen + 2 Angebote, Blöcke 10/11 aktiv). Der „separate `finance_line_items`-Tabelle"-Kommentar war im Kern richtig, nur Tabellenname falsch: es sind **`finance_invoice_lines` + `finance_quote_lines`** (Köpfe haben KEINE `line_items`-Spalte; Migr. 000045-JSONB wurde später normalisiert). Werte numeric in SQL.
+> 3. **work hat die `{seconds,nanos}`-Timestamp-Falle** (nutzt `response.JSON`): `created_at`/`due_date` etc. kommen als `{seconds,nanos}`-Objekte, das FE liest sie als Strings (`parseISO`) → **Board/Gantt/Liste hängen im Skeleton**. ALLE work-Endpoints liefern aber 200. **Fix nötig:** ts-Normalizer (`{seconds,nanos}`→ISO) in den work-Hooks über alle Datumsfelder (tasks/projects/comments/activities/files/time-entries). DAS ist der work-Blocker, nicht Casing.
+> 4. **finanzen nutzt protojson** (`response.Proto`): **`status` ist Enum-Integer** (`status:2`), das FE (`finance-types.ts`) tippt String-Union (`'sent'`) → Mapping nötig. `customer` nested + `line_items[]` matchen schon. Außerdem: **`useInvoice`/`useQuote` machen `select: data => data.invoice/.quote`, aber die Einzel-Response ist FLACH** (kein Wrapper) → undefined, Detail bricht. Fix: select raus + Enum-Int→String-Map.
+> 5. RBAC ok (Demo-User admin), Idempotency ok (`finance-client` nutzt `authenticatedRequest` → Key automatisch). Diese zwei Research-Sorgen sind KEIN Problem.
+>
+> **Verbleibende Arbeit = die FE-Wire-Shape-Fixes (3 + 4).** Backend + Seed sind erledigt. QA-Skript-Vorlage: `desktop/scripts/qa-mock-exit-work-finanzen.mjs`.
+
+
 > Vorbereitet vom Main-Terminal (das parallel crm/companies+deals+pipeline-stages echt-schaltet). Dieses Paket ist **disjunkt** — keine gemeinsamen Dateien außer `backend/seeds/demo/demo-seed.sql` (nur Finance-Block, klar abgegrenzt → bei Gleichzeitigkeit serialisieren).
 
 ## Auftrag
