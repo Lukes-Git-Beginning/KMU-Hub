@@ -12,6 +12,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { dual } from '../casing'
 import { API_BASE_URL } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
@@ -44,7 +45,8 @@ export function useTags() {
           id: t.id!,
           name: t.name!,
           color: t.color ?? '#6B7280',
-          entityType: t.entityType,
+          // Backend emits snake_case `entity_type` (X-3 casing drift).
+          entityType: dual<TagInfo['entityType']>(t, 'entityType'),
         }))
       return tags
     },

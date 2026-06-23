@@ -7,6 +7,7 @@
     "src/renderer/src/api/casing.ts",
     "src/renderer/src/mocks/demo-mode-flag.ts",
     "src/renderer/src/api/hooks/useDeals.ts",
-    "src/renderer/src/api/hooks/usePipelineStages.ts"
+    "src/renderer/src/api/hooks/usePipelineStages.ts",
+    "src/renderer/src/api/hooks/useContactTags.ts"
   ]
 }
