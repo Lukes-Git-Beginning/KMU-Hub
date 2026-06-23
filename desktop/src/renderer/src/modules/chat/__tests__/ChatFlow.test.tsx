@@ -61,6 +61,10 @@ vi.mock('@/api/hooks/useChannels', () => ({
     mutateAsync: mockCreateChannelMutateAsync,
     isPending: false,
   }),
+  useStartConversation: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ channel: { id: 'dm-new' } }),
+    isPending: false,
+  }),
 }))
 
 // Mock message hooks
