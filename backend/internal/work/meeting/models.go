@@ -55,6 +55,8 @@ type Meeting struct {
 	RoomName           *string    `json:"room_name,omitempty"`
 	CalendarEventID    *uuid.UUID `json:"calendar_event_id,omitempty"`
 	RecurringMeetingID *uuid.UUID `json:"recurring_meeting_id,omitempty"`
+	ContactID          *uuid.UUID `json:"contact_id,omitempty"`
+	DealID             *uuid.UUID `json:"deal_id,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }

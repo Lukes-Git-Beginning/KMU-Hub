@@ -26,11 +26,11 @@ func (r *PostgresRepository) CreateMeeting(ctx context.Context, m *Meeting) erro
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO meetings (id, tenant_id, title, description, agenda, organizer_id, status,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
-		  calendar_event_id, recurring_meeting_id, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
 		m.ID, m.TenantID, m.Title, m.Description, m.Agenda, m.OrganizerID, m.Status,
 		m.ScheduledStart, m.ScheduledEnd, m.ActualStart, m.ActualEnd, m.RoomName,
-		m.CalendarEventID, m.RecurringMeetingID, m.CreatedAt, m.UpdatedAt,
+		m.CalendarEventID, m.RecurringMeetingID, m.ContactID, m.DealID, m.CreatedAt, m.UpdatedAt,
 	)
 	return err
 }
@@ -40,13 +40,13 @@ func (r *PostgresRepository) GetMeeting(ctx context.Context, id, tenantID uuid.U
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
-		  calendar_event_id, recurring_meeting_id, created_at, updated_at
+		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at
 		 FROM meetings WHERE id = $1 AND tenant_id = $2`,
 		id, tenantID,
 	).Scan(
 		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
-		&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
+		&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -62,12 +62,12 @@ func (r *PostgresRepository) UpdateMeeting(ctx context.Context, m *Meeting) erro
 		`UPDATE meetings SET title=$3, description=$4, agenda=$5, status=$6,
 		  scheduled_start=$7, scheduled_end=$8, actual_start=$9, actual_end=$10,
 		  room_name=$11, calendar_event_id=$12, recurring_meeting_id=$13, updated_at=$14,
-		  locked=$15
+		  locked=$15, contact_id=$16, deal_id=$17
 		 WHERE id=$1 AND tenant_id=$2`,
 		m.ID, m.TenantID, m.Title, m.Description, m.Agenda, m.Status,
 		m.ScheduledStart, m.ScheduledEnd, m.ActualStart, m.ActualEnd,
 		m.RoomName, m.CalendarEventID, m.RecurringMeetingID, m.UpdatedAt,
-		m.Locked,
+		m.Locked, m.ContactID, m.DealID,
 	)
 	if err != nil {
 		return fmt.Errorf("update meeting: %w", err)
@@ -128,7 +128,7 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 
 	query := `SELECT m.id, m.tenant_id, m.title, m.description, m.agenda, m.organizer_id, m.status, m.locked,
 		m.scheduled_start, m.scheduled_end, m.actual_start, m.actual_end, m.room_name,
-		m.calendar_event_id, m.recurring_meeting_id, m.created_at, m.updated_at
+		m.calendar_event_id, m.recurring_meeting_id, m.contact_id, m.deal_id, m.created_at, m.updated_at
 		FROM meetings m`
 
 	if len(conditions) > 0 {
@@ -155,7 +155,7 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 		if err := rows.Scan(
 			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
-			&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
+			&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan meeting: %w", err)
 		}
@@ -171,13 +171,13 @@ func (r *PostgresRepository) GetMeetingByRoomName(ctx context.Context, roomName 
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
-		  calendar_event_id, recurring_meeting_id, created_at, updated_at
+		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at
 		 FROM meetings WHERE room_name = $1`,
 		roomName,
 	).Scan(
 		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
-		&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
+		&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -195,7 +195,7 @@ func (r *PostgresRepository) ListStaleMeetings(ctx context.Context, cutoff time.
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
-		  calendar_event_id, recurring_meeting_id, created_at, updated_at
+		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at
 		 FROM meetings
 		 WHERE status = 'in_progress' AND scheduled_end < $1`,
 		cutoff,
@@ -211,7 +211,7 @@ func (r *PostgresRepository) ListStaleMeetings(ctx context.Context, cutoff time.
 		if err := rows.Scan(
 			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
-			&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
+			&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan stale meeting: %w", err)
 		}

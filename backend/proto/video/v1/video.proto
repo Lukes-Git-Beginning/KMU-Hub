@@ -171,6 +171,9 @@ message Meeting {
   google.protobuf.Timestamp updated_at = 15;
   repeated MeetingAttendee attendees = 16;
   bool locked = 17;
+  // CRM links (Wave 7B) — optional, set at create or update time.
+  optional string contact_id = 18;
+  optional string deal_id = 19;
 }
 
 message MeetingAttendee {
@@ -373,6 +376,9 @@ message CreateMeetingRequest {
   optional string calendar_event_id = 7;
   optional string recurring_meeting_id = 8;
   repeated string attendee_user_ids = 9;
+  // CRM links (Wave 7B)
+  optional string contact_id = 10;
+  optional string deal_id = 11;
 }
 
 message GetMeetingRequest {
@@ -387,6 +393,9 @@ message UpdateMeetingRequest {
   optional google.protobuf.Timestamp scheduled_start = 5;
   optional google.protobuf.Timestamp scheduled_end = 6;
   repeated string attendee_user_ids = 7;
+  // CRM links (Wave 7B)
+  optional string contact_id = 8;
+  optional string deal_id = 9;
 }
 
 message DeleteMeetingRequest {

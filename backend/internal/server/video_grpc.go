@@ -672,6 +672,20 @@ func (s *VideoGRPCServer) CreateMeeting(ctx context.Context, req *videov1.Create
 		}
 		input.RecurringMeetingID = &recID
 	}
+	if req.ContactId != nil {
+		cid, parseErr := uuid.Parse(*req.ContactId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		input.ContactID = &cid
+	}
+	if req.DealId != nil {
+		did, parseErr := uuid.Parse(*req.DealId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+		}
+		input.DealID = &did
+	}
 
 	m, err := s.meetingService.CreateMeeting(ctx, input)
 	if err != nil {
@@ -729,6 +743,20 @@ func (s *VideoGRPCServer) UpdateMeeting(ctx context.Context, req *videov1.Update
 	if req.ScheduledEnd != nil {
 		t := req.ScheduledEnd.AsTime()
 		input.ScheduledEnd = &t
+	}
+	if req.ContactId != nil {
+		cid, parseErr := uuid.Parse(*req.ContactId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		input.ContactID = &cid
+	}
+	if req.DealId != nil {
+		did, parseErr := uuid.Parse(*req.DealId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+		}
+		input.DealID = &did
 	}
 
 	m, err := s.meetingService.UpdateMeeting(ctx, id, tenantID, input)
@@ -1462,6 +1490,14 @@ func meetingToProto(m *meeting.Meeting) *videov1.Meeting {
 		proto.RecurringMeetingId = &s
 	}
 	proto.Locked = m.Locked
+	if m.ContactID != nil {
+		s := m.ContactID.String()
+		proto.ContactId = &s
+	}
+	if m.DealID != nil {
+		s := m.DealID.String()
+		proto.DealId = &s
+	}
 	return proto
 }
 

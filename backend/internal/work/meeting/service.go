@@ -54,6 +54,9 @@ type CreateMeetingInput struct {
 	CalendarEventID    *uuid.UUID
 	RecurringMeetingID *uuid.UUID
 	AttendeeIDs        []uuid.UUID
+	// CRM links (Wave 7B) — optional
+	ContactID *uuid.UUID
+	DealID    *uuid.UUID
 }
 
 // UpdateMeetingInput contains the data for updating a meeting
@@ -63,6 +66,9 @@ type UpdateMeetingInput struct {
 	Agenda         *string
 	ScheduledStart *time.Time
 	ScheduledEnd   *time.Time
+	// CRM links (Wave 7B) — optional; nil means "do not change"
+	ContactID *uuid.UUID
+	DealID    *uuid.UUID
 }
 
 // CreateActionItemInput contains the data to create an action item
@@ -116,6 +122,8 @@ func (s *Service) CreateMeeting(ctx context.Context, input CreateMeetingInput) (
 		ScheduledEnd:       input.ScheduledEnd,
 		CalendarEventID:    input.CalendarEventID,
 		RecurringMeetingID: input.RecurringMeetingID,
+		ContactID:          input.ContactID,
+		DealID:             input.DealID,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
@@ -221,6 +229,13 @@ func (s *Service) UpdateMeeting(ctx context.Context, id, tenantID uuid.UUID, inp
 	}
 	m.ScheduledStart = start
 	m.ScheduledEnd = end
+
+	if input.ContactID != nil {
+		m.ContactID = input.ContactID
+	}
+	if input.DealID != nil {
+		m.DealID = input.DealID
+	}
 
 	m.UpdatedAt = time.Now().UTC()
 

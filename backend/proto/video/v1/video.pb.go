@@ -586,8 +586,11 @@ type Meeting struct {
 	UpdatedAt          *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	Attendees          []*MeetingAttendee     `protobuf:"bytes,16,rep,name=attendees,proto3" json:"attendees,omitempty"`
 	Locked             bool                   `protobuf:"varint,17,opt,name=locked,proto3" json:"locked,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// CRM links (Wave 7B) — optional, set at create or update time.
+	ContactId     *string `protobuf:"bytes,18,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	DealId        *string `protobuf:"bytes,19,opt,name=deal_id,json=dealId,proto3,oneof" json:"deal_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Meeting) Reset() {
@@ -737,6 +740,20 @@ func (x *Meeting) GetLocked() bool {
 		return x.Locked
 	}
 	return false
+}
+
+func (x *Meeting) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *Meeting) GetDealId() string {
+	if x != nil && x.DealId != nil {
+		return *x.DealId
+	}
+	return ""
 }
 
 type MeetingAttendee struct {
@@ -2437,8 +2454,11 @@ type CreateMeetingRequest struct {
 	CalendarEventId    *string                `protobuf:"bytes,7,opt,name=calendar_event_id,json=calendarEventId,proto3,oneof" json:"calendar_event_id,omitempty"`
 	RecurringMeetingId *string                `protobuf:"bytes,8,opt,name=recurring_meeting_id,json=recurringMeetingId,proto3,oneof" json:"recurring_meeting_id,omitempty"`
 	AttendeeUserIds    []string               `protobuf:"bytes,9,rep,name=attendee_user_ids,json=attendeeUserIds,proto3" json:"attendee_user_ids,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// CRM links (Wave 7B)
+	ContactId     *string `protobuf:"bytes,10,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	DealId        *string `protobuf:"bytes,11,opt,name=deal_id,json=dealId,proto3,oneof" json:"deal_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateMeetingRequest) Reset() {
@@ -2534,6 +2554,20 @@ func (x *CreateMeetingRequest) GetAttendeeUserIds() []string {
 	return nil
 }
 
+func (x *CreateMeetingRequest) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *CreateMeetingRequest) GetDealId() string {
+	if x != nil && x.DealId != nil {
+		return *x.DealId
+	}
+	return ""
+}
+
 type GetMeetingRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MeetingId     string                 `protobuf:"bytes,1,opt,name=meeting_id,json=meetingId,proto3" json:"meeting_id,omitempty"`
@@ -2587,8 +2621,11 @@ type UpdateMeetingRequest struct {
 	ScheduledStart  *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=scheduled_start,json=scheduledStart,proto3,oneof" json:"scheduled_start,omitempty"`
 	ScheduledEnd    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=scheduled_end,json=scheduledEnd,proto3,oneof" json:"scheduled_end,omitempty"`
 	AttendeeUserIds []string               `protobuf:"bytes,7,rep,name=attendee_user_ids,json=attendeeUserIds,proto3" json:"attendee_user_ids,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// CRM links (Wave 7B)
+	ContactId     *string `protobuf:"bytes,8,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	DealId        *string `protobuf:"bytes,9,opt,name=deal_id,json=dealId,proto3,oneof" json:"deal_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateMeetingRequest) Reset() {
@@ -2668,6 +2705,20 @@ func (x *UpdateMeetingRequest) GetAttendeeUserIds() []string {
 		return x.AttendeeUserIds
 	}
 	return nil
+}
+
+func (x *UpdateMeetingRequest) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
+}
+
+func (x *UpdateMeetingRequest) GetDealId() string {
+	if x != nil && x.DealId != nil {
+		return *x.DealId
+	}
+	return ""
 }
 
 type DeleteMeetingRequest struct {
@@ -4898,7 +4949,7 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"first_name\x18\a \x01(\tR\tfirstName\x12\x1b\n" +
 	"\tlast_name\x18\b \x01(\tR\blastNameB\n" +
 	"\n" +
-	"\b_left_at\"\x9a\a\n" +
+	"\b_left_at\"\xf7\a\n" +
 	"\aMeeting\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12%\n" +
@@ -4920,7 +4971,10 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x127\n" +
 	"\tattendees\x18\x10 \x03(\v2\x19.video.v1.MeetingAttendeeR\tattendees\x12\x16\n" +
-	"\x06locked\x18\x11 \x01(\bR\x06lockedB\x0e\n" +
+	"\x06locked\x18\x11 \x01(\bR\x06locked\x12\"\n" +
+	"\n" +
+	"contact_id\x18\x12 \x01(\tH\aR\tcontactId\x88\x01\x01\x12\x1c\n" +
+	"\adeal_id\x18\x13 \x01(\tH\bR\x06dealId\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\t\n" +
 	"\a_agendaB\x0f\n" +
 	"\r_actual_startB\r\n" +
@@ -4928,7 +4982,10 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\n" +
 	"_room_nameB\x14\n" +
 	"\x12_calendar_event_idB\x17\n" +
-	"\x15_recurring_meeting_id\"\xbc\x01\n" +
+	"\x15_recurring_meeting_idB\r\n" +
+	"\v_contact_idB\n" +
+	"\n" +
+	"\b_deal_id\"\xbc\x01\n" +
 	"\x0fMeetingAttendee\x12\x1d\n" +
 	"\n" +
 	"meeting_id\x18\x01 \x01(\tR\tmeetingId\x12\x17\n" +
@@ -5101,7 +5158,7 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\x1fGetRecordingDownloadURLResponse\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x129\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\xf7\x03\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\xd4\x04\n" +
 	"\x14CreateMeetingRequest\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x1b\n" +
@@ -5111,14 +5168,21 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\rscheduled_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fscheduledEnd\x12/\n" +
 	"\x11calendar_event_id\x18\a \x01(\tH\x02R\x0fcalendarEventId\x88\x01\x01\x125\n" +
 	"\x14recurring_meeting_id\x18\b \x01(\tH\x03R\x12recurringMeetingId\x88\x01\x01\x12*\n" +
-	"\x11attendee_user_ids\x18\t \x03(\tR\x0fattendeeUserIdsB\x0e\n" +
+	"\x11attendee_user_ids\x18\t \x03(\tR\x0fattendeeUserIds\x12\"\n" +
+	"\n" +
+	"contact_id\x18\n" +
+	" \x01(\tH\x04R\tcontactId\x88\x01\x01\x12\x1c\n" +
+	"\adeal_id\x18\v \x01(\tH\x05R\x06dealId\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\t\n" +
 	"\a_agendaB\x14\n" +
 	"\x12_calendar_event_idB\x17\n" +
-	"\x15_recurring_meeting_id\"2\n" +
+	"\x15_recurring_meeting_idB\r\n" +
+	"\v_contact_idB\n" +
+	"\n" +
+	"\b_deal_id\"2\n" +
 	"\x11GetMeetingRequest\x12\x1d\n" +
 	"\n" +
-	"meeting_id\x18\x01 \x01(\tR\tmeetingId\"\x9b\x03\n" +
+	"meeting_id\x18\x01 \x01(\tR\tmeetingId\"\xf8\x03\n" +
 	"\x14UpdateMeetingRequest\x12\x1d\n" +
 	"\n" +
 	"meeting_id\x18\x01 \x01(\tR\tmeetingId\x12\x19\n" +
@@ -5127,12 +5191,18 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\x06agenda\x18\x04 \x01(\tH\x02R\x06agenda\x88\x01\x01\x12H\n" +
 	"\x0fscheduled_start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x03R\x0escheduledStart\x88\x01\x01\x12D\n" +
 	"\rscheduled_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x04R\fscheduledEnd\x88\x01\x01\x12*\n" +
-	"\x11attendee_user_ids\x18\a \x03(\tR\x0fattendeeUserIdsB\b\n" +
+	"\x11attendee_user_ids\x18\a \x03(\tR\x0fattendeeUserIds\x12\"\n" +
+	"\n" +
+	"contact_id\x18\b \x01(\tH\x05R\tcontactId\x88\x01\x01\x12\x1c\n" +
+	"\adeal_id\x18\t \x01(\tH\x06R\x06dealId\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\t\n" +
 	"\a_agendaB\x12\n" +
 	"\x10_scheduled_startB\x10\n" +
-	"\x0e_scheduled_end\"N\n" +
+	"\x0e_scheduled_endB\r\n" +
+	"\v_contact_idB\n" +
+	"\n" +
+	"\b_deal_id\"N\n" +
 	"\x14DeleteMeetingRequest\x12\x1d\n" +
 	"\n" +
 	"meeting_id\x18\x01 \x01(\tR\tmeetingId\x12\x17\n" +
