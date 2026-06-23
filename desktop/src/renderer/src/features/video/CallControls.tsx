@@ -4,7 +4,8 @@
  * Provides buttons for:
  *   - Mute / unmute microphone
  *   - Camera on / off
- *   - Screen share toggle
+ *   - Screen share toggle (Wave 4.1: routes through Electron source picker)
+ *   - Background blur / virtual BG toggle (Wave 4.3)
  *   - Record (initiates RecordingConsentDialog flow)
  *   - Leave call (red hang-up button)
  *
@@ -41,13 +42,29 @@ export interface CallControlsProps {
    * Used by VideoCallView (Wave 2) to inject hand-raise + reaction picker.
    */
   leadingControls?: React.ReactNode
+  /**
+   * Wave 4.1: Override for the screen-share button click.
+   * When provided, VideoCallView opens the Electron source picker before
+   * calling setScreenShareEnabled(). When absent, the button directly toggles.
+   */
+  onScreenShareClick?: () => void
+  /**
+   * Wave 4.3: Called when the user clicks the background-blur button.
+   * VideoCallView toggles the BackgroundSelector panel.
+   */
+  onOpenBackgroundSelector?: () => void
+  /**
+   * Wave 4.3: Whether any background effect is currently active.
+   * Used to highlight the background button.
+   */
+  isBackgroundActive?: boolean
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function CallControls({ callId, onLeave, className, onOpenDeviceSelector, leadingControls }: CallControlsProps) {
+export function CallControls({ callId, onLeave, className, onOpenDeviceSelector, leadingControls, onScreenShareClick, onOpenBackgroundSelector, isBackgroundActive }: CallControlsProps) {
   const room = useRoomContext()
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant()
@@ -80,10 +97,17 @@ export function CallControls({ callId, onLeave, className, onOpenDeviceSelector,
     await localParticipant.setCameraEnabled(!isCameraEnabled)
   }, [localParticipant, isCameraEnabled])
 
-  // Screen share toggle
+  // Screen share toggle (Wave 4.1)
+  // When turning ON and an Electron picker override exists, delegate to it.
+  // When turning OFF (already sharing), stop directly via LiveKit.
   const handleScreenShareToggle = useCallback(async () => {
-    await localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
-  }, [localParticipant, isScreenShareEnabled])
+    if (!isScreenShareEnabled && onScreenShareClick) {
+      // Delegate to VideoCallView which opens the source picker first
+      onScreenShareClick()
+    } else {
+      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
+    }
+  }, [localParticipant, isScreenShareEnabled, onScreenShareClick])
 
   // Record toggle — shows pre-dialog before starting. Guarded against
   // double-click via the mutation pending flags so two StartRecording requests
@@ -189,7 +213,7 @@ export function CallControls({ callId, onLeave, className, onOpenDeviceSelector,
         )}
       </ControlButton>
 
-      {/* Screen share */}
+      {/* Screen share (Wave 4.1: opens Electron source picker when turning on) */}
       <ControlButton
         active={isScreenShareEnabled}
         onClick={handleScreenShareToggle}
@@ -207,6 +231,19 @@ export function CallControls({ callId, onLeave, className, onOpenDeviceSelector,
       >
         <ScreenShareIcon className="h-5 w-5" />
       </ControlButton>
+
+      {/* Background blur / virtual background (Wave 4.3) */}
+      {onOpenBackgroundSelector && (
+        <ControlButton
+          active={isBackgroundActive}
+          onClick={onOpenBackgroundSelector}
+          title="Hintergrund anpassen"
+          aria-label="Hintergrund anpassen"
+          className={isBackgroundActive ? 'bg-violet-600/30 text-violet-300 hover:bg-violet-600/40' : ''}
+        >
+          <BackgroundIcon className="h-5 w-5" />
+        </ControlButton>
+      )}
 
       {/* Record */}
       <ControlButton
@@ -440,6 +477,31 @@ function SettingsIcon({ className }: { className?: string }) {
     >
       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+/** Background blur / virtual background toggle (Wave 4.3) */
+function BackgroundIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Person silhouette */}
+      <circle cx="12" cy="8" r="3" />
+      <path d="M6 20v-1a6 6 0 0 1 12 0v1" />
+      {/* Blur dots in corners suggesting background effect */}
+      <circle cx="3" cy="3" r="1" fill="currentColor" opacity="0.4" />
+      <circle cx="21" cy="3" r="1" fill="currentColor" opacity="0.4" />
+      <circle cx="3" cy="21" r="1" fill="currentColor" opacity="0.4" />
+      <circle cx="21" cy="21" r="1" fill="currentColor" opacity="0.4" />
     </svg>
   )
 }

@@ -4,6 +4,7 @@ import { registerNotificationHandlers } from './notifications'
 import { registerWindowHandlers } from './window'
 import { registerComposeHandlers } from './compose'
 import { registerEmployeeWizardHandlers } from './employee-wizard'
+import { registerScreenshareHandlers } from './screenshare'
 
 export function registerIPCHandlers(getMainWindow: () => BrowserWindow | null): void {
   registerAuthHandlers()
@@ -11,6 +12,7 @@ export function registerIPCHandlers(getMainWindow: () => BrowserWindow | null): 
   registerWindowHandlers()
   registerComposeHandlers()
   registerEmployeeWizardHandlers()
+  registerScreenshareHandlers()
 
   // App metadata handlers
   ipcMain.handle('app:version', () => app.getVersion())

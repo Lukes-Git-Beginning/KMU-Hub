@@ -51,6 +51,8 @@ import type { IceServer } from '@/api/video-types'
 import { CallControls } from './CallControls'
 import { RecordingActiveBanner } from './RecordingActiveBanner'
 import { ScreenShareView } from './ScreenShareView'
+import { ScreenSourcePicker } from './ScreenSourcePicker'
+import { BackgroundSelector } from './BackgroundSelector'
 import { InCallChat } from './InCallChat'
 import { ReactionLayer, ReactionPicker, useReactionChannel } from './ReactionLayer'
 import { useAuthStore } from '@/stores/auth'
@@ -531,11 +533,18 @@ function InnerCallView({
   const { t } = useTranslation()
   const room = useRoomContext()
   const participants = useParticipants()
-  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant()
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant()
 
   const [showRoster, setShowRoster] = useState(false)
   const [showDeviceSelector, setShowDeviceSelector] = useState(false)
   const [showChat, setShowChat] = useState(false)
+
+  // Wave 4.1: Electron screen-source picker
+  const [showScreenPicker, setShowScreenPicker] = useState(false)
+
+  // Wave 4.3: Background blur/virtual BG selector
+  const [showBackgroundSelector, setShowBackgroundSelector] = useState(false)
+  const [isBackgroundActive, setIsBackgroundActive] = useState(false)
 
   // Wave 2: hand raise (synced DataChannel)
   const { raisedHands, isLocalHandRaised, toggleHand } = useHandRaise()
@@ -618,6 +627,53 @@ function InnerCallView({
     },
     [setFocusedParticipant, setViewMode],
   )
+
+  // Wave 4.1: Screen-share picker handlers
+  // Called by CallControls when screen-share button is pressed while not sharing.
+  const handleScreenShareButtonClick = useCallback(() => {
+    setShowScreenPicker(true)
+  }, [])
+
+  // Called by ScreenSourcePicker once the user confirms a source.
+  // LiveKit ScreenShareCaptureOptions.sourceId tells livekit-client to pass
+  // chromeMediaSourceId in the video constraint, which Electron's
+  // setDisplayMediaRequestHandler will receive and map to the right source.
+  const handleSourceSelected = useCallback(
+    async (sourceId: string) => {
+      setShowScreenPicker(false)
+      try {
+        if (sourceId) {
+          // Electron path: pass sourceId so the main-process handler can select it
+          await localParticipant.setScreenShareEnabled(true, {
+            audio: true,
+            sourceId,
+          })
+        } else {
+          // Non-Electron path (web fallback): browser's native picker
+          await localParticipant.setScreenShareEnabled(true, { audio: true })
+        }
+      } catch {
+        // User may have cancelled the native dialog or no source found — safe to ignore
+      }
+    },
+    [localParticipant],
+  )
+
+  const handleScreenPickerCancel = useCallback(() => {
+    setShowScreenPicker(false)
+  }, [])
+
+  // Wave 4.3: Background selector
+  const handleOpenBackgroundSelector = useCallback(() => {
+    setShowBackgroundSelector((v) => !v)
+    // Collapse other popovers for clean UX
+    setShowDeviceSelector(false)
+  }, [])
+
+  // Called by BackgroundSelector to close itself (outside click)
+  const handleBackgroundSelectorClose = useCallback(() => {
+    setShowBackgroundSelector(false)
+  }, [])
 
   // Find the focused track reference for speaker view
   const focusedTrack = useMemo((): TrackReferenceOrPlaceholder | undefined => {
@@ -853,15 +909,32 @@ function InnerCallView({
         )}
       </div>
 
-      {/* Call controls bar -- device selector opens above it (1.2) */}
+      {/* Wave 4.1: Screen source picker modal (portaled above everything) */}
+      <ScreenSourcePicker
+        open={showScreenPicker}
+        onSelect={handleSourceSelected}
+        onCancel={handleScreenPickerCancel}
+      />
+
+      {/* Call controls bar -- device selector / background selector opens above it */}
       <div className="relative">
         {showDeviceSelector && (
           <DeviceSelector onClose={() => setShowDeviceSelector(false)} />
+        )}
+        {/* Wave 4.3: Background selector popover */}
+        {showBackgroundSelector && (
+          <BackgroundSelector
+            onClose={handleBackgroundSelectorClose}
+            onModeChange={(m) => setIsBackgroundActive(m !== 'off')}
+          />
         )}
         <CallControls
           callId={callId}
           onLeave={onLeave}
           onOpenDeviceSelector={() => setShowDeviceSelector((v) => !v)}
+          onScreenShareClick={!isScreenShareEnabled ? handleScreenShareButtonClick : undefined}
+          onOpenBackgroundSelector={handleOpenBackgroundSelector}
+          isBackgroundActive={isBackgroundActive}
           leadingControls={
             <>
               {/* Wave 2: Hand-raise button */}

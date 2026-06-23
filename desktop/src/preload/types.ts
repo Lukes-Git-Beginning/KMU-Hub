@@ -5,6 +5,16 @@ export interface TokenPair {
   refreshToken: string
 }
 
+/** Screen capture source (Wave 4.1 — Electron screen-source picker). */
+export interface ScreenSourceInfo {
+  id: string
+  name: string
+  /** PNG data URL of the source thumbnail. Empty string when unavailable. */
+  thumbnailDataUrl: string
+  /** 'screen' for full display, 'window' for application window */
+  type: 'screen' | 'window'
+}
+
 export interface ElectronAPI {
   /** Auth: retrieve stored tokens (decrypted via safeStorage) */
   auth: {
@@ -45,5 +55,13 @@ export interface ElectronAPI {
   /** Employee wizard: open employee creation wizard in a separate OS window */
   employeeWizard: {
     openWindow: () => Promise<void>
+  }
+
+  /**
+   * Screenshare: enumerate capture sources for the in-call source-picker (Wave 4.1).
+   * Returns all available screens and windows with thumbnail previews.
+   */
+  screenshare: {
+    getSources: () => Promise<ScreenSourceInfo[]>
   }
 }
