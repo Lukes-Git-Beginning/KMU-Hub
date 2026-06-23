@@ -5,7 +5,39 @@
  * for the pipeline view.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { components } from '../types'
 import { apiClient } from '../client'
+import { authenticatedRequest } from '../utils/authenticatedFetch'
+import { dual } from '../casing'
+import { DEMO_MODE } from '@/mocks/demo-mode-flag'
+
+type DealInfo = components['schemas']['DealInfo']
+
+/** Normalize a backend deal (snake_case wire) to the camelCase shape the
+ *  pipeline/analytics/360° views read (X-3 casing drift). */
+export function backendDealToUI(d: unknown): DealInfo {
+  const raw = (d ?? {}) as Record<string, unknown>
+  return {
+    ...raw,
+    stageId: dual<string>(d, 'stageId') ?? '',
+    stageName: dual<string>(d, 'stageName') ?? '',
+    contactName: dual<string>(d, 'contactName') ?? '',
+    companyName: dual<string>(d, 'companyName') ?? '',
+    ownerName: dual<string>(d, 'ownerName') ?? '',
+    expectedCloseDate: dual<string>(d, 'expectedCloseDate') ?? '',
+    createdAt: dual<string>(d, 'createdAt') ?? '',
+  } as DealInfo
+}
+
+/** Real backend wants `custom_fields` as an array; the deal forms send a
+ *  `_`-prefixed extras object. Drop it in real mode (backend gap), keep it in
+ *  DEMO_MODE so the mock retains the extras. Core fields are already snake_case. */
+function toDealPayload(body: Record<string, unknown>): Record<string, unknown> {
+  if (DEMO_MODE) return body
+  const next = { ...body }
+  next.custom_fields = []
+  return next
+}
 
 export interface DealListParams {
   page?: number
@@ -28,7 +60,7 @@ export function useDeals(params?: DealListParams) {
         params: { query: params },
       })
       if (error) throw error
-      return data
+      return { ...data, deals: (data?.deals ?? []).map(backendDealToUI) }
     },
   })
 }
@@ -41,7 +73,7 @@ export function useDeal(id: string) {
         params: { path: { id } },
       })
       if (error) throw error
-      return data
+      return data?.deal ? { ...data, deal: backendDealToUI(data.deal) } : data
     },
     enabled: !!id,
   })
@@ -64,7 +96,7 @@ export function useCreateDeal() {
       custom_fields?: Record<string, unknown>
     }) => {
       const { data, error } = await apiClient.POST('/api/v1/deals', {
-        body,
+        body: toDealPayload(body) as never,
       })
       if (error) throw error
       return data
@@ -94,12 +126,12 @@ export function useUpdateDeal() {
       notes?: string
       custom_fields?: Record<string, unknown>
     }) => {
-      const { data, error } = await apiClient.PATCH('/api/v1/deals/{id}', {
-        params: { path: { id } },
-        body,
+      // Update is PUT server-side (spec mislabels it PATCH, X-3).
+      return authenticatedRequest({
+        method: 'PUT',
+        path: `/api/v1/deals/${id}`,
+        body: toDealPayload(body),
       })
-      if (error) throw error
-      return data
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['deals'] })

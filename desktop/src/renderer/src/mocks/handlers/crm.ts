@@ -333,7 +333,8 @@ export const crmHandlers = [
     return HttpResponse.json(created, { status: 201 })
   }),
 
-  http.patch(`${API}/api/v1/deals/:id`, async ({ params, request }) => {
+  // Update is PUT server-side; mock mirrors it (spec mislabels PATCH, X-3).
+  http.put(`${API}/api/v1/deals/:id`, async ({ params, request }) => {
     const existing = getDealById(params.id as string)
     if (!existing) {
       return HttpResponse.json({ error: 'Deal not found' }, { status: 404 })
@@ -402,7 +403,8 @@ export const crmHandlers = [
     return HttpResponse.json({ stage })
   }),
 
-  http.patch(`${API}/api/v1/pipeline-stages/:id`, async ({ request, params }) => {
+  // Update is PUT server-side; mock mirrors it (spec mislabels PATCH, X-3).
+  http.put(`${API}/api/v1/pipeline-stages/:id`, async ({ request, params }) => {
     const stage = mockPipelineStages.stages.find((s) => s.id === params.id)
     if (!stage) return new HttpResponse(null, { status: 404 })
     const body = (await request.json()) as Partial<typeof stage>
