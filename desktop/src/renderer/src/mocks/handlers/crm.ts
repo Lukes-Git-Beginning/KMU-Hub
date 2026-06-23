@@ -159,7 +159,10 @@ export const crmHandlers = [
     return HttpResponse.json(created, { status: 201 })
   }),
 
-  http.patch(`${API}/api/v1/contacts/:id`, async ({ params, request }) => {
+  // Update ist serverseitig PUT (echtes Gateway); Mock spiegelt das, damit der
+  // FE-Hook in beiden Modi dieselbe Methode nutzt. Die OpenAPI-Spec nennt
+  // faelschlich PATCH (X-3).
+  http.put(`${API}/api/v1/contacts/:id`, async ({ params, request }) => {
     const existing = getContactById(params.id as string)
     if (!existing) {
       return HttpResponse.json({ error: 'Contact not found' }, { status: 404 })

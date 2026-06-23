@@ -722,3 +722,30 @@ ON CONFLICT (tenant_id, document_type, fiscal_year) DO NOTHING;
 --   finance_invoices:         3 Zeilen
 --   finance_quotes:           1 Zeile
 -- =============================================================================
+
+-- =============================================================================
+-- 12. DEMO-USER → ADMIN (idempotent)
+-- =============================================================================
+-- Der Demo-User wird via POST /auth/register angelegt und bekommt nur die
+-- member-Rolle (contacts:read, kein write) → Create/Update/Delete = 403.
+-- Damit die Demo-Umgebung volle Modul-Funktionalität zeigt, wird demo@local.test
+-- auf admin gehoben (206 Permissions, system-global, kein tenant_id auf user_roles).
+-- Legt den User NICHT an (das macht register), hebt nur die Rolle wenn vorhanden.
+DO $$
+DECLARE
+  v_user_id  uuid;
+  v_admin_id uuid;
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_user_id  FROM users WHERE email = 'demo@local.test';
+  SELECT id INTO v_admin_id FROM roles WHERE name = 'admin';
+  SELECT id INTO v_member_id FROM roles WHERE name = 'member';
+  IF v_user_id IS NOT NULL AND v_admin_id IS NOT NULL THEN
+    INSERT INTO user_roles (user_id, role_id)
+      VALUES (v_user_id, v_admin_id)
+      ON CONFLICT DO NOTHING;
+    IF v_member_id IS NOT NULL THEN
+      DELETE FROM user_roles WHERE user_id = v_user_id AND role_id = v_member_id;
+    END IF;
+  END IF;
+END $$;

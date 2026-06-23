@@ -8,6 +8,8 @@
  * custom_fields map with an underscore-prefixed key convention.
  */
 import type { components } from '@/api/types'
+import { dual } from '@/api/casing'
+import { DEMO_MODE } from '@/mocks/demo-mode-flag'
 import type {
   Contact,
   ContactAddress,
@@ -37,23 +39,21 @@ interface ExtraFields {
 /** Convert a backend ContactInfo to a full UI Contact. isFavorite is always false
  *  here — callers should overlay it from local Zustand state. */
 export function backendContactToUI(c: BackendContact): Contact {
-  // Das gRPC-Gateway liefert snake_case (protojson), die OpenAPI-Typen sind
-  // camelCase (Spec-Drift, X-3). Beide Casings tolerieren, bis die Spec gefixt
-  // bzw. global normalisiert ist — sonst bleiben Name/Firma/Datum leer.
-  const raw = c as unknown as Record<string, unknown>
-  const pick = (camel: string, snake: string): string | undefined =>
-    (raw[camel] ?? raw[snake]) as string | undefined
-
-  const extra = ((raw.customFields ?? raw.custom_fields) ?? {}) as ExtraFields
-  const firstName = pick('firstName', 'first_name') ?? ''
-  const lastName = pick('lastName', 'last_name') ?? ''
-  const updatedAt = pick('updatedAt', 'updated_at')
-  const createdAt = pick('createdAt', 'created_at')
+  // Das gRPC-Gateway liefert snake_case (protobuf json-Tags), die OpenAPI-Typen
+  // sind camelCase (Spec-Drift, X-3). `dual()` liest beide Casings, bis die Spec
+  // auf snake_case konsolidiert ist — sonst bleiben Name/Firma/Datum leer.
+  const extra = (dual<ExtraFields>(c, 'customFields') ?? {}) as ExtraFields
+  const firstName = dual<string>(c, 'firstName') ?? ''
+  const lastName = dual<string>(c, 'lastName') ?? ''
+  const updatedAt = dual<string>(c, 'updatedAt')
+  const createdAt = dual<string>(c, 'createdAt')
   const initials = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
 
   return {
     id: c.id ?? '',
     salutation: (extra._salutation as 'Herr' | 'Frau' | '') ?? '',
+    // Akademischer Titel (Dr./Prof.) — reines Extra-Feld, hat kein echtes
+    // Backend-Pendant (gegen das echte Backend leer, im Mock via `title`).
     title: c.title ?? '',
     firstName,
     lastName,
@@ -61,8 +61,10 @@ export function backendContactToUI(c: BackendContact): Contact {
     email: c.email ?? '',
     phone: c.phone ?? '',
     mobile: extra._mobile ?? '',
-    company: pick('companyName', 'company_name') ?? '',
-    jobTitle: extra._jobTitle ?? '',
+    company: dual<string>(c, 'companyName') ?? '',
+    // Job-Position ("Geschäftsführer"): echtes Backend liefert sie im
+    // `position`-Feld, der Mock im custom-fields-Extra `_jobTitle` (X-3).
+    jobTitle: (dual<string>(c, 'position') ?? extra._jobTitle) ?? '',
     department: extra._department ?? '',
     address: extra._address ?? { street: '', zip: '', city: '', country: 'Deutschland' },
     website: extra._website ?? '',
@@ -100,32 +102,58 @@ function buildExtraFields(data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 
   return extra as Record<string, unknown>
 }
 
-/** Map UI form data → backend CreateContactRequest */
-export function uiFormToCreateRequest(
-  data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>,
-): CreateContactRequest {
+type FormData = Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>
+
+/** Kernfelder, die das echte Contact-Schema kennt (snake_case, Gateway-konform). */
+function coreContactFields(data: FormData): {
+  first_name: string
+  last_name: string
+  email?: string
+  phone?: string
+  notes?: string
+} {
   return {
     first_name: data.firstName,
     last_name: data.lastName,
     email: data.email || undefined,
     phone: data.phone || undefined,
-    title: data.title || undefined,
     notes: data.notes || undefined,
-    custom_fields: buildExtraFields(data),
   }
 }
 
-/** Map UI form data → backend UpdateContactRequest */
-export function uiFormToUpdateRequest(
-  data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>,
-): UpdateContactRequest {
-  return {
-    first_name: data.firstName,
-    last_name: data.lastName,
-    email: data.email || undefined,
-    phone: data.phone || undefined,
-    title: data.title || undefined,
-    notes: data.notes || undefined,
-    custom_fields: buildExtraFields(data),
+/**
+ * Map UI form data → Create/Update payload, je nach Modus.
+ *
+ * Mock (DEMO_MODE): toleriert das `_`-präfixierte `custom_fields`-Objekt und das
+ * `title`-Feld → der volle UI-Feldumfang bleibt im Demo-Modus erhalten.
+ *
+ * Echtes Backend: Das Contact-Schema kennt nur Kernfelder. Job-Position liegt im
+ * `position`-Feld (die OpenAPI-Spec nennt es fälschlich `title` und kennt kein
+ * `position` → Cast, X-3). `custom_fields` verlangt echte Custom-Field-UUIDs →
+ * leeres Array. Die 9 UI-Extra-Felder (mobile/address/jobTitle/…) sind eine
+ * Backend-Lücke (Handover Luke) und werden serverseitig noch nicht persistiert.
+ */
+function uiFormToWriteRequest(data: FormData): CreateContactRequest {
+  if (DEMO_MODE) {
+    return {
+      ...coreContactFields(data),
+      title: data.title || undefined,
+      custom_fields: buildExtraFields(data),
+    }
   }
+  return {
+    ...coreContactFields(data),
+    position: data.jobTitle || undefined,
+    custom_fields: [],
+  } as unknown as CreateContactRequest
+}
+
+/** Map UI form data → backend CreateContactRequest */
+export function uiFormToCreateRequest(data: FormData): CreateContactRequest {
+  return uiFormToWriteRequest(data)
+}
+
+/** Map UI form data → backend UpdateContactRequest */
+export function uiFormToUpdateRequest(data: FormData): UpdateContactRequest {
+  return uiFormToWriteRequest(data) as unknown as UpdateContactRequest
 }

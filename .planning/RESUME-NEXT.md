@@ -1,6 +1,10 @@
-# RESUME — nächster Einstieg (Stand 2026-06-23, Session-Ende)
+# RESUME — nächster Einstieg (Stand 2026-06-23, Session-Ende #2)
 
-> **★ NEUER STRANG: MOCK-EXIT (raus aus MSW, echtes Backend).** Aus „können wir aus dem Mock raus?" wurde ein funktionierender Durchstich. **Login + Kontakte laufen echt gegen ein lokales Backend** — kein Mock. Dabei 2 echte Bugs gefunden + gefixt + gepusht.
+> **★ MOCK-EXIT — kontakte ist KOMPLETT echt (Referenz-Modul).** READ + voller CRUD (Create/Update/Delete) durch die echte UI gegen das lokale Backend, live verifiziert (Screenshots `desktop/.qa-screenshots/crud-*.png`). Casing-Entscheidung getroffen: **Option C** (per-Modul `dual()`-Adapter, kein globaler Transform — FE ist gemischt-casing). Vollständiger Bericht + Backend-Handover + camelCase-Risiko-Set für die nächsten Module: **`.planning/kontakte-mock-exit-DONE.md`**.
+>
+> **Diese Session neu:** `api/casing.ts` (`dual()`-Helper), `mocks/demo-mode-flag.ts` (Leaf-Flag), kontakte-Adapter mode-branched + position↔jobTitle, useContacts PATCH→PUT, Mock-Handler PATCH→PUT, Demo-User→admin (Seed idempotent). 3 weitere Mock-verdeckte Bugs gefunden+gefixt (PUT-Methode, position-Feld, custom_fields-Array).
+>
+> **Voriger Durchstich (Session #1):** Login + Kontakte-Liste echt, 2 Bugs gefixt (CORS-Idempotency-Key `d4a9c1a4`, Contact-Adapter snake_case `3979b142`).
 
 ## Was diese Session fertig wurde (gepusht, `043cb372`)
 - **Lokales Backend läuft** via Docker (`deploy/docker/docker-compose.yml`): **postgres + redis + auth + crm + gateway** (Minimal-Subset; voller 24-Service-Stack crasht die Maschine → nur bauen, was man braucht). Gateway auf `:8080`, Migrationen bis **000226**.
@@ -28,11 +32,12 @@ cd desktop && npx electron-vite dev --mode localbackend
 ```
 
 ## Was als Nächstes (Reihenfolge nach Hebel)
-1. **OpenAPI-Casing global lösen (X-3, GRÖSSTER Hebel):** snake_case-Backend vs camelCase-Spec betrifft jedes Modul. Optionen: (a) globale snake→camel-Normalisierung im `apiClient` (`api/client.ts` onResponse), (b) OpenAPI-Spec auf snake_case fixen + Typen regenerieren. Bis dahin pro Modul Adapter robust (wie kontakte).
-2. **work + biz dazuholen** → Aufgaben/Projekte/Finanzen auch echt (`docker compose build work biz` + `up -d --no-deps`). Pro Modul Wire-Shape gegen Matrix prüfen.
-3. **Finance-Seed fixen** (line_items → `finance_line_items`-Tabelle) → finanzen-Demo nicht leer.
-4. **RLS-scharf testen:** `DATABASE_URL` auf `kmuhub_app:app_dev` (statt Superuser) → wie Prod. Migration 000121, einmalig `ALTER ROLE kmuhub_app WITH PASSWORD 'app_dev'`.
-5. **Weitere Module** per `mock-exit-readiness-matrix.md` echt schalten (notifications braucht Luke-Migration is_pinned/is_dismissed; dialer-Supervisor braucht Backend-Route).
+1. **~~OpenAPI-Casing~~ GELÖST** — Entscheidung Option C (per-Modul `dual()`). Globaler Transform verworfen (FE gemischt-casing, würde Tausende snake-Leser brechen). Casing-Risiko-Set + Pattern in `kontakte-mock-exit-DONE.md`.
+2. **Nächstes Modul nach kontakte-Pattern echt schalten** — Reihenfolge nach Risiko-Set: crm/companies → crm/deals+pipeline-stages (DealInfo-Casing!) → work. Pro Modul: `dual()`-Adapter falls OpenAPI-getippt, Methode/Wire-Shape/Idempotency/RBAC gegen echtes Backend prüfen (nicht nur Mock).
+3. **work + biz dazuholen** → Aufgaben/Projekte/Finanzen echt (`docker compose build work biz` + `up -d --no-deps`).
+4. **Finance-Seed fixen** (line_items → `finance_line_items`-Tabelle) → finanzen-Demo nicht leer.
+5. **RLS-scharf testen:** `DATABASE_URL` auf `kmuhub_app:app_dev` (statt Superuser) → wie Prod. Migration 000121, einmalig `ALTER ROLE kmuhub_app WITH PASSWORD 'app_dev'`.
+6. **Luke-Handover offen** (siehe `kontakte-mock-exit-DONE.md`): contact-Schema zu dünn (9 Extra-Felder), OpenAPI-Spec-Drift contacts (PATCH→PUT, title→position, custom_fields-Array), Timeline-Endpoint hängt.
 
 ## Parallel: regulärer Bau-Track (MASTER-PLAN.md)
 Der Mock-Exit ist Welle 1 (Echt-Schaltung) in Aktion. `MASTER-PLAN.md` bleibt die SSOT für die übrigen Wellen. SESSION-RUNBOOK-Zyklus gilt weiter.

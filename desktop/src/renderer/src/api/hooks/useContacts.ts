@@ -109,12 +109,14 @@ export function useUpdateContact() {
       notes?: string
       custom_fields?: Record<string, unknown>
     }) => {
-      const { data, error } = await apiClient.PATCH('/api/v1/contacts/{id}', {
-        params: { path: { id } },
+      // Update ist serverseitig PUT (die OpenAPI-Spec nennt fälschlich PATCH,
+      // X-3) → method-expliziter authenticatedRequest statt openapi-fetch, das
+      // nur die (falsche) PATCH-Methode typt.
+      return authenticatedRequest({
+        method: 'PUT',
+        path: `/api/v1/contacts/${id}`,
         body,
       })
-      if (error) throw error
-      return data
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })

@@ -1,5 +1,8 @@
 # Mock-Exit-Readiness-Matrix
 
+> **✅ kontakte = ERSTES Modul vollständig echt geschaltet (2026-06-23).** READ + voller CRUD durch die echte UI verifiziert. Referenz-Pattern + Backend-Handover + camelCase-Risiko-Set für die nächsten Module: **`.planning/kontakte-mock-exit-DONE.md`**.
+
+
 > **Zweck:** Modul-für-Modul-Landkarte für den Ausstieg aus dem MSW-Mock-Modus hin zum echten Backend.
 > Beantwortet pro Modul: Steht das Backend? Welcher Wire-Shape kommt wirklich? Braucht es Auth/Idempotency? Ist tenant_id/RLS sauber? Wie groß ist der Swap?
 > **Stand:** 2026-06-23, verifiziert gegen Code (`backend/internal/gateway/route_*.go` + Service-Handler) + FE-Hooks. Lokales Backend wird parallel hochgefahren.

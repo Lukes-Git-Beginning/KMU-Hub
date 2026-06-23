@@ -11,7 +11,8 @@
  * dead-code-eliminated and the mock data never enters the prod bundle.
  */
 
-export const DEMO_MODE = import.meta.env.RENDERER_VITE_DEMO_MODE === 'true'
+import { DEMO_MODE } from './demo-mode-flag'
+export { DEMO_MODE }
 
 // ── Intercept fetch at module scope ──────────────────────────────────
 // Must run BEFORE any other module captures globalThis.fetch (e.g.
