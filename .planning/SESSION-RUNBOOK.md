@@ -20,7 +20,8 @@
 - Kurz-Plan formulieren: welche Phasen, welche Lane, welche Backend-Abhängigkeiten (🔌 vorhanden / 🔒 fehlt).
 
 ### 3 · Recherchieren
-- Pro Modul/Phase: Ist-Stand im Code (Page/Store/Hook/MSW-Handler) + Markt-Recherche wo nötig (`cosmi-modul-marktvergleich.txt`, Web).
+- **Markt-Recherche (PFLICHT bei Feature-/Demo-Tiefe-Phasen — Darien-Regel `feedback_market_driven_workflow`):** pro Bereich Web-Recherche der Markt-Parität führender Wettbewerber **bevor** gebaut wird → je eine **Pflicht-Minimum-** + **Differenzierer-Liste** + 3-5 priorisierte Empfehlungen. Quelle: `cosmi-modul-marktvergleich.txt` + Web (parallele Recherche-Agenten). **Ausnahme reine Echt-Schaltung** (MSW→Backend, kein Feature-Wechsel): entfällt — dann im Gate kurz vermerken „Echt-Schaltung, keine Markt-Recherche nötig".
+- Pro Modul/Phase: Ist-Stand im Code (Page/Store/Hook/MSW-Handler).
 - **Backend-Check (PFLICHT, Darien-Regel):** existiert der Endpoint (proto + gRPC + Route + Migration)?
   - **Ja → direkt ans echte Backend hängen** (🔌, kein neuer Mock).
   - **Nein → mock-first bauen** + Eintrag auf Lukes TODO (`backend-gaps.md` + `BACKEND-PLAN.md`) **+ 🔌-„verdrahten"-Zeile im MASTER-PLAN §2/§3**, damit das Verdrahten nach Lukes Bau nicht vergessen wird.

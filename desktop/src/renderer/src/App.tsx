@@ -125,9 +125,12 @@ const persister = createAsyncStoragePersister({
  * Redirect to login if user is not authenticated.
  *
  * DEV_BYPASS_AUTH: Automatically enabled in dev mode (npm run dev),
- * disabled in production builds. No manual toggle needed.
+ * disabled in production builds. Opt out within a dev build by setting
+ * RENDERER_VITE_DEV_BYPASS_AUTH=false (e.g. mode `localbackend`) to force the
+ * real login screen against a live backend — used for the mock-exit workflow.
  */
-const DEV_BYPASS_AUTH = import.meta.env.DEV
+const DEV_BYPASS_AUTH =
+  import.meta.env.DEV && import.meta.env.RENDERER_VITE_DEV_BYPASS_AUTH !== 'false'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
