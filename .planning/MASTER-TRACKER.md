@@ -1,4 +1,13 @@
-# Master-Tracker — Kompletter Phasenplan bis Modul-Reviews
+# Master-Tracker — ABGELÖST (23.06.2026)
+
+> ⛔ **VERALTET — nicht mehr pflegen.** Dieser Tracker (Stand 19.06.) war beim Ist-Abgleich am 23.06. stark überholt
+> (mails/kommunikation/video/Branchen/berichte/formulare als „offen" gelistet, obwohl fertig). Abgelöst durch
+> **`.planning/MASTER-PLAN.md`** (verifizierter Stand, Cosmi-1.0-Ausrichtung, Batch-Queue, Review-Pipeline).
+> Unten nur noch als Historie.
+
+---
+
+# Master-Tracker (Historie) — Kompletter Phasenplan bis Modul-Reviews
 
 > **Der eine Ort zum Abarbeiten.** Jede Phase = eine abhakbare Zeile. Detail-Beschreibungen je Phase: `.planning/module-phase-plans.md` + `.planning/reviews/<modul>.md`.
 > **Rollen:** Luke = Backend · Nico = Reviews fertiger Module · wir = Phasen abarbeiten.

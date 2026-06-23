@@ -7,7 +7,10 @@ verbindliches Wissen liegt in [`docs/`](../docs/) und [`.knowledge/`](../.knowle
 
 | Datei | Zweck |
 |---|---|
-| `MASTER-TRACKER.md` | Übergreifender Fortschritts-Tracker |
+| `MASTER-PLAN.md` | **DER Master-Plan (Cosmi 1.0, Frontend).** Single Source zum Abarbeiten — Phasen, Batch-Queue, Review-Pipeline. Stand verifiziert 23.06. |
+| `BACKEND-PLAN.md` | **Backend-Plan (Luke-Track), parallel zu MASTER-PLAN.** Backend-Lücken nach Priorität + FE↔BE-Warte-Mapping (was wartet worauf). |
+| `SESSION-RUNBOOK.md` | **Wiederholbarer Bau-Zyklus.** Trigger „mach an den Phasen weiter" → laden→planen→recherchieren→fragen→bauen→QA→speichern. 2-Terminal-Modell. |
+| `MASTER-TRACKER.md` | ⛔ Abgelöst (Historie) — siehe `MASTER-PLAN.md` |
 | `status-overview.md` · `status-overview.prompt.md` | Live-Status-Snapshot (Modul-Reifegrad, Blocker-Burndown) + Generator-Prompt |
 | `RESUME-NEXT-SESSION.md` | Resume-Pointer für die nächste Session |
 | `fe-wiring-welle-NEXT-SESSION.md` | FE↔Backend-Wiring **Welle 3** (offen: fuhrpark/einkauf/produktion) |
