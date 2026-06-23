@@ -61,6 +61,19 @@ func (m *mockRepo) UpdateMeeting(_ context.Context, mtg *Meeting) error {
 	return nil
 }
 
+func (m *mockRepo) UpdateAISummary(_ context.Context, tenantID, meetingID uuid.UUID, summary string, at time.Time) error {
+	mtg, ok := m.meetings[meetingID]
+	if !ok {
+		return ErrNotFound
+	}
+	if mtg.TenantID != uuid.Nil && mtg.TenantID != tenantID {
+		return ErrNotFound
+	}
+	mtg.AISummary = &summary
+	mtg.AISummaryAt = &at
+	return nil
+}
+
 func (m *mockRepo) DeleteMeeting(_ context.Context, id, tenantID uuid.UUID) error {
 	mtg, ok := m.meetings[id]
 	if !ok {
@@ -1767,4 +1780,89 @@ func TestJoinMeeting_LockedBlocksNonHost(t *testing.T) {
 	require.NoError(t, svc.PromoteCoHost(ctx, m.ID, testTenantID, orgID, coHostID))
 	_, err = svc.JoinMeeting(ctx, m.ID, testTenantID, coHostID)
 	assert.NoError(t, err)
+}
+
+// --- AI Summary (Wave 7C) ---
+
+// mockSummarizer is a stub LLMSummarizer for the GenerateAISummary tests.
+type mockSummarizer struct {
+	out   string
+	err   error
+	calls int
+}
+
+func (m *mockSummarizer) Summarize(_ context.Context, _ string) (string, error) {
+	m.calls++
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.out, nil
+}
+
+func TestGenerateAISummary_NoLLMConfigured(t *testing.T) {
+	svc, _ := newTestService() // no LLM attached
+	ctx := context.Background()
+	input := validCreateInput()
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	_, err = svc.GenerateAISummary(ctx, m.ID, testTenantID, input.OrganizerID)
+	assert.ErrorIs(t, err, ErrLLMUnavailable)
+}
+
+func TestGenerateAISummary_NotHost(t *testing.T) {
+	svc, _ := newTestService()
+	svc.WithLLM(&mockSummarizer{out: "summary"})
+	ctx := context.Background()
+	input := validCreateInput()
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	// A stranger (neither organizer nor co-host) is rejected before any LLM call.
+	_, err = svc.GenerateAISummary(ctx, m.ID, testTenantID, uuid.New())
+	assert.ErrorIs(t, err, ErrNotHost)
+}
+
+func TestGenerateAISummary_NoNotes(t *testing.T) {
+	svc, _ := newTestService()
+	llm := &mockSummarizer{out: "summary"}
+	svc.WithLLM(llm)
+	ctx := context.Background()
+	input := validCreateInput()
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	// No public notes seeded → fail before reaching the LLM.
+	_, err = svc.GenerateAISummary(ctx, m.ID, testTenantID, input.OrganizerID)
+	assert.ErrorIs(t, err, ErrNoNotesToSummarize)
+	assert.Equal(t, 0, llm.calls, "LLM must not be called when there are no notes")
+}
+
+func TestGenerateAISummary_Success(t *testing.T) {
+	svc, repo := newTestService()
+	llm := &mockSummarizer{out: "Kurzfassung der Notizen."}
+	svc.WithLLM(llm)
+	ctx := context.Background()
+	input := validCreateInput()
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	// Seed one public note (private notes are excluded by GetAllNotes).
+	repo.notes[m.ID] = []MeetingNotes{
+		{ID: uuid.New(), MeetingID: m.ID, AuthorID: input.OrganizerID, Content: "Wichtige Entscheidungen", IsPrivate: false},
+		{ID: uuid.New(), MeetingID: m.ID, AuthorID: uuid.New(), Content: "geheim", IsPrivate: true},
+	}
+
+	updated, err := svc.GenerateAISummary(ctx, m.ID, testTenantID, input.OrganizerID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.AISummary)
+	assert.Equal(t, "Kurzfassung der Notizen.", *updated.AISummary)
+	require.NotNil(t, updated.AISummaryAt)
+	assert.Equal(t, 1, llm.calls)
+
+	// Persisted on the stored meeting row.
+	stored := repo.meetings[m.ID]
+	require.NotNil(t, stored.AISummary)
+	assert.Equal(t, "Kurzfassung der Notizen.", *stored.AISummary)
+	require.NotNil(t, stored.AISummaryAt)
 }

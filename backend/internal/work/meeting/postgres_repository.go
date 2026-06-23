@@ -40,13 +40,15 @@ func (r *PostgresRepository) GetMeeting(ctx context.Context, id, tenantID uuid.U
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
-		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at
+		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at,
+		  ai_summary, ai_summary_at
 		 FROM meetings WHERE id = $1 AND tenant_id = $2`,
 		id, tenantID,
 	).Scan(
 		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 		&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
+		&m.AISummary, &m.AISummaryAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -71,6 +73,22 @@ func (r *PostgresRepository) UpdateMeeting(ctx context.Context, m *Meeting) erro
 	)
 	if err != nil {
 		return fmt.Errorf("update meeting: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpdateAISummary persists the LLM-generated summary and its timestamp on the
+// meeting row. Tenant-scoped — relies on RLS plus the explicit tenant_id filter.
+func (r *PostgresRepository) UpdateAISummary(ctx context.Context, tenantID, meetingID uuid.UUID, summary string, at time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE meetings SET ai_summary=$3, ai_summary_at=$4, updated_at=now() WHERE id=$1 AND tenant_id=$2`,
+		meetingID, tenantID, summary, at,
+	)
+	if err != nil {
+		return fmt.Errorf("update ai summary: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
@@ -128,7 +146,8 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 
 	query := `SELECT m.id, m.tenant_id, m.title, m.description, m.agenda, m.organizer_id, m.status, m.locked,
 		m.scheduled_start, m.scheduled_end, m.actual_start, m.actual_end, m.room_name,
-		m.calendar_event_id, m.recurring_meeting_id, m.contact_id, m.deal_id, m.created_at, m.updated_at
+		m.calendar_event_id, m.recurring_meeting_id, m.contact_id, m.deal_id, m.created_at, m.updated_at,
+		m.ai_summary, m.ai_summary_at
 		FROM meetings m`
 
 	if len(conditions) > 0 {
@@ -156,6 +175,7 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 			&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
+			&m.AISummary, &m.AISummaryAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan meeting: %w", err)
 		}
@@ -171,13 +191,15 @@ func (r *PostgresRepository) GetMeetingByRoomName(ctx context.Context, roomName 
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
-		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at
+		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at,
+		  ai_summary, ai_summary_at
 		 FROM meetings WHERE room_name = $1`,
 		roomName,
 	).Scan(
 		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 		&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
+		&m.AISummary, &m.AISummaryAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -195,7 +217,8 @@ func (r *PostgresRepository) ListStaleMeetings(ctx context.Context, cutoff time.
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, title, description, agenda, organizer_id, status, locked,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
-		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at
+		  calendar_event_id, recurring_meeting_id, contact_id, deal_id, created_at, updated_at,
+		  ai_summary, ai_summary_at
 		 FROM meetings
 		 WHERE status = 'in_progress' AND scheduled_end < $1`,
 		cutoff,
@@ -212,6 +235,7 @@ func (r *PostgresRepository) ListStaleMeetings(ctx context.Context, cutoff time.
 			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status, &m.Locked,
 			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 			&m.CalendarEventID, &m.RecurringMeetingID, &m.ContactID, &m.DealID, &m.CreatedAt, &m.UpdatedAt,
+			&m.AISummary, &m.AISummaryAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan stale meeting: %w", err)
 		}

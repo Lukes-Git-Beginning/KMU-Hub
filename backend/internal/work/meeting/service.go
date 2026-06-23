@@ -25,10 +25,18 @@ type RoomManager interface {
 	RemoveParticipant(ctx context.Context, roomName, identity string) error
 }
 
+// LLMSummarizer abstracts the LLM client used for AI meeting summaries (Wave 7C).
+// Left nil when no LLM is configured — GenerateAISummary then returns
+// ErrLLMUnavailable instead of attempting a call.
+type LLMSummarizer interface {
+	Summarize(ctx context.Context, notes string) (string, error)
+}
+
 // Service handles meeting business logic
 type Service struct {
 	repo    Repository
-	roomMgr RoomManager // nil when LiveKit is not configured
+	roomMgr RoomManager   // nil when LiveKit is not configured
+	llm     LLMSummarizer // nil when no LLM is configured
 }
 
 // NewService creates a new meeting service without LiveKit integration.
@@ -40,6 +48,15 @@ func NewService(repo Repository) *Service {
 // room management for explicit DeleteRoom on EndMeeting and sweeper support.
 func NewServiceWithRoomManager(repo Repository, roomMgr RoomManager) *Service {
 	return &Service{repo: repo, roomMgr: roomMgr}
+}
+
+// WithLLM attaches an LLM summarizer for AI meeting summaries (Wave 7C) and
+// returns the service for chaining. Pass a configured client only when an LLM
+// is actually wired (e.g. LLM_BASE_URL is set); leaving it unset keeps the
+// feature off and avoids a typed-nil interface that would panic on use.
+func (s *Service) WithLLM(llm LLMSummarizer) *Service {
+	s.llm = llm
+	return s
 }
 
 // CreateMeetingInput contains the data needed to create a meeting
@@ -519,6 +536,70 @@ func (s *Service) CancelMeeting(ctx context.Context, id, tenantID uuid.UUID) (*M
 		"meeting_id", id,
 	)
 
+	return m, nil
+}
+
+// GenerateAISummary loads the meeting's public notes, asks the configured LLM
+// to summarize them, persists the result on the meeting, and returns the
+// updated meeting. Only the organizer or a co-host may trigger it. Requires a
+// configured LLM (ErrLLMUnavailable otherwise) and at least one non-empty public
+// note (ErrNoNotesToSummarize otherwise).
+func (s *Service) GenerateAISummary(ctx context.Context, meetingID, tenantID, callerID uuid.UUID) (*Meeting, error) {
+	if s.llm == nil {
+		return nil, ErrLLMUnavailable
+	}
+
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	authorized, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !authorized {
+		return nil, ErrNotHost
+	}
+
+	notes, err := s.repo.GetAllNotes(ctx, meetingID)
+	if err != nil {
+		return nil, fmt.Errorf("get notes for ai summary: %w", err)
+	}
+
+	var combined strings.Builder
+	for _, n := range notes {
+		content := strings.TrimSpace(n.Content)
+		if content == "" {
+			continue
+		}
+		if combined.Len() > 0 {
+			combined.WriteString("\n---\n")
+		}
+		combined.WriteString(content)
+	}
+	if combined.Len() == 0 {
+		return nil, ErrNoNotesToSummarize
+	}
+
+	summary, err := s.llm.Summarize(ctx, combined.String())
+	if err != nil {
+		return nil, fmt.Errorf("llm summarize: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if err := s.repo.UpdateAISummary(ctx, tenantID, meetingID, summary, now); err != nil {
+		return nil, fmt.Errorf("persist ai summary: %w", err)
+	}
+	m.AISummary = &summary
+	m.AISummaryAt = &now
+	m.UpdatedAt = now
+
+	slog.Info("ai meeting summary generated",
+		"meeting_id", meetingID,
+		"notes_chars", combined.Len(),
+		"summary_chars", len(summary),
+	)
 	return m, nil
 }
 

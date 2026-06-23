@@ -13,6 +13,8 @@ type Repository interface {
 	CreateMeeting(ctx context.Context, m *Meeting) error
 	GetMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meeting, error)
 	UpdateMeeting(ctx context.Context, m *Meeting) error
+	// UpdateAISummary persists an LLM-generated summary on the meeting row (Wave 7C).
+	UpdateAISummary(ctx context.Context, tenantID, meetingID uuid.UUID, summary string, at time.Time) error
 	DeleteMeeting(ctx context.Context, id, tenantID uuid.UUID) error
 	ListMeetings(ctx context.Context, filter MeetingFilter) ([]Meeting, error)
 

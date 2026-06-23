@@ -26,4 +26,6 @@ var (
 	ErrNotHost               = errors.New("only the host or a co-host can perform this action")
 	ErrMeetingLocked         = errors.New("meeting is locked — only the host or a co-host may join")
 	ErrCoHostNotFound        = errors.New("co-host entry not found")
+	ErrLLMUnavailable        = errors.New("AI summary is not available — no LLM is configured")
+	ErrNoNotesToSummarize    = errors.New("no meeting notes available to summarize")
 )

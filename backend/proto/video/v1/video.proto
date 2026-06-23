@@ -36,6 +36,9 @@ service VideoService {
   // a LiveKit token (+ TURN ice_servers) for the in-progress room.
   rpc JoinMeeting(JoinMeetingRequest) returns (JoinMeetingResponse);
   rpc EndMeeting(EndMeetingRequest) returns (MeetingSummary);
+  // GenerateMeetingSummary (Wave 7C) produces an LLM summary of the meeting's
+  // public notes, persists it, and returns the updated meeting. Host/co-host only.
+  rpc GenerateMeetingSummary(GenerateMeetingSummaryRequest) returns (Meeting);
 
   // Meeting Notes and Action Items
   rpc SaveMeetingNotes(SaveMeetingNotesRequest) returns (MeetingNotes);
@@ -174,6 +177,10 @@ message Meeting {
   // CRM links (Wave 7B) — optional, set at create or update time.
   optional string contact_id = 18;
   optional string deal_id = 19;
+  // AI summary (Wave 7C) — LLM-generated summary of the meeting's public notes,
+  // populated by GenerateMeetingSummary. Null until generated.
+  optional string ai_summary = 20;
+  optional google.protobuf.Timestamp ai_summary_at = 21;
 }
 
 message MeetingAttendee {
@@ -445,6 +452,10 @@ message JoinMeetingResponse {
 message EndMeetingRequest {
   string meeting_id = 1;
   string user_id = 2;
+}
+
+message GenerateMeetingSummaryRequest {
+  string meeting_id = 1;
 }
 
 // ============================================================================

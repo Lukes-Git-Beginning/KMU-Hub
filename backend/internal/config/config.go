@@ -135,6 +135,17 @@ type Config struct {
 	TURNSecret string `env:"TURN_SECRET,default="`
 	COTURNHost string `env:"COTURN_HOST,default="`
 
+	// LLM / AI meeting summary (Wave 7C — optional, feature-flagged via LLM_BASE_URL).
+	// Default provider is a self-hosted Ollama (EU data sovereignty); the OpenAI-compatible
+	// /v1/chat/completions wire format also covers OpenAI and any compatible gateway.
+	// No production assertion on purpose — an empty LLM_BASE_URL simply disables AI
+	// summaries (graceful degradation), so no RequireX deploy hazard.
+	LLMProvider    string `env:"LLM_PROVIDER,default=ollama"`
+	LLMBaseURL     string `env:"LLM_BASE_URL,default="`
+	LLMModel       string `env:"LLM_MODEL,default=llama3.2"`
+	LLMAPIKey      string `env:"LLM_API_KEY,default="`
+	LLMTimeoutSecs int    `env:"LLM_TIMEOUT_SECONDS,default=120"`
+
 	// Lexware Webhook HMAC (optional, validates incoming Lexware webhook signatures)
 	LexwareWebhookSecret string `env:"LEXWARE_WEBHOOK_SECRET,default="`
 

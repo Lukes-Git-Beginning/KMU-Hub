@@ -18,6 +18,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
+	"github.com/kmuhub/kmuhub/internal/llm"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
@@ -153,6 +154,19 @@ func main() {
 	})
 
 	meetingService := meeting.NewServiceWithRoomManager(meetingRepo, roomMgr)
+	// AI meeting summaries (Wave 7C) — optional. Only attach an LLM client when
+	// LLM_BASE_URL is set; otherwise the feature stays off (graceful degradation)
+	// and the meeting service keeps a nil summarizer.
+	if cfg.LLMBaseURL != "" {
+		meetingService = meetingService.WithLLM(llm.NewClient(llm.Config{
+			Provider:       cfg.LLMProvider,
+			BaseURL:        cfg.LLMBaseURL,
+			Model:          cfg.LLMModel,
+			APIKey:         cfg.LLMAPIKey,
+			TimeoutSeconds: cfg.LLMTimeoutSecs,
+		}))
+		slog.Info("meeting AI summary enabled", "provider", cfg.LLMProvider, "model", cfg.LLMModel)
+	}
 	presenceStore := presence.NewRedisStore(redisClient)
 	presenceService := presence.NewService(presenceStore, presenceConfigRepo)
 	reactionService := reaction.NewService(reactionRepo)

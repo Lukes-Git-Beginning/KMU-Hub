@@ -979,6 +979,31 @@ func (s *VideoGRPCServer) EndMeeting(ctx context.Context, req *videov1.EndMeetin
 	return meetingSummaryToProto(summary), nil
 }
 
+// GenerateMeetingSummary produces an LLM summary of the meeting's public notes
+// (Wave 7C) and returns the updated meeting. Caller must be host/co-host; tenant
+// and user are taken from the gRPC context.
+func (s *VideoGRPCServer) GenerateMeetingSummary(ctx context.Context, req *videov1.GenerateMeetingSummaryRequest) (*videov1.Meeting, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+	id, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+
+	m, err := s.meetingService.GenerateAISummary(ctx, id, tenantID, callerID)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return meetingToProto(m), nil
+}
+
 // ============================================================================
 // Meeting Notes
 // ============================================================================
@@ -1498,6 +1523,12 @@ func meetingToProto(m *meeting.Meeting) *videov1.Meeting {
 		s := m.DealID.String()
 		proto.DealId = &s
 	}
+	if m.AISummary != nil {
+		proto.AiSummary = m.AISummary
+	}
+	if m.AISummaryAt != nil {
+		proto.AiSummaryAt = timestamppb.New(*m.AISummaryAt)
+	}
 	return proto
 }
 
@@ -1872,6 +1903,10 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, meeting.ErrCoHostNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, meeting.ErrLLMUnavailable):
+		return status.Error(codes.Unavailable, err.Error())
+	case errors.Is(err, meeting.ErrNoNotesToSummarize):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled meeting service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

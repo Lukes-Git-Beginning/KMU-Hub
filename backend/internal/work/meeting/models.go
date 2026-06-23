@@ -57,6 +57,8 @@ type Meeting struct {
 	RecurringMeetingID *uuid.UUID `json:"recurring_meeting_id,omitempty"`
 	ContactID          *uuid.UUID `json:"contact_id,omitempty"`
 	DealID             *uuid.UUID `json:"deal_id,omitempty"`
+	AISummary          *string    `json:"ai_summary,omitempty"`
+	AISummaryAt        *time.Time `json:"ai_summary_at,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }

@@ -153,6 +153,8 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		// 000131) so it never 403s the whole tenant.
 		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/join", vr.HandleJoinMeeting)
 		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/end", vr.HandleEndMeeting)
+		// AI summary (Wave 7C) — meeting-scoped host/co-host authz in the service, no RBAC guard.
+		r.Post("/{id}/ai-summary", vr.HandleGenerateMeetingSummary)
 
 		// Notes
 		r.Put("/{id}/notes", vr.HandleSaveMeetingNotes)
@@ -862,6 +864,30 @@ func (vr *VideoRoutes) HandleEndMeeting(w http.ResponseWriter, r *http.Request) 
 		MeetingId: meetingID,
 		UserId:    userID,
 	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleGenerateMeetingSummary triggers an LLM summary of the meeting's public
+// notes (Wave 7C) and returns the updated meeting. Authz is enforced in the
+// service (organizer/co-host); tenant + user come from the gRPC context.
+func (vr *VideoRoutes) HandleGenerateMeetingSummary(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GenerateMeetingSummary(r.Context(), &videov1.GenerateMeetingSummaryRequest{MeetingId: meetingID})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

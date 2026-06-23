@@ -40,6 +40,7 @@ const (
 	VideoService_StartMeeting_FullMethodName               = "/video.v1.VideoService/StartMeeting"
 	VideoService_JoinMeeting_FullMethodName                = "/video.v1.VideoService/JoinMeeting"
 	VideoService_EndMeeting_FullMethodName                 = "/video.v1.VideoService/EndMeeting"
+	VideoService_GenerateMeetingSummary_FullMethodName     = "/video.v1.VideoService/GenerateMeetingSummary"
 	VideoService_SaveMeetingNotes_FullMethodName           = "/video.v1.VideoService/SaveMeetingNotes"
 	VideoService_GetMeetingNotes_FullMethodName            = "/video.v1.VideoService/GetMeetingNotes"
 	VideoService_GetPreviousMeetingNotes_FullMethodName    = "/video.v1.VideoService/GetPreviousMeetingNotes"
@@ -97,6 +98,9 @@ type VideoServiceClient interface {
 	// a LiveKit token (+ TURN ice_servers) for the in-progress room.
 	JoinMeeting(ctx context.Context, in *JoinMeetingRequest, opts ...grpc.CallOption) (*JoinMeetingResponse, error)
 	EndMeeting(ctx context.Context, in *EndMeetingRequest, opts ...grpc.CallOption) (*MeetingSummary, error)
+	// GenerateMeetingSummary (Wave 7C) produces an LLM summary of the meeting's
+	// public notes, persists it, and returns the updated meeting. Host/co-host only.
+	GenerateMeetingSummary(ctx context.Context, in *GenerateMeetingSummaryRequest, opts ...grpc.CallOption) (*Meeting, error)
 	// Meeting Notes and Action Items
 	SaveMeetingNotes(ctx context.Context, in *SaveMeetingNotesRequest, opts ...grpc.CallOption) (*MeetingNotes, error)
 	GetMeetingNotes(ctx context.Context, in *GetMeetingNotesRequest, opts ...grpc.CallOption) (*MeetingNotes, error)
@@ -331,6 +335,16 @@ func (c *videoServiceClient) EndMeeting(ctx context.Context, in *EndMeetingReque
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MeetingSummary)
 	err := c.cc.Invoke(ctx, VideoService_EndMeeting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) GenerateMeetingSummary(ctx context.Context, in *GenerateMeetingSummaryRequest, opts ...grpc.CallOption) (*Meeting, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Meeting)
+	err := c.cc.Invoke(ctx, VideoService_GenerateMeetingSummary_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -617,6 +631,9 @@ type VideoServiceServer interface {
 	// a LiveKit token (+ TURN ice_servers) for the in-progress room.
 	JoinMeeting(context.Context, *JoinMeetingRequest) (*JoinMeetingResponse, error)
 	EndMeeting(context.Context, *EndMeetingRequest) (*MeetingSummary, error)
+	// GenerateMeetingSummary (Wave 7C) produces an LLM summary of the meeting's
+	// public notes, persists it, and returns the updated meeting. Host/co-host only.
+	GenerateMeetingSummary(context.Context, *GenerateMeetingSummaryRequest) (*Meeting, error)
 	// Meeting Notes and Action Items
 	SaveMeetingNotes(context.Context, *SaveMeetingNotesRequest) (*MeetingNotes, error)
 	GetMeetingNotes(context.Context, *GetMeetingNotesRequest) (*MeetingNotes, error)
@@ -716,6 +733,9 @@ func (UnimplementedVideoServiceServer) JoinMeeting(context.Context, *JoinMeeting
 }
 func (UnimplementedVideoServiceServer) EndMeeting(context.Context, *EndMeetingRequest) (*MeetingSummary, error) {
 	return nil, status.Error(codes.Unimplemented, "method EndMeeting not implemented")
+}
+func (UnimplementedVideoServiceServer) GenerateMeetingSummary(context.Context, *GenerateMeetingSummaryRequest) (*Meeting, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateMeetingSummary not implemented")
 }
 func (UnimplementedVideoServiceServer) SaveMeetingNotes(context.Context, *SaveMeetingNotesRequest) (*MeetingNotes, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveMeetingNotes not implemented")
@@ -1169,6 +1189,24 @@ func _VideoService_EndMeeting_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VideoServiceServer).EndMeeting(ctx, req.(*EndMeetingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_GenerateMeetingSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateMeetingSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).GenerateMeetingSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_GenerateMeetingSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).GenerateMeetingSummary(ctx, req.(*GenerateMeetingSummaryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1709,6 +1747,10 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "EndMeeting",
 			Handler:    _VideoService_EndMeeting_Handler,
+		},
+		{
+			MethodName: "GenerateMeetingSummary",
+			Handler:    _VideoService_GenerateMeetingSummary_Handler,
 		},
 		{
 			MethodName: "SaveMeetingNotes",
