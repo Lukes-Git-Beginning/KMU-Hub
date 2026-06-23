@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCompany, useCompanyContacts, useUpdateCompany, useDeleteCompany } from '@/api/hooks/useCompanies'
+import { backendCompanyToUI } from './adapters'
 import { useActivities } from '@/api/hooks/useActivities'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,7 +44,7 @@ export default function CompanyDetailPage() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const company = data?.company
+  const company = data?.company ? backendCompanyToUI(data.company) : undefined
   const contacts = contactsData?.contacts ?? []
   const activities = activitiesData?.activities ?? []
 

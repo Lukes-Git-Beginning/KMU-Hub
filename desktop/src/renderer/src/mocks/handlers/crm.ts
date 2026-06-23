@@ -233,7 +233,9 @@ export const crmHandlers = [
     return HttpResponse.json(created, { status: 201 })
   }),
 
-  http.patch(`${API}/api/v1/companies/:id`, async ({ params, request }) => {
+  // Update is PUT server-side; mock mirrors it so the FE hook uses one method
+  // in both modes (OpenAPI spec mislabels it PATCH, X-3).
+  http.put(`${API}/api/v1/companies/:id`, async ({ params, request }) => {
     const existing = getCompanyById(params.id as string)
     if (!existing) {
       return HttpResponse.json({ error: 'Company not found' }, { status: 404 })

@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared'
 import { useCompanies, useCreateCompany, useDeleteCompany } from '@/api/hooks/useCompanies'
+import { backendCompanyToUI } from './adapters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -100,7 +101,7 @@ export default function CompaniesListPage() {
 
   // Client-side sort of the current page slice
   const companies = useMemo(() => {
-    const raw = data?.companies ?? []
+    const raw = (data?.companies ?? []).map(backendCompanyToUI)
     return [...raw].sort((a, b) => {
       let cmp = 0
       if (sort.field === 'name') {
