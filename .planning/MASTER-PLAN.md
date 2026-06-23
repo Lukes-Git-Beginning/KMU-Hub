@@ -63,8 +63,9 @@
 
 ### Cluster 1 — Vertrieb & Kommunikation
 
-**kontakte** — ✅ P0–P8 komplett · echtes crm-Backend
-- [ ] 360°-Wiring 🔌 `useContactContracts/useContactInvoices` (BE da, Migr. 141) · [ ] Beratungsprotokoll Server-PDF 🔒 (revisionssicher) · [ ] Tiefe-Re-Check T-1 · [ ] **Review-Gate**
+**kontakte** — ✅ P0–P8 komplett · ✅ **Echt-Schaltung: READ + voller CRUD live verifiziert = Referenz-Modul** (`aec2df49`, 23.06.)
+- [x] **CRUD echt-geschaltet** 🔌 — Liste/Detail/Create/Update/Delete live gegen lokales crm-Backend (Screenshots `desktop/.qa-screenshots/crud-*.png`). Pattern `api/casing.ts` `dual()` + `mocks/demo-mode-flag.ts` mode-branch. Mock-verdeckte Bugs gefixt: PUT≠PATCH, position≠title, custom_fields-Array, admin-Seed. Bericht: `.planning/kontakte-mock-exit-DONE.md`
+- [ ] 360°-Wiring Rest 🔌 `useContactContracts/useContactInvoices` (BE da, Migr. 141) · [ ] Timeline-Endpoint (CHRONIK) hängt → Luke · [ ] Beratungsprotokoll Server-PDF 🔒 (revisionssicher) · [ ] Tiefe-Re-Check T-1 · [ ] **Review-Gate**
 
 **calendar** — ✅ P1–P3,P5(Booking) · teils gewired
 - [ ] P4 CalDAV-Sync echt 🔒 · [ ] Booking-Portal öffentliche Seite (ohne Auth) · [ ] Scoped-Delete (Serien: „diesen/alle") · [ ] Tiefe-Re-Check T-2 · [ ] **Review-Gate**
@@ -171,6 +172,7 @@
 - [ ] **B-6** Versions-Download-Bug (dokumente) · **B-7** `DELETE /projects/{id}` fehlt (work) · **B-8** OnlyOffice-CSP-Block (Prod)
 - [ ] **B-9** Tiefe-Re-Checks T-1…T-4 (kontakte/calendar/dokumente/zeiterfassung)
 - [ ] **B-10** Git-Hygiene: `desktop/package.json` (M), `backend/seeds/` (untracked), `purge-profil-zeiterfassung-i18n.mjs` — committen oder verwerfen
+- [ ] **B-11** contacts-Befunde aus Echt-Schaltung (Details `.planning/kontakte-mock-exit-DONE.md`): (a) **Contact-Schema zu dünn** — 9 UI-Extra-Felder (mobile/address/jobTitle/department/…) ohne Backend-Pendant → `extras jsonb` ODER Spalten; (b) **Spec-Drift contacts** (Teil von X-3/B-4): Route ist PUT nicht PATCH, Feld `position` nicht `title`, `custom_fields` Array nicht Objekt; (c) **Timeline-Endpoint** `GET /crm/contacts/{id}/timeline` hängt
 
 ---
 
@@ -200,7 +202,8 @@
 - **Reihenfolge-Prinzip (Darien 23.06.):** erst bauen + verkabeln (Wellen 1–5), **dann reviewen** (Welle 6) — an der fast-fertigen Version, nicht zwischendurch.
 
 ### Welle 1 — Echt-Schaltung & Fundament  ·  ~15–20 Pakete  ·  gut parallel
-Module die mock-fertig sind ans **echte Backend** hängen, wo es existiert (🔌): notifications, dialer-Supervisor, zeiterfassung, work-Labels, dashboard, settings-Persistenz. + **X-3** OpenAPI-Specs + **X-4** Settings-Backend + **X-5** Demo-Seeds + **X-6** echter Build. + Bugs **B-1/B-2** (CI grün).
+- [x] **kontakte echt-geschaltet (Referenz-Pattern etabliert, `aec2df49`, 23.06.)** — READ + voller CRUD live. `api/casing.ts` `dual()` + `mocks/demo-mode-flag.ts` mode-branch sind die Vorlage für jede weitere Echt-Schaltung. Casing-Entscheidung **Option C** (per-Modul, kein globaler Transform). Bericht/Risiko-Set: `.planning/kontakte-mock-exit-DONE.md`.
+- [ ] Restliche mock-fertige Module ans **echte Backend** hängen (🔌): notifications, dialer-Supervisor, zeiterfassung, work-Labels, dashboard, settings-Persistenz. **Nächste nach Risiko-Set:** crm/companies → crm/deals + pipeline-stages (DealInfo-Casing). + **X-3** OpenAPI-Specs + **X-4** Settings-Backend + **X-5** Demo-Seeds + **X-6** echter Build. + Bugs **B-1/B-2** (CI grün).
 *Lanes:* je-Modul-Echtschaltung in 2 Terminals aufteilbar; **aber** cross-cutting-Bausteine (X-4 Settings-Backend, X-5 Seeds) = **Main-Lane, nicht doppeln** (Hot-Files).
 
 ### Welle 2 — Lücken-Module bauen  ·  ~20 Phasen  ·  gut parallel (3 disjunkte Lanes)
@@ -221,7 +224,8 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 **Bau-Status heute** (was am Ende in die Review-Welle einfließt):
 | Bau-Status | Module |
 |---|---|
-| ✅ **FE-mock-fertig** — noch echt-verkabeln (Welle 1) | kontakte, calendar, zeiterfassung, dokumente, finanzen, work, team, dashboard, vertraege, helpdesk, automatisierung, profil, mails, kommunikation, berichte, wiki |
+| ✅ **echt-verkabelt** (Welle 1 done) | **kontakte** (READ + voller CRUD live, Referenz) |
+| ✅ **FE-mock-fertig** — noch echt-verkabeln (Welle 1) | calendar, zeiterfassung, dokumente, finanzen, work, team, dashboard, vertraege, helpdesk, automatisierung, profil, mails, kommunikation, berichte, wiki |
 | ⬜ **noch bauen** (Wellen 2–5) | notifications/formulare/dialer/video (Demo-Tiefe) · security, admin, settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
 
 **Review-Abnahme (Welle 6):** aufgeteilt — jeder klickt das Modul durch, macht Screenshots + Notizen, passt an (tote Buttons, Detail-Views, leere Zustände, Raw-Keys, Umlaute, Style), bis es **abgenommen** ist. Haken in §2/§3.
