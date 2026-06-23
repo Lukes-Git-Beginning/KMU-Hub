@@ -143,10 +143,13 @@ func main() {
 		egressMgr = livekit.NewEgressManager(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitServerAPIURL())
 	}
 	recordingService := recording.NewService(recordingRepo, egressMgr, cfg.LiveKitEgressTemplateURL, recording.S3Config{
-		Endpoint:  cfg.MinIOEndpoint,
-		AccessKey: cfg.MinIOAccessKey,
-		Secret:    cfg.MinIOSecretKey,
-		Bucket:    cfg.MinIOBucket,
+		Endpoint:       cfg.MinIOEndpoint,
+		AccessKey:      cfg.MinIOAccessKey,
+		Secret:         cfg.MinIOSecretKey,
+		Bucket:         cfg.MinIOBucket,
+		UseSSL:         cfg.MinIOUseSSL,
+		PublicEndpoint: cfg.MinIOPublicEndpoint,
+		PublicUseSSL:   cfg.MinIOPublicUseSSL,
 	})
 
 	meetingService := meeting.NewServiceWithRoomManager(meetingRepo, roomMgr)

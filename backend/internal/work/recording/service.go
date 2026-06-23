@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -32,10 +36,13 @@ type PreConsentChecker interface {
 
 // S3Config holds the S3-compatible storage configuration for recordings
 type S3Config struct {
-	Endpoint  string
-	AccessKey string
-	Secret    string
-	Bucket    string
+	Endpoint        string
+	AccessKey       string
+	Secret          string
+	Bucket          string
+	UseSSL          bool
+	PublicEndpoint  string
+	PublicUseSSL    bool
 }
 
 // Service handles recording business logic including DSGVO consent management
@@ -46,6 +53,10 @@ type Service struct {
 	s3Config      S3Config
 	templateURL   string
 	enabled       bool
+	// lazy MinIO client for presigned downloads and object deletion (A4/A5)
+	minioOnce   sync.Once
+	minioClient *minio.Client
+	minioErr    error
 }
 
 // NewService creates a new recording service.
@@ -379,6 +390,8 @@ func (s *Service) FailRecordingByEgressID(ctx context.Context, egressID, reason 
 }
 
 // CleanupExpiredRecordings deletes recordings past their retention period.
+// Before deleting the DB row it attempts to remove the underlying MinIO object.
+// Object deletion is best-effort: on failure it logs and proceeds with the DB delete.
 // Returns the number of deleted recordings.
 func (s *Service) CleanupExpiredRecordings(ctx context.Context) (int, error) {
 	expired, err := s.repo.ListExpiredRecordings(ctx, time.Now())
@@ -388,6 +401,31 @@ func (s *Service) CleanupExpiredRecordings(ctx context.Context) (int, error) {
 
 	deleted := 0
 	for _, rec := range expired {
+		// A5: best-effort MinIO object deletion before removing the DB row.
+		if rec.FileURL != nil && *rec.FileURL != "" {
+			if mc, mcErr := s.objectStore(); mcErr != nil {
+				slog.Error("failed to obtain minio client for retention cleanup",
+					"recording_id", rec.ID,
+					"error", mcErr,
+				)
+			} else {
+				objKey := fileURLToObjectKey(*rec.FileURL, s.s3Config.Endpoint, s.s3Config.PublicEndpoint, s.s3Config.Bucket)
+				if removeErr := mc.RemoveObject(ctx, s.s3Config.Bucket, objKey, minio.RemoveObjectOptions{}); removeErr != nil {
+					slog.Error("failed to delete recording object from storage",
+						"recording_id", rec.ID,
+						"object_key", objKey,
+						"error", removeErr,
+					)
+					// Non-fatal: continue to DB delete.
+				} else {
+					slog.Info("recording object deleted from storage",
+						"recording_id", rec.ID,
+						"object_key", objKey,
+					)
+				}
+			}
+		}
+
 		if err := s.repo.DeleteRecording(ctx, rec.ID); err != nil {
 			slog.Error("failed to delete expired recording",
 				"recording_id", rec.ID,
@@ -568,4 +606,124 @@ func (s *Service) ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID
 // Phase 11 uses this to enforce file-level ACL on recording downloads.
 func (s *Service) GetRecordingParticipants(ctx context.Context, recordingID uuid.UUID) ([]uuid.UUID, error) {
 	return s.repo.GetRecordingParticipants(ctx, recordingID)
+}
+
+// GetRecordingDownloadURL generates a presigned MinIO GET URL for a completed recording.
+// ACL: caller must be a participant (via call_participants or meeting_attendees).
+// Returns codes.FailedPrecondition if the recording is not yet completed,
+// codes.PermissionDenied if the caller was not a participant.
+func (s *Service) GetRecordingDownloadURL(ctx context.Context, recordingID, callerID uuid.UUID) (url string, expiresAt time.Time, err error) {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	if rec.Status != RecordingStatusCompleted {
+		return "", time.Time{}, status.Errorf(codes.FailedPrecondition,
+			"recording is not completed (status: %s)", rec.Status)
+	}
+
+	if rec.FileURL == nil || *rec.FileURL == "" {
+		return "", time.Time{}, status.Error(codes.FailedPrecondition, "recording file not available")
+	}
+
+	// ACL: caller must be a participant
+	participants, err := s.repo.GetRecordingParticipants(ctx, recordingID)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("get recording participants: %w", err)
+	}
+	allowed := false
+	for _, uid := range participants {
+		if uid == callerID {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return "", time.Time{}, status.Error(codes.PermissionDenied, "not a participant of this recording")
+	}
+
+	mc, err := s.objectStore()
+	if err != nil {
+		return "", time.Time{}, status.Errorf(codes.Internal, "storage client unavailable: %v", err)
+	}
+
+	objKey := fileURLToObjectKey(*rec.FileURL, s.s3Config.Endpoint, s.s3Config.PublicEndpoint, s.s3Config.Bucket)
+	const downloadExpiry = time.Hour
+	expiresAt = time.Now().Add(downloadExpiry)
+
+	// Use public endpoint client when available so the URL carries the browser-reachable host.
+	presignClient := mc
+	if s.s3Config.PublicEndpoint != "" {
+		if pubClient, pubErr := minio.New(s.s3Config.PublicEndpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(s.s3Config.AccessKey, s.s3Config.Secret, ""),
+			Secure: s.s3Config.PublicUseSSL,
+		}); pubErr == nil {
+			presignClient = pubClient
+		}
+	}
+
+	presignURL, err := presignClient.PresignedGetObject(ctx, s.s3Config.Bucket, objKey, downloadExpiry, nil)
+	if err != nil {
+		return "", time.Time{}, status.Errorf(codes.Internal, "failed to generate presigned URL: %v", err)
+	}
+
+	slog.Info("recording download URL generated",
+		"recording_id", recordingID,
+		"caller_id", callerID,
+		"object_key", objKey,
+		"expires_at", expiresAt,
+	)
+
+	return presignURL.String(), expiresAt, nil
+}
+
+// objectStore lazily constructs the MinIO client from s3Config.
+// Subsequent calls return the cached client without locking overhead.
+func (s *Service) objectStore() (*minio.Client, error) {
+	s.minioOnce.Do(func() {
+		s.minioClient, s.minioErr = minio.New(s.s3Config.Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(s.s3Config.AccessKey, s.s3Config.Secret, ""),
+			Secure: s.s3Config.UseSSL,
+		})
+	})
+	return s.minioClient, s.minioErr
+}
+
+// fileURLToObjectKey converts a file_url stored by the LiveKit Egress webhook into
+// a bucket-relative MinIO object key for presign / deletion.
+//
+// LiveKit Egress writes one of:
+//   - A full URL:  http(s)://<endpoint>/<bucket>/<key>  or  s3://<bucket>/<key>
+//   - A bare path: <bucket>/<key>  or  <key>
+//
+// The function strips any scheme+host, then strips a leading /<bucket>/ or <bucket>/
+// prefix so the remainder is the object key only.
+func fileURLToObjectKey(fileURL, endpoint, publicEndpoint, bucket string) string {
+	key := fileURL
+
+	// Strip http/https scheme and host (internal or public endpoint).
+	for _, host := range []string{endpoint, publicEndpoint} {
+		if host == "" {
+			continue
+		}
+		for _, scheme := range []string{"https://", "http://"} {
+			prefix := scheme + host + "/"
+			if strings.HasPrefix(key, prefix) {
+				key = key[len(prefix):]
+				break
+			}
+		}
+	}
+
+	// Strip s3:// scheme
+	key = strings.TrimPrefix(key, "s3://")
+
+	// Strip leading slash
+	key = strings.TrimPrefix(key, "/")
+
+	// Strip bucket prefix (with or without trailing slash)
+	key = strings.TrimPrefix(key, bucket+"/")
+
+	return key
 }

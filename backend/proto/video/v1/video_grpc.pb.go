@@ -31,6 +31,7 @@ const (
 	VideoService_GetRecordingConsent_FullMethodName        = "/video.v1.VideoService/GetRecordingConsent"
 	VideoService_ListRecordings_FullMethodName             = "/video.v1.VideoService/ListRecordings"
 	VideoService_DeleteRecording_FullMethodName            = "/video.v1.VideoService/DeleteRecording"
+	VideoService_GetRecordingDownloadURL_FullMethodName    = "/video.v1.VideoService/GetRecordingDownloadURL"
 	VideoService_CreateMeeting_FullMethodName              = "/video.v1.VideoService/CreateMeeting"
 	VideoService_GetMeeting_FullMethodName                 = "/video.v1.VideoService/GetMeeting"
 	VideoService_UpdateMeeting_FullMethodName              = "/video.v1.VideoService/UpdateMeeting"
@@ -83,6 +84,7 @@ type VideoServiceClient interface {
 	GetRecordingConsent(ctx context.Context, in *GetRecordingConsentRequest, opts ...grpc.CallOption) (*RecordingConsentStatus, error)
 	ListRecordings(ctx context.Context, in *ListRecordingsRequest, opts ...grpc.CallOption) (*ListRecordingsResponse, error)
 	DeleteRecording(ctx context.Context, in *DeleteRecordingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetRecordingDownloadURL(ctx context.Context, in *GetRecordingDownloadURLRequest, opts ...grpc.CallOption) (*GetRecordingDownloadURLResponse, error)
 	// Meeting Management
 	CreateMeeting(ctx context.Context, in *CreateMeetingRequest, opts ...grpc.CallOption) (*Meeting, error)
 	GetMeeting(ctx context.Context, in *GetMeetingRequest, opts ...grpc.CallOption) (*Meeting, error)
@@ -239,6 +241,16 @@ func (c *videoServiceClient) DeleteRecording(ctx context.Context, in *DeleteReco
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, VideoService_DeleteRecording_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) GetRecordingDownloadURL(ctx context.Context, in *GetRecordingDownloadURLRequest, opts ...grpc.CallOption) (*GetRecordingDownloadURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRecordingDownloadURLResponse)
+	err := c.cc.Invoke(ctx, VideoService_GetRecordingDownloadURL_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -592,6 +604,7 @@ type VideoServiceServer interface {
 	GetRecordingConsent(context.Context, *GetRecordingConsentRequest) (*RecordingConsentStatus, error)
 	ListRecordings(context.Context, *ListRecordingsRequest) (*ListRecordingsResponse, error)
 	DeleteRecording(context.Context, *DeleteRecordingRequest) (*emptypb.Empty, error)
+	GetRecordingDownloadURL(context.Context, *GetRecordingDownloadURLRequest) (*GetRecordingDownloadURLResponse, error)
 	// Meeting Management
 	CreateMeeting(context.Context, *CreateMeetingRequest) (*Meeting, error)
 	GetMeeting(context.Context, *GetMeetingRequest) (*Meeting, error)
@@ -676,6 +689,9 @@ func (UnimplementedVideoServiceServer) ListRecordings(context.Context, *ListReco
 }
 func (UnimplementedVideoServiceServer) DeleteRecording(context.Context, *DeleteRecordingRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRecording not implemented")
+}
+func (UnimplementedVideoServiceServer) GetRecordingDownloadURL(context.Context, *GetRecordingDownloadURLRequest) (*GetRecordingDownloadURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRecordingDownloadURL not implemented")
 }
 func (UnimplementedVideoServiceServer) CreateMeeting(context.Context, *CreateMeetingRequest) (*Meeting, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateMeeting not implemented")
@@ -991,6 +1007,24 @@ func _VideoService_DeleteRecording_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VideoServiceServer).DeleteRecording(ctx, req.(*DeleteRecordingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_GetRecordingDownloadURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRecordingDownloadURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).GetRecordingDownloadURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_GetRecordingDownloadURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).GetRecordingDownloadURL(ctx, req.(*GetRecordingDownloadURLRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1639,6 +1673,10 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteRecording",
 			Handler:    _VideoService_DeleteRecording_Handler,
+		},
+		{
+			MethodName: "GetRecordingDownloadURL",
+			Handler:    _VideoService_GetRecordingDownloadURL_Handler,
 		},
 		{
 			MethodName: "CreateMeeting",

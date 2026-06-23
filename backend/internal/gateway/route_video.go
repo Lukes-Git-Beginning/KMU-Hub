@@ -115,6 +115,7 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.With(middleware.RequirePermission("recordings", "admin")).Post("/recordings/{id}/tag-consents", vr.HandleTagRecordingWithConsents)
 		r.With(middleware.RequirePermission("recordings", "admin")).Patch("/recordings/{id}/metadata", vr.HandleUpdateRecordingMetadata)
 		r.Get("/recordings/{id}/status", vr.HandleGetRecordingStatus)
+		r.Get("/recordings/{id}/download", vr.HandleGetRecordingDownloadURL)
 		r.With(middleware.RequirePermission("recordings", "admin")).Post("/recordings/{id}/cleanup", vr.HandleCleanupExpiredRecording)
 		r.Get("/recordings", vr.HandleListRecordings)
 		r.Get("/meetings/{meetingId}/recordings", vr.HandleListRecordingsByMeeting)
@@ -1640,7 +1641,35 @@ func (vr *VideoRoutes) HandleListRecordingsByMeeting(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	// Return a bare Recording[] array so timestamps serialize via protojson (RFC3339)
+	// and the frontend can directly map over the result without unwrapping an envelope.
+	response.ProtoList(w, http.StatusOK, resp.Recordings)
+}
+
+// HandleGetRecordingDownloadURL generates a presigned MinIO GET URL for a completed recording.
+// GET /api/v1/video/recordings/{id}/download
+// ACL: caller must be a participant of the recording (enforced in the service layer).
+func (vr *VideoRoutes) HandleGetRecordingDownloadURL(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetRecordingDownloadURL(r.Context(), &videov1.GetRecordingDownloadURLRequest{
+		RecordingId: recordingID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleCleanupExpiredRecording deletes a single recording past its retention period.

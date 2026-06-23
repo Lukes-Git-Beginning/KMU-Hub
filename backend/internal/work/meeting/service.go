@@ -857,6 +857,17 @@ func (s *Service) isHostOrCoHost(ctx context.Context, m *Meeting, tenantID, user
 	return s.repo.IsCoHost(ctx, tenantID, m.ID, userID)
 }
 
+// IsHostOrCoHost reports whether userID is the organizer or a co-host of the meeting
+// identified by meetingID within tenantID. It loads the meeting from the repo first.
+// Intended for cross-service authz (e.g. recording StopRecording guard).
+func (s *Service) IsHostOrCoHost(ctx context.Context, meetingID, tenantID, userID uuid.UUID) (bool, error) {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return false, err
+	}
+	return s.isHostOrCoHost(ctx, m, tenantID, userID)
+}
+
 // PromoteCoHost grants co-host rights to targetUserID for the given meeting.
 // Only the meeting organizer may promote. Idempotent.
 func (s *Service) PromoteCoHost(ctx context.Context, meetingID, tenantID, callerID, targetUserID uuid.UUID) error {

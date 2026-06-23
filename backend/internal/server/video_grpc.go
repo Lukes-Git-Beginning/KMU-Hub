@@ -303,12 +303,40 @@ func (s *VideoGRPCServer) StopRecording(ctx context.Context, req *videov1.StopRe
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
-	rec, err := s.recordingService.StopRecording(ctx, recordingID)
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+
+	// Authz: caller must be the recording initiator OR a meeting host/co-host.
+	rec, err := s.recordingService.GetRecordingStatus(ctx, recordingID)
 	if err != nil {
 		return nil, mapRecordingError(err)
 	}
 
-	return recordingToProto(rec), nil
+	authorized := rec.StartedBy != nil && *rec.StartedBy == callerID
+	if !authorized && rec.MeetingID != nil {
+		isHost, hostErr := s.meetingService.IsHostOrCoHost(ctx, *rec.MeetingID, tenantID, callerID)
+		if hostErr != nil {
+			return nil, status.Errorf(codes.Internal, "authz check failed: %v", hostErr)
+		}
+		authorized = isHost
+	}
+	if !authorized {
+		return nil, status.Error(codes.PermissionDenied, "only the recording initiator or meeting host/co-host may stop a recording")
+	}
+
+	stopped, err := s.recordingService.StopRecording(ctx, recordingID)
+	if err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	return recordingToProto(stopped), nil
 }
 
 func (s *VideoGRPCServer) SetRecordingConsent(ctx context.Context, req *videov1.SetRecordingConsentRequest) (*emptypb.Empty, error) {
@@ -1433,6 +1461,7 @@ func meetingToProto(m *meeting.Meeting) *videov1.Meeting {
 		s := m.RecurringMeetingID.String()
 		proto.RecurringMeetingId = &s
 	}
+	proto.Locked = m.Locked
 	return proto
 }
 
@@ -2053,4 +2082,27 @@ func meetingCoHostToProto(ch *meeting.MeetingCoHost) *videov1.MeetingCoHost {
 		GrantedBy: ch.GrantedBy.String(),
 		CreatedAt: timestamppb.New(ch.CreatedAt),
 	}
+}
+
+func (s *VideoGRPCServer) GetRecordingDownloadURL(ctx context.Context, req *videov1.GetRecordingDownloadURLRequest) (*videov1.GetRecordingDownloadURLResponse, error) {
+	recordingID, err := uuid.Parse(req.RecordingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid user_id in token")
+	}
+
+	url, expiresAt, err := s.recordingService.GetRecordingDownloadURL(ctx, recordingID, callerID)
+	if err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	return &videov1.GetRecordingDownloadURLResponse{
+		Url:       url,
+		ExpiresAt: timestamppb.New(expiresAt),
+	}, nil
 }

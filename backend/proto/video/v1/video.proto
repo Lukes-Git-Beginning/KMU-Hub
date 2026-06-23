@@ -22,6 +22,7 @@ service VideoService {
   rpc GetRecordingConsent(GetRecordingConsentRequest) returns (RecordingConsentStatus);
   rpc ListRecordings(ListRecordingsRequest) returns (ListRecordingsResponse);
   rpc DeleteRecording(DeleteRecordingRequest) returns (google.protobuf.Empty);
+  rpc GetRecordingDownloadURL(GetRecordingDownloadURLRequest) returns (GetRecordingDownloadURLResponse);
 
   // Meeting Management
   rpc CreateMeeting(CreateMeetingRequest) returns (Meeting);
@@ -169,6 +170,7 @@ message Meeting {
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
   repeated MeetingAttendee attendees = 16;
+  bool locked = 17;
 }
 
 message MeetingAttendee {
@@ -345,6 +347,15 @@ message ListRecordingsResponse {
 message DeleteRecordingRequest {
   string recording_id = 1;
   string user_id = 2;
+}
+
+message GetRecordingDownloadURLRequest {
+  string recording_id = 1;
+}
+
+message GetRecordingDownloadURLResponse {
+  string url = 1;
+  google.protobuf.Timestamp expires_at = 2;
 }
 
 // ============================================================================
