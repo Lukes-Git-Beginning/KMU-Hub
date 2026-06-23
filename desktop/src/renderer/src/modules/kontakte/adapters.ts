@@ -37,9 +37,18 @@ interface ExtraFields {
 /** Convert a backend ContactInfo to a full UI Contact. isFavorite is always false
  *  here — callers should overlay it from local Zustand state. */
 export function backendContactToUI(c: BackendContact): Contact {
-  const extra = (c.customFields ?? {}) as ExtraFields
-  const firstName = c.firstName ?? ''
-  const lastName = c.lastName ?? ''
+  // Das gRPC-Gateway liefert snake_case (protojson), die OpenAPI-Typen sind
+  // camelCase (Spec-Drift, X-3). Beide Casings tolerieren, bis die Spec gefixt
+  // bzw. global normalisiert ist — sonst bleiben Name/Firma/Datum leer.
+  const raw = c as unknown as Record<string, unknown>
+  const pick = (camel: string, snake: string): string | undefined =>
+    (raw[camel] ?? raw[snake]) as string | undefined
+
+  const extra = ((raw.customFields ?? raw.custom_fields) ?? {}) as ExtraFields
+  const firstName = pick('firstName', 'first_name') ?? ''
+  const lastName = pick('lastName', 'last_name') ?? ''
+  const updatedAt = pick('updatedAt', 'updated_at')
+  const createdAt = pick('createdAt', 'created_at')
   const initials = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
 
   return {
@@ -52,7 +61,7 @@ export function backendContactToUI(c: BackendContact): Contact {
     email: c.email ?? '',
     phone: c.phone ?? '',
     mobile: extra._mobile ?? '',
-    company: c.companyName ?? '',
+    company: pick('companyName', 'company_name') ?? '',
     jobTitle: extra._jobTitle ?? '',
     department: extra._department ?? '',
     address: extra._address ?? { street: '', zip: '', city: '', country: 'Deutschland' },
@@ -62,9 +71,9 @@ export function backendContactToUI(c: BackendContact): Contact {
     tags: (c.tags ?? []).map((t) => t.name ?? '').filter(Boolean),
     notes: c.notes ?? '',
     socialMedia: extra._socialMedia ?? { linkedin: '', xing: '' },
-    lastContact: c.updatedAt?.split('T')[0] ?? new Date().toISOString().split('T')[0],
+    lastContact: updatedAt?.split('T')[0] ?? new Date().toISOString().split('T')[0],
     projects: extra._projects ?? [],
-    createdAt: c.createdAt?.split('T')[0] ?? '',
+    createdAt: createdAt?.split('T')[0] ?? '',
     isFavorite: false,
     activities: [],
     customFields: extra._customFields,
