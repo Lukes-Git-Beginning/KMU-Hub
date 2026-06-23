@@ -1,54 +1,38 @@
-# RESUME — nächster Einstieg (Stand 2026-06-22, Session-Ende)
+# RESUME — nächster Einstieg (Stand 2026-06-23, Session-Ende)
 
-> **✅✅ AKTUELLER BATCH FERTIG — Paket A kommunikation/chat → review-reif KOMPLETT** (KO-1…KO-10, Commits `e40d688f`…`5d40eede`). **Review-Paket: `.planning/kommunikation-REVIEW-paket.md`.** Stateful chat-store (+ „Unbekannt"-Sender-Bug gefixt), Gruppen-DMs, echte Thread-Antworten, Lesezeichen, Datei-Download+Bild-Vorschau, klickbare Suche+Jump, Unified „Alle ungelesenen"-Inbox, echte `/umfrage`+`/erinnerung`-Slash-Commands im Posteingang, Kanal-bearbeiten. i18n ×4 vollständig (chat.* 104, kommunikation.* 287), voller `eslint src/` grün. **Wartet auf Darien-Review → Findings als Fix-Phasen → Nico.** Scoped tsc: `tsconfig.kommunikationcheck.json`. QA: `desktop/scripts/qa-komm-ko{1..9}.mjs` + `qa-komm-ko10-holistic.mjs`. **Dev-Server lief auf 5173 (ggf. noch offen).**
->
-> **▶▶▶ NÄCHSTER BATCH (in NEUEM Terminal schnüren):**
-> - **SCHRITT 0:** `git pull --rebase origin main`. Dann **Darien-Reviews** von kommunikation (Paket A) + formulare (Paket B, Sub-Terminal) einsammeln → Findings als Fix-Phasen in `MASTER-TRACKER.md`.
-> - **Kandidaten fürs nächste 2-Terminal-Paket** (aus `MASTER-TRACKER.md`): nächste ⬜-Module auf Markt-Parität (security/DSGVO 🔒backend-lastig, settings P2, weitere). Pakete disjunkt + i18n-getrennt halten.
-> - Ablauf wie gehabt: **Recherche → gebündelte Gate-Fragen an Darien → autonom 10 Phasen.**
->
-> **✅ VORIGER BATCH FERTIG (beide):**
-> - **Paket A — mails → review-reif** (MA-1…MA-10, `e2213408`…`86de8f53`). Review-Paket: `.planning/mails-REVIEW-paket.md`. Stateful-MSW, Thread-Konversation+Inline-Bild+Zitat-Toggle, Multi-Account+Unified, Filter+Sort, Vorlagen-CRUD, Labels+Regeln, CRM-Panel, Bulk+Shortcuts, Settings-Panel. Wartet auf Darien-Review → dann Nico.
-> - **Paket B — Block-Engine Spezialblöcke (DB-1…DB-10)** gebaut (document/wiki/berichte), bis `b7f68afe`. Wartet ebenfalls auf Review.
+> **★ NEUER STRANG: MOCK-EXIT (raus aus MSW, echtes Backend).** Aus „können wir aus dem Mock raus?" wurde ein funktionierender Durchstich. **Login + Kontakte laufen echt gegen ein lokales Backend** — kein Mock. Dabei 2 echte Bugs gefunden + gefixt + gepusht.
 
-> **▶▶ (ARCHIV — Batch-Vorgabe, erledigt für Paket A):**
-> - **SCHRITT 0 (beide Terminals):** `git pull --rebase origin main` (Luke pusht nachts — heute schon LiveKit).
-> - **HAUPT-Terminal** (`KMU Hub`, 5173) = **Paket A: mails → review-reif** → `.planning/batch-NEXT-A-mails.md` (MA-1…MA-10).
-> - **SUB-Terminal** (`KMU-Hub-review`, 5174) = **Paket B: Block-Engine Spezialblöcke + Diagramm-Datenquellen** → `.planning/batch-NEXT-B-blockengine.md` (DB-1…DB-10).
-> - Ablauf je Terminal: **Recherche-Auftrag abarbeiten → gebündelte Gate-Fragen an Darien → erst dann autonom bauen.** Pakete sind disjunkt (A=`modules/mails`, B=`components/shared/document`); i18n-Keys getrennt (`mails.*` vs `document.*`/`blocks.*`).
->
-> **Begründung Paket-Wahl (2026-06-22 Ist-Check):** Tracker war veraltet — *mails* ist KEIN Neubau (3455 Z., MSW da, nur Settings-Panel fehlt) → Tiefe-Pass bringt ein ganzes Modul für Nico. Block-Engine-Spezialblöcke (`defineBlock`-API steht; fehlend: toggle/code/table/attachment/columns/chart) zahlen auf wiki **und** berichte ein. Beide sind FE-mock-first, brauchen KEINE offenen Darien-Reviews als Input.
-> **Offen geblieben (Darien klärt beim Gate):** dein wiki-Phase-B- + berichte-Review steht noch aus → fließt NICHT in diese zwei Pakete (additiv gehalten), kann aber parallel laufen.
-> **Nebenstrang (separat, nicht Teil des Batches):** Cosmi-Prod-Desktop gegen Hetzner installiert (CORS-Fix `e25cc411` gepusht); Onboarding offen — Luke legt Darien/Nico als Mitarbeiter an (Anleitung in der Session). Untracked `desktop/scripts/qa-dialer-callflow.mjs` noch zu committen/verwerfen.
+## Was diese Session fertig wurde (gepusht, `043cb372`)
+- **Lokales Backend läuft** via Docker (`deploy/docker/docker-compose.yml`): **postgres + redis + auth + crm + gateway** (Minimal-Subset; voller 24-Service-Stack crasht die Maschine → nur bauen, was man braucht). Gateway auf `:8080`, Migrationen bis **000226**.
+- **Demo-Seeds** (`backend/seeds/demo/demo-seed.sql`, idempotent, Tenant `…0001`): 8 companies, 12 contacts, 8 deals, 3 projects, 10 tasks. **Finance-Block auskommentiert** (line_items ist separate `finance_line_items`-Tabelle → noch fixen).
+- **Mock-Exit verifiziert end-to-end:** Login (`demo@local.test` / `Demo1234!`) → Kontakte mit echten Namen/Firmen/Avataren. QA-Skripte: `desktop/scripts/qa-mock-exit-kontakte.mjs` (Token-Inject) + `qa-mock-exit-login.mjs` (echter Login-Flow).
+- **2 echte Bugs gefixt (Mocks hatten sie verdeckt):**
+  - `fix(gateway)` `d4a9c1a4` — **CORS allow-headers** um `Idempotency-Key` ergänzt. HardMode verlangt den Header bei jeder Mutation, CORS verbot ihn → jede Mutation (Login/Create/Update) aus jedem Browser-Client blockiert. **Betrifft Luke/Prod.**
+  - `fix(kontakte)` `3979b142` — Contact-**Adapter liest snake_case** (Gateway liefert `first_name`, OpenAPI-Typen sind camelCase = **Spec-Drift X-3**). Sonst Namen/Firma leer. **Muster betrifft JEDES Modul beim Mock-Exit.**
+- **Tooling** `043cb372` — `RENDERER_VITE_DEV_BYPASS_AUTH=false` erzwingt echten Login im Dev-Build (`App.tsx`); `.planning/mock-exit-readiness-matrix.md` (Modul × Backend × Wire-Shape × Auth × RLS); `SESSION-RUNBOOK.md` Markt-Recherche als Pflicht-Schritt.
+- **NICHT angefasst:** Login-Animation/`AuthLayout` (läuft auf main+Hetzner korrekt; das „falsche" C-Icon war nur ein Dev-Artefakt durch wiederholte Reloads → statischer Fallback statt Animation).
 
-> **Direkt-Wiedereinstieg (Vorgängerstand).** wiki Phase B komplett + gepusht.
+## Lokal wieder hochfahren (neues Terminal)
+```bash
+# 1. Docker-Backend (läuft evtl. noch — prüfen):
+docker ps   # postgres/redis/auth/crm/gateway healthy?
+# falls weg: cd "C:/Users/darie/Documents/KMU Hub"
+docker compose -f deploy/docker/docker-compose.yml --env-file deploy/docker/.env up -d --no-deps postgres redis auth crm gateway
+# (.env liegt unter deploy/docker/.env — gitignored; Werte: deploy/docker/README.md + MIGRATION_DATABASE_URL)
+# Seed (falls DB frisch): docker exec -i docker-postgres-1 psql -U kmuhub -d kmuhub --single-transaction < backend/seeds/demo/demo-seed.sql
 
-> **★ NEUER WORKFLOW ab jetzt ([[feedback_ten_phase_autonomous_batch]]):** 2 Terminals × **10 Phasen**. Ablauf: ich schnüre beide Pakete (disjunkt) → jedes Terminal **recherchiert** seine 10 Phasen → stellt Darien **gebündelt die offenen Fragen** (Gate VOR dem Bauen) → baut **autonom 10 Phasen** durch → Darien reviewt **alle 20** → Feedback als neue Phasen in `MASTER-TRACKER.md` → frisches Terminal. **Kandidaten-Scope fürs nächste Paket** (aus `MASTER-TRACKER.md` ziehen): wiki Phase B + berichte **Darien-Review-Findings** als Fix-Phasen · wiki **Batch 2** Spezialblöcke (Toggle/Code/Tabelle/Anhang) · kaskadierende Datenquellen-Auswahl (Diagramm-Blöcke) · nächste ⬜-Module (kommunikation, mails, security/DSGVO, settings P2). dialer macht aktuell der Sub.
+# 2. FE gegen echtes Backend (Mode localbackend = DEMO_MODE=false + :8080 + echter Login):
+cd desktop && npx electron-vite dev --mode localbackend
+# Login: demo@local.test / Demo1234!  (Tenant …0001, sieht Seed-Daten)
+# Hinweis: nur kontakte/firmen/deals live (crm); andere Module 503 (Service nicht gebaut)
+```
 
-## Was diese Session fertig wurde
-- **★ wiki Phase B KOMPLETT — review-reif (Darien-Review → dann Nico).** Der wiki-Editor läuft jetzt auf der gemeinsamen Block-Engine (`components/shared/document`), wie berichte. Commits:
-  - **PB-1** `4b92105d` — Kern-Switch: wiki-Registry, rows-Seeds (8 Demo-Artikel als Block-Dokumente), Adapter (`extractRows`/`rowsToHtml`/`htmlToRows`), Editor→`DocumentBlockEditor`, Reader→`DocumentReader` web.
-  - **CI-Fix** `3aefb538` — 2 Lint-Errors (toter `DocumentReader`-Import aus Phase A + `WikiRichEditor` ref-in-render) raus; WikiRichEditor gelöscht.
-  - **PB-2** `666a6798` — frameless Long-Form-Block (Seiten-Look statt boxed Karten) + Bubble-Menü mit H1/H2/H3+Listen + Cover/Icon-Kopf. `RichTextEditor` bekam `frameless`-Prop (additiv).
-  - **PB-3 + Feedback** `00e24706` — Block-Heading-TOC (`tocFromRows` + `headingAnchorId`), **Anhänge auch im Edit-Modus**, **Bild-Block per Datei-Auswahl** (statt „Bild-URL").
-  - **PB-4a** `a30ba713` — `shared/LinkPreviewPopover`: Klick auf `[[Link]]`/`@Mention` → Vorschau-Karte → Sprung. `RichTextEditor` `extraExtensions`-Prop (WikiLink/WikiMention erhalten beim Edit).
-  - **H1-Fix** `26640b59` — kryptisches „H1"-Pill → klarer „ÜBERSCHRIFT [1][2]"-Größen-Umschalter.
-  - **PB-4b** `714fa3d2` — Inline-Autocomplete: `[[` → Artikel-Picker, `@` → Personen-Picker (`WikiSuggest`, zero-dep, `onEditorReady`-Prop). Notion-Stil.
-  - **PB-5** `3923f200` — tote Extensions (Callout/Details/Figure/lowlight) gelöscht; `adaptVersion` projiziert Block-Versionen→HTML (Diff funktioniert wieder).
-  - Jede Phase: gescopter tsc + **`eslint src/ --quiet`** (neues Pre-Push-Gate, [[feedback_lint_before_push]]) + Playwright-Screenshot-QA verifiziert. QA-Skripte: `desktop/scripts/qa-wiki-pb{1..5}.mjs`.
-- **notifications (Sub) review-reif** — N-1…N-5 vom Sub-Terminal (Quiet-Hours/DND wirksam, Store-Kohärenz, Nav+Seeds, Pin/Dismiss persistiert, Settings).
+## Was als Nächstes (Reihenfolge nach Hebel)
+1. **OpenAPI-Casing global lösen (X-3, GRÖSSTER Hebel):** snake_case-Backend vs camelCase-Spec betrifft jedes Modul. Optionen: (a) globale snake→camel-Normalisierung im `apiClient` (`api/client.ts` onResponse), (b) OpenAPI-Spec auf snake_case fixen + Typen regenerieren. Bis dahin pro Modul Adapter robust (wie kontakte).
+2. **work + biz dazuholen** → Aufgaben/Projekte/Finanzen auch echt (`docker compose build work biz` + `up -d --no-deps`). Pro Modul Wire-Shape gegen Matrix prüfen.
+3. **Finance-Seed fixen** (line_items → `finance_line_items`-Tabelle) → finanzen-Demo nicht leer.
+4. **RLS-scharf testen:** `DATABASE_URL` auf `kmuhub_app:app_dev` (statt Superuser) → wie Prod. Migration 000121, einmalig `ALTER ROLE kmuhub_app WITH PASSWORD 'app_dev'`.
+5. **Weitere Module** per `mock-exit-readiness-matrix.md` echt schalten (notifications braucht Luke-Migration is_pinned/is_dismissed; dialer-Supervisor braucht Backend-Route).
 
-## Läuft gerade (Sub-Terminal, Port 5174)
-- **dialer D-1…D-5** — Paket `.planning/dialer-SUB.md` (CTI/CRM-Log, Supervisor-Dashboard, Kontakt-DetailModal, i18n-Cleanup, Settings-Panel). Disjunkt zu wiki. Mehrere D-Commits sind beim Rebase schon auf main eingelaufen.
-
-## Offen / als Nächstes
-- **Darien-Review wiki Phase B** (frameless Editor, Bild-Picker, Link-Popover, Inline-`[[`/`@`) → Findings als FIX-Phasen → dann Nico. Auch berichte-Review steht noch aus.
-- **wiki Spezialblöcke (Batch 2):** Toggle/Aufklapp, Code (lowlight neu), einfache Tabelle, Anhang-Block — als Defs in `wikiBlockRegistry` (Erweiterungspunkt steht).
-- **Großer Block (gemeinsam):** kaskadierende Datenquellen-Auswahl für Diagramm-Blöcke → in alle Dokument-Erstellungs-Stellen. Siehe [[project_document_engine]].
-- **LinkPreviewPopover** auch in berichte verwenden (Muster steht in `shared/`).
-
-## Build-+-Verify-Standard (pro Phase, beide Terminals)
-bauen → i18n ×4 (`{var}`, ICU-Plural) → gescopter tsc (foreground, echter Exit) → **`eslint src/ --quiet`** → Playwright-Screenshot-QA + PNGs WIRKLICH ansehen → ein Commit (explizite Pfade) → push (pull --rebase über parallele Pushes). Latenz: vorbestehender `useTasks.ts`-tsc-Fehler ignorieren.
-
-## Pläne/Pakete
-`.planning/wiki-phaseB-VISION.md` (umgesetzt) · `.planning/dialer-SUB.md` · `.planning/notifications-SUB.md` · `.planning/MASTER-TRACKER.md`. Detail-Verlauf: [[project_resume_log]].
+## Parallel: regulärer Bau-Track (MASTER-PLAN.md)
+Der Mock-Exit ist Welle 1 (Echt-Schaltung) in Aktion. `MASTER-PLAN.md` bleibt die SSOT für die übrigen Wellen. SESSION-RUNBOOK-Zyklus gilt weiter.
