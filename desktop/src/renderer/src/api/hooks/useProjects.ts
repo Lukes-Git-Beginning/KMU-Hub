@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { authenticatedRequest } from '../utils/authenticatedFetch'
+import { normalizeWireTimestamps } from '../wire-time'
 
 // ---------------------------------------------------------------------------
 // Project time entries (roll-up across the project's tasks)
@@ -76,7 +77,7 @@ export function useProjects(params?: ProjectListParams) {
         params: { query: params },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
   })
 }
@@ -89,7 +90,7 @@ export function useProject(id: string) {
         params: { path: { id } },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!id,
   })
@@ -104,7 +105,7 @@ export function useProjectMembers(projectId: string) {
         { params: { path: { id: projectId } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!projectId,
   })
@@ -119,7 +120,7 @@ export function useProjectStatuses(projectId: string) {
         { params: { path: { id: projectId } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!projectId,
   })
@@ -134,7 +135,7 @@ export function useProjectPreference(projectId: string) {
         { params: { path: { id: projectId } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!projectId,
   })
@@ -183,7 +184,7 @@ export function useCreateProject() {
         }
       }
 
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -207,7 +208,7 @@ export function useUpdateProject() {
         body,
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -225,7 +226,7 @@ export function useArchiveProject() {
         { params: { path: { id } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -257,7 +258,7 @@ export function useAddMember() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -282,7 +283,7 @@ export function useRemoveMember() {
         { params: { path: { id: projectId, userId } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -317,7 +318,7 @@ export function useCreateStatus() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -346,7 +347,7 @@ export function useUpdateStatus() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -363,7 +364,7 @@ export function useDeleteStatus() {
         { params: { path: { id } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -389,7 +390,7 @@ export function useReorderStatuses() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -422,7 +423,7 @@ export function useSetPreference() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -454,7 +455,7 @@ export function useSaveAsTemplate() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -475,7 +476,7 @@ export function useCreateFromTemplate() {
         { body }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })

@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { useAuthStore } from '@/stores/auth'
 import type { components } from '../types'
+import { normalizeWireTimestamps } from '../wire-time'
 
 export type TaskDependency = components['schemas']['TaskDependencyResponse']
 
@@ -50,7 +51,7 @@ export function useTasks(params?: TaskListParams) {
         params: { query: params },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
   })
 }
@@ -63,7 +64,7 @@ export function useTask(id: string) {
         params: { path: { id } },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!id,
   })
@@ -87,7 +88,7 @@ export function useMyTasks(params?: Omit<TaskListParams, 'assignee_id'>) {
         },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!userId,
   })
@@ -107,7 +108,7 @@ export function useSubtasks(taskId: string, recursive?: boolean) {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -124,7 +125,7 @@ export function useTaskDependencies(taskId: string) {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -138,7 +139,7 @@ export function useSearchTasks(params: SearchTasksParams) {
         params: { query: params },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!params.q && params.q.length >= 2,
   })
@@ -166,7 +167,7 @@ export function useCreateTask() {
         body,
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -202,7 +203,7 @@ export function useUpdateTask() {
         body: body as Record<string, unknown>,
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -219,7 +220,7 @@ export function useDeleteTask() {
         params: { path: { id } },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -248,7 +249,7 @@ export function useMoveTask() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -281,7 +282,7 @@ export function useCreateDependency() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -312,7 +313,7 @@ export function useDeleteDependency() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -339,7 +340,7 @@ export function useTaskEntityLinks(taskId: string) {
         { params: { path: { id: taskId } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -365,7 +366,7 @@ export function useLinkEntity() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -391,7 +392,7 @@ export function useUnlinkEntity() {
         { params: { path: { id: linkId } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -415,7 +416,7 @@ export function useEntityTasks(
         },
       })
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!entityId,
   })
@@ -434,7 +435,7 @@ export function useTaskCustomFields(taskId: string) {
         { params: { path: { id: taskId } } }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     enabled: !!taskId,
   })
@@ -458,7 +459,7 @@ export function useSetTaskCustomFields() {
         }
       )
       if (error) throw error
-      return data
+      return normalizeWireTimestamps(data)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
