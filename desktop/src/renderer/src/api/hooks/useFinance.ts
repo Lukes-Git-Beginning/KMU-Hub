@@ -39,6 +39,7 @@ import type {
   UpdateRecurringInvoiceRequest,
   BankMatchStatus,
 } from '@/types/finance-types'
+import { withInvoiceStatus, withQuoteStatus } from '../finance-status'
 
 // ---------------------------------------------------------------------------
 // Query key factory
@@ -106,6 +107,7 @@ export function useQuotes(params?: ListQuotesParams) {
   return useQuery({
     queryKey: financeKeys.quotes(params),
     queryFn: () => financeQuoteApi.list(params),
+    select: (data) => ({ ...data, quotes: (data.quotes ?? []).map(withQuoteStatus) }),
   })
 }
 
@@ -114,7 +116,7 @@ export function useQuote(id: string) {
     queryKey: financeKeys.quote(id),
     queryFn: () => financeQuoteApi.get(id),
     enabled: !!id,
-    select: (data) => (data.quote ?? data) as typeof data.quote,
+    select: (data) => withQuoteStatus((data.quote ?? data) as typeof data.quote),
   })
 }
 
@@ -217,6 +219,7 @@ export function useInvoices(params?: ListInvoicesParams) {
   return useQuery({
     queryKey: financeKeys.invoices(params),
     queryFn: () => financeInvoiceApi.list(params),
+    select: (data) => ({ ...data, invoices: (data.invoices ?? []).map(withInvoiceStatus) }),
   })
 }
 
@@ -225,7 +228,7 @@ export function useInvoice(id: string) {
     queryKey: financeKeys.invoice(id),
     queryFn: () => financeInvoiceApi.get(id),
     enabled: !!id,
-    select: (data) => (data.invoice ?? data) as typeof data.invoice,
+    select: (data) => withInvoiceStatus((data.invoice ?? data) as typeof data.invoice),
   })
 }
 
