@@ -28,18 +28,22 @@ import {
   Send,
   UserRound,
   Handshake,
+  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useListRecordingsByMeeting } from '@/api/hooks/useVideo'
+import { useMeeting, useGenerateMeetingSummary } from '@/api/hooks/useMeetings'
 import { RecordingPlayerModal } from '@/features/video/RecordingPlayerModal'
 import { useMeetingsStore } from '@/stores/meetings'
 import type { Meeting } from '@/stores/meetings'
 import type { Recording } from '@/api/video-types'
 import { useContact } from '@/api/hooks/useContacts'
 import { useDeal } from '@/api/hooks/useDeals'
+import { useAuthStore } from '@/stores/auth'
+import { formatDate } from '@/lib/format'
 
 interface MeetingDetailPanelProps {
   meeting: Meeting | null
@@ -103,6 +107,7 @@ export function MeetingDetailPanel({
   const reorderAgendaItem = useMeetingsStore((s) => s.reorderAgendaItem)
   const updateNotes = useMeetingsStore((s) => s.updateNotes)
   const updateMeeting = useMeetingsStore((s) => s.updateMeeting)
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
 
    
   useEffect(() => {
@@ -346,6 +351,8 @@ export function MeetingDetailPanel({
               value={notesValue}
               onChange={handleNotesChange}
               isPast={meeting.status === 'past'}
+              meetingId={meeting.id}
+              isOrganizer={meeting.organizerId === currentUserId}
             />
           )}
         </div>
@@ -798,10 +805,14 @@ function NotesTab({
   value,
   onChange,
   isPast,
+  meetingId,
+  isOrganizer,
 }: {
   value: string
   onChange: (value: string) => void
   isPast: boolean
+  meetingId: string
+  isOrganizer: boolean
 }) {
   const { t } = useTranslation()
   return (
@@ -824,6 +835,87 @@ function NotesTab({
           {t('meetings.notes.lastEdited')}: {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
+
+      <Separator />
+      <AISummarySection meetingId={meetingId} isOrganizer={isOrganizer} />
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AI Summary Section (Wave 7C)
+   ═══════════════════════════════════════════════════════════════ */
+
+function AISummarySection({ meetingId, isOrganizer }: { meetingId: string; isOrganizer: boolean }) {
+  const { t } = useTranslation()
+  // Read the backend meeting directly — the UI store projection (backendMeetingToUI)
+  // does not carry the AI summary fields.
+  const { data: backendMeeting } = useMeeting(meetingId)
+  const generate = useGenerateMeetingSummary()
+
+  const summary = backendMeeting?.ai_summary ?? null
+  const summaryAt = backendMeeting?.ai_summary_at ?? null
+
+  const handleGenerate = () => {
+    generate.mutate(meetingId, {
+      onSuccess: () => toast.success(t('meetings.summary.aiSuccess')),
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : ''
+        if (/not available/i.test(msg) || /no LLM is configured/i.test(msg)) {
+          toast.error(t('meetings.summary.aiUnavailable'))
+        } else if (/no meeting notes/i.test(msg)) {
+          toast.error(t('meetings.summary.aiNoNotes'))
+        } else {
+          toast.error(t('meetings.summary.aiError'))
+        }
+      },
+    })
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="flex items-center gap-1.5 text-sm font-medium text-[var(--body)]">
+          <Sparkles className="h-4 w-4 text-primary" />
+          {t('meetings.summary.aiTitle')}
+        </h4>
+        {isOrganizer && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerate}
+            disabled={generate.isPending}
+          >
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            {generate.isPending
+              ? t('meetings.summary.aiGenerating')
+              : summary
+                ? t('meetings.summary.aiRegenerate')
+                : t('meetings.summary.aiGenerate')}
+          </Button>
+        )}
+      </div>
+
+      {summary ? (
+        <div className="rounded-lg border border-border bg-card p-3">
+          <p className="whitespace-pre-wrap text-sm text-[var(--body)]">{summary}</p>
+          {summaryAt && (
+            <p className="mt-2 text-[10px] text-[var(--muted)]">
+              {t('meetings.summary.aiGeneratedAt', {
+                date: formatDate(summaryAt, {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              })}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-[var(--muted)]">{t('meetings.summary.aiEmpty')}</p>
+      )}
     </div>
   )
 }

@@ -17,6 +17,7 @@ import {
   startMeeting,
   joinMeeting,
   endMeeting,
+  generateMeetingAiSummary,
   saveMeetingNotes,
   createActionItem,
   updateActionItem,
@@ -150,6 +151,22 @@ export function useEndMeeting() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => endMeeting(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['meetings', id] })
+    },
+  })
+}
+
+/**
+ * Generate an AI summary of a meeting's public notes (Wave 7C). The updated
+ * meeting (with ai_summary populated) is returned; invalidate so the detail
+ * view re-reads it. Organizer/co-host only — enforced by the backend.
+ */
+export function useGenerateMeetingSummary() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => generateMeetingAiSummary(id),
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] })
       queryClient.invalidateQueries({ queryKey: ['meetings', id] })

@@ -178,6 +178,13 @@ export const joinMeeting = (id: string) =>
 export const endMeeting = (id: string) =>
   post<MeetingSummary>(`/api/v1/meetings/${id}/end`)
 
+/**
+ * Generate an AI summary of the meeting's public notes (Wave 7C). Returns the
+ * updated meeting with ai_summary/ai_summary_at populated. Organizer/co-host only.
+ */
+export const generateMeetingAiSummary = (id: string) =>
+  post<Meeting>(`/api/v1/meetings/${id}/ai-summary`)
+
 // ---------------------------------------------------------------------------
 // Meeting Notes
 // ---------------------------------------------------------------------------

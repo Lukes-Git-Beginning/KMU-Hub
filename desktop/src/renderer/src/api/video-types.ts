@@ -94,6 +94,9 @@ export interface Meeting {
   locked: boolean
   contact_id: string | null
   deal_id: string | null
+  /** AI-generated summary of the meeting's public notes (Wave 7C); null until generated. */
+  ai_summary: string | null
+  ai_summary_at: string | null
 }
 
 export interface CreateMeetingRequest {
