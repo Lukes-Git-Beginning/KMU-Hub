@@ -49,17 +49,17 @@
 ---
 
 ## Git-Modell (zwei Terminals)
-- **Getrennte Klone, beide bauen, direct-to-main.** Terminal A = Klon `KMU Hub` (Dev-Port 5173), Terminal B = `KMU-Hub-review` (5174). (Fehlt der zweite Klon → einmalig `git clone … KMU-Hub-review` + `npm install`.)
+- **Getrennte Klone, beide bauen, direct-to-main.** **Main = Klon `KMU Hub` (Dev-Port 5173)**, **Sub = `KMU-Hub-review` (5174)**. (Feste Konvention — so habt ihr immer gearbeitet.)
 - **Disjunkte Lanes** (verschiedene Module) → keine inhaltliche Kollision. **Hot Files** (i18n-JSONs, `App.tsx`, `module-settings-registry.tsx`, `mocks/handlers/index.ts`, Sidebar-Nav) **nur additiv** anfassen, nie umsortieren. Details: `archiv/collision-map.md`.
 - **Atomarer Push:** `git add -p` → commit → `git pull --rebase` → `git push`. Bei seltenem Hot-File-Konflikt: beide Blöcke behalten (additiv).
-- **Rolle:** Das Terminal, in dem „weiter" gesagt wird = **Main** (plant beide Lanes, baut Main-Lane, schreibt Sub-Paket). Das zweite Terminal = **Sub** (baut die Sub-Lane aus dem Paket).
+- **Rolle (feste Konvention, Darien):** **`KMU Hub` = Main** — hier sagt Darien „weiter", hier wird geplant + Main-Lane gebaut + Sub-Paket geschrieben. **`KMU-Hub-review` = Sub** — hier den Sub-Text einfügen + Sub-Lane bauen.
 
 ## Sub-Paket (Format, von Main geschrieben)
 - Ablage: `.planning/parallel-batch/sub-<lane>.md` + ein **fertiger Start-Text** zum Reinkopieren ins 2. Terminal.
-- **Der Start-Text beginnt IMMER mit dem Ziel-Verzeichnis als kopierbarem Öffnen-Befehl** (der jeweils ANDERE Klon als Main), damit Darien das Terminal direkt dort öffnen kann — Format:
+- **Der Start-Text beginnt IMMER mit dem Ziel-Verzeichnis als kopierbarem Öffnen-Befehl** (Sub = immer `KMU-Hub-review`), damit Darien das Sub-Terminal direkt dort öffnen kann — Format:
   ```
-  ▶ Zweites Terminal hier öffnen:  cd "C:\Users\darie\Documents\KMU Hub"   (oder …\KMU-Hub-review)
-     dann:  claude   → diesen Text einfügen.   Dev-Port: 5173 (bzw. 5174, der andere als Main)
+  ▶ Sub-Terminal öffnen:  cd "C:\Users\darie\Documents\KMU-Hub-review"
+     dann:  claude   → diesen Text einfügen.   Dev-Port: 5174
   ```
 - Inhalt danach: Lane-Module + die 5 Phasen, Backend-Check-Ergebnis (🔌/🔒) je Phase, Referenz-Pfade, Verify-Checkliste, **Pre-Flight** (`git pull` + Migrations-Kopf), „committet+pusht atomar, bleibt in seiner Lane".
 - Muster: `.planning/parallel-batch/` (`main-*.md` / `sub-*.md` / `qa-combined.md`) + `archiv/two-terminal-nico-workflow.md`.
