@@ -317,41 +317,41 @@ export const financePaymentApi = {
 export const financeDunningApi = {
   list(params: ListDunningsParams = {}) {
     return request<ListDunningsResponse>(
-      `/api/v1/finance/dunnings${qs(params as Record<string, unknown>)}`,
+      `/api/v1/finance/dunning${qs(params as Record<string, unknown>)}`,
     )
   },
 
   detect() {
     return request<{ dunnings: DunningRecord[] }>(
-      '/api/v1/finance/dunnings/detect',
+      '/api/v1/finance/dunning/detect',
       { method: 'POST' },
     )
   },
 
   send(id: string) {
     return request<{ dunning: DunningRecord }>(
-      `/api/v1/finance/dunnings/${id}/send`,
+      `/api/v1/finance/dunning/${id}/send`,
       { method: 'POST' },
     )
   },
 
   escalate(id: string) {
     return request<{ dunning: DunningRecord }>(
-      `/api/v1/finance/dunnings/${id}/escalate`,
+      `/api/v1/finance/dunning/${id}/escalate`,
       { method: 'POST' },
     )
   },
 
   getPDF(id: string) {
-    return requestBlob(`/api/v1/finance/dunnings/${id}/pdf`)
+    return requestBlob(`/api/v1/finance/dunning/${id}/pdf`)
   },
 
   getConfig() {
-    return request<{ config: DunningConfig }>('/api/v1/finance/dunning-config')
+    return request<{ config: DunningConfig }>('/api/v1/finance/dunning/config')
   },
 
   updateConfig(data: UpdateDunningConfigRequest) {
-    return request<{ config: DunningConfig }>('/api/v1/finance/dunning-config', {
+    return request<{ config: DunningConfig }>('/api/v1/finance/dunning/config', {
       method: 'PUT',
       body: JSON.stringify(data),
     })

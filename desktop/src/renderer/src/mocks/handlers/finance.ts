@@ -651,7 +651,7 @@ export const financeHandlers = [
   // ---- Dunning (finanzen P2.5d) — stateful ----
 
   // Dunning list — supports invoice_id / level / status filters.
-  http.get(`${API}/api/v1/finance/dunnings`, ({ request }) => {
+  http.get(`${API}/api/v1/finance/dunning`, ({ request }) => {
     const url = new URL(request.url)
     const invoiceId = url.searchParams.get('invoice_id')
     const level = url.searchParams.get('level')
@@ -664,7 +664,7 @@ export const financeHandlers = [
   }),
 
   // Detect overdue invoices and create level-1 dunnings for those without one.
-  http.post(`${API}/api/v1/finance/dunnings/detect`, () => {
+  http.post(`${API}/api/v1/finance/dunning/detect`, () => {
     const created: DunningRecord[] = []
     for (const inv of mockInvoices.invoices as Record<string, unknown>[]) {
       if (!isOverdue(inv)) continue
@@ -678,7 +678,7 @@ export const financeHandlers = [
   }),
 
   // Send a dunning — stateful
-  http.post(`${API}/api/v1/finance/dunnings/:id/send`, ({ params }) => {
+  http.post(`${API}/api/v1/finance/dunning/:id/send`, ({ params }) => {
     const d = dunningsStore.find((x) => x.id === params.id)
     if (!d) return HttpResponse.json({ error: 'Dunning not found' }, { status: 404 })
     d.status = 'sent'
@@ -687,7 +687,7 @@ export const financeHandlers = [
   }),
 
   // Escalate a dunning to the next level — recomputes fee + interest.
-  http.post(`${API}/api/v1/finance/dunnings/:id/escalate`, ({ params }) => {
+  http.post(`${API}/api/v1/finance/dunning/:id/escalate`, ({ params }) => {
     const d = dunningsStore.find((x) => x.id === params.id)
     if (!d) return HttpResponse.json({ error: 'Dunning not found' }, { status: 404 })
     if (d.level < 3) {
@@ -702,7 +702,7 @@ export const financeHandlers = [
   }),
 
   // Dunning PDF — real downloadable file
-  http.get(`${API}/api/v1/finance/dunnings/:id/pdf`, ({ params }) => {
+  http.get(`${API}/api/v1/finance/dunning/:id/pdf`, ({ params }) => {
     const d = dunningsStore.find((x) => x.id === params.id)
     if (!d) return HttpResponse.json({ error: 'Dunning not found' }, { status: 404 })
     const inv = mockInvoices.invoices.find((i) => i.id === d.invoice_id) as Record<string, unknown> | undefined
@@ -721,12 +721,12 @@ export const financeHandlers = [
   }),
 
   // Dunning config — flat shape the UI expects (P2.5d fix).
-  http.get(`${API}/api/v1/finance/dunning-config`, () => {
+  http.get(`${API}/api/v1/finance/dunning/config`, () => {
     return HttpResponse.json({ config: dunningConfig })
   }),
 
   // Update dunning config — stateful
-  http.put(`${API}/api/v1/finance/dunning-config`, async ({ request }) => {
+  http.put(`${API}/api/v1/finance/dunning/config`, async ({ request }) => {
     const body = (await request.json()) as Partial<DunningConfig>
     dunningConfig = { ...dunningConfig, ...body }
     return HttpResponse.json({ config: dunningConfig })
