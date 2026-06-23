@@ -5,6 +5,7 @@
  * - List of action items with checkbox, description, assignee
  * - Inline add new item
  * - Edit/delete items
+ * - Per-item "save as task" button (7A)
  * - Batch convert to tasks with project picker
  */
 import { useState } from 'react'
@@ -17,6 +18,7 @@ import {
   FolderKanban,
   ExternalLink,
   Loader2,
+  ListTodo,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -126,11 +128,31 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
       return
     }
 
+    const ids = unconvertedItems.map((i) => i.id)
+    if (ids.length === 0) return
+
     convertMutation.mutate(
-      { meetingId, projectId: selectedProjectId },
+      { meetingId, projectId: selectedProjectId, actionItemIds: ids },
       {
         onSuccess: (data) => {
           toast.success(t('meetings.actionItems.tasksCreated', { count: data.task_ids.length }))
+        },
+        onError: () => toast.error(t('meetings.actionItems.errorConvert')),
+      },
+    )
+  }
+
+  const handleConvertSingle = (itemId: string) => {
+    if (!selectedProjectId) {
+      toast.error(t('meetings.actionItems.selectProject'))
+      return
+    }
+
+    convertMutation.mutate(
+      { meetingId, projectId: selectedProjectId, actionItemIds: [itemId] },
+      {
+        onSuccess: () => {
+          toast.success(t('meetings.actionItems.taskCreatedSingle'))
         },
         onError: () => toast.error(t('meetings.actionItems.errorConvert')),
       },
@@ -218,12 +240,24 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
                     {item.description}
                   </span>
 
-                  {/* Task link indicator */}
-                  {item.task_id && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-primary">
+                  {/* Task link indicator OR single-convert button */}
+                  {item.task_id ? (
+                    <span className="flex items-center gap-0.5 text-[10px] text-primary shrink-0">
                       <ExternalLink className="h-3 w-3" />
                       Task
                     </span>
+                  ) : (
+                    selectedProjectId && (
+                      <button
+                        onClick={() => handleConvertSingle(item.id)}
+                        disabled={convertMutation.isPending}
+                        title={t('meetings.actionItems.saveAsTask')}
+                        className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ListTodo className="h-3 w-3" />
+                        {t('meetings.actionItems.saveAsTask')}
+                      </button>
+                    )
                   )}
 
                   {/* Assignee avatar */}

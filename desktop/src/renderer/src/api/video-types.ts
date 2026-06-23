@@ -92,6 +92,8 @@ export interface Meeting {
   created_at: string
   updated_at: string
   locked: boolean
+  contact_id: string | null
+  deal_id: string | null
 }
 
 export interface CreateMeetingRequest {
@@ -103,6 +105,8 @@ export interface CreateMeetingRequest {
   attendee_ids: string[]
   calendar_event_id?: string
   recurring_meeting_id?: string
+  contact_id?: string | null
+  deal_id?: string | null
 }
 
 export interface UpdateMeetingRequest {
@@ -111,6 +115,8 @@ export interface UpdateMeetingRequest {
   agenda?: string
   scheduled_start?: string
   scheduled_end?: string
+  contact_id?: string | null
+  deal_id?: string | null
 }
 
 export interface MeetingFilter {
@@ -190,6 +196,8 @@ export interface CreateActionItemRequest {
 }
 
 export interface ConvertActionItemsRequest {
+  /** IDs of the action items to convert. Must contain at least one entry. */
+  action_item_ids: string[]
   project_id: string
 }
 

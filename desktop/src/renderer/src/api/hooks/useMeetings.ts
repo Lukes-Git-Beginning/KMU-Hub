@@ -242,17 +242,29 @@ export function useDeleteActionItem() {
   })
 }
 
-/** Convert action items to tasks in a project. */
+/** Convert action items to tasks in a project.
+ *
+ * Pass `actionItemIds` to convert specific items only.
+ * When omitted the caller should supply all unconverted IDs
+ * (the backend requires at least one entry in `action_item_ids`).
+ */
 export function useConvertActionItemsToTasks() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
       meetingId,
       projectId,
+      actionItemIds,
     }: {
       meetingId: string
       projectId: string
-    }) => convertActionItemsToTasks(meetingId, { project_id: projectId }),
+      /** Subset of action item IDs to convert. Must be non-empty. */
+      actionItemIds: string[]
+    }) =>
+      convertActionItemsToTasks(meetingId, {
+        action_item_ids: actionItemIds,
+        project_id: projectId,
+      }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ['meetings', variables.meetingId, 'action-items'],

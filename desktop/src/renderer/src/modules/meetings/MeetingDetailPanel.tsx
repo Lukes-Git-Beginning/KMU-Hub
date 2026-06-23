@@ -26,6 +26,8 @@ import {
   ExternalLink,
   Mail,
   Send,
+  UserRound,
+  Handshake,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -36,6 +38,8 @@ import { RecordingPlayerModal } from '@/features/video/RecordingPlayerModal'
 import { useMeetingsStore } from '@/stores/meetings'
 import type { Meeting } from '@/stores/meetings'
 import type { Recording } from '@/api/video-types'
+import { useContact } from '@/api/hooks/useContacts'
+import { useDeal } from '@/api/hooks/useDeals'
 
 interface MeetingDetailPanelProps {
   meeting: Meeting | null
@@ -365,6 +369,13 @@ export function MeetingDetailPanel({
 
 function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMeeting: (id: string, updates: Partial<Meeting>) => void }) {
   const { t } = useTranslation()
+
+  // CRM lookups — only fetch when IDs are present
+  const { data: contactData } = useContact(meeting.contact_id ?? '')
+  const { data: dealData } = useDeal(meeting.deal_id ?? '')
+  const contact = contactData?.contact
+  const deal = dealData?.deal
+
   const handleAddToCalendar = () => {
     onUpdateMeeting(meeting.id, { calendarEventId: `cal-${meeting.id}` })
     toast.success(t('meetings.toast.addedToCalendar'))
@@ -434,6 +445,38 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
           <Separator />
         </>
       )}
+
+      {/* ── CRM-Verknüpfung ── */}
+      {(meeting.contact_id ?? null) !== null || (meeting.deal_id ?? null) !== null ? (
+        <>
+          <div>
+            <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
+              {t('meetings.detail.crmLink')}
+            </h4>
+            <div className="space-y-2">
+              {(meeting.contact_id ?? null) !== null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <UserRound className="h-4 w-4 text-[var(--muted)] shrink-0" />
+                  <span className="text-[var(--body)]">
+                    {contact
+                      ? `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || meeting.contact_id
+                      : meeting.contact_id}
+                  </span>
+                </div>
+              )}
+              {(meeting.deal_id ?? null) !== null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Handshake className="h-4 w-4 text-[var(--muted)] shrink-0" />
+                  <span className="text-[var(--body)]">
+                    {deal ? (deal.name ?? meeting.deal_id) : meeting.deal_id}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          <Separator />
+        </>
+      ) : null}
 
       {/* ── Kalender-Synchronisation (10.18) ── */}
       <div>

@@ -35,8 +35,12 @@ import {
   Video,
   X,
   FileText,
+  UserRound,
+  Handshake,
 } from 'lucide-react'
 import type { Meeting, AgendaItem } from '@/stores/meetings'
+import { useContacts } from '@/api/hooks/useContacts'
+import { useDeals } from '@/api/hooks/useDeals'
 
 interface MeetingFormDialogProps {
   open: boolean
@@ -115,8 +119,16 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
   const [newAgendaText, setNewAgendaText] = useState('')
   const [addToCalendar, setAddToCalendar] = useState(true)
   const [sendInvitations, setSendInvitations] = useState(true)
+  const [contactId, setContactId] = useState<string>('')
+  const [dealId, setDealId] = useState<string>('')
 
-   
+  // CRM data for pickers
+  const { data: contactsData } = useContacts({ page_size: 200 })
+  const { data: dealsData } = useDeals({ page_size: 200 })
+  const contacts = contactsData?.contacts ?? []
+  const deals = dealsData?.deals ?? []
+
+
   useEffect(() => {
     if (meeting) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
@@ -139,6 +151,8 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setShowExtras(meeting.recurrence !== 'none' || !!meeting.description || meeting.agenda.length > 0)
       setAddToCalendar(!!meeting.calendarEventId)
       setSendInvitations(!!meeting.invitationsSent)
+      setContactId(meeting.contact_id ?? '')
+      setDealId(meeting.deal_id ?? '')
     } else {
       setTitle('')
       setDate(new Date().toISOString().split('T')[0])
@@ -160,6 +174,8 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setNewAgendaText('')
       setAddToCalendar(true)
       setSendInvitations(true)
+      setContactId('')
+      setDealId('')
     }
   }, [meeting, open])
 
@@ -246,6 +262,8 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       projectLink: project.toLowerCase().replace(/\s+/g, '-'),
       calendarEventId: addToCalendar ? (meeting?.calendarEventId || `cal-${newMeetingId}`) : undefined,
       invitationsSent: sendInvitations ? true : (meeting?.invitationsSent || false),
+      contact_id: contactId !== '' ? contactId : null,
+      deal_id: dealId !== '' ? dealId : null,
     })
     onOpenChange(false)
   }
@@ -416,6 +434,51 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* ── CRM: Kontakt + Deal ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <UserRound className="h-3.5 w-3.5 text-[var(--muted)]" />
+                {t('meetings.form.contact')}
+              </Label>
+              <Select value={contactId} onValueChange={setContactId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('meetings.form.contactPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">{t('meetings.form.crmNone')}</SelectItem>
+                  {contacts.map((c) => {
+                    const label = `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || (c.id ?? '')
+                    return (
+                      <SelectItem key={c.id ?? label} value={c.id ?? ''}>
+                        {label}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Handshake className="h-3.5 w-3.5 text-[var(--muted)]" />
+                {t('meetings.form.deal')}
+              </Label>
+              <Select value={dealId} onValueChange={setDealId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('meetings.form.dealPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">{t('meetings.form.crmNone')}</SelectItem>
+                  {deals.map((d) => (
+                    <SelectItem key={d.id ?? d.name} value={d.id ?? ''}>
+                      {d.name ?? d.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* ── Expandable Extras ── */}

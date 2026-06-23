@@ -43,6 +43,10 @@ export interface Meeting {
   projectLink: string
   calendarEventId?: string
   invitationsSent?: boolean
+  /** CRM contact linked to this meeting (nullable). */
+  contact_id?: string | null
+  /** CRM deal linked to this meeting (nullable). */
+  deal_id?: string | null
 }
 
 // ---------------------------------------------------------------------------
