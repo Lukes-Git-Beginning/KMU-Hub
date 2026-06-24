@@ -109,6 +109,13 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Billing/License-Service (`/api/v1/billing`) — aktuell nur statische Mock-Daten
 - Tenant-Ressourcen-Monitoring-API (Metrics intern da, kein HTTP-Endpoint)
 
+### security / DSGVO  (FE-Mock-First-Batch S-1…S-5, Branch `parallel/security`)
+> BE existiert weitgehend echt: GDPR-Export/-Erasure-Handler (`47d210d9`, alle 14 auf echte SQL), Audit/Sessions/PW-Policy/IP-Rules/2FA in `route_security.go`/`route_auth.go`. Das FE läuft mock-first (MSW); Verdrahtung gegen das echte BE = später (Claude/FE-Lane).
+- **🔴 X-3-Spec-Lücke (alle 31 security/auth-Endpoints):** KEINER ist in `backend/api/openapi.yaml` dokumentiert (Spec endet bei `auth/reset-password`). Betroffen: `/security/audit|vault|gdpr/*|password/*|ip-rules|dsar/search`, `/auth/sessions*|2fa/*`. → openapi-Spec nachziehen, sonst bricht jede Typ-Regen-Runde + jeder Echt-Anschluss erneut.
+- **Wire-Shape-Befund (encoding/json über protobuf, snake_case):** Alle Handler nutzen `response.JSON` (nicht `response.Proto`). Konsequenz für den FE-Client beim Echt-Anschluss: (a) **Listen sind gewrappt** — `{secrets:[…]}`, `{rules:[…]}`, `{export_requests:[…]}`, `{sessions:[…]}`, `{policies:[…]}`, `{entries,total}` (nie nacktes Array). FE-Client (`security-client.ts`) ist in S-1 bereits darauf ausgerichtet (entpackt gewrappte Shape). (b) **Timestamps als `{seconds,nanos}`** statt RFC3339 → beim Echt-Anschluss `normalizeWireTimestamps()` (`api/wire-time.ts`) im Client anwenden (MSW liefert ISO, geht durch).
+- **Pfad-Abweichungen FE-Client ↔ echtes BE (beim Echt-Anschluss prüfen):** GDPR-Export-Request `POST /gdpr/export` (Client: `/gdpr/export/request`), Download `GET /gdpr/download/{token}` (Client: `/gdpr/export/{token}/download`), Approve/Deny über `/gdpr/exports/{id}/approve|deny`. 2FA-Policy-Pfad `policy` (singular) vs Client `policies`.
+- **🔌 Verdrahten (nach Echt-Schaltung):** `security-client.ts` + Hooks gegen das echte Backend testen (Demo-Mode aus), Pfade + Wire-Shapes obiger Liste abgleichen, Timestamp-Normalizer einhängen.
+
 ### profil
 - Avatar-Upload-Endpoint (MinIO) — Camera-Button im FE wartet darauf
 

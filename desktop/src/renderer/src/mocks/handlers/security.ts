@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
-import { daysAgo, hoursAgo, minutesAgo } from '../data/date-helpers'
+import { daysAgo, hoursAgo, minutesAgo, daysFromNow } from '../data/date-helpers'
 
 const API = API_BASE_URL
 
@@ -83,26 +83,71 @@ const auditLogs = rawAuditLogs.map((raw, i) => ({
 // Password policy
 // ---------------------------------------------------------------------------
 
+// Field shape matches PasswordPolicy in security-types.ts (BE wire: encoding/json
+// over protobuf, snake_case). The Go gateway wraps it as { policy: {...} }.
 const passwordPolicy = {
+  id: 'pwp-001',
   min_length: 12,
+  min_entropy: 60,
+  max_age_days: 90,
+  prevent_reuse_count: 5,
   require_uppercase: true,
   require_lowercase: true,
-  require_numbers: true,
+  require_digit: true,
   require_special: true,
-  max_age_days: 90,
-  prevent_reuse: 5,
-  lockout_attempts: 5,
-  lockout_duration_minutes: 30,
 }
 
 // ---------------------------------------------------------------------------
-// IP rules
+// IP rules — field shape matches IPAccessRule (ip_cidr, rule_type, created_by)
 // ---------------------------------------------------------------------------
 
 const ipRules = [
-  { id: 'ipr-001', type: 'allow', cidr: '192.168.1.0/24', description: 'Büro-Netzwerk München', created_at: daysAgo(90) },
-  { id: 'ipr-002', type: 'allow', cidr: '10.0.0.0/8', description: 'VPN', created_at: daysAgo(90) },
-  { id: 'ipr-003', type: 'block', cidr: '203.0.113.0/24', description: 'Bekannte Angreifer-Range', created_at: daysAgo(5) },
+  { id: 'ipr-001', ip_cidr: '192.168.1.0/24', rule_type: 'allow', description: 'Büro-Netzwerk München', created_by: IDS.users.stefan, created_at: daysAgo(90) },
+  { id: 'ipr-002', ip_cidr: '10.0.0.0/8', rule_type: 'allow', description: 'VPN-Range', created_by: IDS.users.stefan, created_at: daysAgo(90) },
+  { id: 'ipr-003', ip_cidr: '203.0.113.0/24', rule_type: 'block', description: 'Bekannte Angreifer-Range', created_by: IDS.users.markus, created_at: daysAgo(5) },
+]
+
+// ---------------------------------------------------------------------------
+// Active sessions — field shape matches UserSession in security-types.ts
+// ---------------------------------------------------------------------------
+
+const sessions = [
+  { id: 'ses-001', user_id: IDS.users.stefan, device_name: 'MacBook Pro 16"', device_type: 'desktop', ip_address: '192.168.1.100', location: 'München, DE', user_agent: 'Cosmi Desktop/1.0 (macOS 15)', is_current: true, last_active_at: minutesAgo(2), created_at: hoursAgo(3) },
+  { id: 'ses-002', user_id: IDS.users.stefan, device_name: 'iPhone 16 Pro', device_type: 'mobile', ip_address: '84.142.55.21', location: 'München, DE', user_agent: 'Cosmi Mobile/1.0 (iOS 18)', is_current: false, last_active_at: hoursAgo(5), created_at: daysAgo(2) },
+  { id: 'ses-003', user_id: IDS.users.stefan, device_name: 'iPad Air', device_type: 'tablet', ip_address: '192.168.1.118', location: 'München, DE', user_agent: 'Cosmi Mobile/1.0 (iPadOS 18)', is_current: false, last_active_at: daysAgo(1), created_at: daysAgo(6) },
+]
+
+// All-sessions view (admin) adds other users' sessions
+const allSessions = [
+  ...sessions,
+  { id: 'ses-101', user_id: IDS.users.thomas, device_name: 'ThinkPad X1', device_type: 'desktop', ip_address: '192.168.1.103', location: 'München, DE', user_agent: 'Cosmi Desktop/1.0 (Windows 11)', is_current: false, last_active_at: minutesAgo(18), created_at: hoursAgo(7) },
+  { id: 'ses-102', user_id: IDS.users.lena, device_name: 'Galaxy S24', device_type: 'mobile', ip_address: '91.64.12.7', location: 'Augsburg, DE', user_agent: 'Cosmi Mobile/1.0 (Android 15)', is_current: false, last_active_at: hoursAgo(2), created_at: daysAgo(1) },
+]
+
+// ---------------------------------------------------------------------------
+// GDPR export requests — field shape matches GDPRExportRequest; BE wraps as
+// { export_requests: [...] }
+// ---------------------------------------------------------------------------
+
+const gdprExports = [
+  { id: 'gex-001', user_id: IDS.users.lena, status: 'ready', requested_at: daysAgo(3), reviewed_by: IDS.users.stefan, reviewed_at: daysAgo(2), review_note: 'Auskunftsersuchen genehmigt', download_token: 'tok-lena-001', download_expires_at: daysFromNow(4) },
+  { id: 'gex-002', user_id: IDS.users.thomas, status: 'pending', requested_at: hoursAgo(6), reviewed_by: null, reviewed_at: null, review_note: null, download_token: null, download_expires_at: null },
+  { id: 'gex-003', user_id: IDS.users.felix, status: 'denied', requested_at: daysAgo(10), reviewed_by: IDS.users.markus, reviewed_at: daysAgo(9), review_note: 'Identität nicht zweifelsfrei bestätigt', download_token: null, download_expires_at: null },
+]
+
+// ---------------------------------------------------------------------------
+// DSAR (Art. 15) cross-module search — demo subjects
+// ---------------------------------------------------------------------------
+
+const dsarSubjects = [
+  {
+    subject_id: IDS.users.lena, name: 'Lena Braun', email: 'lena.braun@techvision.de',
+    modules: [
+      { module: 'kontakte', label: 'CRM Kontakte', record_count: 1, columns: ['Name', 'E-Mail', 'Telefon'], rows: [['Lena Braun', 'lena.braun@techvision.de', '+49 89 1234567']] },
+      { module: 'meetings', label: 'Meetings', record_count: 3, columns: ['Titel', 'Datum'], rows: [['Onboarding', daysAgo(30)], ['Review Q2', daysAgo(12)], ['Planung', daysAgo(2)]] },
+      { module: 'formulare', label: 'Formular-Antworten', record_count: 2, columns: ['Formular', 'Eingereicht'], rows: [['Feedback', daysAgo(20)], ['NPS', daysAgo(5)]] },
+    ],
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -144,15 +189,15 @@ export const securityHandlers = [
     return HttpResponse.json({ entries: paginated, total: filtered.length })
   }),
 
-  // Vault secrets list
+  // Vault secrets list — field shape matches VaultSecret (key_name, key_version)
   http.get(`${API}/api/v1/security/vault`, () => {
     return HttpResponse.json({
       secrets: [
-        { key: 'SMTP_PASSWORD', last_rotated: daysAgo(15), created_at: daysAgo(90) },
-        { key: 'LIVEKIT_API_SECRET', last_rotated: daysAgo(30), created_at: daysAgo(120) },
-        { key: 'JWT_SECRET', last_rotated: daysAgo(7), created_at: daysAgo(180) },
-        { key: 'DATABASE_PASSWORD', last_rotated: daysAgo(45), created_at: daysAgo(180) },
-        { key: 'REDIS_PASSWORD', last_rotated: daysAgo(45), created_at: daysAgo(180) },
+        { id: 'vlt-001', key_name: 'SMTP_PASSWORD', description: 'E-Mail-Versand (Postfach noreply@)', key_version: 4, created_by: IDS.users.stefan, created_at: daysAgo(90), updated_at: daysAgo(15) },
+        { id: 'vlt-002', key_name: 'LIVEKIT_API_SECRET', description: 'Video-Meetings (LiveKit)', key_version: 2, created_by: IDS.users.stefan, created_at: daysAgo(120), updated_at: daysAgo(30) },
+        { id: 'vlt-003', key_name: 'JWT_SECRET', description: 'Session-Token-Signatur', key_version: 7, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(7) },
+        { id: 'vlt-004', key_name: 'DATABASE_PASSWORD', description: 'PostgreSQL Primär-DB', key_version: 3, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(45) },
+        { id: 'vlt-005', key_name: 'REDIS_PASSWORD', description: 'Cache (Redis)', key_version: 3, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(45) },
       ],
     })
   }),
@@ -167,9 +212,31 @@ export const securityHandlers = [
     return HttpResponse.json({ rules: ipRules, total: ipRules.length })
   }),
 
-  // GDPR exports — empty
+  // GDPR export requests — BE wraps as { export_requests: [...] }
   http.get(`${API}/api/v1/security/gdpr/exports`, () => {
-    return HttpResponse.json({ exports: [], total: 0 })
+    return HttpResponse.json({ export_requests: gdprExports })
+  }),
+
+  // Active sessions (own)
+  http.get(`${API}/api/v1/auth/sessions`, () => {
+    return HttpResponse.json({ sessions })
+  }),
+
+  // All sessions (admin view)
+  http.get(`${API}/api/v1/auth/sessions/all`, () => {
+    return HttpResponse.json({ sessions: allSessions, total: allSessions.length })
+  }),
+
+  // DSAR (Art. 15) cross-module search
+  http.get(`${API}/api/v1/security/dsar/search`, ({ request }) => {
+    const url = new URL(request.url)
+    const q = (url.searchParams.get('q') || '').toLowerCase().trim()
+    const results = q
+      ? dsarSubjects.filter(
+          (s) => s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q),
+        )
+      : []
+    return HttpResponse.json({ results })
   }),
 
   // 2FA policies

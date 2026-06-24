@@ -37,11 +37,11 @@ const deviceConfig: Record<string, { icon: typeof Monitor; colorBg: string; colo
 }
 
 function getDeviceConfig(deviceType: string) {
-  return deviceConfig[deviceType.toLowerCase()] ?? deviceConfig.desktop
+  return deviceConfig[(deviceType ?? '').toLowerCase()] ?? deviceConfig.desktop
 }
 
 function deviceTypeMessageId(deviceType: string): string {
-  switch (deviceType.toLowerCase()) {
+  switch ((deviceType ?? '').toLowerCase()) {
     case 'desktop': return 'session.device.desktop'
     case 'mobile': return 'session.device.mobile'
     case 'tablet': return 'session.device.tablet'

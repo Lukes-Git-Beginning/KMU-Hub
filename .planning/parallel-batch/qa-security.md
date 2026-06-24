@@ -93,15 +93,24 @@ Fehlend (26): alle Sessions (4), DSAR-Suche, alle 2FA-Mutations (6), audit expor
 
 ---
 
-## Vorgeschlagener Phasen-Plan S-1…S-6 (zur Bestätigung)
-> Schwerpunkt: **erst reparieren (Demo crashfrei), dann vertiefen.** Alles mock-first; 🔌-verdrahten-TODOs für Luke notieren.
+## Phasen-Plan S-1…S-5 (bestätigt von Darien 2026-06-24, Scope „Medium" b)
+> Schwerpunkt: **erst reparieren (Demo crashfrei), dann vertiefen.** Alles mock-first; 🔌-verdrahten-TODOs in `backend-gaps.md` (Abschnitt „security/DSGVO"). Contract gegen echtes BE abgeglichen (encoding/json, gewrappte Listen, snake_case).
 
-- **S-1 · Crash-Fix + MSW-Contracts** — Response-Contracts angleichen (Array statt `{feld}`) ODER client-Mapping; fehlende GET-Handler (Sessions, DSAR, 2FA-Policies-Detail); alle 11 Seiten crashfrei rendern. **P0.**
-- **S-2 · MSW-Schreib-Ops + Demo-Tiefe** — POST/PUT/DELETE-Handler stateful (vault, ip-rules, password-policy, gdpr approve/deny, sessions terminate, 2FA setup/verify) → Aktionen testbar.
-- **S-3 · DSAR-Workflow** — Art.15/17/20 zusammenführen: Intake + 30-Tage-Frist-Countdown + Status-Board + Cross-Modul-Such-Demo.
+- **S-1 · Crash-Fix + MSW-Contracts** ✅ **fertig (2026-06-24)** — siehe Log unten.
+- **S-2 · MSW-Schreib-Ops + Demo-Tiefe** — POST/PUT/DELETE-Handler stateful (vault reveal/set/delete, ip-rules, password-policy, sessions terminate, audit export-Blob+verify) → Aktionen testbar.
+- **S-3 · DSGVO-Kern** — Export/Erasure/DSAR geführte Flows, 30-Tage-Frist-Countdown, Status-Board, Cross-Modul-Suche, user_id→Name auflösen.
 - **S-4 · Retention + Erasure-Tiefe** — Retention konfigurierbar (DACH-Vorlagen) + Erasure echte Preview/Receipt (statt setTimeout-Mock); Legal-Hold-Hinweis.
-- **S-5 · Routing-Konsolidierung + i18n-Cleanup** — auf EINEN Hub konsolidieren, fehlende Seiten einbinden, hardcoded Strings → Keys (×4), Settings-Eintrag.
-- **S-6 · (optional) Verarbeitungsverzeichnis Art.30 (RoPA)** — neu, falls in-scope.
+- **S-5 · Routing-Konsolidierung + i18n-Cleanup + Settings + Schluss-QA** — auf neuen Hub `/admin/security` konsolidieren, PW-Policy/DSAR/Retention als Sub-Tabs, `/admin/security-legacy`→Redirect, hardcoded Strings → Keys (×4), module-settings-registry-Eintrag, Screenshot-QA DE+EN.
+
+### 🔭 Eigener späterer Batch (NICHT in S-1…S-5, aber nicht verlieren)
+**Verarbeitungsverzeichnis Art. 30 DSGVO (RoPA)** — fehlt komplett. Laut Markt-Research ein hoch-sichtbarer DSGVO-Verkaufspunkt für DACH-KMU: CRUD mit Art.-30-Pflichtfeldern (Verantwortlicher, Zweck, Datenkategorien, Empfänger, Drittlandtransfer, Fristen, TOMs) + Branchen-Vorlagen + PDF-Export. → eigenes Feature einplanen (auch in MASTER-PLAN notiert).
+
+### Phasen-Log · S-1 — ✅ fertig 2026-06-24
+**Ursachen:** (1) Daten-Contract-Mismatch — Client erwartete nackte Arrays, echtes BE (encoding/json über protobuf) liefert **gewrappte Listen** (`{secrets}`, `{rules}`, `{export_requests}`, `{sessions}`, `{policies}`). (2) fehlende GET-Handler (Sessions, DSAR). (3) MSW-Demo-Daten mit falschen Feldnamen (Vault `key`→`key_name`, IP `type/cidr`→`rule_type/ip_cidr`, PW `require_numbers`→`require_digit`).
+**Gemacht (BE-konform):** `security-client.ts` entpackt 6 GET-Funktionen; `handlers/security.ts` Demo-Daten an `security-types.ts` angeglichen + 3 neue Handler (sessions, sessions/all, dsar) + GDPR-Feld `exports`→`export_requests` mit 3 Demo-Anträgen; `handlers/auth.ts` fehlplatzierte (BE-inkonforme, nacktes-Array-)Session-Handler entfernt → Sessions kanonisch in security.ts; `SessionsPage.tsx` defensiver device_type-Guard.
+**i18n-Klarstellung:** Paket-Annahme „i18n kaputt, Raw-Keys überall" **widerlegt** — 164 genutzte Keys ×4 Sprachen vollständig & paritätisch. Offen = nur hardcoded Strings in Komponenten → S-5.
+**Verify:** Build ✓ (exit 0). Alle 9 Hub-Tabs + beide Hubs crashfrei, Screenshots angesehen (Vault/Sessions/IP/PW-Policy/GDPR-Export/Retention/DSAR/Erasure korrekt befüllt). 0 Raw-Keys, 0 Page-Errors.
+**Offen:** GDPR-Export zeigt rohe `user_id` statt Name → S-3; Schreib-Ops noch nicht stateful → S-2.
 
 ---
 

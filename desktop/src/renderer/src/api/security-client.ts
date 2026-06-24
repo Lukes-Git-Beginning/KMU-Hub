@@ -99,8 +99,9 @@ export const regenerateRecoveryCodes = () =>
 export const adminReset2FA = (userId: string, reason: string) =>
   post<void>(`/api/v1/auth/2fa/admin-reset/${userId}`, { reason })
 
+// BE wraps lists in an object (encoding/json over protobuf): `{ policies: [...] }`.
 export const getTwoFactorPolicies = () =>
-  get<TwoFactorPolicy[]>('/api/v1/auth/2fa/policies')
+  get<{ policies: TwoFactorPolicy[] }>('/api/v1/auth/2fa/policies').then((r) => r.policies ?? [])
 
 export const updateTwoFactorPolicy = (
   roleName: string,
@@ -117,7 +118,7 @@ export const updateTwoFactorPolicy = (
 // ---------------------------------------------------------------------------
 
 export const listMySessions = () =>
-  get<UserSession[]>('/api/v1/auth/sessions')
+  get<{ sessions: UserSession[] }>('/api/v1/auth/sessions').then((r) => r.sessions ?? [])
 
 export const listAllSessions = (params?: { offset?: number; limit?: number }) =>
   get<{ sessions: UserSession[]; total: number }>('/api/v1/auth/sessions/all', params as RequestOptions['params'])
@@ -155,7 +156,7 @@ export const verifyAuditChain = (fromSeq: number, toSeq: number) =>
 // ---------------------------------------------------------------------------
 
 export const listVaultSecrets = () =>
-  get<VaultSecret[]>('/api/v1/security/vault')
+  get<{ secrets: VaultSecret[] }>('/api/v1/security/vault').then((r) => r.secrets ?? [])
 
 export const getVaultSecret = (keyName: string) =>
   get<VaultSecretValue>(`/api/v1/security/vault/${keyName}`)
@@ -178,7 +179,9 @@ export const requestGDPRExport = () =>
   post<GDPRExportRequest>('/api/v1/security/gdpr/export/request')
 
 export const listGDPRExports = () =>
-  get<GDPRExportRequest[]>('/api/v1/security/gdpr/exports')
+  get<{ export_requests: GDPRExportRequest[] }>('/api/v1/security/gdpr/exports').then(
+    (r) => r.export_requests ?? [],
+  )
 
 export const approveGDPRExport = (id: string, note?: string) =>
   post<GDPRExportRequest>(`/api/v1/security/gdpr/export/${id}/approve`, { note })
@@ -200,7 +203,7 @@ export const executeErasure = (userId: string) =>
 // ---------------------------------------------------------------------------
 
 export const getPasswordPolicy = () =>
-  get<PasswordPolicy>('/api/v1/security/password/policy')
+  get<{ policy: PasswordPolicy }>('/api/v1/security/password/policy').then((r) => r.policy)
 
 export const updatePasswordPolicy = (policy: Partial<Omit<PasswordPolicy, 'id'>>) =>
   put<PasswordPolicy>('/api/v1/security/password/policy', policy)
@@ -213,7 +216,7 @@ export const validatePassword = (password: string) =>
 // ---------------------------------------------------------------------------
 
 export const listIPRules = () =>
-  get<IPAccessRule[]>('/api/v1/security/ip-rules')
+  get<{ rules: IPAccessRule[] }>('/api/v1/security/ip-rules').then((r) => r.rules ?? [])
 
 export const createIPRule = (
   ipCidr: string,
