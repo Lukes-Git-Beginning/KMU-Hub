@@ -89,8 +89,8 @@
 
 ### Cluster 2 — Arbeit
 
-**dokumente** — ✅ P1 + Block-Engine DB-1…DB-10 (review-reif) · MinIO-Upload echt
-- [ ] Prod-Rollout MinIO-Public (DNS `s3.zentria.tech`, CORS-Origin, OnlyOffice-CSP) · [ ] P3 externe Share-Links (Ablauf/Passwort) 🔒 · [ ] P4 Governance (Papierkorb/Retention/Audit/DSGVO) 🔒 · [ ] Versions-Download-Bug · [ ] Tiefe-Re-Check T-3 · [ ] **Review-Gate**
+**dokumente** — ✅ P1 + Block-Engine DB-1…DB-10 (review-reif) · MinIO-Upload echt · **READ echt-geschaltet (live verifiziert 24.06.)**
+- [x] **Echt-Schaltung READ 🔌** (folders/files live gegen document-Service; 5 mock-verdeckte Drifts FE-tolerant gefixt in `document-client.ts` — List/Entity bare-array+bare-object, init-user-Body-400, `{seconds,nanos}`-TS, space_type-Int-Enum; Screenshots `desktop/.qa-screenshots/dokumente-mock-exit/`; kanonischer Gateway-Fix → Luke, `backend-gaps.md §dokumente`) · [ ] **Upload live** (blockiert auf `MINIO_PUBLIC_ENDPOINT`+CORS, Infra-Rollout) · [ ] Prod-Rollout MinIO-Public (DNS `s3.zentria.tech`, CORS-Origin, OnlyOffice-CSP) · [ ] P3 externe Share-Links (Ablauf/Passwort) 🔒 · [ ] P4 Governance (Papierkorb/Retention/Audit/DSGVO) 🔒 · [ ] Versions-Download-Bug · [ ] Tiefe-Re-Check T-3 · [ ] **Review-Gate**
 
 **zeiterfassung** — ✅ P1–P5 (review-reif) · HR-Backend partiell echt
 - [ ] Echt-Schaltung 🔌 (balance/entries/projects/analytics/team — Endpoints prüfen) · [ ] `project_id`/`customer_id`/`billable` auf `hr_work_time_entries` 🔒 · [ ] Dead-Code-Cleanup (`stores/timetracking.ts`, 10 tote Views) → T-4 · [ ] **Review-Gate**

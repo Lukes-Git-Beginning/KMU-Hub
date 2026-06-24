@@ -5,7 +5,9 @@
  * Gateway routes: /api/v1/documents/*
  */
 import { API_BASE_URL } from '@/lib/constants'
+import { normalizeWireTimestamps } from '@/api/wire-time'
 import type {
+  FolderSpaceType,
   ListFilesParams,
   ListFoldersParams,
   CreateFolderRequest,
@@ -36,6 +38,7 @@ import type {
   ListActivityResponse,
   WOPITokenResponse,
   SharePermission,
+  DocumentActivity,
 } from '../types/document-types'
 
 // ---------------------------------------------------------------------------
@@ -123,25 +126,113 @@ function qs(params: Record<string, unknown>): string {
 }
 
 // ---------------------------------------------------------------------------
+// List-shape normalization
+//
+// The gateway is inconsistent for document list endpoints: some return a bare
+// JSON array (which serializes to `null` when empty — e.g. folders, tags,
+// shares, versions, links, activity), others a wrapped `{ items, total }`
+// object (e.g. files, which returns `{ files: null, total: 0 }` when empty).
+// MSW always returned the FE-typed wrapped shape, so this drift was mock-hidden
+// and only surfaces against the real backend. Coalesce both into the typed
+// `{ [key]: T[], total }` every consumer expects. Canonical fix = wrap all list
+// responses consistently in the gateway (handed to Luke, see backend-gaps.md).
+// ---------------------------------------------------------------------------
+
+function unwrapList<T>(raw: unknown, key: string): T[] {
+  if (Array.isArray(raw)) return raw as T[]
+  if (raw && typeof raw === 'object') {
+    const inner = (raw as Record<string, unknown>)[key]
+    if (Array.isArray(inner)) return inner as T[]
+  }
+  return []
+}
+
+function listTotal(raw: unknown, fallback: number): number {
+  if (raw && typeof raw === 'object') {
+    const t = (raw as Record<string, unknown>).total
+    if (typeof t === 'number') return t
+  }
+  return fallback
+}
+
+// Single-entity GET/POST responses are equally inconsistent: the gateway
+// returns the bare object (`{ id, name, ... }`), while the FE + MSW expect it
+// wrapped (`{ folder: {...} }` / `{ file: {...} }`). Accept both.
+function unwrapEntity(raw: unknown, key: string): unknown {
+  if (raw && typeof raw === 'object' && key in (raw as Record<string, unknown>)) {
+    return (raw as Record<string, unknown>)[key]
+  }
+  return raw
+}
+
+// ---------------------------------------------------------------------------
+// Wire-shape normalization for folder/file objects
+//
+// protojson emits Timestamps as `{ seconds, nanos }` and enums as ints (the
+// gateway returns `space_type: 1`), while the FE types expect ISO strings and
+// string unions. int64 `file_size` may also arrive as a string. MSW returned
+// the already-typed shapes, so this was mock-hidden. Normalize on the way in.
+// ---------------------------------------------------------------------------
+
+const SPACE_TYPE_BY_INT: Record<number, FolderSpaceType> = {
+  1: 'personal',
+  2: 'team',
+  3: 'project',
+}
+
+function toSpaceType(v: unknown): FolderSpaceType {
+  if (typeof v === 'number') return SPACE_TYPE_BY_INT[v] ?? 'personal'
+  const s = String(v ?? '').toLowerCase()
+  if (s.includes('team')) return 'team'
+  if (s.includes('project')) return 'project'
+  return 'personal'
+}
+
+function normalizeFolder(raw: unknown): DocumentFolder {
+  const f = normalizeWireTimestamps(raw) as Record<string, unknown>
+  return {
+    ...(f as unknown as DocumentFolder),
+    space_type: toSpaceType(f.space_type),
+    file_count: typeof f.file_count === 'number' ? f.file_count : 0,
+  }
+}
+
+function normalizeFile(raw: unknown): DocumentFile {
+  const f = normalizeWireTimestamps(raw) as Record<string, unknown>
+  return {
+    ...(f as unknown as DocumentFile),
+    file_size:
+      typeof f.file_size === 'string' ? Number(f.file_size) : (f.file_size as number),
+    tags: Array.isArray(f.tags) ? (f.tags as DocumentTag[]) : [],
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Folders
 // ---------------------------------------------------------------------------
 
 export const documentFolderApi = {
-  list(params: ListFoldersParams = {}) {
-    return request<ListFoldersResponse>(
+  async list(params: ListFoldersParams = {}): Promise<ListFoldersResponse> {
+    const raw = await request<unknown>(
       `/api/v1/documents/folders${qs(params as Record<string, unknown>)}`,
     )
+    const folders = unwrapList<DocumentFolder>(raw, 'folders').map(normalizeFolder)
+    return { folders, total: listTotal(raw, folders.length) }
   },
 
-  get(id: string) {
-    return request<{ folder: DocumentFolder }>(`/api/v1/documents/folders/${id}`)
+  async get(id: string): Promise<{ folder: DocumentFolder }> {
+    const raw = await request<unknown>(
+      `/api/v1/documents/folders/${id}`,
+    )
+    return { folder: normalizeFolder(unwrapEntity(raw, 'folder')) }
   },
 
-  create(data: CreateFolderRequest) {
-    return request<{ folder: DocumentFolder }>('/api/v1/documents/folders', {
+  async create(data: CreateFolderRequest): Promise<{ folder: DocumentFolder }> {
+    const raw = await request<unknown>('/api/v1/documents/folders', {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    return { folder: normalizeFolder(unwrapEntity(raw, 'folder')) }
   },
 
   update(id: string, data: UpdateFolderRequest) {
@@ -157,16 +248,19 @@ export const documentFolderApi = {
     })
   },
 
-  getPath(id: string) {
-    return request<{ segments: FolderPathSegment[] }>(
+  async getPath(id: string): Promise<{ segments: FolderPathSegment[] }> {
+    const raw = await request<unknown>(
       `/api/v1/documents/folders/${id}/path`,
     )
+    return { segments: unwrapList<FolderPathSegment>(raw, 'segments') }
   },
 
   initializeUserSpace() {
+    // Gateway decodes+validates the body even though user_id is optional, so an
+    // empty/absent body is rejected with 400 "invalid request body". Send `{}`.
     return request<Record<string, never>>(
       '/api/v1/documents/folders/initialize-user',
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({}) },
     )
   },
 
@@ -186,7 +280,7 @@ export const documentFolderApi = {
 // ---------------------------------------------------------------------------
 
 export const documentFileApi = {
-  list(params: ListFilesParams = {}) {
+  async list(params: ListFilesParams = {}): Promise<ListFilesResponse> {
     const { tag_ids, ...rest } = params
     const queryParts = qs(rest as Record<string, unknown>)
     // Append tag_ids as repeated params
@@ -194,13 +288,18 @@ export const documentFileApi = {
       ? (queryParts ? '&' : '?') +
         tag_ids.map((id) => `tag_ids=${encodeURIComponent(id)}`).join('&')
       : ''
-    return request<ListFilesResponse>(
+    const raw = await request<unknown>(
       `/api/v1/documents/files${queryParts}${tagParams}`,
     )
+    const files = unwrapList<DocumentFile>(raw, 'files').map(normalizeFile)
+    return { files, total: listTotal(raw, files.length) }
   },
 
-  get(id: string) {
-    return request<{ file: DocumentFile }>(`/api/v1/documents/files/${id}`)
+  async get(id: string): Promise<{ file: DocumentFile }> {
+    const raw = await request<unknown>(
+      `/api/v1/documents/files/${id}`,
+    )
+    return { file: normalizeFile(unwrapEntity(raw, 'file')) }
   },
 
   update(id: string, data: UpdateFileRequest) {
@@ -216,14 +315,15 @@ export const documentFileApi = {
     })
   },
 
-  copy(id: string, targetFolderId: string) {
-    return request<{ file: DocumentFile }>(
+  async copy(id: string, targetFolderId: string): Promise<{ file: DocumentFile }> {
+    const raw = await request<unknown>(
       `/api/v1/documents/files/${id}/copy`,
       {
         method: 'POST',
         body: JSON.stringify({ target_folder_id: targetFolderId }),
       },
     )
+    return { file: normalizeFile(unwrapEntity(raw, 'file')) }
   },
 
   move(id: string, targetFolderId: string) {
@@ -242,10 +342,11 @@ export const documentFileApi = {
     )
   },
 
-  listActivity(id: string) {
-    return request<ListActivityResponse>(
+  async listActivity(id: string): Promise<ListActivityResponse> {
+    const raw = await request<unknown>(
       `/api/v1/documents/files/${id}/activity`,
     )
+    return { activities: unwrapList<DocumentActivity>(raw, 'activities') }
   },
 }
 
@@ -254,10 +355,11 @@ export const documentFileApi = {
 // ---------------------------------------------------------------------------
 
 export const documentVersionApi = {
-  list(fileId: string) {
-    return request<ListVersionsResponse>(
+  async list(fileId: string): Promise<ListVersionsResponse> {
+    const raw = await request<unknown>(
       `/api/v1/documents/files/${fileId}/versions`,
     )
+    return { versions: unwrapList<DocumentFileVersion>(raw, 'versions') }
   },
 
   create(fileId: string, data: { version_label?: string }) {
@@ -300,16 +402,18 @@ export const documentShareApi = {
     )
   },
 
-  list(entityType: string, entityId: string) {
-    return request<ListSharesResponse>(
+  async list(entityType: string, entityId: string): Promise<ListSharesResponse> {
+    const raw = await request<unknown>(
       `/api/v1/documents/shares${qs({ entity_type: entityType, entity_id: entityId })}`,
     )
+    return { shares: unwrapList<DocumentShare>(raw, 'shares') }
   },
 
-  listSharedWithMe(entityType?: string) {
-    return request<ListSharesResponse>(
+  async listSharedWithMe(entityType?: string): Promise<ListSharesResponse> {
+    const raw = await request<unknown>(
       `/api/v1/documents/shares/shared-with-me${qs({ entity_type: entityType })}`,
     )
+    return { shares: unwrapList<DocumentShare>(raw, 'shares') }
   },
 }
 
@@ -318,8 +422,9 @@ export const documentShareApi = {
 // ---------------------------------------------------------------------------
 
 export const documentTagApi = {
-  list() {
-    return request<ListTagsResponse>('/api/v1/documents/tags')
+  async list(): Promise<ListTagsResponse> {
+    const raw = await request<unknown>('/api/v1/documents/tags')
+    return { tags: unwrapList<DocumentTag>(raw, 'tags') }
   },
 
   create(data: CreateTagRequest) {
@@ -372,10 +477,11 @@ export const documentLinkApi = {
     )
   },
 
-  listByFile(fileId: string) {
-    return request<ListEntityLinksResponse>(
+  async listByFile(fileId: string): Promise<ListEntityLinksResponse> {
+    const raw = await request<unknown>(
       `/api/v1/documents/files/${fileId}/links`,
     )
+    return { links: unwrapList<DocumentEntityLink>(raw, 'links') }
   },
 }
 
