@@ -169,6 +169,84 @@ func (s *NotificationGRPCServer) MarkAllNotificationsRead(ctx context.Context, r
 	}, nil
 }
 
+func (s *NotificationGRPCServer) PinNotification(ctx context.Context, req *notificationv1.PinNotificationRequest) (*notificationv1.PinNotificationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	notifID, err := uuid.Parse(req.NotificationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid notification_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	notif, err := s.notifService.PinNotification(ctx, tenantID, notifID, userID)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.PinNotificationResponse{
+		Notification: toNotificationInfo(notif),
+	}, nil
+}
+
+func (s *NotificationGRPCServer) UnpinNotification(ctx context.Context, req *notificationv1.UnpinNotificationRequest) (*notificationv1.UnpinNotificationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	notifID, err := uuid.Parse(req.NotificationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid notification_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	notif, err := s.notifService.UnpinNotification(ctx, tenantID, notifID, userID)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.UnpinNotificationResponse{
+		Notification: toNotificationInfo(notif),
+	}, nil
+}
+
+func (s *NotificationGRPCServer) DismissNotification(ctx context.Context, req *notificationv1.DismissNotificationRequest) (*notificationv1.DismissNotificationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	notifID, err := uuid.Parse(req.NotificationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid notification_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	notif, err := s.notifService.DismissNotification(ctx, tenantID, notifID, userID)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.DismissNotificationResponse{
+		Notification: toNotificationInfo(notif),
+	}, nil
+}
+
 // ============================================================================
 // Preferences
 // ============================================================================
@@ -420,6 +498,8 @@ func toNotificationInfo(n *models.Notification) *notificationv1.NotificationInfo
 		Title:            n.Title,
 		GroupCount:       int32(n.GroupCount),
 		IsRead:           n.IsRead,
+		IsPinned:         n.IsPinned,
+		IsDismissed:      n.IsDismissed,
 		DeliveredDesktop: n.DeliveredDesktop,
 		CreatedAt:        timestamppb.New(n.CreatedAt),
 	}
@@ -427,6 +507,9 @@ func toNotificationInfo(n *models.Notification) *notificationv1.NotificationInfo
 	if n.ActorID != nil {
 		actorID := n.ActorID.String()
 		info.ActorId = &actorID
+	}
+	if n.ActorName != nil {
+		info.ActorName = n.ActorName
 	}
 	if n.ResourceID != nil {
 		info.ResourceId = n.ResourceID
@@ -518,7 +601,7 @@ func toEventTypeInfo(et *models.EventType) *notificationv1.EventTypeInfo {
 
 func toPriority(p string) notificationv1.Priority {
 	switch p {
-	case models.PriorityUrgent:
+	case models.PriorityUrgent: // "urgent" (also covers alias "high" after normalization)
 		return notificationv1.Priority_PRIORITY_URGENT
 	case models.PriorityNormal:
 		return notificationv1.Priority_PRIORITY_NORMAL

@@ -590,6 +590,26 @@ func (m *mockNotifRepo) MarkEventProcessed(_ context.Context, _ string) error {
 	return nil
 }
 
+func (m *mockNotifRepo) SetPinned(_ context.Context, _ uuid.UUID, id uuid.UUID, pinned bool) error {
+	for _, n := range m.notifications {
+		if n.ID == id {
+			n.IsPinned = pinned
+			return nil
+		}
+	}
+	return ErrNotificationNotFound
+}
+
+func (m *mockNotifRepo) SetDismissed(_ context.Context, _ uuid.UUID, id uuid.UUID, dismissed bool) error {
+	for _, n := range m.notifications {
+		if n.ID == id {
+			n.IsDismissed = dismissed
+			return nil
+		}
+	}
+	return ErrNotificationNotFound
+}
+
 func (m *mockNotifRepo) NotifyDelivery(_ context.Context, _ string) error {
 	return nil
 }

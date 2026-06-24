@@ -45,6 +45,9 @@ func (n *NotificationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(ht
 		r.With(middleware.RequirePermission("notifications", "read")).Get("/unread-count", n.HandleGetUnreadCount)
 		r.With(middleware.RequirePermission("notifications", "read")).Get("/", n.HandleListNotifications)
 		r.With(middleware.RequirePermission("notifications", "write")).Post("/{id}/read", n.HandleMarkRead)
+		r.With(middleware.RequirePermission("notifications", "write")).Post("/{id}/pin", n.HandlePin)
+		r.With(middleware.RequirePermission("notifications", "write")).Delete("/{id}/pin", n.HandleUnpin)
+		r.With(middleware.RequirePermission("notifications", "write")).Post("/{id}/dismiss", n.HandleDismiss)
 
 		// Preferences
 		r.With(middleware.RequirePermission("notifications", "read")).Get("/preferences", n.HandleGetPreferences)
@@ -145,6 +148,84 @@ func (n *NotificationRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp, err := client.MarkNotificationRead(r.Context(), &notificationv1.MarkNotificationReadRequest{
+		NotificationId: notificationID,
+		UserId:         userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (n *NotificationRoutes) HandlePin(w http.ResponseWriter, r *http.Request) {
+	client, err := n.getNotificationClient()
+	if err != nil {
+		respondServiceUnavailable(w, n.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	notificationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.PinNotification(r.Context(), &notificationv1.PinNotificationRequest{
+		NotificationId: notificationID,
+		UserId:         userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (n *NotificationRoutes) HandleUnpin(w http.ResponseWriter, r *http.Request) {
+	client, err := n.getNotificationClient()
+	if err != nil {
+		respondServiceUnavailable(w, n.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	notificationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.UnpinNotification(r.Context(), &notificationv1.UnpinNotificationRequest{
+		NotificationId: notificationID,
+		UserId:         userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (n *NotificationRoutes) HandleDismiss(w http.ResponseWriter, r *http.Request) {
+	client, err := n.getNotificationClient()
+	if err != nil {
+		respondServiceUnavailable(w, n.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	notificationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.DismissNotification(r.Context(), &notificationv1.DismissNotificationRequest{
 		NotificationId: notificationID,
 		UserId:         userID,
 	})

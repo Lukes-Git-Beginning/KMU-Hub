@@ -23,6 +23,9 @@ const (
 	NotificationService_GetUnreadCount_FullMethodName               = "/notification.v1.NotificationService/GetUnreadCount"
 	NotificationService_MarkNotificationRead_FullMethodName         = "/notification.v1.NotificationService/MarkNotificationRead"
 	NotificationService_MarkAllNotificationsRead_FullMethodName     = "/notification.v1.NotificationService/MarkAllNotificationsRead"
+	NotificationService_PinNotification_FullMethodName              = "/notification.v1.NotificationService/PinNotification"
+	NotificationService_UnpinNotification_FullMethodName            = "/notification.v1.NotificationService/UnpinNotification"
+	NotificationService_DismissNotification_FullMethodName          = "/notification.v1.NotificationService/DismissNotification"
 	NotificationService_GetNotificationPreferences_FullMethodName   = "/notification.v1.NotificationService/GetNotificationPreferences"
 	NotificationService_UpdateNotificationPreference_FullMethodName = "/notification.v1.NotificationService/UpdateNotificationPreference"
 	NotificationService_MuteResource_FullMethodName                 = "/notification.v1.NotificationService/MuteResource"
@@ -56,6 +59,9 @@ type NotificationServiceClient interface {
 	GetUnreadCount(ctx context.Context, in *GetUnreadCountRequest, opts ...grpc.CallOption) (*GetUnreadCountResponse, error)
 	MarkNotificationRead(ctx context.Context, in *MarkNotificationReadRequest, opts ...grpc.CallOption) (*MarkNotificationReadResponse, error)
 	MarkAllNotificationsRead(ctx context.Context, in *MarkAllNotificationsReadRequest, opts ...grpc.CallOption) (*MarkAllNotificationsReadResponse, error)
+	PinNotification(ctx context.Context, in *PinNotificationRequest, opts ...grpc.CallOption) (*PinNotificationResponse, error)
+	UnpinNotification(ctx context.Context, in *UnpinNotificationRequest, opts ...grpc.CallOption) (*UnpinNotificationResponse, error)
+	DismissNotification(ctx context.Context, in *DismissNotificationRequest, opts ...grpc.CallOption) (*DismissNotificationResponse, error)
 	// Preferences
 	GetNotificationPreferences(ctx context.Context, in *GetNotificationPreferencesRequest, opts ...grpc.CallOption) (*GetNotificationPreferencesResponse, error)
 	UpdateNotificationPreference(ctx context.Context, in *UpdateNotificationPreferenceRequest, opts ...grpc.CallOption) (*UpdateNotificationPreferenceResponse, error)
@@ -129,6 +135,36 @@ func (c *notificationServiceClient) MarkAllNotificationsRead(ctx context.Context
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MarkAllNotificationsReadResponse)
 	err := c.cc.Invoke(ctx, NotificationService_MarkAllNotificationsRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) PinNotification(ctx context.Context, in *PinNotificationRequest, opts ...grpc.CallOption) (*PinNotificationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PinNotificationResponse)
+	err := c.cc.Invoke(ctx, NotificationService_PinNotification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) UnpinNotification(ctx context.Context, in *UnpinNotificationRequest, opts ...grpc.CallOption) (*UnpinNotificationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnpinNotificationResponse)
+	err := c.cc.Invoke(ctx, NotificationService_UnpinNotification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) DismissNotification(ctx context.Context, in *DismissNotificationRequest, opts ...grpc.CallOption) (*DismissNotificationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DismissNotificationResponse)
+	err := c.cc.Invoke(ctx, NotificationService_DismissNotification_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -364,6 +400,9 @@ type NotificationServiceServer interface {
 	GetUnreadCount(context.Context, *GetUnreadCountRequest) (*GetUnreadCountResponse, error)
 	MarkNotificationRead(context.Context, *MarkNotificationReadRequest) (*MarkNotificationReadResponse, error)
 	MarkAllNotificationsRead(context.Context, *MarkAllNotificationsReadRequest) (*MarkAllNotificationsReadResponse, error)
+	PinNotification(context.Context, *PinNotificationRequest) (*PinNotificationResponse, error)
+	UnpinNotification(context.Context, *UnpinNotificationRequest) (*UnpinNotificationResponse, error)
+	DismissNotification(context.Context, *DismissNotificationRequest) (*DismissNotificationResponse, error)
 	// Preferences
 	GetNotificationPreferences(context.Context, *GetNotificationPreferencesRequest) (*GetNotificationPreferencesResponse, error)
 	UpdateNotificationPreference(context.Context, *UpdateNotificationPreferenceRequest) (*UpdateNotificationPreferenceResponse, error)
@@ -414,6 +453,15 @@ func (UnimplementedNotificationServiceServer) MarkNotificationRead(context.Conte
 }
 func (UnimplementedNotificationServiceServer) MarkAllNotificationsRead(context.Context, *MarkAllNotificationsReadRequest) (*MarkAllNotificationsReadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MarkAllNotificationsRead not implemented")
+}
+func (UnimplementedNotificationServiceServer) PinNotification(context.Context, *PinNotificationRequest) (*PinNotificationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PinNotification not implemented")
+}
+func (UnimplementedNotificationServiceServer) UnpinNotification(context.Context, *UnpinNotificationRequest) (*UnpinNotificationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnpinNotification not implemented")
+}
+func (UnimplementedNotificationServiceServer) DismissNotification(context.Context, *DismissNotificationRequest) (*DismissNotificationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DismissNotification not implemented")
 }
 func (UnimplementedNotificationServiceServer) GetNotificationPreferences(context.Context, *GetNotificationPreferencesRequest) (*GetNotificationPreferencesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetNotificationPreferences not implemented")
@@ -570,6 +618,60 @@ func _NotificationService_MarkAllNotificationsRead_Handler(srv interface{}, ctx 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NotificationServiceServer).MarkAllNotificationsRead(ctx, req.(*MarkAllNotificationsReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_PinNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PinNotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).PinNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_PinNotification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).PinNotification(ctx, req.(*PinNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_UnpinNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnpinNotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).UnpinNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_UnpinNotification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).UnpinNotification(ctx, req.(*UnpinNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_DismissNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DismissNotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).DismissNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_DismissNotification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).DismissNotification(ctx, req.(*DismissNotificationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -992,6 +1094,18 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MarkAllNotificationsRead",
 			Handler:    _NotificationService_MarkAllNotificationsRead_Handler,
+		},
+		{
+			MethodName: "PinNotification",
+			Handler:    _NotificationService_PinNotification_Handler,
+		},
+		{
+			MethodName: "UnpinNotification",
+			Handler:    _NotificationService_UnpinNotification_Handler,
+		},
+		{
+			MethodName: "DismissNotification",
+			Handler:    _NotificationService_DismissNotification_Handler,
 		},
 		{
 			MethodName: "GetNotificationPreferences",

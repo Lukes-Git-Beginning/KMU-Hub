@@ -48,6 +48,12 @@ type Repository interface {
 	// MarkEventProcessed marks an event as processed.
 	MarkEventProcessed(ctx context.Context, eventID string) error
 
+	// SetPinned sets the is_pinned flag on a notification within a tenant.
+	SetPinned(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, pinned bool) error
+
+	// SetDismissed sets the is_dismissed flag on a notification within a tenant.
+	SetDismissed(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, dismissed bool) error
+
 	// NotifyDelivery emits a pg_notify on the notification_delivery channel
 	// to signal the gateway to push a real-time WebSocket notification.
 	NotifyDelivery(ctx context.Context, payload string) error
@@ -55,8 +61,10 @@ type Repository interface {
 
 // ListFilter contains filtering options for listing notifications.
 type ListFilter struct {
-	TenantID uuid.UUID
-	UserID   uuid.UUID
-	ModuleID *string
-	IsRead   *bool
+	TenantID    uuid.UUID
+	UserID      uuid.UUID
+	ModuleID    *string
+	IsRead      *bool
+	IsPinned    *bool
+	IsDismissed *bool
 }

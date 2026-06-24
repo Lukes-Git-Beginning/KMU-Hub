@@ -9,6 +9,7 @@ import (
 // Priority constants for notification priority levels
 const (
 	PriorityUrgent = "urgent"
+	PriorityHigh   = "urgent" // alias: frontend sends "high", stored as "urgent"
 	PriorityNormal = "normal"
 	PriorityLow    = "low"
 )
@@ -18,6 +19,7 @@ var ValidPriorities = map[string]bool{
 	PriorityUrgent: true,
 	PriorityNormal: true,
 	PriorityLow:    true,
+	"high":         true, // frontend alias → mapped to "urgent" before DB write
 }
 
 // Notification represents a user notification
@@ -29,6 +31,7 @@ type Notification struct {
 	ModuleID         string     `json:"module_id"`
 	Priority         string     `json:"priority"`
 	ActorID          *uuid.UUID `json:"actor_id,omitempty"`
+	ActorName        *string    `json:"actor_name,omitempty"`
 	ResourceID       *string    `json:"resource_id,omitempty"`
 	Title            string     `json:"title"`
 	Body             *string    `json:"body,omitempty"`
@@ -37,6 +40,8 @@ type Notification struct {
 	GroupCount       int        `json:"group_count"`
 	IsRead           bool       `json:"is_read"`
 	ReadAt           *time.Time `json:"read_at,omitempty"`
+	IsPinned         bool       `json:"is_pinned"`
+	IsDismissed      bool       `json:"is_dismissed"`
 	DeliveredDesktop bool       `json:"delivered_desktop"`
 	CreatedAt        time.Time  `json:"created_at"`
 }

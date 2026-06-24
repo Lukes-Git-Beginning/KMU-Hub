@@ -78,8 +78,9 @@ func (s *Service) ProcessEvent(ctx context.Context, payload models.EventPayload)
 		// Continue processing even if durability write fails
 	}
 
-	// Determine priority - use event type default if not specified
-	priority := payload.Priority
+	// Determine priority - use event type default if not specified.
+	// Normalize "high" → "urgent" so the DB CHECK constraint is satisfied.
+	priority := normalizePriority(payload.Priority)
 	if priority == "" {
 		if et := s.registry.Get(payload.Type); et != nil {
 			priority = et.DefaultPriority
@@ -230,6 +231,62 @@ func (s *Service) MarkRead(ctx context.Context, tenantID uuid.UUID, notifID, use
 // MarkAllRead marks all unread notifications as read for a user within a tenant.
 func (s *Service) MarkAllRead(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string) (int, error) {
 	return s.repo.MarkAllRead(ctx, tenantID, userID, moduleID, time.Now())
+}
+
+// PinNotification pins a notification. Returns the updated notification.
+func (s *Service) PinNotification(ctx context.Context, tenantID uuid.UUID, notifID, userID uuid.UUID) (*models.Notification, error) {
+	notif, err := s.repo.GetByID(ctx, tenantID, notifID)
+	if err != nil {
+		return nil, err
+	}
+	if notif.UserID != userID {
+		return nil, ErrUnauthorized
+	}
+	if err := s.repo.SetPinned(ctx, tenantID, notifID, true); err != nil {
+		return nil, err
+	}
+	notif.IsPinned = true
+	return notif, nil
+}
+
+// UnpinNotification unpins a notification. Returns the updated notification.
+func (s *Service) UnpinNotification(ctx context.Context, tenantID uuid.UUID, notifID, userID uuid.UUID) (*models.Notification, error) {
+	notif, err := s.repo.GetByID(ctx, tenantID, notifID)
+	if err != nil {
+		return nil, err
+	}
+	if notif.UserID != userID {
+		return nil, ErrUnauthorized
+	}
+	if err := s.repo.SetPinned(ctx, tenantID, notifID, false); err != nil {
+		return nil, err
+	}
+	notif.IsPinned = false
+	return notif, nil
+}
+
+// DismissNotification marks a notification as dismissed. Returns the updated notification.
+func (s *Service) DismissNotification(ctx context.Context, tenantID uuid.UUID, notifID, userID uuid.UUID) (*models.Notification, error) {
+	notif, err := s.repo.GetByID(ctx, tenantID, notifID)
+	if err != nil {
+		return nil, err
+	}
+	if notif.UserID != userID {
+		return nil, ErrUnauthorized
+	}
+	if err := s.repo.SetDismissed(ctx, tenantID, notifID, true); err != nil {
+		return nil, err
+	}
+	notif.IsDismissed = true
+	return notif, nil
+}
+
+// normalizePriority maps client-facing "high" to the canonical DB value "urgent".
+func normalizePriority(p string) string {
+	if p == "high" {
+		return models.PriorityUrgent
+	}
+	return p
 }
 
 // notifyDelivery sends a lightweight payload via pg_notify on the delivery channel

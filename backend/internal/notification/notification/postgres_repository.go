@@ -31,29 +31,33 @@ func (r *PostgresRepository) Create(ctx context.Context, notif *models.Notificat
 		tenantID = sentinelTenantID
 	}
 	query := `
-		INSERT INTO notifications (id, tenant_id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
-			title, body, deep_link, group_key, group_count, is_read, delivered_desktop, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
+		INSERT INTO notifications (id, tenant_id, user_id, event_type_key, module_id, priority, actor_id, actor_name,
+			resource_id, title, body, deep_link, group_key, group_count, is_read, is_pinned, is_dismissed,
+			delivered_desktop, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`
 
 	_, err := r.pool.Exec(ctx, query,
 		notif.ID, tenantID, notif.UserID, notif.EventTypeKey, notif.ModuleID, notif.Priority,
-		notif.ActorID, notif.ResourceID, notif.Title, notif.Body, notif.DeepLink,
-		notif.GroupKey, notif.GroupCount, notif.IsRead, notif.DeliveredDesktop, notif.CreatedAt,
+		notif.ActorID, notif.ActorName, notif.ResourceID, notif.Title, notif.Body, notif.DeepLink,
+		notif.GroupKey, notif.GroupCount, notif.IsRead, notif.IsPinned, notif.IsDismissed,
+		notif.DeliveredDesktop, notif.CreatedAt,
 	)
 	return err
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.Notification, error) {
 	query := `
-		SELECT id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
-			title, body, deep_link, group_key, group_count, is_read, read_at, delivered_desktop, created_at
+		SELECT id, user_id, event_type_key, module_id, priority, actor_id, actor_name, resource_id,
+			title, body, deep_link, group_key, group_count, is_read, read_at, is_pinned, is_dismissed,
+			delivered_desktop, created_at
 		FROM notifications WHERE id = $1 AND tenant_id = $2`
 
 	notif := &models.Notification{}
 	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
 		&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
-		&notif.ActorID, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
-		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.DeliveredDesktop, &notif.CreatedAt,
+		&notif.ActorID, &notif.ActorName, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
+		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.IsPinned, &notif.IsDismissed,
+		&notif.DeliveredDesktop, &notif.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotificationNotFound
@@ -76,6 +80,16 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 		args = append(args, *filter.IsRead)
 		argIdx++
 	}
+	if filter.IsPinned != nil {
+		where += fmt.Sprintf(" AND is_pinned = $%d", argIdx)
+		args = append(args, *filter.IsPinned)
+		argIdx++
+	}
+	if filter.IsDismissed != nil {
+		where += fmt.Sprintf(" AND is_dismissed = $%d", argIdx)
+		args = append(args, *filter.IsDismissed)
+		argIdx++
+	}
 
 	// Count query
 	countQuery := "SELECT COUNT(*) FROM notifications " + where
@@ -85,12 +99,13 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 		return nil, 0, err
 	}
 
-	// Data query
+	// Data query — pinned notifications first, then by created_at DESC
 	dataQuery := fmt.Sprintf(`
-		SELECT id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
-			title, body, deep_link, group_key, group_count, is_read, read_at, delivered_desktop, created_at
+		SELECT id, user_id, event_type_key, module_id, priority, actor_id, actor_name, resource_id,
+			title, body, deep_link, group_key, group_count, is_read, read_at, is_pinned, is_dismissed,
+			delivered_desktop, created_at
 		FROM notifications %s
-		ORDER BY created_at DESC
+		ORDER BY is_pinned DESC, created_at DESC
 		LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
@@ -105,8 +120,9 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 		notif := &models.Notification{}
 		err := rows.Scan(
 			&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
-			&notif.ActorID, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
-			&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.DeliveredDesktop, &notif.CreatedAt,
+			&notif.ActorID, &notif.ActorName, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
+			&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.IsPinned, &notif.IsDismissed,
+			&notif.DeliveredDesktop, &notif.CreatedAt,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -177,8 +193,9 @@ func (r *PostgresRepository) MarkDeliveredDesktop(ctx context.Context, tenantID 
 
 func (r *PostgresRepository) FindRecentByGroupKey(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, groupKey string, since time.Time) (*models.Notification, error) {
 	query := `
-		SELECT id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
-			title, body, deep_link, group_key, group_count, is_read, read_at, delivered_desktop, created_at
+		SELECT id, user_id, event_type_key, module_id, priority, actor_id, actor_name, resource_id,
+			title, body, deep_link, group_key, group_count, is_read, read_at, is_pinned, is_dismissed,
+			delivered_desktop, created_at
 		FROM notifications
 		WHERE tenant_id = $1 AND user_id = $2 AND group_key = $3 AND created_at >= $4 AND is_read = false
 		ORDER BY created_at DESC
@@ -187,8 +204,9 @@ func (r *PostgresRepository) FindRecentByGroupKey(ctx context.Context, tenantID 
 	notif := &models.Notification{}
 	err := r.pool.QueryRow(ctx, query, tenantID, userID, groupKey, since).Scan(
 		&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
-		&notif.ActorID, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
-		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.DeliveredDesktop, &notif.CreatedAt,
+		&notif.ActorID, &notif.ActorName, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
+		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.IsPinned, &notif.IsDismissed,
+		&notif.DeliveredDesktop, &notif.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -252,6 +270,34 @@ func (r *PostgresRepository) MarkEventProcessed(ctx context.Context, eventID str
 		eventID,
 	)
 	return err
+}
+
+func (r *PostgresRepository) SetPinned(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, pinned bool) error {
+	tag, err := r.pool.Exec(ctx,
+		"UPDATE notifications SET is_pinned = $3 WHERE id = $1 AND tenant_id = $2",
+		id, tenantID, pinned,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotificationNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) SetDismissed(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, dismissed bool) error {
+	tag, err := r.pool.Exec(ctx,
+		"UPDATE notifications SET is_dismissed = $3 WHERE id = $1 AND tenant_id = $2",
+		id, tenantID, dismissed,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotificationNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) NotifyDelivery(ctx context.Context, payload string) error {
