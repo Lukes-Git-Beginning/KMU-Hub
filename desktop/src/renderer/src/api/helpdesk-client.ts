@@ -55,6 +55,19 @@ async function request<T>(opts: RequestOptions): Promise<T> {
   return normalizeWireTimestamps(data)
 }
 
+// The gRPC gateway returns list endpoints as a proto message wrapping a repeated
+// field (e.g. {queues:[...]}), omitting the field entirely when empty ({}). The
+// MSW mock returns a bare array. Tolerate both: unwrap the named field, pass a
+// bare array through, and default to [] for the empty/object case.
+function unwrapList<T>(value: unknown, key: string): T[] {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object') {
+    const inner = (value as Record<string, unknown>)[key]
+    return Array.isArray(inner) ? (inner as T[]) : []
+  }
+  return []
+}
+
 // ---------------------------------------------------------------------------
 // Base path
 // ---------------------------------------------------------------------------
@@ -118,10 +131,10 @@ export function mergeTickets(sourceId: string, targetId: string) {
 // ---------------------------------------------------------------------------
 
 export function listMessages(ticketId: string) {
-  return request<TicketMessage[]>({
+  return request<unknown>({
     method: 'GET',
     path: `${BASE}/tickets/${ticketId}/messages`,
-  })
+  }).then((v) => unwrapList<TicketMessage>(v, 'messages'))
 }
 
 export function addMessage(ticketId: string, body: AddMessageInput) {
@@ -137,7 +150,9 @@ export function addMessage(ticketId: string, body: AddMessageInput) {
 // ---------------------------------------------------------------------------
 
 export function listQueues() {
-  return request<TicketQueue[]>({ method: 'GET', path: `${BASE}/queues` })
+  return request<unknown>({ method: 'GET', path: `${BASE}/queues` }).then((v) =>
+    unwrapList<TicketQueue>(v, 'queues'),
+  )
 }
 
 export function createQueue(body: CreateQueueInput) {
@@ -157,7 +172,9 @@ export function deleteQueue(id: string) {
 // ---------------------------------------------------------------------------
 
 export function listCannedResponses() {
-  return request<CannedResponse[]>({ method: 'GET', path: `${BASE}/canned-responses` })
+  return request<unknown>({ method: 'GET', path: `${BASE}/canned-responses` }).then((v) =>
+    unwrapList<CannedResponse>(v, 'canned_responses'),
+  )
 }
 
 export function createCannedResponse(body: CreateCannedResponseInput) {
@@ -181,7 +198,9 @@ export function deleteCannedResponse(id: string) {
 // ---------------------------------------------------------------------------
 
 export function listSLAPolicies() {
-  return request<SLAPolicy[]>({ method: 'GET', path: `${BASE}/sla-policies` })
+  return request<unknown>({ method: 'GET', path: `${BASE}/sla-policies` }).then((v) =>
+    unwrapList<SLAPolicy>(v, 'policies'),
+  )
 }
 
 export function createSLAPolicy(body: CreateSLAPolicyInput) {

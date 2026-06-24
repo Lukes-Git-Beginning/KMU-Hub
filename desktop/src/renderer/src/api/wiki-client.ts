@@ -67,6 +67,19 @@ function encodeArticleBody<T extends { content?: unknown }>(body: T): T {
   return { ...body, content: encodeWikiContent(body.content) as unknown as T['content'] }
 }
 
+// The gRPC gateway returns list endpoints as a proto message wrapping a repeated
+// field (e.g. {categories:[...]}), omitting the field entirely when empty ({}).
+// The MSW mock returns a bare array. Tolerate both: unwrap the named field, pass
+// a bare array through, and default to [] for the empty/object case.
+function unwrapList<T>(value: unknown, key: string): T[] {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object') {
+    const inner = (value as Record<string, unknown>)[key]
+    return Array.isArray(inner) ? (inner as T[]) : []
+  }
+  return []
+}
+
 // ---------------------------------------------------------------------------
 // Base path
 // ---------------------------------------------------------------------------
@@ -122,10 +135,10 @@ export function searchArticles(query: string, limit?: number) {
 // ---------------------------------------------------------------------------
 
 export function listVersions(articleId: string) {
-  return request<WikiVersion[]>({
+  return request<unknown>({
     method: 'GET',
     path: `${BASE}/articles/${articleId}/versions`,
-  }).then((vs) => vs.map(decodeVersion))
+  }).then((v) => unwrapList<WikiVersion>(v, 'versions').map(decodeVersion))
 }
 
 export function getVersion(versionId: string) {
@@ -147,10 +160,10 @@ export function restoreVersion(articleId: string, versionId: string) {
 // ---------------------------------------------------------------------------
 
 export function listAttachments(articleId: string) {
-  return request<WikiAttachment[]>({
+  return request<unknown>({
     method: 'GET',
     path: `${BASE}/articles/${articleId}/attachments`,
-  })
+  }).then((v) => unwrapList<WikiAttachment>(v, 'attachments'))
 }
 
 export function uploadAttachment(
@@ -173,7 +186,9 @@ export function deleteAttachment(attachmentId: string) {
 // ---------------------------------------------------------------------------
 
 export function listCategories() {
-  return request<WikiCategory[]>({ method: 'GET', path: `${BASE}/categories` })
+  return request<unknown>({ method: 'GET', path: `${BASE}/categories` }).then((v) =>
+    unwrapList<WikiCategory>(v, 'categories'),
+  )
 }
 
 export function createCategory(body: CreateCategoryInput) {
@@ -196,10 +211,10 @@ export function updateCategory(
 // ---------------------------------------------------------------------------
 
 export function listShareTokens(articleId: string) {
-  return request<WikiShareToken[]>({
+  return request<unknown>({
     method: 'GET',
     path: `${BASE}/articles/${articleId}/share`,
-  })
+  }).then((v) => unwrapList<WikiShareToken>(v, 'tokens'))
 }
 
 export function createShareToken(articleId: string, body?: CreateShareTokenInput) {
