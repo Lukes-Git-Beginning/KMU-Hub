@@ -152,7 +152,7 @@ const EMPLOYEE_NAMES: Record<string, string> = {
 // (the real BE joins them server-side; the type carries them as optional).
 // ---------------------------------------------------------------------------
 
-let gdprExports = [
+const gdprExports = [
   { id: 'gex-001', user_id: IDS.users.lena, user_name: EMPLOYEE_NAMES[IDS.users.lena], status: 'ready', requested_at: daysAgo(3), reviewed_by: IDS.users.stefan, reviewer_name: EMPLOYEE_NAMES[IDS.users.stefan], reviewed_at: daysAgo(2), review_note: 'Auskunftsersuchen genehmigt', download_token: 'tok-lena-001', download_expires_at: daysFromNow(27) },
   { id: 'gex-002', user_id: IDS.users.thomas, user_name: EMPLOYEE_NAMES[IDS.users.thomas], status: 'pending', requested_at: hoursAgo(6), reviewed_by: null, reviewer_name: null, reviewed_at: null, review_note: null, download_token: null, download_expires_at: null },
   { id: 'gex-003', user_id: IDS.users.felix, user_name: EMPLOYEE_NAMES[IDS.users.felix], status: 'denied', requested_at: daysAgo(10), reviewed_by: IDS.users.markus, reviewer_name: EMPLOYEE_NAMES[IDS.users.markus], reviewed_at: daysAgo(9), review_note: 'Identität nicht zweifelsfrei bestätigt', download_token: null, download_expires_at: null },
