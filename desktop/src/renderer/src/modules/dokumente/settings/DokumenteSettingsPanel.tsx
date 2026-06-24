@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { SlidersHorizontal, HardDrive, FileType2, Share2 } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
+import { useDokumenteSettingsStore } from '@/stores/dokumenteSettings'
 import { DokumentePersonalPrefs } from './DokumentePersonalPrefs'
 import {
   DokumenteStorageSettings,
@@ -14,6 +16,12 @@ import {
  * module lead / admin and are mock-first until the backend is wired.
  */
 export function DokumenteSettingsPanel() {
+  // Hydrate tenant settings from the backend once when the panel opens.
+  const initFromServer = useDokumenteSettingsStore((s) => s.initFromServer)
+  useEffect(() => {
+    void initFromServer()
+  }, [initFromServer])
+
   const sections: ModuleSettingsSection[] = [
     {
       id: 'personal',
