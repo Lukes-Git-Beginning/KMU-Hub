@@ -97,7 +97,7 @@ function groupTasks(
         label = task.assignee_name ?? '__unassigned__'
         break
       case 'priority':
-        key = task.priority ?? 'medium'
+        key = task.priority ?? 'normal'
         label =
           task.priority === 'urgent'
             ? '__priorityUrgent__'
@@ -106,7 +106,7 @@ function groupTasks(
               : task.priority === 'low'
                 ? '__priorityLow__'
                 : '__priorityNormal__'
-        priority = (task.priority as Priority) ?? 'medium'
+        priority = (task.priority as Priority) ?? 'normal'
         break
       case 'due_date': {
         if (!task.due_date) {
@@ -167,7 +167,7 @@ function groupTasks(
 
   // For priority grouping, enforce priority order
   if (groupBy === 'priority') {
-    const order = ['urgent', 'high', 'medium', 'low']
+    const order = ['urgent', 'high', 'normal', 'low']
     const sorted: TaskGroup[] = []
     for (const k of order) {
       const g = map.get(k)

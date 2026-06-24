@@ -368,7 +368,7 @@ func TestListTasks_PopulatesLabelIds(t *testing.T) {
 	// Seed a task
 	tid := uuid.New()
 	tw := &models.TaskWithRelations{Task: models.Task{
-		ID: tid, TenantID: tenantID, Title: "Test task", Priority: "medium",
+		ID: tid, TenantID: tenantID, Title: "Test task", Priority: "normal",
 		CreatedBy: uuid.New(),
 	}}
 	taskRepo.tasks[tid] = tw

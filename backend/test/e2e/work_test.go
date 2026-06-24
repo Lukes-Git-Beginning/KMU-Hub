@@ -117,7 +117,7 @@ func TestWorkProjectFlow(t *testing.T) {
 			"title":      "E2E Test Task",
 			"project_id": projectID,
 			"status_id":  statusID,
-			"priority":   "medium",
+			"priority":   "normal",
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 

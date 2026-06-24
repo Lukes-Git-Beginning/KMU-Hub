@@ -59,7 +59,7 @@ export default function TaskCreateDialog({
   const { t } = useTranslation()
   const [title, setTitle] = useState('')
   const [statusId, setStatusId] = useState('')
-  const [priority, setPriority] = useState<Priority>('medium')
+  const [priority, setPriority] = useState<Priority>('normal')
   const [assigneeId, setAssigneeId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [description, setDescription] = useState('')
@@ -87,7 +87,7 @@ export default function TaskCreateDialog({
   function resetForm() {
     setTitle('')
     setStatusId('')
-    setPriority('medium')
+    setPriority('normal')
     setAssigneeId('')
     setDueDate('')
     setDescription('')
@@ -197,7 +197,7 @@ export default function TaskCreateDialog({
                 <SelectContent>
                   <SelectItem value="urgent">{t('work.priority.urgent')}</SelectItem>
                   <SelectItem value="high">{t('work.priority.high')}</SelectItem>
-                  <SelectItem value="medium">{t('work.priority.normal')}</SelectItem>
+                  <SelectItem value="normal">{t('work.priority.normal')}</SelectItem>
                   <SelectItem value="low">{t('work.priority.low')}</SelectItem>
                 </SelectContent>
               </Select>

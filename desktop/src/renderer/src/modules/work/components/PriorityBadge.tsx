@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, ArrowUp, Minus, ArrowDown } from 'lucide-react'
 import { cn } from '@/lib'
 
-type Priority = 'urgent' | 'high' | 'medium' | 'low'
+type Priority = 'urgent' | 'high' | 'normal' | 'low'
 
 const priorityConfig: Record<
   Priority,
@@ -28,7 +28,7 @@ const priorityConfig: Record<
     icon: ArrowUp,
     labelKey: 'work.priority.high',
   },
-  medium: {
+  normal: {
     color: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800',
     icon: Minus,
     labelKey: 'work.priority.normal',
@@ -52,7 +52,7 @@ export default function PriorityBadge({
   className,
 }: PriorityBadgeProps) {
   const { t } = useTranslation()
-  const config = priorityConfig[priority] ?? priorityConfig.medium
+  const config = priorityConfig[priority] ?? priorityConfig.normal
   const Icon = config.icon
   const label = t(config.labelKey)
 

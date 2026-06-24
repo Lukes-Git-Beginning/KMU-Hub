@@ -46,7 +46,7 @@ const TASKS_QUERY = { page_size: 500, include_completed: true } as const
 const priorityDot: Record<Priority, string> = {
   urgent: 'bg-destructive',
   high: 'bg-orange-500',
-  medium: 'bg-blue-500',
+  normal: 'bg-blue-500',
   low: 'bg-gray-400',
 }
 
@@ -351,7 +351,7 @@ function TaskChip({ task, todayKey, isOverlay = false, onClick }: TaskChipProps)
     data: { task },
   })
 
-  const priority = (task.priority as Priority) ?? 'medium'
+  const priority = (task.priority as Priority) ?? 'normal'
   const dueKey = dueDateToKey(task.due_date)
   const overdue =
     !task.is_closed && !!todayKey && !!dueKey && dueKey < todayKey

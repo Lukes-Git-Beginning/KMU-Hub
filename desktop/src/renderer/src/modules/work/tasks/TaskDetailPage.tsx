@@ -403,7 +403,7 @@ export default function TaskDetailPage() {
                       </span>
                     )}
                     <PriorityBadge
-                      priority={(st.priority as Priority) ?? 'medium'}
+                      priority={(st.priority as Priority) ?? 'normal'}
                       compact
                     />
                   </div>
@@ -521,13 +521,13 @@ export default function TaskDetailPage() {
               <PopoverTrigger asChild>
                 <button type="button" className="cursor-pointer">
                   <PriorityBadge
-                    priority={(task.priority as Priority) ?? 'medium'}
+                    priority={(task.priority as Priority) ?? 'normal'}
                   />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-40 p-1" align="start">
                 <div className="space-y-0.5">
-                  {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
+                  {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
                     <button
                       key={p}
                       type="button"
@@ -543,7 +543,7 @@ export default function TaskDetailPage() {
                           ? t('work.priority.urgent')
                           : p === 'high'
                             ? t('work.priority.high')
-                            : p === 'medium'
+                            : p === 'normal'
                               ? t('work.priority.normal')
                               : t('work.priority.low')}
                       </span>

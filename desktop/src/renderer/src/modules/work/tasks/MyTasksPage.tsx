@@ -68,7 +68,7 @@ const PRIORITY_CONFIG: Record<string, { labelKey: string; className: string }> =
 const PRIORITY_OPTIONS: Array<{ value: string; labelKey: string }> = [
   { value: 'urgent', labelKey: 'work.priority.urgent' },
   { value: 'high', labelKey: 'work.priority.high' },
-  { value: 'medium', labelKey: 'work.priority.normal' },
+  { value: 'normal', labelKey: 'work.priority.normal' },
   { value: 'low', labelKey: 'work.priority.low' },
 ]
 
@@ -97,7 +97,7 @@ interface ProjectGroup {
   tasks: TaskItem[]
 }
 
-const PRIORITY_ORDER = ['urgent', 'high', 'normal', 'medium', 'low']
+const PRIORITY_ORDER = ['urgent', 'high', 'normal', 'low']
 
 /** Bucket a task into a group for the given grouping mode. */
 function groupForTask(
@@ -106,7 +106,7 @@ function groupForTask(
   t: (k: string, opts?: Record<string, unknown>) => string,
 ): { key: string; order: number; label: string } {
   if (groupBy === 'priority') {
-    const p = task.priority === 'medium' ? 'normal' : task.priority ?? 'normal'
+    const p = task.priority ?? 'normal'
     const order = PRIORITY_ORDER.indexOf(p)
     return { key: `prio-${p}`, order: order < 0 ? 99 : order, label: t(`work.priority.${p}`) }
   }
@@ -138,7 +138,7 @@ export default function MyTasksPage() {
 
   // Standalone task creation form
   const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [newTaskPriority, setNewTaskPriority] = useState<string>('medium')
+  const [newTaskPriority, setNewTaskPriority] = useState<string>('normal')
 
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
@@ -170,7 +170,7 @@ export default function MyTasksPage() {
     priority: (priorityFilter.length === 1 ? priorityFilter[0] : undefined) as
       | 'urgent'
       | 'high'
-      | 'medium'
+      | 'normal'
       | 'low'
       | undefined,
   })
@@ -182,7 +182,7 @@ export default function MyTasksPage() {
   // Apply client-side priority filter if multiple priorities selected
   const filteredTasks = useMemo(() => {
     if (priorityFilter.length <= 1) return tasks
-    return tasks.filter((t) => priorityFilter.includes(t.priority ?? 'medium'))
+    return tasks.filter((t) => priorityFilter.includes(t.priority ?? 'normal'))
   }, [tasks, priorityFilter])
 
   // Group tasks by the user's chosen dimension (work settings).
@@ -263,7 +263,7 @@ export default function MyTasksPage() {
       assignee_id: currentUserId,
     })
     setNewTaskTitle('')
-    setNewTaskPriority('medium')
+    setNewTaskPriority('normal')
     setCreateDialogOpen(false)
   }
 
@@ -495,7 +495,7 @@ export default function MyTasksPage() {
                 {/* Tasks in this group */}
                 <div className="space-y-1">
                   {group.tasks.map((task) => {
-                    const priorityConfig = PRIORITY_CONFIG[task.priority ?? 'medium']
+                    const priorityConfig = PRIORITY_CONFIG[task.priority ?? 'normal']
                     const dueLabel = formatDueDate(task.due_date)
                     const overdue = isDueOverdue(task.due_date)
                     const moveTargets = projects.filter((p) => p.id !== task.project_id)

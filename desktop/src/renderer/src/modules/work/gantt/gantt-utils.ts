@@ -466,7 +466,7 @@ export function mapApiTasksToGantt(
       task_number: t.task_number ?? 0,
       start: startDate,
       end: endDate,
-      priority: t.priority ?? 'medium',
+      priority: t.priority ?? 'normal',
       status_name: t.status_name,
       status_color: t.status_color,
       assignee_name: t.assignee_name,
@@ -503,7 +503,7 @@ export function priorityColor(priority: string): string {
       return 'var(--error)'
     case 'high':
       return 'var(--warning)'
-    case 'medium':
+    case 'normal':
       return 'var(--info)'
     case 'low':
       return 'var(--muted-foreground)'

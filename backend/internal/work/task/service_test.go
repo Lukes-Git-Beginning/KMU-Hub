@@ -364,7 +364,7 @@ func TestService_Create(t *testing.T) {
 		_, err := svc.Create(ctx, CreateInput{
 			ProjectID:  &projectID,
 			Title:      "Assigned task",
-			Priority:   models.TaskPriorityMedium,
+			Priority:   models.TaskPriorityNormal,
 			AssigneeID: &assigneeID,
 			CreatedBy:  userID,
 		})
@@ -414,7 +414,7 @@ func TestService_Create(t *testing.T) {
 		}
 	})
 
-	t.Run("default priority is medium", func(t *testing.T) {
+	t.Run("default priority is normal", func(t *testing.T) {
 		result, err := svc.Create(ctx, CreateInput{
 			Title:     "Default priority task",
 			CreatedBy: userID,
@@ -422,8 +422,8 @@ func TestService_Create(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if result.Priority != models.TaskPriorityMedium {
-			t.Errorf("expected default priority medium, got %q", result.Priority)
+		if result.Priority != models.TaskPriorityNormal {
+			t.Errorf("expected default priority normal, got %q", result.Priority)
 		}
 	})
 }
@@ -441,7 +441,7 @@ func TestService_CreateViewerCannotCreate(t *testing.T) {
 	_, err := svc.Create(ctx, CreateInput{
 		ProjectID: &projectID,
 		Title:     "Should fail",
-		Priority:  models.TaskPriorityMedium,
+		Priority:  models.TaskPriorityNormal,
 		CreatedBy: viewerID,
 	})
 	if err != ErrViewerCannotEdit {
@@ -723,7 +723,7 @@ func TestService_Update(t *testing.T) {
 	task1, _ := svc.Create(ctx, CreateInput{
 		ProjectID: &projectID,
 		Title:     "Original title",
-		Priority:  models.TaskPriorityMedium,
+		Priority:  models.TaskPriorityNormal,
 		CreatedBy: userID,
 	})
 
@@ -925,7 +925,7 @@ func TestService_CreateFromTemplate(t *testing.T) {
 			ID:        parentID,
 			ProjectID: &sourceProjectID,
 			Title:     "Template Parent",
-			Priority:  models.TaskPriorityMedium,
+			Priority:  models.TaskPriorityNormal,
 			Depth:     0,
 			SortOrder: 1.0,
 		},

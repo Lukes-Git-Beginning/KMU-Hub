@@ -57,7 +57,7 @@ const SORT_OPTIONS: Array<{ value: SortBy; labelKey: string }> = [
 const PRIORITY_PILLS: Array<{ value: string; labelKey: string; className: string }> = [
   { value: 'urgent', labelKey: 'work.priority.urgent', className: 'bg-error-light text-destructive border-destructive/30 hover:bg-destructive/15' },
   { value: 'high', labelKey: 'work.priority.high', className: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100' },
-  { value: 'medium', labelKey: 'work.priority.normal', className: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' },
+  { value: 'normal', labelKey: 'work.priority.normal', className: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' },
   { value: 'low', labelKey: 'work.priority.low', className: 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100' },
 ]
 

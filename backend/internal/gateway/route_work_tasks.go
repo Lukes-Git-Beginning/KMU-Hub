@@ -19,7 +19,7 @@ type createTaskRequest struct {
 	Title        string                    `json:"title" validate:"required"`
 	Description  *string                   `json:"description,omitempty"`
 	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
-	Priority     string                    `json:"priority" validate:"omitempty,oneof=low medium high critical"`
+	Priority     string                    `json:"priority" validate:"omitempty,oneof=low normal high urgent"`
 	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	ParentTaskID *string                   `json:"parent_task_id,omitempty" validate:"omitempty,uuid"`
 	DueDate      *string                   `json:"due_date,omitempty"`
@@ -172,7 +172,7 @@ type updateTaskRequest struct {
 	Title        *string                   `json:"title,omitempty" validate:"omitempty,min=1"`
 	Description  *string                   `json:"description,omitempty"`
 	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
-	Priority     *string                   `json:"priority,omitempty" validate:"omitempty,oneof=low medium high critical"`
+	Priority     *string                   `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
 	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	DueDate      *string                   `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`

@@ -1330,7 +1330,7 @@ func TestService_ListTaskDeadlinesInRange(t *testing.T) {
 
 	eventRepo.deadlines = []models.TaskDeadlineStub{
 		{TaskID: uuid.New(), Title: "Task 1", DueDate: time.Date(2026, 2, 10, 0, 0, 0, 0, time.UTC), ProjectKey: &projectKey, Priority: "high"},
-		{TaskID: uuid.New(), Title: "Task 2", DueDate: time.Date(2026, 2, 12, 0, 0, 0, 0, time.UTC), Priority: "medium"},
+		{TaskID: uuid.New(), Title: "Task 2", DueDate: time.Date(2026, 2, 12, 0, 0, 0, 0, time.UTC), Priority: "normal"},
 	}
 
 	start := time.Date(2026, 2, 9, 0, 0, 0, 0, time.UTC)

@@ -217,7 +217,7 @@ export default function KanbanCard({
             <Lock className="h-3 w-3 text-warning-foreground" title={t('work.tasks.blocked')} />
           )}
           <PriorityBadge
-            priority={(task.priority as Priority) ?? 'medium'}
+            priority={(task.priority as Priority) ?? 'normal'}
             compact
           />
           {!isDragOverlay && (

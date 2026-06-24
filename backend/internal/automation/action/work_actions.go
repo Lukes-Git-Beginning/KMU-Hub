@@ -27,7 +27,7 @@ type createTaskConfig struct {
 	ProjectID  string `json:"project_id"`  // template
 	Title      string `json:"title"`       // template
 	AssigneeID string `json:"assignee_id"` // template
-	Priority   string `json:"priority"`    // "low", "medium", "high", "critical"
+	Priority   string `json:"priority"`    // "low", "normal", "high", "urgent"
 	DueDays    int    `json:"due_days"`    // days from now
 }
 
@@ -46,7 +46,7 @@ func (a *CreateTaskAction) Execute(ctx context.Context, config json.RawMessage, 
 	assigneeID := resolveTemplate(cfg.AssigneeID, env)
 	priority := cfg.Priority
 	if priority == "" {
-		priority = "medium"
+		priority = "normal"
 	}
 
 	req := &workv1.CreateTaskRequest{
@@ -88,7 +88,7 @@ func CreateTaskDefinition() *ActionDefinition {
 			{Key: "project_id", Label: "Projekt-ID", Type: "template", Required: true},
 			{Key: "title", Label: "Titel", Type: "template", Required: true},
 			{Key: "assignee_id", Label: "Zugewiesener", Type: "template", Required: false},
-			{Key: "priority", Label: "Prioritaet", Type: "select", Required: false, Default: "medium"},
+			{Key: "priority", Label: "Prioritaet", Type: "select", Required: false, Default: "normal"},
 			{Key: "due_days", Label: "Faellig in (Tagen)", Type: "number", Required: false, Default: 0},
 		},
 		OutputFields: []OutputField{

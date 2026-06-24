@@ -20,7 +20,7 @@ export interface TaskListParams {
   project_id?: string
   assignee_id?: string
   status_id?: string
-  priority?: 'urgent' | 'high' | 'medium' | 'low'
+  priority?: 'urgent' | 'high' | 'normal' | 'low'
   parent_task_id?: string
   search?: string
   sort_by?: string
@@ -39,19 +39,6 @@ export interface SearchTasksParams {
   page_size?: number
 }
 
-/**
- * The backend priority enum is low|normal|high|urgent (see models.ValidPriorities
- * — it rejects 'medium'). The work module still carries the legacy 'medium' label
- * internally; normalize it to 'normal' before any request reaches the API.
- */
-type ApiTaskPriority = 'urgent' | 'high' | 'normal' | 'low'
-function toApiPriority(
-  p?: 'urgent' | 'high' | 'medium' | 'low'
-): ApiTaskPriority | undefined {
-  if (!p) return undefined
-  return p === 'medium' ? 'normal' : p
-}
-
 // ---------------------------------------------------------------------------
 // Task queries
 // ---------------------------------------------------------------------------
@@ -62,7 +49,7 @@ export function useTasks(params?: TaskListParams) {
     queryFn: async () => {
       const { data, error } = await apiClient.GET('/api/v1/tasks', {
         params: {
-          query: params ? { ...params, priority: toApiPriority(params.priority) } : undefined,
+          query: params,
         },
       })
       if (error) throw error
@@ -98,7 +85,7 @@ export function useMyTasks(params?: Omit<TaskListParams, 'assignee_id'>) {
         params: {
           query: {
             ...params,
-            priority: toApiPriority(params?.priority),
+            priority: params?.priority,
             assignee_id: userId,
           },
         },
@@ -170,7 +157,7 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: async (body: {
       title: string
-      priority: 'urgent' | 'high' | 'medium' | 'low'
+      priority: 'urgent' | 'high' | 'normal' | 'low'
       project_id?: string
       description?: string
       status_id?: string
@@ -180,7 +167,7 @@ export function useCreateTask() {
       custom_fields?: Array<{ field_id: string; value: string }>
     }) => {
       const { data, error } = await apiClient.POST('/api/v1/tasks', {
-        body: { ...body, priority: toApiPriority(body.priority) ?? 'normal' },
+        body,
       })
       if (error) throw error
       return normalizeWireTimestamps(data)
@@ -204,7 +191,7 @@ export function useUpdateTask() {
       description?: string
       status_id?: string
       project_id?: string
-      priority?: 'urgent' | 'high' | 'medium' | 'low'
+      priority?: 'urgent' | 'high' | 'normal' | 'low'
       assignee_id?: string
       due_date?: string | null
       /** Demo quick-complete: marks the task done without a per-project status. */

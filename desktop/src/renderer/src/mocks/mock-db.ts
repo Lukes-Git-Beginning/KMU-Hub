@@ -579,7 +579,7 @@ export const DEALS: MockDeal[] = [
 // Tasks — linked to projects + employees
 // ---------------------------------------------------------------------------
 
-export type TaskPriority = 'high' | 'medium' | 'low'
+export type TaskPriority = 'high' | 'normal' | 'low'
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'blocked'
 
 export interface MockTask {
@@ -599,35 +599,35 @@ export const TASKS: MockTask[] = [
   // p1 — Website Relaunch
   { id: 't1', title: 'Hero-Sektion responsive machen', projectId: 'p1', projectName: 'Website Relaunch', assigneeId: 'e6', assigneeName: 'Tim Hartmann', priority: 'high', status: 'in_progress', deadline: '2026-02-25' },
   { id: 't2', title: 'Produktkonfigurator Prototyp', projectId: 'p1', projectName: 'Website Relaunch', assigneeId: 'e4', assigneeName: 'Laura Neumann', priority: 'high', status: 'in_progress', deadline: '2026-03-01' },
-  { id: 't3', title: 'SEO Meta-Tags einpflegen', projectId: 'p1', projectName: 'Website Relaunch', assigneeId: 'e6', assigneeName: 'Tim Hartmann', priority: 'medium', status: 'todo', deadline: '2026-03-10' },
-  { id: 't4', title: 'Design Review Startseite', projectId: 'p1', projectName: 'Website Relaunch', assigneeId: 'e9', assigneeName: 'Nina Richter', priority: 'medium', status: 'done', deadline: '2026-02-15' },
+  { id: 't3', title: 'SEO Meta-Tags einpflegen', projectId: 'p1', projectName: 'Website Relaunch', assigneeId: 'e6', assigneeName: 'Tim Hartmann', priority: 'normal', status: 'todo', deadline: '2026-03-10' },
+  { id: 't4', title: 'Design Review Startseite', projectId: 'p1', projectName: 'Website Relaunch', assigneeId: 'e9', assigneeName: 'Nina Richter', priority: 'normal', status: 'done', deadline: '2026-02-15' },
   // p2 — CRM Migration
   { id: 't5', title: 'Salesforce-Datenexport validieren', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e5', assigneeName: 'Felix Krause', priority: 'high', status: 'done', deadline: '2026-02-10' },
   { id: 't6', title: 'Kontakt-Import Mapping erstellen', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e4', assigneeName: 'Laura Neumann', priority: 'high', status: 'in_progress', deadline: '2026-02-26' },
-  { id: 't7', title: 'Testmigration durchführen', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e2', assigneeName: 'Markus Weber', priority: 'medium', status: 'todo', deadline: '2026-03-05' },
+  { id: 't7', title: 'Testmigration durchführen', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e2', assigneeName: 'Markus Weber', priority: 'normal', status: 'todo', deadline: '2026-03-05' },
   // p3 — Mobile App
   { id: 't8', title: 'Barcode-Scanner Integration', projectId: 'p3', projectName: 'Mobile App', assigneeId: 'e6', assigneeName: 'Tim Hartmann', priority: 'high', status: 'in_progress', deadline: '2026-03-01' },
-  { id: 't9', title: 'Offline-Modus implementieren', projectId: 'p3', projectName: 'Mobile App', assigneeId: 'e4', assigneeName: 'Laura Neumann', priority: 'medium', status: 'todo', deadline: '2026-03-15' },
-  { id: 't10', title: 'UI Mockups Auftragsansicht', projectId: 'p3', projectName: 'Mobile App', assigneeId: 'e9', assigneeName: 'Nina Richter', priority: 'medium', status: 'in_progress', deadline: '2026-02-28' },
+  { id: 't9', title: 'Offline-Modus implementieren', projectId: 'p3', projectName: 'Mobile App', assigneeId: 'e4', assigneeName: 'Laura Neumann', priority: 'normal', status: 'todo', deadline: '2026-03-15' },
+  { id: 't10', title: 'UI Mockups Auftragsansicht', projectId: 'p3', projectName: 'Mobile App', assigneeId: 'e9', assigneeName: 'Nina Richter', priority: 'normal', status: 'in_progress', deadline: '2026-02-28' },
   // p5 — Data Analytics
   { id: 't11', title: 'Chart-Bibliothek evaluieren', projectId: 'p5', projectName: 'Data Analytics Dashboard', assigneeId: 'e5', assigneeName: 'Felix Krause', priority: 'low', status: 'done', deadline: '2026-02-01' },
   { id: 't12', title: 'Echtzeit-Daten Pipeline', projectId: 'p5', projectName: 'Data Analytics Dashboard', assigneeId: 'e5', assigneeName: 'Felix Krause', priority: 'high', status: 'in_progress', deadline: '2026-02-28' },
-  { id: 't13', title: 'Drill-Down Navigation bauen', projectId: 'p5', projectName: 'Data Analytics Dashboard', assigneeId: 'e7', assigneeName: 'Lena Braun', priority: 'medium', status: 'todo', deadline: '2026-03-10' },
+  { id: 't13', title: 'Drill-Down Navigation bauen', projectId: 'p5', projectName: 'Data Analytics Dashboard', assigneeId: 'e7', assigneeName: 'Lena Braun', priority: 'normal', status: 'todo', deadline: '2026-03-10' },
   // p6 — Intranet
   { id: 't14', title: 'Dokumenten-Upload finalisieren', projectId: 'p6', projectName: 'Intranet Portal', assigneeId: 'e6', assigneeName: 'Tim Hartmann', priority: 'high', status: 'done', deadline: '2026-02-10' },
-  { id: 't15', title: 'Urlaubsantrag-Workflow testen', projectId: 'p6', projectName: 'Intranet Portal', assigneeId: 'e8', assigneeName: 'Sophie Lang', priority: 'medium', status: 'in_progress', deadline: '2026-02-24' },
+  { id: 't15', title: 'Urlaubsantrag-Workflow testen', projectId: 'p6', projectName: 'Intranet Portal', assigneeId: 'e8', assigneeName: 'Sophie Lang', priority: 'normal', status: 'in_progress', deadline: '2026-02-24' },
   { id: 't16', title: 'Go-Live Checklist erstellen', projectId: 'p6', projectName: 'Intranet Portal', assigneeId: 'e7', assigneeName: 'Lena Braun', priority: 'low', status: 'todo', deadline: '2026-03-01' },
   // p7 — Marketing Automation (intern)
-  { id: 't17', title: 'Newsletter-Template designen', projectId: 'p7', projectName: 'Marketing Automation', assigneeId: 'e9', assigneeName: 'Nina Richter', priority: 'medium', status: 'in_progress', deadline: '2026-02-27' },
+  { id: 't17', title: 'Newsletter-Template designen', projectId: 'p7', projectName: 'Marketing Automation', assigneeId: 'e9', assigneeName: 'Nina Richter', priority: 'normal', status: 'in_progress', deadline: '2026-02-27' },
   { id: 't18', title: 'Lead-Scoring Regeln definieren', projectId: 'p7', projectName: 'Marketing Automation', assigneeId: 'e12', assigneeName: 'Julia Hofmann', priority: 'high', status: 'todo', deadline: '2026-03-05' },
   // p8 — Security Audit
   { id: 't19', title: 'Penetrationstest durchführen', projectId: 'p8', projectName: 'Security Audit', assigneeId: 'e2', assigneeName: 'Markus Weber', priority: 'high', status: 'in_progress', deadline: '2026-02-28' },
   { id: 't20', title: 'DSGVO-Checkliste abarbeiten', projectId: 'p8', projectName: 'Security Audit', assigneeId: 'e5', assigneeName: 'Felix Krause', priority: 'high', status: 'todo', deadline: '2026-03-05' },
   // Nicht-Projekt (interne Aufgaben)
   { id: 't21', title: 'Monatsabschluss Januar', projectId: '', projectName: 'Intern', assigneeId: 'e13', assigneeName: 'Petra Zimmermann', priority: 'high', status: 'in_progress', deadline: '2026-02-25' },
-  { id: 't22', title: 'Bewerbungsgespräche KW 9', projectId: '', projectName: 'Intern', assigneeId: 'e15', assigneeName: 'Elena Schuster', priority: 'medium', status: 'todo', deadline: '2026-02-28' },
+  { id: 't22', title: 'Bewerbungsgespräche KW 9', projectId: '', projectName: 'Intern', assigneeId: 'e15', assigneeName: 'Elena Schuster', priority: 'normal', status: 'todo', deadline: '2026-02-28' },
   { id: 't23', title: 'Team-Event März organisieren', projectId: '', projectName: 'Intern', assigneeId: 'e14', assigneeName: 'Andrea Keller', priority: 'low', status: 'in_progress', deadline: '2026-03-07' },
-  { id: 't24', title: 'FAQ-Artikel aktualisieren', projectId: '', projectName: 'Intern', assigneeId: 'e17', assigneeName: 'Jonas Schmitt', priority: 'medium', status: 'in_progress', deadline: '2026-02-24' },
+  { id: 't24', title: 'FAQ-Artikel aktualisieren', projectId: '', projectName: 'Intern', assigneeId: 'e17', assigneeName: 'Jonas Schmitt', priority: 'normal', status: 'in_progress', deadline: '2026-02-24' },
 ]
 
 // ---------------------------------------------------------------------------

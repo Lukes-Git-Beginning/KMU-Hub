@@ -12,7 +12,7 @@ import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 const PRIORITY_STYLE: Record<string, string> = {
   urgent: 'text-destructive',
   high: 'text-destructive',
-  medium: 'text-warning',
+  normal: 'text-warning',
   low: 'text-muted-foreground',
 }
 
@@ -57,7 +57,7 @@ function MyTasks(_props: WidgetProps) {
       const status = (task.status as string) ?? ''
       const statusId = (task.status_id as string) ?? ''
       const isDone = status === 'done' || status === 'completed' || statusId === 'done'
-      const priority = (task.priority as string) ?? 'medium'
+      const priority = (task.priority as string) ?? 'normal'
       const dueResult = formatDueDate(task.due_date as string | undefined)
 
       return {

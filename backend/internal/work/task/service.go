@@ -64,7 +64,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	// Validate priority
 	priority := input.Priority
 	if priority == "" {
-		priority = models.TaskPriorityMedium
+		priority = models.TaskPriorityNormal
 	}
 	if !models.ValidTaskPriorities[priority] {
 		return nil, ErrInvalidPriority

@@ -11,7 +11,7 @@ import (
 const (
 	TaskPriorityUrgent = "urgent"
 	TaskPriorityHigh   = "high"
-	TaskPriorityMedium = "medium"
+	TaskPriorityNormal = "normal"
 	TaskPriorityLow    = "low"
 )
 
@@ -19,7 +19,7 @@ const (
 var ValidTaskPriorities = map[string]bool{
 	TaskPriorityUrgent: true,
 	TaskPriorityHigh:   true,
-	TaskPriorityMedium: true,
+	TaskPriorityNormal: true,
 	TaskPriorityLow:    true,
 }
 

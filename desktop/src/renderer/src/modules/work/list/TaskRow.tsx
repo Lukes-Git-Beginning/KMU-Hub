@@ -310,12 +310,12 @@ export default function TaskRow({
       <Popover>
         <PopoverTrigger asChild>
           <button type="button" className="shrink-0 cursor-pointer">
-            <PriorityBadge priority={(task.priority as Priority) ?? 'medium'} compact />
+            <PriorityBadge priority={(task.priority as Priority) ?? 'normal'} compact />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-40 p-1" align="end">
           <div className="space-y-0.5">
-            {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
+            {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
               <button
                 key={p}
                 type="button"
@@ -331,7 +331,7 @@ export default function TaskRow({
                     ? t('work.priority.urgent')
                     : p === 'high'
                       ? t('work.priority.high')
-                      : p === 'medium'
+                      : p === 'normal'
                         ? t('work.priority.normal')
                         : t('work.priority.low')}
                 </span>
