@@ -17,6 +17,8 @@ import {
   listGDPRExports,
   approveGDPRExport,
   denyGDPRExport,
+  previewErasure,
+  executeErasure,
   getPasswordPolicy,
   updatePasswordPolicy,
   validatePassword,
@@ -167,6 +169,20 @@ export function useDenyExport() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gdpr', 'exports'] })
     },
+  })
+}
+
+/** Preview which modules/records an erasure would affect (Art. 17). */
+export function usePreviewErasure() {
+  return useMutation({
+    mutationFn: (userId: string) => previewErasure(userId),
+  })
+}
+
+/** Execute the erasure (anonymize/delete per module). */
+export function useExecuteErasure() {
+  return useMutation({
+    mutationFn: (userId: string) => executeErasure(userId),
   })
 }
 

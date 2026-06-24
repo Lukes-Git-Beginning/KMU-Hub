@@ -400,6 +400,36 @@ export const securityHandlers = [
     return HttpResponse.json({ export_request: exp })
   }),
 
+  // Erasure preview (Art. 17): affected modules per subject. Modules under a
+  // legal retention duty default to 'retain' (blocked, not deleted).
+  http.post(`${API}/api/v1/security/gdpr/erasure/preview`, () => {
+    const modules = [
+      { module_name: 'CRM Kontakte', record_count: 47, action: 'anonymize' },
+      { module_name: 'Chat-Nachrichten', record_count: 1283, action: 'delete' },
+      { module_name: 'Kalender-Termine', record_count: 156, action: 'delete' },
+      { module_name: 'Aufgaben & Projekte', record_count: 89, action: 'anonymize' },
+      { module_name: 'Helpdesk-Tickets', record_count: 34, action: 'anonymize' },
+      { module_name: 'Dokumente', record_count: 23, action: 'delete' },
+      { module_name: 'E-Mails', record_count: 412, action: 'delete' },
+      { module_name: 'Formulare', record_count: 8, action: 'anonymize' },
+      { module_name: 'Audit-Log', record_count: 342, action: 'retain' },
+      { module_name: 'Rechnungen', record_count: 12, action: 'retain' },
+    ]
+    const total_records = modules.reduce((s, m) => s + m.record_count, 0)
+    return HttpResponse.json({ modules, total_records })
+  }),
+
+  // Erasure execute (Art. 17): anonymize/delete per chosen action, return receipt
+  http.post(`${API}/api/v1/security/gdpr/erasure/execute`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { user_id?: string }
+    const suffix = (body.user_id ?? 'user').slice(-4)
+    return HttpResponse.json({
+      anonymized_label: `anonymisiert-${suffix}`,
+      confirmation_hash: `sha256:${Date.now().toString(16)}`,
+      executed_at: new Date().toISOString(),
+    })
+  }),
+
   // Download a ready export artefact (JSON stub blob)
   http.get(`${API}/api/v1/security/gdpr/export/:token/download`, ({ params }) => {
     const token = String(params.token)

@@ -125,6 +125,13 @@ Fehlend (26): alle Sessions (4), DSAR-Suche, alle 2FA-Mutations (6), audit expor
 - **GDPR-Export** stateful: neue Handler `POST /gdpr/export/:id/approve` (→ ready, reviewer, download_token, 30-Tage-Frist) + `/deny` + `GET /gdpr/export/:token/download` (JSON-Blob). `EMPLOYEE_NAMES`-Map → `user_id`/`reviewed_by` als lesbare Namen (Typ `GDPRExportRequest` um optionale `user_name`/`reviewer_name` erweitert). Frist-Anzeige dynamisch (neuer ICU-Key `security.export.expiresInDays` ×4) statt fix „30 Tage". Download `<a href>` → JS-Blob-Button.
 **Verify:** Build ✓ (exit 0). DSGVO-QA (`scripts/qa-security-dsgvo.mjs`, Bilder angesehen): DSAR „Lena" → Person-Card + 5 Module + ausgeklappte Datensätze ✓; Export zeigt Namen (Lena Braun/Thomas Meier/Felix Krause) + Reviewer + „Ablauf in 27 Tagen" ✓; Approve Thomas → „bereit zum Download" + „Ablauf in 30 Tagen" + Toast „Export genehmigt" (ausstehend 3→1) ✓. 0 Page-Errors.
 
+### Phasen-Log · S-4 — ✅ fertig 2026-06-24
+**Soll:** Erasure echte Preview/Execute (statt setTimeout-Mock) + Legal-Hold; Retention konfigurierbar. (PW-Policy/IP-Access bereits stateful aus S-2.)
+**Gemacht:**
+- **Erasure** an echte API gehängt: neue MSW-Handler `POST /gdpr/erasure/preview` (`{modules:[{module_name,record_count,action}], total_records}`, Legal-Hold-Module Audit-Log/Rechnungen default `retain`) + `/execute` (Receipt `{anonymized_label, confirmation_hash}`). Neue Hooks `usePreviewErasure`/`useExecuteErasure`. `GDPRErasurePage`: setTimeout-Preview → `previewErasure`-Mutation (module_name→module-Mapping), setInterval-Execute → `executeErasure` (Progress-Animation bleibt als UX). **Legal-Hold-Hinweis** bei `retain`-Modulen (neuer Key `security.erasure.legalHoldHint` ×4).
+- **Retention konfigurierbar:** `RetentionPolicyPage` Status-Spalte → funktionaler **Auto-Löschung-Switch** pro Kategorie (aktiv/pausiert, lokaler State; gesetzliche Fristen bleiben fix). Neue Keys `security.retention.status.paused` + `security.retention.col.autoDeletion` ×4.
+**Verify:** Build ✓ (exit 0). S-4-QA (`scripts/qa-security-s4.mjs`, Bilder angesehen): Erasure „Max Mustermann" → echte Preview „2.406 Datensätze · 10 Module" mit per-Modul-Aktionen ✓; Legal-Hold-Hinweis (§147 AO) ✓; Retention-Toggle → Rechnungen „Pausiert" (Switch aus), Rest „Aktiv" ✓. 0 Page-Errors.
+
 ---
 
 ## Verify-Setup (für Bau-Phasen)

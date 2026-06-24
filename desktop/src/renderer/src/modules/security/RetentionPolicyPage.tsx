@@ -4,10 +4,11 @@
  * Shows a table of document types with retention period, legal basis,
  * and status. Supports DE/AT/CH tabs (Germany default).
  */
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Clock, Info } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/stores/auth'
 
 type Country = 'de' | 'at' | 'ch'
@@ -23,12 +24,6 @@ const COUNTRY_LABELS: Record<Country, string> = {
   de: 'Deutschland',
   at: 'Österreich',
   ch: 'Schweiz',
-}
-
-const STATUS_BADGE: Record<string, string> = {
-  aktiv: 'bg-success-light text-success',
-  auslaufend: 'bg-warning-light text-warning',
-  abgelaufen: 'bg-error-light text-error',
 }
 
 const RETENTION_DATA: Record<Country, RetentionEntry[]> = {
@@ -74,8 +69,19 @@ export default function RetentionPolicyPage() {
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
   const [country, setCountry] = useState<Country>('de')
+  // Which categories have their automatic deletion rule paused (demo state).
+  const [paused, setPaused] = useState<Set<string>>(new Set())
 
   const entries = RETENTION_DATA[country]
+
+  const togglePause = useCallback((key: string) => {
+    setPaused((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
 
   if (!isAdmin) {
     return <Navigate to="/" replace />
@@ -130,7 +136,7 @@ export default function RetentionPolicyPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('security.retention.col.documentType')}</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('security.retention.col.retentionPeriod')}</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('security.retention.col.legalBasis')}</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('common.status')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('security.retention.col.autoDeletion')}</th>
               </tr>
             </thead>
             <tbody>
@@ -140,9 +146,22 @@ export default function RetentionPolicyPage() {
                   <td className="px-4 py-3 text-sm text-foreground font-medium">{entry.period}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{entry.basis}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${STATUS_BADGE[entry.status]}`}>
-                      {entry.status === 'aktiv' ? t('security.retention.status.active') : entry.status === 'auslaufend' ? t('security.retention.status.expiring') : t('security.retention.status.expired')}
-                    </span>
+                    {(() => {
+                      const key = `${country}-${entry.type}`
+                      const isPaused = paused.has(key)
+                      return (
+                        <div className="flex items-center gap-2.5">
+                          <Switch
+                            checked={!isPaused}
+                            onCheckedChange={() => togglePause(key)}
+                            aria-label={t('security.retention.col.autoDeletion')}
+                          />
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isPaused ? 'bg-secondary text-muted-foreground' : 'bg-success-light text-success'}`}>
+                            {isPaused ? t('security.retention.status.paused') : t('security.retention.status.active')}
+                          </span>
+                        </div>
+                      )
+                    })()}
                   </td>
                 </tr>
               ))}
