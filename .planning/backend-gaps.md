@@ -4,6 +4,10 @@
 > Claude sammelt, Darien reicht an Luke weiter. Stand: Welle 1 (2026-06-01). **Status-Update 2026-06-10 (additiv, ✅-Markierungen):** erledigte Punkte aus Chain PILOT (2026-06-09) + Marathon-Tag-2-Wellen 1+2 (2026-06-10) sind inline markiert.
 > Priorität: 🔴 ZFA-Pilot-kritisch · 🟠 wichtig · ⚪ später/Post-Launch.
 
+## 🟠 Echt-Schaltung-Befunde 2026-06-24 (Darien, lokale Live-Verifikation)
+- **🟠 Modul-Feature-Flags = Deploy-/Auto-Deploy-kritisch:** helpdesk/wiki/berichte/formulare/vertraege/buchhaltung/video + alle Branchen-Module sind im Gateway hinter `modules.*`-Flags (`featureflag/registry.go`, default **OFF**, Env `COSMI_MODULE_<NAME>_ENABLED`). Solange das Env-Var fehlt, sind die Routen **nicht registriert** (404) **und** die FE-Nav blendet das Modul aus — egal wie fertig die FE ist. **→ Für Hetzner/Prod muss `.env.production` die gewünschten `COSMI_MODULE_*_ENABLED=true` setzen, sonst deployt der Auto-Deploy ein Build ohne diese Module.** (Lokal via `deploy/docker/docker-compose.flags.yml`-Override aktivierbar, untracked.)
+- **🟠 helpdesk `ListTickets` — `missing or invalid tenant_id` (400) im helpdesk-Service:** Mit gültigem Demo-Token (tenant …0001) liefern `helpdesk/queues` etc. **200**, aber `GET /helpdesk/tickets` **400 „missing or invalid tenant_id"**. crm/document mit demselben Token = ok → **ticket-Pfad-spezifisch** (helpdesk-Service `ListTickets` zieht/validiert tenant anders als die übrigen helpdesk-RPCs; tenant erreicht den Service nicht bzw. wird strenger geprüft). Helpdesk-Service hat `TenantInboundUnaryInterceptor` — also vermutlich ListTickets-eigene Validierung oder fehlende Metadata-Weitergabe nur auf diesem RPC. Blockiert die helpdesk-Ticket-Liste echt.
+
 ## ✅ Erledigt seit 2026-06-09 (nicht ursprünglich in dieser Liste)
 - **GDPR-Export/-Erasure-Handler echt** (waren Stubs): alle 14 Handler auf echte SQL, tenant+user-gefiltert, Art.-17(3)(e)-Retention (`47d210d9`, 2026-06-10).
 - **Beratungsprotokoll ZFA**: `advisory_protocols` Migration 000137 + 7 CRM-RPCs (`6b211222`, 2026-06-10) — Detail-Eintrag unten ebenfalls markiert.

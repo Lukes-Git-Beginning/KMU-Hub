@@ -69,8 +69,8 @@
 - [x] **CRUD echt-geschaltet** 🔌 — Liste/Detail/Create/Update/Delete live gegen lokales crm-Backend (Screenshots `desktop/.qa-screenshots/crud-*.png`). Pattern `api/casing.ts` `dual()` + `mocks/demo-mode-flag.ts` mode-branch. Mock-verdeckte Bugs gefixt: PUT≠PATCH, position≠title, custom_fields-Array, admin-Seed. Bericht: `.planning/kontakte-mock-exit-DONE.md`
 - [ ] 360°-Wiring Rest 🔌 `useContactContracts/useContactInvoices` (BE da, Migr. 141) · [ ] Timeline-Endpoint (CHRONIK) hängt → Luke · [ ] Beratungsprotokoll Server-PDF 🔒 (revisionssicher) · [ ] Tiefe-Re-Check T-1 · [ ] **Review-Gate**
 
-**calendar** — ✅ P1–P3,P5(Booking) · teils gewired
-- [ ] P4 CalDAV-Sync echt 🔒 · [ ] Booking-Portal öffentliche Seite (ohne Auth) · [ ] Scoped-Delete (Serien: „diesen/alle") · [ ] Tiefe-Re-Check T-2 · [ ] **Review-Gate**
+**calendar** — ✅ P1–P3,P5(Booking) · **echt-verdrahtet (Luke) + API-verifiziert 24.06.**
+- [x] **Echt-Schaltung 🔌** — `calendar-client` nutzt `authenticatedRequest`+`normalizeWireTimestamps` (alle TS), work-Service lokal hochgefahren, `/calendar/calendars` liefert Default-Kalender, `/calendar/events`→`{}` von allen Consumern `?? []`-geguardet (KalenderPage/MyCalendar/CalendarUpcoming). · [ ] P4 CalDAV-Sync echt 🔒 · [ ] Booking-Portal öffentliche Seite (ohne Auth) · [ ] Scoped-Delete (Serien: „diesen/alle") · [ ] Tiefe-Re-Check T-2 · [ ] **Review-Gate**
 
 **notifications** — ✅ N-1…N-5 · MSW + DND-Routes echt
 - [ ] Echt-Schaltung 🔌 + Bugfix: `priority`-Mismatch (FE `high` vs DB `urgent|normal|low`) + Spalten `is_pinned/is_dismissed/actor_name` nachziehen · [ ] P4 Real-Time WebSocket 🔒 · [ ] P5 Multi-Channel (E-Mail-Digest/Push) 🔒 · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
@@ -166,6 +166,7 @@
 - [ ] **X-4** **FE-Settings localStorage → Backend** (ModuleSettingsShell-Persistenz, alle Module; BE Migr. 138 da)
 - [ ] **X-5** **Demo-Daten-Seeds pro Modul** (Muster `backend/seeds/demo/notifications.sql`) — für ~20 verbleibende Module
 - [ ] **X-6** **Echter Build (Modell A)** für Nico-Review: `RENDERER_VITE_DEMO_MODE=false` + `API_URL=https://app.zentria.tech`, Demo-User auf Prod seeden
+- [ ] **X-7** **Modul-Feature-Flags in Prod setzen (Auto-Deploy-kritisch, 24.06.):** helpdesk/wiki/berichte/formulare/vertraege/video/Branchen sind Gateway-`modules.*`-Flags, default OFF → ohne `COSMI_MODULE_*_ENABLED=true` in `.env.production` sind Routen+Nav weg, egal wie fertig die FE. `.env.production` pro launch-fertigem Modul ergänzen. (Lokal: `deploy/docker/docker-compose.flags.yml`, untracked.) Detail `backend-gaps.md`.
 
 ### Bekannte Bugs / technische Schulden
 - [ ] **B-1** ci-desktop rot: `ChatFlow.test.tsx` 7/12 (Chat-Rework) — verhindert grünes CI
