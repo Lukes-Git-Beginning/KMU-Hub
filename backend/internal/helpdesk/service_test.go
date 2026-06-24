@@ -221,6 +221,19 @@ func (r *mockRepo) GetHelpdeskStats(_ context.Context, _ uuid.UUID) (*HelpdeskSt
 	return &HelpdeskStats{}, nil
 }
 
+func (r *mockRepo) GetBusinessHours(_ context.Context, tenantID uuid.UUID) (*BusinessHours, error) {
+	return &BusinessHours{
+		TenantID: tenantID,
+		Schedule: map[string]DaySchedule{},
+		Holidays: []HolidayEntry{},
+		Timezone: "Europe/Berlin",
+	}, nil
+}
+
+func (r *mockRepo) UpsertBusinessHours(_ context.Context, bh *BusinessHours) error {
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Test harness
 // ---------------------------------------------------------------------------

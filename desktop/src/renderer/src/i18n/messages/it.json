@@ -10076,6 +10076,8 @@
   "work.settings.add": "Aggiungi",
   "work.settings.archiveConfirm": "Archiviare davvero questo progetto?",
   "work.settings.archiveProject": "Archivia progetto",
+  "work.settings.deleteProject": "Elimina definitivamente il progetto",
+  "work.settings.deleteProjectConfirm": "Eliminare davvero definitivamente questo progetto? Tutte le attività, i membri e gli stati verranno rimossi in modo irreversibile.",
   "work.settings.deleteStatusConfirm": "Eliminare davvero lo stato «{name}»?",
   "work.settings.description": "Impostazioni per {name}",
   "work.settings.fields.add": "Aggiungi",

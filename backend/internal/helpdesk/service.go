@@ -854,3 +854,40 @@ func (s *Service) GetHelpdeskStats(ctx context.Context, tenantID uuid.UUID) (*He
 	}
 	return stats, nil
 }
+
+// ---------------------------------------------------------------------------
+// Business Hours
+// ---------------------------------------------------------------------------
+
+// GetBusinessHours returns the business-hours config for a tenant.
+// When no config exists yet, defaults are returned (no error).
+func (s *Service) GetBusinessHours(ctx context.Context, tenantID uuid.UUID) (*BusinessHours, error) {
+	bh, err := s.repo.GetBusinessHours(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("get business hours: %w", err)
+	}
+	return bh, nil
+}
+
+// UpsertBusinessHours persists the business-hours config for a tenant.
+func (s *Service) UpsertBusinessHours(ctx context.Context, bh *BusinessHours) (*BusinessHours, error) {
+	if bh.Timezone == "" {
+		bh.Timezone = "Europe/Berlin"
+	}
+	if bh.Schedule == nil {
+		bh.Schedule = map[string]DaySchedule{}
+	}
+	if bh.Holidays == nil {
+		bh.Holidays = []HolidayEntry{}
+	}
+	if err := s.repo.UpsertBusinessHours(ctx, bh); err != nil {
+		return nil, fmt.Errorf("upsert business hours: %w", err)
+	}
+	// Re-read to get the server-set updated_at timestamp.
+	updated, err := s.repo.GetBusinessHours(ctx, bh.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("re-read business hours after upsert: %w", err)
+	}
+	s.log.InfoContext(ctx, "helpdesk: business hours updated", "tenant_id", bh.TenantID)
+	return updated, nil
+}

@@ -93,6 +93,18 @@ type Repository interface {
 	DeleteRoutingRule(ctx context.Context, id uuid.UUID) error
 
 	// -----------------------------------------------------------------------
+	// Business hours (one row per tenant, upsert)
+	// -----------------------------------------------------------------------
+
+	// GetBusinessHours returns the persisted config for the tenant, or a
+	// default BusinessHours struct (empty Schedule/Holidays, Europe/Berlin)
+	// when no row exists yet.
+	GetBusinessHours(ctx context.Context, tenantID uuid.UUID) (*BusinessHours, error)
+	// UpsertBusinessHours inserts or updates the business-hours config for
+	// the tenant (INSERT … ON CONFLICT (tenant_id) DO UPDATE).
+	UpsertBusinessHours(ctx context.Context, bh *BusinessHours) error
+
+	// -----------------------------------------------------------------------
 	// Stats (aggregate query, no own table)
 	// -----------------------------------------------------------------------
 

@@ -223,6 +223,34 @@ func (s *Service) Archive(ctx context.Context, projectID uuid.UUID, tenantID uui
 	return nil
 }
 
+// Delete permanently removes a project and all its children (tasks, statuses, members
+// cascade via ON DELETE CASCADE). Only owners or admins may delete.
+func (s *Service) Delete(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool) error {
+	project, err := s.repo.GetByID(ctx, projectID, tenantID)
+	if err != nil {
+		return err
+	}
+
+	// Non-admins must be project owner
+	if !isAdmin {
+		member, memberErr := s.repo.GetMember(ctx, projectID, userID)
+		if memberErr != nil {
+			return memberErr
+		}
+		if member.Role != models.ProjectRoleOwner {
+			return ErrNotProjectOwner
+		}
+	}
+
+	if deleteErr := s.repo.Delete(ctx, projectID, tenantID); deleteErr != nil {
+		return deleteErr
+	}
+
+	slog.Info("project deleted", "project_id", project.ID)
+
+	return nil
+}
+
 // AddMember adds a user to a project. Only owners or admins can add members.
 func (s *Service) AddMember(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID, actorID uuid.UUID, isAdmin bool, role string) error {
 	// Validate role

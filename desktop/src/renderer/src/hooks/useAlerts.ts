@@ -13,7 +13,7 @@
  */
 import { useMemo } from 'react'
 import { useVertraegeStore } from '@/stores/vertraege'
-import { useHelpdeskStore } from '@/stores/helpdesk'
+import { useTickets } from '@/api/hooks/useHelpdesk'
 import { useInvoices } from '@/api/hooks/useFinance'
 import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
 
@@ -62,7 +62,10 @@ export function useAlerts(): DashboardAlert[] {
 
   // Store data
   const contracts = useVertraegeStore((s) => s.contracts)
-  const tickets = useHelpdeskStore((s) => s.tickets)
+
+  // Helpdesk — open tickets from real API (fail-open: undefined when loading)
+  const { data: openTicketsData } = useTickets({ status: 'open', page_size: 50 })
+  const { data: pendingTicketsData } = useTickets({ status: 'pending', page_size: 50 })
 
   // Finance — overdue invoices (API hook, may error gracefully)
   const { data: invoicesData } = useInvoices({ status: 'overdue', page_size: 50 })
@@ -106,18 +109,23 @@ export function useAlerts(): DashboardAlert[] {
       }
     }
 
-    // ── Helpdesk: SLA breached ─────────────────────────────────────────
+    // ── Helpdesk: open/pending tickets (SLA breached = those with due_at in past)
     const helpdeskAllowed = isModuleAllowed('helpdesk', flags, flagsLoading, flagsError)
     if (helpdeskAllowed) {
-      const slaOverdue = tickets.filter(
-        (t) => t.slaOverdue && t.status !== 'resolved' && t.status !== 'closed',
-      )
-      if (slaOverdue.length > 0) {
+      const now = Date.now()
+      const allActiveTickets = [
+        ...(openTicketsData?.tickets ?? []),
+        ...(pendingTicketsData?.tickets ?? []),
+      ]
+      const slaOverdueCount = allActiveTickets.filter(
+        (t) => t.due_at && new Date(t.due_at).getTime() < now,
+      ).length
+      if (slaOverdueCount > 0) {
         alerts.push({
           id: 'helpdesk-sla',
           severity: 'critical',
           titleKey: 'dashboard.alerts.slaBreached',
-          titleVars: { count: slaOverdue.length },
+          titleVars: { count: slaOverdueCount },
           actionKey: 'dashboard.alerts.viewTickets',
           path: '/helpdesk',
           iconName: 'AlertTriangle',
@@ -126,6 +134,5 @@ export function useAlerts(): DashboardAlert[] {
     }
 
     return alerts
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contracts, tickets, invoicesData, flags, flagsLoading, flagsError])
+  }, [contracts, openTicketsData, pendingTicketsData, invoicesData, flags, flagsLoading, flagsError])
 }

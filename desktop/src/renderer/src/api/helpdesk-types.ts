@@ -231,3 +231,36 @@ export interface HelpdeskStats {
   customer_satisfaction: string
   weekly_breakdown: WeeklyDayCount[]
 }
+
+// ---------------------------------------------------------------------------
+// Business Hours
+// ---------------------------------------------------------------------------
+
+export interface DaySchedule {
+  active: boolean
+  start: string
+  end: string
+}
+
+export interface HolidayEntry {
+  id: string
+  date: string
+  name: string
+}
+
+/** Wire shape returned by GET/PUT /api/v1/helpdesk/business-hours */
+export interface BusinessHoursResponse {
+  tenant_id: string
+  /** JSON-encoded {dayName: DaySchedule} map */
+  schedule_json: string
+  /** JSON-encoded HolidayEntry[] */
+  holidays_json: string
+  timezone: string
+  updated_at: string | null
+}
+
+export interface UpdateBusinessHoursInput {
+  schedule_json: string
+  holidays_json: string
+  timezone: string
+}

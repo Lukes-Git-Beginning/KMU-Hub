@@ -6,7 +6,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, X, Trash2, Save, Archive, Copy } from 'lucide-react'
+import { Plus, X, Trash2, Save, Archive, Copy, AlertTriangle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,7 @@ import {
   useProject,
   useUpdateProject,
   useArchiveProject,
+  useDeleteProject,
   useProjectStatuses,
   useCreateStatus,
   useUpdateStatus,
@@ -51,6 +52,7 @@ export default function ProjectSettingsDialog({
 
   const updateProject = useUpdateProject()
   const archiveProject = useArchiveProject()
+  const deleteProject = useDeleteProject()
   const createStatus = useCreateStatus()
   const _updateStatus = useUpdateStatus()
   const deleteStatus = useDeleteStatus()
@@ -99,6 +101,12 @@ export default function ProjectSettingsDialog({
   async function handleArchive() {
     if (!confirm(t('work.settings.archiveConfirm'))) return
     await archiveProject.mutateAsync(projectId)
+    onOpenChange(false)
+  }
+
+  async function handleDelete() {
+    if (!confirm(t('work.settings.deleteProjectConfirm'))) return
+    await deleteProject.mutateAsync(projectId)
     onOpenChange(false)
   }
 
@@ -207,6 +215,17 @@ export default function ProjectSettingsDialog({
             >
               <Archive className="h-4 w-4" />
               {t('work.settings.archiveProject')}
+            </Button>
+
+            {/* Delete — permanent, irreversible */}
+            <Button
+              variant="destructive"
+              className="gap-1"
+              onClick={handleDelete}
+              disabled={deleteProject.isPending}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              {t('work.settings.deleteProject')}
             </Button>
           </div>
         )}

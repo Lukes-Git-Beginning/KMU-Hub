@@ -115,6 +115,15 @@ func (m *MockRepository) Archive(ctx context.Context, projectID uuid.UUID, tenan
 	return nil
 }
 
+func (m *MockRepository) Delete(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) error {
+	p, ok := m.projects[projectID]
+	if !ok || p.TenantID != tenantID {
+		return ErrNotFound
+	}
+	delete(m.projects, projectID)
+	return nil
+}
+
 func (m *MockRepository) GetProjectKey(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) (string, error) {
 	p, ok := m.projects[projectID]
 	if !ok || p.TenantID != tenantID {

@@ -16,6 +16,7 @@ type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool, includeArchived bool) ([]models.ProjectWithDetails, error)
 	Update(ctx context.Context, project *models.Project) error
 	Archive(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) error
+	Delete(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) error
 	GetProjectKey(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) (string, error)
 	KeyExists(ctx context.Context, tenantID uuid.UUID, key string) (bool, error)
 

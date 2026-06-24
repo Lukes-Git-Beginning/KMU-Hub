@@ -10076,6 +10076,8 @@
   "work.settings.add": "Ajouter",
   "work.settings.archiveConfirm": "Souhaitez-vous vraiment archiver ce projet ?",
   "work.settings.archiveProject": "Archiver le projet",
+  "work.settings.deleteProject": "Supprimer définitivement le projet",
+  "work.settings.deleteProjectConfirm": "Souhaitez-vous vraiment supprimer définitivement ce projet ? Toutes les tâches, membres et statuts seront supprimés de manière irréversible.",
   "work.settings.deleteStatusConfirm": "Souhaitez-vous vraiment supprimer le statut « {name} » ?",
   "work.settings.description": "Paramètres pour {name}",
   "work.settings.fields.add": "Ajouter",

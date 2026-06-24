@@ -26,7 +26,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  useHelpdeskStore,
   slaLabel,
   MOCK_CATEGORIES,
   MOCK_CUSTOM_FIELD_DEFS,
@@ -42,6 +41,7 @@ import {
   useMergeTickets,
   useAddMessage,
   useKBArticles,
+  useUpdateKBArticle,
   useHelpdeskStats,
 } from '@/api/hooks/useHelpdesk'
 import type { KBArticle } from '@/api/helpdesk-types'
@@ -1111,18 +1111,26 @@ function TicketDetailPanel({
 
 function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () => void }) {
   const { t } = useTranslation()
-  const savedBody = useHelpdeskStore((s) => s.kbBodies[article.id])
-  const saveKbBody = useHelpdeskStore((s) => s.saveKbBody)
+  const updateKBArticle = useUpdateKBArticle()
   const fallback = article.content || KB_BODIES[article.id] || t('helpdesk.kb.noContent')
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(
-    () => savedBody ?? fallback.split('\n\n').map((p) => `<p>${p}</p>`).join(''),
+    () => fallback.split('\n\n').map((p) => `<p>${p}</p>`).join(''),
   )
 
   const handleSaveBody = () => {
-    saveKbBody(article.id, editContent)
-    setEditing(false)
-    toast.success(t('helpdesk.kb.articleSaved'))
+    updateKBArticle.mutate(
+      { id: article.id, content: editContent },
+      {
+        onSuccess: () => {
+          setEditing(false)
+          toast.success(t('helpdesk.kb.articleSaved'))
+        },
+        onError: () => {
+          toast.error(t('common.errorGeneric'))
+        },
+      },
+    )
   }
 
   return (

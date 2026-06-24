@@ -44,6 +44,7 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.With(middleware.RequirePermission("projects", "write")).Post("/", w.HandleCreateProject)
 		r.With(middleware.RequirePermission("projects", "write")).Put("/{id}", w.HandleUpdateProject)
 		r.With(middleware.RequirePermission("projects", "write")).Post("/{id}/archive", w.HandleArchiveProject)
+		r.With(middleware.RequirePermission("projects", "delete")).Delete("/{id}", w.HandleDeleteProject)
 
 		// Members
 		r.With(middleware.RequirePermission("projects", "read")).Get("/{id}/members", w.HandleListProjectMembers)

@@ -40,6 +40,8 @@ import {
   updateRoutingRule,
   deleteRoutingRule,
   getHelpdeskStats,
+  getBusinessHours,
+  updateBusinessHours,
 } from '../helpdesk-client'
 import type {
   CreateTicketInput,
@@ -56,6 +58,7 @@ import type {
   UpdateKBArticleInput,
   CreateRoutingRuleInput,
   UpdateRoutingRuleInput,
+  UpdateBusinessHoursInput,
 } from '../helpdesk-types'
 
 // ---------------------------------------------------------------------------
@@ -75,6 +78,7 @@ export const helpdeskKeys = {
   kbArticles: () => ['helpdesk', 'kb-articles'] as const,
   routingRules: () => ['helpdesk', 'routing-rules'] as const,
   stats: () => ['helpdesk', 'stats'] as const,
+  businessHours: () => ['helpdesk', 'business-hours'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -419,5 +423,24 @@ export function useHelpdeskStats() {
   return useQuery({
     queryKey: helpdeskKeys.stats(),
     queryFn: getHelpdeskStats,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Business Hours — Query + Mutation
+// ---------------------------------------------------------------------------
+
+export function useBusinessHours() {
+  return useQuery({
+    queryKey: helpdeskKeys.businessHours(),
+    queryFn: getBusinessHours,
+  })
+}
+
+export function useUpdateBusinessHours() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateBusinessHoursInput) => updateBusinessHours(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: helpdeskKeys.businessHours() }),
   })
 }

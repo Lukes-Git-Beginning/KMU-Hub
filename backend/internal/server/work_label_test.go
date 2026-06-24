@@ -36,7 +36,8 @@ func (r *projectStubRepo) List(_ context.Context, _, _ uuid.UUID, _ bool, _ bool
 	return nil, nil
 }
 func (r *projectStubRepo) Update(_ context.Context, _ *models.Project) error { return nil }
-func (r *projectStubRepo) Archive(_ context.Context, _, _ uuid.UUID) error   { return nil }
+func (r *projectStubRepo) Archive(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (r *projectStubRepo) Delete(_ context.Context, _, _ uuid.UUID) error  { return nil }
 func (r *projectStubRepo) GetProjectKey(_ context.Context, _, _ uuid.UUID) (string, error) {
 	return "", project.ErrNotFound
 }

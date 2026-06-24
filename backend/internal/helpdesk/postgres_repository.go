@@ -656,6 +656,66 @@ func (r *PostgresRepository) GetHelpdeskStats(ctx context.Context, tenantID uuid
 }
 
 // ---------------------------------------------------------------------------
+// Business Hours
+// ---------------------------------------------------------------------------
+
+func (r *PostgresRepository) GetBusinessHours(ctx context.Context, tenantID uuid.UUID) (*BusinessHours, error) {
+	var (
+		bh          BusinessHours
+		schedJSON   []byte
+		holsJSON    []byte
+	)
+	err := r.pool.QueryRow(ctx,
+		`SELECT tenant_id, schedule, holidays, timezone, updated_at
+		 FROM helpdesk_business_hours
+		 WHERE tenant_id = $1`,
+		tenantID,
+	).Scan(&bh.TenantID, &schedJSON, &holsJSON, &bh.Timezone, &bh.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Return sensible defaults when no config exists yet.
+		return &BusinessHours{
+			TenantID: tenantID,
+			Schedule: map[string]DaySchedule{},
+			Holidays: []HolidayEntry{},
+			Timezone: "Europe/Berlin",
+		}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get business hours: %w", err)
+	}
+	if err := json.Unmarshal(schedJSON, &bh.Schedule); err != nil {
+		return nil, fmt.Errorf("unmarshal schedule: %w", err)
+	}
+	if err := json.Unmarshal(holsJSON, &bh.Holidays); err != nil {
+		return nil, fmt.Errorf("unmarshal holidays: %w", err)
+	}
+	return &bh, nil
+}
+
+func (r *PostgresRepository) UpsertBusinessHours(ctx context.Context, bh *BusinessHours) error {
+	schedJSON, err := json.Marshal(bh.Schedule)
+	if err != nil {
+		return fmt.Errorf("marshal schedule: %w", err)
+	}
+	holsJSON, err := json.Marshal(bh.Holidays)
+	if err != nil {
+		return fmt.Errorf("marshal holidays: %w", err)
+	}
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO helpdesk_business_hours
+		    (tenant_id, schedule, holidays, timezone, updated_at)
+		 VALUES ($1, $2, $3, $4, NOW())
+		 ON CONFLICT (tenant_id) DO UPDATE
+		 SET schedule   = EXCLUDED.schedule,
+		     holidays   = EXCLUDED.holidays,
+		     timezone   = EXCLUDED.timezone,
+		     updated_at = NOW()`,
+		bh.TenantID, schedJSON, holsJSON, bh.Timezone,
+	)
+	return err
+}
+
+// ---------------------------------------------------------------------------
 // Scan helpers
 // ---------------------------------------------------------------------------
 

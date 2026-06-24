@@ -174,3 +174,28 @@ type WeeklyDayCount struct {
 	Label string `json:"label"`
 	Count int    `json:"count"`
 }
+
+// BusinessHours holds the persisted business-hours config for a tenant.
+// Schedule is a map of day-name → {active, start, end}, stored as JSONB.
+// Holidays is an array of {id, date, name} entries, stored as JSONB.
+type BusinessHours struct {
+	TenantID  uuid.UUID              `json:"tenant_id"`
+	Schedule  map[string]DaySchedule `json:"schedule"`
+	Holidays  []HolidayEntry         `json:"holidays"`
+	Timezone  string                 `json:"timezone"`
+	UpdatedAt time.Time              `json:"updated_at"`
+}
+
+// DaySchedule represents opening hours for a single weekday.
+type DaySchedule struct {
+	Active bool   `json:"active"`
+	Start  string `json:"start"`
+	End    string `json:"end"`
+}
+
+// HolidayEntry represents a single public holiday or closure day.
+type HolidayEntry struct {
+	ID   string `json:"id"`
+	Date string `json:"date"`
+	Name string `json:"name"`
+}

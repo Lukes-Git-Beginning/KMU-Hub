@@ -24,6 +24,7 @@ const (
 	WorkService_ListProjects_FullMethodName                = "/work.v1.WorkService/ListProjects"
 	WorkService_UpdateProject_FullMethodName               = "/work.v1.WorkService/UpdateProject"
 	WorkService_ArchiveProject_FullMethodName              = "/work.v1.WorkService/ArchiveProject"
+	WorkService_DeleteProject_FullMethodName               = "/work.v1.WorkService/DeleteProject"
 	WorkService_AddProjectMember_FullMethodName            = "/work.v1.WorkService/AddProjectMember"
 	WorkService_RemoveProjectMember_FullMethodName         = "/work.v1.WorkService/RemoveProjectMember"
 	WorkService_ListProjectMembers_FullMethodName          = "/work.v1.WorkService/ListProjectMembers"
@@ -93,6 +94,7 @@ type WorkServiceClient interface {
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 	UpdateProject(ctx context.Context, in *UpdateProjectRequest, opts ...grpc.CallOption) (*UpdateProjectResponse, error)
 	ArchiveProject(ctx context.Context, in *ArchiveProjectRequest, opts ...grpc.CallOption) (*ArchiveProjectResponse, error)
+	DeleteProject(ctx context.Context, in *DeleteProjectRequest, opts ...grpc.CallOption) (*DeleteProjectResponse, error)
 	// Project Members
 	AddProjectMember(ctx context.Context, in *AddProjectMemberRequest, opts ...grpc.CallOption) (*AddProjectMemberResponse, error)
 	RemoveProjectMember(ctx context.Context, in *RemoveProjectMemberRequest, opts ...grpc.CallOption) (*RemoveProjectMemberResponse, error)
@@ -219,6 +221,16 @@ func (c *workServiceClient) ArchiveProject(ctx context.Context, in *ArchiveProje
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ArchiveProjectResponse)
 	err := c.cc.Invoke(ctx, WorkService_ArchiveProject_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) DeleteProject(ctx context.Context, in *DeleteProjectRequest, opts ...grpc.CallOption) (*DeleteProjectResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteProjectResponse)
+	err := c.cc.Invoke(ctx, WorkService_DeleteProject_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -805,6 +817,7 @@ type WorkServiceServer interface {
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	UpdateProject(context.Context, *UpdateProjectRequest) (*UpdateProjectResponse, error)
 	ArchiveProject(context.Context, *ArchiveProjectRequest) (*ArchiveProjectResponse, error)
+	DeleteProject(context.Context, *DeleteProjectRequest) (*DeleteProjectResponse, error)
 	// Project Members
 	AddProjectMember(context.Context, *AddProjectMemberRequest) (*AddProjectMemberResponse, error)
 	RemoveProjectMember(context.Context, *RemoveProjectMemberRequest) (*RemoveProjectMemberResponse, error)
@@ -901,6 +914,9 @@ func (UnimplementedWorkServiceServer) UpdateProject(context.Context, *UpdateProj
 }
 func (UnimplementedWorkServiceServer) ArchiveProject(context.Context, *ArchiveProjectRequest) (*ArchiveProjectResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ArchiveProject not implemented")
+}
+func (UnimplementedWorkServiceServer) DeleteProject(context.Context, *DeleteProjectRequest) (*DeleteProjectResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteProject not implemented")
 }
 func (UnimplementedWorkServiceServer) AddProjectMember(context.Context, *AddProjectMemberRequest) (*AddProjectMemberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AddProjectMember not implemented")
@@ -1180,6 +1196,24 @@ func _WorkService_ArchiveProject_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(WorkServiceServer).ArchiveProject(ctx, req.(*ArchiveProjectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_DeleteProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteProjectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).DeleteProject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_DeleteProject_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).DeleteProject(ctx, req.(*DeleteProjectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2236,6 +2270,10 @@ var WorkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ArchiveProject",
 			Handler:    _WorkService_ArchiveProject_Handler,
+		},
+		{
+			MethodName: "DeleteProject",
+			Handler:    _WorkService_DeleteProject_Handler,
 		},
 		{
 			MethodName: "AddProjectMember",

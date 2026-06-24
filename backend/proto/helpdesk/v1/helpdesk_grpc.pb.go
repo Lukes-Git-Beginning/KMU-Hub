@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: proto/helpdesk/v1/helpdesk.proto
+// source: helpdesk/v1/helpdesk.proto
 
 package helpdeskv1
 
@@ -28,6 +28,8 @@ const (
 	HelpdeskService_ReopenTicket_FullMethodName         = "/helpdesk.v1.HelpdeskService/ReopenTicket"
 	HelpdeskService_AssignTicket_FullMethodName         = "/helpdesk.v1.HelpdeskService/AssignTicket"
 	HelpdeskService_MergeTickets_FullMethodName         = "/helpdesk.v1.HelpdeskService/MergeTickets"
+	HelpdeskService_GetBusinessHours_FullMethodName     = "/helpdesk.v1.HelpdeskService/GetBusinessHours"
+	HelpdeskService_UpdateBusinessHours_FullMethodName  = "/helpdesk.v1.HelpdeskService/UpdateBusinessHours"
 	HelpdeskService_AddMessage_FullMethodName           = "/helpdesk.v1.HelpdeskService/AddMessage"
 	HelpdeskService_ListMessages_FullMethodName         = "/helpdesk.v1.HelpdeskService/ListMessages"
 	HelpdeskService_CreateQueue_FullMethodName          = "/helpdesk.v1.HelpdeskService/CreateQueue"
@@ -68,6 +70,9 @@ type HelpdeskServiceClient interface {
 	ReopenTicket(ctx context.Context, in *ReopenTicketRequest, opts ...grpc.CallOption) (*Ticket, error)
 	AssignTicket(ctx context.Context, in *AssignTicketRequest, opts ...grpc.CallOption) (*Ticket, error)
 	MergeTickets(ctx context.Context, in *MergeTicketsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Business hours (tenant-level config)
+	GetBusinessHours(ctx context.Context, in *GetBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
+	UpdateBusinessHours(ctx context.Context, in *UpdateBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error)
 	// Messages
 	AddMessage(ctx context.Context, in *AddMessageRequest, opts ...grpc.CallOption) (*TicketMessage, error)
 	ListMessages(ctx context.Context, in *ListMessagesRequest, opts ...grpc.CallOption) (*ListMessagesResponse, error)
@@ -184,6 +189,26 @@ func (c *helpdeskServiceClient) MergeTickets(ctx context.Context, in *MergeTicke
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, HelpdeskService_MergeTickets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) GetBusinessHours(ctx context.Context, in *GetBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BusinessHoursResponse)
+	err := c.cc.Invoke(ctx, HelpdeskService_GetBusinessHours_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) UpdateBusinessHours(ctx context.Context, in *UpdateBusinessHoursRequest, opts ...grpc.CallOption) (*BusinessHoursResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BusinessHoursResponse)
+	err := c.cc.Invoke(ctx, HelpdeskService_UpdateBusinessHours_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -453,6 +478,9 @@ type HelpdeskServiceServer interface {
 	ReopenTicket(context.Context, *ReopenTicketRequest) (*Ticket, error)
 	AssignTicket(context.Context, *AssignTicketRequest) (*Ticket, error)
 	MergeTickets(context.Context, *MergeTicketsRequest) (*emptypb.Empty, error)
+	// Business hours (tenant-level config)
+	GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error)
+	UpdateBusinessHours(context.Context, *UpdateBusinessHoursRequest) (*BusinessHoursResponse, error)
 	// Messages
 	AddMessage(context.Context, *AddMessageRequest) (*TicketMessage, error)
 	ListMessages(context.Context, *ListMessagesRequest) (*ListMessagesResponse, error)
@@ -518,6 +546,12 @@ func (UnimplementedHelpdeskServiceServer) AssignTicket(context.Context, *AssignT
 }
 func (UnimplementedHelpdeskServiceServer) MergeTickets(context.Context, *MergeTicketsRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method MergeTickets not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) GetBusinessHours(context.Context, *GetBusinessHoursRequest) (*BusinessHoursResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBusinessHours not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) UpdateBusinessHours(context.Context, *UpdateBusinessHoursRequest) (*BusinessHoursResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateBusinessHours not implemented")
 }
 func (UnimplementedHelpdeskServiceServer) AddMessage(context.Context, *AddMessageRequest) (*TicketMessage, error) {
 	return nil, status.Error(codes.Unimplemented, "method AddMessage not implemented")
@@ -755,6 +789,42 @@ func _HelpdeskService_MergeTickets_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HelpdeskServiceServer).MergeTickets(ctx, req.(*MergeTicketsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_GetBusinessHours_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBusinessHoursRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).GetBusinessHours(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_GetBusinessHours_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).GetBusinessHours(ctx, req.(*GetBusinessHoursRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_UpdateBusinessHours_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBusinessHoursRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).UpdateBusinessHours(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_UpdateBusinessHours_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).UpdateBusinessHours(ctx, req.(*UpdateBusinessHoursRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1249,6 +1319,14 @@ var HelpdeskService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HelpdeskService_MergeTickets_Handler,
 		},
 		{
+			MethodName: "GetBusinessHours",
+			Handler:    _HelpdeskService_GetBusinessHours_Handler,
+		},
+		{
+			MethodName: "UpdateBusinessHours",
+			Handler:    _HelpdeskService_UpdateBusinessHours_Handler,
+		},
+		{
 			MethodName: "AddMessage",
 			Handler:    _HelpdeskService_AddMessage_Handler,
 		},
@@ -1350,5 +1428,5 @@ var HelpdeskService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/helpdesk/v1/helpdesk.proto",
+	Metadata: "helpdesk/v1/helpdesk.proto",
 }

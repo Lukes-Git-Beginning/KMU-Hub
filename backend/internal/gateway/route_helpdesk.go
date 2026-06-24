@@ -91,6 +91,10 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/routing-rules/{id}", h.HandleUpdateRoutingRule)
 		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/routing-rules/{id}", h.HandleDeleteRoutingRule)
 
+		// Business hours
+		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/business-hours", h.HandleGetBusinessHours)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/business-hours", h.HandleUpdateBusinessHours)
+
 		// Stats
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/stats", h.HandleGetHelpdeskStats)
 	})
@@ -180,6 +184,12 @@ type updateKBArticleRequest struct {
 	Content  *string `json:"content,omitempty"`
 	Category *string `json:"category,omitempty" validate:"omitempty,max=100"`
 	Status   *string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
+}
+
+type updateBusinessHoursRequest struct {
+	ScheduleJSON string `json:"schedule_json" validate:"required"`
+	HolidaysJSON string `json:"holidays_json" validate:"required"`
+	Timezone     string `json:"timezone" validate:"required"`
 }
 
 type createHelpdeskRoutingRuleRequest struct {
@@ -1070,6 +1080,66 @@ func (h *HelpdeskRoutes) HandleDeleteRoutingRule(w http.ResponseWriter, r *http.
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "routing rule deleted"})
+}
+
+// ============================================================================
+// Business Hours Handlers
+// ============================================================================
+
+func (h *HelpdeskRoutes) HandleGetBusinessHours(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	resp, err := client.GetBusinessHours(r.Context(), &helpdeskv1.GetBusinessHoursRequest{
+		TenantId: tenantID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleUpdateBusinessHours(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	req, ok := decodeAndValidate[updateBusinessHoursRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateBusinessHours(r.Context(), &helpdeskv1.UpdateBusinessHoursRequest{
+		TenantId:     tenantID.String(),
+		ScheduleJson: req.ScheduleJSON,
+		HolidaysJson: req.HolidaysJSON,
+		Timezone:     req.Timezone,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // ============================================================================

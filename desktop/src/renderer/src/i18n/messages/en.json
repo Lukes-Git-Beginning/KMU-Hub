@@ -10110,6 +10110,8 @@
   "work.settings.add": "Add",
   "work.settings.archiveConfirm": "Do you really want to archive this project?",
   "work.settings.archiveProject": "Archive project",
+  "work.settings.deleteProject": "Permanently delete project",
+  "work.settings.deleteProjectConfirm": "Do you really want to permanently delete this project? All tasks, members, and statuses will be irreversibly removed.",
   "work.settings.deleteStatusConfirm": "Do you really want to delete status «{name}»?",
   "work.settings.description": "Settings for {name}",
   "work.settings.fields.add": "Add",

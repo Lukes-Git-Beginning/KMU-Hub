@@ -18,6 +18,10 @@ service HelpdeskService {
   rpc AssignTicket(AssignTicketRequest) returns (Ticket);
   rpc MergeTickets(MergeTicketsRequest) returns (google.protobuf.Empty);
 
+  // Business hours (tenant-level config)
+  rpc GetBusinessHours(GetBusinessHoursRequest) returns (BusinessHoursResponse);
+  rpc UpdateBusinessHours(UpdateBusinessHoursRequest) returns (BusinessHoursResponse);
+
   // Messages
   rpc AddMessage(AddMessageRequest) returns (TicketMessage);
   rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
@@ -398,6 +402,34 @@ message UpdateRoutingRuleRequest {
 
 message DeleteRoutingRuleRequest {
   string rule_id = 1;
+}
+
+// ============================================================================
+// Business Hours Messages
+// ============================================================================
+
+// BusinessHoursResponse holds the persisted schedule, holidays and timezone
+// for a tenant.  schedule_json and holidays_json are JSON-encoded strings to
+// avoid proto-map / repeated-message complexity (mirrors SLA business_hours).
+message BusinessHoursResponse {
+  string tenant_id    = 1;
+  // JSON: {"Montag":{"active":true,"start":"08:00","end":"17:30"}, ...}
+  string schedule_json  = 2;
+  // JSON: [{"id":"h-1","date":"2026-01-01","name":"Neujahr"}, ...]
+  string holidays_json  = 3;
+  string timezone       = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message GetBusinessHoursRequest {
+  string tenant_id = 1;
+}
+
+message UpdateBusinessHoursRequest {
+  string tenant_id     = 1;
+  string schedule_json = 2;
+  string holidays_json = 3;
+  string timezone      = 4;
 }
 
 // ============================================================================

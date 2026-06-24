@@ -192,6 +192,24 @@ func (s *WorkGRPCServer) ArchiveProject(ctx context.Context, req *workv1.Archive
 	}, nil
 }
 
+func (s *WorkGRPCServer) DeleteProject(ctx context.Context, req *workv1.DeleteProjectRequest) (*workv1.DeleteProjectResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid project id")
+	}
+
+	if err := s.projectService.Delete(ctx, id, tenantID, uuid.Nil, true); err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	return &workv1.DeleteProjectResponse{}, nil
+}
+
 // ============================================================================
 // Project Members
 // ============================================================================

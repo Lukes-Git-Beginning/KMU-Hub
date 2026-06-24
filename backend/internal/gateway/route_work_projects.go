@@ -156,6 +156,27 @@ func (w *WorkRoutes) HandleArchiveProject(wr http.ResponseWriter, r *http.Reques
 	response.JSON(wr, http.StatusOK, resp)
 }
 
+func (w *WorkRoutes) HandleDeleteProject(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	projectID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteProject(r.Context(), &workv1.DeleteProjectRequest{Id: projectID})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusOK, map[string]string{"status": "project deleted"})
+}
+
 // ============================================================================
 // Project Member Handlers
 // ============================================================================

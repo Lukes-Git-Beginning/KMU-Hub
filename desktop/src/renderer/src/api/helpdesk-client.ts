@@ -30,6 +30,8 @@ import type {
   CreateRoutingRuleInput,
   UpdateRoutingRuleInput,
   HelpdeskStats,
+  BusinessHoursResponse,
+  UpdateBusinessHoursInput,
 } from './helpdesk-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 import { normalizeWireTimestamps } from './wire-time'
@@ -268,6 +270,18 @@ export function updateRoutingRule(id: string, body: UpdateRoutingRuleInput) {
 
 export function deleteRoutingRule(id: string) {
   return request<void>({ method: 'DELETE', path: `${BASE}/routing-rules/${id}` })
+}
+
+// ---------------------------------------------------------------------------
+// Business Hours
+// ---------------------------------------------------------------------------
+
+export function getBusinessHours() {
+  return request<BusinessHoursResponse>({ method: 'GET', path: `${BASE}/business-hours` })
+}
+
+export function updateBusinessHours(body: UpdateBusinessHoursInput) {
+  return request<BusinessHoursResponse>({ method: 'PUT', path: `${BASE}/business-hours`, body })
 }
 
 // ---------------------------------------------------------------------------

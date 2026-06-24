@@ -1,13 +1,14 @@
 /**
- * Open Tickets widget — open/in-progress tickets with SLA status.
+ * Open Tickets widget — open/pending tickets with SLA status.
  *
  * Module: helpdesk
- * Data: useHelpdeskStore (Zustand, localStorage-persisted mock data).
+ * Data: useTickets() real API hook (was: useHelpdeskStore mock).
  */
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TicketCheck, AlertCircle } from 'lucide-react'
-import { useHelpdeskStore, slaLabel } from '@/stores/helpdesk'
+import { useTickets } from '@/api/hooks/useHelpdesk'
+import { wireTicketToDisplay, wirePriorityToDisplay } from '@/api/helpdesk-adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -15,25 +16,31 @@ const PRIORITY_BADGE: Record<string, string> = {
   high:     'bg-warning/15 text-warning',
   medium:   'bg-amber-500/15 text-amber-600',
   low:      'bg-muted text-muted-foreground',
+  // wire priorities (fallback in case conversion is bypassed)
+  urgent:   'bg-destructive/15 text-destructive',
+  normal:   'bg-amber-500/15 text-amber-600',
 }
 
 function OpenTickets(_props: WidgetProps) {
   const { t } = useTranslation()
-  const tickets = useHelpdeskStore((s) => s.tickets)
+  // Fetch open + pending tickets from real API (page 1, up to 20)
+  const { data: openData } = useTickets({ status: 'open', page_size: 20 })
+  const { data: pendingData } = useTickets({ status: 'pending', page_size: 20 })
 
-  const open = useMemo(
-    () =>
-      tickets
-        .filter((tk) => tk.status === 'open' || tk.status === 'in_progress')
-        .sort((a, b) => {
-          // Sort: SLA-overdue first, then by priority
-          if (a.slaOverdue !== b.slaOverdue) return a.slaOverdue ? -1 : 1
-          const pOrder = { critical: 0, high: 1, medium: 2, low: 3 }
-          return (pOrder[a.priority] ?? 4) - (pOrder[b.priority] ?? 4)
-        })
-        .slice(0, 8),
-    [tickets],
-  )
+  const open = useMemo(() => {
+    const openTickets = (openData?.tickets ?? []).map(wireTicketToDisplay)
+    const pendingTickets = (pendingData?.tickets ?? []).map(wireTicketToDisplay)
+    const combined = [...openTickets, ...pendingTickets]
+
+    return combined
+      .sort((a, b) => {
+        // SLA-overdue first, then by priority
+        if (a.slaOverdue !== b.slaOverdue) return a.slaOverdue ? -1 : 1
+        const pOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+        return (pOrder[a.priority] ?? 4) - (pOrder[b.priority] ?? 4)
+      })
+      .slice(0, 8)
+  }, [openData, pendingData])
 
   const overdueCount = useMemo(
     () => open.filter((tk) => tk.slaOverdue).length,
@@ -75,35 +82,38 @@ function OpenTickets(_props: WidgetProps) {
 
       {/* Ticket list */}
       <div className="flex-1 overflow-auto divide-y divide-border">
-        {open.map((tk) => (
-          <div
-            key={tk.id}
-            className="flex items-start gap-3 px-4 py-2 hover:bg-accent/50 transition-colors"
-            data-testid="open-ticket-row"
-          >
-            <div className="min-w-0 flex-1">
-              <p
-                className="text-xs font-medium text-foreground truncate"
-                data-testid="open-ticket-subject"
-              >
-                {tk.subject}
-              </p>
-              <div className="mt-0.5 flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">{tk.ticketNr}</span>
-                {tk.slaOverdue && (
-                  <span className="text-[10px] font-semibold text-destructive">
-                    {slaLabel(t, tk)}
-                  </span>
-                )}
-              </div>
-            </div>
-            <span
-              className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_BADGE[tk.priority] ?? PRIORITY_BADGE.low}`}
+        {open.map((tk) => {
+          const displayPriority = wirePriorityToDisplay(tk.priority as 'low' | 'normal' | 'high' | 'urgent') ?? tk.priority
+          return (
+            <div
+              key={tk.id}
+              className="flex items-start gap-3 px-4 py-2 hover:bg-accent/50 transition-colors"
+              data-testid="open-ticket-row"
             >
-              {t(`dashboard.openTickets.priority.${tk.priority}`)}
-            </span>
-          </div>
-        ))}
+              <div className="min-w-0 flex-1">
+                <p
+                  className="text-xs font-medium text-foreground truncate"
+                  data-testid="open-ticket-subject"
+                >
+                  {tk.subject}
+                </p>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">{tk.ticketNr}</span>
+                  {tk.slaOverdue && (
+                    <span className="text-[10px] font-semibold text-destructive">
+                      {t('helpdesk.sla.overdue')}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_BADGE[displayPriority] ?? PRIORITY_BADGE.low}`}
+              >
+                {t(`dashboard.openTickets.priority.${displayPriority}`)}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

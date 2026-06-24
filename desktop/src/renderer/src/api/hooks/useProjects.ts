@@ -234,6 +234,21 @@ export function useArchiveProject() {
   })
 }
 
+export function useDeleteProject() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await apiClient.DELETE('/api/v1/projects/{id}', {
+        params: { path: { id } },
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Member mutations
 // ---------------------------------------------------------------------------

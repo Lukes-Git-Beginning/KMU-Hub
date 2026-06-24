@@ -4,7 +4,7 @@
  * Modal dialog for configuring support operating hours,
  * holidays, and timezone.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '@/lib/format'
 import {
@@ -24,12 +24,55 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import {
-  useHelpdeskStore,
   type BusinessDay,
   type Holiday,
   MOCK_BUSINESS_HOURS,
   MOCK_HOLIDAYS,
 } from '@/stores/helpdesk'
+import { useBusinessHours, useUpdateBusinessHours } from '@/api/hooks/useHelpdesk'
+import type { DaySchedule } from '@/api/helpdesk-types'
+
+// ---------------------------------------------------------------------------
+// Wire ↔ local-state conversion helpers
+// ---------------------------------------------------------------------------
+
+/** Convert API wire schedule_json to BusinessDay[] for the form. */
+function wireScheduleToForm(scheduleJson: string): BusinessDay[] {
+  try {
+    const map = JSON.parse(scheduleJson) as Record<string, DaySchedule>
+    return MOCK_BUSINESS_HOURS.map((def) => {
+      const entry = map[def.day]
+      return entry
+        ? { day: def.day, active: entry.active, start: entry.start, end: entry.end }
+        : { ...def }
+    })
+  } catch {
+    return MOCK_BUSINESS_HOURS.map((d) => ({ ...d }))
+  }
+}
+
+/** Convert BusinessDay[] form state to schedule_json for the API. */
+function formScheduleToWire(hours: BusinessDay[]): string {
+  const map: Record<string, DaySchedule> = {}
+  for (const d of hours) {
+    map[d.day] = { active: d.active, start: d.start, end: d.end }
+  }
+  return JSON.stringify(map)
+}
+
+/** Convert API wire holidays_json to Holiday[] for the form. */
+function wireHolidaysToForm(holidaysJson: string): Holiday[] {
+  try {
+    return JSON.parse(holidaysJson) as Holiday[]
+  } catch {
+    return MOCK_HOLIDAYS.map((h) => ({ ...h }))
+  }
+}
+
+/** Convert Holiday[] form state to holidays_json for the API. */
+function formHolidaysToWire(holidays: Holiday[]): string {
+  return JSON.stringify(holidays)
+}
 
 // ---------------------------------------------------------------------------
 // Timezone options (DACH)
@@ -54,17 +97,29 @@ interface BusinessHoursDialogProps {
 
 export function BusinessHoursDialog({ open, onClose, embedded }: BusinessHoursDialogProps) {
   const { t } = useTranslation()
-  const { businessHours, holidays } = useHelpdeskStore()
-  const saveBusinessHours = useHelpdeskStore((s) => s.saveBusinessHours)
+  const { data: apiData } = useBusinessHours()
+  const updateMutation = useUpdateBusinessHours()
 
-  // Local editable state (clone from store/mock)
+  // Local editable state — initialised from API data, falls back to mock defaults.
   const [hours, setHours] = useState<BusinessDay[]>(() =>
-    (businessHours.length > 0 ? businessHours : MOCK_BUSINESS_HOURS).map((d) => ({ ...d }))
+    apiData?.schedule_json
+      ? wireScheduleToForm(apiData.schedule_json)
+      : MOCK_BUSINESS_HOURS.map((d) => ({ ...d }))
   )
   const [holidayList, setHolidayList] = useState<Holiday[]>(() =>
-    (holidays.length > 0 ? holidays : MOCK_HOLIDAYS).map((h) => ({ ...h }))
+    apiData?.holidays_json
+      ? wireHolidaysToForm(apiData.holidays_json)
+      : MOCK_HOLIDAYS.map((h) => ({ ...h }))
   )
-  const [timezone, setTimezone] = useState('Europe/Zurich')
+  const [timezone, setTimezone] = useState(apiData?.timezone ?? 'Europe/Zurich')
+
+  // Sync form when API data loads (first render may be before data arrives).
+  useEffect(() => {
+    if (!apiData) return
+    if (apiData.schedule_json) setHours(wireScheduleToForm(apiData.schedule_json))
+    if (apiData.holidays_json) setHolidayList(wireHolidaysToForm(apiData.holidays_json))
+    setTimezone(apiData.timezone ?? 'Europe/Zurich')
+  }, [apiData])
 
   // New holiday form
   const [newHolidayDate, setNewHolidayDate] = useState('')
@@ -98,9 +153,22 @@ export function BusinessHoursDialog({ open, onClose, embedded }: BusinessHoursDi
   }
 
   const handleSave = () => {
-    saveBusinessHours(hours, holidayList)
-    toast.success(t('helpdesk.businessHours.saved'))
-    onClose?.()
+    updateMutation.mutate(
+      {
+        schedule_json: formScheduleToWire(hours),
+        holidays_json: formHolidaysToWire(holidayList),
+        timezone,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('helpdesk.businessHours.saved'))
+          onClose?.()
+        },
+        onError: () => {
+          toast.error(t('common.errorGeneric'))
+        },
+      },
+    )
   }
 
   const body = (

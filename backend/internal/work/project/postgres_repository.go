@@ -146,6 +146,20 @@ func (r *PostgresRepository) Archive(ctx context.Context, projectID uuid.UUID, t
 	return nil
 }
 
+func (r *PostgresRepository) Delete(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM projects WHERE id = $1 AND tenant_id = $2`,
+		projectID, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) GetProjectKey(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) (string, error) {
 	var key string
 	err := r.pool.QueryRow(ctx,

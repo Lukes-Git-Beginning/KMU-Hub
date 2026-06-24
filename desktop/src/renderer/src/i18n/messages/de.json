@@ -10110,6 +10110,8 @@
   "work.settings.add": "Hinzufügen",
   "work.settings.archiveConfirm": "Möchten Sie dieses Projekt wirklich archivieren?",
   "work.settings.archiveProject": "Projekt archivieren",
+  "work.settings.deleteProject": "Projekt dauerhaft löschen",
+  "work.settings.deleteProjectConfirm": "Möchten Sie dieses Projekt wirklich dauerhaft löschen? Alle Aufgaben, Mitglieder und Statuse werden unwiderruflich entfernt.",
   "work.settings.deleteStatusConfirm": "Möchten Sie den Status «{name}» wirklich löschen?",
   "work.settings.description": "Einstellungen für {name}",
   "work.settings.fields.add": "Hinzufügen",

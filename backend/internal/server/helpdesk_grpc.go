@@ -670,6 +670,62 @@ func (s *HelpdeskGRPCServer) DeleteRoutingRule(ctx context.Context, req *helpdes
 }
 
 // ============================================================================
+// Business Hours (2 RPCs)
+// ============================================================================
+
+func (s *HelpdeskGRPCServer) GetBusinessHours(ctx context.Context, req *helpdeskv1.GetBusinessHoursRequest) (*helpdeskv1.BusinessHoursResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+	bh, err := s.svc.GetBusinessHours(ctx, tenantID)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	return businessHoursToProto(bh), nil
+}
+
+func (s *HelpdeskGRPCServer) UpdateBusinessHours(ctx context.Context, req *helpdeskv1.UpdateBusinessHoursRequest) (*helpdeskv1.BusinessHoursResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+
+	var schedule map[string]helpdesk.DaySchedule
+	if s := req.GetScheduleJson(); s != "" {
+		if err := json.Unmarshal([]byte(s), &schedule); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid schedule_json: %v", err)
+		}
+	}
+	if schedule == nil {
+		schedule = map[string]helpdesk.DaySchedule{}
+	}
+
+	var holidays []helpdesk.HolidayEntry
+	if h := req.GetHolidaysJson(); h != "" {
+		if err := json.Unmarshal([]byte(h), &holidays); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid holidays_json: %v", err)
+		}
+	}
+	if holidays == nil {
+		holidays = []helpdesk.HolidayEntry{}
+	}
+
+	bh := &helpdesk.BusinessHours{
+		TenantID: tenantID,
+		Schedule: schedule,
+		Holidays: holidays,
+		Timezone: req.GetTimezone(),
+	}
+	updated, err := s.svc.UpsertBusinessHours(ctx, bh)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	slog.InfoContext(ctx, "helpdesk: business hours updated via grpc", "tenant_id", tenantID)
+	return businessHoursToProto(updated), nil
+}
+
+// ============================================================================
 // Stats (1 RPC)
 // ============================================================================
 
@@ -825,6 +881,23 @@ func routingRuleToProto(rr *helpdesk.RoutingRule) *helpdeskv1.RoutingRule {
 	if rr.TargetQueueID != nil {
 		s := rr.TargetQueueID.String()
 		msg.TargetQueueId = &s
+	}
+	return msg
+}
+
+func businessHoursToProto(bh *helpdesk.BusinessHours) *helpdeskv1.BusinessHoursResponse {
+	msg := &helpdeskv1.BusinessHoursResponse{
+		TenantId: bh.TenantID.String(),
+		Timezone: bh.Timezone,
+	}
+	if !bh.UpdatedAt.IsZero() {
+		msg.UpdatedAt = timestamppb.New(bh.UpdatedAt)
+	}
+	if raw, err := json.Marshal(bh.Schedule); err == nil {
+		msg.ScheduleJson = string(raw)
+	}
+	if raw, err := json.Marshal(bh.Holidays); err == nil {
+		msg.HolidaysJson = string(raw)
 	}
 	return msg
 }
