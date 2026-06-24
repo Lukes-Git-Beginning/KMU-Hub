@@ -6789,7 +6789,8 @@ export interface paths {
         /** Update an SLA policy */
         put: operations["updateSLAPolicy"];
         post?: never;
-        delete?: never;
+        /** Delete an SLA policy */
+        delete: operations["deleteSLAPolicy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6821,6 +6822,95 @@ export interface paths {
         };
         /** Get SLA status for a ticket */
         get: operations["getHelpdeskSLAStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/helpdesk/kb-articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List helpdesk knowledge-base articles */
+        get: operations["listHelpdeskKBArticles"];
+        put?: never;
+        /** Create a helpdesk knowledge-base article */
+        post: operations["createHelpdeskKBArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/helpdesk/kb-articles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a helpdesk knowledge-base article */
+        put: operations["updateHelpdeskKBArticle"];
+        post?: never;
+        /** Delete a helpdesk knowledge-base article */
+        delete: operations["deleteHelpdeskKBArticle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/helpdesk/routing-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List helpdesk ticket-routing rules */
+        get: operations["listHelpdeskRoutingRules"];
+        put?: never;
+        /** Create a helpdesk ticket-routing rule */
+        post: operations["createHelpdeskRoutingRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/helpdesk/routing-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a helpdesk ticket-routing rule */
+        put: operations["updateHelpdeskRoutingRule"];
+        post?: never;
+        /** Delete a helpdesk ticket-routing rule */
+        delete: operations["deleteHelpdeskRoutingRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/helpdesk/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get helpdesk dashboard statistics */
+        get: operations["getHelpdeskStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6964,6 +7054,76 @@ export interface paths {
         put?: never;
         /** Create a wiki category */
         post: operations["createWikiCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wiki/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a wiki category */
+        delete: operations["deleteWikiCategory"];
+        options?: never;
+        head?: never;
+        /** Update a wiki category */
+        patch: operations["updateWikiCategory"];
+        trace?: never;
+    };
+    "/api/v1/wiki/articles/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List share tokens for a wiki article */
+        get: operations["listWikiShareTokens"];
+        put?: never;
+        /** Create a share token for a wiki article */
+        post: operations["createWikiShareToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wiki/share/{tokenId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a wiki article share token */
+        delete: operations["revokeWikiShareToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wiki/versions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single wiki article version */
+        get: operations["getWikiVersion"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -20991,6 +21151,30 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    deleteSLAPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SLA policy deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     applySLAPolicy: {
         parameters: {
             query?: never;
@@ -21047,6 +21231,257 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listHelpdeskKBArticles: {
+        parameters: {
+            query?: {
+                category?: string;
+                status?: "draft" | "published";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description KB article list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createHelpdeskKBArticle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    content?: string;
+                    category?: string;
+                    /** @enum {string} */
+                    status?: "draft" | "published";
+                };
+            };
+        };
+        responses: {
+            /** @description KB article created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateHelpdeskKBArticle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    content?: string;
+                    category?: string;
+                    /** @enum {string} */
+                    status?: "draft" | "published";
+                };
+            };
+        };
+        responses: {
+            /** @description KB article updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteHelpdeskKBArticle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description KB article deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listHelpdeskRoutingRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Routing rule list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createHelpdeskRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @description JSON-encoded condition object */
+                    conditions?: string;
+                    /** Format: uuid */
+                    target_queue_id?: string;
+                    priority?: number;
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Routing rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateHelpdeskRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    conditions?: string;
+                    /** Format: uuid */
+                    target_queue_id?: string;
+                    priority?: number;
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Routing rule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteHelpdeskRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Routing rule deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getHelpdeskStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Helpdesk statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listWikiArticles: {
@@ -21399,6 +21834,164 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteWikiCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Category deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateWikiCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    parent_id?: string;
+                    position?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Category updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWikiShareTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share token list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createWikiShareToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    expires_at?: string;
+                    permissions?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Share token created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    revokeWikiShareToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share token revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getWikiVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listShifts: {
