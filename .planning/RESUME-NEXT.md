@@ -1,4 +1,31 @@
-# RESUME — nächster Einstieg (Stand 2026-06-23, Session-Ende #2)
+# RESUME — nächster Einstieg (Stand 2026-06-25, Session-Ende #4)
+
+> **★★★ SESSION-ENDE 2026-06-25 #4 — main `2c7cbd2a` (+ Sub-Merge pending). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **⚠ NEUE REGEL (Luke): CI-grün beim Push → AUTO-DEPLOY auf Hetzner.** Jeder Push MUSS CI-grün sein. Desktop-CI (`ci-desktop.yml`) = `eslint src/` + `npx tsc --noEmit` (full, ~3,5min grün) + `vitest` + `npm run build`. Vor JEDEM Push lokal grün fahren (eslint auf geänderte Dateien reicht meist; full-tsc ist grün). [[feedback_hetzner_review_workflow]]
+>
+> **Diese Session gebaut (alles gepusht, CI-grün):**
+> 1. **Welle 1 stark vorangetrieben — self-doable Modul-Echt-Schaltung praktisch DURCH.** Neu echt-verkabelt + live verifiziert: **documents** (READ, `5e6c14ef` — 5 Wire-Drifts FE-tolerant gefixt) · **calendar** (`a943937d`, Luke-verdrahtet, work-Service up) · **wiki** (`a6cf212b` — Crash-Bug `r.articles.map()` ohne Guard gefixt) · **automatisierung/berichte/kommunikation-chat** (`85f2d24b`, Services gebaut+verifiziert, keine FE-Fixes nötig). **~16 Module echt-verkabelt.**
+> 2. **settings X-4 Referenz-Muster** (`cc5d930d`) — dokumente-Tenant-Settings store-direct → Backend (`/settings/dokumente/tenant`, Migr.138), `initFromServer`+Write-Through, end-to-end verifiziert (localStorage gewiped → hydratet aus Backend). **Rollout auf ~12 weitere Stores = self-doable Rest.**
+> 3. **6 mock-verdeckte Bugs gefunden+gefixt** (FE-tolerant) + **2 Deploy-Blocker für Luke** (Feature-Flags X-7 + helpdesk-tenant).
+>
+> **★ FEATURE-FLAGS (X-7, deploy-kritisch):** helpdesk/wiki/berichte/formulare/vertraege/video/Branchen hängen im Gateway an `COSMI_MODULE_*_ENABLED` (default OFF). Lokal aktiviert via **`deploy/docker/docker-compose.flags.yml`** (untracked Override — beim Gateway-Start `-f docker-compose.yml -f docker-compose.flags.yml`). **Prod muss die Flags in `.env.production` setzen, sonst deployt der Auto-Deploy ohne diese Module.**
+>
+> **★ SUB-TERMINAL (parallel/admin):** baut `admin` mock-first (Benutzer/RBAC/Lizenz/Branding), A-0-Gate beantwortet, A-1 freigegeben. Paket `.planning/parallel-batch/sub-admin.md`, QA-Log `qa-admin.md`. **OFFEN: wenn Sub fertig → `parallel/admin` in main mergen** (i18n/registry/handlers additiv behalten, dann `npm run build`).
+>
+> **★ 2 LUKE-TEXTE rausgegeben** (Darien verschickt): (a) Welle-1-Blocker (helpdesk-tenant/security-DSGVO/mails-IMAP/inbox/documents-Wire/Feature-Flags) · (b) Vorausschau Welle 2/3 (admin-Stack/settings-OAuth/profil-S3/security + Onboarding=FE-only). Beide persistiert in `backend-gaps.md` (oben „🔭 Vorausschau" + „Echt-Schaltung-Befunde").
+>
+> **NÄCHSTE UNIT (Vorschlag, ~Welle 2+3 fast komplett self-doable):** Welle 2 ~80% ohne Luke (admin via Sub + **Demo-Tiefe-Phasen** notifications/formulare/dialer/video + Tiefe-Re-Checks kontakte/calendar/dokumente/zeiterfassung + **settings-Tabs P2** + **X-4-Rollout** ~12 Stores) · Welle 3 ~95–100% (Onboarding/Info-Center = reines FE). Luke-gebunden bleibt nur: settings-OAuth (P4) + security-DSGVO-Echt-Schaltung.
+>
+> **DOCKER-STACK läuft** (13 Services: postgres/redis/auth/crm/gateway/dialer/biz/minio/document/work/helpdesk/wiki + automation/berichte/chat). Gateway läuft mit Flags-Override. Falls weg: hochfahren + Gateway mit `-f docker-compose.flags.yml` recreaten + bei neuem Service Gateway-Restart (Service-Discovery). **Nur Main fasst Docker an (OOM).**
+> **DEV-SERVER-QUIRK bleibt:** `electron-vite dev --mode localbackend` kam mehrmals flaky in MSW/Demo-Mode hoch (kein Login-Screen → QA-Timeout). Fix: sauber killen (`Get-NetTCPConnection -LocalPort 5173 | Stop-Process` + `Get-Process electron | Stop-Process`) + neu starten. **`--port`-Flag geht NICHT** (electron-vite CACError) — Sub nutzt 5173 oder env-gateten Port.
+> **Git-Hygiene offen:** `deploy/docker/docker-compose.flags.yml` (untracked, LOKAL behalten — nicht committen) · `desktop/scripts/qa-dialer-callflow.mjs` (untracked, vorbestehend).
+> **Master-Plan synchronisiert** (§0 Gesamtstand + §6 Bau-Status-Tabelle auf 25.06., ~16 echt-verkabelt). QA-Skripte: `qa-mock-exit-dokumente.mjs`, `qa-mock-exit-modules.mjs` (Multi-Route), `qa-settings-dokumente-persist.mjs`.
+
+---
+_(Historie #3 folgt)_
+
+# RESUME — Historie (Stand 2026-06-23, Session-Ende #2)
 
 > **★★ SESSION-ENDE 2026-06-24 #3 — main `156ca17a`, alles gepusht. NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >
