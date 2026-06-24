@@ -20,7 +20,11 @@
 - Kurz-Plan formulieren: welche Phasen, welche Lane, welche Backend-Abhängigkeiten (🔌 vorhanden / 🔒 fehlt).
 
 ### 3 · Recherchieren
-- **Markt-Recherche (PFLICHT bei Feature-/Demo-Tiefe-Phasen — Darien-Regel `feedback_market_driven_workflow`):** pro Bereich Web-Recherche der Markt-Parität führender Wettbewerber **bevor** gebaut wird → je eine **Pflicht-Minimum-** + **Differenzierer-Liste** + 3-5 priorisierte Empfehlungen. Quelle: `cosmi-modul-marktvergleich.txt` + Web (parallele Recherche-Agenten). **Ausnahme reine Echt-Schaltung** (MSW→Backend, kein Feature-Wechsel): entfällt — dann im Gate kurz vermerken „Echt-Schaltung, keine Markt-Recherche nötig".
+- **Markt-Recherche (PFLICHT bei Feature-/Demo-Tiefe-Phasen — Darien-Regel `feedback_market_driven_workflow`): ZWEI gleichwertige Achsen, BEIDE pflichtig, je Bereich, BEVOR gebaut wird.** Quelle: `cosmi-modul-marktvergleich.txt` + Web (parallele Recherche-Agenten).
+  - **Achse A — Funktion:** Markt-Parität führender Wettbewerber → **Pflicht-Minimum-** + **Differenzierer-Liste** + 3-5 priorisierte Empfehlungen.
+  - **Achse B — Gestaltung/Design:** **echte Screenshots/Layouts der Referenz-Tools ansehen** (WebSearch Images / Doku) → visuelle Hierarchie, Dichte, Interaktionsmuster (Modal/Drawer/Inline), Empty-States festhalten → **in Cosmi-Premium/Editorial übersetzen, NICHT kopieren** ([[feedback_design_philosophy]]). Design-Skills proaktiv nutzen (`frontend-design`/`arrange`/`critique`/`polish`).
+  - Ergebnis je Bereich: **getrennte Notizen Funktion + Gestaltung** + 1-2-Satz Cosmi-Übersetzung. **Gilt auch beim Schnüren von Sub-Terminal-Paketen** — das Paket muss BEIDE Achsen verlangen (2026-06-25 gehärtet: war erst funktions-lastig).
+  - **Ausnahme reine Echt-Schaltung** (MSW→Backend, kein Feature-/UI-Wechsel): entfällt — dann im Gate kurz vermerken „Echt-Schaltung, keine Markt-Recherche nötig".
 - Pro Modul/Phase: Ist-Stand im Code (Page/Store/Hook/MSW-Handler).
 - **Backend-Check (PFLICHT, Darien-Regel):** existiert der Endpoint (proto + gRPC + Route + Migration)?
   - **Ja → direkt ans echte Backend hängen** (🔌, kein neuer Mock).
