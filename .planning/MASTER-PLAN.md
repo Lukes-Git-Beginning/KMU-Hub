@@ -75,8 +75,8 @@
 **notifications** — ✅ N-1…N-5 · MSW + DND-Routes echt
 - [ ] Echt-Schaltung 🔌 + Bugfix: `priority`-Mismatch (FE `high` vs DB `urgent|normal|low`) + Spalten `is_pinned/is_dismissed/actor_name` nachziehen · [ ] P4 Real-Time WebSocket 🔒 · [ ] P5 Multi-Channel (E-Mail-Digest/Push) 🔒 · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
 
-**kommunikation/chat** — ✅ KO-1…KO-10 (Paket A review-reif) · Team-Chat teils echt, Inbox MSW
-- [ ] ci-desktop-Bug fixen (`ChatFlow.test.tsx` 7/12 rot) · [ ] Inbox echt 🔒 (Status/Threading/Tags/Forward/Canned/interne Notizen — alles FE-Overlay) · [ ] Chat-Reactions+Volltextsuche Backend 🔒 · [ ] P4 Audio/Video-Bridge 🔒 · [ ] **Review-Gate**
+**kommunikation/chat** — ✅ KO-1…KO-10 (Paket A review-reif) · **Team/chat echt-verifiziert 25.06.**, Inbox = Luke
+- [x] **Team/chat echt 🔌** — chat-Service up, `/channels` 200, Team-Tab rendert sauber (kein Crash/Raw-Key) · [ ] **Inbox 🔒 Luke** — liegt im notification-Service (nicht im Stack); `/inbox/messages/unread-count` → 400 „invalid id" (matcht `/inbox/messages/{id}` → Pfad-Drift/fehlende dedizierte Route; FE degradiert sauber). Inbox-Backend + notification-Service nötig. · [ ] ci-desktop-Bug fixen (`ChatFlow.test.tsx` 7/12 rot) (Status/Threading/Tags/Forward/Canned/interne Notizen — alles FE-Overlay) · [ ] Chat-Reactions+Volltextsuche Backend 🔒 · [ ] P4 Audio/Video-Bridge 🔒 · [ ] **Review-Gate**
 
 **mails** — ✅ P1 komplett (review-reif), vollständig MSW
 - [ ] P2 IMAP/SMTP echtes Backend 🔒 (Multi-Account, Unified Inbox, Regeln/Filter, Templates) · [ ] P3 Exchange/EWS 🔒 (Post-MVP) · [ ] P4 PGP 🔒 (Post-MVP) · [ ] **Review-Gate**
@@ -104,8 +104,8 @@
 **formulare** — ✅ F/FD/FT/FO-Batches · MSW
 - [ ] FO-Lücken 3/5/7/9 (Webhooks/Embedding/Analytics) verifizieren · [ ] Öffentlicher Submit-Endpoint 🔒 · [ ] File-Upload-Feldtyp 🔒 · [ ] Submission-Mail/Webhook 🔒 · [ ] P4 Zahlungen/E-Signatur 🔒 · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
 
-**berichte** — ✅ R-0…R-6 + Charts/Export + E-0…E-5 Builder (🔁 Darien-Review)
-- [ ] Server-PDF-Download 🔒 · [ ] Cron-Executor+Mailer 🔒 · [ ] Sparkline-Normalisierung + Linienfarbe-folgt-Badge (Feinschliff) · [ ] P4 DATEV-EXTF/externe BI 🔒 · [ ] **Darien-Review → Review-Gate**
+**berichte** — ✅ R-0…R-6 + Charts/Export + E-0…E-5 Builder · **echt-verifiziert 25.06.** (🔁 Darien-Review)
+- [x] **Echt-Schaltung 🔌** — berichte-Service up (Flag `COSMI_MODULE_BERICHTE_ENABLED`, X-7), `/berichte/definitions` liefert echte Daten (Seed „Umsatz Monatlich"), Dashboard/Berichte/Geplant/DATEV-Tabs rendern sauber, keine Crashes/Raw-Keys. · [ ] Server-PDF-Download 🔒 · [ ] Cron-Executor+Mailer 🔒 · [ ] Sparkline-Normalisierung + Linienfarbe-folgt-Badge (Feinschliff) · [ ] P4 DATEV-EXTF/externe BI 🔒 · [ ] **Darien-Review → Review-Gate**
 
 **team** — ✅ TM-1…TM-5 (review-reif)
 - [ ] Auth-User-Invite-Flow echt 🔒 · [ ] P2 Organigramm editierbar + Leave-Typen · [ ] P3 DATEV-Lohn (LODAS) 🔒 · [ ] P4 HR-Selfservice · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
@@ -138,7 +138,7 @@
 **admin** — ⬜ AdminHub-Tabs-Gerüst, überwiegend Stub
 - [ ] 🔁 Tiefe der Tabs verifizieren · [ ] P1 Benutzerverwaltung (Liste/Einladen/Rolle/Deaktivieren) 🔒 · [ ] P2 RBAC-Matrix + Modul-Leiter verwaltbar · [ ] P3 Abo/Lizenz real 🔒 · [ ] P4 Branding persistent 🔒 · [ ] P5 Ressourcen-Monitoring 🔒 · [ ] Demo-Tiefe · [ ] **Review-Gate**
 
-**automatisierung** — ✅ A-1…A-5 (review-reif) · MSW
+**automatisierung** — ✅ A-1…A-5 (review-reif) · **echt-verifiziert 25.06.** (Service up, `/automations` 200, Empty-State rendert sauber, keine Crashes/Raw-Keys, keine FE-Fixes nötig)
 - [ ] P1 Backend-CRUD echt 🔒 · [ ] P2 Flow-Editor Branching/Loop · [ ] P3 Webhook-Inbound + http_request-Action 🔒 · [ ] P4 Modul-übergreifend + Permissions · [ ] P5 Template-Marktplatz · [ ] Demo-Tiefe · [ ] **Review-Gate**
 
 ---
