@@ -59,3 +59,17 @@
 **Konsolidierung (Darien-Antwort 2):** Der „Berechtigungen"-Subtab in `settings/tabs/ITAdminTab.tsx` (`PermissionsSection`) ist eine **Fake**-Matrix (falsche Rollen `Admin/Manager/Mitarbeiter/Extern`, kein Persist, „Speichern"=Toast). Liegt in `settings/` (TABU) → **nicht angetastet**; die A-2-Matrix ist jetzt die kanonische. **→ Coordination: settings/Main-Lane sollte den Legacy-Subtab entfernen** (sonst zwei Permission-UIs im Hub).
 
 **Offen für Luke:** echte RBAC-Persistenz/Enforcement im Gateway (Capability-Grants pro Rolle).
+
+---
+
+## A-3 — Lizenz / Modul-Aktivierung ✅ (3/5)
+
+**Gebaut:** Neuer Tab **„Lizenz"** (`/admin/license`, 3. Tab) — Provisioning-Layer **neben** dem read-only Billing-Tab (kein Kosten-View dupliziert).
+- `mocks/data/admin-license.ts` (24 Module mit Gruppe + active + assignedSeats, 17 aktiv / 7 inaktiv), Contract `TenantModule`/`LicenseResponse`/`ToggleModuleInput` in `api/admin-types.ts`, Hooks `api/hooks/useTenantModules.ts` (GET + optimistisches Toggle).
+- `mocks/handlers/admin.ts`: GET `/api/v1/admin/license`, PATCH (Modul an/aus; Deaktivieren gibt Seats frei).
+- UI `modules/admin/license/`: `LicenseAdminHubTab` (3 Übersichtskarten: Plan `useTenant` + Status + Verlängerung, **Seat-Bar** `useAdminUsers` amber/rot, Aktive-Module-Zähler) + gruppiertes Modul-Karten-Grid (Kern/Kommunikation/Team/Branche/Tools), aktive Karten solide + Seat-Count + grüner Switch, **inaktive gestrichelt/gedimmt + „Nicht aktiviert"**. `moduleMeta.ts` mappt Modul→`layout.navItems.*`-Label (kein team-Import). `@/lib/pricing` `MODULE_PRICES` konsumiert (Preis-Chip).
+- i18n: 22 Keys/Sprache (`admin.license.*` + `admin.hub.tabs.license`, ICU-Plural `assigned`), 4 Sprachen via `scripts/add-admin-license-i18n.mjs`.
+
+**Verify (Screenshots angesehen, :5174):** Build EXIT 0, ESLint 0 (prefer-const-Fix). DE+EN **0 Raw-Keys / 0 `{{var}}` / 0 Console-Errors**. **Seats 13/14 konsistent mit A-1** (11 aktiv + 2 eingeladen), Aktive-Module 17/24, Verlängerungsdatum lokalisiert. **Toggle wirkt optimistisch + persistiert** (Schichtplanung aktiviert, überlebt Navigation /admin/roles → zurück). Inaktive Karten visuell klar getrennt (dashed/dimmed).
+
+**Offen für Luke:** echte tenant-weite Modul-Lizenzierung/Provisioning + Seat-Enforcement.

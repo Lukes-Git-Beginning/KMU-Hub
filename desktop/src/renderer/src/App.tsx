@@ -240,6 +240,7 @@ const router = createHashRouter([
       // Admin Hub — neue /admin/* Routen
       { path: 'admin/users', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/roles', element: lazyRoute(AdminHubPage, 'adminhub') },
+      { path: 'admin/license', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/it', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/security', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/billing', element: lazyRoute(AdminHubPage, 'adminhub') },

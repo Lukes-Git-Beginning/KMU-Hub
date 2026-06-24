@@ -51,3 +51,26 @@ export interface SetPermissionInput {
   role: RoleId
   granted: boolean
 }
+
+// ── Licensing / module activation (A-3) ─────────────────────────────────────
+
+export type ModuleGroupId = 'core' | 'comm' | 'team' | 'industry' | 'tools'
+
+/** Tenant-wide activation state for one Cosmi module (the provisioning layer). */
+export interface TenantModule {
+  /** Matches `ModuleId` from @/lib/pricing. */
+  moduleId: string
+  group: ModuleGroupId
+  active: boolean
+  /** How many users currently have this module assigned. */
+  assignedSeats: number
+}
+
+export interface LicenseResponse {
+  modules: TenantModule[]
+}
+
+export interface ToggleModuleInput {
+  moduleId: string
+  active: boolean
+}

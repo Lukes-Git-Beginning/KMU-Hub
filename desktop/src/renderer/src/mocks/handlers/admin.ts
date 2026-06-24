@@ -14,15 +14,17 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import type { RoleId } from '@/config/roles'
-import type { AdminUser, AdminUserStatus, PermissionMatrix } from '@/api/admin-types'
+import type { AdminUser, AdminUserStatus, PermissionMatrix, TenantModule } from '@/api/admin-types'
 import { seedAdminUsers } from '../data/admin-users'
 import { PERMISSION_GROUPS, seedPermissionMatrix } from '../data/admin-permissions'
+import { seedTenantModules } from '../data/admin-license'
 
 const API = API_BASE_URL
 
 // ── In-memory state (stateful for the session) ──────────────────────────────
 let adminUsers: AdminUser[] = seedAdminUsers()
 let permissionMatrix: PermissionMatrix = seedPermissionMatrix()
+const tenantModules: TenantModule[] = seedTenantModules()
 
 const VALID_ROLES: RoleId[] = ['admin', 'manager', 'member', 'hr', 'it_support']
 
@@ -126,5 +128,25 @@ export const adminHandlers = [
       permissionMatrix = { ...permissionMatrix, [capabilityId]: row }
     }
     return HttpResponse.json({ matrix: permissionMatrix })
+  }),
+
+  // ── Licensing: tenant module activation (A-3) ───────────────────────────────
+  http.get(`${API}/api/v1/admin/license`, () => {
+    return HttpResponse.json({ modules: tenantModules })
+  }),
+
+  http.patch(`${API}/api/v1/admin/license`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      moduleId?: string
+      active?: boolean
+    }
+    const mod = tenantModules.find((m) => m.moduleId === body.moduleId)
+    if (!mod) return HttpResponse.json({ error: 'not_found' }, { status: 404 })
+    if (typeof body.active === 'boolean') {
+      mod.active = body.active
+      // Deactivating a module releases its assigned seats in the demo model.
+      if (!body.active) mod.assignedSeats = 0
+    }
+    return HttpResponse.json({ module: mod })
   }),
 ]
