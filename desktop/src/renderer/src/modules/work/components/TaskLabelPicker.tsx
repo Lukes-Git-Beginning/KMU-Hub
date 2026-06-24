@@ -1,9 +1,15 @@
 /**
  * TaskLabelPicker — popover to assign/unassign labels on a task.
  *
- * Lists the tenant label taxonomy (stores/workSettings) with a checkbox toggle
- * per label, writing assignments to stores/taskLabels. Labels are managed under
- * module settings → "Für alle" → Label-Taxonomie.
+ * Taxonomy source: real backend via useWorkLabels (GET /api/v1/work/labels).
+ * Assignment persistence: stores/taskLabels (local Zustand store).
+ *
+ * Assignment-to-backend gap:
+ *   PUT /api/v1/tasks/{id}/labels expects a real UUID for {id}.
+ *   The current task board still uses synthetic IDs (tsk-001 etc.) from the
+ *   MSW mock layer. Once tasks are wired to the real backend (useTask hook
+ *   returns real UUIDs), replace the toggleLabel store call with
+ *   useSetTaskLabels().mutate({ taskId, labelIds: nextIds }).
  */
 import { useTranslation } from 'react-i18next'
 import { Tag, Plus, Check } from 'lucide-react'
@@ -14,7 +20,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useTaskLabelsStore } from '@/stores/taskLabels'
-import { useWorkSettingsStore } from '@/stores/workSettings'
+import { useWorkLabels } from '@/api/hooks/useWorkLabels'
 
 const EMPTY: string[] = []
 
@@ -28,7 +34,8 @@ export default function TaskLabelPicker({ taskId, children }: TaskLabelPickerPro
   const { t } = useTranslation()
   const assigned = useTaskLabelsStore((s) => s.byTask[taskId]) ?? EMPTY
   const toggleLabel = useTaskLabelsStore((s) => s.toggleLabel)
-  const labels = useWorkSettingsStore((s) => s.labels)
+  const { data } = useWorkLabels()
+  const labels = data?.labels ?? []
 
   return (
     <Popover>

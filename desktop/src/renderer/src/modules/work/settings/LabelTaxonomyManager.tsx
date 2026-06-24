@@ -2,24 +2,37 @@
  * LabelTaxonomyManager — tenant-wide task label administration.
  *
  * Embedded in the work settings panel. List/create/rename/recolour/delete label
- * definitions. P3 builds the task chip UI + filter on this taxonomy.
- * Mock-first (stores/workSettings); backend gap tracked in backend-gaps.md.
+ * definitions. Wired to the real backend via useWorkLabels hooks.
+ *
+ * Endpoints:
+ *   GET    /api/v1/work/labels
+ *   POST   /api/v1/work/labels
+ *   PUT    /api/v1/work/labels/{id}
+ *   DELETE /api/v1/work/labels/{id}
+ *
+ * RBAC: work_labels:read / write / delete (seeded in migration 000147).
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Tags as TagsIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { useWorkSettingsStore, type WorkLabel } from '@/stores/workSettings'
-import { useTaskLabelsStore } from '@/stores/taskLabels'
+import type { WorkLabel } from '@/api/work-labels-client'
+import {
+  useWorkLabels,
+  useCreateWorkLabel,
+  useUpdateWorkLabel,
+  useDeleteWorkLabel,
+} from '@/api/hooks/useWorkLabels'
 import { ConfirmDialog, ColorSwatchPicker, SWATCH_COLORS } from '@/components/shared'
 
 export function LabelTaxonomyManager() {
   const { t } = useTranslation()
-  const labels = useWorkSettingsStore((s) => s.labels)
-  const addLabel = useWorkSettingsStore((s) => s.addLabel)
-  const updateLabel = useWorkSettingsStore((s) => s.updateLabel)
-  const removeLabel = useWorkSettingsStore((s) => s.removeLabel)
-  const purgeLabelFromTasks = useTaskLabelsStore((s) => s.purgeLabel)
+  const { data, isLoading } = useWorkLabels()
+  const labels = data?.labels ?? []
+
+  const createLabel = useCreateWorkLabel()
+  const updateLabel = useUpdateWorkLabel()
+  const deleteLabel = useDeleteWorkLabel()
 
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
@@ -29,20 +42,34 @@ export function LabelTaxonomyManager() {
   const handleAdd = () => {
     const name = newName.trim()
     if (!name) return
-    addLabel(name, newColor)
-    toast.success(t('work.settings.labels.added', { name }))
-    setNewName('')
-    setNewColor(SWATCH_COLORS[0])
-    setAdding(false)
+    createLabel.mutate(
+      { name, color: newColor },
+      {
+        onSuccess: () => {
+          toast.success(t('work.settings.labels.added', { name }))
+          setNewName('')
+          setNewColor(SWATCH_COLORS[0])
+          setAdding(false)
+        },
+        onError: () => toast.error(t('common.error')),
+      },
+    )
   }
 
   const handleDelete = () => {
     if (!deleteTarget) return
     const name = deleteTarget.name
-    purgeLabelFromTasks(deleteTarget.id)
-    removeLabel(deleteTarget.id)
-    toast.success(t('work.settings.labels.deleted', { name }))
-    setDeleteTarget(null)
+    deleteLabel.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast.success(t('work.settings.labels.deleted', { name }))
+        setDeleteTarget(null)
+      },
+      onError: () => toast.error(t('common.error')),
+    })
+  }
+
+  if (isLoading) {
+    return <div className="h-8 animate-pulse rounded bg-secondary" />
   }
 
   return (
@@ -64,14 +91,17 @@ export function LabelTaxonomyManager() {
               <ColorSwatchPicker
                 value={label.color}
                 size={16}
-                onChange={(color) => updateLabel(label.id, { color })}
+                onChange={(color) =>
+                  updateLabel.mutate({ id: label.id, name: label.name, color })
+                }
               />
               <input
                 defaultValue={label.name}
                 key={`${label.id}-${label.name}`}
                 onBlur={(e) => {
                   const v = e.target.value.trim()
-                  if (v && v !== label.name) updateLabel(label.id, { name: v })
+                  if (v && v !== label.name)
+                    updateLabel.mutate({ id: label.id, name: v, color: label.color })
                 }}
                 className="w-24 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-foreground outline-none hover:border-border focus:border-primary"
               />

@@ -1,12 +1,14 @@
 /**
  * TaskLabelChips — renders the labels assigned to a task as tinted colour chips.
  *
- * Resolves the task's label ids (stores/taskLabels) against the tenant label
- * taxonomy (stores/workSettings). Renders nothing when the task has no labels.
+ * Taxonomy source: real backend via useWorkLabels (GET /api/v1/work/labels).
+ * Assignment source: stores/taskLabels (local Zustand store).
+ *
+ * See TaskLabelPicker.tsx for the assignment-to-backend migration note.
  */
 import { cn } from '@/lib'
 import { useTaskLabelsStore } from '@/stores/taskLabels'
-import { useWorkSettingsStore } from '@/stores/workSettings'
+import { useWorkLabels } from '@/api/hooks/useWorkLabels'
 
 const EMPTY: string[] = []
 
@@ -20,7 +22,8 @@ interface TaskLabelChipsProps {
 
 export default function TaskLabelChips({ taskId, max, size = 'sm', className }: TaskLabelChipsProps) {
   const ids = useTaskLabelsStore((s) => s.byTask[taskId]) ?? EMPTY
-  const labels = useWorkSettingsStore((s) => s.labels)
+  const { data } = useWorkLabels()
+  const labels = data?.labels ?? []
 
   if (ids.length === 0) return null
   const resolved = ids

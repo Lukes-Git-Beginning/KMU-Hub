@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { useProjects } from '@/api/hooks/useProjects'
-import { useWorkSettingsStore } from '@/stores/workSettings'
+import { useWorkLabels } from '@/api/hooks/useWorkLabels'
 
 export interface TaskFilters {
   projectIds: string[]
@@ -70,7 +70,8 @@ export default function TaskFilterBar({
   const { t } = useTranslation()
   const { data: projectsData } = useProjects({ page_size: 100 })
   const projects = projectsData?.projects ?? []
-  const labels = useWorkSettingsStore((s) => s.labels)
+  const { data: labelsData } = useWorkLabels()
+  const labels = labelsData?.labels ?? []
 
   const activeFilterCount = [
     filters.projectIds.length > 0,
