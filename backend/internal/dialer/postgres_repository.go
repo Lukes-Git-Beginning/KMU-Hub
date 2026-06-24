@@ -643,8 +643,8 @@ func (r *PostgresCallRepository) GetRecentCallsForTenant(ctx context.Context, te
 	rows, err := r.pool.Query(ctx,
 		`SELECT
 		    s.id,
-		    COALESCE(cc.contact_name, '')          AS contact_name,
-		    NULL::text                              AS contact_company,
+		    TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')) AS contact_name,
+		    co.name                                AS contact_company,
 		    o.label                                AS outcome_label,
 		    COALESCE(o.color, '#6b7280')           AS outcome_color,
 		    COALESCE(o.is_positive, false)         AS is_positive,
@@ -656,6 +656,8 @@ func (r *PostgresCallRepository) GetRecentCallsForTenant(ctx context.Context, te
 		 JOIN dialer_campaign_contacts cc ON cc.id = s.campaign_contact_id
 		 JOIN dialer_campaigns dc         ON dc.id = cc.campaign_id
 		 JOIN users u                     ON u.id  = s.agent_id
+		 LEFT JOIN contacts c             ON c.id  = cc.contact_id
+		 LEFT JOIN companies co           ON co.id = c.company_id
 		 LEFT JOIN dialer_call_outcomes o ON o.id  = s.outcome_id
 		 WHERE s.tenant_id = $1
 		 ORDER BY s.created_at DESC
