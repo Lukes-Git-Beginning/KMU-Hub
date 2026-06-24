@@ -200,9 +200,9 @@ func (r *PostgresRepository) SlugExists(ctx context.Context, tenantID uuid.UUID,
 
 func (r *PostgresRepository) CreateVersion(ctx context.Context, version *Version) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO wiki_versions (id, article_id, version_number, content, changed_by, changed_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		version.ID, version.ArticleID, version.VersionNumber,
+		`INSERT INTO wiki_versions (id, tenant_id, article_id, version_number, content, changed_by, changed_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		version.ID, version.TenantID, version.ArticleID, version.VersionNumber,
 		version.Content, version.ChangedBy, version.ChangedAt,
 	)
 	return err
@@ -266,9 +266,9 @@ func (r *PostgresRepository) GetLatestVersionNumber(ctx context.Context, article
 
 func (r *PostgresRepository) CreateAttachment(ctx context.Context, attachment *Attachment) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO wiki_attachments (id, article_id, file_ref, mime, size, uploaded_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		attachment.ID, attachment.ArticleID, attachment.FileRef,
+		`INSERT INTO wiki_attachments (id, tenant_id, article_id, file_ref, mime, size, uploaded_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		attachment.ID, attachment.TenantID, attachment.ArticleID, attachment.FileRef,
 		attachment.Mime, attachment.Size, attachment.UploadedBy, attachment.CreatedAt,
 	)
 	return err
@@ -398,9 +398,9 @@ func (r *PostgresRepository) UpdateCategory(ctx context.Context, category *Categ
 
 func (r *PostgresRepository) CreateShareToken(ctx context.Context, token *ShareToken) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO wiki_share_tokens (id, article_id, token, expires_at, permissions, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		token.ID, token.ArticleID, token.Token,
+		`INSERT INTO wiki_share_tokens (id, tenant_id, article_id, token, expires_at, permissions, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		token.ID, token.TenantID, token.ArticleID, token.Token,
 		token.ExpiresAt, token.Permissions, token.CreatedAt,
 	)
 	return err
@@ -425,6 +425,30 @@ func (r *PostgresRepository) GetShareToken(ctx context.Context, token string) (*
 func (r *PostgresRepository) DeleteShareToken(ctx context.Context, tokenID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM wiki_share_tokens WHERE id = $1`, tokenID)
 	return err
+}
+
+func (r *PostgresRepository) ListShareTokensByArticle(ctx context.Context, articleID uuid.UUID) ([]*ShareToken, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, article_id, token, expires_at, permissions, created_at
+		 FROM wiki_share_tokens WHERE article_id = $1
+		 ORDER BY created_at DESC`,
+		articleID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list share tokens: %w", err)
+	}
+	defer rows.Close()
+
+	var tokens []*ShareToken
+	for rows.Next() {
+		t, scanErr := r.scanShareToken(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		tokens = append(tokens, t)
+	}
+
+	return tokens, rows.Err()
 }
 
 // ============================================================================
@@ -483,6 +507,15 @@ func (r *PostgresRepository) scanCategory(rows pgx.Rows) (*Category, error) {
 		return nil, fmt.Errorf("scan category row: %w", err)
 	}
 	return &c, nil
+}
+
+func (r *PostgresRepository) scanShareToken(rows pgx.Rows) (*ShareToken, error) {
+	var t ShareToken
+	err := rows.Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions, &t.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("scan share token row: %w", err)
+	}
+	return &t, nil
 }
 
 // compile-time interface check

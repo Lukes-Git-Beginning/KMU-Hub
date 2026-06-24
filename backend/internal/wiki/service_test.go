@@ -242,6 +242,16 @@ func (m *mockRepository) DeleteShareToken(ctx context.Context, tokenID uuid.UUID
 	return nil
 }
 
+func (m *mockRepository) ListShareTokensByArticle(ctx context.Context, articleID uuid.UUID) ([]*ShareToken, error) {
+	var result []*ShareToken
+	for _, t := range m.tokens {
+		if t.ArticleID == articleID {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+
 // compile-time check
 var _ Repository = (*mockRepository)(nil)
 
@@ -706,9 +716,11 @@ func TestService_UploadAttachment_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	articleID := uuid.New()
 	uploaderID := uuid.New()
 	att, err := svc.UploadAttachment(context.Background(), UploadInput{
+		TenantID:   tenantID,
 		ArticleID:  articleID,
 		FileRef:    "uploads/doc.pdf",
 		Mime:       "application/pdf",
@@ -718,6 +730,7 @@ func TestService_UploadAttachment_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, articleID, att.ArticleID)
+	assert.Equal(t, tenantID, att.TenantID)
 	assert.Equal(t, "uploads/doc.pdf", att.FileRef)
 }
 

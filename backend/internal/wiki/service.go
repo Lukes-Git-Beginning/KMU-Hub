@@ -63,6 +63,7 @@ type ListArticlesInput struct {
 
 // UploadInput contains data for uploading an attachment.
 type UploadInput struct {
+	TenantID   uuid.UUID
 	ArticleID  uuid.UUID
 	FileRef    string
 	Mime       string
@@ -198,6 +199,7 @@ func (s *Service) UpdateArticle(ctx context.Context, input UpdateArticleInput) (
 		}
 		version := &Version{
 			ID:            uuid.New(),
+			TenantID:      input.TenantID,
 			ArticleID:     article.ID,
 			VersionNumber: latestNum + 1,
 			Content:       article.Content,
@@ -341,6 +343,7 @@ func (s *Service) UploadAttachment(ctx context.Context, input UploadInput) (*Att
 	now := time.Now()
 	attachment := &Attachment{
 		ID:         uuid.New(),
+		TenantID:   input.TenantID,
 		ArticleID:  input.ArticleID,
 		FileRef:    input.FileRef,
 		Mime:       input.Mime,
@@ -496,7 +499,7 @@ type CreateShareTokenInput struct {
 	TenantID    uuid.UUID
 	ArticleID   uuid.UUID
 	ExpiresAt   *time.Time
-	Permissions string
+	Permissions []string
 }
 
 // CreateShareToken creates a new share token for an article.
@@ -506,18 +509,21 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		return nil, err
 	}
 
-	permissions := input.Permissions
-	if permissions == "" {
-		permissions = "read"
+	var permissions []string
+	if len(input.Permissions) == 0 {
+		permissions = []string{"read"}
+	} else {
+		permissions = input.Permissions
 	}
 
 	now := time.Now()
 	token := &ShareToken{
 		ID:          uuid.New(),
+		TenantID:    input.TenantID,
 		ArticleID:   input.ArticleID,
 		Token:       uuid.New().String(), // random token
 		ExpiresAt:   input.ExpiresAt,
-		Permissions: []string{permissions},
+		Permissions: permissions,
 		CreatedAt:   now,
 	}
 
@@ -531,6 +537,14 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 	)
 
 	return token, nil
+}
+
+// ListShareTokens returns all share tokens for an article, verifying the article belongs to the tenant.
+func (s *Service) ListShareTokens(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error) {
+	if _, err := s.repo.GetArticleByID(ctx, tenantID, articleID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListShareTokensByArticle(ctx, articleID)
 }
 
 // RevokeShareToken deletes a share token.

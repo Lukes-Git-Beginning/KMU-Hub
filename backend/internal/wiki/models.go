@@ -23,6 +23,7 @@ type Article struct {
 // Version represents a historic snapshot of an article.
 type Version struct {
 	ID            uuid.UUID  `json:"id"`
+	TenantID      uuid.UUID  `json:"tenant_id"`
 	ArticleID     uuid.UUID  `json:"article_id"`
 	VersionNumber int        `json:"version_number"`
 	Content       []byte     `json:"content"`
@@ -33,6 +34,7 @@ type Version struct {
 // Attachment represents a file attached to an article.
 type Attachment struct {
 	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
 	ArticleID  uuid.UUID  `json:"article_id"`
 	FileRef    string     `json:"file_ref"`
 	Mime       string     `json:"mime"`
@@ -55,6 +57,7 @@ type Category struct {
 // ShareToken represents a time-limited public share link for an article.
 type ShareToken struct {
 	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
 	ArticleID   uuid.UUID  `json:"article_id"`
 	Token       string     `json:"token"`
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`

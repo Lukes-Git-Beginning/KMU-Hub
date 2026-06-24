@@ -51,4 +51,5 @@ type Repository interface {
 	CreateShareToken(ctx context.Context, token *ShareToken) error
 	GetShareToken(ctx context.Context, token string) (*ShareToken, error)
 	DeleteShareToken(ctx context.Context, tokenID uuid.UUID) error
+	ListShareTokensByArticle(ctx context.Context, articleID uuid.UUID) ([]*ShareToken, error)
 }
