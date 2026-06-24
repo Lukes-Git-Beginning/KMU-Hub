@@ -32,6 +32,7 @@ import type {
   HelpdeskStats,
 } from './helpdesk-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
+import { normalizeWireTimestamps } from './wire-time'
 
 // ---------------------------------------------------------------------------
 // Request helper
@@ -44,8 +45,14 @@ interface RequestOptions {
   params?: Record<string, string | number | boolean | undefined>
 }
 
-function request<T>(opts: RequestOptions): Promise<T> {
-  return authenticatedRequest<T>(opts)
+async function request<T>(opts: RequestOptions): Promise<T> {
+  // The helpdesk gRPC service serialises via response.JSON over pb.go structs,
+  // so google.protobuf.Timestamp fields arrive as {seconds, nanos} rather than
+  // ISO strings. Normalise them so the module's formatDate/new Date(...) calls
+  // (KB articles, routing rules, tickets) render correctly against the real
+  // backend. Mock-mode responses are already ISO strings and pass through.
+  const data = await authenticatedRequest<T>(opts)
+  return normalizeWireTimestamps(data)
 }
 
 // ---------------------------------------------------------------------------
