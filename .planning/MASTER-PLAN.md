@@ -145,7 +145,7 @@
 
 ## 3 · Branchen-Module (Cluster 5)
 
-> **Alle 7 sind P1 ans echte Backend gewired ✅.** Offen: Tiefe P2–P5 (Desktop). Mobile-Teile (📱) = Post-1.0/Handy-App.
+> **Alle 7 sind P1 ans echte Backend gewired ✅.** Offen: Tiefe P2–P5 (Desktop). Mobile-Teile (📱) = **Post-1.0 → konsolidiert in „Welle M" (§7)**, nicht in 1.0.
 
 **rapporte** — [ ] PDF-Export echt 🔒 · [ ] Aufmaß/Measurement 🔒 · [ ] Signatur-Persist 🔒 · [ ] Approval-Backend 🔒 · [ ] GPS-Tag 📱 · [ ] Offline 📱 · [ ] Demo-Tiefe · [ ] **Review-Gate**
 **schichten** — [ ] Shift-Swap-Backend 🔒 · [ ] Monats-/Mehrwochenansicht · [ ] Auto-Planer (regelbasiert) 🔒 · [ ] Minderjährigen-Schutz (JArbSchG) · [ ] Self-Service-Portal 📱 · [ ] Demo-Tiefe · [ ] **Review-Gate**
@@ -221,7 +221,7 @@
 O-0 Recherche zuerst → O-1…O-6 (zusammenhängender Block). Läuft gut **als eigene Lane parallel zu Welle 2**.
 
 ### Welle 4 — Branchen-Tiefe (Desktop, §3)  ·  ~30–35 Phasen  ·  ideal parallel (7 Lanes)
-P2–P5 der 7 Branchen-Module — disjunkte Module, perfekt für 2 Terminals. Mobile-Teile (📱) ausgelassen → Handy-App-Phase. Pilot-getrieben priorisierbar.
+P2–P5 der 7 Branchen-Module — disjunkte Module, perfekt für 2 Terminals. Mobile-Teile (📱) ausgelassen → **Welle M (§7, Post-1.0)**. Pilot-getrieben priorisierbar.
 
 ### Welle 5 — Finanzen-Tiefe + Markt-Parität-Reste  ·  ~20 Phasen  ·  teils parallel
 finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die 🔒-Vertiefungen quer (Markt-Parität) auf 2 Lanes verteilbar, sobald Luke-Backend steht.
@@ -243,6 +243,21 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 
 ## 7 · Horizont nach Cosmi 1.0
 1. **Website** fertigstellen (zentria.tech — Content-Audit, echtes Delivery-Mapping)
-2. **Handy-App** (PWA auf Desktop-Basis) — holt die 📱-Features: GPS-Stempel, Offline-Rapporte, Barcode-Scan, mobile Self-Service-Portale
+2. **Welle M — Mobile / Handy-App (PWA, Post-1.0)** — siehe Block unten
 3. **KI** — KI-Features (Viz-Empfehlung, Artikel-aus-Ticket, Fristencheck, Assistent …)
 4. **Weiter offen:** Orbit-Appliance (Self-Hosted, ADR-008) · WASM-Plugin-System · Pricing/Billing-Service · SSO/SAML
+
+---
+
+### Welle M — Mobile / Handy-App (PWA)  ·  POST-1.0  ·  NICHT in 1.0 eingeplant
+> **Alle 📱-Features aus dem Plan, hier konsolidiert.** PWA auf Desktop-Basis; braucht Geräte-APIs (Kamera/GPS/Offline-Storage). Die per-Modul-📱-Marker in §3 verweisen hierher — sie zählen **nicht** in die 1.0-Wellen 1–6. Backend-Teile laufen über Lukes Track (oft dieselben Endpoints + ein mobiler Sync/Offline-Layer).
+- [ ] **PWA-Fundament:** Service-Worker, Offline-Storage (IndexedDB), Install/Manifest, mobile App-Shell, Geräte-Permissions (Kamera/GPS)
+- [ ] **rapporte** — GPS-Standort-Tag · Offline-Erfassung + Sync-Queue (Baustellen ohne Netz)
+- [ ] **zeiterfassung** — mobiler GPS-Stempel (Kommen/Gehen vor Ort)
+- [ ] **schichten** — Self-Service-Portal mobil (eigene Schichten sehen/tauschen/abmelden)
+- [ ] **fuhrpark** — GPS/Telematik-Echtverfolgung
+- [ ] **vermietung** — Übergabe-Doku mobil (Foto + Unterschrift bei Übergabe/Rücknahme)
+- [ ] **inventar** — Barcode/QR-Scan (Kamera) für Bestand/Inventur/Kommissionierung
+- [ ] **produktion** — Arbeitsschritt-Rückmeldung am Tablet (Werkstatt/Maschine)
+- [ ] **Querschnitt** — Push-Notifications (PWA-Push), mobile Detail-Flows, Touch-Optimierung der Daily-Use-Module
+- [ ] **Review-Gate** (eigene Mobile-Review-Runde)
