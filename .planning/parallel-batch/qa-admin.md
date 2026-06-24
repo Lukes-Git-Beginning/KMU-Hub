@@ -91,3 +91,17 @@
 
 ## Hub-Stand nach A-1…A-4
 AdminHub hat jetzt **8 Tabs**: **Benutzer | Rollen | Lizenz | Branding** (neu, A-1…A-4) | IT | Sicherheit | Abrechnung | Integrationen. Einstieg via Settings-Redirect landet weiter auf `/admin/it` (settings-Redirect = TABU, nicht geändert).
+
+---
+
+## A-5 — Schlusscheck + Modul-Settings + QA ✅ (5/5)
+
+**Modul-Settings-Registry (additiv, der eine erlaubte Touch):** Ein neuer **`branding`**-Eintrag in der `cosmi`-Gruppe von `module-settings-registry.tsx` (`id:'branding'`, Icon Palette, roles `['admin']`, navMatch `/admin/branding`, rendert `BrandingAdminHubTab`). Branding ist die settings-förmigste neue Fläche (Form + Preview) — Benutzer/Rollen/Lizenz sind breite Hub-Tabellen, die im schmalen Overlay schlecht säßen, daher NICHT als Overlay-Einträge. Bestehende `cosmi`-Einträge (it/billing/security/company/integrations) bleiben unverändert. Verifiziert: Eintrag erscheint im Settings-Overlay (Gruppe „COSMI (ALLGEMEIN)") + rendert die volle Branding-Fläche mit Live-Vorschau.
+
+**Finale Screenshot-QA (Bilder angesehen):** alle 4 neuen Tabs (users/roles/license/branding) × **@1440 + @1024** × **DE + EN** = **16/16 Seiten clean** — 0 Console-Errors, 0 Raw-Keys, 0 `{{var}}` (automatischer DOM-Scan + Sichtprüfung). Responsive hält: RBAC-Matrix @1024 lesbar (Sticky-Spalte + 5 Rollen), Branding-2-Spalten passt, Modul-Grid reflowt.
+
+**i18n-Parität:** `admin.*` = **458 Keys in allen 4 Sprachen** (identische Key-Sets). Pre-existing FR/IT-Lücken (`dashboard.modules.*`, `meetings.lobby.recordingActive*` — 34 Keys je fr/it) sind in **fremden Modulen**, nicht von diesem Batch und außerhalb des Scopes.
+
+**Sweep:** keine toten Buttons/Toast-only-Stubs in den neuen Flächen; Skeleton-Loading (users/roles/license) statt Spinner; Empty-States (users); ganze Zeile klickbar (users) bzw. Karten klickbar (roles); sticky Close via `shared/DetailModal`.
+
+**Gesamt:** Build EXIT 0, ESLint 0 über alle Phasen. Commits A-1…A-5 je ein Commit+Push auf `parallel/admin`. **admin-Lücken review-reif.**

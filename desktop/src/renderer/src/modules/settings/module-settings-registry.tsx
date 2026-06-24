@@ -24,6 +24,7 @@ import {
   BookOpen,
   PhoneCall,
   ShieldCheck,
+  Palette,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -51,6 +52,8 @@ import { FormulareSettingsPanel } from '@/modules/formulare/settings/FormulareSe
 import { WikiSettingsPanel } from '@/modules/wiki/settings/WikiSettingsPanel'
 import { DialerSettingsPanel } from '@/modules/dialer/settings/DialerSettingsPanel'
 import { SecuritySettingsPanel } from './panels/SecuritySettingsPanel'
+// admin-batch (parallel/admin): tenant branding surfaced in the settings overlay
+import BrandingAdminHubTab from '@/modules/admin/branding/BrandingAdminHubTab'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -104,6 +107,8 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'integrations', group: 'cosmi', labelKey: 'moduleSettings.entries.integrations', icon: Plug, roles: ['admin'], component: IntegrationSettingsTab },
   { id: 'it', group: 'cosmi', labelKey: 'moduleSettings.entries.it', icon: Monitor, roles: ['admin', 'it_support'], component: ITAdminTab },
   { id: 'security', group: 'cosmi', labelKey: 'moduleSettings.entries.security', icon: ShieldCheck, roles: ['admin', 'it_support'], navMatch: ['/admin/security'], component: SecuritySettingsPanel },
+  // admin-batch (parallel/admin) — additive entry; new tenant branding surface
+  { id: 'branding', group: 'cosmi', labelKey: 'moduleSettings.entries.branding', icon: Palette, roles: ['admin'], navMatch: ['/admin/branding'], component: BrandingAdminHubTab },
 ]
 
 /** Resolve the settings entry id that matches the current route (context preselect). */
