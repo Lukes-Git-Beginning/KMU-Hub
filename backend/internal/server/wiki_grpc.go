@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -280,12 +279,17 @@ func (s *WikiGRPCServer) RestoreVersion(ctx context.Context, req *wikiv1.Restore
 // ============================================================================
 
 func (s *WikiGRPCServer) UploadAttachment(ctx context.Context, req *wikiv1.UploadAttachmentRequest) (*wikiv1.AttachmentResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
 	articleID, err := uuid.Parse(req.GetArticleId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
 	}
 
 	input := wiki.UploadInput{
+		TenantID:  tenantID,
 		ArticleID: articleID,
 		FileRef:   req.GetFileRef(),
 		Mime:      req.GetMime(),
@@ -457,7 +461,7 @@ func (s *WikiGRPCServer) CreateShareToken(ctx context.Context, req *wikiv1.Creat
 	input := wiki.CreateShareTokenInput{
 		TenantID:    tenantID,
 		ArticleID:   articleID,
-		Permissions: req.GetPermissions(),
+		Permissions: req.GetPermissions(), // []string from repeated string field
 	}
 
 	if req.ExpiresAt != nil {
@@ -473,6 +477,28 @@ func (s *WikiGRPCServer) CreateShareToken(ctx context.Context, req *wikiv1.Creat
 		return nil, mapWikiError(err)
 	}
 	return &wikiv1.ShareTokenResponse{Token: shareTokenToProto(token)}, nil
+}
+
+func (s *WikiGRPCServer) ListShareTokens(ctx context.Context, req *wikiv1.ListShareTokensRequest) (*wikiv1.ListShareTokensResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	articleID, err := uuid.Parse(req.GetArticleId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
+	}
+
+	tokens, err := s.svc.ListShareTokens(ctx, tenantID, articleID)
+	if err != nil {
+		return nil, mapWikiError(err)
+	}
+
+	protoTokens := make([]*wikiv1.ShareToken, len(tokens))
+	for i, t := range tokens {
+		protoTokens[i] = shareTokenToProto(t)
+	}
+	return &wikiv1.ListShareTokensResponse{Tokens: protoTokens}, nil
 }
 
 func (s *WikiGRPCServer) RevokeShareToken(ctx context.Context, req *wikiv1.RevokeShareTokenRequest) (*wikiv1.RevokeShareTokenResponse, error) {
@@ -581,7 +607,7 @@ func shareTokenToProto(t *wiki.ShareToken) *wikiv1.ShareToken {
 		Id:          t.ID.String(),
 		ArticleId:   t.ArticleID.String(),
 		Token:       t.Token,
-		Permissions: strings.Join(t.Permissions, ","),
+		Permissions: t.Permissions,
 		CreatedAt:   timestamppb.New(t.CreatedAt),
 	}
 	if t.ExpiresAt != nil {

@@ -32,6 +32,7 @@ service WikiService {
   rpc UpdateCategory(UpdateCategoryRequest) returns (CategoryResponse);
   rpc CreateShareToken(CreateShareTokenRequest) returns (ShareTokenResponse);
   rpc RevokeShareToken(RevokeShareTokenRequest) returns (RevokeShareTokenResponse);
+  rpc ListShareTokens(ListShareTokensRequest) returns (ListShareTokensResponse);
 }
 
 // ============================================================================
@@ -185,6 +186,7 @@ message UploadAttachmentRequest {
   string mime = 3;
   int64 size = 4;
   optional string uploaded_by = 5;
+  string tenant_id = 6;
 }
 
 message AttachmentResponse {
@@ -248,7 +250,7 @@ message ShareToken {
   string article_id = 2;
   string token = 3;
   optional string expires_at = 4;
-  string permissions = 5;
+  repeated string permissions = 5;
   google.protobuf.Timestamp created_at = 6;
 }
 
@@ -256,7 +258,7 @@ message CreateShareTokenRequest {
   string tenant_id = 1;
   string article_id = 2;
   optional string expires_at = 3;
-  string permissions = 4;
+  repeated string permissions = 4;
 }
 
 message ShareTokenResponse {
@@ -269,3 +271,12 @@ message RevokeShareTokenRequest {
 }
 
 message RevokeShareTokenResponse {}
+
+message ListShareTokensRequest {
+  string tenant_id = 1;
+  string article_id = 2;
+}
+
+message ListShareTokensResponse {
+  repeated ShareToken tokens = 1;
+}

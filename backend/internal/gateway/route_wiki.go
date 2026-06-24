@@ -65,6 +65,7 @@ func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 				r.With(middleware.RequirePermission("wiki:articles", "write")).Delete("/attachments/{attachmentId}", wr.HandleDeleteAttachment)
 
 				// Share tokens
+				r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/share", wr.HandleListShareTokens)
 				r.With(middleware.RequirePermission("wiki:articles", "write")).Post("/share", wr.HandleCreateShareToken)
 			})
 		})
@@ -449,7 +450,6 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	_ = tenantID // validated; article_id already scopes to tenant via FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -469,6 +469,7 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &wikiv1.UploadAttachmentRequest{
+		TenantId:   tenantID.String(),
 		ArticleId:  articleID,
 		FileRef:    req.FileRef,
 		Mime:       req.Mime,
@@ -643,8 +644,8 @@ func (wr *WikiRoutes) HandleUpdateCategory(w http.ResponseWriter, r *http.Reques
 }
 
 type createShareTokenHTTPRequest struct {
-	ExpiresAt   *string `json:"expires_at,omitempty"`
-	Permissions string  `json:"permissions,omitempty"`
+	ExpiresAt   *string  `json:"expires_at,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 
 func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Request) {
@@ -682,6 +683,34 @@ func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (wr *WikiRoutes) HandleListShareTokens(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := wr.getWikiClient()
+	if err != nil {
+		respondServiceUnavailable(w, wr.ServiceName())
+		return
+	}
+
+	articleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListShareTokens(r.Context(), &wikiv1.ListShareTokensRequest{
+		TenantId:  tenantID.String(),
+		ArticleId: articleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleRevokeShareToken(w http.ResponseWriter, r *http.Request) {

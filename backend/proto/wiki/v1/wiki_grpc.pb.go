@@ -37,6 +37,7 @@ const (
 	WikiService_UpdateCategory_FullMethodName   = "/wiki.v1.WikiService/UpdateCategory"
 	WikiService_CreateShareToken_FullMethodName = "/wiki.v1.WikiService/CreateShareToken"
 	WikiService_RevokeShareToken_FullMethodName = "/wiki.v1.WikiService/RevokeShareToken"
+	WikiService_ListShareTokens_FullMethodName  = "/wiki.v1.WikiService/ListShareTokens"
 )
 
 // WikiServiceClient is the client API for WikiService service.
@@ -65,6 +66,7 @@ type WikiServiceClient interface {
 	UpdateCategory(ctx context.Context, in *UpdateCategoryRequest, opts ...grpc.CallOption) (*CategoryResponse, error)
 	CreateShareToken(ctx context.Context, in *CreateShareTokenRequest, opts ...grpc.CallOption) (*ShareTokenResponse, error)
 	RevokeShareToken(ctx context.Context, in *RevokeShareTokenRequest, opts ...grpc.CallOption) (*RevokeShareTokenResponse, error)
+	ListShareTokens(ctx context.Context, in *ListShareTokensRequest, opts ...grpc.CallOption) (*ListShareTokensResponse, error)
 }
 
 type wikiServiceClient struct {
@@ -255,6 +257,16 @@ func (c *wikiServiceClient) RevokeShareToken(ctx context.Context, in *RevokeShar
 	return out, nil
 }
 
+func (c *wikiServiceClient) ListShareTokens(ctx context.Context, in *ListShareTokensRequest, opts ...grpc.CallOption) (*ListShareTokensResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListShareTokensResponse)
+	err := c.cc.Invoke(ctx, WikiService_ListShareTokens_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WikiServiceServer is the server API for WikiService service.
 // All implementations must embed UnimplementedWikiServiceServer
 // for forward compatibility.
@@ -281,6 +293,7 @@ type WikiServiceServer interface {
 	UpdateCategory(context.Context, *UpdateCategoryRequest) (*CategoryResponse, error)
 	CreateShareToken(context.Context, *CreateShareTokenRequest) (*ShareTokenResponse, error)
 	RevokeShareToken(context.Context, *RevokeShareTokenRequest) (*RevokeShareTokenResponse, error)
+	ListShareTokens(context.Context, *ListShareTokensRequest) (*ListShareTokensResponse, error)
 	mustEmbedUnimplementedWikiServiceServer()
 }
 
@@ -344,6 +357,9 @@ func (UnimplementedWikiServiceServer) CreateShareToken(context.Context, *CreateS
 }
 func (UnimplementedWikiServiceServer) RevokeShareToken(context.Context, *RevokeShareTokenRequest) (*RevokeShareTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeShareToken not implemented")
+}
+func (UnimplementedWikiServiceServer) ListShareTokens(context.Context, *ListShareTokensRequest) (*ListShareTokensResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShareTokens not implemented")
 }
 func (UnimplementedWikiServiceServer) mustEmbedUnimplementedWikiServiceServer() {}
 func (UnimplementedWikiServiceServer) testEmbeddedByValue()                     {}
@@ -690,6 +706,24 @@ func _WikiService_RevokeShareToken_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WikiService_ListShareTokens_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListShareTokensRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WikiServiceServer).ListShareTokens(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WikiService_ListShareTokens_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WikiServiceServer).ListShareTokens(ctx, req.(*ListShareTokensRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WikiService_ServiceDesc is the grpc.ServiceDesc for WikiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -768,6 +802,10 @@ var WikiService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeShareToken",
 			Handler:    _WikiService_RevokeShareToken_Handler,
+		},
+		{
+			MethodName: "ListShareTokens",
+			Handler:    _WikiService_ListShareTokens_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
