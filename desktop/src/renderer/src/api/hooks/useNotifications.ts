@@ -8,6 +8,7 @@
 import { useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
+import { normalizeWireTimestamps } from '@/api/wire-time'
 import { wsManager } from '@/api/websocket'
 import i18next from 'i18next'
 import type { components } from '@/api/types'
@@ -15,6 +16,30 @@ import type { components } from '@/api/types'
 type Notification = components['schemas']['Notification']
 type NotificationPreference = components['schemas']['NotificationPreference']
 type UpdateNotificationPreferenceRequest = components['schemas']['UpdateNotificationPreferenceRequest']
+
+/** proto Priority enum index → flat string the UI expects. */
+const PRIORITY_BY_INT: Record<number, string> = { 0: 'normal', 1: 'low', 2: 'normal', 3: 'urgent', 4: 'high' }
+
+/**
+ * The gateway serializes the notification proto via response.JSON, so the wire
+ * shape carries integer priority enums and {seconds,nanos} timestamps. Normalize
+ * to the flat string/ISO shape the UI expects (demo-mode already sends strings).
+ */
+function normalizeNotification(n: Notification): Notification {
+  const norm = normalizeWireTimestamps(n) as Notification & {
+    priority?: number | string
+    is_pinned?: boolean
+    is_dismissed?: boolean
+  }
+  const priority =
+    typeof norm.priority === 'number' ? (PRIORITY_BY_INT[norm.priority] ?? 'normal') : norm.priority
+  return {
+    ...norm,
+    priority,
+    is_pinned: norm.is_pinned ?? false,
+    is_dismissed: norm.is_dismissed ?? false,
+  } as Notification
+}
 
 /** Query key factory for notification-related queries. */
 export const notificationKeys = {
@@ -54,7 +79,8 @@ export function useNotifications(params?: {
         },
       })
       if (error) throw new Error('Failed to load notifications')
-      return data
+      if (!data) return data
+      return { ...data, notifications: (data.notifications ?? []).map(normalizeNotification) }
     },
     ...(params?.refetchInterval ? { refetchInterval: params.refetchInterval } : {}),
   })
