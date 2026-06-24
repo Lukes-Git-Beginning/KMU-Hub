@@ -61,7 +61,7 @@ func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 		`SELECT w.id, w.tenant_id, w.employee_id, w.clock_in, w.clock_out,
 			w.break_minutes, w.auto_break_deducted, w.net_work_minutes,
 			w.status, w.is_correction, w.original_entry_id,
-			w.correction_reason, w.correction_approved_by, w.correction_approved_at,
+			COALESCE(w.correction_reason, '') AS correction_reason, w.correction_approved_by, w.correction_approved_at,
 			w.created_at, w.updated_at, w.project_id,
 			w.category_id, w.location_lat, w.location_lng, w.location_address,
 			COALESCE(u.first_name || ' ' || u.last_name, '') AS employee_name
@@ -94,7 +94,7 @@ func (r *PostgresWorkTimeRepo) GetActiveShift(ctx context.Context, employeeID uu
 		`SELECT id, tenant_id, employee_id, clock_in, clock_out,
 			break_minutes, auto_break_deducted, net_work_minutes,
 			status, is_correction, original_entry_id,
-			correction_reason, correction_approved_by, correction_approved_at,
+			COALESCE(correction_reason, '') AS correction_reason, correction_approved_by, correction_approved_at,
 			created_at, updated_at,
 			category_id, project_id, location_lat, location_lng, location_address
 		FROM hr_work_time_entries
@@ -191,7 +191,7 @@ func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) 
 		`SELECT w.id, w.tenant_id, w.employee_id, w.clock_in, w.clock_out,
 			w.break_minutes, w.auto_break_deducted, w.net_work_minutes,
 			w.status, w.is_correction, w.original_entry_id,
-			w.correction_reason, w.correction_approved_by, w.correction_approved_at,
+			COALESCE(w.correction_reason, '') AS correction_reason, w.correction_approved_by, w.correction_approved_at,
 			w.created_at, w.updated_at, w.project_id,
 			w.category_id, w.location_lat, w.location_lng, w.location_address,
 			COALESCE(u.first_name || ' ' || u.last_name, '') AS employee_name
