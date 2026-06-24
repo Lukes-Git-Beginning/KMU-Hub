@@ -118,6 +118,12 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Super-Admin/System-Level-Rolle (über Tenant hinaus)
 - Billing/License-Service (`/api/v1/billing`) — aktuell nur statische Mock-Daten
 - Tenant-Ressourcen-Monitoring-API (Metrics intern da, kein HTTP-Endpoint)
+- **A-1 Benutzerverwaltung (FE-Mock-First-Batch, Branch `parallel/admin`):** Account/Access-Layer (Login-Accounts ≠ HR-Personalakte in `team`). FE läuft komplett auf MSW (`mocks/handlers/admin.ts`), Contract in `api/admin-types.ts` (`AdminUser`), Hooks in `api/hooks/useAdminUsers.ts`. Beim Echt-Anschluss benötigt:
+  - `GET /api/v1/admin/users` → `{ users: AdminUser[] }` (id, firstName, lastName, email, jobTitle, role `RoleId`, status `active|invited|deactivated`, lastLoginAt, invitedAt). Quelle = dieselben Identitäten wie `/api/v1/users` bzw. HR-Roster (eine Person, zwei Layer) — **nicht** doppelte User-Tabelle.
+  - `POST /api/v1/admin/users/invite` (echter Invite-Flow: E-Mail-Versand + Single-Use-Token, 7-Tage-Ablauf) → `invited`-Account, Seat-Konsum.
+  - `PATCH /api/v1/admin/users/:id` (Rolle/Status) → Gateway-RBAC-Rollenzuweisung + Account-Deaktivierung (Login sperren, Seat freigeben).
+  - `POST /api/v1/admin/users/:id/resend-invite`.
+  - Seat-Modell: aktive + pending-Invites konsumieren einen Platz (`useTenant().totalSeats`) — Server muss Seat-Limit beim Invite erzwingen (FE warnt nur inline).
 
 ### security / DSGVO  (FE-Mock-First-Batch S-1…S-5, Branch `parallel/security`)
 > BE existiert weitgehend echt: GDPR-Export/-Erasure-Handler (`47d210d9`, alle 14 auf echte SQL), Audit/Sessions/PW-Policy/IP-Rules/2FA in `route_security.go`/`route_auth.go`. Das FE läuft mock-first (MSW); Verdrahtung gegen das echte BE = später (Claude/FE-Lane).

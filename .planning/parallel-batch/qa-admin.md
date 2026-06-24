@@ -1,0 +1,45 @@
+# QA-Log — admin (Sub-Terminal, Branch `parallel/admin`)
+
+> Dev: `VITE_DEV_PORT=5174 npm run dev` (Demo/MSW, kein Backend). Screenshot-QA-Scripts: `scripts/qa-admin-*.mjs`.
+> Build-Gate: `npm run build > /tmp/admin-build.log 2>&1; echo "EXIT $?"` + `grep -i error`.
+
+## A-0 — Ist-Research + Marktrecherche (Gate, beantwortet)
+
+### Ist-Stand verifiziert
+- AdminHub = 4 Tabs (IT | Sicherheit | Abrechnung | Integrationen), URL-synced, Gating `userHasRole(['admin','it_support'])`. Screenshots angesehen.
+- **Overlap-Falle:** Scope existiert fragmentarisch in TABU-Modulen → admin-native distinkt bauen. team = HR (EmployeeProfile), admin = Account/Access-Layer. Branding basic in ITAdminHubTab. Lizenz read-only in settings/BillingSettingsTab. RBAC = statisches `@/config/roles`.
+- Tech: i18n = i18next-**ICU** → **single-brace `{var}`** (`{{…}}` ist Bug, sichtbar als roher Text in settings/Billing-Placeholdern, TABU). Flache dotted Keys, 4 Sprachen. Kein `admin`-MSW-Handler (neu). `/api/v1/users` in Demo nicht gemockt → eigene Seed-Quelle. `electron-vite dev` akzeptiert kein `--port` → env-gateter `server.port` (Default 5173, `VITE_DEV_PORT=5174`).
+
+### Marktrecherche — Markt vs. Cosmi-Ist (Linear, Notion, Slack, GitLab, M365, Auth0/Okta, Vanta, WorkOS)
+**Benutzer** · *Funktion:* Liste (Name/Mail/Rolle/Status/letzter Login), 3 Status (active/pending/deactivated), Invite-Modal mit Rolle beim Einladen, kontextuelle Bulk-Toolbar, Seat-Limit inline im Modal. *Gestaltung:* dichte Tabelle (~36–40px, Linear), Status als Pill **+ Icon** (nie nur Farbe), Side-Drawer/Detail, Seat-Progress-Bar (Amber 80% / Rot 100%). → **Cosmi:** Editorial-Liste, ganze Zeile klickbar → `shared/DetailModal`, Rollen-Dot + Pill-Status mit Icon, kompakter Seat-Meter (Bar amber→rot).
+**RBAC** (A-2) · Rollen=Spalten, Ressourcen=Zeilen, gruppiert, Checkboxen, Sticky Header+Spalte; 5 feste Rollen, keine Custom Roles für 1.0.
+**Lizenz** (A-3) · Seat-Auslastung + Modul-Aktivierung als Karten-Grid (aktiv = voll, inaktiv = gedimmt); `@/lib/pricing` + `useTenant` konsumieren, Billing-Finanzview nicht duplizieren.
+**Branding** (A-4) · 2-Spalten mit Live-Preview, Logo-Drag&Drop, Hex + Kontrast; Brand-Color in Cosmi-Token-Palette, kein Full-White-Label.
+**Über-Engineering vermeiden:** SCIM/Directory-Sync, ABAC, Custom Roles, Full-White-Label, Real-time Seat-Charts.
+
+### Dariens Gate-Antworten (umgesetzt)
+1/2 team↔admin: **dieselbe Person, zwei Layer** — Seed aus `shared-ids.ts`/`CURRENT_USER`, keine parallele Registry. team unangetastet.
+2 RBAC-Quelle: `@/config/roles` kanonisch; IT-Tab-„Berechtigungen" konsolidieren (A-2).
+3 RBAC: (b) stateful mock-persist, 5 feste Rollen, keine Custom.
+4 Lizenz: eigener Provisioning-Bereich neben Billing, `@/lib/pricing`+`useTenant` konsumieren.
+5 Branding: aus ITAdminHubTab herauslösen + erweitern (Live-Preview), Token-Palette.
+6 Port: env-gateter `server.port` ✓. 7 Stash: unangetastet. 8 sub-admin.md von main gesynct, qa-admin.md (dieses File) angelegt.
+
+---
+
+## A-1 — Benutzerverwaltung ✅ (1/5)
+
+**Gebaut:** Neuer Tab **„Benutzer"** (`/admin/users`, erster Tab). Account/Access-Layer:
+- `api/admin-types.ts` (Contract `AdminUser`/`AdminUserStatus`/`InviteUserInput`), `api/hooks/useAdminUsers.ts` (list/invite/update/resend).
+- `mocks/handlers/admin.ts` (stateful: GET list, POST invite, PATCH role/status, POST resend) + `mocks/data/admin-users.ts` (14 Seed-Accounts aus `IDS.users`+`CURRENT_USER`, 11 aktiv / 2 eingeladen / 1 deaktiviert).
+- UI: `modules/admin/users/` — `UsersAdminHubTab` (Liste, Suche, Status-Filter mit Counts, `shared/SortMenu`, Seat-Meter amber/rot), `InviteUserDialog` (E-Mail + Rolle, Seat-Hinweis inline), `UserDetailModal` (Rolle ändern, aktivieren/deaktivieren, Einladung erneut senden/zurückziehen, Self-Protection für eingeloggten Admin), `presentation.ts` (Rolle/Status-Visuals, Intl-Relativzeit).
+- i18n: 52 Keys/Sprache (`admin.users.*` + `admin.hub.tabs.users`), single-brace ICU, 4 Sprachen via `scripts/add-admin-users-i18n.mjs`.
+
+**Verify (Screenshots angesehen, :5174):**
+- Build EXIT 0, ESLint EXIT 0 auf geänderten Dateien.
+- DE + EN: **0 Raw-Keys, 0 `{{var}}`, 0 Console-Errors**. Intl-Relativzeit lokalisiert korrekt (DE „vor 38 Minuten" / EN „38 minutes ago" / „Never").
+- Liste sortier-/filterbar; Status-Filter-Counts stimmen (Alle 14 / Aktiv 11 / Eingeladen 2 / Deaktiviert 1).
+- **Stateful bestätigt:** Einladen erzeugt sichtbaren Pending-User (Name aus E-Mail abgeleitet), Count Eingeladen 2→3, Seat-Meter springt 13/14→14/14 (amber→rot bei 100%), Toast; **überlebt Navigation** (/admin/it → zurück).
+- Detail-Modal: ganze Zeile klickbar, Gradient-Stripe, Rolle/Konto/Zugang-Sektionen; Eingeladene zeigen „erneut senden" + „zurückziehen", Aktive „deaktivieren", Deaktivierte „reaktivieren".
+
+**Offen für Luke (backend-gaps.md → admin):** echter Invite-Flow (E-Mail/Token), Account-Provisioning, Status-Persistenz im Gateway.

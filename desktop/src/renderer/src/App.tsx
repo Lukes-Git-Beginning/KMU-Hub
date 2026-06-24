@@ -238,6 +238,7 @@ const router = createHashRouter([
       { path: 'admin/security-legacy', element: <Navigate to="/admin/security" replace /> },
 
       // Admin Hub — neue /admin/* Routen
+      { path: 'admin/users', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/it', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/security', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/billing', element: lazyRoute(AdminHubPage, 'adminhub') },
