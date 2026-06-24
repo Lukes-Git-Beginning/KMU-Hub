@@ -95,7 +95,10 @@ export function listArticles(params?: ListArticlesParams) {
     method: 'GET',
     path: `${BASE}/articles`,
     params: params as Record<string, string | number | boolean | undefined>,
-  }).then((r) => ({ ...r, articles: r.articles.map(decodeArticle) }))
+    // protojson omits the empty repeated field, so an empty wiki returns `{}`
+    // (articles undefined) rather than `{articles: []}`. MSW always wrapped it,
+    // so this was mock-hidden. Coalesce before mapping or the client crashes.
+  }).then((r) => ({ ...r, articles: (r.articles ?? []).map(decodeArticle) }))
 }
 
 export function getArticle(id: string) {
@@ -127,7 +130,7 @@ export function searchArticles(query: string, limit?: number) {
     method: 'GET',
     path: `${BASE}/search`,
     params: { q: query, ...(limit !== undefined ? { limit } : {}) },
-  }).then((r) => ({ ...r, articles: r.articles.map(decodeArticle) }))
+  }).then((r) => ({ ...r, articles: (r.articles ?? []).map(decodeArticle) }))
 }
 
 // ---------------------------------------------------------------------------

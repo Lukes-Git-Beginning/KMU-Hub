@@ -98,8 +98,8 @@
 **work (Projekte & Aufgaben)** — ✅ Tiefe-Pass + Quick-Actions + Portfolio + Labels + Calendar-View (review-reif)
 - [ ] Echt-Schaltung 🔌 (Labels-Wiring BE Migr. 145/147 da) · [ ] P1 DnD-Backend + Timer→Zeiteintrag-Bridge 🔒 · [ ] P2 Portfolio-Aggregation echt 🔒 · [ ] `start_date`-Feld 🔒 · [ ] P3 Automatisierungs-Regeln · [ ] **Review-Gate**
 
-**wiki** — ✅ W/WT/WP + Phase B Block-Engine (🔁 Darien-Review)
-- [ ] Spezialblöcke in `wikiBlockRegistry` (Toggle/Code/Tabelle) · [ ] Share-Token-Routes + öffentl. Read 🔒 · [ ] P1 Backend-Swap 🔒 · [ ] P3 Public-Modus/RBAC 🔒 · [ ] P4 KI-Suche 🔒 · [ ] **Darien-Review → Review-Gate**
+**wiki** — ✅ W/WT/WP + Phase B Block-Engine · **echt-verdrahtet + live verifiziert 24.06.** (🔁 Darien-Review)
+- [x] **Echt-Schaltung 🔌** — wiki-Service gebaut+up (Flag `COSMI_MODULE_WIKI_ENABLED`, s. X-7), live verifiziert (Empty-State rendert sauber, kein Crash). **Crash-Bug gefixt:** `wiki-client.listArticles/searchArticles` machten `r.articles.map()` ohne Null-Guard → bei leerem Backend (`{}`) Seiten-Crash; jetzt `(r.articles ?? [])` (übrige List-Methoden nutzten schon Lukes `unwrapList`). · [ ] `/wiki/templates` Backend 🔒 (404, Template-Storage-Gap) · [ ] Spezialblöcke (Toggle/Code/Tabelle) · [ ] Share-Token-Routes + öffentl. Read 🔒 · [ ] P3 Public-Modus/RBAC 🔒 · [ ] P4 KI-Suche 🔒 · [ ] **Darien-Review → Review-Gate**
 
 **formulare** — ✅ F/FD/FT/FO-Batches · MSW
 - [ ] FO-Lücken 3/5/7/9 (Webhooks/Embedding/Analytics) verifizieren · [ ] Öffentlicher Submit-Endpoint 🔒 · [ ] File-Upload-Feldtyp 🔒 · [ ] Submission-Mail/Webhook 🔒 · [ ] P4 Zahlungen/E-Signatur 🔒 · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
