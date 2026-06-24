@@ -4,11 +4,11 @@
 > **Ablauf:** Alles geht auf `main`. Hier sammeln sich konkrete „klick hier → erwarte das"-Items. Abgehakt = von Darien geprüft + ok.
 > **Stand:** 2026-06-24.
 
-## ⚠ Zwei Voraussetzungen (bitte einmal klären)
-1. **Deploy-Gap:** Push auf `main` ≠ live auf Hetzner. Laut unseren Notizen ist Auto-Deploy (`cd.yml`) **nicht scharf** (Luke). → Damit Änderungen auf Hetzner erscheinen, muss jemand deployen. **Wer/wie deployt aktuell?**
-2. **Demo- oder Live-Mode?** Läuft die Hetzner-exe im **Demo-Mode** (MSW, gefüllte Fake-Daten) oder **Live** (echtes Prod-Backend)?
-   - **Demo-Mode** → du prüfst **FE/UX** (Layout, leere Zustände, Raw-Keys, Vollständigkeit). Meine Backend-Echt-Schaltungen (dialer/HR) sind hier **unsichtbar** (greifen nur live).
-   - **Live** → die echt-geschalteten Module zeigen **echte (Prod-)Daten**; ohne Prod-Seed sind dialer/HR/Buchhaltung **leer** (nicht kaputt, nur leer), und die Backend-Fixes greifen erst **nach Deploy**.
+## ✅ Voraussetzungen geklärt (Darien, 2026-06-24)
+1. **Deploy:** macht **Luke** (irgendwann). Push auf `main` ≠ sofort live → Änderungen erscheinen auf Hetzner erst nach Lukes Deploy.
+2. **Mode: LIVE** (echtes Prod-Backend, kein MSW).
+   - **Folge A:** Backend-Echt-Schaltungen (dialer/dashboard/HR) sind nach Lukes Deploy prüfbar — zeigen **echte Prod-Daten** (ohne Prod-Seed ggf. leer, nicht kaputt).
+   - **Folge B (wichtig):** **FE-mock-Module zeigen im Live-Mode NICHT ihre MSW-Demodaten** — sie treffen das echte Backend. Module mit fehlendem Backend (🔒, z. B. **security/DSGVO**) sind auf Hetzner-Live **erst prüfbar, wenn Luke das Backend gebaut hat**. Bis dahin: reine FE/UX-Reviews dieser Module besser lokal.
 
 ---
 
