@@ -6,6 +6,10 @@
  * to openapi.yaml, hooks can migrate to the typed apiClient.
  */
 import { authenticatedRequest } from './utils/authenticatedFetch'
+import {
+  normalizeSupervisorOverview,
+  normalizeContactCalls,
+} from './dialer-normalize'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -370,17 +374,20 @@ export function getCampaignAgents(campaignId: string) {
 }
 
 export function getSupervisorOverview() {
-  return request<SupervisorOverview>({
+  // Real backend uses protojson with EmitUnpopulated=false → zero-value fields
+  // (totals counters, calls_today, empty agent/call lists) are omitted. Normalize
+  // fills them so a quiet dialer renders 0 instead of undefined/crash.
+  return request<Partial<SupervisorOverview>>({
     method: 'GET',
     path: `${BASE}/supervisor`,
-  })
+  }).then(normalizeSupervisorOverview)
 }
 
 export function getContactCalls(campaignContactId: string) {
-  return request<{ calls: ContactCallEntry[] }>({
+  return request<{ calls?: Partial<ContactCallEntry>[] }>({
     method: 'GET',
     path: `${BASE}/contacts/${campaignContactId}/calls`,
-  })
+  }).then(normalizeContactCalls)
 }
 
 export function getAgentDashboard(agentId?: string) {
