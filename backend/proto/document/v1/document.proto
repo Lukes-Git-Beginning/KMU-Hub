@@ -28,6 +28,9 @@ service DocumentService {
   rpc CreateFileVersion(CreateFileVersionRequest) returns (CreateFileVersionResponse);
   rpc ListFileVersions(ListFileVersionsRequest) returns (ListFileVersionsResponse);
   rpc RevertFileVersion(RevertFileVersionRequest) returns (RevertFileVersionResponse);
+  // Registers metadata for a file already uploaded to object storage via a
+  // presigned PUT URL (browser-direct upload). Does not touch object storage.
+  rpc RegisterUploadedFile(RegisterUploadedFileRequest) returns (RegisterUploadedFileResponse);
 
   // ==================== Share operations ====================
   rpc ShareEntity(ShareEntityRequest) returns (ShareEntityResponse);
@@ -361,6 +364,19 @@ message CreateFileVersionRequest {
 
 message CreateFileVersionResponse {
   DocumentFileVersion version = 1;
+}
+
+message RegisterUploadedFileRequest {
+  string folder_id = 1;
+  string filename = 2;
+  string mime_type = 3;
+  int64 file_size = 4;
+  string storage_key = 5; // object_key returned by the presigned upload
+  string owner_id = 6;
+}
+
+message RegisterUploadedFileResponse {
+  DocumentFile file = 1;
 }
 
 message ListFileVersionsRequest {

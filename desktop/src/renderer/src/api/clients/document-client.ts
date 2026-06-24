@@ -165,14 +165,14 @@ export const documentFolderApi = {
 
   initializeUserSpace() {
     return request<Record<string, never>>(
-      '/api/v1/documents/folders/init/user',
+      '/api/v1/documents/folders/initialize-user',
       { method: 'POST' },
     )
   },
 
   initializeTeamSpace(teamId: string, teamName: string) {
     return request<Record<string, never>>(
-      '/api/v1/documents/folders/init/team',
+      '/api/v1/documents/folders/initialize-team',
       {
         method: 'POST',
         body: JSON.stringify({ team_id: teamId, team_name: teamName }),
@@ -238,7 +238,7 @@ export const documentFileApi = {
 
   getDownloadURL(id: string) {
     return request<DownloadURLResponse>(
-      `/api/v1/documents/files/${id}/download`,
+      `/api/v1/documents/files/${id}/download-url`,
     )
   },
 
@@ -272,8 +272,11 @@ export const documentVersionApi = {
 
   revert(fileId: string, versionNumber: number) {
     return request<{ version: DocumentFileVersion }>(
-      `/api/v1/documents/files/${fileId}/versions/${versionNumber}/revert`,
-      { method: 'POST' },
+      `/api/v1/documents/files/${fileId}/versions/revert`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ version_number: versionNumber }),
+      },
     )
   },
 }
@@ -333,17 +336,17 @@ export const documentTagApi = {
   },
 
   tagFile(fileId: string, tagId: string) {
-    return request<Record<string, never>>(
-      `/api/v1/documents/files/${fileId}/tags/${tagId}`,
-      { method: 'POST' },
-    )
+    return request<Record<string, never>>('/api/v1/documents/tags/file', {
+      method: 'POST',
+      body: JSON.stringify({ file_id: fileId, tag_id: tagId }),
+    })
   },
 
   untagFile(fileId: string, tagId: string) {
-    return request<Record<string, never>>(
-      `/api/v1/documents/files/${fileId}/tags/${tagId}`,
-      { method: 'DELETE' },
-    )
+    return request<Record<string, never>>('/api/v1/documents/tags/file', {
+      method: 'DELETE',
+      body: JSON.stringify({ file_id: fileId, tag_id: tagId }),
+    })
   },
 }
 
@@ -410,10 +413,10 @@ export const documentSearchApi = {
 
 export const documentWopiApi = {
   generateToken(fileId: string) {
-    return request<WOPITokenResponse>(
-      `/api/v1/documents/files/${fileId}/wopi-token`,
-      { method: 'POST' },
-    )
+    return request<WOPITokenResponse>('/api/v1/documents/wopi/token', {
+      method: 'POST',
+      body: JSON.stringify({ file_id: fileId }),
+    })
   },
 }
 

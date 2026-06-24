@@ -53,6 +53,9 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	r.Route("/api/v1/documents/files", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("documents", "read")).Get("/", d.HandleListFiles)
+		// Register metadata for a file already uploaded to MinIO via a presigned
+		// PUT URL (POST /api/v1/files/presign-upload → PUT to MinIO → register here).
+		r.With(middleware.RequirePermission("documents", "write")).Post("/", d.HandleRegisterUploadedFile)
 		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}", d.HandleGetFile)
 		r.With(middleware.RequirePermission("documents", "write")).Put("/{id}", d.HandleUpdateFile)
 		r.With(middleware.RequirePermission("documents", "delete")).Delete("/{id}", d.HandleDeleteFile)
@@ -346,6 +349,46 @@ func (d *DocumentRoutes) HandleGetFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, resp.File)
+}
+
+type registerUploadedFileRequest struct {
+	FolderID   string `json:"folder_id"   validate:"required,uuid"`
+	Filename   string `json:"filename"    validate:"required"`
+	MimeType   string `json:"mime_type"`
+	FileSize   int64  `json:"file_size"   validate:"gt=0"`
+	StorageKey string `json:"storage_key" validate:"required"`
+}
+
+// HandleRegisterUploadedFile records metadata for a file the browser already
+// uploaded to MinIO through a presigned PUT URL. Owner is taken from the JWT.
+func (d *DocumentRoutes) HandleRegisterUploadedFile(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[registerUploadedFileRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.RegisterUploadedFile(r.Context(), &documentv1.RegisterUploadedFileRequest{
+		FolderId:   req.FolderID,
+		Filename:   req.Filename,
+		MimeType:   req.MimeType,
+		FileSize:   req.FileSize,
+		StorageKey: req.StorageKey,
+		OwnerId:    userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp.File)
 }
 
 func (d *DocumentRoutes) HandleListFiles(w http.ResponseWriter, r *http.Request) {

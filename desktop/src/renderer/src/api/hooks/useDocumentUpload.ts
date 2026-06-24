@@ -1,18 +1,26 @@
 /**
- * Document upload hook using XMLHttpRequest for progress tracking.
+ * Document upload hook using the presigned-URL flow.
  *
- * Uses XHR instead of fetch to get per-file upload progress via
- * XMLHttpRequest.upload.onprogress events. Supports multi-file upload
- * by calling mutateAsync in a loop with individual progress callbacks.
+ * The gateway does not stream file bytes; uploads go browser-direct to object
+ * storage (MinIO) via a short-lived presigned PUT URL. Three steps:
+ *   1. POST /api/v1/files/presign-upload  → { upload_url, object_key }
+ *   2. PUT the bytes to upload_url        (XHR for per-file progress)
+ *   3. POST /api/v1/documents/files       → register metadata, returns the file
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_BASE_URL } from '@/lib/constants'
+import { generateIdempotencyKey } from '../idempotency'
 import type { DocumentFile } from '../types/document-types'
 
 interface UploadParams {
   folderId: string
   file: File
   onProgress?: (percent: number) => void
+}
+
+interface PresignResponse {
+  upload_url: string
+  object_key: string
 }
 
 async function uploadFile({
@@ -23,50 +31,72 @@ async function uploadFile({
   const { useAuthStore } = await import('@/stores/auth')
   const token = useAuthStore.getState().accessToken
 
-  return new Promise<DocumentFile>((resolve, reject) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('folder_id', folderId)
+  const authHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': generateIdempotencyKey(),
+    }
+    if (token) h['Authorization'] = `Bearer ${token}`
+    return h
+  }
 
+  const contentType = file.type || 'application/octet-stream'
+
+  // 1) Request a short-lived presigned PUT URL from the gateway.
+  const presignRes = await fetch(`${API_BASE_URL}/api/v1/files/presign-upload`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      scope: 'documents',
+      file_name: file.name,
+      content_type: contentType,
+      size_bytes: file.size,
+    }),
+  })
+  if (!presignRes.ok) {
+    if (presignRes.status === 401) throw new Error('Session abgelaufen')
+    const err = await presignRes.json().catch(() => ({}))
+    throw new Error(err.error ?? `Upload-Vorbereitung fehlgeschlagen: ${presignRes.status}`)
+  }
+  const { upload_url, object_key } = (await presignRes.json()) as PresignResponse
+
+  // 2) PUT the bytes straight to object storage. The presigned URL carries its
+  //    own signature — do NOT attach the bearer token. XHR gives upload progress.
+  await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-
     xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress?.(Math.round((e.loaded / e.total) * 100))
-      }
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100))
     }
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const response = JSON.parse(xhr.responseText)
-          resolve(response.file ?? response)
-        } catch {
-          reject(new Error('Ungültige Server-Antwort'))
-        }
-      } else if (xhr.status === 401) {
-        reject(new Error('Session abgelaufen'))
-      } else {
-        try {
-          const errorBody = JSON.parse(xhr.responseText)
-          reject(
-            new Error(
-              errorBody.error ?? errorBody.message ?? `Upload fehlgeschlagen: ${xhr.status}`,
-            ),
-          )
-        } catch {
-          reject(new Error(`Upload fehlgeschlagen: ${xhr.status}`))
-        }
-      }
-    }
-
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Upload fehlgeschlagen: ${xhr.status}`))
     xhr.onerror = () => reject(new Error('Netzwerkfehler beim Upload'))
     xhr.onabort = () => reject(new Error('Upload abgebrochen'))
-
-    xhr.open('POST', `${API_BASE_URL}/api/v1/documents/files/upload`)
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-    xhr.send(formData)
+    xhr.open('PUT', upload_url)
+    xhr.setRequestHeader('Content-Type', contentType)
+    xhr.send(file)
   })
+
+  // 3) Register the uploaded object so it appears in the folder.
+  const registerRes = await fetch(`${API_BASE_URL}/api/v1/documents/files`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      folder_id: folderId,
+      filename: file.name,
+      mime_type: contentType,
+      file_size: file.size,
+      storage_key: object_key,
+    }),
+  })
+  if (!registerRes.ok) {
+    if (registerRes.status === 401) throw new Error('Session abgelaufen')
+    const err = await registerRes.json().catch(() => ({}))
+    throw new Error(err.error ?? `Registrierung fehlgeschlagen: ${registerRes.status}`)
+  }
+  const registered = await registerRes.json()
+  return (registered.file ?? registered) as DocumentFile
 }
 
 /**

@@ -296,6 +296,40 @@ func (s *DocumentGRPCServer) GetFile(ctx context.Context, req *documentv1.GetFil
 	return &documentv1.GetFileResponse{File: toProtoFile(f)}, nil
 }
 
+// RegisterUploadedFile records metadata for a file already uploaded to object
+// storage via a presigned PUT URL. The tenant is taken from the gRPC context.
+func (s *DocumentGRPCServer) RegisterUploadedFile(ctx context.Context, req *documentv1.RegisterUploadedFileRequest) (*documentv1.RegisterUploadedFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	folderID, err := uuid.Parse(req.FolderId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid folder id")
+	}
+
+	ownerID, err := uuid.Parse(req.OwnerId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid owner id")
+	}
+
+	f, err := s.fileService.Register(ctx, file.RegisterInput{
+		TenantID:   tenantID,
+		FolderID:   folderID,
+		Filename:   req.Filename,
+		MimeType:   req.MimeType,
+		FileSize:   req.FileSize,
+		StorageKey: req.StorageKey,
+		OwnerID:    ownerID,
+	})
+	if err != nil {
+		return nil, mapDocumentError(err)
+	}
+
+	return &documentv1.RegisterUploadedFileResponse{File: toProtoFile(f)}, nil
+}
+
 func (s *DocumentGRPCServer) ListFiles(ctx context.Context, req *documentv1.ListFilesRequest) (*documentv1.ListFilesResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {

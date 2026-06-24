@@ -163,6 +163,94 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.Docume
 	return file, nil
 }
 
+// RegisterInput contains metadata for a file already uploaded to object storage
+// via a presigned PUT URL (browser-direct upload).
+type RegisterInput struct {
+	TenantID   uuid.UUID
+	FolderID   uuid.UUID
+	Filename   string
+	MimeType   string
+	FileSize   int64
+	StorageKey string
+	OwnerID    uuid.UUID
+}
+
+// Register records metadata for a file that the client already uploaded to
+// object storage through a presigned URL. Unlike Upload it does NOT touch the
+// object store — the bytes are already in MinIO at input.StorageKey. It creates
+// the DB record plus the initial version pointing at that key.
+func (s *Service) Register(ctx context.Context, input RegisterInput) (*models.DocumentFile, error) {
+	filename := strings.TrimSpace(input.Filename)
+	if filename == "" {
+		return nil, ErrFilenameRequired
+	}
+	if len(filename) > 255 {
+		return nil, ErrFilenameTooLong
+	}
+	if input.FileSize <= 0 {
+		return nil, ErrFileSizeZero
+	}
+	if input.FileSize > s.maxSize {
+		return nil, ErrFileTooLarge
+	}
+	if strings.TrimSpace(input.StorageKey) == "" {
+		return nil, ErrStorageKeyMissing
+	}
+
+	fileID := uuid.New()
+	now := time.Now()
+
+	file := &models.DocumentFile{
+		ID:             fileID,
+		TenantID:       input.TenantID,
+		FolderID:       input.FolderID,
+		Filename:       filename,
+		MimeType:       input.MimeType,
+		FileSize:       input.FileSize,
+		StorageKey:     input.StorageKey,
+		CurrentVersion: 1,
+		OwnerID:        input.OwnerID,
+		IsFavorite:     false,
+		IsDeleted:      false,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	if err := s.repo.Create(ctx, file); err != nil {
+		return nil, err
+	}
+
+	version := &models.DocumentFileVersion{
+		ID:            uuid.New(),
+		TenantID:      input.TenantID,
+		FileID:        fileID,
+		VersionNumber: 1,
+		StorageKey:    input.StorageKey,
+		FileSize:      input.FileSize,
+		CreatedBy:     input.OwnerID,
+		CreatedAt:     now,
+	}
+	if err := s.repo.CreateVersion(ctx, version); err != nil {
+		slog.Error("failed to create initial version record",
+			"file_id", fileID,
+			"error", err,
+		)
+	}
+
+	slog.Info("file registered (presigned upload)",
+		"file_id", fileID,
+		"filename", filename,
+		"size", input.FileSize,
+		"folder_id", input.FolderID,
+		"owner_id", input.OwnerID,
+	)
+
+	s.emitEvent(ctx, event.EventDocumentUploaded, input.OwnerID.String(), fileID.String(), nil,
+		"Dokument hochgeladen", filename, "/documents/"+fileID.String())
+
+	return file, nil
+}
+
 // GetByID retrieves a file by ID, scoped to the tenant.
 func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error) {
 	file, err := s.repo.GetByID(ctx, id, tenantID)

@@ -9,6 +9,7 @@ var (
 	ErrFilenameTooLong   = errors.New("filename must be 255 characters or less")
 	ErrFileSizeZero      = errors.New("file size must be greater than zero")
 	ErrFileTooLarge      = errors.New("file exceeds maximum allowed size")
+	ErrStorageKeyMissing = errors.New("storage key is required")
 	ErrVersionNotFound   = errors.New("file version not found")
 	ErrVersionConflict   = errors.New("version conflict: file has been updated")
 	ErrFileDeleted       = errors.New("file has been deleted")
