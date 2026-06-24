@@ -1,6 +1,6 @@
 # RESUME — nächster Einstieg (Stand 2026-06-25, Session-Ende #4)
 
-> **★★★ SESSION-ENDE 2026-06-25 #4 — main `2c7cbd2a` (+ Sub-Merge pending). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+> **★★★ SESSION-ENDE 2026-06-25 #4 — main gepusht (admin-Sub gemergt `79020623`, danach Doku). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >
 > **⚠ NEUE REGEL (Luke): CI-grün beim Push → AUTO-DEPLOY auf Hetzner.** Jeder Push MUSS CI-grün sein. Desktop-CI (`ci-desktop.yml`) = `eslint src/` + `npx tsc --noEmit` (full, ~3,5min grün) + `vitest` + `npm run build`. Vor JEDEM Push lokal grün fahren (eslint auf geänderte Dateien reicht meist; full-tsc ist grün). [[feedback_hetzner_review_workflow]]
 >
@@ -11,7 +11,7 @@
 >
 > **★ FEATURE-FLAGS (X-7, deploy-kritisch):** helpdesk/wiki/berichte/formulare/vertraege/video/Branchen hängen im Gateway an `COSMI_MODULE_*_ENABLED` (default OFF). Lokal aktiviert via **`deploy/docker/docker-compose.flags.yml`** (untracked Override — beim Gateway-Start `-f docker-compose.yml -f docker-compose.flags.yml`). **Prod muss die Flags in `.env.production` setzen, sonst deployt der Auto-Deploy ohne diese Module.**
 >
-> **★ SUB-TERMINAL (parallel/admin):** baut `admin` mock-first (Benutzer/RBAC/Lizenz/Branding), A-0-Gate beantwortet, A-1 freigegeben. Paket `.planning/parallel-batch/sub-admin.md`, QA-Log `qa-admin.md`. **OFFEN: wenn Sub fertig → `parallel/admin` in main mergen** (i18n/registry/handlers additiv behalten, dann `npm run build`).
+> **★ admin (Sub) FERTIG + GEMERGT** (`79020623`, 25.06.) — A-1…A-5 FE-mock-first: Benutzerverwaltung (Invite/Detail-Modal), RBAC-Matrix, Lizenz/Modul-Aktivierung, Branding-Tab, Settings-Overlay-Eintrag (~3346 Z., i18n ×4, QA `qa-admin.md`). Merge-Konflikt nur ITAdminHubTab (Branding-Dublette raus = Sub-Version genommen). **Full CI lokal grün** (eslint+tsc+`npm run build` 1m11s) vor Push. **Echt-Schaltung wartet auf Luke** (Auth-Invite/RBAC-Persist/License-Service/S3 — `backend-gaps.md` §Vorausschau). Offen: admin Demo-Tiefe-Schliff.
 >
 > **★ 2 LUKE-TEXTE rausgegeben** (Darien verschickt): (a) Welle-1-Blocker (helpdesk-tenant/security-DSGVO/mails-IMAP/inbox/documents-Wire/Feature-Flags) · (b) Vorausschau Welle 2/3 (admin-Stack/settings-OAuth/profil-S3/security + Onboarding=FE-only). Beide persistiert in `backend-gaps.md` (oben „🔭 Vorausschau" + „Echt-Schaltung-Befunde").
 >

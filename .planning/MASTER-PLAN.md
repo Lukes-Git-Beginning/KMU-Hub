@@ -135,8 +135,8 @@
 **security** — ✅ FE review-reif (S-1…S-5 mock-first, Branch `parallel/security`, 2026-06-24) — **DSGVO = wichtig**
 - [x] FE-Tiefe verifiziert + alle 11 Seiten crashfrei (BE-konforme Daten-Contracts) · [x] DSGVO-Tools FE vollständig stateful mock-first (Audit Filter/Export/Verify, Sessions Terminate, Vault, PW-Policy, IP-Access + Export Art.15/20 approve/deny/download, Erasure Art.17 Preview/Execute+Legal-Hold, DSAR Art.15 Cross-Modul-Suche, Retention DACH+Auto-Löschung) · [x] Hub konsolidiert (`/admin/security`, 10 Sub-Tabs, Legacy-Redirect) + i18n ×4 (0 Raw-Keys DE+EN) + Modul-Settings-Eintrag · [ ] 🔌 Echt-Schaltung gegen Go-BE (`backend-gaps.md` „security/DSGVO": X-3-Spec-Lücke + Wire-Shapes + Timestamp-Normalizer) (BE teils da `47d210d9`/`60acb782`) · [ ] P4 WebAuthn 🔒 · [ ] 🔭 **Verarbeitungsverzeichnis Art. 30 RoPA** (eigener Batch — hoch-sichtbares DSGVO-Verkaufs-Feature, siehe `qa-security.md`) · [ ] **Review-Gate**
 
-**admin** — ⬜ AdminHub-Tabs-Gerüst, überwiegend Stub
-- [ ] 🔁 Tiefe der Tabs verifizieren · [ ] P1 Benutzerverwaltung (Liste/Einladen/Rolle/Deaktivieren) 🔒 · [ ] P2 RBAC-Matrix + Modul-Leiter verwaltbar · [ ] P3 Abo/Lizenz real 🔒 · [ ] P4 Branding persistent 🔒 · [ ] P5 Ressourcen-Monitoring 🔒 · [ ] Demo-Tiefe · [ ] **Review-Gate**
+**admin** — ✅ **A-1…A-5 FE-mock-first gebaut (Sub, gemergt 25.06. `79020623`)** — Benutzerverwaltung (Liste/Invite/Detail-Modal/Rolle/Deaktivieren) · RBAC-Rollen + Permission-Matrix · Lizenz + Modul-Aktivierung tenant-weit · Branding-Tab (Logo/Color/Live-Preview, IT-Tab-Dublette raus) · Settings-Overlay-Eintrag. Markt+Design-recherchiert, i18n ×4, QA `qa-admin.md`.
+- [ ] **Echt-Schaltung 🔒 (Luke):** Auth-Invite-Flow · User-Account-Mgmt · RBAC-Persistenz · Tenant-Provisioning · Billing/License-Service · Branding-Persist (S3) · Ressourcen-Monitoring (alle in `backend-gaps.md` §Vorausschau) · [ ] Demo-Tiefe-Schliff · [ ] **Review-Gate**
 
 **automatisierung** — ✅ A-1…A-5 (review-reif) · **echt-verifiziert 25.06.** (Service up, `/automations` 200, Empty-State rendert sauber, keine Crashes/Raw-Keys, keine FE-Fixes nötig)
 - [ ] P1 Backend-CRUD echt 🔒 · [ ] P2 Flow-Editor Branching/Loop · [ ] P3 Webhook-Inbound + http_request-Action 🔒 · [ ] P4 Modul-übergreifend + Permissions · [ ] P5 Template-Marktplatz · [ ] Demo-Tiefe · [ ] **Review-Gate**
@@ -234,8 +234,9 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 |---|---|
 | ✅ **echt-verkabelt** (Welle 1, ~16) | **kontakte** (Referenz) · crm (companies/deals/pipeline/tags) · work · finanzen/Buchhaltung · dialer-Supervisor · dashboard-Layout · zeiterfassung/HR · notifications · vertraege · work-Labels · **documents** · **calendar** · **wiki** · **automatisierung** · **berichte** · **kommunikation(chat/Team)** |
 | 🔒 **echt-Schaltung wartet auf Luke-Backend** | **helpdesk** (ListTickets-tenant-Bug) · **security/DSGVO** (nur 2/10 Endpoints da) · **mails** (IMAP/SMTP) · **kommunikation-Inbox** (notification-Service) |
+| ✅ **FE-mock-first gebaut, Echt-Schaltung wartet auf Luke** | **admin** (A-1…A-5, gemergt 25.06. — Benutzer/RBAC/Lizenz/Branding) |
 | 🔧 **self-doable Rest** | **X-4 Settings-Rollout** (~12 Stores, dokumente = Referenz) · team/profil (Teil-Schaltung, gemischt) |
-| ⬜ **noch bauen** (Wellen 2–5) | formulare/video (Demo-Tiefe) · admin (Sub baut grade) · settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
+| ⬜ **noch bauen** (Wellen 2–5) | formulare/video (Demo-Tiefe) · settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
 
 **Review-Abnahme (Welle 6):** aufgeteilt — jeder klickt das Modul durch, macht Screenshots + Notizen, passt an (tote Buttons, Detail-Views, leere Zustände, Raw-Keys, Umlaute, Style), bis es **abgenommen** ist. Haken in §2/§3.
 
