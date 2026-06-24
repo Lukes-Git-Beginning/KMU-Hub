@@ -83,7 +83,7 @@
 - [ ] P3 Recording/Consent/Bibliothek vollständig 🔒 · [ ] P4 Lobby/Waiting-Room + Moderation · [ ] P5 Breakout + Shared-Notes + ActionItems→Work · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
 
 **dialer** — ✅ D-1…D-5 · LogCallOutcome echt, Supervisor MSW
-- [ ] Echt-Schaltung Supervisor-Dashboard 🔌 · [ ] P2 LiveKit-Recording 🔒 · [ ] P3 CTI/Click-to-Dial vollständig · [ ] P4 AMD/Predictive 🔒 (Post-MVP) · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
+- [x] Echt-Schaltung Supervisor-Dashboard 🔌 (live verifiziert, 2 BE-Bugs gefixt: recent-calls-SQL + protojson-Null-Normalizer, `13b0988c`) · [ ] P2 LiveKit-Recording 🔒 · [ ] P3 CTI/Click-to-Dial vollständig · [ ] P4 AMD/Predictive 🔒 (Post-MVP) · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
 
 ### Cluster 2 — Arbeit
 
@@ -125,7 +125,7 @@
 - [ ] **FE localStorage → Settings-Backend** 🔌 (BE Migr. 138: tenant_settings/user_settings/tenant_module_leads) — Cross-Cutting, pro Modul · [ ] Modul-Leiter-CRUD-UI (Team-MemberDetailPanel) · [ ] P3 Workspace-Defaults real 🔒 · [ ] P4 Integrationen-OAuth 🔒 · [ ] Demo-Tiefe-Phase · [ ] **Review-Gate**
 
 **dashboard** — ✅ D-1…D-5 + Cross-Modul-Alerts + Team-Dashboard (review-reif)
-- [ ] Echt-Schaltung Widget-Persistenz + KPI-Endpoint 🔒 (echte KPI-Werte + Zeitreihe statt FE-synthetisch) · [ ] P2 DnD-Resize/Reorder vollständig · [ ] **Review-Gate**
+- [x] Layout-Persistenz echt verifiziert (apiClient↔gateway-nativ, Roundtrip GET→PUT→GET live) · [ ] KPI-Endpoint 🔒 (echte KPI-Werte + Zeitreihe statt FE-synthetisch) · [ ] P2 DnD-Resize/Reorder vollständig · [ ] **Review-Gate**
 
 **profil** — ✅ P-1…P-5 (review-reif)
 - [ ] Avatar-Upload echt 🔒 (S3-Service) · [ ] User-Preferences-Persistenz 🔒 · [ ] Presence-Routing 🔒 · [ ] **Review-Gate**
@@ -208,7 +208,7 @@
 - [x] **work FE echt-geschaltet (23.06.):** `api/wire-time.ts` normalisiert `{seconds,nanos}`→ISO über alle work-Hooks (Projekte/My-Tasks/Detail/Kanban + Kommentare/Aktivitäten/Dateien/Zeit) → rendern live mit korrekten Daten.
 - [x] **Buchhaltung (finanzen) FE weitgehend echt (23.06.):** Dashboard-KPIs (flat-select `data.X ?? data` + `conversion_rate` Number-Coerce), Rechnungen+Angebote-Listen mit Status (`finance-status.ts` Enum-Int→String aus biz.pb.go). Live verifiziert.
 - [ ] **Buchhaltung Rest (B-12):** invoice-**List**-DTO liefert kein `gross_total` (nur Einzel-Rechnung hat's) → Betrag-Spalte 0,00 €. Backend: Totals in List-Response aufnehmen, ODER FE aus `line_items` summieren. Credit-Notes/Dunning (0/0 Demo) ungetestet.
-- [ ] Restliche mock-fertige Module ans **echte Backend** hängen (🔌): notifications, dialer-Supervisor, zeiterfassung, work-Labels, dashboard, settings-Persistenz. + **X-3** OpenAPI-Specs + **X-4** Settings-Backend + **X-5** Demo-Seeds + **X-6** echter Build. + Bugs **B-1/B-2** (CI grün).
+- [x] **dialer-Supervisor** echt (2 BE-Bugs gefixt, live) · [x] **dashboard-Layout** echt verifiziert · [x] notifications + work-Labels + vertraege (Luke-Welle 24.06.). [ ] Offen 🔌: **zeiterfassung** (biz+minio laufen jetzt, Endpoints reachable, `entries:null`-Handling + HR-Seed prüfen), settings-Persistenz. + **X-3** OpenAPI-Specs + **X-4** Settings-Backend + **X-5** Demo-Seeds + **X-6** echter Build. + Bugs **B-1/B-2** (CI grün).
 *Lanes:* je-Modul-Echtschaltung in 2 Terminals aufteilbar; **aber** cross-cutting-Bausteine (X-4 Settings-Backend, X-5 Seeds) = **Main-Lane, nicht doppeln** (Hot-Files).
 
 ### Welle 2 — Lücken-Module bauen  ·  ~20 Phasen  ·  gut parallel (3 disjunkte Lanes)

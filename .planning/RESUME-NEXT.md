@@ -9,6 +9,10 @@
 > **Gebaut-aber-nicht-meine-Lane:** `npm run build` war rot wegen `@livekit/track-processors` — nur stale node_modules, `npm install` fixt es (Dep ist in package.json). Danach Build grün.
 > **PARALLEL:** Sub-Terminal baut `security`/DSGVO auf Branch `parallel/security` (Paket `.planning/parallel-batch/sub-security.md`, S-0 done, S-1…S-5 freigegeben). Main merged den Branch am Ende.
 > **Docker läuft noch** (nur Main fasst Docker an). Offen für dialer: Contact-Calls-Detail im UI screenshotten (ContactDetailModal), Supervisor-Leer-Zustand sauber live testen (Pass B nutzte Cache).
+>
+> **DANACH verifiziert (selbe Session):**
+> - **dashboard-Layout = echt, KEIN Code-Change nötig.** Store nutzt schon den echten `apiClient` (`/api/v1/dashboard/layout`, gateway-nativ, `response.JSON` — keine protojson-Falle). Roundtrip GET→PUT→GET live bestätigt (`{layout, active_widgets, is_custom, updated_at}`, persistiert). FE ruft `initFromServer`+`ensureDefaults` on mount. Abhaken in MASTER-PLAN.
+> - **zeiterfassung/HR ENTBLOCKT (Backend läuft jetzt):** HR liegt auf dem **biz**-Service (`HRRoutes.ServiceName()="biz"`, HR+Finance teilen das biz-Binary). biz crashte (`failed to connect to minio for gobd archive`) → **minio + createbucket hochgefahren** → biz healthy → Gateway-Restart → HR-Endpoints antworten. Shapes geprobt: `/hr/time/balance` flach (clean), `/hr/time/status` flach, `/hr/time/entries` = `{entries:null,total:0}` (**`entries` ist `null` nicht `[]` bei leer → jede Konsum-Hook muss `?? []`**). `normalizeWireTimestamps` (für `{seconds,nanos}`) ist in `hr-client.ts` schon drin (Luke-Welle). **NÄCHSTE UNIT (eigene volle Echt-Schaltung):** HR-Demo seeden (hr_work_time_entries + leave), alle Hooks auf `entries:null` prüfen, FE live screenshotten. Stack-Stand: postgres/redis/auth/crm/gateway/dialer/biz/minio healthy.
 
 
 > **★ UPDATE 2026-06-24 — B-12 DONE, Buchhaltung KOMPLETT echt (gepusht `4712857a`).**
