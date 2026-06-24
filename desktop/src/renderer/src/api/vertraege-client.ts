@@ -19,6 +19,7 @@ import type {
   ListRemindersResponse,
 } from './vertraege-types'
 import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
+import { normalizeWireTimestamps } from './wire-time'
 
 // ---------------------------------------------------------------------------
 // Request helper
@@ -31,8 +32,9 @@ interface RequestOptions {
   params?: Record<string, string | number | boolean | undefined>
 }
 
-function request<T>(opts: RequestOptions): Promise<T> {
-  return authenticatedRequest<T>(opts)
+async function request<T>(opts: RequestOptions): Promise<T> {
+  const raw = await authenticatedRequest<T>(opts)
+  return normalizeWireTimestamps(raw)
 }
 
 // ---------------------------------------------------------------------------

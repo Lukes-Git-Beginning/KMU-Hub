@@ -67,6 +67,13 @@ import type { DocumentFile } from '@/api/types/document-types'
 import { useContacts } from '@/api/hooks/useContacts'
 import { useDeals } from '@/api/hooks/useDeals'
 import { useInvoices } from '@/api/hooks/useFinance'
+import {
+  useContracts as useContractsApi,
+  useCreateContract as useCreateContractApi,
+  useUpdateContract as useUpdateContractApi,
+  useDeleteContract as useDeleteContractApi,
+} from '@/api/hooks/useVertraege'
+import { apiContractsToStore, uiTypeToBackend } from '@/api/vertraege-normalizer'
 
 // ─── Type Config ─────────────────────────────────────────────────
 
@@ -162,8 +169,13 @@ function ContractDialog({
   initial?: Contract | null
 }) {
   const { t } = useTranslation()
-  const addContract = useVertraegeStore((s) => s.addContract)
-  const updateContract = useVertraegeStore((s) => s.updateContract)
+  // Store actions kept for UI-only fields (partner, monthlyCost, etc.) not yet
+  // persisted in the backend. Backend mutations (createContractApi/updateContractApi)
+  // persist the fields the backend supports; the store syncs UI-only fields.
+  const addContractToStore = useVertraegeStore((s) => s.addContract)
+  const updateContractInStore = useVertraegeStore((s) => s.updateContract)
+  const createContractApi = useCreateContractApi()
+  const updateContractApi = useUpdateContractApi()
 
   // Tenant defaults ("Für alle") + personal reminder override (settings panel).
   const enabledTypes = useVertraegeSettingsStore((s) => s.enabledTypes)
@@ -308,7 +320,7 @@ function ContractDialog({
     }))
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) {
       toast.error(t('vertraege.contractDialog.errorTitle'))
       return
@@ -326,8 +338,31 @@ function ContractDialog({
       return
     }
 
+    const months = form.endDate
+      ? Math.max(1, Math.ceil(
+          (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
+        ))
+      : 0
+
     if (isEdit && initial) {
-      updateContract(initial.id, {
+      try {
+        // Call backend for persisted fields
+        await updateContractApi.mutateAsync({
+          id: initial.id,
+          title: form.title,
+          contract_type: uiTypeToBackend(form.type),
+          starts_on: form.startDate,
+          ends_on: form.endDate || undefined,
+          clear_ends_on: !form.endDate,
+          notes: form.notes,
+          document_url: form.documents.length > 0 ? form.documents[0].fileId : undefined,
+        })
+      } catch {
+        toast.error(t('vertraege.contractDialog.updateError', { title: form.title }))
+        return
+      }
+      // Also update store for UI-only fields (partner, monthlyCost, etc.)
+      updateContractInStore(initial.id, {
         title: form.title,
         type: form.type,
         partner: form.partner,
@@ -359,11 +394,25 @@ function ContractDialog({
       })
       toast.success(t('vertraege.contractDialog.updateSuccess', { title: form.title }))
     } else {
-      const months = form.endDate
-        ? Math.max(1, Math.ceil(
-            (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
-          ))
-        : 0
+      let createdId = `v-${Date.now()}`
+      try {
+        // Call backend to create the contract
+        const result = await createContractApi.mutateAsync({
+          contract_number: form.contractNumber,
+          title: form.title,
+          contract_type: uiTypeToBackend(form.type),
+          starts_on: form.startDate,
+          ends_on: form.endDate || undefined,
+          notes: form.notes,
+        })
+        // Use the backend-assigned id if available
+        if (result && (result as { contract?: { id?: string } }).contract?.id) {
+          createdId = (result as { contract: { id: string } }).contract.id
+        }
+      } catch {
+        toast.error(t('vertraege.contractDialog.createError', { title: form.title }))
+        return
+      }
       const today = new Date().toISOString().split('T')[0]
       const creationHistory = [
         { date: today, action: 'contract_created' as const, user: currentUserName() },
@@ -377,8 +426,9 @@ function ContractDialog({
       for (const invName of form.invoiceNames) {
         creationHistory.push({ date: today, action: 'invoice_linked' as const, meta: invName, user: currentUserName() })
       }
-      addContract({
-        id: `v-${Date.now()}`,
+      // Sync to store so UI-only fields are available in the current session
+      addContractToStore({
+        id: createdId,
         title: form.title,
         type: form.type,
         partner: form.partner,
@@ -900,12 +950,13 @@ function TerminationDialog({
   contract: Contract | null
 }) {
   const { t } = useTranslation()
-  const terminateContract = useVertraegeStore((s) => s.terminateContract)
+  const terminateContractInStore = useVertraegeStore((s) => s.terminateContract)
+  const updateContractApi = useUpdateContractApi()
   const [terminationDate, setTerminationDate] = useState('')
   const [reason, setReason] = useState('')
   const [confirmed, setConfirmed] = useState(false)
 
-  const handleTerminate = () => {
+  const handleTerminate = async () => {
     if (!terminationDate) {
       toast.error(t('vertraege.terminationDialog.errorDate'))
       return
@@ -919,7 +970,13 @@ function TerminationDialog({
       return
     }
     if (contract) {
-      terminateContract(contract.id, reason, terminationDate)
+      try {
+        await updateContractApi.mutateAsync({ id: contract.id, status: 'terminated' })
+      } catch {
+        toast.error(t('vertraege.terminationDialog.error', { title: contract.title }))
+        return
+      }
+      terminateContractInStore(contract.id, reason, terminationDate)
       toast.success(t('vertraege.terminationDialog.success', { title: contract.title }))
     }
     setTerminationDate('')
@@ -1165,7 +1222,43 @@ function TemplateCard({
 export default function VertraegePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { contracts, contractTemplates, deleteContract, updateContract } = useVertraegeStore()
+  // contractTemplates remain in mock store (no backend equivalent yet).
+  const { contractTemplates } = useVertraegeStore()
+  // Store is also used as a local UI-only field cache for contracts.
+  const storeContracts = useVertraegeStore((s) => s.contracts)
+  const deleteContractFromStore = useVertraegeStore((s) => s.deleteContract)
+
+  // Backend-sourced contract list. Falls back to mock store when loading/error.
+  const { data: contractsData, isLoading: contractsLoading } = useContractsApi()
+  const deleteContractApi = useDeleteContractApi()
+
+  // Merge: backend contracts are authoritative for persisted fields; we fill
+  // UI-only fields (partner, monthlyCost, etc.) from the store when available
+  // (matched by id). New backend contracts not yet in the store get defaults.
+  const contracts: Contract[] = useMemo(() => {
+    if (contractsLoading || !contractsData) {
+      // While loading, show store data to avoid flash of empty state
+      return storeContracts
+    }
+    const apiContracts = apiContractsToStore(contractsData.contracts ?? [])
+    // Merge: for each backend contract, overlay store entry if present
+    return apiContracts.map((apiC) => {
+      const storeC = storeContracts.find((s) => s.id === apiC.id)
+      if (!storeC) return apiC
+      // Backend fields win for: id, contractNumber, title, type, status, startDate, endDate, notes
+      return {
+        ...storeC,
+        id: apiC.id,
+        contractNumber: apiC.contractNumber,
+        title: apiC.title,
+        type: apiC.type,
+        status: apiC.status,
+        startDate: apiC.startDate,
+        endDate: apiC.endDate,
+        notes: apiC.notes,
+      }
+    })
+  }, [contractsData, contractsLoading, storeContracts])
 
   // Fristen-Reminder beim Mount in den Notification-Store synchronisieren (idempotent).
   useContractExpiryNotifications()
@@ -1327,8 +1420,14 @@ export default function VertraegePage() {
     { separator: true, label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(contract) },
   ]
 
-  const handleDelete = (contract: Contract) => {
-    deleteContract(contract.id)
+  const handleDelete = async (contract: Contract) => {
+    try {
+      await deleteContractApi.mutateAsync(contract.id)
+    } catch {
+      toast.error(t('vertraege.delete.error', { title: contract.title }))
+      return
+    }
+    deleteContractFromStore(contract.id)
     setConfirmDelete(null)
     if (selectedContract?.id === contract.id) setSelectedContractId(null)
     toast.success(t('vertraege.delete.success', { title: contract.title }))
