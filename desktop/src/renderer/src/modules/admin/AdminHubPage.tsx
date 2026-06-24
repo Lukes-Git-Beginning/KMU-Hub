@@ -18,15 +18,17 @@ import { useAuthStore } from '@/stores/auth'
 import { userHasRole } from '@/config/roles'
 
 const UsersAdminHubTab = lazy(() => import('./users/UsersAdminHubTab'))
+const RolesAdminHubTab = lazy(() => import('./roles/RolesAdminHubTab'))
 const ITAdminHubTab = lazy(() => import('./tabs/ITAdminHubTab'))
 const SecurityAdminHubTab = lazy(() => import('./tabs/SecurityAdminHubTab'))
 const BillingAdminHubTab = lazy(() => import('./tabs/BillingAdminHubTab'))
 const IntegrationsAdminHubTab = lazy(() => import('./tabs/IntegrationsAdminHubTab'))
 
-type AdminTab = 'users' | 'it' | 'security' | 'billing' | 'integrations'
+type AdminTab = 'users' | 'roles' | 'it' | 'security' | 'billing' | 'integrations'
 
 const ROUTE_TO_TAB: Record<string, AdminTab> = {
   '/admin/users': 'users',
+  '/admin/roles': 'roles',
   '/admin/it': 'it',
   '/admin/security': 'security',
   '/admin/billing': 'billing',
@@ -35,6 +37,7 @@ const ROUTE_TO_TAB: Record<string, AdminTab> = {
 
 const TAB_TO_ROUTE: Record<AdminTab, string> = {
   users: '/admin/users',
+  roles: '/admin/roles',
   it: '/admin/it',
   security: '/admin/security',
   billing: '/admin/billing',
@@ -69,6 +72,7 @@ export default function AdminHubPage() {
 
   const tabs: { key: AdminTab; labelKey: string }[] = [
     { key: 'users', labelKey: 'admin.hub.tabs.users' },
+    { key: 'roles', labelKey: 'admin.hub.tabs.roles' },
     { key: 'it', labelKey: 'admin.hub.tabs.it' },
     { key: 'security', labelKey: 'admin.hub.tabs.security' },
     { key: 'billing', labelKey: 'admin.hub.tabs.billing' },
@@ -120,6 +124,7 @@ export default function AdminHubPage() {
       >
         <Suspense fallback={<ModuleLoadingFallback />}>
           {activeTab === 'users' && <UsersAdminHubTab />}
+          {activeTab === 'roles' && <RolesAdminHubTab />}
           {activeTab === 'it' && <ITAdminHubTab />}
           {activeTab === 'security' && <SecurityAdminHubTab />}
           {activeTab === 'billing' && <BillingAdminHubTab />}

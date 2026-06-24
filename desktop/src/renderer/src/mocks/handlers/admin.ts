@@ -14,13 +14,15 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import type { RoleId } from '@/config/roles'
-import type { AdminUser, AdminUserStatus } from '@/api/admin-types'
+import type { AdminUser, AdminUserStatus, PermissionMatrix } from '@/api/admin-types'
 import { seedAdminUsers } from '../data/admin-users'
+import { PERMISSION_GROUPS, seedPermissionMatrix } from '../data/admin-permissions'
 
 const API = API_BASE_URL
 
 // ── In-memory state (stateful for the session) ──────────────────────────────
 let adminUsers: AdminUser[] = seedAdminUsers()
+let permissionMatrix: PermissionMatrix = seedPermissionMatrix()
 
 const VALID_ROLES: RoleId[] = ['admin', 'manager', 'member', 'hr', 'it_support']
 
@@ -102,5 +104,27 @@ export const adminHandlers = [
       // account that gets reactivated keeps its prior login timestamp.
     }
     return HttpResponse.json({ user })
+  }),
+
+  // ── RBAC: permission matrix (A-2) ───────────────────────────────────────────
+  http.get(`${API}/api/v1/admin/permissions`, () => {
+    return HttpResponse.json({ groups: PERMISSION_GROUPS, matrix: permissionMatrix })
+  }),
+
+  http.patch(`${API}/api/v1/admin/permissions`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      capabilityId?: string
+      role?: RoleId
+      granted?: boolean
+    }
+    const { capabilityId, role, granted } = body
+    // Admin always holds every capability — its grants are not editable.
+    if (capabilityId && role && role !== 'admin' && typeof granted === 'boolean') {
+      const row = { ...(permissionMatrix[capabilityId] ?? { admin: true }) }
+      if (granted) row[role] = true
+      else delete row[role]
+      permissionMatrix = { ...permissionMatrix, [capabilityId]: row }
+    }
+    return HttpResponse.json({ matrix: permissionMatrix })
   }),
 ]

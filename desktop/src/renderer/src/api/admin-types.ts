@@ -29,3 +29,25 @@ export interface InviteUserInput {
   lastName?: string
   role: RoleId
 }
+
+// ── RBAC (A-2) ──────────────────────────────────────────────────────────────
+
+/** A functional capability group with its ordered capability ids. */
+export interface PermissionGroup {
+  id: string
+  capabilities: string[]
+}
+
+/** capabilityId → which roles hold it. Admin is implicitly always true. */
+export type PermissionMatrix = Record<string, Partial<Record<RoleId, boolean>>>
+
+export interface PermissionsResponse {
+  groups: PermissionGroup[]
+  matrix: PermissionMatrix
+}
+
+export interface SetPermissionInput {
+  capabilityId: string
+  role: RoleId
+  granted: boolean
+}

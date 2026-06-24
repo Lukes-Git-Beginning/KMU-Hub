@@ -124,6 +124,8 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
   - `PATCH /api/v1/admin/users/:id` (Rolle/Status) → Gateway-RBAC-Rollenzuweisung + Account-Deaktivierung (Login sperren, Seat freigeben).
   - `POST /api/v1/admin/users/:id/resend-invite`.
   - Seat-Modell: aktive + pending-Invites konsumieren einen Platz (`useTenant().totalSeats`) — Server muss Seat-Limit beim Invite erzwingen (FE warnt nur inline).
+- **A-2 RBAC-Matrix (FE-Mock-First, Branch `parallel/admin`):** kanonische Rollen-/Rechte-Matrix (5 feste Rollen aus `@/config/roles`, 7 Capability-Gruppen × 17 Capabilities). FE mock-persisted via `/api/v1/admin/permissions` (`mocks/handlers/admin.ts`), Contract `PermissionGroup`/`PermissionMatrix` in `api/admin-types.ts`. Beim Echt-Anschluss: `GET/PATCH /api/v1/admin/permissions` gegen echte Gateway-RBAC-Persistenz; **echte Enforcement** (Capability-Grants wirken auf Modul-/Aktions-Zugriff, heute nur via statisches `@/config/roles` Nav-Gating). Custom Roles/ABAC = post-1.0.
+- **Konsolidierung settings/Main-Lane:** Der Legacy-„Berechtigungen"-Subtab in `settings/tabs/ITAdminTab.tsx` (`PermissionsSection`, Fake-Matrix: falsche Rollen, kein Persist) ist durch die A-2-Matrix abgelöst → sollte entfernt werden (verhindert doppelte Permission-UI im Admin-Hub).
 
 ### security / DSGVO  (FE-Mock-First-Batch S-1…S-5, Branch `parallel/security`)
 > BE existiert weitgehend echt: GDPR-Export/-Erasure-Handler (`47d210d9`, alle 14 auf echte SQL), Audit/Sessions/PW-Policy/IP-Rules/2FA in `route_security.go`/`route_auth.go`. Das FE läuft mock-first (MSW); Verdrahtung gegen das echte BE = später (Claude/FE-Lane).

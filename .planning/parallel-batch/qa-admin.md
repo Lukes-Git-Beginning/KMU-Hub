@@ -43,3 +43,19 @@
 - Detail-Modal: ganze Zeile klickbar, Gradient-Stripe, Rolle/Konto/Zugang-Sektionen; Eingeladene zeigen „erneut senden" + „zurückziehen", Aktive „deaktivieren", Deaktivierte „reaktivieren".
 
 **Offen für Luke (backend-gaps.md → admin):** echter Invite-Flow (E-Mail/Token), Account-Provisioning, Status-Persistenz im Gateway.
+
+---
+
+## A-2 — Rollen & RBAC-Matrix ✅ (2/5)
+
+**Gebaut:** Neuer Tab **„Rollen"** (`/admin/roles`, 2. Tab) — die **kanonische** Permission-Surface.
+- `mocks/data/admin-permissions.ts` (7 Capability-Gruppen × 17 Capabilities + Default-Grants pro Rolle, Admin implizit alles), Contract in `api/admin-types.ts` (`PermissionGroup`/`PermissionMatrix`/`SetPermissionInput`), Hooks `api/hooks/useRolePermissions.ts` (GET + optimistisches PATCH).
+- `mocks/handlers/admin.ts`: GET `/api/v1/admin/permissions` (groups+matrix), PATCH (cell-Toggle, Admin server-seitig gesperrt).
+- UI `modules/admin/roles/RolesAdminHubTab.tsx`: Rollen-Summary-Karten (5 Rollen aus `@/config/roles` + Nutzer-Counts aus A-1), **sticky Permission-Matrix** (Rollen=Spalten, Capabilities=Zeilen gruppiert, Sticky Header+erste Spalte), **Admin-Spalte gesperrt (Lock-Icon)**, Checkbox-Toggle, Demo-Hinweis „nicht erzwungen". Rollen-Karte klickbar → `DetailModal` mit zugeordneten Nutzern.
+- i18n: 32 Keys/Sprache (`admin.roles.*` + `admin.hub.tabs.roles`, ICU-Plural `userCount`), 4 Sprachen via `scripts/add-admin-roles-i18n.mjs`.
+
+**Verify (Screenshots angesehen, :5174):** Build EXIT 0, ESLint 0. DE+EN **0 Raw-Keys / 0 `{{var}}` / 0 Console-Errors**. Matrix lesbar bei 17 Capabilities (Sticky-Scroll), Admin-Spalte Lock. Rollen-Counts stimmen (1+1+2+1+9 = 14, konsistent mit A-1-Liste). **Toggle wirkt optimistisch + persistiert** (überlebt Navigation /admin/users → zurück). Rollen-Detail zeigt zugeordnete Nutzer (Projektleiterin → Sarah Müller + Laura Neumann). Skeleton-Loading beim ersten Laden (kein Spinner).
+
+**Konsolidierung (Darien-Antwort 2):** Der „Berechtigungen"-Subtab in `settings/tabs/ITAdminTab.tsx` (`PermissionsSection`) ist eine **Fake**-Matrix (falsche Rollen `Admin/Manager/Mitarbeiter/Extern`, kein Persist, „Speichern"=Toast). Liegt in `settings/` (TABU) → **nicht angetastet**; die A-2-Matrix ist jetzt die kanonische. **→ Coordination: settings/Main-Lane sollte den Legacy-Subtab entfernen** (sonst zwei Permission-UIs im Hub).
+
+**Offen für Luke:** echte RBAC-Persistenz/Enforcement im Gateway (Capability-Grants pro Rolle).
