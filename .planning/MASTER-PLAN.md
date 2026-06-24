@@ -24,11 +24,11 @@
 3. **„1.0-bau-fertig" je Modul =** alle FE-Phasen + Demo-Tiefe + **echtes Backend verkabelt** (wo vorhanden; 🔒-Teile warten auf Lukes Track). **Review-Abnahme kommt danach gebündelt** (Welle 6).
 4. **Mobile-Features** (GPS-Stempel, Offline-Rapporte, Barcode-Scan) = Post-1.0 (Handy-App-Phase). Im Plan mit 📱 markiert, nicht in 1.0 eingeplant.
 
-### Gesamtstand (verifiziert 23.06., aktualisiert 24.06.)
-- **~100–110 von ~220 FE-Phasen fertig (~47–50 %).** (24.06.: security S-1…S-5 gebaut + 3 Module echt-geschaltet.)
-- **Welle 1 (Echt-Schaltung) stark vorangekommen:** 10 Module echt-verkabelt (kontakte/crm/work/finanzen/notifications/vertraege/work-Labels + dialer/dashboard/zeiterfassung). 3 mock-verdeckte Backend-Bugs gefunden+gefixt.
-- **security/DSGVO** (P0-Launch-Blocker) von ⬜ → ✅ FE-review-reif.
-- **13 Module FE-mock-fertig** (Review aber erst am Ende, Welle 6, nach Verkabelung): kontakte, calendar, zeiterfassung, dokumente, finanzen, work, team, dashboard, vertraege, helpdesk, automatisierung, profil, mails + kommunikation(Paket A) + berichte, wiki. Diese brauchen noch die **Echt-Verkabelung** (Welle 1), nicht sofort Review.
+### Gesamtstand (verifiziert 23.06., aktualisiert 25.06.)
+- **~110–120 von ~220 FE-Phasen fertig (~50–55 %).**
+- **Welle 1 (Echt-Schaltung) weit fortgeschritten:** **~16 Module echt-verkabelt** (kontakte/crm/work/finanzen/notifications/vertraege/work-Labels/dialer/dashboard/zeiterfassung + 25.06.: documents/calendar/wiki/automatisierung/berichte/kommunikation-chat). **6 mock-verdeckte Backend-/Wire-Bugs gefunden+gefixt** (FE-tolerant) + 2 Deploy-Blocker für Luke (Feature-Flags X-7, helpdesk-tenant).
+- **Self-doable Modul-Echt-Schaltung praktisch durch.** Welle-1-Rest hängt an Luke-Backend: helpdesk (tenant-Bug) · security/DSGVO (2/10 Endpoints) · mails (IMAP) · kommunikation-Inbox (notification-Service). Einziger großer self-doable Rest: **X-4 Settings-Rollout** (~12 Stores, dokumente=Referenz steht).
+- **security/DSGVO** (P0-Launch-Blocker) FE-review-reif; Backend-Echt-Schaltung wartet auf Luke.
 - **App-Shell** weitgehend fertig (Login-Redesign, Idle-Lock, Passwort-Reset-FE, Logo, Login-Animation, Modul-Einstellungen). Reste in §1.
 - **Onboarding/Info-Center:** Bausteine existieren (OnboardingWizard, Tour-System, HelpWidget), aber halbfertig/ungenutzt — Ausbau in §1.2.
 
@@ -229,12 +229,13 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 ### Welle 6 — FINALE REVIEW  ·  alle Module bau-fertig → händisch abnehmen  ·  Team, aufgeteilt
 **Erst jetzt**, wenn FE + Backend + Verkabelung stehen: jedes Modul aufgeteilt im Team durchklicken, Screenshots + Notizen, anpassen bis **abgenommen** — an der (fast) fertigen Version. **Voraussetzung:** Lukes Backend-Track ist für die 🔒-Module verkabelt (sonst reviewt man noch Mock-Stände).
 
-**Bau-Status heute** (was am Ende in die Review-Welle einfließt):
+**Bau-Status heute** (aktualisiert 25.06., was am Ende in die Review-Welle einfließt):
 | Bau-Status | Module |
 |---|---|
-| ✅ **echt-verkabelt** (Welle 1) | **kontakte** (Referenz) · crm (companies/deals/pipeline/tags) · work · finanzen/Buchhaltung · **dialer-Supervisor** · **dashboard-Layout** · **zeiterfassung/HR** · notifications · vertraege · work-Labels |
-| ✅ **FE-mock-fertig** — noch echt-verkabeln (Welle 1) | calendar, dokumente, team, helpdesk, automatisierung, profil, mails, kommunikation, berichte, wiki, **security/DSGVO** (S-1…S-5) |
-| ⬜ **noch bauen** (Wellen 2–5) | formulare/video (Demo-Tiefe) · admin, settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
+| ✅ **echt-verkabelt** (Welle 1, ~16) | **kontakte** (Referenz) · crm (companies/deals/pipeline/tags) · work · finanzen/Buchhaltung · dialer-Supervisor · dashboard-Layout · zeiterfassung/HR · notifications · vertraege · work-Labels · **documents** · **calendar** · **wiki** · **automatisierung** · **berichte** · **kommunikation(chat/Team)** |
+| 🔒 **echt-Schaltung wartet auf Luke-Backend** | **helpdesk** (ListTickets-tenant-Bug) · **security/DSGVO** (nur 2/10 Endpoints da) · **mails** (IMAP/SMTP) · **kommunikation-Inbox** (notification-Service) |
+| 🔧 **self-doable Rest** | **X-4 Settings-Rollout** (~12 Stores, dokumente = Referenz) · team/profil (Teil-Schaltung, gemischt) |
+| ⬜ **noch bauen** (Wellen 2–5) | formulare/video (Demo-Tiefe) · admin (Sub baut grade) · settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
 
 **Review-Abnahme (Welle 6):** aufgeteilt — jeder klickt das Modul durch, macht Screenshots + Notizen, passt an (tote Buttons, Detail-Views, leere Zustände, Raw-Keys, Umlaute, Style), bis es **abgenommen** ist. Haken in §2/§3.
 
