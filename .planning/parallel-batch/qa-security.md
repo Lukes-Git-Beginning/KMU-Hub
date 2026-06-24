@@ -112,6 +112,12 @@ Fehlend (26): alle Sessions (4), DSAR-Suche, alle 2FA-Mutations (6), audit expor
 **Verify:** Build ✓ (exit 0). Alle 9 Hub-Tabs + beide Hubs crashfrei, Screenshots angesehen (Vault/Sessions/IP/PW-Policy/GDPR-Export/Retention/DSAR/Erasure korrekt befüllt). 0 Raw-Keys, 0 Page-Errors.
 **Offen:** GDPR-Export zeigt rohe `user_id` statt Name → S-3; Schreib-Ops noch nicht stateful → S-2.
 
+### Phasen-Log · S-2 — ✅ fertig 2026-06-24
+**Soll:** MSW-Schreib-Ops stateful → Aktionen testbar.
+**Gemacht:** `handlers/security.ts` Demo-Daten zu modul-level `let` (in-memory, überlebt Navigation, reset bei Reload) + Schreib-Handler: Vault reveal (`GET /vault/:keyName`), set/upsert (`PUT`, key_version++), delete (`DELETE`); IP-Rules create (`POST`)/delete (`DELETE`); PW-Policy update (`PUT`, merge); Audit export (`GET /audit/export` → CSV/JSON-Blob) + verify (`POST /audit/verify`); Sessions terminate (`DELETE /auth/sessions/:id`) + terminate-all (`DELETE /auth/sessions`, behält is_current). Alle Response-Shapes BE-konform (`{secret}`/`{rule}`/`{policy}`/`{status}`/`{terminated_count}`).
+**Verify:** Build ✓ (exit 0). Aktions-QA (`scripts/qa-security-actions.mjs`, Bilder angesehen): IP-Rule add → „3 Allow" + Toast „Erfolgreich" ✓; Vault-Reveal → `demo-secret-…` sichtbar ✓; Session-Terminate → „2 Meine" + Toast „Sitzung wurde beendet" ✓. 0 Page-Errors.
+**Hinweis:** Vault-Reveal liefert Demo-Wert; echtes BE `GET /vault/:keyName` = `{secret, decrypted_value}` (Client erwartet `VaultSecretValue {key_name, value}`) → Abweichung in backend-gaps notiert.
+
 ---
 
 ## Verify-Setup (für Bau-Phasen)

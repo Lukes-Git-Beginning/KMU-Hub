@@ -85,7 +85,8 @@ const auditLogs = rawAuditLogs.map((raw, i) => ({
 
 // Field shape matches PasswordPolicy in security-types.ts (BE wire: encoding/json
 // over protobuf, snake_case). The Go gateway wraps it as { policy: {...} }.
-const passwordPolicy = {
+// `let` so the PUT handler can mutate it (stateful demo, survives navigation).
+let passwordPolicy = {
   id: 'pwp-001',
   min_length: 12,
   min_entropy: 60,
@@ -101,24 +102,33 @@ const passwordPolicy = {
 // IP rules — field shape matches IPAccessRule (ip_cidr, rule_type, created_by)
 // ---------------------------------------------------------------------------
 
-const ipRules = [
+let ipRules = [
   { id: 'ipr-001', ip_cidr: '192.168.1.0/24', rule_type: 'allow', description: 'Büro-Netzwerk München', created_by: IDS.users.stefan, created_at: daysAgo(90) },
   { id: 'ipr-002', ip_cidr: '10.0.0.0/8', rule_type: 'allow', description: 'VPN-Range', created_by: IDS.users.stefan, created_at: daysAgo(90) },
   { id: 'ipr-003', ip_cidr: '203.0.113.0/24', rule_type: 'block', description: 'Bekannte Angreifer-Range', created_by: IDS.users.markus, created_at: daysAgo(5) },
+]
+
+// Vault secrets — `let` for stateful set/delete via the write handlers below.
+let vaultSecrets = [
+  { id: 'vlt-001', key_name: 'SMTP_PASSWORD', description: 'E-Mail-Versand (Postfach noreply@)', key_version: 4, created_by: IDS.users.stefan, created_at: daysAgo(90), updated_at: daysAgo(15) },
+  { id: 'vlt-002', key_name: 'LIVEKIT_API_SECRET', description: 'Video-Meetings (LiveKit)', key_version: 2, created_by: IDS.users.stefan, created_at: daysAgo(120), updated_at: daysAgo(30) },
+  { id: 'vlt-003', key_name: 'JWT_SECRET', description: 'Session-Token-Signatur', key_version: 7, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(7) },
+  { id: 'vlt-004', key_name: 'DATABASE_PASSWORD', description: 'PostgreSQL Primär-DB', key_version: 3, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(45) },
+  { id: 'vlt-005', key_name: 'REDIS_PASSWORD', description: 'Cache (Redis)', key_version: 3, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(45) },
 ]
 
 // ---------------------------------------------------------------------------
 // Active sessions — field shape matches UserSession in security-types.ts
 // ---------------------------------------------------------------------------
 
-const sessions = [
+let sessions = [
   { id: 'ses-001', user_id: IDS.users.stefan, device_name: 'MacBook Pro 16"', device_type: 'desktop', ip_address: '192.168.1.100', location: 'München, DE', user_agent: 'Cosmi Desktop/1.0 (macOS 15)', is_current: true, last_active_at: minutesAgo(2), created_at: hoursAgo(3) },
   { id: 'ses-002', user_id: IDS.users.stefan, device_name: 'iPhone 16 Pro', device_type: 'mobile', ip_address: '84.142.55.21', location: 'München, DE', user_agent: 'Cosmi Mobile/1.0 (iOS 18)', is_current: false, last_active_at: hoursAgo(5), created_at: daysAgo(2) },
   { id: 'ses-003', user_id: IDS.users.stefan, device_name: 'iPad Air', device_type: 'tablet', ip_address: '192.168.1.118', location: 'München, DE', user_agent: 'Cosmi Mobile/1.0 (iPadOS 18)', is_current: false, last_active_at: daysAgo(1), created_at: daysAgo(6) },
 ]
 
 // All-sessions view (admin) adds other users' sessions
-const allSessions = [
+let allSessions = [
   ...sessions,
   { id: 'ses-101', user_id: IDS.users.thomas, device_name: 'ThinkPad X1', device_type: 'desktop', ip_address: '192.168.1.103', location: 'München, DE', user_agent: 'Cosmi Desktop/1.0 (Windows 11)', is_current: false, last_active_at: minutesAgo(18), created_at: hoursAgo(7) },
   { id: 'ses-102', user_id: IDS.users.lena, device_name: 'Galaxy S24', device_type: 'mobile', ip_address: '91.64.12.7', location: 'Augsburg, DE', user_agent: 'Cosmi Mobile/1.0 (Android 15)', is_current: false, last_active_at: hoursAgo(2), created_at: daysAgo(1) },
@@ -129,7 +139,7 @@ const allSessions = [
 // { export_requests: [...] }
 // ---------------------------------------------------------------------------
 
-const gdprExports = [
+let gdprExports = [
   { id: 'gex-001', user_id: IDS.users.lena, status: 'ready', requested_at: daysAgo(3), reviewed_by: IDS.users.stefan, reviewed_at: daysAgo(2), review_note: 'Auskunftsersuchen genehmigt', download_token: 'tok-lena-001', download_expires_at: daysFromNow(4) },
   { id: 'gex-002', user_id: IDS.users.thomas, status: 'pending', requested_at: hoursAgo(6), reviewed_by: null, reviewed_at: null, review_note: null, download_token: null, download_expires_at: null },
   { id: 'gex-003', user_id: IDS.users.felix, status: 'denied', requested_at: daysAgo(10), reviewed_by: IDS.users.markus, reviewed_at: daysAgo(9), review_note: 'Identität nicht zweifelsfrei bestätigt', download_token: null, download_expires_at: null },
@@ -189,17 +199,9 @@ export const securityHandlers = [
     return HttpResponse.json({ entries: paginated, total: filtered.length })
   }),
 
-  // Vault secrets list — field shape matches VaultSecret (key_name, key_version)
+  // Vault secrets list
   http.get(`${API}/api/v1/security/vault`, () => {
-    return HttpResponse.json({
-      secrets: [
-        { id: 'vlt-001', key_name: 'SMTP_PASSWORD', description: 'E-Mail-Versand (Postfach noreply@)', key_version: 4, created_by: IDS.users.stefan, created_at: daysAgo(90), updated_at: daysAgo(15) },
-        { id: 'vlt-002', key_name: 'LIVEKIT_API_SECRET', description: 'Video-Meetings (LiveKit)', key_version: 2, created_by: IDS.users.stefan, created_at: daysAgo(120), updated_at: daysAgo(30) },
-        { id: 'vlt-003', key_name: 'JWT_SECRET', description: 'Session-Token-Signatur', key_version: 7, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(7) },
-        { id: 'vlt-004', key_name: 'DATABASE_PASSWORD', description: 'PostgreSQL Primär-DB', key_version: 3, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(45) },
-        { id: 'vlt-005', key_name: 'REDIS_PASSWORD', description: 'Cache (Redis)', key_version: 3, created_by: IDS.users.markus, created_at: daysAgo(180), updated_at: daysAgo(45) },
-      ],
-    })
+    return HttpResponse.json({ secrets: vaultSecrets })
   }),
 
   // Password policy
@@ -247,5 +249,97 @@ export const securityHandlers = [
   // Validate password — always valid in demo
   http.post(`${API}/api/v1/security/password/validate`, () => {
     return HttpResponse.json({ valid: true, score: 4, feedback: [] })
+  }),
+
+  // ── Stateful write handlers (in-memory; survives navigation, resets on reload) ──
+
+  // Reveal a secret value (mutation; never cached). Demo value only.
+  http.get(`${API}/api/v1/security/vault/:keyName`, ({ params }) => {
+    const keyName = String(params.keyName)
+    return HttpResponse.json({ key_name: keyName, value: `demo-secret-${keyName.toLowerCase()}-9f3a21` })
+  }),
+
+  // Create or update a secret
+  http.put(`${API}/api/v1/security/vault/:keyName`, async ({ params, request }) => {
+    const keyName = String(params.keyName)
+    const body = (await request.json().catch(() => ({}))) as { value?: string; description?: string }
+    const nowIso = new Date().toISOString()
+    const existing = vaultSecrets.find((s) => s.key_name === keyName)
+    if (existing) {
+      existing.key_version += 1
+      existing.updated_at = nowIso
+      if (body.description !== undefined) existing.description = body.description
+      return HttpResponse.json({ secret: existing })
+    }
+    const created = { id: `vlt-${Date.now()}`, key_name: keyName, description: body.description ?? '', key_version: 1, created_by: IDS.users.stefan, created_at: nowIso, updated_at: nowIso }
+    vaultSecrets = [created, ...vaultSecrets]
+    return HttpResponse.json({ secret: created })
+  }),
+
+  // Delete a secret
+  http.delete(`${API}/api/v1/security/vault/:keyName`, ({ params }) => {
+    const keyName = String(params.keyName)
+    vaultSecrets = vaultSecrets.filter((s) => s.key_name !== keyName)
+    return HttpResponse.json({ status: 'secret deleted' })
+  }),
+
+  // Update password policy
+  http.put(`${API}/api/v1/security/password/policy`, async ({ request }) => {
+    const patch = (await request.json().catch(() => ({}))) as Partial<typeof passwordPolicy>
+    passwordPolicy = { ...passwordPolicy, ...patch, id: passwordPolicy.id }
+    return HttpResponse.json({ policy: passwordPolicy })
+  }),
+
+  // Create IP rule
+  http.post(`${API}/api/v1/security/ip-rules`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { ip_cidr?: string; rule_type?: string; description?: string }
+    const created = { id: `ipr-${Date.now()}`, ip_cidr: body.ip_cidr ?? '', rule_type: body.rule_type ?? 'allow', description: body.description ?? '', created_by: IDS.users.stefan, created_at: new Date().toISOString() }
+    ipRules = [...ipRules, created]
+    return HttpResponse.json({ rule: created })
+  }),
+
+  // Delete IP rule
+  http.delete(`${API}/api/v1/security/ip-rules/:id`, ({ params }) => {
+    const id = String(params.id)
+    ipRules = ipRules.filter((r) => r.id !== id)
+    return HttpResponse.json({ status: 'ip rule deleted' })
+  }),
+
+  // Export audit log (CSV / JSON blob)
+  http.get(`${API}/api/v1/security/audit/export`, ({ request }) => {
+    const format = new URL(request.url).searchParams.get('format') || 'csv'
+    if (format === 'json') {
+      return new HttpResponse(JSON.stringify(auditLogs, null, 2), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const header = 'timestamp,user,action,target,target_type,ip_address,result'
+    const rows = auditLogs.map(
+      (e) => `${e.timestamp},"${e.user_name}",${e.action},"${e.target}",${e.target_type},${e.ip_address},${e.result}`,
+    )
+    return new HttpResponse([header, ...rows].join('\n'), {
+      headers: { 'Content-Type': 'text/csv' },
+    })
+  }),
+
+  // Verify audit chain integrity
+  http.post(`${API}/api/v1/security/audit/verify`, () => {
+    return HttpResponse.json({ valid: true, entries_checked: auditLogs.length })
+  }),
+
+  // Terminate a single session
+  http.delete(`${API}/api/v1/auth/sessions/:id`, ({ params }) => {
+    const id = String(params.id)
+    sessions = sessions.filter((s) => s.id !== id)
+    allSessions = allSessions.filter((s) => s.id !== id)
+    return HttpResponse.json({ status: 'session terminated' })
+  }),
+
+  // Terminate all other sessions (keep the current one)
+  http.delete(`${API}/api/v1/auth/sessions`, () => {
+    const removed = sessions.filter((s) => !s.is_current).length
+    sessions = sessions.filter((s) => s.is_current)
+    allSessions = allSessions.filter((s) => s.is_current || s.user_id !== IDS.users.stefan)
+    return HttpResponse.json({ terminated_count: removed })
   }),
 ]
