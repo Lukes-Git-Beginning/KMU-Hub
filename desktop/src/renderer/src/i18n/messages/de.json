@@ -7182,6 +7182,7 @@
   "security.erasure.searchUserPlaceholder": "Benutzer suchen...",
   "security.export.denyReasonPlaceholder": "Begründung der Ablehnung...",
   "security.export.expiresIn30Days": "Ablauf in 30 Tagen",
+  "security.export.expiresInDays": "Ablauf in {days, plural, one {# Tag} other {# Tagen}}",
   "security.export.scopeModules": "CRM, E-Mails, Chat, Kalender, Dokumente, Helpdesk, Rechnungen, Projekte, Formulare, Zeiterfassung",
   "security.export.scopeTitle": "Enthaltene Module im Export:",
   "security.export.statusPending": "Ausstehend",

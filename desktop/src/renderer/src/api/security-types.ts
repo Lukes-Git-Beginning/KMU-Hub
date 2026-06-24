@@ -111,6 +111,9 @@ export type GDPRExportStatus = 'pending' | 'approved' | 'denied' | 'processing' 
 export interface GDPRExportRequest {
   id: string
   user_id: string
+  /** Optional display names joined by the backend (or demo data). */
+  user_name?: string | null
+  reviewer_name?: string | null
   status: GDPRExportStatus
   requested_at: string
   reviewed_by: string | null

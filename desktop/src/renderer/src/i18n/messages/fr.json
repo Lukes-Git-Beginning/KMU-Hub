@@ -7148,6 +7148,7 @@
   "security.erasure.searchUserPlaceholder": "Rechercher un utilisateur...",
   "security.export.denyReasonPlaceholder": "Motif du refus...",
   "security.export.expiresIn30Days": "Expire dans 30 jours",
+  "security.export.expiresInDays": "Expire dans {days, plural, one {# jour} other {# jours}}",
   "security.export.scopeModules": "CRM, E-mails, Chat, Calendrier, Documents, Helpdesk, Factures, Projets, Formulaires, Pointage",
   "security.export.scopeTitle": "Modules inclus dans l'export :",
   "security.export.statusPending": "En attente",

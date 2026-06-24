@@ -134,28 +134,54 @@ let allSessions = [
   { id: 'ses-102', user_id: IDS.users.lena, device_name: 'Galaxy S24', device_type: 'mobile', ip_address: '91.64.12.7', location: 'Augsburg, DE', user_agent: 'Cosmi Mobile/1.0 (Android 15)', is_current: false, last_active_at: hoursAgo(2), created_at: daysAgo(1) },
 ]
 
+// Employee id → display name (mirrors the demo audit/user data) so admin views
+// can resolve user_id to a readable name (the real BE joins this server-side).
+const EMPLOYEE_NAMES: Record<string, string> = {
+  [IDS.users.stefan]: 'Stefan Vogel',
+  [IDS.users.markus]: 'Markus Weber',
+  [IDS.users.thomas]: 'Thomas Meier',
+  [IDS.users.lena]: 'Lena Braun',
+  [IDS.users.felix]: 'Felix Krause',
+  [IDS.users.laura]: 'Sabine Fischer',
+  [IDS.users.michael]: 'Petra Zimmermann',
+}
+
 // ---------------------------------------------------------------------------
 // GDPR export requests — field shape matches GDPRExportRequest; BE wraps as
-// { export_requests: [...] }
+// { export_requests: [...] }. `user_name`/`reviewer_name` are demo conveniences
+// (the real BE joins them server-side; the type carries them as optional).
 // ---------------------------------------------------------------------------
 
 let gdprExports = [
-  { id: 'gex-001', user_id: IDS.users.lena, status: 'ready', requested_at: daysAgo(3), reviewed_by: IDS.users.stefan, reviewed_at: daysAgo(2), review_note: 'Auskunftsersuchen genehmigt', download_token: 'tok-lena-001', download_expires_at: daysFromNow(4) },
-  { id: 'gex-002', user_id: IDS.users.thomas, status: 'pending', requested_at: hoursAgo(6), reviewed_by: null, reviewed_at: null, review_note: null, download_token: null, download_expires_at: null },
-  { id: 'gex-003', user_id: IDS.users.felix, status: 'denied', requested_at: daysAgo(10), reviewed_by: IDS.users.markus, reviewed_at: daysAgo(9), review_note: 'Identität nicht zweifelsfrei bestätigt', download_token: null, download_expires_at: null },
+  { id: 'gex-001', user_id: IDS.users.lena, user_name: EMPLOYEE_NAMES[IDS.users.lena], status: 'ready', requested_at: daysAgo(3), reviewed_by: IDS.users.stefan, reviewer_name: EMPLOYEE_NAMES[IDS.users.stefan], reviewed_at: daysAgo(2), review_note: 'Auskunftsersuchen genehmigt', download_token: 'tok-lena-001', download_expires_at: daysFromNow(27) },
+  { id: 'gex-002', user_id: IDS.users.thomas, user_name: EMPLOYEE_NAMES[IDS.users.thomas], status: 'pending', requested_at: hoursAgo(6), reviewed_by: null, reviewer_name: null, reviewed_at: null, review_note: null, download_token: null, download_expires_at: null },
+  { id: 'gex-003', user_id: IDS.users.felix, user_name: EMPLOYEE_NAMES[IDS.users.felix], status: 'denied', requested_at: daysAgo(10), reviewed_by: IDS.users.markus, reviewer_name: EMPLOYEE_NAMES[IDS.users.markus], reviewed_at: daysAgo(9), review_note: 'Identität nicht zweifelsfrei bestätigt', download_token: null, download_expires_at: null },
 ]
 
 // ---------------------------------------------------------------------------
-// DSAR (Art. 15) cross-module search — demo subjects
+// DSAR (Art. 15) cross-module search — shape matches BackendPerson in
+// DSARSearchPage (id, name, email, company, avatar, modules[{module,columns,records}]).
+// `records` keys are the `columns` entries.
 // ---------------------------------------------------------------------------
 
 const dsarSubjects = [
   {
-    subject_id: IDS.users.lena, name: 'Lena Braun', email: 'lena.braun@techvision.de',
+    id: IDS.users.lena, name: 'Lena Braun', email: 'lena.braun@techvision.de', company: 'TechVision GmbH', avatar: 'LB',
     modules: [
-      { module: 'kontakte', label: 'CRM Kontakte', record_count: 1, columns: ['Name', 'E-Mail', 'Telefon'], rows: [['Lena Braun', 'lena.braun@techvision.de', '+49 89 1234567']] },
-      { module: 'meetings', label: 'Meetings', record_count: 3, columns: ['Titel', 'Datum'], rows: [['Onboarding', daysAgo(30)], ['Review Q2', daysAgo(12)], ['Planung', daysAgo(2)]] },
-      { module: 'formulare', label: 'Formular-Antworten', record_count: 2, columns: ['Formular', 'Eingereicht'], rows: [['Feedback', daysAgo(20)], ['NPS', daysAgo(5)]] },
+      { module: 'CRM Kontakte', columns: ['Name', 'E-Mail', 'Telefon'], records: [{ Name: 'Lena Braun', 'E-Mail': 'lena.braun@techvision.de', Telefon: '+49 89 1234567' }] },
+      { module: 'Kalender', columns: ['Titel', 'Datum'], records: [{ Titel: 'Onboarding Lena', Datum: daysAgo(30) }, { Titel: 'Review Q2', Datum: daysAgo(12) }, { Titel: 'Projektplanung', Datum: daysAgo(2) }] },
+      { module: 'Formulare', columns: ['Formular', 'Eingereicht am'], records: [{ Formular: 'Mitarbeiter-Feedback', 'Eingereicht am': daysAgo(20) }, { Formular: 'NPS-Umfrage', 'Eingereicht am': daysAgo(5) }] },
+      { module: 'E-Mails', columns: ['Betreff', 'Gesendet'], records: [{ Betreff: 'Willkommen im Team', Gesendet: daysAgo(31) }, { Betreff: 'Zugangsdaten', Gesendet: daysAgo(30) }] },
+      { module: 'Einwilligungen', columns: ['Zweck', 'Status', 'Erteilt am'], records: [{ Zweck: 'Marketing-Newsletter', Status: 'Erteilt', 'Erteilt am': daysAgo(60) }, { Zweck: 'Datenverarbeitung', Status: 'Erteilt', 'Erteilt am': daysAgo(60) }] },
+    ],
+  },
+  {
+    id: IDS.users.thomas, name: 'Thomas Meier', email: 'thomas.meier@techvision.de', company: 'TechVision GmbH', avatar: 'TM',
+    modules: [
+      { module: 'CRM Kontakte', columns: ['Name', 'E-Mail', 'Telefon'], records: [{ Name: 'Thomas Meier', 'E-Mail': 'thomas.meier@techvision.de', Telefon: '+49 89 7654321' }] },
+      { module: 'CRM Deals', columns: ['Deal', 'Wert', 'Phase'], records: [{ Deal: 'CRM Lizenz', Wert: '24.000 €', Phase: 'Gewonnen' }, { Deal: 'KI Beratung', Wert: '12.000 €', Phase: 'Verhandlung' }] },
+      { module: 'Anrufe', columns: ['Kontakt', 'Dauer', 'Datum'], records: [{ Kontakt: 'Maria Schwarz', Dauer: '12:34', Datum: daysAgo(4) }, { Kontakt: 'Hans Müller', Dauer: '03:10', Datum: daysAgo(1) }] },
+      { module: 'Kalender', columns: ['Titel', 'Datum'], records: [{ Titel: 'Vertriebsmeeting', Datum: daysAgo(7) }] },
     ],
   },
 ]
@@ -341,5 +367,51 @@ export const securityHandlers = [
     sessions = sessions.filter((s) => s.is_current)
     allSessions = allSessions.filter((s) => s.is_current || s.user_id !== IDS.users.stefan)
     return HttpResponse.json({ terminated_count: removed })
+  }),
+
+  // Approve a GDPR export request → status ready, issue download token (Art. 12: 30-day window)
+  http.post(`${API}/api/v1/security/gdpr/export/:id/approve`, ({ params }) => {
+    const id = String(params.id)
+    const exp = gdprExports.find((e) => e.id === id)
+    if (exp) {
+      exp.status = 'ready'
+      exp.reviewed_by = IDS.users.stefan
+      exp.reviewer_name = EMPLOYEE_NAMES[IDS.users.stefan]
+      exp.reviewed_at = new Date().toISOString()
+      exp.review_note = 'Auskunftsersuchen genehmigt'
+      exp.download_token = `tok-${id}-${Date.now()}`
+      exp.download_expires_at = daysFromNow(30)
+    }
+    return HttpResponse.json({ export_request: exp })
+  }),
+
+  // Deny a GDPR export request
+  http.post(`${API}/api/v1/security/gdpr/export/:id/deny`, async ({ params, request }) => {
+    const id = String(params.id)
+    const body = (await request.json().catch(() => ({}))) as { note?: string }
+    const exp = gdprExports.find((e) => e.id === id)
+    if (exp) {
+      exp.status = 'denied'
+      exp.reviewed_by = IDS.users.stefan
+      exp.reviewer_name = EMPLOYEE_NAMES[IDS.users.stefan]
+      exp.reviewed_at = new Date().toISOString()
+      exp.review_note = body.note ?? 'Abgelehnt'
+    }
+    return HttpResponse.json({ export_request: exp })
+  }),
+
+  // Download a ready export artefact (JSON stub blob)
+  http.get(`${API}/api/v1/security/gdpr/export/:token/download`, ({ params }) => {
+    const token = String(params.token)
+    const exp = gdprExports.find((e) => e.download_token === token)
+    const payload = {
+      generated_at: new Date().toISOString(),
+      subject: exp ? EMPLOYEE_NAMES[exp.user_id] ?? exp.user_id : token,
+      note: 'Demo-Datenexport (Art. 15/20 DSGVO) — Platzhalter-Artefakt.',
+      modules: ['CRM', 'Kalender', 'E-Mails', 'Formulare', 'Einwilligungen'],
+    }
+    return new HttpResponse(JSON.stringify(payload, null, 2), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   }),
 ]

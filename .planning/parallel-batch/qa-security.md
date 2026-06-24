@@ -118,6 +118,13 @@ Fehlend (26): alle Sessions (4), DSAR-Suche, alle 2FA-Mutations (6), audit expor
 **Verify:** Build ✓ (exit 0). Aktions-QA (`scripts/qa-security-actions.mjs`, Bilder angesehen): IP-Rule add → „3 Allow" + Toast „Erfolgreich" ✓; Vault-Reveal → `demo-secret-…` sichtbar ✓; Session-Terminate → „2 Meine" + Toast „Sitzung wurde beendet" ✓. 0 Page-Errors.
 **Hinweis:** Vault-Reveal liefert Demo-Wert; echtes BE `GET /vault/:keyName` = `{secret, decrypted_value}` (Client erwartet `VaultSecretValue {key_name, value}`) → Abweichung in backend-gaps notiert.
 
+### Phasen-Log · S-3 — ✅ fertig 2026-06-24
+**Soll:** DSGVO-Kern Export (Art.15/20) + DSAR (Art.15) als geführte Flows. (Erasure-Tiefe → S-4 lt. Plan.)
+**Gemacht:**
+- **DSAR-Suche** BE-konform: Handler liefert jetzt `BackendPerson`-Struktur (`{id,name,email,company,avatar,modules:[{module,columns,records}]}`, `records`-Keys = `columns`) statt S-1-Stub-Shape. 2 Demo-Personen (Lena Braun: 5 Module/10 Datensätze, Thomas Meier: 4 Module) mit realistischen Cross-Modul-Daten (CRM/Kalender/Formulare/E-Mails/Einwilligungen/Deals/Anrufe). Export-Buttons → **echter** JSON/CSV-Blob-Download (statt Toast-Stub).
+- **GDPR-Export** stateful: neue Handler `POST /gdpr/export/:id/approve` (→ ready, reviewer, download_token, 30-Tage-Frist) + `/deny` + `GET /gdpr/export/:token/download` (JSON-Blob). `EMPLOYEE_NAMES`-Map → `user_id`/`reviewed_by` als lesbare Namen (Typ `GDPRExportRequest` um optionale `user_name`/`reviewer_name` erweitert). Frist-Anzeige dynamisch (neuer ICU-Key `security.export.expiresInDays` ×4) statt fix „30 Tage". Download `<a href>` → JS-Blob-Button.
+**Verify:** Build ✓ (exit 0). DSGVO-QA (`scripts/qa-security-dsgvo.mjs`, Bilder angesehen): DSAR „Lena" → Person-Card + 5 Module + ausgeklappte Datensätze ✓; Export zeigt Namen (Lena Braun/Thomas Meier/Felix Krause) + Reviewer + „Ablauf in 27 Tagen" ✓; Approve Thomas → „bereit zum Download" + „Ablauf in 30 Tagen" + Toast „Export genehmigt" (ausstehend 3→1) ✓. 0 Page-Errors.
+
 ---
 
 ## Verify-Setup (für Bau-Phasen)

@@ -7148,6 +7148,7 @@
   "security.erasure.searchUserPlaceholder": "Cerca utente...",
   "security.export.denyReasonPlaceholder": "Motivazione del rifiuto...",
   "security.export.expiresIn30Days": "Scade in 30 giorni",
+  "security.export.expiresInDays": "Scade tra {days, plural, one {# giorno} other {# giorni}}",
   "security.export.scopeModules": "CRM, E-mail, Chat, Calendario, Documenti, Helpdesk, Fatture, Progetti, Moduli, Rilevazione presenze",
   "security.export.scopeTitle": "Moduli inclusi nell'esportazione:",
   "security.export.statusPending": "In attesa",
