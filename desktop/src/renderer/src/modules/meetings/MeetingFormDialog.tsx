@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ import {
 import type { Meeting, AgendaItem } from '@/stores/meetings'
 import { useContacts } from '@/api/hooks/useContacts'
 import { useDeals } from '@/api/hooks/useDeals'
+import { useCreateMeeting, useUpdateMeeting } from '@/api/hooks/useMeetings'
 
 interface MeetingFormDialogProps {
   open: boolean
@@ -97,6 +99,10 @@ const availableParticipants = [
 export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: MeetingFormDialogProps) {
   const { t } = useTranslation()
   const isEdit = !!meeting
+
+  const createMeeting = useCreateMeeting()
+  const updateMeeting = useUpdateMeeting()
+  const isMutating = createMeeting.isPending || updateMeeting.isPending
 
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
@@ -239,8 +245,9 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       finalRecurrence = unitMap[customUnit]
     }
 
+    // Build the shared local-store payload (keeps MeetingsPage in sync).
     const newMeetingId = meeting?.id || `m${Date.now()}`
-    onSubmit({
+    const localPayload: Omit<Meeting, 'id'> = {
       title: title.trim(),
       status: meeting?.status || 'scheduled',
       project: project || 'Allgemein',
@@ -264,8 +271,77 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       invitationsSent: sendInvitations ? true : (meeting?.invitationsSent || false),
       contact_id: contactId !== '' ? contactId : null,
       deal_id: dealId !== '' ? dealId : null,
-    })
-    onOpenChange(false)
+    }
+
+    // Build the ISO timestamps the backend expects.
+    const scheduledStart = `${date}T${startTime}:00`
+    const scheduledEnd = new Date(
+      new Date(scheduledStart).getTime() + duration * 60_000,
+    ).toISOString()
+
+    const agendaText = agendaItems.map((a) => a.text).join('\n') || undefined
+
+    // lean: local-store meetings have numeric IDs like "m1" (not UUIDs); skip
+    //   the backend PUT for those — they are display-only until R3-E3 wires a
+    //   real server-side edit. Trigger: when local meetings are removed in favour
+    //   of backend-only state.
+    const isBackendMeeting = isEdit && meeting && !/^m\d+$/.test(meeting.id)
+
+    if (isBackendMeeting) {
+      updateMeeting.mutate(
+        {
+          id: meeting.id,
+          data: {
+            title: title.trim(),
+            description: description || undefined,
+            agenda: agendaText,
+            scheduled_start: scheduledStart,
+            scheduled_end: scheduledEnd,
+            contact_id: contactId !== '' ? contactId : null,
+            deal_id: dealId !== '' ? dealId : null,
+          },
+        },
+        {
+          onSuccess: () => {
+            onSubmit(localPayload)
+            onOpenChange(false)
+          },
+          onError: (err) => {
+            toast.error(t('meetings.toast.updateFailed', { error: (err as Error).message }))
+          },
+        },
+      )
+    } else if (isEdit) {
+      // Local-store-only meeting: update only the local store (no backend call).
+      onSubmit(localPayload)
+      onOpenChange(false)
+    } else {
+      createMeeting.mutate(
+        {
+          title: title.trim(),
+          description: description || undefined,
+          agenda: agendaText,
+          scheduled_start: scheduledStart,
+          scheduled_end: scheduledEnd,
+          // lean: mock participant IDs (p1..p8) are not real UUIDs — backend
+          //   would reject them. Send empty until a real user-picker is wired.
+          //   Trigger: when team-member picker replaces the mock list.
+          attendee_ids: [],
+          calendar_event_id: addToCalendar ? (meeting?.calendarEventId ?? undefined) : undefined,
+          contact_id: contactId !== '' ? contactId : null,
+          deal_id: dealId !== '' ? dealId : null,
+        },
+        {
+          onSuccess: () => {
+            onSubmit(localPayload)
+            onOpenChange(false)
+          },
+          onError: (err) => {
+            toast.error(t('meetings.toast.createFailed', { error: (err as Error).message }))
+          },
+        },
+      )
+    }
   }
 
   return (
@@ -678,9 +754,13 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleSubmit} disabled={!title.trim()}>
+          <Button onClick={handleSubmit} disabled={!title.trim() || isMutating}>
             <Plus className="mr-1.5 h-4 w-4" />
-            {isEdit ? t('common.save') : t('meetings.form.createMeeting')}
+            {isMutating
+              ? t('common.saving')
+              : isEdit
+                ? t('common.save')
+                : t('meetings.form.createMeeting')}
           </Button>
         </DialogFooter>
       </DialogContent>
