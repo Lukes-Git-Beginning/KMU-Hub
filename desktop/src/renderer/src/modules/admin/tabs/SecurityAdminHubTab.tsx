@@ -21,8 +21,21 @@ const VaultPage = lazy(() => import('@/modules/security/VaultPage'))
 const IPAccessPage = lazy(() => import('@/modules/security/IPAccessPage'))
 const GDPRExportPage = lazy(() => import('@/modules/security/GDPRExportPage'))
 const GDPRErasurePage = lazy(() => import('@/modules/security/GDPRErasurePage'))
+const DSARSearchPage = lazy(() => import('@/modules/security/DSARSearchPage'))
+const RetentionPolicyPage = lazy(() => import('@/modules/security/RetentionPolicyPage'))
+const PasswordPolicyPage = lazy(() => import('@/modules/security/PasswordPolicyPage'))
 
-type SecuritySubTab = 'audit' | 'gdpr' | 'sessions' | 'ip-whitelist' | 'vault' | 'privacy' | 'ai'
+type SecuritySubTab =
+  | 'audit'
+  | 'gdpr'
+  | 'dsar'
+  | 'retention'
+  | 'sessions'
+  | 'password-policy'
+  | 'ip-whitelist'
+  | 'vault'
+  | 'privacy'
+  | 'ai'
 
 export default function SecurityAdminHubTab() {
   const { t } = useTranslation()
@@ -36,7 +49,10 @@ export default function SecurityAdminHubTab() {
   const subTabs: { key: SecuritySubTab; labelKey: string }[] = [
     { key: 'audit', labelKey: 'admin.security.tabs.audit' },
     { key: 'gdpr', labelKey: 'admin.security.tabs.gdpr' },
+    { key: 'dsar', labelKey: 'admin.security.tabs.dsar' },
+    { key: 'retention', labelKey: 'admin.security.tabs.retention' },
     { key: 'sessions', labelKey: 'admin.security.tabs.sessions' },
+    { key: 'password-policy', labelKey: 'admin.security.tabs.passwordPolicy' },
     { key: 'ip-whitelist', labelKey: 'admin.security.tabs.ipWhitelist' },
     { key: 'vault', labelKey: 'admin.security.tabs.vault' },
     { key: 'privacy', labelKey: 'admin.security.tabs.privacy' },
@@ -90,7 +106,10 @@ export default function SecurityAdminHubTab() {
               </div>
             </div>
           )}
+          {activeSubTab === 'dsar' && <DSARSearchPage />}
+          {activeSubTab === 'retention' && <RetentionPolicyPage />}
           {activeSubTab === 'sessions' && <SessionsPage />}
+          {activeSubTab === 'password-policy' && <PasswordPolicyPage />}
           {activeSubTab === 'ip-whitelist' && <IPAccessPage />}
           {activeSubTab === 'vault' && <VaultPage />}
           {activeSubTab === 'privacy' && <PrivacyAdminTab />}

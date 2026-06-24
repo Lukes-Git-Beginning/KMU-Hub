@@ -132,6 +132,24 @@ Fehlend (26): alle Sessions (4), DSAR-Suche, alle 2FA-Mutations (6), audit expor
 - **Retention konfigurierbar:** `RetentionPolicyPage` Status-Spalte → funktionaler **Auto-Löschung-Switch** pro Kategorie (aktiv/pausiert, lokaler State; gesetzliche Fristen bleiben fix). Neue Keys `security.retention.status.paused` + `security.retention.col.autoDeletion` ×4.
 **Verify:** Build ✓ (exit 0). S-4-QA (`scripts/qa-security-s4.mjs`, Bilder angesehen): Erasure „Max Mustermann" → echte Preview „2.406 Datensätze · 10 Module" mit per-Modul-Aktionen ✓; Legal-Hold-Hinweis (§147 AO) ✓; Retention-Toggle → Rechnungen „Pausiert" (Switch aus), Rest „Aktiv" ✓. 0 Page-Errors.
 
+### Phasen-Log · S-5 — ✅ fertig 2026-06-24
+**Soll:** Routing-Konsolidierung + i18n-Cleanup + Modul-Settings-Eintrag + Schluss-QA.
+**Gemacht:**
+- **Routing konsolidiert** auf neuen Hub `/admin/security` (`SecurityAdminHubTab`): 3 fehlende Sub-Tabs eingebunden (DSAR/Retention/Password-Policy) → jetzt 10 Sub-Tabs. `App.tsx`: `/admin/security-legacy` → **Redirect** auf `/admin/security` (keine toten Deep-Links; `SecurityAdminPage` als Komponente erhalten, nicht mehr geroutet, Import entfernt). i18n-Keys `admin.security.tabs.{dsar,retention,passwordPolicy}` ×4.
+- **i18n-Cleanup** aller hardcoded Strings → Keys ×4: Sessions (Alle/Meine/Meine+Alle Sitzungen), Vault (secretsCount ICU/revealedCount/version), IP-Access (allowCount/blockCount/sr-only/Placeholder), PW-Policy (strength strong/moderate/weak, no-expiry- + Test-Placeholder). 18 neue Keys ×4.
+- **Modul-Settings:** neues `SecuritySettingsPanel` (ModuleSettingsShell, tenant: Security-Center-Link, personal: Profil-Sicherheit-Link) + Registry-Eintrag `id:'security'` (cosmi-Gruppe, admin/it_support). `SettingsModuleId` um `'security'` erweitert. 8 neue Keys ×4 (entries.security wiederverwendet bestehenden `settings.security.title`).
+**Verify:** Build ✓ (exit 0). i18n-Parität: alle neuen Keys ×4, JSON valide, 0 `{{}}`. Schluss-QA (`scripts/qa-security-final.mjs`, DE+EN, Bilder angesehen): Legacy-Redirect → `/admin/security` ✓; alle 10 Sub-Tabs DE+EN crashfrei, **0 Raw-Keys, 0 hardcoded Strings, 0 Page-Errors**; EN-Cleanup sichtbar (Vault „5 secrets/Value hidden", Sessions „3 Mine/All sessions/Terminate session"); Settings-Eintrag „Sicherheit & DSGVO" mit beiden Sektionen rendert sauber.
+
+---
+
+## ✅ Definition of Done — security review-reif (S-1…S-5 alle ✅, 2026-06-24)
+- Alle 11 Seiten crashfrei (Demo), BE-konforme Daten-Contracts, MSW-Lese- + Schreib-Ops stateful.
+- DSGVO-Kern durchklickbar mock-first: Audit (Filter/Export/Verify), DSAR Art.15 (Cross-Modul-Suche + JSON/CSV-Export), Export Art.15/20 (approve/deny/download + Frist), Erasure Art.17 (Preview/Execute + Legal-Hold), Retention (DACH-Fristen + Auto-Löschung-Toggle), Sessions (Terminate), Vault, PW-Policy, IP-Access, 2FA.
+- Ein Hub (`/admin/security`, 10 Sub-Tabs), Legacy-Redirect, Modul-Settings-Eintrag.
+- i18n: 0 Raw-Keys / 0 hardcoded / 0 `{{}}` über alle Seiten DE+EN, Parität ×4.
+- Jede Phase 1 Commit+Push auf `parallel/security`; Backend-Bedarf in `backend-gaps.md`.
+- **Offen für Folge-Batch (nicht in diesem Scope):** Art. 30 RoPA (eigenes Feature, oben notiert); 🔌-Echt-Schaltung gegen das Go-Backend (backend-gaps.md); GDPRErasure-Such-Demo nutzt fiktive `mockUsers` (bewusst, für Lösch-Demo).
+
 ---
 
 ## Verify-Setup (für Bau-Phasen)

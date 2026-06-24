@@ -21,7 +21,7 @@ export type SettingsScope = 'personal' | 'tenant'
  * tenant-wide settings — editable by admins only, since it cannot be
  * delegated via LEADABLE_MODULES.
  */
-export type SettingsModuleId = ModuleId | 'dashboard' | 'automatisierung' | 'notifications'
+export type SettingsModuleId = ModuleId | 'dashboard' | 'automatisierung' | 'notifications' | 'security'
 
 /**
  * Modules that expose a Modul-Leiter role (i.e. have meaningful tenant-wide

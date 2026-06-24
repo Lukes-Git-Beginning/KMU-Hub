@@ -224,7 +224,7 @@ export default function SessionsPage() {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="rounded-full bg-info-light px-2.5 py-0.5 text-xs font-medium text-info">
-                {sessions.length} {showAll ? 'Alle' : 'Meine'}
+                {sessions.length} {showAll ? t('session.scopeAll') : t('session.scopeMine')}
               </span>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function SessionsPage() {
                   : 'border border-border text-foreground hover:bg-secondary'
               }`}
             >
-              {showAll ? 'My Sessions' : 'All Sessions'}
+              {showAll ? t('session.viewMine') : t('session.viewAll')}
             </button>
           )}
           <AlertDialog>

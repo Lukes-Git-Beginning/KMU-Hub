@@ -40,8 +40,6 @@ const NotificationCenter = lazy(() => import('@/modules/notifications/Notificati
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
 
-// Security admin hub (lazy-loaded, admin-only) — legacy, ersetzt durch AdminHubPage
-const SecurityAdminPage = lazy(() => import('@/modules/security/SecurityAdminPage'))
 
 // Admin Hub — neue Routen /admin/it | /admin/security | /admin/billing | /admin/integrations
 const AdminHubPage = lazy(() => import('@/modules/admin/AdminHubPage'))
@@ -235,8 +233,9 @@ const router = createHashRouter([
       { path: 'settings/dashboard', element: lazyRoute(DashboardSettings, 'detail') },
       { path: 'settings', element: lazyRoute(SettingsPage, 'detail') },
 
-      // Admin security hub — legacy redirect (Backwards-Compat, wird in Phase 4 entfernt)
-      { path: 'admin/security-legacy', element: lazyRoute(SecurityAdminPage) },
+      // Admin security hub — legacy path now redirects to the consolidated hub
+      // (SecurityAdminPage retained as component, no longer routed). No dead deep-links.
+      { path: 'admin/security-legacy', element: <Navigate to="/admin/security" replace /> },
 
       // Admin Hub — neue /admin/* Routen
       { path: 'admin/it', element: lazyRoute(AdminHubPage, 'adminhub') },

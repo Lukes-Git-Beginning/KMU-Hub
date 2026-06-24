@@ -194,11 +194,11 @@ export default function VaultPage() {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {secretsList.length} Secrets
+                {t('vault.secretsCount', { count: secretsList.length })}
               </span>
               {revealed.size > 0 && (
                 <span className="rounded-full bg-warning-light px-2.5 py-0.5 text-xs font-medium text-warning">
-                  {revealed.size} sichtbar
+                  {t('vault.revealedCount', { count: revealed.size })}
                 </span>
               )}
             </div>
@@ -229,7 +229,7 @@ export default function VaultPage() {
                   {t('vault.value')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
-                  Version
+                  {t('vault.version')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                   {t('audit.timestamp')}

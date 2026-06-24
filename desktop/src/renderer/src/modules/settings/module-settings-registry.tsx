@@ -23,6 +23,7 @@ import {
   FileInput,
   BookOpen,
   PhoneCall,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -49,6 +50,7 @@ import { NotificationsSettingsPanel } from './panels/NotificationsSettingsPanel'
 import { FormulareSettingsPanel } from '@/modules/formulare/settings/FormulareSettingsPanel'
 import { WikiSettingsPanel } from '@/modules/wiki/settings/WikiSettingsPanel'
 import { DialerSettingsPanel } from '@/modules/dialer/settings/DialerSettingsPanel'
+import { SecuritySettingsPanel } from './panels/SecuritySettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -101,6 +103,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'modulzuteilung', group: 'cosmi', labelKey: 'moduleSettings.entries.moduleAssignment', icon: Package, roles: ['admin', 'it_support'], component: ModuleAssignmentSettingsPanel },
   { id: 'integrations', group: 'cosmi', labelKey: 'moduleSettings.entries.integrations', icon: Plug, roles: ['admin'], component: IntegrationSettingsTab },
   { id: 'it', group: 'cosmi', labelKey: 'moduleSettings.entries.it', icon: Monitor, roles: ['admin', 'it_support'], component: ITAdminTab },
+  { id: 'security', group: 'cosmi', labelKey: 'moduleSettings.entries.security', icon: ShieldCheck, roles: ['admin', 'it_support'], navMatch: ['/admin/security'], component: SecuritySettingsPanel },
 ]
 
 /** Resolve the settings entry id that matches the current route (context preselect). */
