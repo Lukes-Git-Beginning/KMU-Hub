@@ -53,6 +53,29 @@ type CallRepository interface {
 	// resulting status; outcomeID is recorded on the contact; callbackAt, when
 	// non-nil, sets the contact's callback_at and is otherwise left unchanged.
 	UpdateSessionWithEventAndContact(ctx context.Context, s *CallSession, e *CallEvent, contactID uuid.UUID, contactStatus string, outcomeID *uuid.UUID, callbackAt *time.Time) error
+
+	// GetRecentCallsForTenant returns the most recent calls across all campaigns
+	// for the given tenant, enriched with contact and outcome display data.
+	GetRecentCallsForTenant(ctx context.Context, tenantID uuid.UUID, limit int) ([]RecentCallRow, error)
+
+	// ListCallsByContact returns all call sessions for a campaign contact,
+	// enriched with outcome and agent display data.
+	ListCallsByContact(ctx context.Context, campaignContactID uuid.UUID) ([]ContactCallRow, error)
+
+	// GetTenantCallsTodayCount returns the total number of calls made today for
+	// all agents within the given tenant.
+	GetTenantCallsTodayCount(ctx context.Context, tenantID uuid.UUID) (int, error)
+
+	// GetTenantAppointmentsTodayCount returns the number of appointments
+	// (calls with is_appointment outcome) made today across the tenant.
+	GetTenantAppointmentsTodayCount(ctx context.Context, tenantID uuid.UUID) (int, error)
+
+	// GetAgentCallsTodayCount returns the number of calls made today by a single agent.
+	GetAgentCallsTodayCount(ctx context.Context, agentID uuid.UUID) (int, error)
+
+	// GetAgentAvgDurationToday returns the average call duration in seconds for
+	// an agent's calls today.
+	GetAgentAvgDurationToday(ctx context.Context, agentID uuid.UUID) (float64, error)
 }
 
 // OutcomeRepository handles persistence for call outcomes (per-tenant configurable).
@@ -69,4 +92,13 @@ type OutcomeRepository interface {
 // AgentStatusRepository handles persistence for agent status transitions.
 type AgentStatusRepository interface {
 	LogStatusChange(ctx context.Context, entry *AgentStatusLogEntry) error
+
+	// GetActiveAgentIDsForTenant returns the distinct user IDs of agents who
+	// logged a status change today for the given tenant. Used by the supervisor
+	// overview to enumerate agents whose live status should be fetched from Redis.
+	GetActiveAgentIDsForTenant(ctx context.Context, tenantID uuid.UUID) ([]uuid.UUID, error)
+
+	// GetUserDisplayNames returns a map of user ID → (first_name, last_name) for
+	// the given set of user IDs. Used to enrich supervisor agent rows with names.
+	GetUserDisplayNames(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][2]string, error)
 }

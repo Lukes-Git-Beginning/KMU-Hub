@@ -205,6 +205,30 @@ func (r *mockCallRepo) ListEventsBySession(_ context.Context, sessionID uuid.UUI
 	return result, nil
 }
 
+func (r *mockCallRepo) GetRecentCallsForTenant(_ context.Context, _ uuid.UUID, _ int) ([]RecentCallRow, error) {
+	return nil, nil
+}
+
+func (r *mockCallRepo) ListCallsByContact(_ context.Context, _ uuid.UUID) ([]ContactCallRow, error) {
+	return nil, nil
+}
+
+func (r *mockCallRepo) GetTenantCallsTodayCount(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (r *mockCallRepo) GetTenantAppointmentsTodayCount(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (r *mockCallRepo) GetAgentCallsTodayCount(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (r *mockCallRepo) GetAgentAvgDurationToday(_ context.Context, _ uuid.UUID) (float64, error) {
+	return 0, nil
+}
+
 type mockOutcomeRepo struct {
 	outcomes map[uuid.UUID]*CallOutcome
 }
@@ -236,6 +260,14 @@ type mockAgentStatusRepo struct{}
 
 func (r *mockAgentStatusRepo) LogStatusChange(_ context.Context, _ *AgentStatusLogEntry) error {
 	return nil
+}
+
+func (r *mockAgentStatusRepo) GetActiveAgentIDsForTenant(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
+func (r *mockAgentStatusRepo) GetUserDisplayNames(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][2]string, error) {
+	return nil, nil
 }
 
 type mockCRMBridge struct {

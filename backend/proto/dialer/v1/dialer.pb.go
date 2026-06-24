@@ -3035,6 +3035,586 @@ func (x *GetAgentDashboardRequest) GetAgentId() string {
 	return ""
 }
 
+type GetSupervisorOverviewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSupervisorOverviewRequest) Reset() {
+	*x = GetSupervisorOverviewRequest{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSupervisorOverviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSupervisorOverviewRequest) ProtoMessage() {}
+
+func (x *GetSupervisorOverviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSupervisorOverviewRequest.ProtoReflect.Descriptor instead.
+func (*GetSupervisorOverviewRequest) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{39}
+}
+
+// SupervisorAgent is an enriched view of an agent for the supervisor dashboard.
+type SupervisorAgent struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	UserId    string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	FirstName string                 `protobuf:"bytes,2,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName  string                 `protobuf:"bytes,3,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	// Numeric status matching AgentDialerStatus enum
+	Status             AgentDialerStatus      `protobuf:"varint,4,opt,name=status,proto3,enum=dialer.v1.AgentDialerStatus" json:"status,omitempty"`
+	CampaignId         *string                `protobuf:"bytes,5,opt,name=campaign_id,json=campaignId,proto3,oneof" json:"campaign_id,omitempty"`
+	Since              *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=since,proto3" json:"since,omitempty"`
+	CallsToday         int32                  `protobuf:"varint,7,opt,name=calls_today,json=callsToday,proto3" json:"calls_today,omitempty"`
+	AvgDurationSeconds float32                `protobuf:"fixed32,8,opt,name=avg_duration_seconds,json=avgDurationSeconds,proto3" json:"avg_duration_seconds,omitempty"`
+	ActiveCampaignName *string                `protobuf:"bytes,9,opt,name=active_campaign_name,json=activeCampaignName,proto3,oneof" json:"active_campaign_name,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SupervisorAgent) Reset() {
+	*x = SupervisorAgent{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupervisorAgent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupervisorAgent) ProtoMessage() {}
+
+func (x *SupervisorAgent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupervisorAgent.ProtoReflect.Descriptor instead.
+func (*SupervisorAgent) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SupervisorAgent) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SupervisorAgent) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *SupervisorAgent) GetLastName() string {
+	if x != nil {
+		return x.LastName
+	}
+	return ""
+}
+
+func (x *SupervisorAgent) GetStatus() AgentDialerStatus {
+	if x != nil {
+		return x.Status
+	}
+	return AgentDialerStatus_AGENT_DIALER_STATUS_UNSPECIFIED
+}
+
+func (x *SupervisorAgent) GetCampaignId() string {
+	if x != nil && x.CampaignId != nil {
+		return *x.CampaignId
+	}
+	return ""
+}
+
+func (x *SupervisorAgent) GetSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *SupervisorAgent) GetCallsToday() int32 {
+	if x != nil {
+		return x.CallsToday
+	}
+	return 0
+}
+
+func (x *SupervisorAgent) GetAvgDurationSeconds() float32 {
+	if x != nil {
+		return x.AvgDurationSeconds
+	}
+	return 0
+}
+
+func (x *SupervisorAgent) GetActiveCampaignName() string {
+	if x != nil && x.ActiveCampaignName != nil {
+		return *x.ActiveCampaignName
+	}
+	return ""
+}
+
+// RecentCall is a single call entry in the supervisor recent-calls feed.
+type RecentCall struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ContactName     string                 `protobuf:"bytes,2,opt,name=contact_name,json=contactName,proto3" json:"contact_name,omitempty"`
+	ContactCompany  *string                `protobuf:"bytes,3,opt,name=contact_company,json=contactCompany,proto3,oneof" json:"contact_company,omitempty"`
+	OutcomeLabel    *string                `protobuf:"bytes,4,opt,name=outcome_label,json=outcomeLabel,proto3,oneof" json:"outcome_label,omitempty"`
+	OutcomeColor    string                 `protobuf:"bytes,5,opt,name=outcome_color,json=outcomeColor,proto3" json:"outcome_color,omitempty"`
+	IsPositive      bool                   `protobuf:"varint,6,opt,name=is_positive,json=isPositive,proto3" json:"is_positive,omitempty"`
+	DurationSeconds int32                  `protobuf:"varint,7,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
+	AgentName       string                 `protobuf:"bytes,8,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	CampaignName    *string                `protobuf:"bytes,9,opt,name=campaign_name,json=campaignName,proto3,oneof" json:"campaign_name,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RecentCall) Reset() {
+	*x = RecentCall{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecentCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecentCall) ProtoMessage() {}
+
+func (x *RecentCall) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecentCall.ProtoReflect.Descriptor instead.
+func (*RecentCall) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *RecentCall) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RecentCall) GetContactName() string {
+	if x != nil {
+		return x.ContactName
+	}
+	return ""
+}
+
+func (x *RecentCall) GetContactCompany() string {
+	if x != nil && x.ContactCompany != nil {
+		return *x.ContactCompany
+	}
+	return ""
+}
+
+func (x *RecentCall) GetOutcomeLabel() string {
+	if x != nil && x.OutcomeLabel != nil {
+		return *x.OutcomeLabel
+	}
+	return ""
+}
+
+func (x *RecentCall) GetOutcomeColor() string {
+	if x != nil {
+		return x.OutcomeColor
+	}
+	return ""
+}
+
+func (x *RecentCall) GetIsPositive() bool {
+	if x != nil {
+		return x.IsPositive
+	}
+	return false
+}
+
+func (x *RecentCall) GetDurationSeconds() int32 {
+	if x != nil {
+		return x.DurationSeconds
+	}
+	return 0
+}
+
+func (x *RecentCall) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
+}
+
+func (x *RecentCall) GetCampaignName() string {
+	if x != nil && x.CampaignName != nil {
+		return *x.CampaignName
+	}
+	return ""
+}
+
+func (x *RecentCall) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type SupervisorTotals struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ActiveAgents      int32                  `protobuf:"varint,1,opt,name=active_agents,json=activeAgents,proto3" json:"active_agents,omitempty"`
+	OnCall            int32                  `protobuf:"varint,2,opt,name=on_call,json=onCall,proto3" json:"on_call,omitempty"`
+	CallsToday        int32                  `protobuf:"varint,3,opt,name=calls_today,json=callsToday,proto3" json:"calls_today,omitempty"`
+	AppointmentsToday int32                  `protobuf:"varint,4,opt,name=appointments_today,json=appointmentsToday,proto3" json:"appointments_today,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SupervisorTotals) Reset() {
+	*x = SupervisorTotals{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupervisorTotals) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupervisorTotals) ProtoMessage() {}
+
+func (x *SupervisorTotals) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupervisorTotals.ProtoReflect.Descriptor instead.
+func (*SupervisorTotals) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *SupervisorTotals) GetActiveAgents() int32 {
+	if x != nil {
+		return x.ActiveAgents
+	}
+	return 0
+}
+
+func (x *SupervisorTotals) GetOnCall() int32 {
+	if x != nil {
+		return x.OnCall
+	}
+	return 0
+}
+
+func (x *SupervisorTotals) GetCallsToday() int32 {
+	if x != nil {
+		return x.CallsToday
+	}
+	return 0
+}
+
+func (x *SupervisorTotals) GetAppointmentsToday() int32 {
+	if x != nil {
+		return x.AppointmentsToday
+	}
+	return 0
+}
+
+type SupervisorOverview struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Agents        []*SupervisorAgent     `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
+	RecentCalls   []*RecentCall          `protobuf:"bytes,2,rep,name=recent_calls,json=recentCalls,proto3" json:"recent_calls,omitempty"`
+	Totals        *SupervisorTotals      `protobuf:"bytes,3,opt,name=totals,proto3" json:"totals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SupervisorOverview) Reset() {
+	*x = SupervisorOverview{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupervisorOverview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupervisorOverview) ProtoMessage() {}
+
+func (x *SupervisorOverview) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupervisorOverview.ProtoReflect.Descriptor instead.
+func (*SupervisorOverview) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *SupervisorOverview) GetAgents() []*SupervisorAgent {
+	if x != nil {
+		return x.Agents
+	}
+	return nil
+}
+
+func (x *SupervisorOverview) GetRecentCalls() []*RecentCall {
+	if x != nil {
+		return x.RecentCalls
+	}
+	return nil
+}
+
+func (x *SupervisorOverview) GetTotals() *SupervisorTotals {
+	if x != nil {
+		return x.Totals
+	}
+	return nil
+}
+
+type GetContactCallsRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	CampaignContactId string                 `protobuf:"bytes,1,opt,name=campaign_contact_id,json=campaignContactId,proto3" json:"campaign_contact_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetContactCallsRequest) Reset() {
+	*x = GetContactCallsRequest{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactCallsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactCallsRequest) ProtoMessage() {}
+
+func (x *GetContactCallsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactCallsRequest.ProtoReflect.Descriptor instead.
+func (*GetContactCallsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *GetContactCallsRequest) GetCampaignContactId() string {
+	if x != nil {
+		return x.CampaignContactId
+	}
+	return ""
+}
+
+// ContactCall is a single call session for a campaign contact.
+type ContactCall struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	OutcomeLabel    *string                `protobuf:"bytes,2,opt,name=outcome_label,json=outcomeLabel,proto3,oneof" json:"outcome_label,omitempty"`
+	OutcomeColor    string                 `protobuf:"bytes,3,opt,name=outcome_color,json=outcomeColor,proto3" json:"outcome_color,omitempty"`
+	IsPositive      bool                   `protobuf:"varint,4,opt,name=is_positive,json=isPositive,proto3" json:"is_positive,omitempty"`
+	DurationSeconds int32                  `protobuf:"varint,5,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
+	Notes           *string                `protobuf:"bytes,6,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	AgentName       string                 `protobuf:"bytes,7,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ContactCall) Reset() {
+	*x = ContactCall{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContactCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContactCall) ProtoMessage() {}
+
+func (x *ContactCall) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContactCall.ProtoReflect.Descriptor instead.
+func (*ContactCall) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ContactCall) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ContactCall) GetOutcomeLabel() string {
+	if x != nil && x.OutcomeLabel != nil {
+		return *x.OutcomeLabel
+	}
+	return ""
+}
+
+func (x *ContactCall) GetOutcomeColor() string {
+	if x != nil {
+		return x.OutcomeColor
+	}
+	return ""
+}
+
+func (x *ContactCall) GetIsPositive() bool {
+	if x != nil {
+		return x.IsPositive
+	}
+	return false
+}
+
+func (x *ContactCall) GetDurationSeconds() int32 {
+	if x != nil {
+		return x.DurationSeconds
+	}
+	return 0
+}
+
+func (x *ContactCall) GetNotes() string {
+	if x != nil && x.Notes != nil {
+		return *x.Notes
+	}
+	return ""
+}
+
+func (x *ContactCall) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
+	}
+	return ""
+}
+
+func (x *ContactCall) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type GetContactCallsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Calls         []*ContactCall         `protobuf:"bytes,1,rep,name=calls,proto3" json:"calls,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContactCallsResponse) Reset() {
+	*x = GetContactCallsResponse{}
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactCallsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactCallsResponse) ProtoMessage() {}
+
+func (x *GetContactCallsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_dialer_v1_dialer_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactCallsResponse.ProtoReflect.Descriptor instead.
+func (*GetContactCallsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_dialer_v1_dialer_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *GetContactCallsResponse) GetCalls() []*ContactCall {
+	if x != nil {
+		return x.Calls
+	}
+	return nil
+}
+
 var File_proto_dialer_v1_dialer_proto protoreflect.FileDescriptor
 
 const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
@@ -3334,7 +3914,70 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
 	"campaignId\"5\n" +
 	"\x18GetAgentDashboardRequest\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId*\xc1\x01\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"\x1e\n" +
+	"\x1cGetSupervisorOverviewRequest\"\xa7\x03\n" +
+	"\x0fSupervisorAgent\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\x02 \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\x03 \x01(\tR\blastName\x124\n" +
+	"\x06status\x18\x04 \x01(\x0e2\x1c.dialer.v1.AgentDialerStatusR\x06status\x12$\n" +
+	"\vcampaign_id\x18\x05 \x01(\tH\x00R\n" +
+	"campaignId\x88\x01\x01\x120\n" +
+	"\x05since\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1f\n" +
+	"\vcalls_today\x18\a \x01(\x05R\n" +
+	"callsToday\x120\n" +
+	"\x14avg_duration_seconds\x18\b \x01(\x02R\x12avgDurationSeconds\x125\n" +
+	"\x14active_campaign_name\x18\t \x01(\tH\x01R\x12activeCampaignName\x88\x01\x01B\x0e\n" +
+	"\f_campaign_idB\x17\n" +
+	"\x15_active_campaign_name\"\xc4\x03\n" +
+	"\n" +
+	"RecentCall\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
+	"\fcontact_name\x18\x02 \x01(\tR\vcontactName\x12,\n" +
+	"\x0fcontact_company\x18\x03 \x01(\tH\x00R\x0econtactCompany\x88\x01\x01\x12(\n" +
+	"\routcome_label\x18\x04 \x01(\tH\x01R\foutcomeLabel\x88\x01\x01\x12#\n" +
+	"\routcome_color\x18\x05 \x01(\tR\foutcomeColor\x12\x1f\n" +
+	"\vis_positive\x18\x06 \x01(\bR\n" +
+	"isPositive\x12)\n" +
+	"\x10duration_seconds\x18\a \x01(\x05R\x0fdurationSeconds\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\b \x01(\tR\tagentName\x12(\n" +
+	"\rcampaign_name\x18\t \x01(\tH\x02R\fcampaignName\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x12\n" +
+	"\x10_contact_companyB\x10\n" +
+	"\x0e_outcome_labelB\x10\n" +
+	"\x0e_campaign_name\"\xa0\x01\n" +
+	"\x10SupervisorTotals\x12#\n" +
+	"\ractive_agents\x18\x01 \x01(\x05R\factiveAgents\x12\x17\n" +
+	"\aon_call\x18\x02 \x01(\x05R\x06onCall\x12\x1f\n" +
+	"\vcalls_today\x18\x03 \x01(\x05R\n" +
+	"callsToday\x12-\n" +
+	"\x12appointments_today\x18\x04 \x01(\x05R\x11appointmentsToday\"\xb7\x01\n" +
+	"\x12SupervisorOverview\x122\n" +
+	"\x06agents\x18\x01 \x03(\v2\x1a.dialer.v1.SupervisorAgentR\x06agents\x128\n" +
+	"\frecent_calls\x18\x02 \x03(\v2\x15.dialer.v1.RecentCallR\vrecentCalls\x123\n" +
+	"\x06totals\x18\x03 \x01(\v2\x1b.dialer.v1.SupervisorTotalsR\x06totals\"H\n" +
+	"\x16GetContactCallsRequest\x12.\n" +
+	"\x13campaign_contact_id\x18\x01 \x01(\tR\x11campaignContactId\"\xc9\x02\n" +
+	"\vContactCall\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
+	"\routcome_label\x18\x02 \x01(\tH\x00R\foutcomeLabel\x88\x01\x01\x12#\n" +
+	"\routcome_color\x18\x03 \x01(\tR\foutcomeColor\x12\x1f\n" +
+	"\vis_positive\x18\x04 \x01(\bR\n" +
+	"isPositive\x12)\n" +
+	"\x10duration_seconds\x18\x05 \x01(\x05R\x0fdurationSeconds\x12\x19\n" +
+	"\x05notes\x18\x06 \x01(\tH\x01R\x05notes\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\a \x01(\tR\tagentName\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x10\n" +
+	"\x0e_outcome_labelB\b\n" +
+	"\x06_notes\"G\n" +
+	"\x17GetContactCallsResponse\x12,\n" +
+	"\x05calls\x18\x01 \x03(\v2\x16.dialer.v1.ContactCallR\x05calls*\xc1\x01\n" +
 	"\x0eCampaignStatus\x12\x1f\n" +
 	"\x1bCAMPAIGN_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15CAMPAIGN_STATUS_DRAFT\x10\x01\x12\x1a\n" +
@@ -3370,7 +4013,7 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"\x1eCALL_EVENT_TYPE_OUTCOME_LOGGED\x10\x05\x12#\n" +
 	"\x1fCALL_EVENT_TYPE_WRAP_UP_STARTED\x10\x06\x12\x1d\n" +
 	"\x19CALL_EVENT_TYPE_COMPLETED\x10\a\x12\x1a\n" +
-	"\x16CALL_EVENT_TYPE_FAILED\x10\b2\x8b\x10\n" +
+	"\x16CALL_EVENT_TYPE_FAILED\x10\b2\xc6\x11\n" +
 	"\rDialerService\x12G\n" +
 	"\x0eCreateCampaign\x12 .dialer.v1.CreateCampaignRequest\x1a\x13.dialer.v1.Campaign\x12A\n" +
 	"\vGetCampaign\x12\x1d.dialer.v1.GetCampaignRequest\x1a\x13.dialer.v1.Campaign\x12R\n" +
@@ -3396,7 +4039,9 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"\x11UpdateCallOutcome\x12#.dialer.v1.UpdateCallOutcomeRequest\x1a\x16.dialer.v1.CallOutcome\x12P\n" +
 	"\x11DeleteCallOutcome\x12#.dialer.v1.DeleteCallOutcomeRequest\x1a\x16.google.protobuf.Empty\x12\\\n" +
 	"\x14GetCampaignDashboard\x12&.dialer.v1.GetCampaignDashboardRequest\x1a\x1c.dialer.v1.CampaignDashboard\x12S\n" +
-	"\x11GetAgentDashboard\x12#.dialer.v1.GetAgentDashboardRequest\x1a\x19.dialer.v1.AgentDashboardB3Z1github.com/kmuhub/kmuhub/proto/dialer/v1;dialerv1b\x06proto3"
+	"\x11GetAgentDashboard\x12#.dialer.v1.GetAgentDashboardRequest\x1a\x19.dialer.v1.AgentDashboard\x12_\n" +
+	"\x15GetSupervisorOverview\x12'.dialer.v1.GetSupervisorOverviewRequest\x1a\x1d.dialer.v1.SupervisorOverview\x12X\n" +
+	"\x0fGetContactCalls\x12!.dialer.v1.GetContactCallsRequest\x1a\".dialer.v1.GetContactCallsResponseB3Z1github.com/kmuhub/kmuhub/proto/dialer/v1;dialerv1b\x06proto3"
 
 var (
 	file_proto_dialer_v1_dialer_proto_rawDescOnce sync.Once
@@ -3411,7 +4056,7 @@ func file_proto_dialer_v1_dialer_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_dialer_v1_dialer_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_proto_dialer_v1_dialer_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_proto_dialer_v1_dialer_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_proto_dialer_v1_dialer_proto_goTypes = []any{
 	(CampaignStatus)(0),                   // 0: dialer.v1.CampaignStatus
 	(CampaignMode)(0),                     // 1: dialer.v1.CampaignMode
@@ -3457,25 +4102,33 @@ var file_proto_dialer_v1_dialer_proto_goTypes = []any{
 	(*DeleteCallOutcomeRequest)(nil),      // 41: dialer.v1.DeleteCallOutcomeRequest
 	(*GetCampaignDashboardRequest)(nil),   // 42: dialer.v1.GetCampaignDashboardRequest
 	(*GetAgentDashboardRequest)(nil),      // 43: dialer.v1.GetAgentDashboardRequest
-	(*timestamppb.Timestamp)(nil),         // 44: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                 // 45: google.protobuf.Empty
+	(*GetSupervisorOverviewRequest)(nil),  // 44: dialer.v1.GetSupervisorOverviewRequest
+	(*SupervisorAgent)(nil),               // 45: dialer.v1.SupervisorAgent
+	(*RecentCall)(nil),                    // 46: dialer.v1.RecentCall
+	(*SupervisorTotals)(nil),              // 47: dialer.v1.SupervisorTotals
+	(*SupervisorOverview)(nil),            // 48: dialer.v1.SupervisorOverview
+	(*GetContactCallsRequest)(nil),        // 49: dialer.v1.GetContactCallsRequest
+	(*ContactCall)(nil),                   // 50: dialer.v1.ContactCall
+	(*GetContactCallsResponse)(nil),       // 51: dialer.v1.GetContactCallsResponse
+	(*timestamppb.Timestamp)(nil),         // 52: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                 // 53: google.protobuf.Empty
 }
 var file_proto_dialer_v1_dialer_proto_depIdxs = []int32{
 	0,  // 0: dialer.v1.Campaign.status:type_name -> dialer.v1.CampaignStatus
 	1,  // 1: dialer.v1.Campaign.mode:type_name -> dialer.v1.CampaignMode
-	44, // 2: dialer.v1.Campaign.created_at:type_name -> google.protobuf.Timestamp
-	44, // 3: dialer.v1.Campaign.updated_at:type_name -> google.protobuf.Timestamp
-	44, // 4: dialer.v1.Campaign.started_at:type_name -> google.protobuf.Timestamp
-	44, // 5: dialer.v1.Campaign.completed_at:type_name -> google.protobuf.Timestamp
+	52, // 2: dialer.v1.Campaign.created_at:type_name -> google.protobuf.Timestamp
+	52, // 3: dialer.v1.Campaign.updated_at:type_name -> google.protobuf.Timestamp
+	52, // 4: dialer.v1.Campaign.started_at:type_name -> google.protobuf.Timestamp
+	52, // 5: dialer.v1.Campaign.completed_at:type_name -> google.protobuf.Timestamp
 	3,  // 6: dialer.v1.CampaignContact.status:type_name -> dialer.v1.CampaignContactStatus
-	44, // 7: dialer.v1.CampaignContact.callback_at:type_name -> google.protobuf.Timestamp
-	44, // 8: dialer.v1.CampaignContact.last_called_at:type_name -> google.protobuf.Timestamp
-	44, // 9: dialer.v1.DialerCallSession.created_at:type_name -> google.protobuf.Timestamp
-	44, // 10: dialer.v1.DialerCallSession.wrap_up_completed_at:type_name -> google.protobuf.Timestamp
+	52, // 7: dialer.v1.CampaignContact.callback_at:type_name -> google.protobuf.Timestamp
+	52, // 8: dialer.v1.CampaignContact.last_called_at:type_name -> google.protobuf.Timestamp
+	52, // 9: dialer.v1.DialerCallSession.created_at:type_name -> google.protobuf.Timestamp
+	52, // 10: dialer.v1.DialerCallSession.wrap_up_completed_at:type_name -> google.protobuf.Timestamp
 	4,  // 11: dialer.v1.CallEvent.event_type:type_name -> dialer.v1.CallEventType
-	44, // 12: dialer.v1.CallEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	52, // 12: dialer.v1.CallEvent.occurred_at:type_name -> google.protobuf.Timestamp
 	2,  // 13: dialer.v1.AgentStatus.status:type_name -> dialer.v1.AgentDialerStatus
-	44, // 14: dialer.v1.AgentStatus.since:type_name -> google.protobuf.Timestamp
+	52, // 14: dialer.v1.AgentStatus.since:type_name -> google.protobuf.Timestamp
 	11, // 15: dialer.v1.CampaignDashboard.outcome_breakdown:type_name -> dialer.v1.OutcomeCount
 	11, // 16: dialer.v1.AgentDashboard.outcome_breakdown:type_name -> dialer.v1.OutcomeCount
 	1,  // 17: dialer.v1.CreateCampaignRequest.mode:type_name -> dialer.v1.CampaignMode
@@ -3483,65 +4136,77 @@ var file_proto_dialer_v1_dialer_proto_depIdxs = []int32{
 	5,  // 19: dialer.v1.ListCampaignsResponse.campaigns:type_name -> dialer.v1.Campaign
 	3,  // 20: dialer.v1.ListCampaignContactsRequest.status_filter:type_name -> dialer.v1.CampaignContactStatus
 	6,  // 21: dialer.v1.ListCampaignContactsResponse.contacts:type_name -> dialer.v1.CampaignContact
-	44, // 22: dialer.v1.LogCallOutcomeRequest.callback_at:type_name -> google.protobuf.Timestamp
+	52, // 22: dialer.v1.LogCallOutcomeRequest.callback_at:type_name -> google.protobuf.Timestamp
 	2,  // 23: dialer.v1.SetAgentStatusRequest.status:type_name -> dialer.v1.AgentDialerStatus
 	9,  // 24: dialer.v1.GetCampaignAgentsResponse.agents:type_name -> dialer.v1.AgentStatus
 	10, // 25: dialer.v1.ListCallOutcomesResponse.outcomes:type_name -> dialer.v1.CallOutcome
-	14, // 26: dialer.v1.DialerService.CreateCampaign:input_type -> dialer.v1.CreateCampaignRequest
-	15, // 27: dialer.v1.DialerService.GetCampaign:input_type -> dialer.v1.GetCampaignRequest
-	16, // 28: dialer.v1.DialerService.ListCampaigns:input_type -> dialer.v1.ListCampaignsRequest
-	18, // 29: dialer.v1.DialerService.UpdateCampaign:input_type -> dialer.v1.UpdateCampaignRequest
-	19, // 30: dialer.v1.DialerService.StartCampaign:input_type -> dialer.v1.StartCampaignRequest
-	20, // 31: dialer.v1.DialerService.PauseCampaign:input_type -> dialer.v1.PauseCampaignRequest
-	21, // 32: dialer.v1.DialerService.ArchiveCampaign:input_type -> dialer.v1.ArchiveCampaignRequest
-	22, // 33: dialer.v1.DialerService.AddContactsToCampaign:input_type -> dialer.v1.AddContactsToCampaignRequest
-	24, // 34: dialer.v1.DialerService.GetNextContact:input_type -> dialer.v1.GetNextContactRequest
-	25, // 35: dialer.v1.DialerService.SkipContact:input_type -> dialer.v1.SkipContactRequest
-	26, // 36: dialer.v1.DialerService.RequeueContact:input_type -> dialer.v1.RequeueContactRequest
-	27, // 37: dialer.v1.DialerService.ListCampaignContacts:input_type -> dialer.v1.ListCampaignContactsRequest
-	29, // 38: dialer.v1.DialerService.InitiateDialerCall:input_type -> dialer.v1.InitiateDialerCallRequest
-	30, // 39: dialer.v1.DialerService.LogCallOutcome:input_type -> dialer.v1.LogCallOutcomeRequest
-	31, // 40: dialer.v1.DialerService.SaveCallNotes:input_type -> dialer.v1.SaveCallNotesRequest
-	32, // 41: dialer.v1.DialerService.CompleteWrapUp:input_type -> dialer.v1.CompleteWrapUpRequest
-	33, // 42: dialer.v1.DialerService.SetAgentStatus:input_type -> dialer.v1.SetAgentStatusRequest
-	34, // 43: dialer.v1.DialerService.GetAgentStatus:input_type -> dialer.v1.GetAgentStatusRequest
-	35, // 44: dialer.v1.DialerService.GetCampaignAgents:input_type -> dialer.v1.GetCampaignAgentsRequest
-	37, // 45: dialer.v1.DialerService.ListCallOutcomes:input_type -> dialer.v1.ListCallOutcomesRequest
-	39, // 46: dialer.v1.DialerService.CreateCallOutcome:input_type -> dialer.v1.CreateCallOutcomeRequest
-	40, // 47: dialer.v1.DialerService.UpdateCallOutcome:input_type -> dialer.v1.UpdateCallOutcomeRequest
-	41, // 48: dialer.v1.DialerService.DeleteCallOutcome:input_type -> dialer.v1.DeleteCallOutcomeRequest
-	42, // 49: dialer.v1.DialerService.GetCampaignDashboard:input_type -> dialer.v1.GetCampaignDashboardRequest
-	43, // 50: dialer.v1.DialerService.GetAgentDashboard:input_type -> dialer.v1.GetAgentDashboardRequest
-	5,  // 51: dialer.v1.DialerService.CreateCampaign:output_type -> dialer.v1.Campaign
-	5,  // 52: dialer.v1.DialerService.GetCampaign:output_type -> dialer.v1.Campaign
-	17, // 53: dialer.v1.DialerService.ListCampaigns:output_type -> dialer.v1.ListCampaignsResponse
-	5,  // 54: dialer.v1.DialerService.UpdateCampaign:output_type -> dialer.v1.Campaign
-	5,  // 55: dialer.v1.DialerService.StartCampaign:output_type -> dialer.v1.Campaign
-	5,  // 56: dialer.v1.DialerService.PauseCampaign:output_type -> dialer.v1.Campaign
-	45, // 57: dialer.v1.DialerService.ArchiveCampaign:output_type -> google.protobuf.Empty
-	23, // 58: dialer.v1.DialerService.AddContactsToCampaign:output_type -> dialer.v1.AddContactsToCampaignResponse
-	6,  // 59: dialer.v1.DialerService.GetNextContact:output_type -> dialer.v1.CampaignContact
-	45, // 60: dialer.v1.DialerService.SkipContact:output_type -> google.protobuf.Empty
-	45, // 61: dialer.v1.DialerService.RequeueContact:output_type -> google.protobuf.Empty
-	28, // 62: dialer.v1.DialerService.ListCampaignContacts:output_type -> dialer.v1.ListCampaignContactsResponse
-	7,  // 63: dialer.v1.DialerService.InitiateDialerCall:output_type -> dialer.v1.DialerCallSession
-	7,  // 64: dialer.v1.DialerService.LogCallOutcome:output_type -> dialer.v1.DialerCallSession
-	45, // 65: dialer.v1.DialerService.SaveCallNotes:output_type -> google.protobuf.Empty
-	45, // 66: dialer.v1.DialerService.CompleteWrapUp:output_type -> google.protobuf.Empty
-	9,  // 67: dialer.v1.DialerService.SetAgentStatus:output_type -> dialer.v1.AgentStatus
-	9,  // 68: dialer.v1.DialerService.GetAgentStatus:output_type -> dialer.v1.AgentStatus
-	36, // 69: dialer.v1.DialerService.GetCampaignAgents:output_type -> dialer.v1.GetCampaignAgentsResponse
-	38, // 70: dialer.v1.DialerService.ListCallOutcomes:output_type -> dialer.v1.ListCallOutcomesResponse
-	10, // 71: dialer.v1.DialerService.CreateCallOutcome:output_type -> dialer.v1.CallOutcome
-	10, // 72: dialer.v1.DialerService.UpdateCallOutcome:output_type -> dialer.v1.CallOutcome
-	45, // 73: dialer.v1.DialerService.DeleteCallOutcome:output_type -> google.protobuf.Empty
-	12, // 74: dialer.v1.DialerService.GetCampaignDashboard:output_type -> dialer.v1.CampaignDashboard
-	13, // 75: dialer.v1.DialerService.GetAgentDashboard:output_type -> dialer.v1.AgentDashboard
-	51, // [51:76] is the sub-list for method output_type
-	26, // [26:51] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	2,  // 26: dialer.v1.SupervisorAgent.status:type_name -> dialer.v1.AgentDialerStatus
+	52, // 27: dialer.v1.SupervisorAgent.since:type_name -> google.protobuf.Timestamp
+	52, // 28: dialer.v1.RecentCall.created_at:type_name -> google.protobuf.Timestamp
+	45, // 29: dialer.v1.SupervisorOverview.agents:type_name -> dialer.v1.SupervisorAgent
+	46, // 30: dialer.v1.SupervisorOverview.recent_calls:type_name -> dialer.v1.RecentCall
+	47, // 31: dialer.v1.SupervisorOverview.totals:type_name -> dialer.v1.SupervisorTotals
+	52, // 32: dialer.v1.ContactCall.created_at:type_name -> google.protobuf.Timestamp
+	50, // 33: dialer.v1.GetContactCallsResponse.calls:type_name -> dialer.v1.ContactCall
+	14, // 34: dialer.v1.DialerService.CreateCampaign:input_type -> dialer.v1.CreateCampaignRequest
+	15, // 35: dialer.v1.DialerService.GetCampaign:input_type -> dialer.v1.GetCampaignRequest
+	16, // 36: dialer.v1.DialerService.ListCampaigns:input_type -> dialer.v1.ListCampaignsRequest
+	18, // 37: dialer.v1.DialerService.UpdateCampaign:input_type -> dialer.v1.UpdateCampaignRequest
+	19, // 38: dialer.v1.DialerService.StartCampaign:input_type -> dialer.v1.StartCampaignRequest
+	20, // 39: dialer.v1.DialerService.PauseCampaign:input_type -> dialer.v1.PauseCampaignRequest
+	21, // 40: dialer.v1.DialerService.ArchiveCampaign:input_type -> dialer.v1.ArchiveCampaignRequest
+	22, // 41: dialer.v1.DialerService.AddContactsToCampaign:input_type -> dialer.v1.AddContactsToCampaignRequest
+	24, // 42: dialer.v1.DialerService.GetNextContact:input_type -> dialer.v1.GetNextContactRequest
+	25, // 43: dialer.v1.DialerService.SkipContact:input_type -> dialer.v1.SkipContactRequest
+	26, // 44: dialer.v1.DialerService.RequeueContact:input_type -> dialer.v1.RequeueContactRequest
+	27, // 45: dialer.v1.DialerService.ListCampaignContacts:input_type -> dialer.v1.ListCampaignContactsRequest
+	29, // 46: dialer.v1.DialerService.InitiateDialerCall:input_type -> dialer.v1.InitiateDialerCallRequest
+	30, // 47: dialer.v1.DialerService.LogCallOutcome:input_type -> dialer.v1.LogCallOutcomeRequest
+	31, // 48: dialer.v1.DialerService.SaveCallNotes:input_type -> dialer.v1.SaveCallNotesRequest
+	32, // 49: dialer.v1.DialerService.CompleteWrapUp:input_type -> dialer.v1.CompleteWrapUpRequest
+	33, // 50: dialer.v1.DialerService.SetAgentStatus:input_type -> dialer.v1.SetAgentStatusRequest
+	34, // 51: dialer.v1.DialerService.GetAgentStatus:input_type -> dialer.v1.GetAgentStatusRequest
+	35, // 52: dialer.v1.DialerService.GetCampaignAgents:input_type -> dialer.v1.GetCampaignAgentsRequest
+	37, // 53: dialer.v1.DialerService.ListCallOutcomes:input_type -> dialer.v1.ListCallOutcomesRequest
+	39, // 54: dialer.v1.DialerService.CreateCallOutcome:input_type -> dialer.v1.CreateCallOutcomeRequest
+	40, // 55: dialer.v1.DialerService.UpdateCallOutcome:input_type -> dialer.v1.UpdateCallOutcomeRequest
+	41, // 56: dialer.v1.DialerService.DeleteCallOutcome:input_type -> dialer.v1.DeleteCallOutcomeRequest
+	42, // 57: dialer.v1.DialerService.GetCampaignDashboard:input_type -> dialer.v1.GetCampaignDashboardRequest
+	43, // 58: dialer.v1.DialerService.GetAgentDashboard:input_type -> dialer.v1.GetAgentDashboardRequest
+	44, // 59: dialer.v1.DialerService.GetSupervisorOverview:input_type -> dialer.v1.GetSupervisorOverviewRequest
+	49, // 60: dialer.v1.DialerService.GetContactCalls:input_type -> dialer.v1.GetContactCallsRequest
+	5,  // 61: dialer.v1.DialerService.CreateCampaign:output_type -> dialer.v1.Campaign
+	5,  // 62: dialer.v1.DialerService.GetCampaign:output_type -> dialer.v1.Campaign
+	17, // 63: dialer.v1.DialerService.ListCampaigns:output_type -> dialer.v1.ListCampaignsResponse
+	5,  // 64: dialer.v1.DialerService.UpdateCampaign:output_type -> dialer.v1.Campaign
+	5,  // 65: dialer.v1.DialerService.StartCampaign:output_type -> dialer.v1.Campaign
+	5,  // 66: dialer.v1.DialerService.PauseCampaign:output_type -> dialer.v1.Campaign
+	53, // 67: dialer.v1.DialerService.ArchiveCampaign:output_type -> google.protobuf.Empty
+	23, // 68: dialer.v1.DialerService.AddContactsToCampaign:output_type -> dialer.v1.AddContactsToCampaignResponse
+	6,  // 69: dialer.v1.DialerService.GetNextContact:output_type -> dialer.v1.CampaignContact
+	53, // 70: dialer.v1.DialerService.SkipContact:output_type -> google.protobuf.Empty
+	53, // 71: dialer.v1.DialerService.RequeueContact:output_type -> google.protobuf.Empty
+	28, // 72: dialer.v1.DialerService.ListCampaignContacts:output_type -> dialer.v1.ListCampaignContactsResponse
+	7,  // 73: dialer.v1.DialerService.InitiateDialerCall:output_type -> dialer.v1.DialerCallSession
+	7,  // 74: dialer.v1.DialerService.LogCallOutcome:output_type -> dialer.v1.DialerCallSession
+	53, // 75: dialer.v1.DialerService.SaveCallNotes:output_type -> google.protobuf.Empty
+	53, // 76: dialer.v1.DialerService.CompleteWrapUp:output_type -> google.protobuf.Empty
+	9,  // 77: dialer.v1.DialerService.SetAgentStatus:output_type -> dialer.v1.AgentStatus
+	9,  // 78: dialer.v1.DialerService.GetAgentStatus:output_type -> dialer.v1.AgentStatus
+	36, // 79: dialer.v1.DialerService.GetCampaignAgents:output_type -> dialer.v1.GetCampaignAgentsResponse
+	38, // 80: dialer.v1.DialerService.ListCallOutcomes:output_type -> dialer.v1.ListCallOutcomesResponse
+	10, // 81: dialer.v1.DialerService.CreateCallOutcome:output_type -> dialer.v1.CallOutcome
+	10, // 82: dialer.v1.DialerService.UpdateCallOutcome:output_type -> dialer.v1.CallOutcome
+	53, // 83: dialer.v1.DialerService.DeleteCallOutcome:output_type -> google.protobuf.Empty
+	12, // 84: dialer.v1.DialerService.GetCampaignDashboard:output_type -> dialer.v1.CampaignDashboard
+	13, // 85: dialer.v1.DialerService.GetAgentDashboard:output_type -> dialer.v1.AgentDashboard
+	48, // 86: dialer.v1.DialerService.GetSupervisorOverview:output_type -> dialer.v1.SupervisorOverview
+	51, // 87: dialer.v1.DialerService.GetContactCalls:output_type -> dialer.v1.GetContactCallsResponse
+	61, // [61:88] is the sub-list for method output_type
+	34, // [34:61] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_proto_dialer_v1_dialer_proto_init() }
@@ -3564,13 +4229,16 @@ func file_proto_dialer_v1_dialer_proto_init() {
 	file_proto_dialer_v1_dialer_proto_msgTypes[28].OneofWrappers = []any{}
 	file_proto_dialer_v1_dialer_proto_msgTypes[32].OneofWrappers = []any{}
 	file_proto_dialer_v1_dialer_proto_msgTypes[35].OneofWrappers = []any{}
+	file_proto_dialer_v1_dialer_proto_msgTypes[40].OneofWrappers = []any{}
+	file_proto_dialer_v1_dialer_proto_msgTypes[41].OneofWrappers = []any{}
+	file_proto_dialer_v1_dialer_proto_msgTypes[45].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_dialer_v1_dialer_proto_rawDesc), len(file_proto_dialer_v1_dialer_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   39,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

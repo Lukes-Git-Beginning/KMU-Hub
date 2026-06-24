@@ -1030,6 +1030,134 @@ func (s *Service) GetAgentDashboard(ctx context.Context, agentID uuid.UUID) (*Ag
 	return stats, nil
 }
 
+// GetSupervisorOverview returns a tenant-scoped aggregated view for the
+// supervisor dashboard: all agents active today with live status, the most
+// recent calls, and KPI totals.
+func (s *Service) GetSupervisorOverview(ctx context.Context, tenantID uuid.UUID) (*SupervisorOverview, error) {
+	// 1. Enumerate agents who were active today for this tenant.
+	agentIDs, err := s.agentRepo.GetActiveAgentIDsForTenant(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("supervisor overview – active agents: %w", err)
+	}
+
+	// 2. Batch-fetch display names from users table.
+	nameMap, err := s.agentRepo.GetUserDisplayNames(ctx, agentIDs)
+	if err != nil {
+		slog.WarnContext(ctx, "supervisor overview: fetch user names failed", "error", err)
+		nameMap = nil
+	}
+
+	// 3. Fetch live Redis status for each agent.
+	agents := make([]SupervisorAgentRow, 0, len(agentIDs))
+	for _, id := range agentIDs {
+		entry, err := s.agentStore.GetStatus(ctx, id)
+		if err != nil {
+			slog.WarnContext(ctx, "supervisor overview: fetch agent status failed",
+				"agent_id", id,
+				"error", err,
+			)
+			continue
+		}
+
+		// Fetch today's call count for this agent.
+		callsToday, err := s.calls.GetAgentCallsTodayCount(ctx, id)
+		if err != nil {
+			slog.WarnContext(ctx, "supervisor overview: fetch agent calls today failed",
+				"agent_id", id,
+				"error", err,
+			)
+		}
+		avgDur, err := s.calls.GetAgentAvgDurationToday(ctx, id)
+		if err != nil {
+			slog.WarnContext(ctx, "supervisor overview: fetch agent avg duration failed",
+				"agent_id", id,
+				"error", err,
+			)
+		}
+
+		row := SupervisorAgentRow{
+			UserID:             id,
+			CallsToday:         callsToday,
+			AvgDurationSeconds: avgDur,
+		}
+		if entry != nil {
+			row.Status = entry.Status
+			row.CampaignID = entry.CampaignID
+			row.Since = entry.Since
+		} else {
+			row.Status = AgentStatusOffline
+		}
+
+		// Enrich with display names from the batch-fetched name map.
+		if nameMap != nil {
+			if names, ok := nameMap[id]; ok {
+				row.FirstName = names[0]
+				row.LastName = names[1]
+			}
+		}
+
+		// Resolve active campaign name if agent is on a campaign.
+		if row.CampaignID != nil {
+			if c, err := s.campaigns.GetByID(ctx, *row.CampaignID); err == nil {
+				row.ActiveCampaignName = &c.Name
+			}
+		}
+
+		agents = append(agents, row)
+	}
+
+	// 3. Recent calls.
+	recentCalls, err := s.calls.GetRecentCallsForTenant(ctx, tenantID, 20)
+	if err != nil {
+		slog.WarnContext(ctx, "supervisor overview: fetch recent calls failed",
+			"tenant_id", tenantID,
+			"error", err,
+		)
+		recentCalls = nil
+	}
+
+	// 4. Tenant-wide KPI totals.
+	callsToday, err := s.calls.GetTenantCallsTodayCount(ctx, tenantID)
+	if err != nil {
+		slog.WarnContext(ctx, "supervisor overview: tenant calls today failed", "error", err)
+	}
+	appointmentsToday, err := s.calls.GetTenantAppointmentsTodayCount(ctx, tenantID)
+	if err != nil {
+		slog.WarnContext(ctx, "supervisor overview: tenant appointments today failed", "error", err)
+	}
+
+	activeAgents := 0
+	onCall := 0
+	for _, a := range agents {
+		if a.Status != AgentStatusOffline {
+			activeAgents++
+		}
+		if a.Status == AgentStatusOnCall {
+			onCall++
+		}
+	}
+
+	return &SupervisorOverview{
+		Agents:      agents,
+		RecentCalls: recentCalls,
+		Totals: SupervisorTotals{
+			ActiveAgents:      activeAgents,
+			OnCall:            onCall,
+			CallsToday:        callsToday,
+			AppointmentsToday: appointmentsToday,
+		},
+	}, nil
+}
+
+// GetContactCalls returns the call history for a given campaign contact.
+func (s *Service) GetContactCalls(ctx context.Context, campaignContactID uuid.UUID) ([]ContactCallRow, error) {
+	rows, err := s.calls.ListCallsByContact(ctx, campaignContactID)
+	if err != nil {
+		return nil, fmt.Errorf("get contact calls: %w", err)
+	}
+	return rows, nil
+}
+
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------

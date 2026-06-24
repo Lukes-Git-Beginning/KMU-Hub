@@ -157,6 +157,24 @@ func (r *stubCallRepo) ListEventsBySession(_ context.Context, sessionID uuid.UUI
 	}
 	return result, nil
 }
+func (r *stubCallRepo) GetRecentCallsForTenant(_ context.Context, _ uuid.UUID, _ int) ([]dialer.RecentCallRow, error) {
+	return nil, nil
+}
+func (r *stubCallRepo) ListCallsByContact(_ context.Context, _ uuid.UUID) ([]dialer.ContactCallRow, error) {
+	return nil, nil
+}
+func (r *stubCallRepo) GetTenantCallsTodayCount(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (r *stubCallRepo) GetTenantAppointmentsTodayCount(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (r *stubCallRepo) GetAgentCallsTodayCount(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (r *stubCallRepo) GetAgentAvgDurationToday(_ context.Context, _ uuid.UUID) (float64, error) {
+	return 0, nil
+}
 
 type stubOutcomeRepo struct {
 	outcomes map[uuid.UUID]*dialer.CallOutcome
@@ -181,6 +199,12 @@ func (r *stubOutcomeRepo) EnsureDefaults(_ context.Context, _ uuid.UUID) error  
 type stubAgentStatusRepo struct{}
 
 func (r *stubAgentStatusRepo) LogStatusChange(_ context.Context, _ *dialer.AgentStatusLogEntry) error { return nil }
+func (r *stubAgentStatusRepo) GetActiveAgentIDsForTenant(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+func (r *stubAgentStatusRepo) GetUserDisplayNames(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][2]string, error) {
+	return nil, nil
+}
 
 type stubCRMBridge struct {
 	contactDetails map[uuid.UUID]*dialer.ContactDetails

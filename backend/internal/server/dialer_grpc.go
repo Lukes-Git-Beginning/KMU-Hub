@@ -588,6 +588,46 @@ func (s *DialerGRPCServer) GetAgentDashboard(ctx context.Context, req *dialerv1.
 }
 
 // ============================================================================
+// Supervisor (1 RPC)
+// ============================================================================
+
+func (s *DialerGRPCServer) GetSupervisorOverview(ctx context.Context, _ *dialerv1.GetSupervisorOverviewRequest) (*dialerv1.SupervisorOverview, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
+	overview, err := s.svc.GetSupervisorOverview(ctx, tenantID)
+	if err != nil {
+		return nil, mapDialerError(err)
+	}
+
+	return supervisorOverviewToProto(overview), nil
+}
+
+// ============================================================================
+// Contact Call History (1 RPC)
+// ============================================================================
+
+func (s *DialerGRPCServer) GetContactCalls(ctx context.Context, req *dialerv1.GetContactCallsRequest) (*dialerv1.GetContactCallsResponse, error) {
+	ccID, err := uuid.Parse(req.GetCampaignContactId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_contact_id: %v", err)
+	}
+
+	rows, err := s.svc.GetContactCalls(ctx, ccID)
+	if err != nil {
+		return nil, mapDialerError(err)
+	}
+
+	calls := make([]*dialerv1.ContactCall, len(rows))
+	for i, r := range rows {
+		calls[i] = contactCallToProto(r)
+	}
+	return &dialerv1.GetContactCallsResponse{Calls: calls}, nil
+}
+
+// ============================================================================
 // Proto ↔ Domain conversion helpers
 // ============================================================================
 
@@ -761,6 +801,81 @@ func agentStatsToProto(agentID uuid.UUID, s *dialer.AgentStats) *dialerv1.AgentD
 		msg.ActiveCampaignName = s.ActiveCampaignName
 	}
 	return msg
+}
+
+func supervisorOverviewToProto(o *dialer.SupervisorOverview) *dialerv1.SupervisorOverview {
+	agents := make([]*dialerv1.SupervisorAgent, len(o.Agents))
+	for i, a := range o.Agents {
+		ag := &dialerv1.SupervisorAgent{
+			UserId:             a.UserID.String(),
+			FirstName:          a.FirstName,
+			LastName:           a.LastName,
+			Status:             agentStatusEnumToProto(a.Status),
+			CallsToday:         int32(a.CallsToday),
+			AvgDurationSeconds: float32(a.AvgDurationSeconds),
+			Since:              timestamppb.New(a.Since),
+		}
+		if a.CampaignID != nil {
+			s := a.CampaignID.String()
+			ag.CampaignId = &s
+		}
+		if a.ActiveCampaignName != nil {
+			ag.ActiveCampaignName = a.ActiveCampaignName
+		}
+		agents[i] = ag
+	}
+
+	calls := make([]*dialerv1.RecentCall, len(o.RecentCalls))
+	for i, rc := range o.RecentCalls {
+		c := &dialerv1.RecentCall{
+			Id:              rc.ID.String(),
+			ContactName:     rc.ContactName,
+			OutcomeColor:    rc.OutcomeColor,
+			IsPositive:      rc.IsPositive,
+			DurationSeconds: int32(rc.DurationSecs),
+			AgentName:       rc.AgentName,
+			CreatedAt:       timestamppb.New(rc.CreatedAt),
+		}
+		if rc.ContactCompany != nil {
+			c.ContactCompany = rc.ContactCompany
+		}
+		if rc.OutcomeLabel != nil {
+			c.OutcomeLabel = rc.OutcomeLabel
+		}
+		if rc.CampaignName != nil {
+			c.CampaignName = rc.CampaignName
+		}
+		calls[i] = c
+	}
+
+	return &dialerv1.SupervisorOverview{
+		Agents:      agents,
+		RecentCalls: calls,
+		Totals: &dialerv1.SupervisorTotals{
+			ActiveAgents:      int32(o.Totals.ActiveAgents),
+			OnCall:            int32(o.Totals.OnCall),
+			CallsToday:        int32(o.Totals.CallsToday),
+			AppointmentsToday: int32(o.Totals.AppointmentsToday),
+		},
+	}
+}
+
+func contactCallToProto(r dialer.ContactCallRow) *dialerv1.ContactCall {
+	c := &dialerv1.ContactCall{
+		Id:              r.ID.String(),
+		OutcomeColor:    r.OutcomeColor,
+		IsPositive:      r.IsPositive,
+		DurationSeconds: int32(r.DurationSecs),
+		AgentName:       r.AgentName,
+		CreatedAt:       timestamppb.New(r.CreatedAt),
+	}
+	if r.OutcomeLabel != nil {
+		c.OutcomeLabel = r.OutcomeLabel
+	}
+	if r.Notes != nil {
+		c.Notes = r.Notes
+	}
+	return c
 }
 
 // ============================================================================

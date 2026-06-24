@@ -87,6 +87,12 @@ func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Ha
 
 		// Agent dashboard
 		r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/dashboard/agent", dr.HandleGetAgentDashboard)
+
+		// Supervisor overview (tenant-wide aggregate)
+		r.With(middleware.RequirePermission("dialer:campaigns", "read")).Get("/supervisor", dr.HandleGetSupervisorOverview)
+
+		// Contact call history
+		r.With(middleware.RequirePermission("dialer:calls", "write")).Get("/contacts/{id}/calls", dr.HandleGetContactCalls)
 	})
 }
 
@@ -940,6 +946,53 @@ func (dr *DialerRoutes) HandleGetAgentDashboard(w http.ResponseWriter, r *http.R
 
 	resp, err := client.GetAgentDashboard(r.Context(), &dialerv1.GetAgentDashboardRequest{
 		AgentId: agentID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Supervisor Handler
+// ============================================================================
+
+func (dr *DialerRoutes) HandleGetSupervisorOverview(w http.ResponseWriter, r *http.Request) {
+	client, err := dr.getDialerClient()
+	if err != nil {
+		respondServiceUnavailable(w, dr.ServiceName())
+		return
+	}
+
+	resp, err := client.GetSupervisorOverview(r.Context(), &dialerv1.GetSupervisorOverviewRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Contact Call History Handler
+// ============================================================================
+
+func (dr *DialerRoutes) HandleGetContactCalls(w http.ResponseWriter, r *http.Request) {
+	client, err := dr.getDialerClient()
+	if err != nil {
+		respondServiceUnavailable(w, dr.ServiceName())
+		return
+	}
+
+	contactID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetContactCalls(r.Context(), &dialerv1.GetContactCallsRequest{
+		CampaignContactId: contactID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

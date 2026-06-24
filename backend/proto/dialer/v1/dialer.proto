@@ -44,6 +44,12 @@ service DialerService {
   // Dashboard
   rpc GetCampaignDashboard(GetCampaignDashboardRequest) returns (CampaignDashboard);
   rpc GetAgentDashboard(GetAgentDashboardRequest) returns (AgentDashboard);
+
+  // Supervisor
+  rpc GetSupervisorOverview(GetSupervisorOverviewRequest) returns (SupervisorOverview);
+
+  // Contact call history
+  rpc GetContactCalls(GetContactCallsRequest) returns (GetContactCallsResponse);
 }
 
 // ============================================================================
@@ -417,4 +423,75 @@ message GetCampaignDashboardRequest {
 
 message GetAgentDashboardRequest {
   string agent_id = 1;
+}
+
+// ============================================================================
+// Supervisor RPCs
+// ============================================================================
+
+message GetSupervisorOverviewRequest {}
+
+// SupervisorAgent is an enriched view of an agent for the supervisor dashboard.
+message SupervisorAgent {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  // Numeric status matching AgentDialerStatus enum
+  AgentDialerStatus status = 4;
+  optional string campaign_id = 5;
+  google.protobuf.Timestamp since = 6;
+  int32 calls_today = 7;
+  float avg_duration_seconds = 8;
+  optional string active_campaign_name = 9;
+}
+
+// RecentCall is a single call entry in the supervisor recent-calls feed.
+message RecentCall {
+  string id = 1;
+  string contact_name = 2;
+  optional string contact_company = 3;
+  optional string outcome_label = 4;
+  string outcome_color = 5;
+  bool is_positive = 6;
+  int32 duration_seconds = 7;
+  string agent_name = 8;
+  optional string campaign_name = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message SupervisorTotals {
+  int32 active_agents = 1;
+  int32 on_call = 2;
+  int32 calls_today = 3;
+  int32 appointments_today = 4;
+}
+
+message SupervisorOverview {
+  repeated SupervisorAgent agents = 1;
+  repeated RecentCall recent_calls = 2;
+  SupervisorTotals totals = 3;
+}
+
+// ============================================================================
+// Contact Call History RPCs
+// ============================================================================
+
+message GetContactCallsRequest {
+  string campaign_contact_id = 1;
+}
+
+// ContactCall is a single call session for a campaign contact.
+message ContactCall {
+  string id = 1;
+  optional string outcome_label = 2;
+  string outcome_color = 3;
+  bool is_positive = 4;
+  int32 duration_seconds = 5;
+  optional string notes = 6;
+  string agent_name = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message GetContactCallsResponse {
+  repeated ContactCall calls = 1;
 }

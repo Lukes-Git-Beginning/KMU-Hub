@@ -194,3 +194,60 @@ type AgentStats struct {
 	ActiveCampaignID   *uuid.UUID
 	ActiveCampaignName *string
 }
+
+// SupervisorAgentRow is an enriched view of an agent used in the supervisor overview.
+// It combines a live Redis status entry with per-agent today stats from Postgres.
+type SupervisorAgentRow struct {
+	UserID             uuid.UUID
+	FirstName          string
+	LastName           string
+	Status             string
+	CampaignID         *uuid.UUID
+	Since              time.Time
+	CallsToday         int
+	AvgDurationSeconds float64
+	ActiveCampaignName *string
+}
+
+// RecentCallRow is a single call record enriched with display data for the
+// supervisor recent-calls feed.
+type RecentCallRow struct {
+	ID             uuid.UUID
+	ContactName    string
+	ContactCompany *string
+	OutcomeLabel   *string
+	OutcomeColor   string
+	IsPositive     bool
+	DurationSecs   int
+	AgentName      string
+	CampaignName   *string
+	CreatedAt      time.Time
+}
+
+// SupervisorOverview is the aggregate response for the supervisor dashboard.
+type SupervisorOverview struct {
+	Agents      []SupervisorAgentRow
+	RecentCalls []RecentCallRow
+	Totals      SupervisorTotals
+}
+
+// SupervisorTotals holds the KPI counters shown at the top of the supervisor page.
+type SupervisorTotals struct {
+	ActiveAgents      int
+	OnCall            int
+	CallsToday        int
+	AppointmentsToday int
+}
+
+// ContactCallRow is a single call session for a campaign contact, used in the
+// per-contact call history panel.
+type ContactCallRow struct {
+	ID           uuid.UUID
+	OutcomeLabel *string
+	OutcomeColor string
+	IsPositive   bool
+	DurationSecs int
+	Notes        *string
+	AgentName    string
+	CreatedAt    time.Time
+}

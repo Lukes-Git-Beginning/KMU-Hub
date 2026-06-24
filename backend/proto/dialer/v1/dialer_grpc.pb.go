@@ -45,6 +45,8 @@ const (
 	DialerService_DeleteCallOutcome_FullMethodName     = "/dialer.v1.DialerService/DeleteCallOutcome"
 	DialerService_GetCampaignDashboard_FullMethodName  = "/dialer.v1.DialerService/GetCampaignDashboard"
 	DialerService_GetAgentDashboard_FullMethodName     = "/dialer.v1.DialerService/GetAgentDashboard"
+	DialerService_GetSupervisorOverview_FullMethodName = "/dialer.v1.DialerService/GetSupervisorOverview"
+	DialerService_GetContactCalls_FullMethodName       = "/dialer.v1.DialerService/GetContactCalls"
 )
 
 // DialerServiceClient is the client API for DialerService service.
@@ -82,6 +84,10 @@ type DialerServiceClient interface {
 	// Dashboard
 	GetCampaignDashboard(ctx context.Context, in *GetCampaignDashboardRequest, opts ...grpc.CallOption) (*CampaignDashboard, error)
 	GetAgentDashboard(ctx context.Context, in *GetAgentDashboardRequest, opts ...grpc.CallOption) (*AgentDashboard, error)
+	// Supervisor
+	GetSupervisorOverview(ctx context.Context, in *GetSupervisorOverviewRequest, opts ...grpc.CallOption) (*SupervisorOverview, error)
+	// Contact call history
+	GetContactCalls(ctx context.Context, in *GetContactCallsRequest, opts ...grpc.CallOption) (*GetContactCallsResponse, error)
 }
 
 type dialerServiceClient struct {
@@ -342,6 +348,26 @@ func (c *dialerServiceClient) GetAgentDashboard(ctx context.Context, in *GetAgen
 	return out, nil
 }
 
+func (c *dialerServiceClient) GetSupervisorOverview(ctx context.Context, in *GetSupervisorOverviewRequest, opts ...grpc.CallOption) (*SupervisorOverview, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SupervisorOverview)
+	err := c.cc.Invoke(ctx, DialerService_GetSupervisorOverview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dialerServiceClient) GetContactCalls(ctx context.Context, in *GetContactCallsRequest, opts ...grpc.CallOption) (*GetContactCallsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetContactCallsResponse)
+	err := c.cc.Invoke(ctx, DialerService_GetContactCalls_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DialerServiceServer is the server API for DialerService service.
 // All implementations must embed UnimplementedDialerServiceServer
 // for forward compatibility.
@@ -377,6 +403,10 @@ type DialerServiceServer interface {
 	// Dashboard
 	GetCampaignDashboard(context.Context, *GetCampaignDashboardRequest) (*CampaignDashboard, error)
 	GetAgentDashboard(context.Context, *GetAgentDashboardRequest) (*AgentDashboard, error)
+	// Supervisor
+	GetSupervisorOverview(context.Context, *GetSupervisorOverviewRequest) (*SupervisorOverview, error)
+	// Contact call history
+	GetContactCalls(context.Context, *GetContactCallsRequest) (*GetContactCallsResponse, error)
 	mustEmbedUnimplementedDialerServiceServer()
 }
 
@@ -461,6 +491,12 @@ func (UnimplementedDialerServiceServer) GetCampaignDashboard(context.Context, *G
 }
 func (UnimplementedDialerServiceServer) GetAgentDashboard(context.Context, *GetAgentDashboardRequest) (*AgentDashboard, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAgentDashboard not implemented")
+}
+func (UnimplementedDialerServiceServer) GetSupervisorOverview(context.Context, *GetSupervisorOverviewRequest) (*SupervisorOverview, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSupervisorOverview not implemented")
+}
+func (UnimplementedDialerServiceServer) GetContactCalls(context.Context, *GetContactCallsRequest) (*GetContactCallsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetContactCalls not implemented")
 }
 func (UnimplementedDialerServiceServer) mustEmbedUnimplementedDialerServiceServer() {}
 func (UnimplementedDialerServiceServer) testEmbeddedByValue()                       {}
@@ -933,6 +969,42 @@ func _DialerService_GetAgentDashboard_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DialerService_GetSupervisorOverview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSupervisorOverviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DialerServiceServer).GetSupervisorOverview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DialerService_GetSupervisorOverview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DialerServiceServer).GetSupervisorOverview(ctx, req.(*GetSupervisorOverviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DialerService_GetContactCalls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetContactCallsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DialerServiceServer).GetContactCalls(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DialerService_GetContactCalls_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DialerServiceServer).GetContactCalls(ctx, req.(*GetContactCallsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DialerService_ServiceDesc is the grpc.ServiceDesc for DialerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1039,6 +1111,14 @@ var DialerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAgentDashboard",
 			Handler:    _DialerService_GetAgentDashboard_Handler,
+		},
+		{
+			MethodName: "GetSupervisorOverview",
+			Handler:    _DialerService_GetSupervisorOverview_Handler,
+		},
+		{
+			MethodName: "GetContactCalls",
+			Handler:    _DialerService_GetContactCalls_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

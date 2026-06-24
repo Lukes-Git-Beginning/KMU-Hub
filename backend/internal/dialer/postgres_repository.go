@@ -634,6 +634,162 @@ func (r *PostgresCallRepository) AppendEvent(ctx context.Context, e *CallEvent) 
 	return err
 }
 
+// GetRecentCallsForTenant returns the most recent completed call sessions for
+// the tenant, enriched with contact-name, outcome and campaign display data.
+func (r *PostgresCallRepository) GetRecentCallsForTenant(ctx context.Context, tenantID uuid.UUID, limit int) ([]RecentCallRow, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT
+		    s.id,
+		    COALESCE(cc.contact_name, '')          AS contact_name,
+		    NULL::text                              AS contact_company,
+		    o.label                                AS outcome_label,
+		    COALESCE(o.color, '#6b7280')           AS outcome_color,
+		    COALESCE(o.is_positive, false)         AS is_positive,
+		    COALESCE(s.duration_seconds, 0)        AS duration_seconds,
+		    COALESCE(u.first_name || ' ' || u.last_name, s.agent_id::text) AS agent_name,
+		    dc.name                                AS campaign_name,
+		    s.created_at
+		 FROM dialer_call_sessions s
+		 JOIN dialer_campaign_contacts cc ON cc.id = s.campaign_contact_id
+		 JOIN dialer_campaigns dc         ON dc.id = cc.campaign_id
+		 JOIN users u                     ON u.id  = s.agent_id
+		 LEFT JOIN dialer_call_outcomes o ON o.id  = s.outcome_id
+		 WHERE s.tenant_id = $1
+		 ORDER BY s.created_at DESC
+		 LIMIT $2`,
+		tenantID, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []RecentCallRow
+	for rows.Next() {
+		var row RecentCallRow
+		var outcomeLabel *string
+		var campaignName *string
+		if err := rows.Scan(
+			&row.ID,
+			&row.ContactName,
+			&row.ContactCompany,
+			&outcomeLabel,
+			&row.OutcomeColor,
+			&row.IsPositive,
+			&row.DurationSecs,
+			&row.AgentName,
+			&campaignName,
+			&row.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		row.OutcomeLabel = outcomeLabel
+		row.CampaignName = campaignName
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// ListCallsByContact returns all call sessions for a campaign contact, newest first,
+// enriched with outcome and agent display data.
+func (r *PostgresCallRepository) ListCallsByContact(ctx context.Context, campaignContactID uuid.UUID) ([]ContactCallRow, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT
+		    s.id,
+		    o.label                                AS outcome_label,
+		    COALESCE(o.color, '#6b7280')           AS outcome_color,
+		    COALESCE(o.is_positive, false)         AS is_positive,
+		    COALESCE(s.duration_seconds, 0)        AS duration_seconds,
+		    s.notes,
+		    COALESCE(u.first_name || ' ' || u.last_name, s.agent_id::text) AS agent_name,
+		    s.created_at
+		 FROM dialer_call_sessions s
+		 JOIN users u                     ON u.id = s.agent_id
+		 LEFT JOIN dialer_call_outcomes o ON o.id = s.outcome_id
+		 WHERE s.campaign_contact_id = $1
+		 ORDER BY s.created_at DESC`,
+		campaignContactID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []ContactCallRow
+	for rows.Next() {
+		var row ContactCallRow
+		var outcomeLabel *string
+		if err := rows.Scan(
+			&row.ID,
+			&outcomeLabel,
+			&row.OutcomeColor,
+			&row.IsPositive,
+			&row.DurationSecs,
+			&row.Notes,
+			&row.AgentName,
+			&row.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		row.OutcomeLabel = outcomeLabel
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// GetTenantCallsTodayCount returns the total number of call sessions created today for a tenant.
+func (r *PostgresCallRepository) GetTenantCallsTodayCount(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM dialer_call_sessions
+		 WHERE tenant_id = $1 AND created_at >= CURRENT_DATE`,
+		tenantID,
+	).Scan(&count)
+	return count, err
+}
+
+// GetTenantAppointmentsTodayCount returns the number of calls today that resulted
+// in an appointment outcome for the tenant.
+func (r *PostgresCallRepository) GetTenantAppointmentsTodayCount(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(s.id)
+		 FROM dialer_call_sessions s
+		 JOIN dialer_call_outcomes o ON o.id = s.outcome_id
+		 WHERE s.tenant_id = $1
+		   AND s.created_at >= CURRENT_DATE
+		   AND o.is_appointment = true`,
+		tenantID,
+	).Scan(&count)
+	return count, err
+}
+
+// GetAgentCallsTodayCount returns the number of calls made today by a single agent.
+func (r *PostgresCallRepository) GetAgentCallsTodayCount(ctx context.Context, agentID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM dialer_call_sessions
+		 WHERE agent_id = $1 AND created_at >= CURRENT_DATE`,
+		agentID,
+	).Scan(&count)
+	return count, err
+}
+
+// GetAgentAvgDurationToday returns the average call duration (seconds) for an agent today.
+func (r *PostgresCallRepository) GetAgentAvgDurationToday(ctx context.Context, agentID uuid.UUID) (float64, error) {
+	var avg float64
+	err := r.pool.QueryRow(ctx,
+		`SELECT COALESCE(AVG(duration_seconds) FILTER (WHERE duration_seconds IS NOT NULL), 0)
+		 FROM dialer_call_sessions
+		 WHERE agent_id = $1 AND created_at >= CURRENT_DATE`,
+		agentID,
+	).Scan(&avg)
+	return avg, err
+}
+
 func (r *PostgresCallRepository) ListEventsBySession(ctx context.Context, sessionID uuid.UUID) ([]*CallEvent, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, dialer_call_session_id, event_type, payload, occurred_at
@@ -816,6 +972,61 @@ func (r *PostgresAgentStatusRepository) LogStatusChange(ctx context.Context, ent
 		entry.PreviousStatus, entry.ChangedAt, entry.ChangedBy,
 	)
 	return err
+}
+
+// GetActiveAgentIDsForTenant returns distinct user IDs of agents who logged
+// any status change today for the given tenant. The result is used by the
+// supervisor overview to enumerate which Redis keys to fetch.
+func (r *PostgresAgentStatusRepository) GetActiveAgentIDsForTenant(ctx context.Context, tenantID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT user_id
+		 FROM dialer_agent_status_log
+		 WHERE tenant_id = $1
+		   AND changed_at >= CURRENT_DATE`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// GetUserDisplayNames returns a map of user UUID → [first_name, last_name] for
+// the given set of user IDs. Missing users are silently omitted.
+func (r *PostgresAgentStatusRepository) GetUserDisplayNames(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][2]string, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, first_name, last_name FROM users WHERE id = ANY($1)`,
+		userIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][2]string, len(userIDs))
+	for rows.Next() {
+		var id uuid.UUID
+		var first, last string
+		if err := rows.Scan(&id, &first, &last); err != nil {
+			return nil, err
+		}
+		result[id] = [2]string{first, last}
+	}
+	return result, rows.Err()
 }
 
 // ---------------------------------------------------------------------------
