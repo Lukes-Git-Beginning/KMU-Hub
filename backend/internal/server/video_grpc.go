@@ -881,7 +881,8 @@ func (s *VideoGRPCServer) StartMeeting(ctx context.Context, req *videov1.StartMe
 	joinToken := ""
 	roomName := derefString(m.RoomName)
 	if s.tokenGen != nil && roomName != "" {
-		t, tokenErr := s.tokenGen.GenerateToken(roomName, req.UserId, "")
+		displayName := attendeeDisplayName(mwa.Attendees, req.UserId)
+		t, tokenErr := s.tokenGen.GenerateToken(roomName, req.UserId, displayName)
 		if tokenErr != nil {
 			slog.Error("failed to generate meeting join token", "meeting_id", m.ID, "error", tokenErr)
 			return nil, status.Error(codes.Internal, "failed to generate join token")
@@ -930,7 +931,8 @@ func (s *VideoGRPCServer) JoinMeeting(ctx context.Context, req *videov1.JoinMeet
 	joinToken := ""
 	roomName := derefString(m.RoomName)
 	if s.tokenGen != nil && roomName != "" {
-		t, tokenErr := s.tokenGen.GenerateToken(roomName, req.UserId, "")
+		displayName := attendeeDisplayName(mwa.Attendees, req.UserId)
+		t, tokenErr := s.tokenGen.GenerateToken(roomName, req.UserId, displayName)
 		if tokenErr != nil {
 			slog.Error("failed to generate meeting join token", "meeting_id", m.ID, "error", tokenErr)
 			return nil, status.Error(codes.Internal, "failed to generate join token")
@@ -1809,6 +1811,22 @@ func derefString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// attendeeDisplayName returns "FirstName LastName" for the given userID from the
+// attendee list. Falls back to an empty string so the LiveKit identity (user UUID)
+// is shown instead — better than a wrong name.
+func attendeeDisplayName(attendees []meeting.MeetingAttendeeWithUser, userID string) string {
+	for _, a := range attendees {
+		if a.UserID.String() == userID {
+			name := a.FirstName
+			if a.LastName != "" {
+				name += " " + a.LastName
+			}
+			return name
+		}
+	}
+	return ""
 }
 
 // ============================================================================

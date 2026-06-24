@@ -45,7 +45,8 @@ const api: ElectronAPI = {
   },
 
   screenshare: {
-    getSources: () => ipcRenderer.invoke('screenshare:get-sources')
+    getSources: () => ipcRenderer.invoke('screenshare:get-sources'),
+    setSource: (sourceId: string) => ipcRenderer.invoke('screenshare:set-source', sourceId)
   }
 }
 

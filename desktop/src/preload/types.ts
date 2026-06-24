@@ -60,8 +60,12 @@ export interface ElectronAPI {
   /**
    * Screenshare: enumerate capture sources for the in-call source-picker (Wave 4.1).
    * Returns all available screens and windows with thumbnail previews.
+   * setSource must be called with the chosen sourceId immediately before
+   * setScreenShareEnabled() so the main-process handler can resolve the
+   * source synchronously (avoids async race in setDisplayMediaRequestHandler).
    */
   screenshare: {
     getSources: () => Promise<ScreenSourceInfo[]>
+    setSource: (sourceId: string) => Promise<void>
   }
 }

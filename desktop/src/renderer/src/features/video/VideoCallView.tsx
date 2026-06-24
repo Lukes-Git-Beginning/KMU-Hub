@@ -366,6 +366,8 @@ interface DeviceSelectorProps {
 function DeviceSelector({ onClose }: DeviceSelectorProps) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
+  const videoPreviewRef = useRef<HTMLVideoElement>(null)
+  const { localParticipant } = useLocalParticipant()
 
   // Close on outside click
   useEffect(() => {
@@ -378,11 +380,40 @@ function DeviceSelector({ onClose }: DeviceSelectorProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [onClose])
 
+  // Attach the active camera track to the preview video element.
+  // The camera is already running inside LiveKitRoom, so MediaStream is available.
+  // This also ensures enumerateDevices returns labels (permission already granted).
+  useEffect(() => {
+    const el = videoPreviewRef.current
+    if (!el) return
+    const camPub = localParticipant.getTrackPublication(Track.Source.Camera)
+    const track = camPub?.track?.mediaStreamTrack
+    if (!track) return
+    const stream = new MediaStream([track])
+    el.srcObject = stream
+    el.play().catch(() => { /* autoplay guard — safe to ignore */ })
+    return () => {
+      el.srcObject = null
+    }
+  }, [localParticipant])
+
   return (
     <div
       ref={ref}
       className="absolute bottom-full left-1/2 z-40 mb-2 w-72 -translate-x-1/2 rounded-xl border border-zinc-700 bg-zinc-900 p-4 shadow-xl"
     >
+      {/* Camera live preview thumbnail */}
+      <div className="mb-3 overflow-hidden rounded-lg bg-zinc-950">
+        <video
+          ref={videoPreviewRef}
+          muted
+          autoPlay
+          playsInline
+          className="h-[108px] w-full object-cover"
+          aria-label={t('features.video.deviceSelect.camera')}
+        />
+      </div>
+
       <div className="space-y-3">
         {/* Microphone selector */}
         <div>
@@ -653,12 +684,22 @@ function InnerCallView({
   // LiveKit ScreenShareCaptureOptions.sourceId tells livekit-client to pass
   // chromeMediaSourceId in the video constraint, which Electron's
   // setDisplayMediaRequestHandler will receive and map to the right source.
+  // We also call window.electronAPI.screenshare.setSource() to cache the id
+  // in the main process before getDisplayMedia fires — avoids the async race
+  // inside setDisplayMediaRequestHandler on some Windows configurations.
   const handleSourceSelected = useCallback(
     async (sourceId: string) => {
       setShowScreenPicker(false)
       try {
-        if (sourceId) {
-          // Electron path: pass sourceId so the main-process handler can select it
+        if (sourceId && typeof window !== 'undefined' && window.electronAPI?.screenshare?.setSource) {
+          // Pre-cache the sourceId in the main process (sync read in handler)
+          await window.electronAPI.screenshare.setSource(sourceId)
+          await localParticipant.setScreenShareEnabled(true, {
+            audio: true,
+            sourceId,
+          })
+        } else if (sourceId) {
+          // Electron path without setSource (older preload): pass via LiveKit only
           await localParticipant.setScreenShareEnabled(true, {
             audio: true,
             sourceId,

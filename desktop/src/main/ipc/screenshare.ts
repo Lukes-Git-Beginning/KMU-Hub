@@ -36,6 +36,12 @@ export interface ScreenSourceInfo {
   type: 'screen' | 'window'
 }
 
+// lean: module-level cache for the renderer-chosen sourceId; cleared on use.
+// The renderer sends 'screenshare:set-source' with the picked id immediately
+// before calling setScreenShareEnabled() so the handler reads it synchronously.
+// Upgrade: per-webContents map if multi-window screenshare is needed.
+let _pendingSourceId: string | null = null
+
 export function registerScreenshareHandlers(): void {
   // -------------------------------------------------------------------------
   // IPC: renderer asks for the available capture sources
@@ -56,28 +62,41 @@ export function registerScreenshareHandlers(): void {
   })
 
   // -------------------------------------------------------------------------
+  // IPC: renderer stores the chosen sourceId before calling LiveKit.
+  // The setDisplayMediaRequestHandler reads this synchronously to avoid
+  // an async desktopCapturer.getSources() race inside the handler callback.
+  // -------------------------------------------------------------------------
+  ipcMain.handle('screenshare:set-source', (_event, sourceId: string) => {
+    _pendingSourceId = sourceId || null
+  })
+
+  // -------------------------------------------------------------------------
   // setDisplayMediaRequestHandler: intercepts getDisplayMedia() calls from the
   // renderer and returns the source the user already selected in our modal.
   //
-  // The renderer passes the chosen sourceId by storing it in a well-known key
-  // on the window object BEFORE calling setScreenShareEnabled(). Because this
-  // handler is synchronous-ish (callback style), we rely on the renderer to
-  // have populated that constraint via the sourceId it passes to LiveKit's
-  // ScreenShareCaptureOptions.sourceId.
+  // Priority:
+  //   1. _pendingSourceId (set via screenshare:set-source just before LiveKit call) — fast path
+  //   2. chromeMediaSourceId in request constraints — LiveKit-embedded path
+  //   3. Fall back to primary screen
   //
   // Electron's desktopCapturer bypass path:
   //   When LiveKit sees sourceId in ScreenShareCaptureOptions it passes:
   //   video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: id } }
-  //   We intercept that here and return the matching DesktopCapturerSource.
   // -------------------------------------------------------------------------
   session.defaultSession.setDisplayMediaRequestHandler(
     (request, callback) => {
-      // Extract the sourceId the renderer embedded in the constraint
+      // Prefer the explicitly cached sourceId (renderer called screenshare:set-source).
+      const cachedId = _pendingSourceId
+      _pendingSourceId = null // consume once
+
+      // Also check constraints for the chromeMediaSourceId LiveKit embeds.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const videoConstraints = request.videoRequested ? (request as any).constraints?.video : undefined
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mandatory = videoConstraints?.mandatory as Record<string, string> | undefined
-      const requestedSourceId = mandatory?.chromeMediaSourceId
+      const constraintSourceId = mandatory?.chromeMediaSourceId
+
+      const requestedSourceId = cachedId ?? constraintSourceId ?? null
 
       // Determine whether to include audio (loopback on Windows/Linux).
       // macOS loopback audio requires a kernel ext — we skip it.
