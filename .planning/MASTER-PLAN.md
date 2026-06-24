@@ -24,8 +24,10 @@
 3. **„1.0-bau-fertig" je Modul =** alle FE-Phasen + Demo-Tiefe + **echtes Backend verkabelt** (wo vorhanden; 🔒-Teile warten auf Lukes Track). **Review-Abnahme kommt danach gebündelt** (Welle 6).
 4. **Mobile-Features** (GPS-Stempel, Offline-Rapporte, Barcode-Scan) = Post-1.0 (Handy-App-Phase). Im Plan mit 📱 markiert, nicht in 1.0 eingeplant.
 
-### Gesamtstand (verifiziert 23.06.)
-- **~95–105 von ~220 FE-Phasen fertig (~45–48 %).**
+### Gesamtstand (verifiziert 23.06., aktualisiert 24.06.)
+- **~100–110 von ~220 FE-Phasen fertig (~47–50 %).** (24.06.: security S-1…S-5 gebaut + 3 Module echt-geschaltet.)
+- **Welle 1 (Echt-Schaltung) stark vorangekommen:** 10 Module echt-verkabelt (kontakte/crm/work/finanzen/notifications/vertraege/work-Labels + dialer/dashboard/zeiterfassung). 3 mock-verdeckte Backend-Bugs gefunden+gefixt.
+- **security/DSGVO** (P0-Launch-Blocker) von ⬜ → ✅ FE-review-reif.
 - **13 Module FE-mock-fertig** (Review aber erst am Ende, Welle 6, nach Verkabelung): kontakte, calendar, zeiterfassung, dokumente, finanzen, work, team, dashboard, vertraege, helpdesk, automatisierung, profil, mails + kommunikation(Paket A) + berichte, wiki. Diese brauchen noch die **Echt-Verkabelung** (Welle 1), nicht sofort Review.
 - **App-Shell** weitgehend fertig (Login-Redesign, Idle-Lock, Passwort-Reset-FE, Logo, Login-Animation, Modul-Einstellungen). Reste in §1.
 - **Onboarding/Info-Center:** Bausteine existieren (OnboardingWizard, Tour-System, HelpWidget), aber halbfertig/ungenutzt — Ausbau in §1.2.
@@ -229,9 +231,9 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 **Bau-Status heute** (was am Ende in die Review-Welle einfließt):
 | Bau-Status | Module |
 |---|---|
-| ✅ **echt-verkabelt** (Welle 1 done) | **kontakte** (READ + voller CRUD live, Referenz) |
-| ✅ **FE-mock-fertig** — noch echt-verkabeln (Welle 1) | calendar, zeiterfassung, dokumente, finanzen, work, team, dashboard, vertraege, helpdesk, automatisierung, profil, mails, kommunikation, berichte, wiki |
-| ⬜ **noch bauen** (Wellen 2–5) | notifications/formulare/dialer/video (Demo-Tiefe) · security, admin, settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
+| ✅ **echt-verkabelt** (Welle 1) | **kontakte** (Referenz) · crm (companies/deals/pipeline/tags) · work · finanzen/Buchhaltung · **dialer-Supervisor** · **dashboard-Layout** · **zeiterfassung/HR** · notifications · vertraege · work-Labels |
+| ✅ **FE-mock-fertig** — noch echt-verkabeln (Welle 1) | calendar, dokumente, team, helpdesk, automatisierung, profil, mails, kommunikation, berichte, wiki, **security/DSGVO** (S-1…S-5) |
+| ⬜ **noch bauen** (Wellen 2–5) | formulare/video (Demo-Tiefe) · admin, settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
 
 **Review-Abnahme (Welle 6):** aufgeteilt — jeder klickt das Modul durch, macht Screenshots + Notizen, passt an (tote Buttons, Detail-Views, leere Zustände, Raw-Keys, Umlaute, Style), bis es **abgenommen** ist. Haken in §2/§3.
 

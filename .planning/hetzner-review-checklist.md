@@ -17,8 +17,8 @@
 - [ ] kontakte · [ ] calendar · [ ] dokumente · [ ] finanzen/Buchhaltung · [ ] work · [ ] team
 - [ ] dashboard · [ ] vertraege · [ ] helpdesk · [ ] automatisierung · [ ] profil · [ ] mails · [ ] kommunikation · [ ] berichte · [ ] wiki
 
-## B · In Arbeit (prüfen, sobald gemeldet)
-- [ ] **security / DSGVO** (Sub baut gerade, Branch `parallel/security`) — wird nach Merge prüfbar. Achten auf: alle Seiten crashfrei, keine Raw-Keys, DSGVO-Flows (Export/Erasure/DSAR) durchklickbar. Sub meldet „security x/5 fertig".
+## B · Bereit zum Review (gemergt auf main)
+- [ ] **security / DSGVO** ✅ gemergt (`43fecf37`, S-1…S-5) — **Demo-Mode prüfbar** (reine FE/MSW-Arbeit). Hub `/admin/security` (10 Sub-Tabs). Achten auf: alle Seiten crashfrei, keine Raw-Keys (DE+EN), DSGVO-Flows durchklickbar — Audit (Filter/Export), DSAR Art.15 (Cross-Modul-Suche + Export), Export Art.15/20 (Genehmigen/Download + Frist), Erasure Art.17 (Preview/Execute + Legal-Hold-Hinweis), Retention (DACH-Fristen + Auto-Löschung-Toggle), Sessions (beenden), Vault, PW-Policy, IP-Access, 2FA. Sub-Bericht: `.planning/parallel-batch/qa-security.md`.
 - [ ] **zeiterfassung** (Main, echt-geschaltet) — siehe C.
 
 ## C · Backend-Echt-Schaltung (lokal verifiziert — Hetzner erst nach Deploy + Prod-Seed)
