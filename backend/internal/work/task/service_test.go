@@ -259,6 +259,7 @@ func (m *mockProjectRepo) List(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ bo
 }
 func (m *mockProjectRepo) Update(_ context.Context, _ *models.Project) error { return nil }
 func (m *mockProjectRepo) Archive(_ context.Context, _ uuid.UUID, _ uuid.UUID) error { return nil }
+func (m *mockProjectRepo) Delete(_ context.Context, _ uuid.UUID, _ uuid.UUID) error  { return nil }
 func (m *mockProjectRepo) GetProjectKey(_ context.Context, _ uuid.UUID, _ uuid.UUID) (string, error) {
 	return "", nil
 }
