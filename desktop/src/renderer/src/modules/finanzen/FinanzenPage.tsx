@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
-import { useFinanceUIStore, formatMoney, type FinanceTabKey } from '@/stores/finance'
+import { useFinanceUIStore, formatMoney, calcInvoiceTotal, type FinanceTabKey } from '@/stores/finance'
 import {
   useInvoices,
   useQuotes,
@@ -688,7 +688,10 @@ function FinanzenPageContent() {
             {filteredInvoices.map((inv) => {
               const sc = invoiceStatusConfig[inv.status]
               const StatusIcon = sc.icon
-              const grossTotal = Number(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)
+              // lean: tax_breakdown.gross_total is the server-computed value; fall back to
+              // calcInvoiceTotal when absent or zero (e.g. legacy rows without JSONB column)
+              const grossTotal =
+                Number(inv.tax_breakdown?.gross_total) || calcInvoiceTotal(inv.line_items ?? [])
               return (
                 <div
                   key={inv.id}
@@ -714,7 +717,7 @@ function FinanzenPageContent() {
                     }`}
                   >
                     {inv.status !== 'paid'
-                      ? formatMoney(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0, inv.currency)
+                      ? formatMoney(grossTotal, inv.currency)
                       : '--'}
                   </span>
                   <div className="flex items-center gap-1 flex-wrap">
@@ -785,7 +788,10 @@ function FinanzenPageContent() {
                     {q.customer.name}
                   </span>
                   <span className="text-sm font-medium text-foreground">
-                    {formatMoney(q.tax_breakdown?.gross_total ?? q.total_gross ?? 0, q.currency)}
+                    {formatMoney(
+                      Number(q.tax_breakdown?.gross_total) || calcInvoiceTotal(q.line_items ?? []),
+                      q.currency,
+                    )}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(q.valid_until)}
@@ -855,7 +861,10 @@ function FinanzenPageContent() {
                     )}
                   </span>
                   <span className="text-sm font-medium text-foreground">
-                    {formatMoney(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0, cn.currency)}
+                    {formatMoney(
+                      Number(cn.tax_breakdown?.gross_total) || calcInvoiceTotal(cn.line_items ?? []),
+                      cn.currency,
+                    )}
                   </span>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${

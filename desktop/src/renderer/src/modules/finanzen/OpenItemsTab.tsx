@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Clock, Wallet, CalendarClock } from 'lucide-react'
 import { EmptyState } from '@/components/shared'
 import { useInvoices } from '@/api/hooks/useFinance'
-import { formatMoney, formatEUR } from '@/stores/finance'
+import { formatMoney, formatEUR, calcInvoiceTotal } from '@/stores/finance'
 import { formatDate } from '@/lib/format'
 import type { Invoice } from '@/types/finance-types'
 
@@ -54,7 +54,8 @@ export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
     return invoices
       .filter((inv) => inv.status === 'sent' || inv.status === 'overdue')
       .map((inv) => {
-        const gross = Number(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)
+        const gross =
+          Number(inv.tax_breakdown?.gross_total) || calcInvoiceTotal(inv.line_items ?? [])
         const rate = Number(inv.exchange_rate ?? 1) || 1
         const currency = inv.currency ?? 'EUR'
         const daysOverdue = daysBetween(inv.due_date)

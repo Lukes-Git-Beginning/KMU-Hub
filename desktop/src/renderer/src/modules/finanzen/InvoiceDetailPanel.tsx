@@ -33,7 +33,7 @@ import {
   useQuotes,
   useDunnings,
 } from '@/api/hooks/useFinance'
-import { formatMoney } from '@/stores/finance'
+import { formatMoney, calcInvoiceTotal } from '@/stores/finance'
 import type { InvoiceStatus } from '@/types/finance-types'
 import { PDFPreviewPanel } from './PDFPreviewPanel'
 import { CustomerAccountSection } from './CustomerAccountSection'
@@ -131,7 +131,9 @@ export function InvoiceDetailPanel({
   const StatusIcon = status.icon
   const currency = invoice.currency ?? 'EUR'
   const money = (v: number | string) => formatMoney(v, currency)
-  const grossTotal = Number(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)
+  // lean: same fallback as list view — legacy rows may have gross_total="0" without JSONB
+  const grossTotal =
+    Number(invoice.tax_breakdown?.gross_total) || calcInvoiceTotal(invoice.line_items ?? [])
   const payments = paymentsData?.payments ?? []
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0)
   const remaining = Math.max(0, grossTotal - totalPaid)
