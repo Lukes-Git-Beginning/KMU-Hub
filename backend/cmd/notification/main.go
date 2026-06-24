@@ -480,6 +480,11 @@ func (ic *InboxConsumer) extractSenderName(evt models.EventPayload) string {
 		}
 	}
 
+	// Top-level actor name (set by emitters that resolve it before emit)
+	if evt.ActorName != "" {
+		return evt.ActorName
+	}
+
 	// Fall back to module name
 	switch evt.ModuleID {
 	case event.ModuleEmail:

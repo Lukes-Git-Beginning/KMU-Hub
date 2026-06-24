@@ -327,6 +327,10 @@ func (r *workTaskMockRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string
 	return "Open", false, nil
 }
 
+func (r *workTaskMockRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, error) {
+	return "", nil
+}
+
 // ============================================================================
 // Test helpers
 // ============================================================================

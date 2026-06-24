@@ -154,6 +154,9 @@ func (m *mockTaskRepo) ListDependenciesByProject(_ context.Context, _ uuid.UUID)
 func (m *mockTaskRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, error) {
 	return "", false, nil
 }
+func (m *mockTaskRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, error) {
+	return "", nil
+}
 
 // --- Mock Event Emitter ---
 

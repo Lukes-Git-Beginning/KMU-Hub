@@ -35,6 +35,17 @@ func (s *Service) SetEventEmitter(emitter EventEmitter) {
 	s.eventEmitter = emitter
 }
 
+// resolveActorName best-effort resolves a user's display name for event actor
+// metadata. Returns "" on any error so emitting a notification event is never
+// blocked by name resolution.
+func (s *Service) resolveActorName(ctx context.Context, actorID uuid.UUID) string {
+	name, err := s.repo.GetUserDisplayName(ctx, actorID)
+	if err != nil {
+		return ""
+	}
+	return name
+}
+
 // CreateInput contains the data needed to create a task
 type CreateInput struct {
 	TenantID     uuid.UUID
@@ -161,6 +172,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 		_ = s.eventEmitter.EmitTaskEvent(ctx, models.EventPayload{
 			Type:          event.EventWorkTaskCreated,
 			Priority:      models.PriorityNormal,
+			ActorID:       input.CreatedBy.String(),
+			ActorName:     s.resolveActorName(ctx, input.CreatedBy),
 			ResourceID:    task.ID.String(),
 			ModuleID:      event.ModuleWork,
 			Title:         "New task assigned: " + task.Title,
@@ -316,10 +329,18 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 			deepLink = fmt.Sprintf("/work/projects/%s/tasks/%s", task.ProjectID, task.ID)
 		}
 
+		// Resolve the actor's display name once if an event will be emitted.
+		actorName := ""
+		if (statusChanged || assigneeChanged) && task.AssigneeID != nil && *task.AssigneeID != actorID {
+			actorName = s.resolveActorName(ctx, actorID)
+		}
+
 		if statusChanged && task.AssigneeID != nil && *task.AssigneeID != actorID {
 			_ = s.eventEmitter.EmitTaskEvent(ctx, models.EventPayload{
 				Type:          event.EventWorkTaskStatusChanged,
 				Priority:      models.PriorityNormal,
+				ActorID:       actorID.String(),
+				ActorName:     actorName,
 				ResourceID:    task.ID.String(),
 				ModuleID:      event.ModuleWork,
 				Title:         task.Title + " status changed",
@@ -335,6 +356,8 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 			_ = s.eventEmitter.EmitTaskEvent(ctx, models.EventPayload{
 				Type:          event.EventWorkTaskAssigned,
 				Priority:      models.PriorityNormal,
+				ActorID:       actorID.String(),
+				ActorName:     actorName,
 				ResourceID:    task.ID.String(),
 				ModuleID:      event.ModuleWork,
 				Title:         "Assigned to task: " + task.Title,
@@ -414,6 +437,8 @@ func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newS
 		_ = s.eventEmitter.EmitTaskEvent(ctx, models.EventPayload{
 			Type:          event.EventWorkTaskStatusChanged,
 			Priority:      models.PriorityNormal,
+			ActorID:       actorID.String(),
+			ActorName:     s.resolveActorName(ctx, actorID),
 			ResourceID:    taskID.String(),
 			ModuleID:      event.ModuleWork,
 			Title:         existing.Title + " moved to " + newStatusName,

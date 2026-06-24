@@ -140,6 +140,10 @@ func (s *Service) ProcessEvent(ctx context.Context, payload models.EventPayload)
 			actorID, _ := uuid.Parse(payload.ActorID)
 			notif.ActorID = &actorID
 		}
+		if payload.ActorName != "" {
+			actorName := payload.ActorName
+			notif.ActorName = &actorName
+		}
 		if payload.ResourceID != "" {
 			notif.ResourceID = &payload.ResourceID
 		}

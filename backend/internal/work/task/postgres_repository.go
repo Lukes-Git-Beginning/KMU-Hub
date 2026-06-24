@@ -788,6 +788,20 @@ func (r *PostgresRepository) GetStatusByID(ctx context.Context, statusID uuid.UU
 	return name, isClosed, err
 }
 
+// GetUserDisplayName returns the "first last" display name for a user, or an
+// empty string if the user is not found. Used to denormalize actor metadata
+// onto emitted notification events; resolution failures must not block emits.
+func (r *PostgresRepository) GetUserDisplayName(ctx context.Context, userID uuid.UUID) (string, error) {
+	var name string
+	err := r.pool.QueryRow(ctx,
+		`SELECT COALESCE(NULLIF(TRIM(first_name || ' ' || last_name), ''), '') FROM users WHERE id = $1`, userID,
+	).Scan(&name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return name, err
+}
+
 // scanTasksWithRelations is a helper to scan task rows with relation columns
 func scanTasksWithRelations(rows pgx.Rows) ([]models.TaskWithRelations, error) {
 	var tasks []models.TaskWithRelations

@@ -42,6 +42,7 @@ type EventPayload struct {
 	TenantID      uuid.UUID       `json:"tenant_id"`
 	Priority      string          `json:"priority"`
 	ActorID       string          `json:"actor_id,omitempty"`
+	ActorName     string          `json:"actor_name,omitempty"`
 	ResourceID    string          `json:"resource_id,omitempty"`
 	ModuleID      string          `json:"module_id"`
 	TargetUserIDs []string        `json:"target_user_ids,omitempty"`

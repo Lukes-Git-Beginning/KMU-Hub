@@ -64,6 +64,9 @@ type Repository interface {
 
 	// Status check
 	GetStatusByID(ctx context.Context, statusID uuid.UUID) (statusName string, isClosed bool, err error)
+
+	// User display name lookup (for denormalizing actor metadata onto events)
+	GetUserDisplayName(ctx context.Context, userID uuid.UUID) (string, error)
 }
 
 // TaskFilters contains filtering and pagination parameters for task listing

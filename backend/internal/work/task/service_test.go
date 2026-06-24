@@ -20,10 +20,11 @@ type mockRepo struct {
 	activities   []models.TaskActivity
 	nextNumber   int
 	hasCycleVal  bool
-	statusName   string
-	statusClosed bool
-	projectTasks []models.Task
-	projectDeps  []models.TaskDependency
+	statusName      string
+	statusClosed    bool
+	projectTasks    []models.Task
+	projectDeps     []models.TaskDependency
+	userDisplayName string
 }
 
 func newMockRepo() *mockRepo {
@@ -201,6 +202,10 @@ func (m *mockRepo) ListByProject(_ context.Context, _ uuid.UUID) ([]models.Task,
 
 func (m *mockRepo) ListDependenciesByProject(_ context.Context, _ uuid.UUID) ([]models.TaskDependency, error) {
 	return m.projectDeps, nil
+}
+
+func (m *mockRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, error) {
+	return m.userDisplayName, nil
 }
 
 func (m *mockRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, error) {
@@ -426,6 +431,39 @@ func TestService_Create(t *testing.T) {
 			t.Errorf("expected default priority normal, got %q", result.Priority)
 		}
 	})
+}
+
+func TestService_EmitsActorMetadata(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	repo.userDisplayName = "Alice Example"
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	emitter := &mockEventEmitter{}
+	svc.SetEventEmitter(emitter)
+
+	creator := uuid.New()
+	assignee := uuid.New()
+	_, err := svc.Create(ctx, CreateInput{
+		Title:      "Notify the assignee",
+		Priority:   models.TaskPriorityNormal,
+		CreatedBy:  creator,
+		AssigneeID: &assignee,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(emitter.events) != 1 {
+		t.Fatalf("expected 1 emitted event, got %d", len(emitter.events))
+	}
+	got := emitter.events[0]
+	if got.ActorName != "Alice Example" {
+		t.Errorf("expected actor_name 'Alice Example', got %q", got.ActorName)
+	}
+	if got.ActorID != creator.String() {
+		t.Errorf("expected actor_id %q, got %q", creator.String(), got.ActorID)
+	}
 }
 
 func TestService_CreateViewerCannotCreate(t *testing.T) {
