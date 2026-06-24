@@ -10,6 +10,7 @@
  * hooks can migrate to the typed apiClient.
  */
 import { authenticatedRequest } from './utils/authenticatedFetch'
+import { normalizeWireTimestamps } from './wire-time'
 
 interface RequestOptions {
   method: string
@@ -18,8 +19,17 @@ interface RequestOptions {
   params?: Record<string, string | number | boolean | string[] | undefined>
 }
 
-function request<T>(opts: RequestOptions): Promise<T> {
-  return authenticatedRequest<T>(opts)
+/**
+ * The calendar gateway serializes responses via `response.JSON`, so
+ * `google.protobuf.Timestamp` fields (event start_time/end_time, reminders,
+ * created_at, …) arrive as `{seconds, nanos}` rather than RFC3339 strings.
+ * Normalize every response to ISO before it reaches the hooks — the walk is a
+ * no-op on already-string timestamps (mock mode), so it is safe to apply
+ * unconditionally.
+ */
+async function request<T>(opts: RequestOptions): Promise<T> {
+  const result = await authenticatedRequest<T>(opts)
+  return normalizeWireTimestamps(result)
 }
 
 // Convenience methods matching openapi-fetch API style
