@@ -400,7 +400,7 @@ export const notificationHandlers = [
 
     // Pinned first, then newest-first (mirrors the backend ORDER BY is_pinned DESC, created_at DESC)
     list.sort((a, b) => {
-      if (Boolean(b.is_pinned) !== Boolean(a.is_pinned)) return Boolean(b.is_pinned) ? 1 : -1
+      if (Boolean(b.is_pinned) !== Boolean(a.is_pinned)) return b.is_pinned ? 1 : -1
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
     const total = list.length
