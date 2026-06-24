@@ -1,5 +1,23 @@
 # RESUME — nächster Einstieg (Stand 2026-06-23, Session-Ende #2)
 
+> **★★ SESSION-ENDE 2026-06-24 #3 — main `156ca17a`, alles gepusht. NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Diese Session gebaut (alle live/API-verifiziert + gepusht):**
+> 1. **dialer-Supervisor echt-geschaltet** — FE-Normalizer für protojson-Null-Omission (`api/dialer-normalize.ts`, `48b5daf9`) + **Backend-Bug** recent-calls-Query las nicht-existente `cc.contact_name` → crm-Join (`9dfcf89e`). Live-Screenshots `desktop/.qa-screenshots/dialer-supervisor/`.
+> 2. **dashboard-Layout echt verifiziert** — war schon über `apiClient`↔gateway-nativ verkabelt, kein Code nötig. Roundtrip GET→PUT→GET live ok.
+> 3. **zeiterfassung/HR echt-geschaltet** — **Backend-Bug** `correction_reason` (nullable) in `string` gescannt → 500 bei JEDEM echten Eintrag → `COALESCE` in 3 SELECTs (`b7242926`). API-verifiziert (entries 500→3). HR liegt auf **biz**-Service. FE-Screenshot offen (Dev-Server-Quirk, s.u.).
+> 4. **security/DSGVO (Sub) gemergt** — `43fecf37` (S-1…S-5, review-reif): 11 Seiten crashfrei, GDPR-Flows Art.15/17/20, ein Hub `/admin/security` (10 Tabs), i18n ×4. Merge konfliktfrei, Build grün. Bericht `.planning/parallel-batch/qa-security.md`. **Offen: Art.30 RoPA** = eigener Folge-Batch.
+> → **3 mock-verdeckte Backend-Bugs** gefunden+gefixt (alle brachen echte Daten still, alle deploy-relevant für Luke).
+>
+> **★ NEUER WORKFLOW (Darien, 24.06.):** Darien reviewt jetzt **hands-on auf der Hetzner-Cosmi-exe** (app.zentria.tech), parallel während gebaut wird. → **ALLES auf main pushen.** Prüf-Items in **`.planning/hetzner-review-checklist.md`** (lebende Datei pflegen). **2 offene Fragen dort:** (a) wer/wie deployt auf Hetzner (Auto-Deploy `cd.yml` nicht scharf → Push ≠ live), (b) Demo- oder Live-Mode der Hetzner-exe. Backend-Echt-Schaltungen sind nur lokal sichtbar (brauchen Deploy + Prod-Seed) → die weiter lokal verifizieren.
+>
+> **Docker-Stack läuft noch** (postgres/redis/auth/crm/gateway/dialer/biz/minio healthy) — **nur Main fasst Docker an** (OOM!). Falls weg: hochfahren (Abschnitt unten), Seeds: `backend/seeds/demo/{demo-seed,dialer-demo,hr-worktime-demo}.sql`. biz braucht minio (sonst Crash-Loop „gobd archive").
+> **DEV-SERVER-QUIRK:** `electron-vite dev --mode localbackend` kam zuletzt in **MSW/Demo-Mode** hoch (Auto-Login „Stefan Vogel" statt „Demo Local") trotz Build-Flag → flakig. Beim Dialer-Lauf lief dieselbe Instanz korrekt localbackend. Check: Login-Screen = localbackend ok; Auto-Login Stefan-Vogel = Demo-Mode (neu starten). Kill: PowerShell `Get-NetTCPConnection -LocalPort 5173 | Stop-Process`.
+> **NÄCHSTE UNIT (Vorschlag):** Welle 2 — **admin** (Benutzer/RBAC/Lizenz) oder **settings-Persistenz** (X-4, BE Migr 138 da); oder neues Sub für 2. Modul. Reste zeiterfassung: FE-Screenshot + `useAbsenceCalendar`-null-guard (`hr-hooks.ts:508` `select: d=>d.entries` ohne `?? []`).
+> **Master-Plan:** ~47–50 % FE-Phasen, 10 echt-verkabelt, 11 FE-mock-fertig — `MASTER-PLAN.md` §6.
+> **Git-Hygiene offen:** `desktop/package-lock.json` (npm-install-Churn, uncommitted), `desktop/scripts/qa-dialer-callflow.mjs` (untracked, vorbestehend) — committen oder verwerfen.
+
+
 > **★ UPDATE 2026-06-24 #2 — dialer SUPERVISOR echt-geschaltet (Welle 1), live verifiziert + gepusht (`48b5daf9`).**
 > Lukes neue Endpoints (`GET /dialer/supervisor` + `/dialer/contacts/{id}/calls`, `fb045f9f`) ans FE gehängt. **Zwei mock-verdeckte Bugs gefunden:**
 > (1) **`recent_calls` immer leer** — Lukes Query las `cc.contact_name` (Spalte existiert nicht in `dialer_campaign_contacts`); SQL-Fehler wurde still als WARN geschluckt → Feed leer. Gefixt: crm-`contacts`+`companies`-Join in `GetRecentCallsForTenant` (`c10f8d2f`, im dialer-Service).
