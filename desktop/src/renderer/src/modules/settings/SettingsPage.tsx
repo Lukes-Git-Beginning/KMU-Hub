@@ -29,6 +29,7 @@ import { ConfirmDialog } from '@/components/shared'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import { useLocaleStore, type SupportedLocale } from '@/stores/locale'
 import { DESK_BACKGROUNDS } from '@/components/layout/DeskEnvironment'
 import { canSeeSettingsTab } from '@/config/roles'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
@@ -575,6 +576,7 @@ function AppearanceTab() {
 function LanguageTab() {
   const { t } = useTranslation()
   const { language, updateLanguage } = useSettingsStore()
+  const setLocaleQuiet = useLocaleStore((s) => s.setLocaleQuiet)
   const [locale, setLocale] = useState(language.locale)
   const [timezone, setTimezone] = useState(language.timezone)
   const [dateFormat, setDateFormat] = useState(language.dateFormat)
@@ -587,6 +589,8 @@ function LanguageTab() {
 
   const handleSave = () => {
     updateLanguage({ locale, timezone, dateFormat })
+    // Sync active i18n locale; updateLanguage already PUTs to backend so use quiet.
+    setLocaleQuiet(locale as SupportedLocale)
     toast.success(t('settings.languageRegion.saved'))
   }
 

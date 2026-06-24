@@ -3,6 +3,13 @@
  *
  * Manages sidebar layout, locale, theme preferences, and desk
  * environment settings (desk theme, maximize state, decorations).
+ *
+ * lean: theme/uiLook/colorTheme/navLayout/accentIntensity/windowStyle/pinnedModules/
+ *       deskTheme/deskDecorations/headerWidgets are UI-state only (not user preferences
+ *       the backend needs to know about). Migrate to PUT /api/v1/settings/appearance/user
+ *       if cross-device sync of UI layout is needed (Phase D or admin-dashboard feature).
+ * lean: setLocale in this store is orphaned (LanguageSwitcher was migrated to useLocaleStore).
+ *       Remove setLocale/locale from UIState when next UIState refactor happens.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'

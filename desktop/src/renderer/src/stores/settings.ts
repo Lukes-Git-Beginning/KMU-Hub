@@ -357,6 +357,15 @@ export const useSettingsStore = create<SettingsState>()(
               const m = toMap(languageResp.value)
               if (Object.keys(m).length > 0) {
                 updates.language = { ...s.language, ...m } as LanguageSettings
+                // Sync the active i18n locale store so the UI language reflects the
+                // server value without triggering a PUT back (quiet = no side-effect).
+                if (typeof m.locale === 'string' && m.locale) {
+                  const { useLocaleStore } = await import('./locale')
+                  const { SUPPORTED_LOCALES } = await import('./locale')
+                  if ((SUPPORTED_LOCALES as readonly string[]).includes(m.locale)) {
+                    useLocaleStore.getState().setLocaleQuiet(m.locale as import('./locale').SupportedLocale)
+                  }
+                }
               }
             }
 

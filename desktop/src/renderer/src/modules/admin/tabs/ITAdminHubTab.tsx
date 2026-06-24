@@ -21,6 +21,8 @@ export default function ITAdminHubTab() {
   const { t } = useTranslation()
   const logoInputRef = useRef<HTMLInputElement>(null)
 
+  // lean: logo + accent stored in localStorage; migrate to PUT /api/v1/settings/branding/tenant
+  //       when tenant-branding backend endpoint is added (Phase D or later).
   // Logo preview: reads from localStorage on mount, updated after upload
   const [logoPreview, setLogoPreview] = useState<string>(() => readLocalStorage('cosmi:brand:logo'))
 

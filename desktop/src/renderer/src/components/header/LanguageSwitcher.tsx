@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Globe } from 'lucide-react'
-import { useUIStore } from '@/stores/ui'
 import { cn } from '@/lib/cn'
 import { useTranslation } from 'react-i18next'
+import { useLocale } from '@/hooks/useLocale'
+import type { SupportedLocale } from '@/stores/locale'
 
 interface Language {
   code: string
@@ -22,8 +23,7 @@ export function LanguageSwitcher() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { t } = useTranslation()
-  const locale = useUIStore((s) => s.locale)
-  const setLocale = useUIStore((s) => s.setLocale)
+  const { locale, setLocale } = useLocale()
 
   const currentLang = languages.find((l) => l.code === locale) ?? languages[0]
 
@@ -47,7 +47,7 @@ export function LanguageSwitcher() {
 
   const handleSelect = (lang: Language) => {
     if (lang.disabled) return
-    setLocale(lang.code)
+    setLocale(lang.code as SupportedLocale)
     setIsOpen(false)
   }
 
