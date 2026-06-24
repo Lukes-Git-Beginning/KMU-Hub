@@ -343,6 +343,18 @@ export const useSettingsStore = create<SettingsState>()(
             authenticatedRequest<EntriesResp>({ method: 'GET', path: '/api/v1/settings/calendar/user' }),
           ])
 
+          // Hydrate the active i18n locale store from the server value (quiet = no PUT back).
+          // Done outside the synchronous set() updater so the dynamic import can be awaited.
+          if (languageResp.status === 'fulfilled') {
+            const lm = toMap(languageResp.value)
+            if (typeof lm.locale === 'string' && lm.locale) {
+              const { useLocaleStore, SUPPORTED_LOCALES } = await import('./locale')
+              if ((SUPPORTED_LOCALES as readonly string[]).includes(lm.locale)) {
+                useLocaleStore.getState().setLocaleQuiet(lm.locale as import('./locale').SupportedLocale)
+              }
+            }
+          }
+
           set((s) => {
             const updates: Partial<SettingsState> = { serverInitialized: true }
 
@@ -357,15 +369,6 @@ export const useSettingsStore = create<SettingsState>()(
               const m = toMap(languageResp.value)
               if (Object.keys(m).length > 0) {
                 updates.language = { ...s.language, ...m } as LanguageSettings
-                // Sync the active i18n locale store so the UI language reflects the
-                // server value without triggering a PUT back (quiet = no side-effect).
-                if (typeof m.locale === 'string' && m.locale) {
-                  const { useLocaleStore } = await import('./locale')
-                  const { SUPPORTED_LOCALES } = await import('./locale')
-                  if ((SUPPORTED_LOCALES as readonly string[]).includes(m.locale)) {
-                    useLocaleStore.getState().setLocaleQuiet(m.locale as import('./locale').SupportedLocale)
-                  }
-                }
               }
             }
 

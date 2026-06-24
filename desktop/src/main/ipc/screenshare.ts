@@ -92,7 +92,6 @@ export function registerScreenshareHandlers(): void {
       // Also check constraints for the chromeMediaSourceId LiveKit embeds.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const videoConstraints = request.videoRequested ? (request as any).constraints?.video : undefined
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mandatory = videoConstraints?.mandatory as Record<string, string> | undefined
       const constraintSourceId = mandatory?.chromeMediaSourceId
 

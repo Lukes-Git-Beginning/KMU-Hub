@@ -327,7 +327,9 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
           //   would reject them. Send empty until a real user-picker is wired.
           //   Trigger: when team-member picker replaces the mock list.
           attendee_ids: [],
-          calendar_event_id: addToCalendar ? (meeting?.calendarEventId ?? undefined) : undefined,
+          // lean: a brand-new meeting has no pre-existing calendar event to link;
+          //   calendar_event_id stays undefined on create.
+          calendar_event_id: undefined,
           contact_id: contactId !== '' ? contactId : null,
           deal_id: dealId !== '' ? dealId : null,
         },

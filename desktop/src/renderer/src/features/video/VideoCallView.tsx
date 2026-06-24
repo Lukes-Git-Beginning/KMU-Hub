@@ -691,19 +691,14 @@ function InnerCallView({
     async (sourceId: string) => {
       setShowScreenPicker(false)
       try {
-        if (sourceId && typeof window !== 'undefined' && window.electronAPI?.screenshare?.setSource) {
-          // Pre-cache the sourceId in the main process (sync read in handler)
-          await window.electronAPI.screenshare.setSource(sourceId)
-          await localParticipant.setScreenShareEnabled(true, {
-            audio: true,
-            sourceId,
-          })
-        } else if (sourceId) {
-          // Electron path without setSource (older preload): pass via LiveKit only
-          await localParticipant.setScreenShareEnabled(true, {
-            audio: true,
-            sourceId,
-          })
+        if (sourceId) {
+          // Electron path: cache the chosen id in the main process first (when the
+          // newer preload exposes setSource) so setDisplayMediaRequestHandler can
+          // resolve it synchronously, then start sharing.
+          if (typeof window !== 'undefined' && window.electronAPI?.screenshare?.setSource) {
+            await window.electronAPI.screenshare.setSource(sourceId)
+          }
+          await localParticipant.setScreenShareEnabled(true, { audio: true, sourceId })
         } else {
           // Non-Electron path (web fallback): browser's native picker
           await localParticipant.setScreenShareEnabled(true, { audio: true })
