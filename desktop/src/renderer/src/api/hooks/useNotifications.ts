@@ -230,6 +230,17 @@ export function useNotificationWebSocket() {
 import { quietHoursApi, dndApi, mutingApi, pinApi, dismissApi } from '../notification-client'
 import type { QuietHours, MutedResource } from '../notification-client'
 
+/**
+ * Extends the generated Notification schema type with the new backend fields
+ * (is_pinned, is_dismissed, actor_name) that are not yet in the OpenAPI spec.
+ * actor_name may be null — the backend emits it only when the actor is resolved.
+ */
+export type NotificationWithPin = Omit<Notification, 'is_pinned' | 'is_dismissed'> & {
+  is_pinned?: boolean
+  is_dismissed?: boolean
+  actor_name?: string | null
+}
+
 export const quietHoursKeys = {
   quietHours: () => ['notifications', 'quiet-hours'] as const,
   dnd: () => ['notifications', 'dnd'] as const,
@@ -312,11 +323,16 @@ export function useUnmuteResource() {
   })
 }
 
-/** Toggle a notification's pinned state (persisted via MSW). */
+/**
+ * Toggle a notification's pinned state.
+ * Pass `{ id, isPinned }` — the hook calls pin or unpin based on the current state.
+ * `isPinned` should reflect the current server state (from the list item).
+ */
 export function useToggleNotificationPin() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => pinApi.toggle(id),
+    mutationFn: ({ id, isPinned }: { id: string; isPinned: boolean }) =>
+      isPinned ? pinApi.unpin(id) : pinApi.pin(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: notificationKeys.lists() })
     },

@@ -25,6 +25,7 @@ import {
   useToggleNotificationPin,
   useDismissNotification,
   type Notification,
+  type NotificationWithPin,
   type NotificationPreference,
 } from '@/api/hooks/useNotifications'
 import { Button } from '@/components/ui/button'
@@ -45,8 +46,8 @@ const MODULE_LABEL_OVERRIDE: Record<string, string> = {
   system: 'notifications.modules.system',
 }
 
-// Seeds carry actor_name + server-backed pin state beyond the openapi type.
-type NotificationWithActor = Notification & { actor_name?: string; is_pinned?: boolean }
+// Alias for the extended notification type with server-backed pin/dismiss/actor fields.
+type NotificationWithActor = NotificationWithPin
 
 /** Readable label for a notification's module_id, reusing the nav-item labels. */
 function moduleLabelOf(t: TFunction, moduleId?: string): string {
@@ -140,7 +141,7 @@ export default function NotificationCenter() {
     [t]
   )
 
-  const togglePin = (id: string) => togglePinMutation.mutate(id)
+  const togglePin = (id: string, isPinned: boolean) => togglePinMutation.mutate({ id, isPinned })
 
   const dismiss = (id: string) => {
     dismissMutation.mutate(id)
@@ -315,7 +316,7 @@ export default function NotificationCenter() {
             openNotification(detailNotification)
             setDetailId(null)
           }}
-          onPin={() => detailNotification.id && togglePin(detailNotification.id)}
+          onPin={() => detailNotification.id && togglePin(detailNotification.id, Boolean(detailNotification.is_pinned))}
           onDismiss={() => detailNotification.id && dismiss(detailNotification.id)}
           onMarkRead={() => detailNotification.id && markRead.mutate(detailNotification.id)}
         />
@@ -488,7 +489,7 @@ function NotificationDetailModal({
   onDismiss,
   onMarkRead,
 }: {
-  notification: Notification
+  notification: NotificationWithActor
   pinned: boolean
   onClose: () => void
   onOpen: () => void
@@ -498,7 +499,7 @@ function NotificationDetailModal({
 }) {
   const { t } = useTranslation()
   const isSystem = !notification.actor_id
-  const actorName = (notification as NotificationWithActor).actor_name || t('notifications.detail.system')
+  const actorName = notification.actor_name || t('notifications.detail.system')
   const timeAgo = notification.created_at
     ? formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: de })
     : ''

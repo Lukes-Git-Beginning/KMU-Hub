@@ -398,7 +398,11 @@ export const notificationHandlers = [
     else if (isReadParam === 'false') list = list.filter((n) => !n.is_read)
     if (unreadOnly) list = list.filter((n) => !n.is_read)
 
-    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    // Pinned first, then newest-first (mirrors the backend ORDER BY is_pinned DESC, created_at DESC)
+    list.sort((a, b) => {
+      if (Boolean(b.is_pinned) !== Boolean(a.is_pinned)) return Boolean(b.is_pinned) ? 1 : -1
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
     const total = list.length
 
     const page = Number(url.searchParams.get('page') ?? '1')
@@ -440,14 +444,24 @@ export const notificationHandlers = [
     return HttpResponse.json({ marked_count: target.length })
   }),
 
-  // Pin / unpin a notification (toggle, stateful — pinned rows float in the center)
+  // Pin a notification (POST /:id/pin — sets is_pinned = true)
   http.post(`${API}/api/v1/notifications/:id/pin`, ({ params }) => {
     const notif = notifications.find((n) => n.id === params.id)
     if (!notif) {
       return HttpResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
-    notif.is_pinned = !notif.is_pinned
-    return HttpResponse.json(notif)
+    notif.is_pinned = true
+    return HttpResponse.json({ id: notif.id, is_pinned: notif.is_pinned, is_dismissed: notif.is_dismissed ?? false, actor_name: notif.actor_name ?? null })
+  }),
+
+  // Unpin a notification (DELETE /:id/pin — sets is_pinned = false)
+  http.delete(`${API}/api/v1/notifications/:id/pin`, ({ params }) => {
+    const notif = notifications.find((n) => n.id === params.id)
+    if (!notif) {
+      return HttpResponse.json({ error: 'Notification not found' }, { status: 404 })
+    }
+    notif.is_pinned = false
+    return HttpResponse.json({ id: notif.id, is_pinned: notif.is_pinned, is_dismissed: notif.is_dismissed ?? false, actor_name: notif.actor_name ?? null })
   }),
 
   // Dismiss a notification (stateful — hidden from every list + count)
@@ -457,7 +471,7 @@ export const notificationHandlers = [
       return HttpResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
     notif.is_dismissed = true
-    return HttpResponse.json({ id: notif.id, is_dismissed: true })
+    return HttpResponse.json({ id: notif.id, is_pinned: notif.is_pinned ?? false, is_dismissed: true, actor_name: notif.actor_name ?? null })
   }),
 
   // Notification preferences — list (per-event in-app/desktop toggles)

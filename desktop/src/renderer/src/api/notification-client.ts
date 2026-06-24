@@ -107,22 +107,36 @@ export const mutingApi = {
 }
 
 // ---------------------------------------------------------------------------
-// Pin / Dismiss API — per-notification state not yet in the openapi spec.
+// Pin / Dismiss API — per-notification state (backend: POST/DELETE /{id}/pin,
+// POST /{id}/dismiss). Response shape: { id, is_pinned, is_dismissed, actor_name? }
 // ---------------------------------------------------------------------------
 
+export interface NotificationActionResponse {
+  id: string
+  is_pinned: boolean
+  is_dismissed: boolean
+  actor_name?: string | null
+}
+
 export const pinApi = {
-  /** Toggle the pinned state; returns the updated notification (with is_pinned). */
-  toggle(id: string) {
-    return request<{ id?: string; is_pinned?: boolean }>(`/api/v1/notifications/${id}/pin`, {
+  /** Pin a notification (POST /{id}/pin). Returns the updated notification state. */
+  pin(id: string) {
+    return request<NotificationActionResponse>(`/api/v1/notifications/${id}/pin`, {
       method: 'POST',
+    })
+  },
+  /** Unpin a notification (DELETE /{id}/pin). Returns the updated notification state. */
+  unpin(id: string) {
+    return request<NotificationActionResponse>(`/api/v1/notifications/${id}/pin`, {
+      method: 'DELETE',
     })
   },
 }
 
 export const dismissApi = {
-  /** Dismiss a notification — it disappears from every list + count. */
+  /** Dismiss a notification (POST /{id}/dismiss) — removes it from every list + count. */
   dismiss(id: string) {
-    return request<{ id?: string; is_dismissed?: boolean }>(`/api/v1/notifications/${id}/dismiss`, {
+    return request<NotificationActionResponse>(`/api/v1/notifications/${id}/dismiss`, {
       method: 'POST',
     })
   },
