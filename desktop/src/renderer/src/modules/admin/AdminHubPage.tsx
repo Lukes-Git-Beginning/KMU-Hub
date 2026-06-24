@@ -20,17 +20,19 @@ import { userHasRole } from '@/config/roles'
 const UsersAdminHubTab = lazy(() => import('./users/UsersAdminHubTab'))
 const RolesAdminHubTab = lazy(() => import('./roles/RolesAdminHubTab'))
 const LicenseAdminHubTab = lazy(() => import('./license/LicenseAdminHubTab'))
+const BrandingAdminHubTab = lazy(() => import('./branding/BrandingAdminHubTab'))
 const ITAdminHubTab = lazy(() => import('./tabs/ITAdminHubTab'))
 const SecurityAdminHubTab = lazy(() => import('./tabs/SecurityAdminHubTab'))
 const BillingAdminHubTab = lazy(() => import('./tabs/BillingAdminHubTab'))
 const IntegrationsAdminHubTab = lazy(() => import('./tabs/IntegrationsAdminHubTab'))
 
-type AdminTab = 'users' | 'roles' | 'license' | 'it' | 'security' | 'billing' | 'integrations'
+type AdminTab = 'users' | 'roles' | 'license' | 'branding' | 'it' | 'security' | 'billing' | 'integrations'
 
 const ROUTE_TO_TAB: Record<string, AdminTab> = {
   '/admin/users': 'users',
   '/admin/roles': 'roles',
   '/admin/license': 'license',
+  '/admin/branding': 'branding',
   '/admin/it': 'it',
   '/admin/security': 'security',
   '/admin/billing': 'billing',
@@ -41,6 +43,7 @@ const TAB_TO_ROUTE: Record<AdminTab, string> = {
   users: '/admin/users',
   roles: '/admin/roles',
   license: '/admin/license',
+  branding: '/admin/branding',
   it: '/admin/it',
   security: '/admin/security',
   billing: '/admin/billing',
@@ -77,6 +80,7 @@ export default function AdminHubPage() {
     { key: 'users', labelKey: 'admin.hub.tabs.users' },
     { key: 'roles', labelKey: 'admin.hub.tabs.roles' },
     { key: 'license', labelKey: 'admin.hub.tabs.license' },
+    { key: 'branding', labelKey: 'admin.hub.tabs.branding' },
     { key: 'it', labelKey: 'admin.hub.tabs.it' },
     { key: 'security', labelKey: 'admin.hub.tabs.security' },
     { key: 'billing', labelKey: 'admin.hub.tabs.billing' },
@@ -130,6 +134,7 @@ export default function AdminHubPage() {
           {activeTab === 'users' && <UsersAdminHubTab />}
           {activeTab === 'roles' && <RolesAdminHubTab />}
           {activeTab === 'license' && <LicenseAdminHubTab />}
+          {activeTab === 'branding' && <BrandingAdminHubTab />}
           {activeTab === 'it' && <ITAdminHubTab />}
           {activeTab === 'security' && <SecurityAdminHubTab />}
           {activeTab === 'billing' && <BillingAdminHubTab />}

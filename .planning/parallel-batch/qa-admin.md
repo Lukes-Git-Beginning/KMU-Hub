@@ -73,3 +73,21 @@
 **Verify (Screenshots angesehen, :5174):** Build EXIT 0, ESLint 0 (prefer-const-Fix). DE+EN **0 Raw-Keys / 0 `{{var}}` / 0 Console-Errors**. **Seats 13/14 konsistent mit A-1** (11 aktiv + 2 eingeladen), Aktive-Module 17/24, Verlängerungsdatum lokalisiert. **Toggle wirkt optimistisch + persistiert** (Schichtplanung aktiviert, überlebt Navigation /admin/roles → zurück). Inaktive Karten visuell klar getrennt (dashed/dimmed).
 
 **Offen für Luke:** echte tenant-weite Modul-Lizenzierung/Provisioning + Seat-Enforcement.
+
+---
+
+## A-4 — Branding ✅ (4/5)
+
+**Gebaut:** Neuer Tab **„Branding"** (`/admin/branding`, 4. Tab) — aus dem IT-Tab herausgelöst (Dublette entfernt).
+- UI `modules/admin/branding/BrandingAdminHubTab.tsx`: 2-Spalten — links Form (Arbeitsbereich-Name, Logo-Upload, Icon/Favicon-Upload, **Akzentfarbe aus `SWATCH_COLORS`-Palette** = theme-konform, kein Theme-Bruch), rechts **Live-Vorschau** (Faux-App-Shell: Topbar mit Logo/Name, Sidebar-Aktiv-Item + CTA in Akzentfarbe). localStorage-Mock (`cosmi:brand:name/logo/icon/accent`), Save setzt `--brand-accent`, Reset. 512-KB-Guard.
+- **De-Dup:** Branding-Sektion aus `modules/admin/tabs/ITAdminHubTab.tsx` entfernt (mein Modul); IT-Tab rendert jetzt nur noch `ITAdminTab`.
+- i18n: 20 Keys/Sprache (`admin.branding.*` + `admin.hub.tabs.branding`), 4 Sprachen via `scripts/add-admin-branding-i18n.mjs`.
+
+**Verify (Screenshots angesehen, :5174):** Build EXIT 0, ESLint 0. DE+EN **0 Raw-Keys / 0 `{{var}}` / 0 Console-Errors**. **Live-Preview aktualisiert in Echtzeit**: Name „ACME GmbH" + hochgeladenes Logo (SVG, erscheint im Form-Thumbnail + Preview-Topbar) + Akzent Indigo (live auf Icon/Sidebar/CTA). Palette auf Cosmi-Swatches beschränkt. IT-Tab nach De-Dup intakt (keine Branding-Dublette, E-Mail-Config/Sub-Tabs da).
+
+**Offen für Luke:** echter Logo-Upload → S3, persistentes tenant-weites Branding (heute localStorage-Demo).
+
+---
+
+## Hub-Stand nach A-1…A-4
+AdminHub hat jetzt **8 Tabs**: **Benutzer | Rollen | Lizenz | Branding** (neu, A-1…A-4) | IT | Sicherheit | Abrechnung | Integrationen. Einstieg via Settings-Redirect landet weiter auf `/admin/it` (settings-Redirect = TABU, nicht geändert).
