@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   User,
   Globe,
@@ -88,6 +88,13 @@ export default function SettingsPage() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
+  const initFromServer = useSettingsStore((s) => s.initFromServer)
+
+  // Hydrate appearance / language / notifications / calendar from the backend
+  // on first render. Idempotent — subsequent mounts of SettingsPage are no-ops.
+  useEffect(() => {
+    void initFromServer()
+  }, [initFromServer])
 
   // Deep-link support: navigate('/settings', { state: { tab: 'notifications' } })
   // passes the desired tab via router state so the URL stays clean.

@@ -1,3 +1,18 @@
+/**
+ * Settings store — Zustand with localStorage persistence + server sync.
+ *
+ * Server-sync strategy:
+ *   - On app boot call `initFromServer()` once per session to hydrate the store
+ *     from backend (user-scope settings, modules: appearance/language/notifications/calendar).
+ *   - On every action that changes a server-synced section, call the returned
+ *     `serverSync` helper (debounced PUT via useUserSettings hook or direct fetch).
+ *   - Sections not yet server-backed (mail, finance, teamAdmin, security) stay
+ *     localStorage-only until the corresponding backend endpoints exist.
+ *
+ * Wire: GET/PUT /api/v1/settings/{module_id}/user
+ *   Response: { entries: [{ key: string; value: unknown }] }
+ *   Body:     { settings: { [key: string]: unknown } }
+ */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -107,6 +122,9 @@ interface SettingsState {
   teamAdmin: TeamAdminSettings
   security: SecuritySettings
 
+  /** Whether the store has been hydrated from the backend at least once this session. */
+  serverInitialized: boolean
+
   // Actions
   updateProfile: (data: Partial<ProfileSettings>) => void
   updateAppearance: (data: Partial<AppearanceSettings>) => void
@@ -119,11 +137,28 @@ interface SettingsState {
   updateSecurity: (data: Partial<SecuritySettings>) => void
   enable2FA: () => void
   disable2FA: () => void
+
+  /**
+   * Hydrates appearance / language / notifications / calendar from the backend.
+   * Call once on app boot (e.g. in AppShell after auth). Idempotent within a session.
+   *
+   * Server wins over localStorage for these sections so that cross-device settings
+   * propagate correctly. Sections not yet server-backed (mail, finance, teamAdmin,
+   * security) are left as-is.
+   */
+  initFromServer: () => Promise<void>
+
+  /**
+   * Persist a single section to the backend (user-scope settings PUT).
+   * Debounce is the caller's responsibility (e.g. call inside updateAppearance etc.).
+   * Internal use — exported so components can trigger a manual save if needed.
+   */
+  saveSection: (moduleId: string, data: Record<string, unknown>) => Promise<void>
 }
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Seed mirrors the authenticated demo user (Stefan Vogel / usr-e1, the
       // single source of truth in mocks/data/shared-ids.ts → CURRENT_USER and
       // /auth/me). Kept as plain literals so mock data never enters the prod
@@ -218,21 +253,36 @@ export const useSettingsStore = create<SettingsState>()(
         passwordExpiryDays: 90,
       },
 
+      serverInitialized: false,
+
       // ---- Actions ----
       updateProfile: (data) => set((s) => ({ profile: { ...s.profile, ...data } })),
-      updateAppearance: (data) => set((s) => ({ appearance: { ...s.appearance, ...data } })),
-      updateLanguage: (data) => set((s) => ({ language: { ...s.language, ...data } })),
+      updateAppearance: (data) => {
+        const next = { ...get().appearance, ...data }
+        set({ appearance: next })
+        void get().saveSection('appearance', next as Record<string, unknown>)
+      },
+      updateLanguage: (data) => {
+        const next = { ...get().language, ...data }
+        set({ language: next })
+        void get().saveSection('language', next as Record<string, unknown>)
+      },
 
-      updateNotification: (module, channel, value) =>
-        set((s) => ({
-          notifications: {
-            ...s.notifications,
-            [module]: { ...s.notifications[module], [channel]: value },
-          },
-        })),
+      updateNotification: (module, channel, value) => {
+        const next = {
+          ...get().notifications,
+          [module]: { ...get().notifications[module], [channel]: value },
+        }
+        set({ notifications: next })
+        void get().saveSection('notifications', next as Record<string, unknown>)
+      },
 
       updateMail: (data) => set((s) => ({ mail: { ...s.mail, ...data } })),
-      updateCalendar: (data) => set((s) => ({ calendar: { ...s.calendar, ...data } })),
+      updateCalendar: (data) => {
+        const next = { ...get().calendar, ...data }
+        set({ calendar: next })
+        void get().saveSection('calendar', next as Record<string, unknown>)
+      },
       updateFinance: (data) => set((s) => ({ finance: { ...s.finance, ...data } })),
       updateTeamAdmin: (data) => set((s) => ({ teamAdmin: { ...s.teamAdmin, ...data } })),
       updateSecurity: (data) => set((s) => ({ security: { ...s.security, ...data } })),
@@ -256,6 +306,86 @@ export const useSettingsStore = create<SettingsState>()(
             backupCodes: [],
           },
         })),
+
+      // ---- Server sync ----
+
+      saveSection: async (moduleId, data) => {
+        try {
+          const { authenticatedRequest } = await import('@/api/utils/authenticatedFetch')
+          await authenticatedRequest({
+            method: 'PUT',
+            path: `/api/v1/settings/${moduleId}/user`,
+            body: { settings: data },
+          })
+        } catch {
+          // Silent: settings save failures are non-critical.
+          // The store already updated; next initFromServer will re-sync on next session.
+        }
+      },
+
+      initFromServer: async () => {
+        if (get().serverInitialized) return
+
+        try {
+          const { authenticatedRequest } = await import('@/api/utils/authenticatedFetch')
+
+          type EntriesResp = { entries?: Array<{ key: string; value: unknown }> }
+
+          const toMap = (resp: EntriesResp): Record<string, unknown> => {
+            if (!resp.entries || resp.entries.length === 0) return {}
+            return Object.fromEntries(resp.entries.map((e) => [e.key, e.value]))
+          }
+
+          const [appearanceResp, languageResp, notificationsResp, calendarResp] = await Promise.allSettled([
+            authenticatedRequest<EntriesResp>({ method: 'GET', path: '/api/v1/settings/appearance/user' }),
+            authenticatedRequest<EntriesResp>({ method: 'GET', path: '/api/v1/settings/language/user' }),
+            authenticatedRequest<EntriesResp>({ method: 'GET', path: '/api/v1/settings/notifications/user' }),
+            authenticatedRequest<EntriesResp>({ method: 'GET', path: '/api/v1/settings/calendar/user' }),
+          ])
+
+          set((s) => {
+            const updates: Partial<SettingsState> = { serverInitialized: true }
+
+            if (appearanceResp.status === 'fulfilled') {
+              const m = toMap(appearanceResp.value)
+              if (Object.keys(m).length > 0) {
+                updates.appearance = { ...s.appearance, ...m } as AppearanceSettings
+              }
+            }
+
+            if (languageResp.status === 'fulfilled') {
+              const m = toMap(languageResp.value)
+              if (Object.keys(m).length > 0) {
+                updates.language = { ...s.language, ...m } as LanguageSettings
+              }
+            }
+
+            if (notificationsResp.status === 'fulfilled') {
+              const m = toMap(notificationsResp.value)
+              if (Object.keys(m).length > 0) {
+                // Backend stores notifications as a flat object keyed by module name.
+                // Each value is itself an object { email, push, inApp }.
+                updates.notifications = {
+                  ...s.notifications,
+                  ...(m as Record<string, NotificationPrefs>),
+                }
+              }
+            }
+
+            if (calendarResp.status === 'fulfilled') {
+              const m = toMap(calendarResp.value)
+              if (Object.keys(m).length > 0) {
+                updates.calendar = { ...s.calendar, ...m } as CalendarSettings
+              }
+            }
+
+            return updates
+          })
+        } catch {
+          // Silent: initFromServer failure leaves the store at localStorage values.
+          set({ serverInitialized: true })
+        }
+      },
     }),
     { name: 'cosmi-settings' },
   ),
