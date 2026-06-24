@@ -17,6 +17,13 @@ export default defineConfig({
   },
   renderer: {
     root: resolve('src/renderer'),
+    // Dev-server port is env-gated so a second clone (Sub-terminal) can run on
+    // a non-colliding port without touching the default. `npm run dev` stays on
+    // 5173; `VITE_DEV_PORT=5174 npm run dev` serves the Sub-lane on 5174.
+    // (electron-vite does not forward a `--port` CLI flag, hence the env hook.)
+    server: {
+      port: Number(process.env.VITE_DEV_PORT) || 5173,
+    },
     build: {
       chunkSizeWarningLimit: 250,
       rollupOptions: {
