@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useSetRecordingConsent } from '@/api/hooks/useVideo'
 import { cn } from '@/lib'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -99,16 +100,14 @@ export function RecordingConsentDialog({
             <p>
               {t('features.video.recordingConsent.intro')}
             </p>
-            {/* trusted: i18n-rendered (messages/ controlled) */}
             <p
               dangerouslySetInnerHTML={{
-                __html: t('features.video.recordingConsent.acceptInfo'),
+                __html: sanitizeHtml(t('features.video.recordingConsent.acceptInfo')),
               }}
             />
-            {/* trusted: i18n-rendered (messages/ controlled) */}
             <p
               dangerouslySetInnerHTML={{
-                __html: t('features.video.recordingConsent.declineInfo'),
+                __html: sanitizeHtml(t('features.video.recordingConsent.declineInfo')),
               }}
             />
             <p className="text-xs text-muted-foreground">
