@@ -514,7 +514,7 @@ export function useProjectTimeEntries(projectId: string, billed?: boolean) {
         params: billed === undefined ? undefined : { billed },
       }),
     enabled: !!projectId,
-    select: (data) => data.entries,
+    select: (data) => data.entries ?? [],
   })
 }
 

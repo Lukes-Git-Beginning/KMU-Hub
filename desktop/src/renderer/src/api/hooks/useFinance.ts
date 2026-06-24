@@ -751,7 +751,7 @@ export function useDocumentChains() {
   return useQuery({
     queryKey: financeKeys.documentChains(),
     queryFn: () => financeChainApi.list(),
-    select: (data) => data.chains,
+    select: (data) => data.chains ?? [],
   })
 }
 
@@ -759,6 +759,6 @@ export function useUnbilledTimeEntries() {
   return useQuery({
     queryKey: financeKeys.unbilledTimeEntries(),
     queryFn: () => financeTimeEntryApi.listUnbilled(),
-    select: (data) => data.entries,
+    select: (data) => data.entries ?? [],
   })
 }

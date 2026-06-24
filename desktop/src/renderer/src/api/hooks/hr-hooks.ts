@@ -505,7 +505,7 @@ export function useAbsenceCalendar(params: AbsenceCalendarParams) {
     queryFn: () =>
       hrAbsenceApi.getCalendar(params as unknown as Record<string, unknown>),
     enabled: !!params.start_date && !!params.end_date,
-    select: (data) => data.entries,
+    select: (data) => data.entries ?? [],
   })
 }
 
