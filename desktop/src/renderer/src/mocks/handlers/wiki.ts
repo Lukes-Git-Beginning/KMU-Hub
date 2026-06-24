@@ -12,6 +12,7 @@ import type {
   WikiShareToken,
 } from '@/api/wiki-types'
 import type { WikiTemplate } from '@/types/wiki'
+import { decodeWikiContent } from '@/api/wiki-content'
 
 const API = API_BASE_URL
 const BASE = `${API}/api/v1/wiki`
@@ -953,7 +954,9 @@ export const wikiHandlers = [
       tenant_id: 'tenant-001',
       title: body.title ?? 'Neuer Artikel',
       slug: (body.title ?? 'neuer-artikel').toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
-      content: body.content ?? { rows: [] },
+      // Client encodes content as base64 (proto bytes wire shape); decode back to
+      // the TipTap object the mock stores internally so contentText/search work.
+      content: body.content !== undefined ? decodeWikiContent(body.content) : { rows: [] },
       author_id: CURRENT_USER.id,
       category_id: body.category_id ?? null,
       published: body.published ?? false,
@@ -970,15 +973,16 @@ export const wikiHandlers = [
 
   // --- Update article ---
 
-  http.put(`${BASE}/articles/:id`, async ({ params, request }) => {
+  http.patch(`${BASE}/articles/:id`, async ({ params, request }) => {
     const article = ARTICLES.find((a) => a.id === params.id)
     if (!article) return HttpResponse.json({ error: 'article not found' }, { status: 404 })
     const body = (await request.json()) as Partial<WikiArticle> & { change_note?: string }
     if (body.title !== undefined) article.title = body.title
     if (body.content !== undefined) {
-      article.content = body.content
+      const decoded = decodeWikiContent(body.content)
+      article.content = decoded
       // A content edit creates a new version snapshot (newest = current).
-      appendVersion(article.id, body.content, body.change_note)
+      appendVersion(article.id, decoded, body.change_note)
     }
     if (body.category_id !== undefined) article.category_id = body.category_id
     if (body.published !== undefined) article.published = body.published

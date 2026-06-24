@@ -23,6 +23,8 @@ import type {
 } from './wiki-types'
 import type { WikiTemplate } from '@/types/wiki'
 import { authenticatedRequest } from './utils/authenticatedFetch'
+import { normalizeWireTimestamps } from './wire-time'
+import { decodeWikiContent, encodeWikiContent } from './wiki-content'
 
 // ---------------------------------------------------------------------------
 // Request helper
@@ -35,8 +37,34 @@ interface RequestOptions {
   params?: Record<string, string | number | boolean | undefined>
 }
 
-function request<T>(opts: RequestOptions): Promise<T> {
-  return authenticatedRequest<T>(opts)
+async function request<T>(opts: RequestOptions): Promise<T> {
+  // The wiki gRPC service serialises via response.JSON over pb.go structs, so
+  // google.protobuf.Timestamp fields arrive as {seconds, nanos} rather than ISO
+  // strings. Normalise them so the module's formatDate(...) calls (article/version/
+  // attachment/share-token timestamps) render correctly against the real backend.
+  // Mock-mode responses are already ISO strings and pass through untouched.
+  const data = await authenticatedRequest<T>(opts)
+  return normalizeWireTimestamps(data)
+}
+
+// ---------------------------------------------------------------------------
+// Content codec — article/version `content` rides the wire as base64 (proto
+// bytes); decode on read, encode on write so the UI keeps a TipTap object.
+// ---------------------------------------------------------------------------
+
+function decodeArticle(a: WikiArticle): WikiArticle {
+  return { ...a, content: decodeWikiContent(a.content) }
+}
+
+function decodeVersion(v: WikiVersion): WikiVersion {
+  return { ...v, content: decodeWikiContent(v.content) }
+}
+
+function encodeArticleBody<T extends { content?: unknown }>(body: T): T {
+  if (body.content === undefined) return body
+  // The wire field is a base64 string; the FE type is TipTapContent. The body is
+  // sent as an opaque payload, so the runtime string is correct on the wire.
+  return { ...body, content: encodeWikiContent(body.content) as unknown as T['content'] }
 }
 
 // ---------------------------------------------------------------------------
@@ -54,19 +82,27 @@ export function listArticles(params?: ListArticlesParams) {
     method: 'GET',
     path: `${BASE}/articles`,
     params: params as Record<string, string | number | boolean | undefined>,
-  })
+  }).then((r) => ({ ...r, articles: r.articles.map(decodeArticle) }))
 }
 
 export function getArticle(id: string) {
-  return request<WikiArticle>({ method: 'GET', path: `${BASE}/articles/${id}` })
+  return request<WikiArticle>({ method: 'GET', path: `${BASE}/articles/${id}` }).then(decodeArticle)
 }
 
 export function createArticle(body: CreateArticleInput) {
-  return request<WikiArticle>({ method: 'POST', path: `${BASE}/articles`, body })
+  return request<WikiArticle>({
+    method: 'POST',
+    path: `${BASE}/articles`,
+    body: encodeArticleBody(body),
+  }).then(decodeArticle)
 }
 
 export function updateArticle(id: string, body: UpdateArticleInput) {
-  return request<WikiArticle>({ method: 'PUT', path: `${BASE}/articles/${id}`, body })
+  return request<WikiArticle>({
+    method: 'PATCH',
+    path: `${BASE}/articles/${id}`,
+    body: encodeArticleBody(body),
+  }).then(decodeArticle)
 }
 
 export function deleteArticle(id: string) {
@@ -78,7 +114,7 @@ export function searchArticles(query: string, limit?: number) {
     method: 'GET',
     path: `${BASE}/search`,
     params: { q: query, ...(limit !== undefined ? { limit } : {}) },
-  })
+  }).then((r) => ({ ...r, articles: r.articles.map(decodeArticle) }))
 }
 
 // ---------------------------------------------------------------------------
@@ -89,18 +125,21 @@ export function listVersions(articleId: string) {
   return request<WikiVersion[]>({
     method: 'GET',
     path: `${BASE}/articles/${articleId}/versions`,
-  })
+  }).then((vs) => vs.map(decodeVersion))
 }
 
 export function getVersion(versionId: string) {
-  return request<WikiVersion>({ method: 'GET', path: `${BASE}/versions/${versionId}` })
+  return request<WikiVersion>({
+    method: 'GET',
+    path: `${BASE}/versions/${versionId}`,
+  }).then(decodeVersion)
 }
 
 export function restoreVersion(articleId: string, versionId: string) {
   return request<WikiArticle>({
     method: 'POST',
     path: `${BASE}/articles/${articleId}/versions/${versionId}/restore`,
-  })
+  }).then(decodeArticle)
 }
 
 // ---------------------------------------------------------------------------
