@@ -147,8 +147,47 @@ export default function DSARSearchPage() {
     : 0
 
   const handleExport = (format: string) => {
+    if (!result) return
     toast.success(t('security.dsar.export.preparing', { format }))
-    setTimeout(() => toast.success(t('security.dsar.export.ready', { format, name: result?.name })), 1500)
+    let content: string
+    let mime: string
+    let ext: string
+    if (format === 'JSON') {
+      content = JSON.stringify(
+        {
+          subject: { name: result.name, email: result.email, company: result.company },
+          generated_at: new Date().toISOString(),
+          modules: result.modules.map((m) => ({ module: m.module, records: m.records })),
+        },
+        null,
+        2,
+      )
+      mime = 'application/json'
+      ext = 'json'
+    } else {
+      const lines: string[] = []
+      for (const m of result.modules) {
+        lines.push(`# ${m.module}`)
+        lines.push(m.columns.join(','))
+        for (const rec of m.records) {
+          lines.push(m.columns.map((c) => `"${(rec[c] ?? '').replace(/"/g, '""')}"`).join(','))
+        }
+        lines.push('')
+      }
+      content = lines.join('\n')
+      mime = 'text/csv'
+      ext = 'csv'
+    }
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `dsar-${result.name.replace(/\s+/g, '_').toLowerCase()}.${ext}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success(t('security.dsar.export.ready', { format, name: result.name }))
   }
 
   if (!isAdmin) {

@@ -37,11 +37,11 @@ const deviceConfig: Record<string, { icon: typeof Monitor; colorBg: string; colo
 }
 
 function getDeviceConfig(deviceType: string) {
-  return deviceConfig[deviceType.toLowerCase()] ?? deviceConfig.desktop
+  return deviceConfig[(deviceType ?? '').toLowerCase()] ?? deviceConfig.desktop
 }
 
 function deviceTypeMessageId(deviceType: string): string {
-  switch (deviceType.toLowerCase()) {
+  switch ((deviceType ?? '').toLowerCase()) {
     case 'desktop': return 'session.device.desktop'
     case 'mobile': return 'session.device.mobile'
     case 'tablet': return 'session.device.tablet'
@@ -224,7 +224,7 @@ export default function SessionsPage() {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="rounded-full bg-info-light px-2.5 py-0.5 text-xs font-medium text-info">
-                {sessions.length} {showAll ? 'Alle' : 'Meine'}
+                {sessions.length} {showAll ? t('session.scopeAll') : t('session.scopeMine')}
               </span>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function SessionsPage() {
                   : 'border border-border text-foreground hover:bg-secondary'
               }`}
             >
-              {showAll ? 'My Sessions' : 'All Sessions'}
+              {showAll ? t('session.viewMine') : t('session.viewAll')}
             </button>
           )}
           <AlertDialog>

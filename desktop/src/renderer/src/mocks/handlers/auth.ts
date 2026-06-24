@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { IDS, CURRENT_USER } from '../data/shared-ids'
+import { CURRENT_USER } from '../data/shared-ids'
 
 const API = API_BASE_URL
 
@@ -49,24 +49,9 @@ export const authHandlers = [
     return HttpResponse.json({ status: 'ok' })
   }),
 
-  // Sessions
-  http.get(`${API}/api/v1/auth/sessions`, () => {
-    return HttpResponse.json([
-      {
-        id: 'sess-001',
-        user_id: IDS.users.stefan,
-        ip_address: '192.168.1.100',
-        user_agent: 'Cosmi Desktop/1.0',
-        created_at: new Date().toISOString(),
-        last_active_at: new Date().toISOString(),
-        is_current: true,
-      },
-    ])
-  }),
-
-  http.get(`${API}/api/v1/auth/sessions/all`, () => {
-    return HttpResponse.json({ sessions: [], total: 0 })
-  }),
+  // Sessions: kanonisch in handlers/security.ts (Security-Center „Aktive Sitzungen").
+  // Hier bewusst entfernt, um den BE-konformen { sessions: [...] }-Handler dort
+  // gewinnen zu lassen (vorher: nacktes Array hier → maskierte den security-Handler).
 
   // Presence
   http.get(`${API}/api/v1/video/presence/:userId`, () => {

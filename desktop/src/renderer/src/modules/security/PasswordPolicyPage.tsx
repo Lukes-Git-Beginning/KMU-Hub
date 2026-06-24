@@ -120,9 +120,9 @@ export default function PasswordPolicyPage() {
   })()
 
   const strengthLabel =
-    policyStrength >= 80 ? { text: 'Strong', css: 'bg-success-light text-success' }
-      : policyStrength >= 50 ? { text: 'Moderate', css: 'bg-warning-light text-warning' }
-        : { text: 'Weak', css: 'bg-error-light text-error' }
+    policyStrength >= 80 ? { text: t('password.strength.strong'), css: 'bg-success-light text-success' }
+      : policyStrength >= 50 ? { text: t('password.strength.moderate'), css: 'bg-warning-light text-warning' }
+        : { text: t('password.strength.weak'), css: 'bg-error-light text-error' }
 
   if (!isAdmin) {
     return <Navigate to="/" replace />
@@ -227,7 +227,7 @@ export default function PasswordPolicyPage() {
                 max={365}
                 value={maxAgeDays}
                 onChange={(e) => setMaxAgeDays(Number(e.target.value))}
-                placeholder="0 = no expiry"
+                placeholder={t('password.noExpiryPlaceholder')}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground tabular-nums placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
               {maxAgeDays > 0 && (
@@ -294,7 +294,7 @@ export default function PasswordPolicyPage() {
               type="text"
               value={testPassword}
               onChange={(e) => setTestPassword(e.target.value)}
-              placeholder="Enter a password to test..."
+              placeholder={t('password.testPlaceholder')}
               className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
             <button

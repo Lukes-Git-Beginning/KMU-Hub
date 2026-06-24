@@ -101,10 +101,10 @@ export default function IPAccessPage() {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="rounded-full bg-success-light px-2.5 py-0.5 text-xs font-medium text-success">
-                {allowCount} Allow
+                {t('ipAccess.allowCount', { count: allowCount })}
               </span>
               <span className="rounded-full bg-error-light px-2.5 py-0.5 text-xs font-medium text-error">
-                {blockCount} Block
+                {t('ipAccess.blockCount', { count: blockCount })}
               </span>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function IPAccessPage() {
               <DialogTitle className="text-lg font-semibold text-foreground">
                 {t('ipAccess.addRule')}
               </DialogTitle>
-              <DialogDescription className="sr-only">Neue IP-Regel hinzufügen</DialogDescription>
+              <DialogDescription className="sr-only">{t('ipAccess.addRuleDescription')}</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -264,7 +264,7 @@ export default function IPAccessPage() {
                 <input
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Office network"
+                  placeholder={t('ipAccess.descriptionPlaceholder')}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
@@ -297,7 +297,7 @@ export default function IPAccessPage() {
               <DialogTitle className="text-lg font-semibold text-foreground">
                 {t('ipAccess.deleteConfirm')}
               </DialogTitle>
-              <DialogDescription className="sr-only">IP-Regel löschen bestätigen</DialogDescription>
+              <DialogDescription className="sr-only">{t('ipAccess.deleteConfirmDescription')}</DialogDescription>
             </DialogHeader>
             <DialogFooter className="mt-6">
               <button

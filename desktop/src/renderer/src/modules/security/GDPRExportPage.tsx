@@ -28,6 +28,7 @@ import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
 import { useGDPRExports, useApproveExport, useDenyExport } from '@/api/hooks/useSecurity'
+import { downloadGDPRExport } from '@/api/security-client'
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'ready'
 
@@ -98,6 +99,31 @@ export default function GDPRExportPage() {
       },
     )
   }, [denyId, denyReason, denyExport, t])
+
+  const handleDownload = useCallback(
+    async (token: string, label: string) => {
+      try {
+        const res = await downloadGDPRExport(token)
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `datenexport-${label.replace(/\s+/g, '_').toLowerCase()}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch {
+        toast.error(t('common.error'))
+      }
+    },
+    [t],
+  )
+
+  const daysUntil = (iso: string | null): number => {
+    if (!iso) return 0
+    return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000))
+  }
 
   if (!isAdmin) {
     return <Navigate to="/" replace />
@@ -206,7 +232,7 @@ export default function GDPRExportPage() {
                       className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
                     >
                       <td className="px-4 py-3 text-sm text-foreground">
-                        {exp.user_id}
+                        {exp.user_name ?? exp.user_id}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>
@@ -221,7 +247,7 @@ export default function GDPRExportPage() {
                         })}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {exp.reviewed_by ?? '-'}
+                        {exp.reviewer_name ?? exp.reviewed_by ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {exp.status === 'pending' && (
@@ -256,16 +282,15 @@ export default function GDPRExportPage() {
                           <div className="flex justify-end items-center gap-2">
                             <span className="flex items-center gap-1 text-[10px] text-warning">
                               <Clock className="h-3 w-3" />
-                              {t('security.export.expiresIn30Days')}
+                              {t('security.export.expiresInDays', { days: daysUntil(exp.download_expires_at) })}
                             </span>
-                            <a
-                              href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`}
-                              download
+                            <button
+                              onClick={() => handleDownload(exp.download_token!, exp.user_name ?? exp.user_id)}
                               className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                             >
                               <Download className="h-3 w-3" />
                               {t('gdpr.downloadExport')}
-                            </a>
+                            </button>
                           </div>
                         )}
                       </td>

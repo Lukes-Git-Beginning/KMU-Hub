@@ -130,8 +130,8 @@
 **profil** — ✅ P-1…P-5 (review-reif)
 - [ ] Avatar-Upload echt 🔒 (S3-Service) · [ ] User-Preferences-Persistenz 🔒 · [ ] Presence-Routing 🔒 · [ ] **Review-Gate**
 
-**security** — ⬜ FE-Seiten existieren (Audit/Sessions/GDPR/IP/PW-Policy/Retention/2FA/Vault/DSAR), Tiefe unklar — **DSGVO = wichtig**
-- [ ] 🔁 Tiefe der FE-Seiten verifizieren (Skeleton vs funktional) · [ ] P1 Audit-Log + Sessions echt 🔒 · [ ] P2 PW-Policy + IP enforced 🔒 · [ ] P3 DSGVO-Tools FE vollständig (Export Art.15/20, Erasure, DSAR, Retention) 🔒 (BE teils da `47d210d9`/`60acb782`) · [ ] P4 WebAuthn 🔒 · [ ] Demo-Tiefe · [ ] **Review-Gate**
+**security** — ✅ FE review-reif (S-1…S-5 mock-first, Branch `parallel/security`, 2026-06-24) — **DSGVO = wichtig**
+- [x] FE-Tiefe verifiziert + alle 11 Seiten crashfrei (BE-konforme Daten-Contracts) · [x] DSGVO-Tools FE vollständig stateful mock-first (Audit Filter/Export/Verify, Sessions Terminate, Vault, PW-Policy, IP-Access + Export Art.15/20 approve/deny/download, Erasure Art.17 Preview/Execute+Legal-Hold, DSAR Art.15 Cross-Modul-Suche, Retention DACH+Auto-Löschung) · [x] Hub konsolidiert (`/admin/security`, 10 Sub-Tabs, Legacy-Redirect) + i18n ×4 (0 Raw-Keys DE+EN) + Modul-Settings-Eintrag · [ ] 🔌 Echt-Schaltung gegen Go-BE (`backend-gaps.md` „security/DSGVO": X-3-Spec-Lücke + Wire-Shapes + Timestamp-Normalizer) (BE teils da `47d210d9`/`60acb782`) · [ ] P4 WebAuthn 🔒 · [ ] 🔭 **Verarbeitungsverzeichnis Art. 30 RoPA** (eigener Batch — hoch-sichtbares DSGVO-Verkaufs-Feature, siehe `qa-security.md`) · [ ] **Review-Gate**
 
 **admin** — ⬜ AdminHub-Tabs-Gerüst, überwiegend Stub
 - [ ] 🔁 Tiefe der Tabs verifizieren · [ ] P1 Benutzerverwaltung (Liste/Einladen/Rolle/Deaktivieren) 🔒 · [ ] P2 RBAC-Matrix + Modul-Leiter verwaltbar · [ ] P3 Abo/Lizenz real 🔒 · [ ] P4 Branding persistent 🔒 · [ ] P5 Ressourcen-Monitoring 🔒 · [ ] Demo-Tiefe · [ ] **Review-Gate**

@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuthStore } from '@/stores/auth'
+import { usePreviewErasure, useExecuteErasure } from '@/api/hooks/useSecurity'
 
 type ModuleAction = 'anonymize' | 'delete' | 'retain'
 
@@ -48,6 +49,9 @@ export default function GDPRErasurePage() {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
+
+  const previewErasure = usePreviewErasure()
+  const executeErasure = useExecuteErasure()
 
   // User search/selection
   const [searchQuery, setSearchQuery] = useState('')
@@ -88,23 +92,23 @@ export default function GDPRErasurePage() {
   const handlePreview = useCallback(() => {
     if (!selectedUserId) return
     setIsLoadingPreview(true)
-
-    setTimeout(() => {
-      setPreviewData([
-        { module: 'CRM Kontakte', record_count: 47, action: 'anonymize' },
-        { module: 'Chat-Nachrichten', record_count: 1283, action: 'delete' },
-        { module: 'Kalender-Termine', record_count: 156, action: 'delete' },
-        { module: 'Aufgaben/Projekte', record_count: 89, action: 'anonymize' },
-        { module: 'Helpdesk-Tickets', record_count: 34, action: 'anonymize' },
-        { module: 'Dokumente', record_count: 23, action: 'delete' },
-        { module: 'E-Mails', record_count: 412, action: 'delete' },
-        { module: 'Formulare', record_count: 8, action: 'anonymize' },
-        { module: 'Audit Log', record_count: 342, action: 'retain' },
-        { module: 'Rechnungen', record_count: 12, action: 'retain' },
-      ])
-      setIsLoadingPreview(false)
-    }, 500)
-  }, [selectedUserId])
+    previewErasure.mutate(selectedUserId, {
+      onSuccess: (data) => {
+        setPreviewData(
+          data.modules.map((m) => ({
+            module: m.module_name,
+            record_count: m.record_count,
+            action: (m.action as ModuleAction) ?? 'anonymize',
+          })),
+        )
+        setIsLoadingPreview(false)
+      },
+      onError: () => {
+        setIsLoadingPreview(false)
+        toast.error(t('common.error'))
+      },
+    })
+  }, [selectedUserId, previewErasure, t])
 
   const handleModuleActionChange = useCallback(
     (module: string, action: ModuleAction) => {
@@ -120,23 +124,36 @@ export default function GDPRErasurePage() {
     setIsExecuting(true)
     setExecutionProgress(0)
 
-    // Simulate progress bar
+    // Visual progress while the erasure request runs
     const steps = 10
     let step = 0
     const interval = setInterval(() => {
       step++
-      setExecutionProgress(Math.round((step / steps) * 100))
-      if (step >= steps) {
+      setExecutionProgress(Math.min(90, Math.round((step / steps) * 100)))
+      if (step >= steps) clearInterval(interval)
+    }, 120)
+
+    executeErasure.mutate(selectedUserId, {
+      onSuccess: () => {
+        clearInterval(interval)
+        setExecutionProgress(100)
+        setTimeout(() => {
+          setIsExecuting(false)
+          setShowConfirm(false)
+          setAdminPassword('')
+          setExecutionProgress(0)
+          setIsCompleted(true)
+          toast.success(t('gdpr.erasure.success'))
+        }, 300)
+      },
+      onError: () => {
         clearInterval(interval)
         setIsExecuting(false)
-        setShowConfirm(false)
-        setAdminPassword('')
         setExecutionProgress(0)
-        setIsCompleted(true)
-        toast.success(t('gdpr.erasure.success'))
-      }
-    }, 150)
-  }, [adminPassword, previewData, selectedUserId, t])
+        toast.error(t('common.error'))
+      },
+    })
+  }, [adminPassword, previewData, selectedUserId, executeErasure, t])
 
   const handleDownloadReceipt = useCallback(() => {
     toast.success(t('security.erasure.receiptDownloading'))
@@ -295,6 +312,13 @@ export default function GDPRErasurePage() {
                 </tbody>
               </table>
             </div>
+
+            {previewData.some((m) => m.action === 'retain') && (
+              <div className="flex items-start gap-2 rounded-lg bg-warning-light/50 px-4 py-3 mb-5">
+                <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                <p className="text-xs text-warning">{t('security.erasure.legalHoldHint')}</p>
+              </div>
+            )}
 
             <button
               onClick={() => setShowConfirm(true)}
