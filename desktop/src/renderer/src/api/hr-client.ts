@@ -42,6 +42,7 @@ import type {
   CreateTimeTemplateInput,
 } from './hr-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
+import { normalizeWireTimestamps } from './wire-time'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -287,22 +288,223 @@ export const hrLeaveApi = {
 }
 
 // ---------------------------------------------------------------------------
+// Time tracking — wire adapters
+//
+// The HR gRPC service serialises via encoding/json on pb.go structs, so the
+// wire shape is snake_case. Timestamps arrive as `{seconds, nanos}` proto
+// objects rather than ISO strings. These adapters normalise both issues so the
+// frontend types (all camelCase, all ISO strings) are satisfied.
+//
+// Fields present in the proto but NOT in the FE type (e.g. tenant_id, breaks
+// array on WorkTimeEntry) are dropped silently. Fields absent from the backend
+// (project_name, customer_name, activity, billable, note, is_manual) default
+// to undefined/false — they are backend gaps documented in the Backend-Lücken
+// section of the echt-schaltung report.
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptWorkTimeEntry(raw: Record<string, any>): WorkTimeEntry {
+  // Timestamps come in as {seconds, nanos} — normalizeWireTimestamps converts them
+  const normalised = normalizeWireTimestamps(raw) as Record<string, unknown>
+  return {
+    id:                     (normalised.id                                                ?? '') as string,
+    employeeId:             (normalised.employee_id      ?? normalised.employeeId         ?? '') as string,
+    clockIn:                (normalised.clock_in         ?? normalised.clockIn            ?? '') as string,
+    clockOut:               (normalised.clock_out        ?? normalised.clockOut           ?? undefined) as string | undefined,
+    breakMinutes:           (normalised.break_minutes    ?? normalised.breakMinutes        ?? 0) as number,
+    autoBreakDeducted:      (normalised.auto_break_deducted ?? normalised.autoBreakDeducted ?? 0) as number,
+    netWorkMinutes:         (normalised.net_work_minutes ?? normalised.netWorkMinutes     ?? undefined) as number | undefined,
+    status:                 (normalised.status                                            ?? 'completed') as WorkTimeEntry['status'],
+    isCorrection:           (normalised.is_correction    ?? normalised.isCorrection       ?? false) as boolean,
+    originalEntryId:        (normalised.original_entry_id ?? normalised.originalEntryId  ?? undefined) as string | undefined,
+    correctionReason:       (normalised.correction_reason ?? normalised.correctionReason  ?? undefined) as string | undefined,
+    correctionApprovedBy:   (normalised.correction_approved_by ?? normalised.correctionApprovedBy ?? undefined) as string | undefined,
+    correctionApprovedAt:   (normalised.correction_approved_at ?? normalised.correctionApprovedAt ?? undefined) as string | undefined,
+    createdAt:              (normalised.created_at       ?? normalised.createdAt          ?? '') as string,
+    // Project/customer attribution — backend gap: proto WorkTimeEntry only has
+    // project_id (migration 000212). project_name / customer_name / activity /
+    // billable / note / is_manual are NOT stored in the hr_work_time_entries
+    // table and will always be undefined until a backend migration adds them.
+    projectId:              (normalised.project_id       ?? normalised.projectId          ?? undefined) as string | undefined,
+    projectName:            (normalised.project_name     ?? normalised.projectName        ?? undefined) as string | undefined,
+    customerName:           (normalised.customer_name    ?? normalised.customerName       ?? undefined) as string | undefined,
+    activity:               (normalised.activity                                          ?? undefined) as string | undefined,
+    billable:               (normalised.billable                                          ?? undefined) as boolean | undefined,
+    note:                   (normalised.note                                              ?? undefined) as string | undefined,
+    isManual:               (normalised.is_manual        ?? normalised.isManual           ?? undefined) as boolean | undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptDailySummary(raw: Record<string, any>): DailySummary {
+  return {
+    date:                (raw.date                                                        ?? '') as string,
+    // Proto field is total_work_minutes; mock used totalWorkedMinutes — accept both
+    totalWorkedMinutes:  (raw.total_work_minutes  ?? raw.total_worked_minutes ?? raw.totalWorkedMinutes  ?? 0) as number,
+    totalBreakMinutes:   (raw.total_break_minutes ?? raw.totalBreakMinutes   ?? 0) as number,
+    netWorkMinutes:      (raw.net_work_minutes    ?? raw.netWorkMinutes      ?? 0) as number,
+    overtimeMinutes:     (raw.overtime_minutes    ?? raw.overtimeMinutes     ?? 0) as number,
+    // entryCount is not in the proto — backend gap, default 0
+    entryCount:          (raw.entry_count         ?? raw.entryCount          ?? 0) as number,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptWeeklySummary(raw: Record<string, any>): WeeklySummary {
+  // Proto field is daily_summaries; mock used days
+  const rawDays = (raw.daily_summaries ?? raw.days ?? []) as Record<string, unknown>[]
+  return {
+    weekStart:           (raw.week_start            ?? raw.weekStart            ?? '') as string,
+    totalWorkedMinutes:  (raw.total_work_minutes    ?? raw.total_worked_minutes ?? raw.totalWorkedMinutes   ?? 0) as number,
+    totalBreakMinutes:   (raw.total_break_minutes   ?? raw.totalBreakMinutes    ?? 0) as number,
+    netWorkMinutes:      (raw.net_work_minutes      ?? raw.netWorkMinutes       ?? 0) as number,
+    // Proto field is overtime_minutes; mock used totalOvertimeMinutes
+    totalOvertimeMinutes:(raw.overtime_minutes      ?? raw.total_overtime_minutes ?? raw.totalOvertimeMinutes ?? 0) as number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    days:                rawDays.map((d) => adaptDailySummary(d as Record<string, any>)),
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptWorkTimeStatus(raw: Record<string, any>): WorkTimeStatus {
+  return {
+    isClockedIn:         (raw.is_clocked_in         ?? raw.isClockedIn         ?? false) as boolean,
+    isOnBreak:           (raw.is_on_break            ?? raw.isOnBreak           ?? false) as boolean,
+    currentShiftStart:   (raw.current_shift_start    ?? raw.currentShiftStart   ?? undefined) as string | undefined,
+    currentBreakStart:   (raw.current_break_start    ?? raw.currentBreakStart   ?? undefined) as string | undefined,
+    todayTotalMinutes:   (raw.today_total_minutes    ?? raw.todayTotalMinutes   ?? 0) as number,
+    arbzgSeverity:       (raw.arbzg_severity         ?? raw.arbzgSeverity       ?? 'none') as WorkTimeStatus['arbzgSeverity'],
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptTimeBalance(raw: Record<string, any>): TimeBalance {
+  return {
+    balanceMinutes:      (raw.balance_minutes        ?? raw.balanceMinutes      ?? 0) as number,
+    asOf:                (raw.as_of                  ?? raw.asOf                ?? '') as string,
+    periodStart:         (raw.period_start           ?? raw.periodStart         ?? '') as string,
+    targetWeeklyMinutes: (raw.target_weekly_minutes  ?? raw.targetWeeklyMinutes ?? 2400) as number,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptTimeProject(raw: Record<string, any>): TimeProject {
+  return {
+    id:              (raw.id                                        ?? '') as string,
+    name:            (raw.name                                      ?? '') as string,
+    customerId:      (raw.customer_id  ?? raw.customerId            ?? undefined) as string | undefined,
+    customerName:    (raw.customer_name ?? raw.customerName         ?? undefined) as string | undefined,
+    color:           (raw.color                                     ?? '#6b7280') as string,
+    billableDefault: (raw.billable_default ?? raw.billableDefault   ?? false) as boolean,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptTimeAnalytics(raw: Record<string, any>): TimeAnalytics {
+  // Backend returns total_minutes / target_minutes / overtime_minutes /
+  // avg_daily_minutes / day_trend / by_project (snake_case, flat).
+  // The FE TimeAnalytics type uses camelCase + additional computed fields.
+  const dayTrend = ((raw.day_trend ?? raw.dayTrend ?? []) as Record<string, unknown>[]).map((d) => ({
+    date:            (d.date                                    ?? '') as string,
+    netMinutes:      (d.net_minutes      ?? d.netMinutes        ?? 0) as number,
+    billableMinutes: (d.billable_minutes ?? d.billableMinutes   ?? 0) as number,
+  }))
+
+  const byProject = ((raw.by_project ?? raw.byProject ?? []) as Record<string, unknown>[]).map((p) => ({
+    projectId:    (p.project_id   ?? p.projectId    ?? '') as string,
+    name:         (p.name                           ?? '') as string,
+    customerName: (p.customer_name ?? p.customerName ?? '') as string,
+    color:        (p.color                          ?? '#6b7280') as string,
+    minutes:      (p.minutes                        ?? 0) as number,
+  }))
+
+  const totalMinutes    = (raw.total_minutes    ?? raw.totalNetMinutes    ?? 0) as number
+  const billable        = (raw.billable_minutes ?? raw.billableMinutes    ?? 0) as number
+  const target          = (raw.target_minutes   ?? raw.targetMinutes      ?? 0) as number
+  const overtime        = (raw.overtime_minutes ?? raw.overtimeMinutes    ?? 0) as number
+  const workedDays      = (raw.worked_days      ?? raw.workedDays         ?? 0) as number
+  const rangeVal        = (raw.range                                      ?? 'week') as TimeAnalyticsRange
+  const periodStart     = (raw.period_start     ?? raw.periodStart        ?? '') as string
+  const periodEnd       = (raw.period_end       ?? raw.periodEnd          ?? '') as string
+
+  return {
+    range:              rangeVal,
+    periodStart,
+    periodEnd,
+    totalNetMinutes:    totalMinutes,
+    billableMinutes:    billable,
+    nonBillableMinutes: Math.max(0, totalMinutes - billable),
+    overtimeMinutes:    overtime,
+    targetMinutes:      target,
+    workedDays,
+    dayTrend,
+    byProject,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptTeamTimeRow(raw: Record<string, any>): TeamTimeRow {
+  return {
+    employeeId:      (raw.employee_id     ?? raw.employeeId     ?? '') as string,
+    name:            (raw.name                                  ?? '') as string,
+    department:      (raw.department                            ?? undefined) as string | undefined,
+    weekMinutes:     (raw.week_minutes    ?? raw.weekMinutes    ?? 0) as number,
+    targetMinutes:   (raw.target_minutes  ?? raw.targetMinutes  ?? 0) as number,
+    overtimeMinutes: (raw.overtime_minutes ?? raw.overtimeMinutes ?? 0) as number,
+    clockedIn:       (raw.clocked_in      ?? raw.clockedIn      ?? false) as boolean,
+    weekStatus:      (raw.week_status     ?? raw.weekStatus     ?? 'open') as TeamTimeRow['weekStatus'],
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptMyWeekStatus(raw: Record<string, any>): MyWeekStatus {
+  // Backend returns week_approval object + total_minutes + target_minutes at root.
+  // week_approval has: week_start, status, submitted_at, approved_by, rejection_reason
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wa = (raw.week_approval ?? raw) as Record<string, any>
+  return {
+    weekStart:       (wa.week_start      ?? wa.weekStart      ?? raw.week_start  ?? '') as string,
+    status:          (wa.status                               ?? 'open') as MyWeekStatus['status'],
+    submittedAt:     (wa.submitted_at    ?? wa.submittedAt    ?? undefined) as string | undefined,
+    approvedBy:      (wa.approved_by     ?? wa.approvedBy     ?? undefined) as string | undefined,
+    rejectionReason: (wa.rejection_reason ?? wa.rejectionReason ?? undefined) as string | undefined,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Time tracking
 // ---------------------------------------------------------------------------
 
 export const hrTimeApi = {
-  clockIn() {
-    return request<{ entry: WorkTimeEntry; compliance: ArbZGComplianceResult }>(
-      '/api/v1/hr/time/clock-in',
-      { method: 'POST' },
-    )
+  async clockIn() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/clock-in', { method: 'POST' })
+    // Backend returns entry directly or wrapped; compliance may be in severity/arbzg_message
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entryRaw = (raw.entry ?? raw) as Record<string, any>
+    const entry = adaptWorkTimeEntry(entryRaw)
+    const compliance: ArbZGComplianceResult = raw.compliance ?? {
+      severity: raw.severity ?? 'none',
+      message: raw.arbzg_message ?? '',
+      restViolation: false,
+      breakDeficit: 0,
+    }
+    return { entry, compliance }
   },
 
-  clockOut() {
-    return request<{ entry: WorkTimeEntry; compliance: ArbZGComplianceResult }>(
-      '/api/v1/hr/time/clock-out',
-      { method: 'POST' },
-    )
+  async clockOut() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/clock-out', { method: 'POST' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entryRaw = (raw.entry ?? raw) as Record<string, any>
+    const entry = adaptWorkTimeEntry(entryRaw)
+    const compliance: ArbZGComplianceResult = raw.compliance ?? {
+      severity: raw.severity ?? 'none',
+      message: raw.arbzg_message ?? '',
+      restViolation: false,
+      breakDeficit: 0,
+    }
+    return { entry, compliance }
   },
 
   startBreak() {
@@ -323,88 +525,155 @@ export const hrTimeApi = {
     )
   },
 
-  getStatus() {
-    return request<WorkTimeStatus>('/api/v1/hr/time/status')
+  async getStatus(): Promise<WorkTimeStatus> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/status')
+    return adaptWorkTimeStatus(raw)
   },
 
-  listEntries(params: Record<string, unknown> = {}) {
-    return request<{ entries: WorkTimeEntry[]; total: number }>(
-      `/api/v1/hr/time/entries${qs(params)}`,
+  async listEntries(params: Record<string, unknown> = {}): Promise<{ entries: WorkTimeEntry[]; total: number }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/time/entries${qs(params)}`)
+    const entries = ((raw.entries ?? []) as Record<string, unknown>[]).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (e) => adaptWorkTimeEntry(e as Record<string, any>),
     )
+    return { entries, total: (raw.total ?? entries.length) as number }
   },
 
-  getDailySummary(date: string) {
-    return request<{ summary: DailySummary }>(
-      `/api/v1/hr/time/summary/daily?date=${date}`,
+  async getDailySummary(date: string): Promise<{ summary: DailySummary }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/time/summary/daily?date=${date}`)
+    // Backend returns the DailySummary directly (response.JSON(w, 200, resp.Summary))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const summaryRaw = (raw.summary ?? raw) as Record<string, any>
+    return { summary: adaptDailySummary(summaryRaw) }
+  },
+
+  async getWeeklySummary(weekStart: string): Promise<{ summary: WeeklySummary }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/time/summary/weekly?week_start=${weekStart}`)
+    // Backend returns the WeeklySummary directly (response.JSON(w, 200, resp.Summary))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const summaryRaw = (raw.summary ?? raw) as Record<string, any>
+    return { summary: adaptWeeklySummary(summaryRaw) }
+  },
+
+  async getBalance(): Promise<{ balance: TimeBalance }> {
+    // Backend returns flat fields: balance_minutes, target_weekly_minutes, period_start, as_of
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/balance')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const balanceRaw = (raw.balance ?? raw) as Record<string, any>
+    return { balance: adaptTimeBalance(balanceRaw) }
+  },
+
+  async listProjects(): Promise<{ projects: TimeProject[] }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/projects')
+    const projects = ((raw.projects ?? []) as Record<string, unknown>[]).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (p) => adaptTimeProject(p as Record<string, any>),
     )
+    return { projects }
   },
 
-  getWeeklySummary(weekStart: string) {
-    return request<{ summary: WeeklySummary }>(
-      `/api/v1/hr/time/summary/weekly?week_start=${weekStart}`,
+  async getAnalytics(range: TimeAnalyticsRange): Promise<{ analytics: TimeAnalytics }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/time/analytics?range=${range}`)
+    // Backend returns flat fields at root level (no wrapping key)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const analyticsRaw = (raw.analytics ?? raw) as Record<string, any>
+    return { analytics: adaptTimeAnalytics(analyticsRaw) }
+  },
+
+  async getTeamTime(weekStart: string): Promise<{ rows: TeamTimeRow[] }> {
+    // Backend returns `team` key (not `rows`)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/time/team?week_start=${weekStart}`)
+    const items = ((raw.team ?? raw.rows ?? []) as Record<string, unknown>[]).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (r) => adaptTeamTimeRow(r as Record<string, any>),
     )
+    return { rows: items }
   },
 
-  getBalance() {
-    return request<{ balance: TimeBalance }>('/api/v1/hr/time/balance')
+  async getMyWeekStatus(weekStart: string): Promise<{ status: MyWeekStatus }> {
+    // Backend returns { week_approval, total_minutes, target_minutes }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/time/weeks/status?week_start=${weekStart}`)
+    return { status: adaptMyWeekStatus(raw) }
   },
 
-  listProjects() {
-    return request<{ projects: TimeProject[] }>('/api/v1/hr/time/projects')
-  },
-
-  getAnalytics(range: TimeAnalyticsRange) {
-    return request<{ analytics: TimeAnalytics }>(`/api/v1/hr/time/analytics?range=${range}`)
-  },
-
-  getTeamTime(weekStart: string) {
-    return request<{ rows: TeamTimeRow[] }>(`/api/v1/hr/time/team?week_start=${weekStart}`)
-  },
-
-  getMyWeekStatus(weekStart: string) {
-    return request<{ status: MyWeekStatus }>(`/api/v1/hr/time/weeks/status?week_start=${weekStart}`)
-  },
-
-  submitWeek(weekStart: string) {
-    return request<{ status: MyWeekStatus }>('/api/v1/hr/time/weeks/submit', {
+  async submitWeek(weekStart: string): Promise<{ status: MyWeekStatus }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/weeks/submit', {
       method: 'POST',
-      body: JSON.stringify({ weekStart }),
+      body: JSON.stringify({ week_start: weekStart }),
     })
+    return { status: adaptMyWeekStatus(raw) }
   },
 
   approveWeek(employeeId: string, weekStart: string) {
     return request<{ ok: boolean }>('/api/v1/hr/time/weeks/approve', {
       method: 'POST',
-      body: JSON.stringify({ employeeId, weekStart }),
+      body: JSON.stringify({ employee_id: employeeId, week_start: weekStart }),
     })
   },
 
   rejectWeek(employeeId: string, weekStart: string, reason: string) {
     return request<{ ok: boolean }>('/api/v1/hr/time/weeks/reject', {
       method: 'POST',
-      body: JSON.stringify({ employeeId, weekStart, reason }),
+      body: JSON.stringify({ employee_id: employeeId, week_start: weekStart, rejection_reason: reason }),
     })
   },
 
-  createEntry(data: CreateManualEntryInput) {
-    return request<{ entry: WorkTimeEntry }>('/api/v1/hr/time/entries', {
+  async createEntry(data: CreateManualEntryInput): Promise<{ entry: WorkTimeEntry }> {
+    // Convert camelCase input to snake_case for the backend
+    const body = {
+      clock_in:      data.clockIn,
+      clock_out:     data.clockOut,
+      break_minutes: data.breakMinutes,
+      project_id:    data.projectId,
+      activity:      data.activity,
+      billable:      data.billable,
+      note:          data.note,
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/entries', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { entry: adaptWorkTimeEntry((raw.entry ?? raw) as Record<string, any>) }
   },
 
-  submitCorrection(data: SubmitCorrectionInput) {
-    return request<{ entry: WorkTimeEntry }>('/api/v1/hr/time/corrections', {
+  async submitCorrection(data: SubmitCorrectionInput): Promise<{ entry: WorkTimeEntry }> {
+    // Convert camelCase input to the snake_case the backend expects
+    const body = {
+      original_entry_id:        data.originalEntryId,
+      corrected_clock_in:       data.correctedClockIn,
+      corrected_clock_out:      data.correctedClockOut,
+      corrected_break_minutes:  data.correctedBreakMinutes,
+      reason:                   data.reason,
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/time/corrections', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { entry: adaptWorkTimeEntry((raw.correction ?? raw.entry ?? raw) as Record<string, any>) }
   },
 
-  approveCorrection(id: string) {
-    return request<{ entry: WorkTimeEntry }>(
+  async approveCorrection(id: string): Promise<{ entry: WorkTimeEntry }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(
       `/api/v1/hr/time/corrections/${id}/approve`,
       { method: 'POST' },
     )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { entry: adaptWorkTimeEntry((raw.correction ?? raw.entry ?? raw) as Record<string, any>) }
   },
 }
 
