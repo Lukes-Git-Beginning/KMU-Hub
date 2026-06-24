@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCreateTask } from '@/api/hooks/useTasks'
+import { memberDisplayName } from '../lib/task-helpers'
 import { useProjectMembers } from '@/api/hooks/useProjects'
 import type { Priority } from './PriorityBadge'
 
@@ -220,7 +221,7 @@ export default function TaskCreateDialog({
                     .filter((m) => m.user_id)
                     .map((m) => (
                       <SelectItem key={m.user_id} value={m.user_id!}>
-                        {m.display_name || m.email || t('work.tasks.user')}
+                        {memberDisplayName(m) || t('work.tasks.user')}
                       </SelectItem>
                     ))}
                 </SelectContent>

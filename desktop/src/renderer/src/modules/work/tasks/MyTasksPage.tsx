@@ -167,9 +167,12 @@ export default function MyTasksPage() {
     page_size: PAGE_SIZE,
     search: debouncedSearch || undefined,
     include_completed: includeCompleted || undefined,
-    priority: priorityFilter.length === 1
-      ? (priorityFilter[0] as TaskItem['priority'] & string)
-      : undefined,
+    priority: (priorityFilter.length === 1 ? priorityFilter[0] : undefined) as
+      | 'urgent'
+      | 'high'
+      | 'medium'
+      | 'low'
+      | undefined,
   })
 
   const tasks: TaskItem[] = useMemo(() => data?.tasks ?? [], [data?.tasks])

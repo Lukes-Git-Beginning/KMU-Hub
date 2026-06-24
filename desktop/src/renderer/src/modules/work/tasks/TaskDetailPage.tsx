@@ -48,6 +48,7 @@ import {
   useProjectStatuses,
   useProjectMembers,
 } from '@/api/hooks/useProjects'
+import { memberDisplayName, type TaskWithDerived } from '../lib/task-helpers'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
@@ -74,7 +75,7 @@ export default function TaskDetailPage() {
   const location = useLocation()
 
   const { data: taskData, isLoading, error, refetch } = useTask(taskId ?? '')
-  const task = taskData?.task
+  const task = taskData?.task as TaskWithDerived | undefined
   const effectiveProjectId = projectId ?? task?.project_id ?? ''
 
   // Go back to wherever we came from (My Tasks, search, project board…). Falls
@@ -94,7 +95,7 @@ export default function TaskDetailPage() {
   const project = projectData?.project
   const statuses = statusesData?.statuses ?? []
   const members = membersData?.members ?? []
-  const subtasks = subtasksData?.tasks ?? []
+  const subtasks = (subtasksData?.tasks ?? []) as TaskWithDerived[]
 
   const [createSubtaskOpen, setCreateSubtaskOpen] = useState(false)
   const [manualTimeEntryOpen, setManualTimeEntryOpen] = useState(false)
@@ -592,7 +593,7 @@ export default function TaskDetailPage() {
                         m.user_id && handleAssigneeChange(m.user_id)
                       }
                     >
-                      {m.display_name || m.email || t('work.tasks.user')}
+                      {memberDisplayName(m) || t('work.tasks.user')}
                     </button>
                   ))}
                 </div>

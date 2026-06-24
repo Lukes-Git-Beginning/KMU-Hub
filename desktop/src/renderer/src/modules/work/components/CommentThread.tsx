@@ -19,6 +19,7 @@ import {
   type TaskComment,
 } from '@/api/hooks/useTaskComments'
 import { useProjectMembers } from '@/api/hooks/useProjects'
+import { memberDisplayName } from '../lib/task-helpers'
 import { useAuthStore } from '@/stores/auth'
 import { UserProfileTrigger } from '@/components/user/UserProfileCard'
 
@@ -87,10 +88,8 @@ export default function CommentThread({
   const filteredMembers = useMemo(() => {
     if (!mentionQuery) return members
     const q = mentionQuery.toLowerCase()
-    return members.filter(
-      (m) =>
-        (m.display_name ?? '').toLowerCase().includes(q) ||
-        (m.email ?? '').toLowerCase().includes(q)
+    return members.filter((m) =>
+      memberDisplayName(m).toLowerCase().includes(q)
     )
   }, [members, mentionQuery])
 
@@ -149,7 +148,7 @@ export default function CommentThread({
         e.preventDefault()
         const member = filteredMembers[mentionIndex]
         if (member) {
-          insertMention(member.display_name ?? member.email ?? '')
+          insertMention(memberDisplayName(member))
         }
         return
       }
@@ -463,17 +462,17 @@ export default function CommentThread({
                 )}
                 onMouseDown={(e) => {
                   e.preventDefault()
-                  insertMention(member.display_name ?? member.email ?? '')
+                  insertMention(memberDisplayName(member))
                 }}
                 onMouseEnter={() => setMentionIndex(i)}
               >
                 <Avatar className="h-5 w-5">
                   <AvatarFallback className="text-[9px]">
-                    {getInitials(member.display_name)}
+                    {getInitials(memberDisplayName(member))}
                   </AvatarFallback>
                 </Avatar>
                 <span className="truncate">
-                  {member.display_name || member.email}
+                  {memberDisplayName(member)}
                 </span>
               </button>
             ))}

@@ -38,6 +38,7 @@ import { useTask, useUpdateTask, useDeleteTask, useSubtasks } from '@/api/hooks/
 import { useProjectStatuses, useProjectMembers } from '@/api/hooks/useProjects'
 import { useCreateComment } from '@/api/hooks/useTaskComments'
 import { useWorkStore } from '@/stores/work'
+import { memberDisplayName, type TaskWithDerived } from '../lib/task-helpers'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
@@ -54,7 +55,7 @@ export default function TaskDetailPanel() {
   } = useWorkStore()
 
   const { data: taskData, isLoading } = useTask(activeTaskId ?? '')
-  const task = taskData?.task
+  const task = taskData?.task as TaskWithDerived | undefined
   const projectId = task?.project_id ?? ''
 
   const { data: statusesData } = useProjectStatuses(projectId)
@@ -67,7 +68,7 @@ export default function TaskDetailPanel() {
 
   const statuses = statusesData?.statuses ?? []
   const members = membersData?.members ?? []
-  const subtasks = subtasksData?.tasks ?? []
+  const subtasks = (subtasksData?.tasks ?? []) as TaskWithDerived[]
 
   // Editable fields
   const [editingTitle, setEditingTitle] = useState(false)
@@ -422,7 +423,7 @@ export default function TaskDetailPanel() {
                           m.user_id && handleAssigneeChange(m.user_id)
                         }
                       >
-                        {m.display_name || m.email || t('work.tasks.user')}
+                        {memberDisplayName(m) || t('work.tasks.user')}
                       </button>
                     ))}
                   </div>

@@ -39,6 +39,19 @@ export interface SearchTasksParams {
   page_size?: number
 }
 
+/**
+ * The backend priority enum is low|normal|high|urgent (see models.ValidPriorities
+ * — it rejects 'medium'). The work module still carries the legacy 'medium' label
+ * internally; normalize it to 'normal' before any request reaches the API.
+ */
+type ApiTaskPriority = 'urgent' | 'high' | 'normal' | 'low'
+function toApiPriority(
+  p?: 'urgent' | 'high' | 'medium' | 'low'
+): ApiTaskPriority | undefined {
+  if (!p) return undefined
+  return p === 'medium' ? 'normal' : p
+}
+
 // ---------------------------------------------------------------------------
 // Task queries
 // ---------------------------------------------------------------------------
@@ -48,7 +61,9 @@ export function useTasks(params?: TaskListParams) {
     queryKey: ['tasks', params],
     queryFn: async () => {
       const { data, error } = await apiClient.GET('/api/v1/tasks', {
-        params: { query: params },
+        params: {
+          query: params ? { ...params, priority: toApiPriority(params.priority) } : undefined,
+        },
       })
       if (error) throw error
       return normalizeWireTimestamps(data)
@@ -83,6 +98,7 @@ export function useMyTasks(params?: Omit<TaskListParams, 'assignee_id'>) {
         params: {
           query: {
             ...params,
+            priority: toApiPriority(params?.priority),
             assignee_id: userId,
           },
         },
@@ -164,7 +180,7 @@ export function useCreateTask() {
       custom_fields?: Array<{ field_id: string; value: string }>
     }) => {
       const { data, error } = await apiClient.POST('/api/v1/tasks', {
-        body,
+        body: { ...body, priority: toApiPriority(body.priority) ?? 'normal' },
       })
       if (error) throw error
       return normalizeWireTimestamps(data)

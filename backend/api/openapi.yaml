@@ -45,6 +45,8 @@ tags:
     description: Full-text search across chat messages and files
   - name: notifications
     description: Notification management (list, read, preferences, mutes, quiet hours)
+  - name: dialer
+    description: Outbound dialer (campaigns, calls, supervisor overview, contact call history)
   - name: dashboard
     description: Dashboard layout management (user layouts, role defaults)
   - name: projects
@@ -421,8 +423,11 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
-        "410":
-          description: Invitation expired
+        "409":
+          description: >-
+            Invitation expired or already used. The backend maps both cases to
+            gRPC FailedPrecondition, which the gateway returns as 409 Conflict
+            (changed from 410 in the R3 hardening wave).
           content:
             application/json:
               schema:
@@ -2905,6 +2910,69 @@ paths:
   # Notifications
   # ===========================================================================
 
+  # Dialer: only the supervisor overview + contact-call-history endpoints are
+  # documented here (mock-exit wiring). The remaining /api/v1/dialer/* routes
+  # (campaigns, calls, agent-status, outcomes) are implemented but not yet specced.
+  /api/v1/dialer/supervisor:
+    get:
+      summary: Supervisor overview (tenant-wide dialer aggregate)
+      description: >-
+        Aggregated live view for supervisors: enriched agent list, recent calls,
+        and tenant totals. Serialized via response.Proto (protojson with
+        UseProtoNames -> snake_case and UseEnumNumbers -> integer enums);
+        timestamps are RFC3339 strings; optional fields are omitted when unset.
+      tags: [dialer]
+      operationId: getDialerSupervisorOverview
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Supervisor overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisorOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/dialer/contacts/{id}/calls:
+    get:
+      summary: Call history for a campaign contact
+      description: >-
+        Returns the dialer call history for the given campaign contact id.
+        Serialized via response.Proto (snake_case fields, integer enums, RFC3339
+        timestamps, optional fields omitted).
+      tags: [dialer]
+      operationId: getDialerContactCalls
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Campaign contact id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Contact call history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calls:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactCall"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/notifications:
     get:
       summary: List notifications for the current user
@@ -2992,6 +3060,94 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notifications/{id}/pin:
+    post:
+      summary: Pin a notification
+      description: Pins the notification for the current user so it sorts first. Response wraps the updated notification under `notification`.
+      tags: [notifications]
+      operationId: pinNotification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification pinned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notification:
+                    $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Unpin a notification
+      description: Removes the pin for the current user. Response wraps the updated notification under `notification`.
+      tags: [notifications]
+      operationId: unpinNotification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification unpinned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notification:
+                    $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notifications/{id}/dismiss:
+    post:
+      summary: Dismiss a notification
+      description: Dismisses the notification for the current user, removing it from default lists and the unread count. Response wraps the updated notification under `notification`.
+      tags: [notifications]
+      operationId: dismissNotification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification dismissed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notification:
+                    $ref: "#/components/schemas/Notification"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -14753,6 +14909,114 @@ components:
           description: Present for file results
 
     # =========================================================================
+    # Dialer Schemas (supervisor overview + contact call history)
+    # Wire shape: response.Proto / protojson — snake_case fields, integer enums
+    # (UseEnumNumbers), RFC3339 timestamps, optional fields omitted when unset.
+    # =========================================================================
+
+    SupervisorOverview:
+      type: object
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupervisorAgent"
+        recent_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentCall"
+        totals:
+          $ref: "#/components/schemas/SupervisorTotals"
+
+    SupervisorAgent:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        status:
+          type: integer
+          description: AgentDialerStatus enum serialized as integer (UseEnumNumbers).
+        campaign_id:
+          type: string
+          format: uuid
+          description: Present only while the agent is assigned to a campaign.
+        since:
+          type: string
+          format: date-time
+        calls_today:
+          type: integer
+        avg_duration_seconds:
+          type: number
+          format: float
+        active_campaign_name:
+          type: string
+
+    RecentCall:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        contact_name:
+          type: string
+        contact_company:
+          type: string
+        outcome_label:
+          type: string
+        outcome_color:
+          type: string
+        is_positive:
+          type: boolean
+        duration_seconds:
+          type: integer
+        agent_name:
+          type: string
+        campaign_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    SupervisorTotals:
+      type: object
+      properties:
+        active_agents:
+          type: integer
+        on_call:
+          type: integer
+        calls_today:
+          type: integer
+        appointments_today:
+          type: integer
+
+    ContactCall:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        outcome_label:
+          type: string
+        outcome_color:
+          type: string
+        is_positive:
+          type: boolean
+        duration_seconds:
+          type: integer
+        notes:
+          type: string
+        agent_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # =========================================================================
     # Notification Schemas
     # =========================================================================
 
@@ -14772,9 +15036,22 @@ components:
         priority:
           type: string
           enum: [low, normal, high, urgent]
+          description: >-
+            Normalized priority string. NOTE on wire drift: the notification
+            list/action endpoints serialize the proto via response.JSON, so the
+            raw wire value is an integer enum (0-4). The desktop client
+            normalizes it to this string (0,2 -> normal, 1 -> low, 3 -> urgent,
+            4 -> high) in normalizeNotification. Demo/mock mode already emits the
+            string form.
         actor_id:
           type: string
           format: uuid
+        actor_name:
+          type: string
+          nullable: true
+          description: >-
+            Resolved display name of the actor that triggered the notification.
+            Null until the backend resolves the actor.
         resource_id:
           type: string
         title:
@@ -14789,14 +15066,27 @@ components:
           type: integer
         is_read:
           type: boolean
+        is_pinned:
+          type: boolean
+          description: Whether the current user pinned this notification (pinned items sort first).
+        is_dismissed:
+          type: boolean
+          description: Whether the current user dismissed it (excluded from default lists and the unread count).
         read_at:
           type: string
           format: date-time
+          description: >-
+            ISO-8601 timestamp. Raw wire shape is a proto Timestamp object
+            ({seconds,nanos}); the desktop client normalizes it via
+            normalizeWireTimestamps.
         delivered_desktop:
           type: boolean
         created_at:
           type: string
           format: date-time
+          description: >-
+            ISO-8601 timestamp. Raw wire shape is a proto Timestamp object
+            ({seconds,nanos}); normalized client-side.
 
     NotificationPreference:
       type: object
@@ -15151,7 +15441,7 @@ components:
           format: uuid
         view_type:
           type: string
-          enum: [list, kanban]
+          enum: [list, kanban, gantt]
         list_group_by:
           type: string
         list_sort_by:
@@ -15164,7 +15454,7 @@ components:
       properties:
         view_type:
           type: string
-          enum: [list, kanban]
+          enum: [list, kanban, gantt]
         list_group_by:
           type: string
         list_sort_by:
