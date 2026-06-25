@@ -20,14 +20,15 @@ jobs:
         run: |
           echo "whoami:  $(whoami)"
           echo "pwd:     $(pwd)"
-          echo "shell:   $0"
           echo "PATH:    $PATH"
 
       - name: Passwordless sudo (the deploy.sh path)
-        run: sudo -n true && echo "passwordless sudo: OK"
+        run: |
+          sudo -n true && echo "passwordless sudo: OK"
 
       - name: Docker access via sudo (deploy.sh runs as root)
-        run: sudo docker ps --format '{{.Names}}' | head -30
+        run: |
+          sudo docker ps --format '{{.Names}}' | head -30
 
       - name: Deploy checkout reachable
         run: |
