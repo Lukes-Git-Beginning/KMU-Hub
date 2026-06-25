@@ -47,6 +47,7 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 
 		// Message endpoints
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages", ir.HandleListMessages)
+		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/unread-count", ir.HandleGetUnreadCount)
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/{id}", ir.HandleGetMessage)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/read", ir.HandleMarkRead)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/unread", ir.HandleMarkUnread)

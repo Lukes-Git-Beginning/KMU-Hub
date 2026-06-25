@@ -156,7 +156,7 @@ func (d *DocumentRoutes) HandleCreateFolder(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Folder)
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"folder": resp.Folder})
 }
 
 func (d *DocumentRoutes) HandleGetFolder(w http.ResponseWriter, r *http.Request) {
@@ -173,7 +173,7 @@ func (d *DocumentRoutes) HandleGetFolder(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Folder)
+	response.JSON(w, http.StatusOK, map[string]interface{}{"folder": resp.Folder})
 }
 
 func (d *DocumentRoutes) HandleListFolders(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +193,7 @@ func (d *DocumentRoutes) HandleListFolders(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Folders)
+	response.ProtoList(w, http.StatusOK, resp.Folders)
 }
 
 type updateFolderRequest struct {
@@ -227,7 +227,7 @@ func (d *DocumentRoutes) HandleUpdateFolder(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Folder)
+	response.JSON(w, http.StatusOK, map[string]interface{}{"folder": resp.Folder})
 }
 
 func (d *DocumentRoutes) HandleDeleteFolder(w http.ResponseWriter, r *http.Request) {
@@ -261,7 +261,7 @@ func (d *DocumentRoutes) HandleGetFolderPath(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Segments)
+	response.ProtoList(w, http.StatusOK, resp.Segments)
 }
 
 type initializeUserSpaceRequest struct {
@@ -275,9 +275,14 @@ func (d *DocumentRoutes) HandleInitializeUserSpace(w http.ResponseWriter, r *htt
 		return
 	}
 
-	req, ok := decodeAndValidate[initializeUserSpaceRequest](w, r)
-	if !ok {
-		return
+	// lean: tolerate empty body — user_id is optional; fall back to JWT identity
+	var req initializeUserSpaceRequest
+	if r.ContentLength != 0 {
+		var ok bool
+		req, ok = decodeAndValidate[initializeUserSpaceRequest](w, r)
+		if !ok {
+			return
+		}
 	}
 
 	var userID string
@@ -348,7 +353,7 @@ func (d *DocumentRoutes) HandleGetFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.File)
+	response.JSON(w, http.StatusOK, map[string]interface{}{"file": resp.File})
 }
 
 type registerUploadedFileRequest struct {
@@ -388,7 +393,7 @@ func (d *DocumentRoutes) HandleRegisterUploadedFile(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.File)
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"file": resp.File})
 }
 
 func (d *DocumentRoutes) HandleListFiles(w http.ResponseWriter, r *http.Request) {
@@ -461,7 +466,7 @@ func (d *DocumentRoutes) HandleUpdateFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.File)
+	response.JSON(w, http.StatusOK, map[string]interface{}{"file": resp.File})
 }
 
 func (d *DocumentRoutes) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
@@ -508,7 +513,7 @@ func (d *DocumentRoutes) HandleCopyFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.File)
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"file": resp.File})
 }
 
 type moveFileRequest struct {
@@ -538,7 +543,7 @@ func (d *DocumentRoutes) HandleMoveFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.File)
+	response.JSON(w, http.StatusOK, map[string]interface{}{"file": resp.File})
 }
 
 func (d *DocumentRoutes) HandleGetFileDownloadURL(w http.ResponseWriter, r *http.Request) {
@@ -583,7 +588,7 @@ func (d *DocumentRoutes) HandleListFileVersions(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Versions)
+	response.ProtoList(w, http.StatusOK, resp.Versions)
 }
 
 type revertVersionRequest struct {
@@ -613,7 +618,7 @@ func (d *DocumentRoutes) HandleRevertFileVersion(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.File)
+	response.JSON(w, http.StatusOK, map[string]interface{}{"file": resp.File})
 }
 
 // ============================================================================
@@ -702,7 +707,7 @@ func (d *DocumentRoutes) HandleListFileEntityLinks(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Links)
+	response.ProtoList(w, http.StatusOK, resp.Links)
 }
 
 // ============================================================================
@@ -800,7 +805,7 @@ func (d *DocumentRoutes) HandleListShares(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Shares)
+	response.ProtoList(w, http.StatusOK, resp.Shares)
 }
 
 func (d *DocumentRoutes) HandleListSharedWithMe(w http.ResponseWriter, r *http.Request) {
@@ -844,7 +849,7 @@ func (d *DocumentRoutes) HandleListTags(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Tags)
+	response.ProtoList(w, http.StatusOK, resp.Tags)
 }
 
 type createDocumentTagRequest struct {
@@ -1072,7 +1077,7 @@ func (d *DocumentRoutes) HandleGetWOPIDiscovery(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Actions)
+	response.ProtoList(w, http.StatusOK, resp.Actions)
 }
 
 // ============================================================================

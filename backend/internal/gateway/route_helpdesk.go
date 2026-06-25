@@ -257,9 +257,16 @@ func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	page, pageSize := parsePagination(r, 1, 20)
 
 	grpcReq := &helpdeskv1.ListTicketsRequest{
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	}

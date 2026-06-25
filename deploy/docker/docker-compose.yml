@@ -991,9 +991,14 @@ services:
       TEAMS_APP_ID: ""
       TEAMS_APP_PASSWORD: ""
       # Feature-flag env overrides (gateway resolves featureflag.Load(os.Getenv)).
-      # modules.video gates the Meetings nav + video UI; off by default, set to
-      # true in .env.production to expose the meetings/video module.
+      # Each modules.* flag gates both the gateway route registration AND the FE nav;
+      # off by default, set to true in .env.production to expose the module.
       COSMI_MODULE_VIDEO_ENABLED: ${COSMI_MODULE_VIDEO_ENABLED:-false}
+      COSMI_MODULE_HELPDESK_ENABLED: ${COSMI_MODULE_HELPDESK_ENABLED:-false}
+      COSMI_MODULE_WIKI_ENABLED: ${COSMI_MODULE_WIKI_ENABLED:-false}
+      COSMI_MODULE_BERICHTE_ENABLED: ${COSMI_MODULE_BERICHTE_ENABLED:-false}
+      COSMI_MODULE_FORMULARE_ENABLED: ${COSMI_MODULE_FORMULARE_ENABLED:-false}
+      COSMI_MODULE_VERTRAEGE_ENABLED: ${COSMI_MODULE_VERTRAEGE_ENABLED:-false}
     ports:
       - "8080:8080"
       - "9090:9090"
