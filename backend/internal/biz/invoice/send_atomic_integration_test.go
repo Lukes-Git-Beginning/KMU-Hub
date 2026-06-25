@@ -118,8 +118,16 @@ func TestSend_AtomicRollback_NumberNotConsumed(t *testing.T) {
 	//    row means Send will attempt to re-insert a quantity=0 line and hit the constraint.
 	invB := draftInvoice(tenantID, oneValidLine())
 	require.NoError(t, repo.Create(ctx, invB))
+	// The CHECK is enforced on UPDATE too, so drop it to plant the invalid value, then re-add
+	// it NOT VALID: the existing bad row is not re-scanned, but Send's fresh line INSERT is.
 	_, err := superPool.Exec(context.Background(),
+		`ALTER TABLE finance_invoice_lines DROP CONSTRAINT chk_invoice_lines_quantity`)
+	require.NoError(t, err)
+	_, err = superPool.Exec(context.Background(),
 		`UPDATE finance_invoice_lines SET quantity = '0' WHERE invoice_id = $1`, invB.ID)
+	require.NoError(t, err)
+	_, err = superPool.Exec(context.Background(),
+		`ALTER TABLE finance_invoice_lines ADD CONSTRAINT chk_invoice_lines_quantity CHECK (quantity > 0) NOT VALID`)
 	require.NoError(t, err)
 
 	// 3) Send B → must fail (constraint violation during the coupled transaction).
