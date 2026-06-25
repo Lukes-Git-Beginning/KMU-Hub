@@ -483,9 +483,14 @@ fi
 # ==========================================
 section "Berichte"
 
-if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+# Berichte (reports) endpoints are admin-scoped: berichte:reports is granted to
+# the admin role only (migration 000080). The bootstrapped smoke user is a
+# 'manager', which by design carries no berichte:reports claim and would 403
+# here. Assert the admin read path with SMOKE_ADMIN_TOKEN instead.
+BERICHTE_TOKEN="${SMOKE_ADMIN_TOKEN:-}"
+if [[ -n "$BERICHTE_TOKEN" && "$BERICHTE_TOKEN" != "null" ]]; then
     DEFS_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/v1/berichte/definitions" \
-        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo $'\n000')
+        -H "Authorization: Bearer $BERICHTE_TOKEN" 2>/dev/null || echo $'\n000')
     DEFS_CODE=$(echo "$DEFS_RESP" | tail -1)
     DEFS_BODY=$(echo "$DEFS_RESP" | sed '$d')
 
@@ -503,7 +508,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
             RUN_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
                 "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/run" \
                 -H "Content-Type: application/json" \
-                -H "Authorization: Bearer $SMOKE_TOKEN" \
+                -H "Authorization: Bearer $BERICHTE_TOKEN" \
                 -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
                 -d '{}' 2>/dev/null || echo "000")
             if [[ "$RUN_CODE" == "200" ]]; then
@@ -516,7 +521,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
             EXPORT_MIME=$(curl -s -o /dev/null -w "%{content_type}" -X POST \
                 "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/export?format=pdf" \
                 -H "Content-Type: application/json" \
-                -H "Authorization: Bearer $SMOKE_TOKEN" \
+                -H "Authorization: Bearer $BERICHTE_TOKEN" \
                 -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
                 -d '{}' 2>/dev/null || echo "")
             if [[ "$EXPORT_MIME" == application/pdf* ]]; then
@@ -534,7 +539,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
         fail "GET /berichte/definitions returned $DEFS_CODE" "$DEFS_BODY"
     fi
 else
-    fail "Berichte checks skipped (no auth)" ""
+    echo "  [SKIP] Berichte checks — SMOKE_ADMIN_TOKEN not set (berichte is admin-scoped)"
 fi
 
 # ==========================================
