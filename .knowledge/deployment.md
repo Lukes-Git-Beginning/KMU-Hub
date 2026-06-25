@@ -99,9 +99,9 @@ Datei: `deploy/docker/docker-compose.yml`
 - **Trigger:** `workflow_run` (nach erfolgreichem `ci.yml` auf main) + `workflow_dispatch` (manuell, mit optional `skip_backup`)
 - **Concurrency-Group:** `production` — parallele Deploys werden abgebrochen (`cancel-in-progress: false`, neuere warten)
 - **Environment:** `production` (GitHub Environment Protection)
-- SSH auf Hetzner-Server, fuehrt `deploy.sh` aus
-- Post-Deploy: Remote Health Check via curl gegen `https://app.zentria.tech/health` + Slack-Notify bei Erfolg/Fehler
-- **Secret:** `HETZNER_SSH_KEY`, `ALERT_WEBHOOK_URL` (Discord-Webhook im Slack-Compat-Mode, siehe Alertmanager-Block unten)
+- **Self-hosted Runner seit 2026-06-25** (`runs-on: [self-hosted, kmuhub-prod]`, Commit `523b9fe7`): CD laeuft direkt auf dem Hetzner-Prod-Host (`kmuhub-prod-runner`, systemd-Service `actions.runner.Lukes-Git-Beginning-KMU-Hub.kmuhub-prod-runner` als `deploy`-User, `enabled` = ueberlebt Reboots). **Kein SSH-Hop, kein checkout mehr** — der Job macht `cd /opt/kmuhub && sudo GIT_SSH_COMMAND=... bash deploy/scripts/deploy.sh --force`. Spart ~17 abgerechnete GitHub-Minuten/Deploy (self-hosted zaehlt nicht gegen das Kontingent). **Nur cd.yml** nutzt das Label; CI/nightly/scans/ci-desktop bleiben auf `ubuntu-latest`. Erster gruener self-hosted Deploy: Run `28193042584`, Code `7189cbdd`. **Fallback** wenn Runner offline: manuelles `deploy.sh` auf dem Server (Job queued sonst bis 40min-Timeout). Runner-Verzeichnis: `/home/deploy/actions-runner/`. Re-register via `gh api -X POST repos/.../actions/runners/registration-token` → `./config.sh`.
+- Post-Deploy: Health Check via curl gegen `https://app.zentria.tech/health` + Discord-Notify bei Erfolg/Fehler
+- **Secret:** `ALERT_WEBHOOK_URL` (Discord-Webhook im Slack-Compat-Mode, siehe Alertmanager-Block unten). `HETZNER_SSH_KEY` seit der self-hosted-Umstellung **nicht mehr genutzt** (bleibt als Fallback fuer manuellen SSH-Deploy im Repo).
 
 ## Deploy Scripts (`deploy/scripts/`)
 
