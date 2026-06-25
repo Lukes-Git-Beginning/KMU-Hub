@@ -15,8 +15,8 @@ func TestDocumentFolderFlow(t *testing.T) {
 
 	var folderID string
 
-	// Create folder. The gateway writes the folder object at the top level
-	// of the response (no {"folder": ...} envelope).
+	// Create folder. The gateway wraps the folder object in a {"folder": ...}
+	// envelope (canonical wire shape).
 	t.Run("create_folder", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/documents/folders", map[string]interface{}{
 			"name":       "E2E Test Folder",
@@ -24,8 +24,9 @@ func TestDocumentFolderFlow(t *testing.T) {
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
-		var folder map[string]interface{}
-		decodeBody(t, body, &folder)
+		var wrapper map[string]interface{}
+		decodeBody(t, body, &wrapper)
+		folder, _ := wrapper["folder"].(map[string]interface{})
 
 		id, ok := folder["id"].(string)
 		if !ok || id == "" {
@@ -39,8 +40,9 @@ func TestDocumentFolderFlow(t *testing.T) {
 		resp, body := getJSON(t, base+"/api/v1/documents/folders/"+folderID, token)
 		requireStatus(t, resp, body, http.StatusOK)
 
-		var folder map[string]interface{}
-		decodeBody(t, body, &folder)
+		var wrapper map[string]interface{}
+		decodeBody(t, body, &wrapper)
+		folder, _ := wrapper["folder"].(map[string]interface{})
 
 		if folder["name"] != "E2E Test Folder" {
 			t.Fatalf("expected folder name, got %v", folder["name"])
@@ -63,8 +65,9 @@ func TestDocumentFolderFlow(t *testing.T) {
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
-		var folder map[string]interface{}
-		decodeBody(t, body, &folder)
+		var wrapper map[string]interface{}
+		decodeBody(t, body, &wrapper)
+		folder, _ := wrapper["folder"].(map[string]interface{})
 
 		id, ok := folder["id"].(string)
 		if !ok || id == "" {
