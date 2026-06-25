@@ -151,6 +151,10 @@ tags:
     description: Contract management (parties, reminders, digital signatures, export)
   - name: mails
     description: Email account management, IMAP sync, message operations, signatures, CRM links, contact import/export
+  - name: inventar
+    description: Inventory management (items, stock movements, low-stock warnings, locations, stocktake sessions)
+  - name: vermietung
+    description: Rental management (rental objects, rentals, inspections, availability checks, calendar, export)
 
 paths:
   /health:
@@ -16515,6 +16519,1922 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # --- Dialer ---
+  # All endpoints below use response.Proto (protojson, UseProtoNames → snake_case,
+  # UseEnumNumbers → integer enums, EmitUnpopulated=false → optional fields omitted).
+  # Timestamps are RFC3339 strings. GET /api/v1/dialer/supervisor and
+  # GET /api/v1/dialer/contacts/{id}/calls are already specced above.
+
+  /api/v1/dialer/campaigns:
+    get:
+      summary: List dialer campaigns
+      tags: [dialer]
+      operationId: listDialerCampaigns
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - name: status_filter
+          in: query
+          description: "Filter by CampaignStatus integer: 0=UNSPECIFIED 1=DRAFT 2=ACTIVE 3=PAUSED 4=COMPLETED 5=ARCHIVED"
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paginated campaign list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaigns:
+                    type: array
+                    items: { $ref: "#/components/schemas/DialerCampaign" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a campaign
+      tags: [dialer]
+      operationId: createDialerCampaign
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, mode]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                mode:
+                  type: integer
+                  description: "CampaignMode integer: 0=UNSPECIFIED 1=PREVIEW 2=POWER 3=PREDICTIVE"
+                assigned_agent_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                settings: { type: string, description: "JSON-encoded campaign settings (wrap-up timeout, retry rules)" }
+      responses:
+        "201":
+          description: Campaign created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCampaign" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/dialer/campaigns/{id}:
+    get:
+      summary: Get a campaign by ID
+      tags: [dialer]
+      operationId: getDialerCampaign
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Campaign
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCampaign" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Update a campaign
+      tags: [dialer]
+      operationId: updateDialerCampaign
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                assigned_agent_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                settings: { type: string, description: "JSON-encoded campaign settings" }
+      responses:
+        "200":
+          description: Campaign updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCampaign" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Archive a campaign
+      tags: [dialer]
+      operationId: archiveDialerCampaign
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Campaign archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: campaign archived }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/campaigns/{id}/start:
+    post:
+      summary: Start a campaign
+      tags: [dialer]
+      operationId: startDialerCampaign
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Campaign started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCampaign" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/campaigns/{id}/pause:
+    post:
+      summary: Pause a campaign
+      tags: [dialer]
+      operationId: pauseDialerCampaign
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Campaign paused
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCampaign" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/campaigns/{id}/contacts:
+    post:
+      summary: Add contacts to a campaign
+      tags: [dialer]
+      operationId: addContactsToDialerCampaign
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contact_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: Explicit contact UUIDs to add
+                filter_id:
+                  type: string
+                  format: uuid
+                  description: Saved filter ID (alternative to contact_ids)
+      responses:
+        "200":
+          description: Contacts added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added_count: { type: integer }
+                  skipped_count: { type: integer, description: "Contacts already in this campaign" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    get:
+      summary: List contacts in a campaign
+      tags: [dialer]
+      operationId: listDialerCampaignContacts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - name: status_filter
+          in: query
+          description: "CampaignContactStatus integer: 0=UNSPECIFIED 1=PENDING 2=IN_PROGRESS 3=COMPLETED 4=SKIPPED 5=CALLBACK"
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paginated campaign contacts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contacts:
+                    type: array
+                    items: { $ref: "#/components/schemas/DialerCampaignContact" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/campaigns/{id}/next:
+    get:
+      summary: Get next contact for agent
+      description: Returns the next pending campaign contact for the calling agent (or an explicit agent_id). Used to drive the preview/power dialer queue.
+      tags: [dialer]
+      operationId: getDialerNextContact
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - name: agent_id
+          in: query
+          description: Agent user UUID; defaults to the authenticated user
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Next campaign contact
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCampaignContact" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/campaigns/{id}/contacts/{cid}/skip:
+    post:
+      summary: Skip a campaign contact
+      tags: [dialer]
+      operationId: skipDialerCampaignContact
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: cid, in: path, required: true, description: "Campaign contact UUID", schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Contact skipped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: contact skipped }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/campaigns/{id}/contacts/{cid}/requeue:
+    post:
+      summary: Requeue a skipped campaign contact
+      tags: [dialer]
+      operationId: requeueDialerCampaignContact
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: cid, in: path, required: true, description: "Campaign contact UUID", schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Contact requeued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: contact requeued }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/campaigns/{id}/dashboard:
+    get:
+      summary: Campaign dashboard statistics
+      tags: [dialer]
+      operationId: getDialerCampaignDashboard
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Campaign dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCampaignDashboard" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/calls:
+    post:
+      summary: Initiate a dialer call session
+      tags: [dialer]
+      operationId: initiateDialerCall
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaign_contact_id]
+              properties:
+                campaign_contact_id: { type: string, format: uuid }
+                agent_id: { type: string, format: uuid, description: "Defaults to authenticated user" }
+                call_session_id: { type: string, format: uuid, description: "LiveKit call session UUID, if pre-created via VideoService" }
+      responses:
+        "201":
+          description: Dialer call session created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCallSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/dialer/calls/{id}/outcome:
+    post:
+      summary: Log call outcome
+      tags: [dialer]
+      operationId: logDialerCallOutcome
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, description: "Dialer call session UUID", schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome_id]
+              properties:
+                outcome_id: { type: string, format: uuid }
+                notes: { type: string }
+                next_action: { type: string }
+                callback_at: { type: string, format: date-time, description: "RFC3339 timestamp for scheduled callback" }
+                appointment_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Outcome logged; updated call session returned
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCallSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/calls/{id}/notes:
+    put:
+      summary: Save call notes
+      tags: [dialer]
+      operationId: saveDialerCallNotes
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, description: "Dialer call session UUID", schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [notes]
+              properties:
+                notes: { type: string }
+      responses:
+        "200":
+          description: Notes saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: notes saved }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/calls/{id}/complete:
+    post:
+      summary: Complete wrap-up for a call session
+      tags: [dialer]
+      operationId: completeDialerCallWrapUp
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, description: "Dialer call session UUID", schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agent_id: { type: string, format: uuid, description: "Defaults to authenticated user" }
+      responses:
+        "200":
+          description: Wrap-up completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: wrap-up completed }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/agent-status:
+    get:
+      summary: Get agent dialer status
+      tags: [dialer]
+      operationId: getDialerAgentStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: user_id
+          in: query
+          description: User UUID; defaults to the authenticated user
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Agent status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerAgentStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      summary: Set agent dialer status
+      tags: [dialer]
+      operationId: setDialerAgentStatus
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                user_id: { type: string, format: uuid, description: "Defaults to authenticated user" }
+                status:
+                  type: integer
+                  description: "AgentDialerStatus integer: 0=UNSPECIFIED 1=AVAILABLE 2=ON_CALL 3=WRAP_UP 4=BREAK 5=OFFLINE"
+                campaign_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Agent status updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerAgentStatus" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/dialer/agent-status/campaign/{campaignId}:
+    get:
+      summary: Get all agent statuses for a campaign
+      tags: [dialer]
+      operationId: getDialerCampaignAgents
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Agent statuses for the campaign
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/DialerAgentStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/outcomes:
+    get:
+      summary: List call outcomes
+      tags: [dialer]
+      operationId: listDialerCallOutcomes
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: include_inactive
+          in: query
+          description: When true, include inactive outcomes (default active-only)
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: List of call outcomes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outcomes:
+                    type: array
+                    items: { $ref: "#/components/schemas/DialerCallOutcome" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a call outcome
+      tags: [dialer]
+      operationId: createDialerCallOutcome
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string }
+                color: { type: string, description: "Hex color string, e.g. #4CAF50" }
+                is_positive: { type: boolean }
+                is_callback: { type: boolean }
+                is_appointment: { type: boolean }
+                sort_order: { type: integer }
+      responses:
+        "201":
+          description: Call outcome created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCallOutcome" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/dialer/outcomes/{id}:
+    put:
+      summary: Update a call outcome
+      tags: [dialer]
+      operationId: updateDialerCallOutcome
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string }
+                color: { type: string }
+                is_positive: { type: boolean }
+                is_callback: { type: boolean }
+                is_appointment: { type: boolean }
+                sort_order: { type: integer }
+                is_active: { type: boolean }
+      responses:
+        "200":
+          description: Call outcome updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerCallOutcome" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a call outcome
+      tags: [dialer]
+      operationId: deleteDialerCallOutcome
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Outcome deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: outcome deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/dialer/dashboard/agent:
+    get:
+      summary: Agent dashboard statistics
+      tags: [dialer]
+      operationId: getDialerAgentDashboard
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: agent_id
+          in: query
+          description: Agent user UUID; defaults to the authenticated user
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Agent dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DialerAgentDashboard" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # --- Inventar ---
+
+  /api/v1/inventar/items:
+    get:
+      summary: List inventory items
+      tags: [inventar]
+      operationId: listInventarItems
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: location, in: query, schema: { type: string } }
+        - { name: low_stock, in: query, schema: { type: boolean }, description: "Filter to items below min_quantity" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated item list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventarItem" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create an inventory item
+      tags: [inventar]
+      operationId: createInventarItem
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, sku]
+              properties:
+                name: { type: string }
+                sku: { type: string }
+                barcode: { type: string }
+                quantity: { type: integer, format: int64, minimum: 0 }
+                min_quantity: { type: integer, format: int64, minimum: 0 }
+                unit: { type: string }
+                location: { type: string }
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/InventarItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventar/items/{id}:
+    get:
+      summary: Get an inventory item by ID
+      tags: [inventar]
+      operationId: getInventarItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Inventory item
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/InventarItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update an inventory item
+      tags: [inventar]
+      operationId: updateInventarItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                sku: { type: string }
+                barcode: { type: string }
+                min_quantity: { type: integer, format: int64, minimum: 0 }
+                unit: { type: string }
+                location: { type: string }
+      responses:
+        "200":
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/InventarItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete an inventory item
+      tags: [inventar]
+      operationId: deleteInventarItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Item deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/items/{id}/adjust:
+    post:
+      summary: Adjust stock quantity for an item
+      tags: [inventar]
+      operationId: adjustInventarStock
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delta, reason]
+              properties:
+                delta:
+                  type: integer
+                  format: int64
+                  description: "Positive = stock in, negative = stock out"
+                performed_by: { type: string, format: uuid }
+                reason: { type: string }
+      responses:
+        "200":
+          description: Updated item after stock adjustment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/InventarItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/items/{id}/movements:
+    get:
+      summary: List movements for an item
+      tags: [inventar]
+      operationId: listInventarItemMovements
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated movement list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  movements:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventarMovement" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Record a stock movement for an item
+      tags: [inventar]
+      operationId: recordInventarMovement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [movement_type, quantity, reason]
+              properties:
+                movement_type:
+                  type: string
+                  enum: [in, out, adjustment]
+                  description: "Allowed values: in, out, adjustment (transfer via POST /transfer)"
+                quantity: { type: integer, format: int64, minimum: 1 }
+                performed_by: { type: string, format: uuid }
+                reason: { type: string }
+      responses:
+        "201":
+          description: Movement recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  movement: { $ref: "#/components/schemas/InventarMovement" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/items/{id}/history:
+    get:
+      summary: Get stock history for an item
+      tags: [inventar]
+      operationId: getInventarStockHistory
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated stock history (movements)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  movements:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventarMovement" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/transfer:
+    post:
+      summary: Transfer stock between two items
+      tags: [inventar]
+      operationId: transferInventarStock
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_item_id, to_item_id, quantity]
+              properties:
+                from_item_id: { type: string, format: uuid }
+                to_item_id: { type: string, format: uuid }
+                quantity: { type: integer, format: int64, minimum: 1 }
+                performed_by: { type: string, format: uuid }
+                reason: { type: string }
+      responses:
+        "204":
+          description: Transfer completed
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventar/warnings:
+    get:
+      summary: List stock warnings
+      tags: [inventar]
+      operationId: listInventarWarnings
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, acknowledged, resolved]
+          description: "Filter by warning status"
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated warning list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warnings:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventarWarning" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a stock warning
+      tags: [inventar]
+      operationId: createInventarWarning
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_id, threshold, current_quantity]
+              properties:
+                item_id: { type: string, format: uuid }
+                threshold: { type: integer, format: int64, minimum: 1 }
+                current_quantity: { type: integer, format: int64, minimum: 0 }
+      responses:
+        "201":
+          description: Warning created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warning: { $ref: "#/components/schemas/InventarWarning" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventar/warnings/{id}:
+    patch:
+      summary: Update a stock warning
+      tags: [inventar]
+      operationId: updateInventarWarning
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [active, acknowledged, resolved]
+      responses:
+        "200":
+          description: Updated warning
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warning: { $ref: "#/components/schemas/InventarWarning" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/warnings/{id}/acknowledge:
+    post:
+      summary: Acknowledge a stock warning
+      tags: [inventar]
+      operationId: acknowledgeInventarWarning
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                acknowledged_by:
+                  type: string
+                  format: uuid
+                  description: "UUID of acknowledging user; falls back to authenticated user if omitted"
+      responses:
+        "200":
+          description: Acknowledged warning
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warning: { $ref: "#/components/schemas/InventarWarning" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/report:
+    get:
+      summary: Get aggregated stock report
+      tags: [inventar]
+      operationId: getInventarStockReport
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Stock report summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_items:
+                    type: integer
+                    description: "Total number of distinct items"
+                  total_quantity:
+                    type: integer
+                    format: int64
+                    description: "Sum of all item quantities"
+                  low_stock_count:
+                    type: integer
+                    description: "Number of items below min_quantity"
+                  active_warnings:
+                    type: integer
+                    description: "Number of warnings with status=active"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventar/export:
+    get:
+      summary: Export inventory as file
+      tags: [inventar]
+      operationId: exportInventar
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: csv
+          description: "Export format; currently only csv is supported"
+      responses:
+        "200":
+          description: Binary file download
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              description: "attachment; filename=inventar.csv"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventar/locations:
+    get:
+      summary: List inventory locations
+      tags: [inventar]
+      operationId: listInventarLocations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated location list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locations:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventarLocation" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create an inventory location
+      tags: [inventar]
+      operationId: createInventarLocation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                address: { type: string }
+                type:
+                  type: string
+                  enum: [warehouse, store, vehicle]
+      responses:
+        "201":
+          description: Location created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location: { $ref: "#/components/schemas/InventarLocation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventar/locations/{id}:
+    get:
+      summary: Get an inventory location by ID
+      tags: [inventar]
+      operationId: getInventarLocation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Inventory location
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location: { $ref: "#/components/schemas/InventarLocation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update an inventory location
+      tags: [inventar]
+      operationId: updateInventarLocation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                address: { type: string }
+                type:
+                  type: string
+                  enum: [warehouse, store, vehicle]
+      responses:
+        "200":
+          description: Updated location
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location: { $ref: "#/components/schemas/InventarLocation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete an inventory location
+      tags: [inventar]
+      operationId: deleteInventarLocation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Location deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/inventur:
+    get:
+      summary: List Inventur sessions
+      tags: [inventar]
+      operationId: listInventurSessions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated Inventur session list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items: { $ref: "#/components/schemas/InventarInventurSession" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create an Inventur session
+      tags: [inventar]
+      operationId: createInventurSession
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                date:
+                  type: string
+                  description: "Date string in YYYY-MM-DD format"
+                location_id: { type: string, format: uuid }
+                item_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Inventur session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: "#/components/schemas/InventarInventurSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventar/inventur/{id}:
+    get:
+      summary: Get an Inventur session by ID
+      tags: [inventar]
+      operationId: getInventurSession
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Inventur session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: "#/components/schemas/InventarInventurSession" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete an Inventur session
+      tags: [inventar]
+      operationId: deleteInventurSession
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Inventur session deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/inventur/{id}/status:
+    patch:
+      summary: Update Inventur session status
+      tags: [inventar]
+      operationId: updateInventurSessionStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [open, counting, review, completed]
+      responses:
+        "200":
+          description: Updated Inventur session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: "#/components/schemas/InventarInventurSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/inventur/{id}/counts:
+    post:
+      summary: Upsert an Inventur count entry
+      tags: [inventar]
+      operationId: upsertInventurCount
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_id, counted]
+              properties:
+                item_id: { type: string, format: uuid }
+                counted: { type: integer, format: int64, minimum: 0 }
+      responses:
+        "200":
+          description: Count upserted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { $ref: "#/components/schemas/InventarInventurCount" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/inventur/{id}/book:
+    post:
+      summary: Book Inventur differences to stock
+      tags: [inventar]
+      operationId: bookInventurDifferences
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                booked_by:
+                  type: string
+                  format: uuid
+                  description: "UUID of user booking the differences; optional"
+      responses:
+        "200":
+          description: Inventur session after booking
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: "#/components/schemas/InventarInventurSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # --- Vermietung ---
+
+  /api/v1/vermietung/objects:
+    get:
+      summary: List rental objects
+      tags: [vermietung]
+      operationId: listVermietungObjects
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: active_only, in: query, schema: { type: boolean } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated rental object list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  objects:
+                    type: array
+                    items: { $ref: "#/components/schemas/VermietungRentalObject" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a rental object
+      tags: [vermietung]
+      operationId: createVermietungObject
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, daily_rate, deposit]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                category: { type: string }
+                daily_rate: { type: number, format: double, minimum: 0, exclusiveMinimum: true }
+                deposit: { type: number, format: double, minimum: 0 }
+                location: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Rental object created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { $ref: "#/components/schemas/VermietungRentalObject" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/vermietung/objects/{id}:
+    get:
+      summary: Get a rental object by ID
+      tags: [vermietung]
+      operationId: getVermietungObject
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Rental object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { $ref: "#/components/schemas/VermietungRentalObject" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a rental object
+      tags: [vermietung]
+      operationId: updateVermietungObject
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                category: { type: string }
+                daily_rate: { type: number, format: double }
+                deposit: { type: number, format: double }
+                location: { type: string }
+                notes: { type: string }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Rental object updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { $ref: "#/components/schemas/VermietungRentalObject" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a rental object
+      tags: [vermietung]
+      operationId: deleteVermietungObject
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Rental object deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/objects/{id}/availability:
+    get:
+      summary: Check availability of a rental object
+      tags: [vermietung]
+      operationId: checkVermietungAvailability
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: start_date, in: query, required: true, schema: { type: string }, description: "RFC3339 timestamp" }
+        - { name: end_date, in: query, required: true, schema: { type: string }, description: "RFC3339 timestamp" }
+        - { name: exclude_rental_id, in: query, schema: { type: string, format: uuid }, description: "Exclude this rental ID from conflict detection (use when editing an existing rental)" }
+      responses:
+        "200":
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: { type: boolean }
+                  conflicting_rentals:
+                    type: array
+                    items: { $ref: "#/components/schemas/VermietungRental" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/rentals:
+    get:
+      summary: List rentals
+      tags: [vermietung]
+      operationId: listVermietungRentals
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: object_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [reserved, active, completed, cancelled] } }
+        - { name: from, in: query, schema: { type: string }, description: "RFC3339 timestamp — filter start_date >= from" }
+        - { name: to, in: query, schema: { type: string }, description: "RFC3339 timestamp — filter start_date <= to" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated rental list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rentals:
+                    type: array
+                    items: { $ref: "#/components/schemas/VermietungRental" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a rental
+      tags: [vermietung]
+      operationId: createVermietungRental
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [object_id, renter_name, start_date, end_date]
+              properties:
+                object_id: { type: string, format: uuid }
+                contact_id: { type: string, format: uuid }
+                renter_name: { type: string }
+                start_date: { type: string, description: "RFC3339 timestamp" }
+                end_date: { type: string, description: "RFC3339 timestamp" }
+                total_price: { type: number, format: double, minimum: 0 }
+                deposit_paid: { type: boolean }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Rental created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rental: { $ref: "#/components/schemas/VermietungRental" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/vermietung/rentals/{id}:
+    get:
+      summary: Get a rental by ID
+      tags: [vermietung]
+      operationId: getVermietungRental
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Rental
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rental: { $ref: "#/components/schemas/VermietungRental" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a rental
+      tags: [vermietung]
+      operationId: updateVermietungRental
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                renter_name: { type: string }
+                start_date: { type: string, description: "RFC3339 timestamp" }
+                end_date: { type: string, description: "RFC3339 timestamp" }
+                total_price: { type: number, format: double }
+                deposit_paid: { type: boolean }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Rental updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rental: { $ref: "#/components/schemas/VermietungRental" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a rental
+      tags: [vermietung]
+      operationId: deleteVermietungRental
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Rental deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/rentals/{id}/start:
+    post:
+      summary: Start a rental (transition to active)
+      tags: [vermietung]
+      operationId: startVermietungRental
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Rental started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rental: { $ref: "#/components/schemas/VermietungRental" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/rentals/{id}/end:
+    post:
+      summary: End a rental (transition to completed)
+      tags: [vermietung]
+      operationId: endVermietungRental
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Rental ended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rental: { $ref: "#/components/schemas/VermietungRental" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/rentals/{id}/signature:
+    put:
+      summary: Save rental signature
+      tags: [vermietung]
+      operationId: saveVermietungRentalSignature
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signature_data, signed_by]
+              properties:
+                signature_data: { type: string, description: "data:image/png;base64,... or data:image/svg+xml;base64,..." }
+                signed_by: { type: string }
+      responses:
+        "200":
+          description: Signature saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rental: { $ref: "#/components/schemas/VermietungRental" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/rentals/{id}/inspections:
+    get:
+      summary: List inspections for a rental
+      tags: [vermietung]
+      operationId: listVermietungInspections
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated inspection list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inspections:
+                    type: array
+                    items: { $ref: "#/components/schemas/VermietungRentalInspection" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create an inspection for a rental
+      tags: [vermietung]
+      operationId: createVermietungInspection
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind: { type: string, enum: [handover, return] }
+                notes: { type: string }
+                photo_urls:
+                  type: array
+                  items: { type: string, format: uri }
+                performed_by: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Inspection created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inspection: { $ref: "#/components/schemas/VermietungRentalInspection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/inspections/{id}:
+    get:
+      summary: Get an inspection by ID
+      tags: [vermietung]
+      operationId: getVermietungInspection
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Inspection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inspection: { $ref: "#/components/schemas/VermietungRentalInspection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update an inspection
+      tags: [vermietung]
+      operationId: updateVermietungInspection
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: { type: string }
+                photo_urls:
+                  type: array
+                  items: { type: string, format: uri }
+      responses:
+        "200":
+          description: Inspection updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inspection: { $ref: "#/components/schemas/VermietungRentalInspection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vermietung/calendar:
+    get:
+      summary: Get rental calendar for a month
+      tags: [vermietung]
+      operationId: getVermietungCalendar
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: year, in: query, schema: { type: integer }, description: "Calendar year (e.g. 2026)" }
+        - { name: month, in: query, schema: { type: integer, minimum: 1, maximum: 12 }, description: "Calendar month (1-12)" }
+      responses:
+        "200":
+          description: Calendar entries for the requested month
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/VermietungCalendarEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/vermietung/export:
+    get:
+      summary: Export rental report
+      tags: [vermietung]
+      operationId: exportVermietungRentalReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: format, in: query, schema: { type: string, enum: [csv], default: csv }, description: "Export format (default: csv)" }
+      responses:
+        "200":
+          description: Binary export file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -23606,6 +25526,614 @@ components:
           description: Base64-encoded file content (CSV or vCard depending on endpoint)
         filename:
           type: string
+
+    # --- Dialer Schemas ---
+    # Wire shape: response.Proto / protojson (UseProtoNames → snake_case,
+    # UseEnumNumbers → integer enums, EmitUnpopulated=false → optional fields omitted).
+    # Timestamps are RFC3339 strings (protojson well-known type handling).
+    # Existing schemas (SupervisorOverview, SupervisorAgent, RecentCall,
+    # SupervisorTotals, ContactCall) are already defined above — referenced via $ref.
+
+    DialerCampaign:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          description: Present only when set
+        status:
+          type: integer
+          description: "CampaignStatus integer (UseEnumNumbers): 0=UNSPECIFIED 1=DRAFT 2=ACTIVE 3=PAUSED 4=COMPLETED 5=ARCHIVED"
+        mode:
+          type: integer
+          description: "CampaignMode integer: 0=UNSPECIFIED 1=PREVIEW 2=POWER 3=PREDICTIVE"
+        settings:
+          type: string
+          description: "JSON-encoded campaign settings (wrap-up timeout, retry rules). Omitted when unset."
+        created_by:
+          type: string
+          format: uuid
+        assigned_agent_ids:
+          type: array
+          items: { type: string, format: uuid }
+        contact_count:
+          type: integer
+        completed_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          description: Omitted when not yet started
+        completed_at:
+          type: string
+          format: date-time
+          description: Omitted when not yet completed
+
+    DialerCampaignContact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          description: Queue position within the campaign
+        status:
+          type: integer
+          description: "CampaignContactStatus integer: 0=UNSPECIFIED 1=PENDING 2=IN_PROGRESS 3=COMPLETED 4=SKIPPED 5=CALLBACK"
+        outcome_id:
+          type: string
+          format: uuid
+          description: Omitted when no outcome logged yet
+        notes:
+          type: string
+          description: Omitted when empty
+        callback_at:
+          type: string
+          format: date-time
+          description: Omitted when no callback scheduled
+        last_called_at:
+          type: string
+          format: date-time
+          description: Omitted when never called
+        call_count:
+          type: integer
+        contact_name:
+          type: string
+          description: Denormalized from contact record
+        contact_phone:
+          type: string
+        contact_company:
+          type: string
+          description: Omitted when contact has no company
+
+    DialerCallSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaign_contact_id:
+          type: string
+          format: uuid
+        call_session_id:
+          type: string
+          format: uuid
+          description: "FK to LiveKit video call_sessions. Present only when call was routed via LiveKit."
+        agent_id:
+          type: string
+          format: uuid
+        outcome_id:
+          type: string
+          format: uuid
+          description: Omitted until outcome is logged
+        duration_seconds:
+          type: integer
+          description: Omitted until call completes
+        notes:
+          type: string
+          description: Omitted when empty
+        next_action:
+          type: string
+          description: Free-text next-action note; omitted when empty
+        appointment_id:
+          type: string
+          format: uuid
+          description: Omitted when no appointment was created
+        created_at:
+          type: string
+          format: date-time
+        wrap_up_completed_at:
+          type: string
+          format: date-time
+          description: Omitted until wrap-up is completed
+
+    DialerAgentStatus:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: integer
+          description: "AgentDialerStatus integer: 0=UNSPECIFIED 1=AVAILABLE 2=ON_CALL 3=WRAP_UP 4=BREAK 5=OFFLINE"
+        campaign_id:
+          type: string
+          format: uuid
+          description: Present only while assigned to a campaign
+        since:
+          type: string
+          format: date-time
+          description: Timestamp when the agent entered the current status
+        first_name:
+          type: string
+          description: Denormalized from user record
+        last_name:
+          type: string
+
+    DialerCallOutcome:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        color:
+          type: string
+          description: "Hex color string, e.g. #4CAF50"
+        is_positive:
+          type: boolean
+        is_callback:
+          type: boolean
+        is_appointment:
+          type: boolean
+        sort_order:
+          type: integer
+        is_active:
+          type: boolean
+
+    DialerOutcomeCount:
+      type: object
+      description: Per-outcome call count aggregation, used in dashboard breakdowns
+      properties:
+        outcome_id:
+          type: string
+          format: uuid
+        outcome_label:
+          type: string
+        outcome_color:
+          type: string
+        count:
+          type: integer
+
+    DialerCampaignDashboard:
+      type: object
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+        total_contacts:
+          type: integer
+        completed_contacts:
+          type: integer
+        pending_contacts:
+          type: integer
+        skipped_contacts:
+          type: integer
+        callback_contacts:
+          type: integer
+        total_calls:
+          type: integer
+        positive_calls:
+          type: integer
+        average_duration_seconds:
+          type: number
+          format: float
+        calls_per_hour:
+          type: number
+          format: float
+        outcome_breakdown:
+          type: array
+          items: { $ref: "#/components/schemas/DialerOutcomeCount" }
+
+    DialerAgentDashboard:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        total_calls_today:
+          type: integer
+        average_duration_seconds:
+          type: number
+          format: float
+        calls_per_hour:
+          type: number
+          format: float
+        outcome_breakdown:
+          type: array
+          items: { $ref: "#/components/schemas/DialerOutcomeCount" }
+        active_campaign_id:
+          type: string
+          format: uuid
+          description: Omitted when agent has no active campaign
+        active_campaign_name:
+          type: string
+          description: Omitted when agent has no active campaign
+
+    # --- Inventar Schemas ---
+
+    InventarItem:
+      type: object
+      description: An inventory item tracked in the Inventar module.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sku:
+          type: string
+        barcode:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+          format: int64
+          description: "Current stock quantity"
+        min_quantity:
+          type: integer
+          format: int64
+          description: "Minimum stock threshold; below this triggers a warning"
+        unit:
+          type: string
+          description: "Unit of measure (e.g. Stk, kg, m)"
+        location:
+          type: string
+          nullable: true
+          description: "Free-text location label"
+        location_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "Reference to an InventarLocation"
+        category:
+          type: string
+          nullable: true
+        price:
+          type: number
+          format: double
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+          description: "ISO 4217 currency code (e.g. EUR)"
+        batch_number:
+          type: string
+          nullable: true
+        serial_numbers:
+          type: array
+          items: { type: string }
+        linked_purchase_order:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InventarMovement:
+      type: object
+      description: A stock movement record (in, out, adjustment, or transfer).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        movement_type:
+          type: string
+          enum: [in, out, adjustment, transfer]
+          description: "Type of movement: in=stock receipt, out=stock issue, adjustment=manual correction, transfer=inter-item transfer"
+        quantity:
+          type: integer
+          format: int64
+        performed_by:
+          type: string
+          format: uuid
+          nullable: true
+        reason:
+          type: string
+        reference:
+          type: string
+          nullable: true
+        location_from:
+          type: string
+          nullable: true
+        location_to:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InventarWarning:
+      type: object
+      description: A low-stock warning for an inventory item.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        threshold:
+          type: integer
+          format: int64
+          description: "Quantity threshold that triggered the warning"
+        current_quantity:
+          type: integer
+          format: int64
+          description: "Quantity at the time the warning was created"
+        status:
+          type: string
+          enum: [active, acknowledged, resolved]
+          description: "Warning lifecycle status"
+        acknowledged_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        acknowledged_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InventarLocation:
+      type: object
+      description: A physical or logical storage location in the Inventar module.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        type:
+          type: string
+          enum: [warehouse, store, vehicle]
+          description: "Location type: warehouse, store, or vehicle"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InventarInventurSession:
+      type: object
+      description: An Inventur (physical stocktake) session.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        date:
+          $ref: "#/components/schemas/ProtoTimestamp"
+          description: "Planned date of the stocktake"
+        status:
+          type: string
+          enum: [open, counting, review, completed]
+          description: "Session lifecycle status"
+        location_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        counts:
+          type: array
+          description: "Count entries for this session"
+          items: { $ref: "#/components/schemas/InventarInventurCount" }
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InventarInventurCount:
+      type: object
+      description: A single item count entry within an Inventur session.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        expected:
+          type: integer
+          format: int64
+          description: "Expected quantity (from current stock record)"
+        counted:
+          type: integer
+          format: int64
+          nullable: true
+          description: "Actual counted quantity; null until counted"
+        counted_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    # --- Vermietung Schemas ---
+
+    VermietungRentalObject:
+      type: object
+      description: A physical object available for rental.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        daily_rate:
+          type: number
+          format: double
+        deposit:
+          type: number
+          format: double
+        location:
+          type: string
+        notes:
+          type: string
+        active:
+          type: boolean
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    VermietungRental:
+      type: object
+      description: A rental booking linking a renter to a rental object for a date range.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        object_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        renter_name:
+          type: string
+        start_date:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        end_date:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        status:
+          type: string
+          description: "reserved | active | completed | cancelled"
+          enum: [reserved, active, completed, cancelled]
+        total_price:
+          type: number
+          format: double
+        deposit_paid:
+          type: boolean
+        notes:
+          type: string
+        signature_data:
+          type: string
+          description: "data:image/png;base64,... or data:image/svg+xml;base64,..."
+        signed_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        signed_by:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    VermietungRentalInspection:
+      type: object
+      description: A handover or return inspection record for a rental.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        rental_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          description: "handover | return"
+          enum: [handover, return]
+        notes:
+          type: string
+        photo_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+        performed_by:
+          type: string
+          format: uuid
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    VermietungCalendarEntry:
+      type: object
+      description: Aggregated calendar view — all rentals for one object within the requested month.
+      properties:
+        object_id:
+          type: string
+          format: uuid
+        object_name:
+          type: string
+        rentals:
+          type: array
+          items: { $ref: "#/components/schemas/VermietungRental" }
 
   responses:
     BadRequest:
