@@ -141,6 +141,10 @@ tags:
     description: Fleet vehicle management (vehicles, services, damages, fuel logs, trip logs, GPS)
   - name: einkauf
     description: Purchasing management (suppliers, purchase orders, lines)
+  - name: security
+    description: Security management (audit, vault, GDPR/DSAR, password policy, IP rules)
+  - name: 2fa
+    description: Two-factor authentication management and admin policy
 
 paths:
   /health:
@@ -13709,6 +13713,1008 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+
+  # --------------------------------------------------------------------------
+  # Sessions
+  # --------------------------------------------------------------------------
+
+  /api/v1/auth/sessions:
+    get:
+      summary: List own active sessions
+      tags: [auth]
+      operationId: listMySessions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Session list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSessionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Terminate all own sessions
+      tags: [auth]
+      operationId: terminateAllSessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: current_session_id
+          in: query
+          description: Keep this session alive (pass current session UUID to avoid self-logout)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: All sessions terminated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/sessions/{id}:
+    delete:
+      summary: Terminate a specific session
+      tags: [auth]
+      operationId: terminateSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Session terminated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/auth/sessions/all:
+    get:
+      summary: List all sessions for a specific user (admin only)
+      tags: [auth]
+      operationId: listAllSessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Session list for the given user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSessionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 2FA — user-facing
+  # --------------------------------------------------------------------------
+
+  /api/v1/auth/2fa/setup:
+    post:
+      summary: Initiate TOTP 2FA setup (returns QR secret)
+      tags: [2fa]
+      operationId: setup2FA
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: TOTP setup data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorSetupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/2fa/verify:
+    post:
+      summary: Confirm TOTP setup with a valid code
+      tags: [2fa]
+      operationId: verify2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Verify2FARequest"
+      responses:
+        "200":
+          description: 2FA enabled; returns recovery codes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/2fa/disable:
+    post:
+      summary: Disable 2FA for the current user
+      tags: [2fa]
+      operationId: disable2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Disable2FARequest"
+      responses:
+        "200":
+          description: 2FA disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/2fa/regenerate-codes:
+    post:
+      summary: Regenerate 2FA recovery codes
+      tags: [2fa]
+      operationId: regenerateRecoveryCodes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegenerateCodesRequest"
+      responses:
+        "200":
+          description: New recovery codes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --------------------------------------------------------------------------
+  # 2FA — admin policy
+  # --------------------------------------------------------------------------
+
+  /api/v1/auth/2fa/policy:
+    get:
+      summary: Get 2FA enforcement policy (admin only)
+      tags: [2fa]
+      operationId: getTwoFactorPolicy
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role_name
+          in: query
+          description: Filter by role (omit to get all roles)
+          schema:
+            type: string
+            enum: [admin, manager, member]
+      responses:
+        "200":
+          description: 2FA policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorPolicyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      summary: Update 2FA enforcement policy for a role (admin only)
+      tags: [2fa]
+      operationId: updateTwoFactorPolicy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTwoFactorPolicyRequest"
+      responses:
+        "200":
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorPolicyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/auth/2fa/admin-reset:
+    post:
+      summary: Admin reset of 2FA for a specific user
+      tags: [2fa]
+      operationId: adminReset2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReset2FARequest"
+      responses:
+        "200":
+          description: 2FA reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # Audit log
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/audit:
+    get:
+      summary: List audit log entries (admin only)
+      tags: [security]
+      operationId: listAuditEntries
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: result
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Paginated audit entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAuditEntriesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/security/audit/export:
+    get:
+      summary: Export audit log as CSV or JSON (admin only)
+      tags: [security]
+      operationId: exportAuditLog
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          description: Export format (csv or json)
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: result
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit log file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/security/audit/verify:
+    post:
+      summary: Verify tamper-evidence chain of audit log (admin only)
+      tags: [security]
+      operationId: verifyAuditChain
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Optional range; omit to verify the full log
+              properties:
+                from_sequence:
+                  type: integer
+                  format: int64
+                to_sequence:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: Chain verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyAuditChainResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # Vault
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/vault:
+    get:
+      summary: List vault secrets (metadata only, no plaintext) (admin only)
+      tags: [security]
+      operationId: listVaultSecrets
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of vault secret metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListVaultSecretsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      summary: Create or update a vault secret (admin only)
+      tags: [security]
+      operationId: setVaultSecret
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetVaultSecretRequest"
+      responses:
+        "200":
+          description: Secret stored; metadata returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultSecretResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/security/vault/{keyName}:
+    get:
+      summary: Get a vault secret (incl. decrypted value) (admin only)
+      tags: [security]
+      operationId: getVaultSecret
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Secret metadata and decrypted value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultSecretValueResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a vault secret (admin only)
+      tags: [security]
+      operationId: deleteVaultSecret
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Secret deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # GDPR — data export
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/gdpr/export:
+    post:
+      summary: Request a personal data export (GDPR Art. 20)
+      tags: [security]
+      operationId: requestGDPRExport
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Export request created; status pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GDPRExportRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/security/gdpr/exports:
+    get:
+      summary: List GDPR export requests (own or all for admin)
+      tags: [security]
+      operationId: listGDPRExports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status (pending, approved, denied, ready, expired)
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: Filter by user (admin only; defaults to caller's own)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of export requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListGDPRExportsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/security/gdpr/exports/{id}/approve:
+    post:
+      summary: Approve a GDPR export request (admin only)
+      tags: [security]
+      operationId: approveGDPRExport
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewExportRequest"
+      responses:
+        "200":
+          description: Export request approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GDPRExportRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/security/gdpr/exports/{id}/deny:
+    post:
+      summary: Deny a GDPR export request (admin only)
+      tags: [security]
+      operationId: denyGDPRExport
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewExportRequest"
+      responses:
+        "200":
+          description: Export request denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GDPRExportRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/security/gdpr/download/{token}:
+    get:
+      summary: Download approved GDPR export archive by one-time token
+      tags: [security]
+      operationId: downloadGDPRExport
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ZIP archive of personal data
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # GDPR — right to erasure
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/gdpr/erasure/preview:
+    post:
+      summary: Preview what would be erased for a user (admin only)
+      tags: [security]
+      operationId: previewErasure
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ErasureUserRequest"
+      responses:
+        "200":
+          description: Per-module erasure preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErasurePreviewResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/security/gdpr/erasure/execute:
+    post:
+      summary: Execute GDPR erasure / anonymisation (admin only)
+      tags: [security]
+      operationId: executeErasure
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteErasureRequest"
+      responses:
+        "200":
+          description: Erasure result with confirmation hash
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecuteErasureResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # DSAR
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/dsar/search:
+    get:
+      summary: Cross-module GDPR Art. 15 person search (admin only)
+      tags: [security]
+      operationId: dsarSearch
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query — name, email, or company (min 2 characters)
+          schema:
+            type: string
+            minLength: 2
+      responses:
+        "200":
+          description: Persons with all their data across modules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DSARSearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # Password policy
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/password/policy:
+    get:
+      summary: Get the tenant password policy
+      tags: [security]
+      operationId: getPasswordPolicy
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current password policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordPolicyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Update the tenant password policy (admin only)
+      tags: [security]
+      operationId: updatePasswordPolicy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePasswordPolicyRequest"
+      responses:
+        "200":
+          description: Updated password policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordPolicyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/security/password/validate:
+    post:
+      summary: Validate a candidate password against the policy
+      tags: [security]
+      operationId: validatePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidatePasswordRequest"
+      responses:
+        "200":
+          description: Validation result with violations list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidatePasswordResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --------------------------------------------------------------------------
+  # IP access rules
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/ip-rules:
+    get:
+      summary: List IP access rules (admin only)
+      tags: [security]
+      operationId: listIPRules
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: rule_type
+          in: query
+          description: Filter by rule type (allow or block)
+          schema:
+            type: string
+            enum: [allow, block]
+      responses:
+        "200":
+          description: List of IP rules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListIPRulesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create an IP access rule (admin only)
+      tags: [security]
+      operationId: createIPRule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIPRuleRequest"
+      responses:
+        "201":
+          description: IP rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IPRuleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/security/ip-rules/{id}:
+    delete:
+      summary: Delete an IP access rule (admin only)
+      tags: [security]
+      operationId: deleteIPRule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: IP rule deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+
+  # --------------------------------------------------------------------------
+  # Retention policies (DSGVO Art. 5(1)(e))
+  # --------------------------------------------------------------------------
+
+  /api/v1/security/retention-policies:
+    get:
+      summary: List retention policies (admin only)
+      tags: [security]
+      operationId: listRetentionPolicies
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of retention policies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRetentionPoliciesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create a retention policy (admin only)
+      tags: [security]
+      operationId: createRetentionPolicy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRetentionPolicyRequest"
+      responses:
+        "201":
+          description: Retention policy created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionPolicyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/security/retention-policies/{id}:
+    put:
+      summary: Update a retention policy (admin only)
+      tags: [security]
+      operationId: updateRetentionPolicy
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRetentionPolicyRequest"
+      responses:
+        "200":
+          description: Retention policy updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionPolicyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a retention policy (admin only)
+      tags: [security]
+      operationId: deleteRetentionPolicy
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Retention policy deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -19035,6 +20041,667 @@ components:
         updated_at:
           type: string
           format: date-time
+
+
+    # -----------------------------------------------------------------------
+    # Shared
+    # -----------------------------------------------------------------------
+
+    ProtoTimestamp:
+      type: object
+      description: >-
+        Wire shape of google.protobuf.Timestamp as serialised by Go's
+        encoding/json over protobuf. NOT an RFC-3339 string. Normalise
+        client-side with normalizeWireTimestamps().
+      properties:
+        seconds:
+          type: integer
+          format: int64
+        nanos:
+          type: integer
+          format: int32
+
+    # -----------------------------------------------------------------------
+    # Sessions
+    # -----------------------------------------------------------------------
+
+    UserSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        device:
+          type: string
+          description: Device/user-agent description
+        ip_address:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        last_active_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        expires_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    ListSessionsResponse:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSession"
+
+    # -----------------------------------------------------------------------
+    # 2FA — user
+    # -----------------------------------------------------------------------
+
+    TwoFactorSetupResponse:
+      type: object
+      description: Returned by POST /auth/2fa/setup
+      properties:
+        secret:
+          type: string
+          description: Base32 TOTP secret
+        qr_uri:
+          type: string
+          description: otpauth:// URI for QR code generation
+
+    Verify2FARequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          description: 6-digit TOTP code
+
+    RecoveryCodesResponse:
+      type: object
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+          description: One-time recovery codes (show once, then hashed)
+
+    Disable2FARequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: Current TOTP code to confirm intent
+
+    RegenerateCodesRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: Current TOTP code to confirm intent
+
+    # -----------------------------------------------------------------------
+    # 2FA — admin policy
+    # -----------------------------------------------------------------------
+
+    TwoFactorPolicy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role_name:
+          type: string
+          enum: [admin, manager, member]
+        enforced:
+          type: boolean
+        grace_period_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_by:
+          type: string
+          format: uuid
+
+    TwoFactorPolicyResponse:
+      type: object
+      description: Single policy (when filtered by role) or all policies
+      properties:
+        policy:
+          $ref: "#/components/schemas/TwoFactorPolicy"
+        policies:
+          type: array
+          description: Present when no role_name filter is applied
+          items:
+            $ref: "#/components/schemas/TwoFactorPolicy"
+
+    UpdateTwoFactorPolicyRequest:
+      type: object
+      required: [role_name, enforced]
+      properties:
+        role_name:
+          type: string
+          enum: [admin, manager, member]
+        enforced:
+          type: boolean
+        grace_period_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+
+    AdminReset2FARequest:
+      type: object
+      required: [user_id, reason]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+
+    # -----------------------------------------------------------------------
+    # Audit log
+    # -----------------------------------------------------------------------
+
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sequence_num:
+          type: integer
+          format: int64
+        timestamp:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        user_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+        target:
+          type: string
+        target_type:
+          type: string
+        details:
+          type: string
+          description: JSON string with action-specific details
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        result:
+          type: string
+          description: success or failure
+        previous_hash:
+          type: string
+        entry_hash:
+          type: string
+
+    ListAuditEntriesResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        total:
+          type: integer
+
+    VerifyAuditChainResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        entries_checked:
+          type: integer
+          format: int64
+        first_invalid_sequence:
+          type: integer
+          format: int64
+          description: 0 when all entries are valid
+        error_message:
+          type: string
+
+    # -----------------------------------------------------------------------
+    # Vault
+    # -----------------------------------------------------------------------
+
+    VaultSecretMeta:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        key_name:
+          type: string
+        key_version:
+          type: integer
+        description:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    ListVaultSecretsResponse:
+      type: object
+      properties:
+        secrets:
+          type: array
+          items:
+            $ref: "#/components/schemas/VaultSecretMeta"
+
+    SetVaultSecretRequest:
+      type: object
+      required: [key_name, plaintext_value]
+      properties:
+        key_name:
+          type: string
+        plaintext_value:
+          type: string
+          format: password
+        description:
+          type: string
+
+    VaultSecretResponse:
+      type: object
+      description: Returned by PUT /vault — metadata only, no plaintext
+      properties:
+        secret:
+          $ref: "#/components/schemas/VaultSecretMeta"
+
+    VaultSecretValueResponse:
+      type: object
+      description: Returned by GET /vault/{keyName} — includes decrypted value
+      properties:
+        secret:
+          $ref: "#/components/schemas/VaultSecretMeta"
+        decrypted_value:
+          type: string
+
+    # -----------------------------------------------------------------------
+    # GDPR — export
+    # -----------------------------------------------------------------------
+
+    GDPRExportEntry:
+      type: object
+      description: Single GDPR export request record
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: pending | approved | denied | ready | expired
+        requested_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        reviewed_by:
+          type: string
+          format: uuid
+        reviewed_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        review_note:
+          type: string
+        download_token:
+          type: string
+        download_expires_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    GDPRExportRequestResponse:
+      type: object
+      properties:
+        export_request:
+          $ref: "#/components/schemas/GDPRExportEntry"
+
+    ListGDPRExportsResponse:
+      type: object
+      properties:
+        export_requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/GDPRExportEntry"
+
+    ReviewExportRequest:
+      type: object
+      properties:
+        review_note:
+          type: string
+
+    # -----------------------------------------------------------------------
+    # GDPR — erasure
+    # -----------------------------------------------------------------------
+
+    ErasureUserRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+
+    ModuleErasurePreview:
+      type: object
+      properties:
+        module_name:
+          type: string
+        record_count:
+          type: integer
+        action:
+          type: string
+          description: anonymize or delete
+
+    ErasurePreviewResponse:
+      type: object
+      properties:
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleErasurePreview"
+        total_records:
+          type: integer
+
+    ExecuteErasureRequest:
+      type: object
+      required: [user_id, admin_password]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        admin_password:
+          type: string
+          format: password
+          description: Admin password confirmation to prevent accidental erasure
+
+    ExecuteErasureResponse:
+      type: object
+      properties:
+        anonymized_label:
+          type: string
+          description: Pseudonym replacing the erased user's name (e.g. deleted_user_<hash>)
+        confirmation_hash:
+          type: string
+          description: SHA-256 hash of the erasure audit record
+        modules_affected:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleErasurePreview"
+
+    # -----------------------------------------------------------------------
+    # DSAR
+    # -----------------------------------------------------------------------
+
+    DSARModule:
+      type: object
+      properties:
+        module:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        records:
+          type: array
+          description: >-
+            Each record is a flat key→value object. Column order is preserved
+            per the columns list.
+          items:
+            type: object
+            additionalProperties:
+              type: string
+
+    DSARPerson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        company:
+          type: string
+        avatar:
+          type: string
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/DSARModule"
+
+    DSARSearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/DSARPerson"
+
+    # -----------------------------------------------------------------------
+    # Password policy
+    # -----------------------------------------------------------------------
+
+    PasswordPolicy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        min_length:
+          type: integer
+          minimum: 1
+        require_uppercase:
+          type: boolean
+        require_lowercase:
+          type: boolean
+        require_digit:
+          type: boolean
+        require_special:
+          type: boolean
+        min_entropy:
+          type: number
+          format: double
+          description: Minimum Shannon entropy (bits)
+        max_age_days:
+          type: integer
+          description: 0 = no expiration
+        prevent_reuse_count:
+          type: integer
+          description: Number of previous passwords that cannot be reused
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_by:
+          type: string
+          format: uuid
+
+    PasswordPolicyResponse:
+      type: object
+      properties:
+        policy:
+          $ref: "#/components/schemas/PasswordPolicy"
+
+    UpdatePasswordPolicyRequest:
+      type: object
+      properties:
+        min_length:
+          type: integer
+          minimum: 1
+        require_uppercase:
+          type: boolean
+        require_lowercase:
+          type: boolean
+        require_digit:
+          type: boolean
+        require_special:
+          type: boolean
+        min_entropy:
+          type: number
+          format: double
+        max_age_days:
+          type: integer
+        prevent_reuse_count:
+          type: integer
+
+    ValidatePasswordRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          format: password
+
+    ValidatePasswordResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        violations:
+          type: array
+          items:
+            type: string
+          description: Human-readable rule violations (empty when valid)
+        entropy:
+          type: number
+          format: double
+
+    # -----------------------------------------------------------------------
+    # IP access rules
+    # -----------------------------------------------------------------------
+
+    IPAccessRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ip_cidr:
+          type: string
+          description: CIDR notation, e.g. 192.168.1.0/24 or 10.0.0.1/32
+        rule_type:
+          type: string
+          enum: [allow, block]
+        description:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    ListIPRulesResponse:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/IPAccessRule"
+
+    CreateIPRuleRequest:
+      type: object
+      required: [ip_cidr, rule_type]
+      properties:
+        ip_cidr:
+          type: string
+          description: CIDR notation
+        rule_type:
+          type: string
+          enum: [allow, block]
+        description:
+          type: string
+
+    IPRuleResponse:
+      type: object
+      properties:
+        rule:
+          $ref: "#/components/schemas/IPAccessRule"
+    RetentionPolicy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resource_type:
+          type: string
+          description: Resource type this policy applies to (e.g. contacts, audit_log)
+        retention_days:
+          type: integer
+          minimum: 1
+          description: Number of days to retain data before action is applied
+        action:
+          type: string
+          enum: [delete, anonymize]
+          description: Action to perform when retention_days is exceeded
+        enabled:
+          type: boolean
+        description:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    ListRetentionPoliciesResponse:
+      type: object
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionPolicy"
+
+    RetentionPolicyResponse:
+      type: object
+      properties:
+        policy:
+          $ref: "#/components/schemas/RetentionPolicy"
+
+    CreateRetentionPolicyRequest:
+      type: object
+      required: [resource_type, retention_days, action]
+      properties:
+        resource_type:
+          type: string
+        retention_days:
+          type: integer
+          minimum: 1
+        action:
+          type: string
+          enum: [delete, anonymize]
+        enabled:
+          type: boolean
+          default: true
+        description:
+          type: string
+
+    UpdateRetentionPolicyRequest:
+      type: object
+      required: [retention_days, action]
+      properties:
+        retention_days:
+          type: integer
+          minimum: 1
+        action:
+          type: string
+          enum: [delete, anonymize]
+        enabled:
+          type: boolean
+        description:
+          type: string
 
   responses:
     BadRequest:

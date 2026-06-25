@@ -69,6 +69,12 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequireRole("admin")).Get("/ip-rules", sr.HandleListIPRules)
 		r.With(middleware.RequireRole("admin")).Post("/ip-rules", sr.HandleCreateIPRule)
 		r.With(middleware.RequireRole("admin")).Delete("/ip-rules/{id}", sr.HandleDeleteIPRule)
+
+		// Retention policies — DSGVO Art. 5(1)(e) (admin only)
+		r.With(middleware.RequireRole("admin")).Get("/retention-policies", sr.HandleListRetentionPolicies)
+		r.With(middleware.RequireRole("admin")).Post("/retention-policies", sr.HandleCreateRetentionPolicy)
+		r.With(middleware.RequireRole("admin")).Put("/retention-policies/{id}", sr.HandleUpdateRetentionPolicy)
+		r.With(middleware.RequireRole("admin")).Delete("/retention-policies/{id}", sr.HandleDeleteRetentionPolicy)
 	})
 }
 
@@ -118,6 +124,21 @@ type createIPRuleRequest struct {
 	IPCIDR      string `json:"ip_cidr" validate:"required"`
 	RuleType    string `json:"rule_type" validate:"required,oneof=allow block"`
 	Description string `json:"description"`
+}
+
+type createRetentionPolicyRequest struct {
+	ResourceType  string `json:"resource_type" validate:"required"`
+	RetentionDays int32  `json:"retention_days" validate:"required,min=1"`
+	Action        string `json:"action" validate:"required,oneof=delete anonymize"`
+	Enabled       bool   `json:"enabled"`
+	Description   string `json:"description"`
+}
+
+type updateRetentionPolicyRequest struct {
+	RetentionDays int32  `json:"retention_days" validate:"required,min=1"`
+	Action        string `json:"action" validate:"required,oneof=delete anonymize"`
+	Enabled       bool   `json:"enabled"`
+	Description   string `json:"description"`
 }
 
 // ============================================================================
@@ -710,4 +731,109 @@ func (sr *SecurityRoutes) HandleDeleteIPRule(w http.ResponseWriter, r *http.Requ
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "ip rule deleted"})
+}
+
+// ============================================================================
+// Retention Policy Handlers
+// ============================================================================
+
+func (sr *SecurityRoutes) HandleListRetentionPolicies(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	resp, err := client.ListRetentionPolicies(r.Context(), &securityv1.ListRetentionPoliciesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleCreateRetentionPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[createRetentionPolicyRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateRetentionPolicy(r.Context(), &securityv1.CreateRetentionPolicyRequest{
+		ResourceType:  req.ResourceType,
+		RetentionDays: req.RetentionDays,
+		Action:        req.Action,
+		Enabled:       req.Enabled,
+		Description:   req.Description,
+		CreatedBy:     userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (sr *SecurityRoutes) HandleUpdateRetentionPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	policyID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateRetentionPolicyRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateRetentionPolicy(r.Context(), &securityv1.UpdateRetentionPolicyRequest{
+		Id:            policyID,
+		RetentionDays: req.RetentionDays,
+		Action:        req.Action,
+		Enabled:       req.Enabled,
+		Description:   req.Description,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleDeleteRetentionPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	policyID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteRetentionPolicy(r.Context(), &securityv1.DeleteRetentionPolicyRequest{
+		Id: policyID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "retention policy deleted"})
 }

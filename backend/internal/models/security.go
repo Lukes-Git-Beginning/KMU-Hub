@@ -187,3 +187,23 @@ type ModuleErasurePreview struct {
 	RecordCount int    `json:"record_count"`
 	Action      string `json:"action"` // "anonymize" or "delete"
 }
+
+// Retention policy action constants (DSGVO Art. 5(1)(e)).
+const (
+	RetentionActionDelete    = "delete"
+	RetentionActionAnonymize = "anonymize"
+)
+
+// RetentionPolicy defines how long a resource type is retained before deletion or anonymization.
+type RetentionPolicy struct {
+	ID            uuid.UUID  `json:"id"`
+	TenantID      uuid.UUID  `json:"tenant_id"`
+	ResourceType  string     `json:"resource_type"`
+	RetentionDays int        `json:"retention_days"`
+	Action        string     `json:"action"` // "delete" or "anonymize"
+	Enabled       bool       `json:"enabled"`
+	Description   string     `json:"description,omitempty"`
+	CreatedBy     *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+}

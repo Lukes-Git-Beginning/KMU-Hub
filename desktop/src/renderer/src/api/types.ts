@@ -8148,6 +8148,490 @@ export interface paths {
         patch: operations["updatePurchaseOrderLine"];
         trace?: never;
     };
+    "/api/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List own active sessions */
+        get: operations["listMySessions"];
+        put?: never;
+        post?: never;
+        /** Terminate all own sessions */
+        delete: operations["terminateAllSessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Terminate a specific session */
+        delete: operations["terminateSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all sessions for a specific user (admin only) */
+        get: operations["listAllSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Initiate TOTP 2FA setup (returns QR secret) */
+        post: operations["setup2FA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm TOTP setup with a valid code */
+        post: operations["verify2FA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable 2FA for the current user */
+        post: operations["disable2FA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/regenerate-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Regenerate 2FA recovery codes */
+        post: operations["regenerateRecoveryCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get 2FA enforcement policy (admin only) */
+        get: operations["getTwoFactorPolicy"];
+        /** Update 2FA enforcement policy for a role (admin only) */
+        put: operations["updateTwoFactorPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/admin-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin reset of 2FA for a specific user */
+        post: operations["adminReset2FA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List audit log entries (admin only) */
+        get: operations["listAuditEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export audit log as CSV or JSON (admin only) */
+        get: operations["exportAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/audit/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify tamper-evidence chain of audit log (admin only) */
+        post: operations["verifyAuditChain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/vault": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List vault secrets (metadata only, no plaintext) (admin only) */
+        get: operations["listVaultSecrets"];
+        /** Create or update a vault secret (admin only) */
+        put: operations["setVaultSecret"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/vault/{keyName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a vault secret (incl. decrypted value) (admin only) */
+        get: operations["getVaultSecret"];
+        put?: never;
+        post?: never;
+        /** Delete a vault secret (admin only) */
+        delete: operations["deleteVaultSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/gdpr/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a personal data export (GDPR Art. 20) */
+        post: operations["requestGDPRExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/gdpr/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List GDPR export requests (own or all for admin) */
+        get: operations["listGDPRExports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/gdpr/exports/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a GDPR export request (admin only) */
+        post: operations["approveGDPRExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/gdpr/exports/{id}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deny a GDPR export request (admin only) */
+        post: operations["denyGDPRExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/gdpr/download/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download approved GDPR export archive by one-time token */
+        get: operations["downloadGDPRExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/gdpr/erasure/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview what would be erased for a user (admin only) */
+        post: operations["previewErasure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/gdpr/erasure/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute GDPR erasure / anonymisation (admin only) */
+        post: operations["executeErasure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/dsar/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cross-module GDPR Art. 15 person search (admin only) */
+        get: operations["dsarSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/password/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the tenant password policy */
+        get: operations["getPasswordPolicy"];
+        /** Update the tenant password policy (admin only) */
+        put: operations["updatePasswordPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/password/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a candidate password against the policy */
+        post: operations["validatePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/ip-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List IP access rules (admin only) */
+        get: operations["listIPRules"];
+        put?: never;
+        /** Create an IP access rule (admin only) */
+        post: operations["createIPRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/ip-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an IP access rule (admin only) */
+        delete: operations["deleteIPRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/retention-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List retention policies (admin only) */
+        get: operations["listRetentionPolicies"];
+        put?: never;
+        /** Create a retention policy (admin only) */
+        post: operations["createRetentionPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/security/retention-policies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a retention policy (admin only) */
+        put: operations["updateRetentionPolicy"];
+        post?: never;
+        /** Delete a retention policy (admin only) */
+        delete: operations["deleteRetentionPolicy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11331,6 +11815,331 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+        };
+        /** @description Wire shape of google.protobuf.Timestamp as serialised by Go's encoding/json over protobuf. NOT an RFC-3339 string. Normalise client-side with normalizeWireTimestamps(). */
+        ProtoTimestamp: {
+            /** Format: int64 */
+            seconds?: number;
+            /** Format: int32 */
+            nanos?: number;
+        };
+        UserSession: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            user_id?: string;
+            /** @description Device/user-agent description */
+            device?: string;
+            ip_address?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            last_active_at?: components["schemas"]["ProtoTimestamp"];
+            expires_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        ListSessionsResponse: {
+            sessions?: components["schemas"]["UserSession"][];
+        };
+        /** @description Returned by POST /auth/2fa/setup */
+        TwoFactorSetupResponse: {
+            /** @description Base32 TOTP secret */
+            secret?: string;
+            /** @description otpauth:// URI for QR code generation */
+            qr_uri?: string;
+        };
+        Verify2FARequest: {
+            /** @description 6-digit TOTP code */
+            code: string;
+        };
+        RecoveryCodesResponse: {
+            /** @description One-time recovery codes (show once, then hashed) */
+            recovery_codes?: string[];
+        };
+        Disable2FARequest: {
+            /** @description Current TOTP code to confirm intent */
+            code: string;
+        };
+        RegenerateCodesRequest: {
+            /** @description Current TOTP code to confirm intent */
+            code: string;
+        };
+        TwoFactorPolicy: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            role_name?: "admin" | "manager" | "member";
+            enforced?: boolean;
+            grace_period_days?: number;
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uuid */
+            updated_by?: string;
+        };
+        /** @description Single policy (when filtered by role) or all policies */
+        TwoFactorPolicyResponse: {
+            policy?: components["schemas"]["TwoFactorPolicy"];
+            /** @description Present when no role_name filter is applied */
+            policies?: components["schemas"]["TwoFactorPolicy"][];
+        };
+        UpdateTwoFactorPolicyRequest: {
+            /** @enum {string} */
+            role_name: "admin" | "manager" | "member";
+            enforced: boolean;
+            grace_period_days?: number;
+        };
+        AdminReset2FARequest: {
+            /** Format: uuid */
+            user_id: string;
+            reason: string;
+        };
+        AuditEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: int64 */
+            sequence_num?: number;
+            timestamp?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uuid */
+            user_id?: string;
+            action?: string;
+            target?: string;
+            target_type?: string;
+            /** @description JSON string with action-specific details */
+            details?: string;
+            ip_address?: string;
+            user_agent?: string;
+            /** @description success or failure */
+            result?: string;
+            previous_hash?: string;
+            entry_hash?: string;
+        };
+        ListAuditEntriesResponse: {
+            entries?: components["schemas"]["AuditEntry"][];
+            total?: number;
+        };
+        VerifyAuditChainResponse: {
+            valid?: boolean;
+            /** Format: int64 */
+            entries_checked?: number;
+            /**
+             * Format: int64
+             * @description 0 when all entries are valid
+             */
+            first_invalid_sequence?: number;
+            error_message?: string;
+        };
+        VaultSecretMeta: {
+            /** Format: uuid */
+            id?: string;
+            key_name?: string;
+            key_version?: number;
+            description?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        ListVaultSecretsResponse: {
+            secrets?: components["schemas"]["VaultSecretMeta"][];
+        };
+        SetVaultSecretRequest: {
+            key_name: string;
+            /** Format: password */
+            plaintext_value: string;
+            description?: string;
+        };
+        /** @description Returned by PUT /vault — metadata only, no plaintext */
+        VaultSecretResponse: {
+            secret?: components["schemas"]["VaultSecretMeta"];
+        };
+        /** @description Returned by GET /vault/{keyName} — includes decrypted value */
+        VaultSecretValueResponse: {
+            secret?: components["schemas"]["VaultSecretMeta"];
+            decrypted_value?: string;
+        };
+        /** @description Single GDPR export request record */
+        GDPRExportEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            user_id?: string;
+            /** @description pending | approved | denied | ready | expired */
+            status?: string;
+            requested_at?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uuid */
+            reviewed_by?: string;
+            reviewed_at?: components["schemas"]["ProtoTimestamp"];
+            review_note?: string;
+            download_token?: string;
+            download_expires_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        GDPRExportRequestResponse: {
+            export_request?: components["schemas"]["GDPRExportEntry"];
+        };
+        ListGDPRExportsResponse: {
+            export_requests?: components["schemas"]["GDPRExportEntry"][];
+        };
+        ReviewExportRequest: {
+            review_note?: string;
+        };
+        ErasureUserRequest: {
+            /** Format: uuid */
+            user_id: string;
+        };
+        ModuleErasurePreview: {
+            module_name?: string;
+            record_count?: number;
+            /** @description anonymize or delete */
+            action?: string;
+        };
+        ErasurePreviewResponse: {
+            modules?: components["schemas"]["ModuleErasurePreview"][];
+            total_records?: number;
+        };
+        ExecuteErasureRequest: {
+            /** Format: uuid */
+            user_id: string;
+            /**
+             * Format: password
+             * @description Admin password confirmation to prevent accidental erasure
+             */
+            admin_password: string;
+        };
+        ExecuteErasureResponse: {
+            /** @description Pseudonym replacing the erased user's name (e.g. deleted_user_<hash>) */
+            anonymized_label?: string;
+            /** @description SHA-256 hash of the erasure audit record */
+            confirmation_hash?: string;
+            modules_affected?: components["schemas"]["ModuleErasurePreview"][];
+        };
+        DSARModule: {
+            module?: string;
+            columns?: string[];
+            /** @description Each record is a flat key→value object. Column order is preserved per the columns list. */
+            records?: {
+                [key: string]: string;
+            }[];
+        };
+        DSARPerson: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** Format: email */
+            email?: string;
+            company?: string;
+            avatar?: string;
+            modules?: components["schemas"]["DSARModule"][];
+        };
+        DSARSearchResponse: {
+            results?: components["schemas"]["DSARPerson"][];
+        };
+        PasswordPolicy: {
+            /** Format: uuid */
+            id?: string;
+            min_length?: number;
+            require_uppercase?: boolean;
+            require_lowercase?: boolean;
+            require_digit?: boolean;
+            require_special?: boolean;
+            /**
+             * Format: double
+             * @description Minimum Shannon entropy (bits)
+             */
+            min_entropy?: number;
+            /** @description 0 = no expiration */
+            max_age_days?: number;
+            /** @description Number of previous passwords that cannot be reused */
+            prevent_reuse_count?: number;
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uuid */
+            updated_by?: string;
+        };
+        PasswordPolicyResponse: {
+            policy?: components["schemas"]["PasswordPolicy"];
+        };
+        UpdatePasswordPolicyRequest: {
+            min_length?: number;
+            require_uppercase?: boolean;
+            require_lowercase?: boolean;
+            require_digit?: boolean;
+            require_special?: boolean;
+            /** Format: double */
+            min_entropy?: number;
+            max_age_days?: number;
+            prevent_reuse_count?: number;
+        };
+        ValidatePasswordRequest: {
+            /** Format: password */
+            password: string;
+        };
+        ValidatePasswordResponse: {
+            valid?: boolean;
+            /** @description Human-readable rule violations (empty when valid) */
+            violations?: string[];
+            /** Format: double */
+            entropy?: number;
+        };
+        IPAccessRule: {
+            /** Format: uuid */
+            id?: string;
+            /** @description CIDR notation, e.g. 192.168.1.0/24 or 10.0.0.1/32 */
+            ip_cidr?: string;
+            /** @enum {string} */
+            rule_type?: "allow" | "block";
+            description?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        ListIPRulesResponse: {
+            rules?: components["schemas"]["IPAccessRule"][];
+        };
+        CreateIPRuleRequest: {
+            /** @description CIDR notation */
+            ip_cidr: string;
+            /** @enum {string} */
+            rule_type: "allow" | "block";
+            description?: string;
+        };
+        IPRuleResponse: {
+            rule?: components["schemas"]["IPAccessRule"];
+        };
+        RetentionPolicy: {
+            /** Format: uuid */
+            id?: string;
+            /** @description Resource type this policy applies to (e.g. contacts, audit_log) */
+            resource_type?: string;
+            /** @description Number of days to retain data before action is applied */
+            retention_days?: number;
+            /**
+             * @description Action to perform when retention_days is exceeded
+             * @enum {string}
+             */
+            action?: "delete" | "anonymize";
+            enabled?: boolean;
+            description?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        ListRetentionPoliciesResponse: {
+            policies?: components["schemas"]["RetentionPolicy"][];
+        };
+        RetentionPolicyResponse: {
+            policy?: components["schemas"]["RetentionPolicy"];
+        };
+        CreateRetentionPolicyRequest: {
+            resource_type: string;
+            retention_days: number;
+            /** @enum {string} */
+            action: "delete" | "anonymize";
+            /** @default true */
+            enabled: boolean;
+            description?: string;
+        };
+        UpdateRetentionPolicyRequest: {
+            retention_days: number;
+            /** @enum {string} */
+            action: "delete" | "anonymize";
+            enabled?: boolean;
+            description?: string;
         };
     };
     responses: {
@@ -24631,6 +25440,928 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMySessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSessionsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    terminateAllSessions: {
+        parameters: {
+            query?: {
+                /** @description Keep this session alive (pass current session UUID to avoid self-logout) */
+                current_session_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All sessions terminated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    terminateSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session terminated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAllSessions: {
+        parameters: {
+            query: {
+                user_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session list for the given user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSessionsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setup2FA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description TOTP setup data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorSetupResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    verify2FA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Verify2FARequest"];
+            };
+        };
+        responses: {
+            /** @description 2FA enabled; returns recovery codes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    disable2FA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Disable2FARequest"];
+            };
+        };
+        responses: {
+            /** @description 2FA disabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    regenerateRecoveryCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegenerateCodesRequest"];
+            };
+        };
+        responses: {
+            /** @description New recovery codes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getTwoFactorPolicy: {
+        parameters: {
+            query?: {
+                /** @description Filter by role (omit to get all roles) */
+                role_name?: "admin" | "manager" | "member";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 2FA policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorPolicyResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateTwoFactorPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTwoFactorPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorPolicyResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminReset2FA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReset2FARequest"];
+            };
+        };
+        responses: {
+            /** @description 2FA reset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAuditEntries: {
+        parameters: {
+            query?: {
+                action?: string;
+                result?: string;
+                user_id?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated audit entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListAuditEntriesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    exportAuditLog: {
+        parameters: {
+            query?: {
+                /** @description Export format (csv or json) */
+                format?: "csv" | "json";
+                action?: string;
+                result?: string;
+                user_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit log file download */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/json": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    verifyAuditChain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    from_sequence?: number;
+                    /** Format: int64 */
+                    to_sequence?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Chain verification result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyAuditChainResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listVaultSecrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of vault secret metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListVaultSecretsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setVaultSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVaultSecretRequest"];
+            };
+        };
+        responses: {
+            /** @description Secret stored; metadata returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultSecretResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getVaultSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                keyName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secret metadata and decrypted value */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultSecretValueResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteVaultSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                keyName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secret deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    requestGDPRExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Export request created; status pending */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GDPRExportRequestResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listGDPRExports: {
+        parameters: {
+            query?: {
+                /** @description Filter by status (pending, approved, denied, ready, expired) */
+                status?: string;
+                /** @description Filter by user (admin only; defaults to caller's own) */
+                user_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of export requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListGDPRExportsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    approveGDPRExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReviewExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export request approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GDPRExportRequestResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    denyGDPRExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReviewExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export request denied */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GDPRExportRequestResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadGDPRExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ZIP archive of personal data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    previewErasure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErasureUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-module erasure preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErasurePreviewResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    executeErasure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecuteErasureRequest"];
+            };
+        };
+        responses: {
+            /** @description Erasure result with confirmation hash */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecuteErasureResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    dsarSearch: {
+        parameters: {
+            query: {
+                /** @description Search query — name, email, or company (min 2 characters) */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persons with all their data across modules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DSARSearchResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPasswordPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current password policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordPolicyResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updatePasswordPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePasswordPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated password policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordPolicyResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    validatePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidatePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Validation result with violations list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidatePasswordResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listIPRules: {
+        parameters: {
+            query?: {
+                /** @description Filter by rule type (allow or block) */
+                rule_type?: "allow" | "block";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of IP rules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListIPRulesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createIPRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIPRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description IP rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IPRuleResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteIPRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description IP rule deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRetentionPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of retention policies */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRetentionPoliciesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRetentionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRetentionPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Retention policy created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicyResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateRetentionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRetentionPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Retention policy updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPolicyResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRetentionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retention policy deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

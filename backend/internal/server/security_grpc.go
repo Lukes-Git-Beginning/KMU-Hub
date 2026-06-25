@@ -716,6 +716,158 @@ func (s *SecurityGRPCServer) DeleteIPRule(ctx context.Context, req *securityv1.D
 }
 
 // ============================================================================
+// Retention Policy RPCs (direct pgx queries, same pattern as IP rules)
+// ============================================================================
+
+func (s *SecurityGRPCServer) ListRetentionPolicies(ctx context.Context, _ *securityv1.ListRetentionPoliciesRequest) (*securityv1.ListRetentionPoliciesResponse, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, resource_type, retention_days, action, enabled, description, created_by, created_at, updated_at
+		   FROM retention_policies
+		  ORDER BY resource_type ASC`,
+	)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list retention policies")
+	}
+	defer rows.Close()
+
+	var policies []*securityv1.RetentionPolicy
+	for rows.Next() {
+		var p models.RetentionPolicy
+		if scanErr := rows.Scan(
+			&p.ID, &p.ResourceType, &p.RetentionDays, &p.Action,
+			&p.Enabled, &p.Description, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+		); scanErr != nil {
+			return nil, status.Error(codes.Internal, "failed to scan retention policy")
+		}
+		policies = append(policies, toProtoRetentionPolicy(&p))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, status.Error(codes.Internal, "failed to iterate retention policies")
+	}
+
+	return &securityv1.ListRetentionPoliciesResponse{Policies: policies}, nil
+}
+
+func (s *SecurityGRPCServer) CreateRetentionPolicy(ctx context.Context, req *securityv1.CreateRetentionPolicyRequest) (*securityv1.CreateRetentionPolicyResponse, error) {
+	if req.ResourceType == "" {
+		return nil, status.Error(codes.InvalidArgument, "resource_type is required")
+	}
+	if req.RetentionDays <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "retention_days must be greater than 0")
+	}
+	if req.Action != models.RetentionActionDelete && req.Action != models.RetentionActionAnonymize {
+		return nil, status.Error(codes.InvalidArgument, "action must be 'delete' or 'anonymize'")
+	}
+
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to determine tenant")
+	}
+
+	p := &models.RetentionPolicy{
+		ID:            uuid.New(),
+		TenantID:      tenantID,
+		ResourceType:  req.ResourceType,
+		RetentionDays: int(req.RetentionDays),
+		Action:        req.Action,
+		Enabled:       req.Enabled,
+		Description:   req.Description,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	}
+	if req.CreatedBy != "" {
+		parsed, err := uuid.Parse(req.CreatedBy)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid created_by")
+		}
+		p.CreatedBy = &parsed
+	}
+
+	_, err = s.pool.Exec(ctx,
+		`INSERT INTO retention_policies
+		   (id, tenant_id, resource_type, retention_days, action, enabled, description, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		p.ID, p.TenantID, p.ResourceType, p.RetentionDays, p.Action,
+		p.Enabled, p.Description, p.CreatedBy, p.CreatedAt, p.UpdatedAt,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "uq_retention_policies_tenant_resource") {
+			return nil, status.Error(codes.AlreadyExists, "retention policy for this resource_type already exists")
+		}
+		return nil, status.Error(codes.Internal, "failed to create retention policy")
+	}
+
+	slog.Info("retention policy created",
+		"policy_id", p.ID,
+		"resource_type", p.ResourceType,
+		"retention_days", p.RetentionDays,
+		"action", p.Action,
+	)
+
+	return &securityv1.CreateRetentionPolicyResponse{Policy: toProtoRetentionPolicy(p)}, nil
+}
+
+func (s *SecurityGRPCServer) UpdateRetentionPolicy(ctx context.Context, req *securityv1.UpdateRetentionPolicyRequest) (*securityv1.UpdateRetentionPolicyResponse, error) {
+	policyID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid policy id")
+	}
+	if req.RetentionDays <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "retention_days must be greater than 0")
+	}
+	if req.Action != models.RetentionActionDelete && req.Action != models.RetentionActionAnonymize {
+		return nil, status.Error(codes.InvalidArgument, "action must be 'delete' or 'anonymize'")
+	}
+
+	now := time.Now().UTC()
+	var p models.RetentionPolicy
+	row := s.pool.QueryRow(ctx,
+		`UPDATE retention_policies
+		    SET retention_days = $1, action = $2, enabled = $3, description = $4, updated_at = $5
+		  WHERE id = $6
+		  RETURNING id, resource_type, retention_days, action, enabled, description, created_by, created_at, updated_at`,
+		req.RetentionDays, req.Action, req.Enabled, req.Description, now, policyID,
+	)
+	if scanErr := row.Scan(
+		&p.ID, &p.ResourceType, &p.RetentionDays, &p.Action,
+		&p.Enabled, &p.Description, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt,
+	); scanErr != nil {
+		if strings.Contains(scanErr.Error(), "no rows") {
+			return nil, status.Error(codes.NotFound, "retention policy not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to update retention policy")
+	}
+
+	slog.Info("retention policy updated",
+		"policy_id", p.ID,
+		"retention_days", p.RetentionDays,
+		"action", p.Action,
+		"enabled", p.Enabled,
+	)
+
+	return &securityv1.UpdateRetentionPolicyResponse{Policy: toProtoRetentionPolicy(&p)}, nil
+}
+
+func (s *SecurityGRPCServer) DeleteRetentionPolicy(ctx context.Context, req *securityv1.DeleteRetentionPolicyRequest) (*securityv1.DeleteRetentionPolicyResponse, error) {
+	policyID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid policy id")
+	}
+
+	result, err := s.pool.Exec(ctx, `DELETE FROM retention_policies WHERE id = $1`, policyID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to delete retention policy")
+	}
+	if result.RowsAffected() == 0 {
+		return nil, status.Error(codes.NotFound, "retention policy not found")
+	}
+
+	slog.Info("retention policy deleted", "policy_id", policyID)
+
+	return &securityv1.DeleteRetentionPolicyResponse{}, nil
+}
+
+// ============================================================================
 // Proto type conversions
 // ============================================================================
 
@@ -809,6 +961,23 @@ func toProtoIPRule(r *models.IPAccessRule) *securityv1.IPAccessRule {
 	}
 	if r.CreatedBy != nil {
 		pb.CreatedBy = r.CreatedBy.String()
+	}
+	return pb
+}
+
+func toProtoRetentionPolicy(p *models.RetentionPolicy) *securityv1.RetentionPolicy {
+	pb := &securityv1.RetentionPolicy{
+		Id:            p.ID.String(),
+		ResourceType:  p.ResourceType,
+		RetentionDays: int32(p.RetentionDays),
+		Action:        p.Action,
+		Enabled:       p.Enabled,
+		Description:   p.Description,
+		CreatedAt:     timestamppb.New(p.CreatedAt),
+		UpdatedAt:     timestamppb.New(p.UpdatedAt),
+	}
+	if p.CreatedBy != nil {
+		pb.CreatedBy = p.CreatedBy.String()
 	}
 	return pb
 }

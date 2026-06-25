@@ -19,28 +19,32 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SecurityService_CreateAuditEntry_FullMethodName     = "/security.v1.SecurityService/CreateAuditEntry"
-	SecurityService_ListAuditEntries_FullMethodName     = "/security.v1.SecurityService/ListAuditEntries"
-	SecurityService_ExportAuditLog_FullMethodName       = "/security.v1.SecurityService/ExportAuditLog"
-	SecurityService_VerifyAuditChain_FullMethodName     = "/security.v1.SecurityService/VerifyAuditChain"
-	SecurityService_GetVaultSecret_FullMethodName       = "/security.v1.SecurityService/GetVaultSecret"
-	SecurityService_SetVaultSecret_FullMethodName       = "/security.v1.SecurityService/SetVaultSecret"
-	SecurityService_ListVaultSecrets_FullMethodName     = "/security.v1.SecurityService/ListVaultSecrets"
-	SecurityService_DeleteVaultSecret_FullMethodName    = "/security.v1.SecurityService/DeleteVaultSecret"
-	SecurityService_RequestDataExport_FullMethodName    = "/security.v1.SecurityService/RequestDataExport"
-	SecurityService_ListDataExports_FullMethodName      = "/security.v1.SecurityService/ListDataExports"
-	SecurityService_ApproveDataExport_FullMethodName    = "/security.v1.SecurityService/ApproveDataExport"
-	SecurityService_DenyDataExport_FullMethodName       = "/security.v1.SecurityService/DenyDataExport"
-	SecurityService_GetExportDownload_FullMethodName    = "/security.v1.SecurityService/GetExportDownload"
-	SecurityService_PreviewErasure_FullMethodName       = "/security.v1.SecurityService/PreviewErasure"
-	SecurityService_ExecuteErasure_FullMethodName       = "/security.v1.SecurityService/ExecuteErasure"
-	SecurityService_DSARSearch_FullMethodName           = "/security.v1.SecurityService/DSARSearch"
-	SecurityService_GetPasswordPolicy_FullMethodName    = "/security.v1.SecurityService/GetPasswordPolicy"
-	SecurityService_UpdatePasswordPolicy_FullMethodName = "/security.v1.SecurityService/UpdatePasswordPolicy"
-	SecurityService_ValidatePassword_FullMethodName     = "/security.v1.SecurityService/ValidatePassword"
-	SecurityService_ListIPRules_FullMethodName          = "/security.v1.SecurityService/ListIPRules"
-	SecurityService_CreateIPRule_FullMethodName         = "/security.v1.SecurityService/CreateIPRule"
-	SecurityService_DeleteIPRule_FullMethodName         = "/security.v1.SecurityService/DeleteIPRule"
+	SecurityService_CreateAuditEntry_FullMethodName      = "/security.v1.SecurityService/CreateAuditEntry"
+	SecurityService_ListAuditEntries_FullMethodName      = "/security.v1.SecurityService/ListAuditEntries"
+	SecurityService_ExportAuditLog_FullMethodName        = "/security.v1.SecurityService/ExportAuditLog"
+	SecurityService_VerifyAuditChain_FullMethodName      = "/security.v1.SecurityService/VerifyAuditChain"
+	SecurityService_GetVaultSecret_FullMethodName        = "/security.v1.SecurityService/GetVaultSecret"
+	SecurityService_SetVaultSecret_FullMethodName        = "/security.v1.SecurityService/SetVaultSecret"
+	SecurityService_ListVaultSecrets_FullMethodName      = "/security.v1.SecurityService/ListVaultSecrets"
+	SecurityService_DeleteVaultSecret_FullMethodName     = "/security.v1.SecurityService/DeleteVaultSecret"
+	SecurityService_RequestDataExport_FullMethodName     = "/security.v1.SecurityService/RequestDataExport"
+	SecurityService_ListDataExports_FullMethodName       = "/security.v1.SecurityService/ListDataExports"
+	SecurityService_ApproveDataExport_FullMethodName     = "/security.v1.SecurityService/ApproveDataExport"
+	SecurityService_DenyDataExport_FullMethodName        = "/security.v1.SecurityService/DenyDataExport"
+	SecurityService_GetExportDownload_FullMethodName     = "/security.v1.SecurityService/GetExportDownload"
+	SecurityService_PreviewErasure_FullMethodName        = "/security.v1.SecurityService/PreviewErasure"
+	SecurityService_ExecuteErasure_FullMethodName        = "/security.v1.SecurityService/ExecuteErasure"
+	SecurityService_DSARSearch_FullMethodName            = "/security.v1.SecurityService/DSARSearch"
+	SecurityService_GetPasswordPolicy_FullMethodName     = "/security.v1.SecurityService/GetPasswordPolicy"
+	SecurityService_UpdatePasswordPolicy_FullMethodName  = "/security.v1.SecurityService/UpdatePasswordPolicy"
+	SecurityService_ValidatePassword_FullMethodName      = "/security.v1.SecurityService/ValidatePassword"
+	SecurityService_ListIPRules_FullMethodName           = "/security.v1.SecurityService/ListIPRules"
+	SecurityService_CreateIPRule_FullMethodName          = "/security.v1.SecurityService/CreateIPRule"
+	SecurityService_DeleteIPRule_FullMethodName          = "/security.v1.SecurityService/DeleteIPRule"
+	SecurityService_ListRetentionPolicies_FullMethodName = "/security.v1.SecurityService/ListRetentionPolicies"
+	SecurityService_CreateRetentionPolicy_FullMethodName = "/security.v1.SecurityService/CreateRetentionPolicy"
+	SecurityService_UpdateRetentionPolicy_FullMethodName = "/security.v1.SecurityService/UpdateRetentionPolicy"
+	SecurityService_DeleteRetentionPolicy_FullMethodName = "/security.v1.SecurityService/DeleteRetentionPolicy"
 )
 
 // SecurityServiceClient is the client API for SecurityService service.
@@ -74,6 +78,11 @@ type SecurityServiceClient interface {
 	ListIPRules(ctx context.Context, in *ListIPRulesRequest, opts ...grpc.CallOption) (*ListIPRulesResponse, error)
 	CreateIPRule(ctx context.Context, in *CreateIPRuleRequest, opts ...grpc.CallOption) (*CreateIPRuleResponse, error)
 	DeleteIPRule(ctx context.Context, in *DeleteIPRuleRequest, opts ...grpc.CallOption) (*DeleteIPRuleResponse, error)
+	// Retention Policies (DSGVO Art. 5(1)(e))
+	ListRetentionPolicies(ctx context.Context, in *ListRetentionPoliciesRequest, opts ...grpc.CallOption) (*ListRetentionPoliciesResponse, error)
+	CreateRetentionPolicy(ctx context.Context, in *CreateRetentionPolicyRequest, opts ...grpc.CallOption) (*CreateRetentionPolicyResponse, error)
+	UpdateRetentionPolicy(ctx context.Context, in *UpdateRetentionPolicyRequest, opts ...grpc.CallOption) (*UpdateRetentionPolicyResponse, error)
+	DeleteRetentionPolicy(ctx context.Context, in *DeleteRetentionPolicyRequest, opts ...grpc.CallOption) (*DeleteRetentionPolicyResponse, error)
 }
 
 type securityServiceClient struct {
@@ -304,6 +313,46 @@ func (c *securityServiceClient) DeleteIPRule(ctx context.Context, in *DeleteIPRu
 	return out, nil
 }
 
+func (c *securityServiceClient) ListRetentionPolicies(ctx context.Context, in *ListRetentionPoliciesRequest, opts ...grpc.CallOption) (*ListRetentionPoliciesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRetentionPoliciesResponse)
+	err := c.cc.Invoke(ctx, SecurityService_ListRetentionPolicies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *securityServiceClient) CreateRetentionPolicy(ctx context.Context, in *CreateRetentionPolicyRequest, opts ...grpc.CallOption) (*CreateRetentionPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateRetentionPolicyResponse)
+	err := c.cc.Invoke(ctx, SecurityService_CreateRetentionPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *securityServiceClient) UpdateRetentionPolicy(ctx context.Context, in *UpdateRetentionPolicyRequest, opts ...grpc.CallOption) (*UpdateRetentionPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateRetentionPolicyResponse)
+	err := c.cc.Invoke(ctx, SecurityService_UpdateRetentionPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *securityServiceClient) DeleteRetentionPolicy(ctx context.Context, in *DeleteRetentionPolicyRequest, opts ...grpc.CallOption) (*DeleteRetentionPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRetentionPolicyResponse)
+	err := c.cc.Invoke(ctx, SecurityService_DeleteRetentionPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SecurityServiceServer is the server API for SecurityService service.
 // All implementations must embed UnimplementedSecurityServiceServer
 // for forward compatibility.
@@ -335,6 +384,11 @@ type SecurityServiceServer interface {
 	ListIPRules(context.Context, *ListIPRulesRequest) (*ListIPRulesResponse, error)
 	CreateIPRule(context.Context, *CreateIPRuleRequest) (*CreateIPRuleResponse, error)
 	DeleteIPRule(context.Context, *DeleteIPRuleRequest) (*DeleteIPRuleResponse, error)
+	// Retention Policies (DSGVO Art. 5(1)(e))
+	ListRetentionPolicies(context.Context, *ListRetentionPoliciesRequest) (*ListRetentionPoliciesResponse, error)
+	CreateRetentionPolicy(context.Context, *CreateRetentionPolicyRequest) (*CreateRetentionPolicyResponse, error)
+	UpdateRetentionPolicy(context.Context, *UpdateRetentionPolicyRequest) (*UpdateRetentionPolicyResponse, error)
+	DeleteRetentionPolicy(context.Context, *DeleteRetentionPolicyRequest) (*DeleteRetentionPolicyResponse, error)
 	mustEmbedUnimplementedSecurityServiceServer()
 }
 
@@ -410,6 +464,18 @@ func (UnimplementedSecurityServiceServer) CreateIPRule(context.Context, *CreateI
 }
 func (UnimplementedSecurityServiceServer) DeleteIPRule(context.Context, *DeleteIPRuleRequest) (*DeleteIPRuleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteIPRule not implemented")
+}
+func (UnimplementedSecurityServiceServer) ListRetentionPolicies(context.Context, *ListRetentionPoliciesRequest) (*ListRetentionPoliciesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRetentionPolicies not implemented")
+}
+func (UnimplementedSecurityServiceServer) CreateRetentionPolicy(context.Context, *CreateRetentionPolicyRequest) (*CreateRetentionPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRetentionPolicy not implemented")
+}
+func (UnimplementedSecurityServiceServer) UpdateRetentionPolicy(context.Context, *UpdateRetentionPolicyRequest) (*UpdateRetentionPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRetentionPolicy not implemented")
+}
+func (UnimplementedSecurityServiceServer) DeleteRetentionPolicy(context.Context, *DeleteRetentionPolicyRequest) (*DeleteRetentionPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRetentionPolicy not implemented")
 }
 func (UnimplementedSecurityServiceServer) mustEmbedUnimplementedSecurityServiceServer() {}
 func (UnimplementedSecurityServiceServer) testEmbeddedByValue()                         {}
@@ -828,6 +894,78 @@ func _SecurityService_DeleteIPRule_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SecurityService_ListRetentionPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRetentionPoliciesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).ListRetentionPolicies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_ListRetentionPolicies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).ListRetentionPolicies(ctx, req.(*ListRetentionPoliciesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecurityService_CreateRetentionPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRetentionPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).CreateRetentionPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_CreateRetentionPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).CreateRetentionPolicy(ctx, req.(*CreateRetentionPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecurityService_UpdateRetentionPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRetentionPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).UpdateRetentionPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_UpdateRetentionPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).UpdateRetentionPolicy(ctx, req.(*UpdateRetentionPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecurityService_DeleteRetentionPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRetentionPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).DeleteRetentionPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_DeleteRetentionPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).DeleteRetentionPolicy(ctx, req.(*DeleteRetentionPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SecurityService_ServiceDesc is the grpc.ServiceDesc for SecurityService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -922,6 +1060,22 @@ var SecurityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteIPRule",
 			Handler:    _SecurityService_DeleteIPRule_Handler,
+		},
+		{
+			MethodName: "ListRetentionPolicies",
+			Handler:    _SecurityService_ListRetentionPolicies_Handler,
+		},
+		{
+			MethodName: "CreateRetentionPolicy",
+			Handler:    _SecurityService_CreateRetentionPolicy_Handler,
+		},
+		{
+			MethodName: "UpdateRetentionPolicy",
+			Handler:    _SecurityService_UpdateRetentionPolicy_Handler,
+		},
+		{
+			MethodName: "DeleteRetentionPolicy",
+			Handler:    _SecurityService_DeleteRetentionPolicy_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
