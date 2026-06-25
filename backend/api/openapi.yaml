@@ -11789,7 +11789,15 @@ paths:
           description: Paginated shift list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  shifts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchichtenShift'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Create a shift
@@ -11815,7 +11823,11 @@ paths:
           description: Shift created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  shift:
+                    $ref: '#/components/schemas/SchichtenShift'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -11840,7 +11852,11 @@ paths:
           description: Shifts published
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  published_count:
+                    type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -11857,7 +11873,11 @@ paths:
           description: Shift
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  shift:
+                    $ref: '#/components/schemas/SchichtenShift'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
@@ -11884,7 +11904,11 @@ paths:
           description: Shift updated
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  shift:
+                    $ref: '#/components/schemas/SchichtenShift'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -11914,7 +11938,13 @@ paths:
           description: Assignment list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  assignments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchichtenAssignment'
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Assign an employee to a shift
@@ -11938,7 +11968,11 @@ paths:
           description: Employee assigned
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  assignment:
+                    $ref: '#/components/schemas/SchichtenAssignment'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -11971,7 +12005,15 @@ paths:
           description: Template list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchichtenTemplate'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Create a shift template
@@ -11998,7 +12040,11 @@ paths:
           description: Template created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  template:
+                    $ref: '#/components/schemas/SchichtenTemplate'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12029,7 +12075,11 @@ paths:
           description: Template updated
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  template:
+                    $ref: '#/components/schemas/SchichtenTemplate'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -12070,7 +12120,15 @@ paths:
           description: Shifts created from template
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  shifts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchichtenShift'
+                  created_count:
+                    type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12089,7 +12147,8 @@ paths:
           description: Compliance check result
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                $ref: '#/components/schemas/SchichtenComplianceReport'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12104,7 +12163,8 @@ paths:
           description: Shift statistics
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                $ref: '#/components/schemas/SchichtenStats'
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/schichten/swap-requests:
@@ -12123,7 +12183,15 @@ paths:
           description: Swap request list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  swap_requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchichtenSwapRequest'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Create a shift swap request
@@ -12150,7 +12218,11 @@ paths:
           description: Swap request created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  swap_request:
+                    $ref: '#/components/schemas/SchichtenSwapRequest'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12167,7 +12239,11 @@ paths:
           description: Swap request approved
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  swap_request:
+                    $ref: '#/components/schemas/SchichtenSwapRequest'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -12184,7 +12260,11 @@ paths:
           description: Swap request rejected
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  swap_request:
+                    $ref: '#/components/schemas/SchichtenSwapRequest'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -12555,7 +12635,15 @@ paths:
           description: Paginated vehicle list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  vehicles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkVehicle'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Create (register) a vehicle
@@ -12586,7 +12674,11 @@ paths:
           description: Vehicle created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  vehicle:
+                    $ref: '#/components/schemas/FuhrparkVehicle'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12603,7 +12695,11 @@ paths:
           description: Vehicle
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  vehicle:
+                    $ref: '#/components/schemas/FuhrparkVehicle'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
@@ -12637,7 +12733,11 @@ paths:
           description: Vehicle updated
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  vehicle:
+                    $ref: '#/components/schemas/FuhrparkVehicle'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -12687,7 +12787,15 @@ paths:
           description: Service list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkService'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Schedule a service for a vehicle
@@ -12716,7 +12824,11 @@ paths:
           description: Service scheduled
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  service:
+                    $ref: '#/components/schemas/FuhrparkService'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12735,7 +12847,15 @@ paths:
           description: Damage list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  damages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkDamage'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Report damage for a vehicle
@@ -12763,7 +12883,11 @@ paths:
           description: Damage reported
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  damage:
+                    $ref: '#/components/schemas/FuhrparkDamage'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12782,7 +12906,15 @@ paths:
           description: Fuel log list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  fuel_logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkFuelLog'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Add a fuel log entry for a vehicle
@@ -12810,7 +12942,11 @@ paths:
           description: Fuel log created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  fuel_log:
+                    $ref: '#/components/schemas/FuhrparkFuelLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12829,7 +12965,15 @@ paths:
           description: Trip log list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  trip_logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkTripLog'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Add a trip log entry for a vehicle
@@ -12860,7 +13004,11 @@ paths:
           description: Trip log created
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  trip_log:
+                    $ref: '#/components/schemas/FuhrparkTripLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12879,7 +13027,15 @@ paths:
           description: Document list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkDocument'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       summary: Attach a document to a vehicle
@@ -12905,7 +13061,11 @@ paths:
           description: Document attached
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  document:
+                    $ref: '#/components/schemas/FuhrparkDocument'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -12925,7 +13085,15 @@ paths:
           description: Service list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkService'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/fuhrpark/services/upcoming:
@@ -12942,7 +13110,15 @@ paths:
           description: Upcoming service list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkService'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/fuhrpark/services/{id}:
@@ -12973,7 +13149,11 @@ paths:
           description: Service updated
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  service:
+                    $ref: '#/components/schemas/FuhrparkService'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -13012,7 +13192,11 @@ paths:
           description: Service completed
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  service:
+                    $ref: '#/components/schemas/FuhrparkService'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -13032,7 +13216,15 @@ paths:
           description: Damage list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  damages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkDamage'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/fuhrpark/damages/{id}:
@@ -13061,7 +13253,11 @@ paths:
           description: Damage updated
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  damage:
+                    $ref: '#/components/schemas/FuhrparkDamage'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -13088,7 +13284,11 @@ paths:
           description: Damage resolved
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  damage:
+                    $ref: '#/components/schemas/FuhrparkDamage'
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -13107,7 +13307,15 @@ paths:
           description: Fuel log list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  fuel_logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkFuelLog'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/fuhrpark/fuel-logs/{id}:
@@ -13136,7 +13344,11 @@ paths:
           description: Fuel log updated
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  fuel_log:
+                    $ref: '#/components/schemas/FuhrparkFuelLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -13168,7 +13380,15 @@ paths:
           description: Trip log list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  trip_logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkTripLog'
+                  total:
+                    type: integer
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/fuhrpark/trip-logs/{id}:
@@ -13200,7 +13420,11 @@ paths:
           description: Trip log updated
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  trip_log:
+                    $ref: '#/components/schemas/FuhrparkTripLog'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -13262,7 +13486,11 @@ paths:
           description: Positions ingested
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  ingested:
+                    type: integer
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -13281,7 +13509,13 @@ paths:
           description: Vehicle routes
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  routes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkRoute'
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/fuhrpark/gps/positions:
@@ -13299,7 +13533,13 @@ paths:
           description: GPS positions
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  positions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkGpsPosition'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -13314,7 +13554,13 @@ paths:
           description: TUV-due vehicle list
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                type: object
+                properties:
+                  vehicles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuhrparkVehicle'
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/fuhrpark/export:
@@ -13721,6 +13967,1264 @@ paths:
         "204":
           description: Deleted
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ===========================================================================
+  # Einkauf - Extended (catalog, supplier ratings, framework contracts)
+  # ===========================================================================
+
+  /api/v1/einkauf/catalog:
+    get:
+      summary: List catalog items
+      tags: [einkauf]
+      operationId: listEinkaufCatalogItems
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: available, in: query, schema: { type: boolean }, description: "Filter by availability" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Catalog item list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a catalog item
+      tags: [einkauf]
+      operationId: createEinkaufCatalogItem
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplier_id, name, price]
+              properties:
+                supplier_id: { type: string, format: uuid }
+                name: { type: string }
+                sku: { type: string }
+                category: { type: string }
+                price: { type: string, description: "Numeric string (e.g. \"12.50\")" }
+                currency: { type: string, example: EUR }
+                unit: { type: string }
+                available: { type: boolean }
+                min_order_qty: { type: string, description: "Minimum order quantity as numeric string" }
+      responses:
+        "201":
+          description: Catalog item created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/einkauf/catalog/{id}:
+    get:
+      summary: Get a catalog item
+      tags: [einkauf]
+      operationId: getEinkaufCatalogItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Catalog item
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a catalog item
+      tags: [einkauf]
+      operationId: updateEinkaufCatalogItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                sku: { type: string }
+                category: { type: string }
+                price: { type: string, description: "Numeric string" }
+                currency: { type: string }
+                unit: { type: string }
+                available: { type: boolean }
+                min_order_qty: { type: string, description: "Numeric string" }
+      responses:
+        "200":
+          description: Catalog item updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a catalog item
+      tags: [einkauf]
+      operationId: deleteEinkaufCatalogItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/suppliers/{supplierId}/ratings:
+    get:
+      summary: List ratings for a supplier
+      tags: [einkauf]
+      operationId: listEinkaufSupplierRatings
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: supplierId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Supplier rating list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ratings:
+                    type: array
+                    items: { $ref: "#/components/schemas/EinkaufSupplierRating" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create a supplier rating
+      tags: [einkauf]
+      operationId: createEinkaufSupplierRating
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: supplierId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, rating]
+              properties:
+                category: { type: string, enum: [quality, delivery, price] }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string }
+      responses:
+        "201":
+          description: Rating created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rating: { $ref: "#/components/schemas/EinkaufSupplierRating" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/einkauf/suppliers/{supplierId}/ratings/{ratingId}:
+    delete:
+      summary: Delete a supplier rating
+      tags: [einkauf]
+      operationId: deleteEinkaufSupplierRating
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: supplierId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: ratingId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/contracts:
+    get:
+      summary: List framework contracts
+      tags: [einkauf]
+      operationId: listEinkaufFrameworkContracts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, active, expired] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Framework contract list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contracts:
+                    type: array
+                    items: { $ref: "#/components/schemas/EinkaufFrameworkContract" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a framework contract
+      tags: [einkauf]
+      operationId: createEinkaufFrameworkContract
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplier_id, title]
+              properties:
+                supplier_id: { type: string, format: uuid }
+                title: { type: string }
+                contract_nr: { type: string }
+                start_date: { type: string, format: date, description: "ISO 8601 date (YYYY-MM-DD)" }
+                end_date: { type: string, format: date, description: "ISO 8601 date (YYYY-MM-DD)" }
+                total_value: { type: string, description: "Budgeted value as numeric string (e.g. \"10000.00\")" }
+                currency: { type: string, example: EUR }
+                status: { type: string, enum: [draft, active, expired], default: draft }
+      responses:
+        "201":
+          description: Framework contract created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: { $ref: "#/components/schemas/EinkaufFrameworkContract" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/einkauf/contracts/{id}:
+    get:
+      summary: Get a framework contract (includes line items)
+      tags: [einkauf]
+      operationId: getEinkaufFrameworkContract
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Framework contract with line items populated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: { $ref: "#/components/schemas/EinkaufFrameworkContract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a framework contract
+      tags: [einkauf]
+      operationId: updateEinkaufFrameworkContract
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                supplier_id: { type: string, format: uuid }
+                title: { type: string }
+                contract_nr: { type: string }
+                start_date: { type: string, format: date }
+                end_date: { type: string, format: date }
+                total_value: { type: string, description: "Numeric string" }
+                currency: { type: string }
+                status: { type: string, enum: [draft, active, expired] }
+      responses:
+        "200":
+          description: Framework contract updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: { $ref: "#/components/schemas/EinkaufFrameworkContract" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a framework contract
+      tags: [einkauf]
+      operationId: deleteEinkaufFrameworkContract
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/contracts/{id}/items:
+    post:
+      summary: Add a line item to a framework contract
+      tags: [einkauf]
+      operationId: createEinkaufContractItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                unit_price: { type: string, description: "Numeric string" }
+                unit: { type: string }
+                agreed_qty: { type: string, description: "Agreed total quantity as numeric string" }
+      responses:
+        "201":
+          description: Contract item added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/EinkaufContractItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/contracts/{id}/items/{itemId}:
+    patch:
+      summary: Update a framework contract item
+      tags: [einkauf]
+      operationId: updateEinkaufContractItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                unit_price: { type: string, description: "Numeric string" }
+                unit: { type: string }
+                agreed_qty: { type: string, description: "Numeric string" }
+      responses:
+        "200":
+          description: Contract item updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/EinkaufContractItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a framework contract item
+      tags: [einkauf]
+      operationId: deleteEinkaufContractItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/contracts/{id}/calls:
+    get:
+      summary: List call-offs for a framework contract
+      tags: [einkauf]
+      operationId: listEinkaufContractCalls
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Contract call-off list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calls:
+                    type: array
+                    items: { $ref: "#/components/schemas/EinkaufContractCall" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create a call-off against a framework contract
+      tags: [einkauf]
+      operationId: createEinkaufContractCall
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                po_id: { type: string, format: uuid, description: "Optional linked purchase order" }
+                amount: { type: string, description: "Called-off value as numeric string" }
+                currency: { type: string, example: EUR }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Contract call-off created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  call: { $ref: "#/components/schemas/EinkaufContractCall" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ===========================================================================
+  # Rapporte (Field Reports)
+  # ===========================================================================
+
+  /api/v1/rapporte/reports:
+    get:
+      summary: List work reports
+      tags: [rapporte]
+      operationId: listRapporteReports
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, submitted, approved, rejected] }, description: "Filter by report status" }
+        - { name: author_id, in: query, schema: { type: string, format: uuid }, description: "Filter by author UUID" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated report list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items: { $ref: "#/components/schemas/RapporteReport" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a work report
+      tags: [rapporte]
+      operationId: createRapporteReport
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, author_id]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                author_id: { type: string, format: uuid }
+                lat: { type: number, format: double, nullable: true }
+                lon: { type: number, format: double, nullable: true }
+                report_date: { type: string, description: "Date in YYYY-MM-DD format; defaults to today if omitted" }
+      responses:
+        "201":
+          description: Report created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/RapporteReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/rapporte/reports/{id}:
+    get:
+      summary: Get a work report by ID
+      tags: [rapporte]
+      operationId: getRapporteReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Work report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/RapporteReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a work report
+      tags: [rapporte]
+      operationId: updateRapporteReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                lat: { type: number, format: double, nullable: true }
+                lon: { type: number, format: double, nullable: true }
+                report_date: { type: string, description: "YYYY-MM-DD" }
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/RapporteReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a work report
+      tags: [rapporte]
+      operationId: deleteRapporteReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Report deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/reports/{id}/signature:
+    put:
+      summary: Save digital signature for a report
+      tags: [rapporte]
+      operationId: saveRapporteReportSignature
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signature_data, signed_by]
+              properties:
+                signature_data:
+                  type: string
+                  description: "Data URI — data:image/png;base64,… or data:image/svg+xml;base64,…"
+                signed_by:
+                  type: string
+                  description: "Name or identifier of the signer"
+      responses:
+        "200":
+          description: Report with signature saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/RapporteReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/reports/{id}/submit:
+    post:
+      summary: Submit a draft report for approval
+      tags: [rapporte]
+      operationId: submitRapporteReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Report transitioned to submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/RapporteReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/reports/{id}/approve:
+    post:
+      summary: Approve a submitted report
+      description: "Requires rapporte:report/approve permission."
+      tags: [rapporte]
+      operationId: approveRapporteReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reviewer_id]
+              properties:
+                reviewer_id: { type: string, format: uuid }
+                review_note: { type: string }
+      responses:
+        "200":
+          description: Report approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/RapporteReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/reports/{id}/reject:
+    post:
+      summary: Reject a submitted report
+      description: "Requires rapporte:report/approve permission."
+      tags: [rapporte]
+      operationId: rejectRapporteReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reviewer_id]
+              properties:
+                reviewer_id: { type: string, format: uuid }
+                review_note: { type: string }
+      responses:
+        "200":
+          description: Report rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/RapporteReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/reports/{id}/lines:
+    get:
+      summary: List lines for a report
+      tags: [rapporte]
+      operationId: listRapporteLines
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Report ID" }
+      responses:
+        "200":
+          description: Report lines (no pagination; all lines returned)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lines:
+                    type: array
+                    items: { $ref: "#/components/schemas/RapporteLine" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Add a line to a report
+      tags: [rapporte]
+      operationId: addRapporteLine
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Report ID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description: { type: string }
+                quantity: { type: number, format: double }
+                unit: { type: string }
+                notes: { type: string }
+                position: { type: integer, format: int32 }
+      responses:
+        "201":
+          description: Line added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line: { $ref: "#/components/schemas/RapporteLine" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/reports/{id}/attachments:
+    get:
+      summary: List attachments for a report
+      tags: [rapporte]
+      operationId: listRapporteAttachments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Report ID" }
+        - { name: line_id, in: query, schema: { type: string, format: uuid }, description: "Filter by line UUID" }
+      responses:
+        "200":
+          description: Attachment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attachments:
+                    type: array
+                    items: { $ref: "#/components/schemas/RapporteAttachment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Register an attachment for a report
+      description: >-
+        The caller must pre-upload the file to object storage and supply the
+        resulting object_key. This endpoint only registers the metadata; it does
+        not accept multipart uploads.
+      tags: [rapporte]
+      operationId: uploadRapporteAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Report ID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, size_bytes, object_key, uploaded_by]
+              properties:
+                line_id: { type: string, format: uuid, nullable: true }
+                filename: { type: string }
+                content_type: { type: string }
+                size_bytes: { type: integer, format: int64 }
+                object_key: { type: string, description: "Pre-computed object storage key supplied by the caller" }
+                uploaded_by: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Attachment registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attachment: { $ref: "#/components/schemas/RapporteAttachment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/reports/{id}/export/pdf:
+    get:
+      summary: Export a report as PDF
+      tags: [rapporte]
+      operationId: exportRapportePDF
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: PDF binary payload
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              description: "attachment; filename=\"<report-title>.pdf\""
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/lines/{id}:
+    patch:
+      summary: Update a report line
+      tags: [rapporte]
+      operationId: updateRapporteLine
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Line ID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: string }
+                quantity: { type: number, format: double }
+                unit: { type: string }
+                notes: { type: string }
+                position: { type: integer, format: int32 }
+      responses:
+        "200":
+          description: Updated line
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line: { $ref: "#/components/schemas/RapporteLine" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a report line
+      tags: [rapporte]
+      operationId: deleteRapporteLine
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Line ID" }
+      responses:
+        "204":
+          description: Line deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/attachments/{id}:
+    delete:
+      summary: Delete an attachment
+      tags: [rapporte]
+      operationId: deleteRapporteAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Attachment ID" }
+      responses:
+        "204":
+          description: Attachment deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/stats:
+    get:
+      summary: Get report statistics for the tenant
+      tags: [rapporte]
+      operationId: getRapporteReportStats
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Aggregate report counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RapporteReportStats"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/rapporte/pending:
+    get:
+      summary: List reports pending approval
+      tags: [rapporte]
+      operationId: listRapportePendingApprovals
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated list of submitted reports awaiting review
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items: { $ref: "#/components/schemas/RapporteReport" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/rapporte/measurements:
+    get:
+      summary: List measurements
+      tags: [rapporte]
+      operationId: listRapporteMeasurements
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: report_id, in: query, schema: { type: string, format: uuid }, description: "Filter by report UUID" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated measurement list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  measurements:
+                    type: array
+                    items: { $ref: "#/components/schemas/RapporteMeasurement" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a measurement
+      tags: [rapporte]
+      operationId: createRapporteMeasurement
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                report_id: { type: string, format: uuid, nullable: true }
+                title: { type: string }
+                location: { type: string }
+                measured_by: { type: string }
+                measured_at: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Measurement created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  measurement: { $ref: "#/components/schemas/RapporteMeasurement" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/rapporte/measurements/{id}:
+    get:
+      summary: Get a measurement by ID
+      tags: [rapporte]
+      operationId: getRapporteMeasurement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Measurement with positions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  measurement: { $ref: "#/components/schemas/RapporteMeasurement" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Update a measurement
+      tags: [rapporte]
+      operationId: updateRapporteMeasurement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                location: { type: string }
+                measured_by: { type: string }
+                measured_at: { type: string }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Updated measurement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  measurement: { $ref: "#/components/schemas/RapporteMeasurement" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a measurement
+      tags: [rapporte]
+      operationId: deleteRapporteMeasurement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Measurement deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/measurements/{id}/positions:
+    post:
+      summary: Add a position to a measurement
+      tags: [rapporte]
+      operationId: addRapporteMeasurementPosition
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: "Measurement ID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                position_number: { type: integer, format: int32 }
+                description: { type: string }
+                unit: { type: string }
+                quantity: { type: number, format: double }
+                unit_price: { type: number, format: double }
+      responses:
+        "201":
+          description: Position added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  position: { $ref: "#/components/schemas/RapporteMeasurementPosition" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/measurements/positions/{pos_id}:
+    delete:
+      summary: Delete a measurement position
+      tags: [rapporte]
+      operationId: deleteRapporteMeasurementPosition
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: pos_id, in: path, required: true, schema: { type: string, format: uuid }, description: "Position ID" }
+      responses:
+        "204":
+          description: Position deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/rapporte/templates:
+    get:
+      summary: List report templates
+      tags: [rapporte]
+      operationId: listRapporteTemplates
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: active_only, in: query, schema: { type: boolean, default: false }, description: "Return only active templates" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated template list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/RapporteTemplate" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a report template
+      tags: [rapporte]
+      operationId: createRapporteTemplate
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                category: { type: string }
+                default_lines_json: { type: string, description: "JSON string describing default lines to pre-populate on report creation" }
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template: { $ref: "#/components/schemas/RapporteTemplate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/rapporte/templates/{id}:
+    get:
+      summary: Get a report template by ID
+      tags: [rapporte]
+      operationId: getRapporteTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Report template
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template: { $ref: "#/components/schemas/RapporteTemplate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Update a report template
+      tags: [rapporte]
+      operationId: updateRapporteTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                category: { type: string }
+                default_lines_json: { type: string }
+                is_active: { type: boolean }
+      responses:
+        "200":
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template: { $ref: "#/components/schemas/RapporteTemplate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a report template
+      tags: [rapporte]
+      operationId: deleteRapporteTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Template deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
 
@@ -26134,6 +27638,974 @@ components:
         rentals:
           type: array
           items: { $ref: "#/components/schemas/VermietungRental" }
+
+    RapporteReport:
+      type: object
+      description: >-
+        A work report (Rapporte) in the field-report module. Status follows the
+        state machine: draft → submitted → approved | rejected.
+        created_at/updated_at/reviewed_at/signed_at are Proto wire timestamps
+        ({seconds, nanos}) because the service uses google.protobuf.Timestamp.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, submitted, approved, rejected]
+          description: "Report lifecycle state"
+        author_id:
+          type: string
+          format: uuid
+        reviewer_id:
+          type: string
+          format: uuid
+          nullable: true
+        reviewed_at:
+          allOf:
+            - $ref: "#/components/schemas/ProtoTimestamp"
+          nullable: true
+        review_note:
+          type: string
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lon:
+          type: number
+          format: double
+          nullable: true
+        report_date:
+          type: string
+          description: "YYYY-MM-DD"
+        signature_data:
+          type: string
+          description: "Data URI (data:image/png;base64,… or data:image/svg+xml;base64,…)"
+        signed_at:
+          allOf:
+            - $ref: "#/components/schemas/ProtoTimestamp"
+          nullable: true
+        signed_by:
+          type: string
+        weather:
+          type: string
+        temperature:
+          type: number
+          format: double
+        work_start:
+          type: string
+          description: "HH:MM"
+        work_end:
+          type: string
+          description: "HH:MM"
+        break_minutes:
+          type: integer
+          format: int32
+        project_name:
+          type: string
+        workers:
+          type: array
+          items: { $ref: "#/components/schemas/RapporteWorker" }
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    RapporteWorker:
+      type: object
+      description: A worker entry attached to a work report.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+        hours:
+          type: number
+          format: double
+        created_at:
+          type: string
+          description: "ISO-8601 string as returned by the service (string field in proto)"
+
+    RapporteLine:
+      type: object
+      description: >-
+        A line item within a work report. created_at/updated_at are Proto wire
+        timestamps ({seconds, nanos}).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          format: int32
+          description: "Display order within the report"
+        description:
+          type: string
+        quantity:
+          type: number
+          format: double
+        unit:
+          type: string
+        notes:
+          type: string
+        category:
+          type: string
+        article:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    RapporteAttachment:
+      type: object
+      description: >-
+        A file attachment linked to a work report (and optionally to a specific
+        line). created_at is a Proto wire timestamp ({seconds, nanos}).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        line_id:
+          type: string
+          format: uuid
+          nullable: true
+        filename:
+          type: string
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        object_key:
+          type: string
+          description: "Object storage key"
+        presigned_url:
+          type: string
+          description: "Short-lived presigned download URL generated by the service"
+        uploaded_by:
+          type: string
+          format: uuid
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    RapporteMeasurement:
+      type: object
+      description: >-
+        A measurement sheet that can be linked to a work report. Positions are
+        embedded. created_at/updated_at are plain strings (not proto Timestamps)
+        because the Measurement proto uses string fields for those.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        location:
+          type: string
+        measured_by:
+          type: string
+        measured_at:
+          type: string
+          description: "Free-text date/time string as provided by the caller"
+        notes:
+          type: string
+        positions:
+          type: array
+          items: { $ref: "#/components/schemas/RapporteMeasurementPosition" }
+        created_at:
+          type: string
+          description: "String timestamp (not a Proto wire timestamp)"
+        updated_at:
+          type: string
+          description: "String timestamp (not a Proto wire timestamp)"
+
+    RapporteMeasurementPosition:
+      type: object
+      description: >-
+        A single position within a measurement sheet. created_at is a plain
+        string (not a Proto wire timestamp).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        measurement_id:
+          type: string
+          format: uuid
+        position_number:
+          type: integer
+          format: int32
+        description:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: number
+          format: double
+        unit_price:
+          type: number
+          format: double
+        created_at:
+          type: string
+          description: "String timestamp (not a Proto wire timestamp)"
+
+    RapporteTemplate:
+      type: object
+      description: >-
+        A reusable report template. created_at/updated_at are plain strings (not
+        Proto wire timestamps) because the ReportTemplate proto uses string fields.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        default_lines_json:
+          type: string
+          description: "JSON string describing the default line items to pre-populate"
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          description: "String timestamp (not a Proto wire timestamp)"
+        updated_at:
+          type: string
+          description: "String timestamp (not a Proto wire timestamp)"
+
+    RapporteReportStats:
+      type: object
+      description: Aggregate report counts for the tenant. Returned flat (no envelope wrapper).
+      properties:
+        total_reports:
+          type: integer
+          format: int32
+        draft_count:
+          type: integer
+          format: int32
+        submitted_count:
+          type: integer
+          format: int32
+        approved_count:
+          type: integer
+          format: int32
+        rejected_count:
+          type: integer
+          format: int32
+
+    EinkaufCatalogItem:
+      type: object
+      description: A supplier catalog item in the Einkauf module.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sku:
+          type: string
+        category:
+          type: string
+        price:
+          type: string
+          description: "Agreed price as numeric string (e.g. \"12.50\")"
+        currency:
+          type: string
+          description: "ISO 4217 currency code (e.g. EUR)"
+        unit:
+          type: string
+          description: "Unit of measure (e.g. Stk, kg, m)"
+        available:
+          type: boolean
+        min_order_qty:
+          type: string
+          description: "Minimum order quantity as numeric string"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    EinkaufSupplierRating:
+      type: object
+      description: >-
+        A quality/delivery/price rating submitted for a supplier.
+        `rated_by` is the user ID of the submitter (nullable if recorded
+        without an authenticated user context).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+          format: uuid
+        category:
+          type: string
+          enum: [quality, delivery, price]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: "Score 1 (worst) – 5 (best)"
+        comment:
+          type: string
+        rated_by:
+          type: string
+          format: uuid
+          nullable: true
+          description: "User UUID of the rater"
+        rated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    EinkaufFrameworkContract:
+      type: object
+      description: >-
+        A framework (blanket) contract with a supplier that defines budget,
+        validity period, and agreed line items. The `items` array is populated
+        only on single-entity GET (GetFrameworkContract); list responses return
+        an empty array.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        supplier_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        contract_nr:
+          type: string
+          description: "Human-readable contract reference number"
+        start_date:
+          allOf:
+            - $ref: "#/components/schemas/ProtoTimestamp"
+          nullable: true
+          description: "Contract start date as ProtoTimestamp (null if not set)"
+        end_date:
+          allOf:
+            - $ref: "#/components/schemas/ProtoTimestamp"
+          nullable: true
+          description: "Contract end date as ProtoTimestamp (null if not set)"
+        total_value:
+          type: string
+          description: "Budgeted contract value as numeric string"
+        used_value:
+          type: string
+          description: "Cumulative sum of all call-offs as numeric string"
+        currency:
+          type: string
+          description: "ISO 4217 currency code (e.g. EUR)"
+        status:
+          type: string
+          enum: [draft, active, expired]
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        items:
+          type: array
+          description: "Line items — populated only on single-entity GET"
+          items:
+            $ref: "#/components/schemas/EinkaufContractItem"
+
+    EinkaufContractItem:
+      type: object
+      description: >-
+        A line item within a framework contract, defining an agreed product/
+        service with its price, unit, and agreed quantity. `called_qty` tracks
+        the cumulative quantity already called off.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        contract_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        unit_price:
+          type: string
+          description: "Agreed unit price as numeric string"
+        unit:
+          type: string
+          description: "Unit of measure (e.g. Stk, kg, m)"
+        agreed_qty:
+          type: string
+          description: "Agreed total quantity as numeric string"
+        called_qty:
+          type: string
+          description: "Sum of quantity called off so far as numeric string"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    EinkaufContractCall:
+      type: object
+      description: >-
+        A single call-off (Abruf) against a framework contract, recording the
+        amount drawn and optionally linking to the resulting purchase order.
+        `called_at` is the timestamp of the call-off event.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        contract_id:
+          type: string
+          format: uuid
+        po_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "UUID of the linked purchase order, if any"
+        amount:
+          type: string
+          description: "Called-off value as numeric string"
+        currency:
+          type: string
+          description: "ISO 4217 currency code"
+        called_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        notes:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    SchichtenAssignment:
+      type: object
+      description: A shift assignment linking an employee to a shift (proto SchichtAssignment).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        shift_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        assigned_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        assigned_by:
+          type: string
+          format: uuid
+          nullable: true
+
+    SchichtenComplianceReport:
+      type: object
+      description: Result of an ArbZG compliance check for a planned shift.
+      properties:
+        compliant:
+          type: boolean
+          description: "true if the planned shift is ArbZG-compliant"
+        violation_reason:
+          type: string
+          description: "Human-readable reason; empty string when compliant"
+
+    SchichtenShift:
+      type: object
+      description: A planned or published work shift (proto Shift).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        start_time:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        end_time:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        status:
+          type: string
+          enum: [draft, published]
+          description: "Lifecycle status of the shift"
+        location:
+          type: string
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    SchichtenStats:
+      type: object
+      description: Aggregate shift planning statistics for the current tenant (proto ShiftStatsResponse).
+      properties:
+        total_shifts:
+          type: integer
+        published_shifts:
+          type: integer
+        draft_shifts:
+          type: integer
+        total_assignments:
+          type: integer
+        unique_employees:
+          type: integer
+
+    SchichtenSwapRequest:
+      type: object
+      description: A shift-swap request between two employees (proto SwapRequest).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        assignment_id:
+          type: string
+          format: uuid
+        shift_id:
+          type: string
+          format: uuid
+        requested_by_employee_id:
+          type: string
+          format: uuid
+        swap_with_employee_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        reason:
+          type: string
+        idempotency_key:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    SchichtenTemplate:
+      type: object
+      description: A reusable shift template (proto ShiftTemplate).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: "0 = Sunday, 6 = Saturday"
+        start_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        start_minute:
+          type: integer
+          minimum: 0
+          maximum: 59
+        duration_minutes:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          description: "Duration in minutes; must be > 0"
+        location:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+
+    FuhrparkDamage:
+      type: object
+      description: A vehicle damage report (proto Damage).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [minor, moderate, major, totalled]
+        status:
+          type: string
+          enum: [reported, in_repair, resolved]
+        reported_by:
+          type: string
+          format: uuid
+          nullable: true
+        resolved_by:
+          type: string
+          format: uuid
+          nullable: true
+        resolved_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+          nullable: true
+        photo_keys:
+          type: array
+          items:
+            type: string
+          description: "MinIO / S3 object keys of damage photos"
+        cost_cents:
+          type: integer
+          format: int64
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    FuhrparkDocument:
+      type: object
+      description: A document attached to a vehicle (proto VehicleDocument).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        doc_type:
+          type: string
+          enum: [registration, insurance, tuev, other]
+        name:
+          type: string
+        object_key:
+          type: string
+          description: "MinIO / S3 object key"
+        upload_date:
+          type: string
+          description: "ISO date YYYY-MM-DD"
+        expiry_date:
+          type: string
+          nullable: true
+          description: "ISO date YYYY-MM-DD; absent when not applicable"
+        created_at:
+          type: string
+          description: "ISO-8601 string (proto string field, not Timestamp)"
+        updated_at:
+          type: string
+
+    FuhrparkFuelLog:
+      type: object
+      description: A fuel refuelling log entry (proto FuelLog).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          description: "ISO date YYYY-MM-DD"
+        liters:
+          type: number
+          format: double
+        cost_cents:
+          type: integer
+          format: int64
+        mileage_km:
+          type: integer
+          format: int64
+        fuel_type:
+          type: string
+          enum: [diesel, petrol, electric, hybrid, other]
+        notes:
+          type: string
+        created_at:
+          type: string
+          description: "ISO-8601 string (proto string field, not Timestamp)"
+        updated_at:
+          type: string
+
+    FuhrparkGpsPosition:
+      type: object
+      description: A raw GPS position sample (proto GpsPosition).
+      properties:
+        id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        speed_kmh:
+          type: number
+          format: double
+        recorded_at:
+          type: string
+          description: "RFC-3339 string (proto string field)"
+
+    FuhrparkRoute:
+      type: object
+      description: A reconstructed vehicle route from GPS data (proto VehicleRoute).
+      properties:
+        vehicle_id:
+          type: string
+          format: uuid
+        vehicle_name:
+          type: string
+        date:
+          type: string
+          description: "ISO date YYYY-MM-DD"
+        positions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FuhrparkGpsPosition"
+        daily_km:
+          type: number
+          format: double
+        status:
+          type: string
+          enum: [driving, parked, unknown]
+        driver:
+          type: string
+
+    FuhrparkService:
+      type: object
+      description: A vehicle service/maintenance record (proto VehicleService).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        service_type:
+          type: string
+        description:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          description: "ISO date YYYY-MM-DD"
+        completed_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+          nullable: true
+        cost_cents:
+          type: integer
+          format: int64
+          nullable: true
+        workshop:
+          type: string
+          nullable: true
+        mileage_km:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, cancelled]
+        notes:
+          type: string
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    FuhrparkTripLog:
+      type: object
+      description: A vehicle trip (Fahrtenbuch) entry (proto TripLog).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        vehicle_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          description: "ISO date YYYY-MM-DD"
+        start_location:
+          type: string
+        end_location:
+          type: string
+        purpose:
+          type: string
+        start_km:
+          type: integer
+          format: int64
+        end_km:
+          type: integer
+          format: int64
+        km:
+          type: integer
+          format: int64
+          description: "Computed distance: end_km − start_km"
+        is_private:
+          type: boolean
+        driver_name:
+          type: string
+        notes:
+          type: string
+        created_at:
+          type: string
+          description: "ISO-8601 string (proto string field, not Timestamp)"
+        updated_at:
+          type: string
+
+    FuhrparkVehicle:
+      type: object
+      description: A fleet vehicle (proto Vehicle).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        license_plate:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        vin:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        fuel_type:
+          type: string
+          enum: [petrol, diesel, electric, hybrid, other]
+        status:
+          type: string
+          enum: [active, in_service, inactive, decommissioned]
+        mileage_km:
+          type: integer
+          format: int64
+        tuev_due_date:
+          type: string
+          nullable: true
+          description: "ISO date YYYY-MM-DD; absent if not set"
+        assigned_driver_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "Driver assignment (stub Sprint 3)"
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
 
   responses:
     BadRequest:
