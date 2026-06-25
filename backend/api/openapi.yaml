@@ -145,6 +145,12 @@ tags:
     description: Security management (audit, vault, GDPR/DSAR, password policy, IP rules)
   - name: 2fa
     description: Two-factor authentication management and admin policy
+  - name: formulare
+    description: Form schema and submission management (forms builder, webhooks, delivery logs)
+  - name: vertraege
+    description: Contract management (parties, reminders, digital signatures, export)
+  - name: mails
+    description: Email account management, IMAP sync, message operations, signatures, CRM links, contact import/export
 
 paths:
   /health:
@@ -14715,6 +14721,1800 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ---------------------------------------------------------------------------
+  # Modul: formulare
+  # ---------------------------------------------------------------------------
+
+  /api/v1/formulare/schemas:
+    get:
+      summary: List form schemas
+      tags: [formulare]
+      operationId: listFormSchemas
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Paginated form schema list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemas:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormSchema" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a form schema
+      tags: [formulare]
+      operationId: createFormSchema
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                fields: { type: string, format: byte, description: "JSON-array of FormField (base64-encoded bytes)" }
+                is_template: { type: boolean }
+                is_public: { type: boolean }
+                page_count: { type: integer, format: int32 }
+      responses:
+        "201":
+          description: Form schema created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schema: { $ref: "#/components/schemas/FormSchema" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/formulare/schemas/{id}:
+    get:
+      summary: Get a form schema by ID
+      tags: [formulare]
+      operationId: getFormSchema
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Form schema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schema: { $ref: "#/components/schemas/FormSchema" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a form schema
+      tags: [formulare]
+      operationId: updateFormSchema
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                fields: { type: string, format: byte, description: "JSON-array of FormField (base64-encoded bytes)" }
+                is_template: { type: boolean }
+                is_public: { type: boolean }
+                page_count: { type: integer, format: int32 }
+      responses:
+        "200":
+          description: Form schema updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schema: { $ref: "#/components/schemas/FormSchema" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a form schema
+      tags: [formulare]
+      operationId: deleteFormSchema
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Form schema deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/schemas/{id}/duplicate:
+    post:
+      summary: Duplicate a form schema
+      tags: [formulare]
+      operationId: duplicateFormSchema
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_title: { type: string }
+      responses:
+        "201":
+          description: Duplicated form schema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schema: { $ref: "#/components/schemas/FormSchema" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/schemas/{id}/stats:
+    get:
+      summary: Get submission statistics for a form schema
+      tags: [formulare]
+      operationId: getFormStats
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Form submission statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats: { $ref: "#/components/schemas/FormStats" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/schemas/{id}/submissions:
+    get:
+      summary: List submissions for a form schema
+      tags: [formulare]
+      operationId: listFormSubmissions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Paginated submission list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submissions:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormSubmission" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create a submission for a form schema
+      tags: [formulare]
+      operationId: createFormSubmission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers: { type: string, format: byte, description: "JSON-object of field answers (base64-encoded bytes)" }
+                submitted_by: { type: string }
+                ip_address: { type: string }
+      responses:
+        "201":
+          description: Submission created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submission: { $ref: "#/components/schemas/FormSubmission" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/formulare/schemas/{id}/submissions/export:
+    get:
+      summary: Export submissions for a form schema as CSV or XLSX
+      tags: [formulare]
+      operationId: exportFormSubmissions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: format, in: query, schema: { type: string, enum: [csv, xlsx], default: csv } }
+      responses:
+        "200":
+          description: Submission export file
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/schemas/{id}/webhooks:
+    get:
+      summary: List webhooks for a form schema
+      tags: [formulare]
+      operationId: listFormWebhooks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Webhook list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormWebhook" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create a webhook for a form schema
+      tags: [formulare]
+      operationId: createFormWebhook
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, format: uri }
+                secret: { type: string }
+                events:
+                  type: array
+                  items: { type: string }
+                active: { type: boolean }
+      responses:
+        "201":
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/formulare/submissions/{id}:
+    get:
+      summary: Get a submission by ID
+      tags: [formulare]
+      operationId: getFormSubmission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Form submission
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submission: { $ref: "#/components/schemas/FormSubmission" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update submission status
+      tags: [formulare]
+      operationId: updateFormSubmissionStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [new, read, archived] }
+      responses:
+        "200":
+          description: Submission status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submission: { $ref: "#/components/schemas/FormSubmission" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/webhooks/{id}:
+    get:
+      summary: Get a webhook by ID
+      tags: [formulare]
+      operationId: getFormWebhook
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Webhook
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a webhook
+      tags: [formulare]
+      operationId: updateFormWebhook
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string, format: uri }
+                secret: { type: string }
+                events:
+                  type: array
+                  items: { type: string }
+                events_set: { type: boolean, description: "true = replace the full events list" }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Webhook updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a webhook
+      tags: [formulare]
+      operationId: deleteFormWebhook
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Webhook deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/webhooks/{id}/deliveries:
+    get:
+      summary: List deliveries for a specific webhook
+      tags: [formulare]
+      operationId: listFormWebhookDeliveriesForWebhook
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Delivery list for webhook
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveries:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormWebhookDelivery" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/formulare/deliveries:
+    get:
+      summary: List webhook deliveries (global, filterable)
+      tags: [formulare]
+      operationId: listFormWebhookDeliveries
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: webhook_id, in: query, schema: { type: string, format: uuid } }
+        - { name: submission_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: integer, description: "WebhookDeliveryStatus enum int (1=pending, 2=delivered, 3=failed, 4=dead)" } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Paginated delivery list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveries:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormWebhookDelivery" }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------------------------------------------------------------------
+  # Modul: vertraege
+  # ---------------------------------------------------------------------------
+
+  /api/v1/vertraege/contracts:
+    get:
+      summary: List contracts
+      tags: [vertraege]
+      operationId: listContracts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [draft, active, expired, terminated] } }
+        - { name: contract_type, in: query, schema: { type: string, enum: [rental, service, employment, nda, other] } }
+        - { name: contact_id, in: query, schema: { type: string, format: uuid }, description: "Filter by party contact_id (Contact-360 view)" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Paginated contract list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contracts:
+                    type: array
+                    items: { $ref: "#/components/schemas/VertraegeContract" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a contract
+      tags: [vertraege]
+      operationId: createContract
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contract_number, title, contract_type]
+              properties:
+                contract_number: { type: string }
+                title: { type: string }
+                contract_type: { type: string, enum: [rental, service, employment, nda, other] }
+                starts_on: { type: string, description: "RFC3339 date string" }
+                ends_on: { type: string, description: "RFC3339 date string (optional)" }
+                document_url: { type: string, format: uri }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Contract created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: { $ref: "#/components/schemas/VertraegeContract" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/vertraege/contracts/{id}:
+    get:
+      summary: Get a contract by ID
+      description: Returns the contract including nested parties and reminders.
+      tags: [vertraege]
+      operationId: getContract
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Contract (with parties and reminders)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: { $ref: "#/components/schemas/VertraegeContract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a contract
+      tags: [vertraege]
+      operationId: updateContract
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                contract_type: { type: string, enum: [rental, service, employment, nda, other] }
+                status: { type: string, enum: [draft, active, expired, terminated] }
+                starts_on: { type: string, description: "RFC3339 date string" }
+                ends_on: { type: string, description: "RFC3339 date string" }
+                clear_ends_on: { type: boolean, description: "Set true to remove the ends_on date" }
+                document_url: { type: string, format: uri }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Contract updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: { $ref: "#/components/schemas/VertraegeContract" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a contract
+      tags: [vertraege]
+      operationId: deleteContract
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Contract deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vertraege/contracts/{id}/export:
+    get:
+      summary: Export a contract (plain text; PDF in Sprint 3)
+      tags: [vertraege]
+      operationId: exportContract
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Contract export file
+          content:
+            text/plain:
+              schema: { type: string, format: binary }
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vertraege/contracts/{id}/signature:
+    put:
+      summary: Save a digital signature on a contract
+      tags: [vertraege]
+      operationId: saveContractSignature
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signature_data, signed_by]
+              properties:
+                signature_data:
+                  type: string
+                  description: "data:image/png;base64,... or data:image/svg+xml;base64,..."
+                signed_by:
+                  type: string
+                  description: Display name or user ID of signer
+      responses:
+        "200":
+          description: Contract with signature saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: { $ref: "#/components/schemas/VertraegeContract" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vertraege/contracts/{id}/parties:
+    get:
+      summary: List parties for a contract
+      tags: [vertraege]
+      operationId: listContractParties
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Party list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parties:
+                    type: array
+                    items: { $ref: "#/components/schemas/VertraegeContractParty" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Add a party to a contract
+      tags: [vertraege]
+      operationId: addContractParty
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [party_type, role_in_contract]
+              properties:
+                party_type: { type: string, enum: [contact, company, external] }
+                contact_id: { type: string, format: uuid }
+                company_id: { type: string, format: uuid }
+                external_name: { type: string }
+                role_in_contract: { type: string }
+                signed_on: { type: string, description: "RFC3339 datetime string" }
+      responses:
+        "201":
+          description: Party added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  party: { $ref: "#/components/schemas/VertraegeContractParty" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vertraege/contracts/{id}/parties/{partyId}:
+    delete:
+      summary: Remove a party from a contract
+      tags: [vertraege]
+      operationId: removeContractParty
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: partyId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Party removed
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/vertraege/contracts/{id}/reminders:
+    get:
+      summary: List reminders for a contract
+      tags: [vertraege]
+      operationId: listContractReminders
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: only_pending, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Reminder list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reminders:
+                    type: array
+                    items: { $ref: "#/components/schemas/VertraegeContractReminder" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create a reminder for a contract
+      tags: [vertraege]
+      operationId: createContractReminder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject]
+              properties:
+                remind_at: { type: string, description: "RFC3339 datetime string" }
+                reminder_type: { type: string, enum: [renewal, expiry, payment, custom] }
+                subject: { type: string }
+                message: { type: string }
+      responses:
+        "201":
+          description: Reminder created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reminder: { $ref: "#/components/schemas/VertraegeContractReminder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/vertraege/contracts/{id}/reminders/{reminderId}:
+    patch:
+      summary: Update a contract reminder
+      tags: [vertraege]
+      operationId: updateContractReminder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: reminderId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                remind_at: { type: string, description: "RFC3339 datetime string" }
+                reminder_type: { type: string, enum: [renewal, expiry, payment, custom] }
+                subject: { type: string }
+                message: { type: string }
+                status: { type: string, enum: [pending, sent, cancelled] }
+      responses:
+        "200":
+          description: Reminder updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reminder: { $ref: "#/components/schemas/VertraegeContractReminder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a contract reminder
+      tags: [vertraege]
+      operationId: deleteContractReminder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: reminderId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Reminder deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------------------
+  # Modul: mails
+  # ---------------------------------------------------------------------------
+
+  /api/v1/email/accounts:
+    post:
+      summary: Create an email account (IMAP/SMTP)
+      tags: [mails]
+      operationId: createEmailAccount
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailAccountRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateEmailAccountResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: Get email account for a user
+      tags: [mails]
+      operationId: getEmailAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Email account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetEmailAccountResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/accounts/{id}:
+    put:
+      summary: Update an email account
+      tags: [mails]
+      operationId: updateEmailAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailAccountRequest"
+      responses:
+        "200":
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateEmailAccountResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete an email account
+      tags: [mails]
+      operationId: deleteEmailAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/accounts/test:
+    post:
+      summary: Test IMAP/SMTP connection credentials
+      tags: [mails]
+      operationId: testEmailConnection
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestEmailConnectionRequest"
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestEmailConnectionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/folders:
+    get:
+      summary: List IMAP folders for an account
+      tags: [mails]
+      operationId: listEmailFolders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Folder list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFoldersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/folders/{id}:
+    get:
+      summary: Get a single folder
+      tags: [mails]
+      operationId: getEmailFolder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Folder details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetFolderResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/folders/sync:
+    post:
+      summary: Sync folders from IMAP server
+      tags: [mails]
+      operationId: syncEmailFolders
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncFoldersRequest"
+      responses:
+        "200":
+          description: Synced folder list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFoldersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/messages:
+    get:
+      summary: List messages in a folder (paginated)
+      tags: [mails]
+      operationId: listEmailMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: folder_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [date, subject, from, size]
+        - name: sort_desc
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: Message list with total count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailListMessagesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/messages/{id}:
+    get:
+      summary: Get a single message (with body and attachments)
+      tags: [mails]
+      operationId: getEmailMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Message detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetMessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a message
+      tags: [mails]
+      operationId: deleteEmailMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/messages/thread/{threadId}:
+    get:
+      summary: Get all messages in a thread
+      tags: [mails]
+      operationId: getThreadMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thread messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetThreadMessagesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/messages/{id}/read:
+    post:
+      summary: Mark a message as read
+      tags: [mails]
+      operationId: markEmailRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/messages/{id}/unread:
+    post:
+      summary: Mark a message as unread
+      tags: [mails]
+      operationId: markEmailUnread
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Marked as unread
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/messages/{id}/star:
+    post:
+      summary: Toggle star on a message
+      tags: [mails]
+      operationId: toggleEmailStar
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Star toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToggleStarResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/messages/{id}/move:
+    post:
+      summary: Move a message to a different folder
+      tags: [mails]
+      operationId: moveEmailToFolder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveToFolderRequest"
+      responses:
+        "200":
+          description: Message moved
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/send:
+    post:
+      summary: Send an email (with optional UWG §7 consent check when contact_id is set)
+      tags: [mails]
+      operationId: sendEmail
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendEmailRequest"
+      responses:
+        "201":
+          description: Email sent; message record returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendEmailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/email/send/draft:
+    post:
+      summary: Save or update a draft
+      tags: [mails]
+      operationId: saveEmailDraft
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveDraftRequest"
+      responses:
+        "201":
+          description: Draft saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveDraftResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/send/reply:
+    post:
+      summary: Reply to a message
+      tags: [mails]
+      operationId: replyEmail
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplyEmailRequest"
+      responses:
+        "201":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplyEmailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/send/forward:
+    post:
+      summary: Forward a message
+      tags: [mails]
+      operationId: forwardEmail
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForwardEmailRequest"
+      responses:
+        "201":
+          description: Forward sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForwardEmailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/signatures:
+    get:
+      summary: List signatures for a user
+      tags: [mails]
+      operationId: listEmailSignatures
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Signature list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSignaturesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create a signature
+      tags: [mails]
+      operationId: createEmailSignature
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSignatureRequest"
+      responses:
+        "201":
+          description: Signature created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateSignatureResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/signatures/{id}:
+    get:
+      summary: Get a signature
+      tags: [mails]
+      operationId: getEmailSignature
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Signature detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetSignatureResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update a signature
+      tags: [mails]
+      operationId: updateEmailSignature
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSignatureRequest"
+      responses:
+        "200":
+          description: Signature updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateSignatureResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a signature
+      tags: [mails]
+      operationId: deleteEmailSignature
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Signature deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/signatures/{id}/default:
+    post:
+      summary: Set a signature as the default for a user
+      tags: [mails]
+      operationId: setDefaultEmailSignature
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDefaultSignatureRequest"
+      responses:
+        "200":
+          description: Default signature set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetDefaultSignatureResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/links/message/{messageId}:
+    get:
+      summary: Get CRM contact links for a message
+      tags: [mails]
+      operationId: getEmailContactLinks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Contact links for the message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetEmailContactLinksResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/links:
+    post:
+      summary: Link a message to a CRM contact
+      tags: [mails]
+      operationId: linkEmailToContact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkEmailToContactRequest"
+      responses:
+        "201":
+          description: Link created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkEmailToContactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Unlink a message from a CRM contact
+      tags: [mails]
+      operationId: unlinkEmailFromContact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnlinkEmailFromContactRequest"
+      responses:
+        "200":
+          description: Link removed
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/links/contact/{contactId}:
+    get:
+      summary: Get emails linked to a CRM contact (paginated)
+      tags: [mails]
+      operationId: getContactEmails
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Emails linked to the contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetContactEmailsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/sync/trigger:
+    post:
+      summary: Trigger IMAP sync for an account
+      tags: [mails]
+      operationId: triggerEmailSync
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerSyncRequest"
+      responses:
+        "200":
+          description: Sync triggered or already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerSyncResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/sync/status:
+    get:
+      summary: Get sync status for an account
+      tags: [mails]
+      operationId: getEmailSyncStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetSyncStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/sync/read-flag:
+    post:
+      summary: Propagate read/unread flag back to IMAP server
+      tags: [mails]
+      operationId: setEmailReadFlag
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetReadFlagRequest"
+      responses:
+        "200":
+          description: Flag set
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/attachments/upload:
+    post:
+      summary: Upload an attachment (multipart/form-data, max 50 MB)
+      tags: [mails]
+      operationId: uploadEmailAttachment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, account_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                account_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Attachment uploaded; ID usable in send/draft requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadAttachmentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/attachments/{id}/download:
+    get:
+      summary: Get a pre-signed download URL for an attachment
+      tags: [mails]
+      operationId: getEmailAttachmentDownloadURL
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Download URL and metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetAttachmentDownloadURLResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/email/contacts/import/csv:
+    post:
+      summary: Import CRM contacts from a CSV file
+      tags: [mails]
+      operationId: importContactsCSV
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportContactsCSVRequest"
+      responses:
+        "200":
+          description: Import result with counts and errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailImportContactsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/contacts/import/vcard:
+    post:
+      summary: Import CRM contacts from a vCard file
+      tags: [mails]
+      operationId: importContactsVCard
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportContactsVCardRequest"
+      responses:
+        "200":
+          description: Import result with counts and errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailImportContactsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/contacts/export/csv:
+    post:
+      summary: Export CRM contacts as CSV (file_content is base64-encoded bytes)
+      tags: [mails]
+      operationId: exportContactsCSV
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailExportContactsRequest"
+      responses:
+        "200":
+          description: CSV file content (base64) and filename
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailExportContactsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/email/contacts/export/vcard:
+    post:
+      summary: Export CRM contacts as vCard (file_content is base64-encoded bytes)
+      tags: [mails]
+      operationId: exportContactsVCard
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailExportContactsRequest"
+      responses:
+        "200":
+          description: vCard file content (base64) and filename
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailExportContactsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -20701,6 +22501,1110 @@ components:
         enabled:
           type: boolean
         description:
+          type: string
+
+    # -----------------------------------------------------------------------
+    # Modul: formulare
+    # -----------------------------------------------------------------------
+
+    FormSchema:
+      type: object
+      description: A form schema definition (fields layout + metadata).
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        fields:
+          type: string
+          format: byte
+          description: JSON-array of FormField (base64-encoded bytes on the wire)
+        status:
+          type: string
+          enum: [draft, active, archived]
+          description: "Proto enum: 1=draft, 2=active, 3=archived"
+        is_template:
+          type: boolean
+        is_public:
+          type: boolean
+        page_count:
+          type: integer
+          format: int32
+        submission_count:
+          type: integer
+          format: int32
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        deleted_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    FormSubmission:
+      type: object
+      description: A single form submission (answers from one respondent).
+      properties:
+        id:
+          type: string
+          format: uuid
+        form_schema_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        answers:
+          type: string
+          format: byte
+          description: JSON-object of field answers (base64-encoded bytes on the wire)
+        status:
+          type: string
+          enum: [new, read, archived]
+          description: "Proto enum: 1=new, 2=read, 3=archived"
+        submitted_by:
+          type: string
+        ip_address:
+          type: string
+        submitted_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    FormWebhook:
+      type: object
+      description: A webhook subscription attached to a form schema.
+      properties:
+        id:
+          type: string
+          format: uuid
+        form_schema_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        secret:
+          type: string
+          description: HMAC secret (write-only; returned masked or omitted)
+        events:
+          type: array
+          items: { type: string }
+        active:
+          type: boolean
+        last_triggered_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        last_status:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    FormWebhookDelivery:
+      type: object
+      description: A single delivery attempt for a webhook event.
+      properties:
+        id:
+          type: string
+          format: uuid
+        webhook_id:
+          type: string
+          format: uuid
+        submission_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        payload:
+          type: string
+          format: byte
+          description: Raw delivery payload (base64-encoded bytes on the wire)
+        status:
+          type: string
+          enum: [pending, delivered, failed, dead]
+          description: "Proto enum: 1=pending, 2=delivered, 3=failed, 4=dead"
+        attempt_count:
+          type: integer
+          format: int32
+        max_attempts:
+          type: integer
+          format: int32
+        next_attempt_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        last_error:
+          type: string
+        last_response_code:
+          type: integer
+          format: int32
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        delivered_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    FormStats:
+      type: object
+      description: Aggregated submission statistics for a form schema.
+      properties:
+        form_schema_id:
+          type: string
+          format: uuid
+        total_count:
+          type: integer
+          format: int32
+        new_count:
+          type: integer
+          format: int32
+        last_7d_count:
+          type: integer
+          format: int32
+        last_30d_count:
+          type: integer
+          format: int32
+
+    # -----------------------------------------------------------------------
+    # Modul: vertraege
+    # -----------------------------------------------------------------------
+
+    VertraegeContract:
+      type: object
+      description: A contract managed in the Vertraege module.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        contract_number:
+          type: string
+        title:
+          type: string
+        contract_type:
+          type: string
+          enum: [rental, service, employment, nda, other]
+        status:
+          type: string
+          enum: [draft, active, expired, terminated]
+        starts_on:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        ends_on:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        document_url:
+          type: string
+          format: uri
+        notes:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        signature_provider:
+          type: string
+          description: "Phase D placeholder (Skribble); null until then"
+        signature_data:
+          type: string
+          description: "data:image/png;base64,... or data:image/svg+xml;base64,..."
+        signed_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        signed_by:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        parties:
+          type: array
+          description: "Populated only by GET /contracts/{id}"
+          items: { $ref: "#/components/schemas/VertraegeContractParty" }
+        reminders:
+          type: array
+          description: "Populated only by GET /contracts/{id}"
+          items: { $ref: "#/components/schemas/VertraegeContractReminder" }
+
+    VertraegeContractParty:
+      type: object
+      description: A party (contact, company, or external) linked to a contract.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        contract_id:
+          type: string
+          format: uuid
+        party_type:
+          type: string
+          enum: [contact, company, external]
+        contact_id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        external_name:
+          type: string
+        role_in_contract:
+          type: string
+        signed_on:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    VertraegeContractReminder:
+      type: object
+      description: A scheduled reminder attached to a contract.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        contract_id:
+          type: string
+          format: uuid
+        remind_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        reminder_type:
+          type: string
+          enum: [renewal, expiry, payment, custom]
+        subject:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+          enum: [pending, sent, cancelled]
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        sent_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    # -----------------------------------------------------------------------
+    # Modul: mails
+    # -----------------------------------------------------------------------
+
+    EmailAddressInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    EmailAttachmentInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        minio_key:
+          type: string
+          description: Internal MinIO object key (not exposed to end users)
+        content_id:
+          type: string
+          description: CID reference for inline images
+        is_inline:
+          type: boolean
+
+    EmailAccountInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        email_address:
+          type: string
+          format: email
+        display_name:
+          type: string
+        imap_host:
+          type: string
+        imap_port:
+          type: integer
+        smtp_host:
+          type: string
+        smtp_port:
+          type: integer
+        username:
+          type: string
+        use_ssl:
+          type: boolean
+        sync_enabled:
+          type: boolean
+        last_sync_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateEmailAccountRequest:
+      type: object
+      required: [user_id, email_address, imap_host, imap_port, smtp_host, smtp_port, username, password]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email_address:
+          type: string
+          format: email
+        display_name:
+          type: string
+        imap_host:
+          type: string
+        imap_port:
+          type: integer
+        smtp_host:
+          type: string
+        smtp_port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+          description: Plaintext; encrypted at service layer
+        use_ssl:
+          type: boolean
+        sync_enabled:
+          type: boolean
+
+    CreateEmailAccountResponse:
+      type: object
+      properties:
+        account:
+          $ref: "#/components/schemas/EmailAccountInfo"
+
+    GetEmailAccountResponse:
+      type: object
+      properties:
+        account:
+          $ref: "#/components/schemas/EmailAccountInfo"
+
+    UpdateEmailAccountRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+        imap_host:
+          type: string
+          nullable: true
+        imap_port:
+          type: integer
+          nullable: true
+        smtp_host:
+          type: string
+          nullable: true
+        smtp_port:
+          type: integer
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+        use_ssl:
+          type: boolean
+          nullable: true
+        sync_enabled:
+          type: boolean
+          nullable: true
+
+    UpdateEmailAccountResponse:
+      type: object
+      properties:
+        account:
+          $ref: "#/components/schemas/EmailAccountInfo"
+
+    TestEmailConnectionRequest:
+      type: object
+      required: [imap_host, imap_port, smtp_host, smtp_port, username, password]
+      properties:
+        imap_host:
+          type: string
+        imap_port:
+          type: integer
+        smtp_host:
+          type: string
+        smtp_port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+        use_ssl:
+          type: boolean
+
+    TestEmailConnectionResponse:
+      type: object
+      properties:
+        imap_ok:
+          type: boolean
+        smtp_ok:
+          type: boolean
+        imap_error:
+          type: string
+        smtp_error:
+          type: string
+
+    EmailFolderInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        imap_name:
+          type: string
+        folder_type:
+          type: string
+          enum: [inbox, sent, drafts, trash, spam, archive, custom]
+        uid_validity:
+          type: integer
+          format: int64
+        message_count:
+          type: integer
+        unread_count:
+          type: integer
+        sort_order:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ListFoldersResponse:
+      type: object
+      properties:
+        folders:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailFolderInfo"
+
+    GetFolderResponse:
+      type: object
+      properties:
+        folder:
+          $ref: "#/components/schemas/EmailFolderInfo"
+
+    SyncFoldersRequest:
+      type: object
+      required: [account_id]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+
+    EmailMessageInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        folder_id:
+          type: string
+          format: uuid
+        uid:
+          type: integer
+          format: int64
+          description: IMAP UID
+        message_id_header:
+          type: string
+          description: RFC 2822 Message-ID header value
+        in_reply_to:
+          type: string
+        references:
+          type: array
+          items:
+            type: string
+        thread_id:
+          type: string
+        from:
+          $ref: "#/components/schemas/EmailAddressInfo"
+        to:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAddressInfo"
+        cc:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAddressInfo"
+        bcc:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAddressInfo"
+        subject:
+          type: string
+        preview:
+          type: string
+          description: Short plain-text excerpt (~100 chars)
+        body_text:
+          type: string
+        body_html:
+          type: string
+        is_read:
+          type: boolean
+        is_starred:
+          type: boolean
+        is_draft:
+          type: boolean
+        has_attachments:
+          type: boolean
+        date:
+          type: string
+          format: date-time
+        size_bytes:
+          type: integer
+          format: int64
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailAttachmentInfo"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EmailListMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailMessageInfo"
+        total:
+          type: integer
+
+    GetMessageResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/EmailMessageInfo"
+
+    GetThreadMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailMessageInfo"
+
+    ToggleStarResponse:
+      type: object
+      properties:
+        is_starred:
+          type: boolean
+
+    MoveToFolderRequest:
+      type: object
+      required: [target_folder_id]
+      properties:
+        target_folder_id:
+          type: string
+          format: uuid
+
+    SendEmailRequest:
+      type: object
+      required: [account_id, to, subject]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        to:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: email
+        cc:
+          type: array
+          items:
+            type: string
+            format: email
+        bcc:
+          type: array
+          items:
+            type: string
+            format: email
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
+        attachment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        in_reply_to_message_id:
+          type: string
+          nullable: true
+          description: For in-thread sending
+        signature_id:
+          type: string
+          format: uuid
+          nullable: true
+        contact_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: When set, triggers UWG §7 marketing-consent pre-check
+
+    SendEmailResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/EmailMessageInfo"
+
+    SaveDraftRequest:
+      type: object
+      required: [account_id]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        draft_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: If set, updates an existing draft
+        to:
+          type: array
+          items:
+            type: string
+            format: email
+        cc:
+          type: array
+          items:
+            type: string
+            format: email
+        bcc:
+          type: array
+          items:
+            type: string
+            format: email
+        subject:
+          type: string
+        body_html:
+          type: string
+        body_text:
+          type: string
+        attachment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        in_reply_to_message_id:
+          type: string
+          nullable: true
+
+    SaveDraftResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/EmailMessageInfo"
+
+    ReplyEmailRequest:
+      type: object
+      required: [account_id, original_message_id]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        original_message_id:
+          type: string
+          format: uuid
+        body_html:
+          type: string
+        body_text:
+          type: string
+        reply_all:
+          type: boolean
+          default: false
+        attachment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ReplyEmailResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/EmailMessageInfo"
+
+    ForwardEmailRequest:
+      type: object
+      required: [account_id, original_message_id, to]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        original_message_id:
+          type: string
+          format: uuid
+        to:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: email
+        body_html:
+          type: string
+        body_text:
+          type: string
+        attachment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ForwardEmailResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/EmailMessageInfo"
+
+    EmailSignatureInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        html_content:
+          type: string
+        is_default:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateSignatureRequest:
+      type: object
+      required: [user_id, name, html_content]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        html_content:
+          type: string
+        is_default:
+          type: boolean
+
+    CreateSignatureResponse:
+      type: object
+      properties:
+        signature:
+          $ref: "#/components/schemas/EmailSignatureInfo"
+
+    GetSignatureResponse:
+      type: object
+      properties:
+        signature:
+          $ref: "#/components/schemas/EmailSignatureInfo"
+
+    ListSignaturesResponse:
+      type: object
+      properties:
+        signatures:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailSignatureInfo"
+
+    UpdateSignatureRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        html_content:
+          type: string
+          nullable: true
+        is_default:
+          type: boolean
+          nullable: true
+
+    UpdateSignatureResponse:
+      type: object
+      properties:
+        signature:
+          $ref: "#/components/schemas/EmailSignatureInfo"
+
+    SetDefaultSignatureRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+
+    SetDefaultSignatureResponse:
+      type: object
+      properties:
+        signature:
+          $ref: "#/components/schemas/EmailSignatureInfo"
+
+    EmailContactLinkInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        message_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        link_type:
+          type: string
+          enum: [auto, manual]
+        created_at:
+          type: string
+          format: date-time
+
+    GetEmailContactLinksResponse:
+      type: object
+      properties:
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailContactLinkInfo"
+
+    LinkEmailToContactRequest:
+      type: object
+      required: [message_id, contact_id]
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        link_type:
+          type: string
+          enum: [auto, manual]
+          default: manual
+
+    LinkEmailToContactResponse:
+      type: object
+      properties:
+        link:
+          $ref: "#/components/schemas/EmailContactLinkInfo"
+
+    UnlinkEmailFromContactRequest:
+      type: object
+      required: [message_id, contact_id]
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+
+    GetContactEmailsResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailMessageInfo"
+        total:
+          type: integer
+
+    TriggerSyncRequest:
+      type: object
+      required: [account_id]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+
+    TriggerSyncResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [started, already_syncing]
+
+    GetSyncStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [idle, syncing, error]
+        last_sync_at:
+          type: string
+          format: date-time
+        error_message:
+          type: string
+
+    SetReadFlagRequest:
+      type: object
+      required: [message_id, is_read]
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        is_read:
+          type: boolean
+
+    UploadAttachmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        minio_key:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+
+    GetAttachmentDownloadURLResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+          format: uri
+        filename:
+          type: string
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+
+    ImportContactsCSVRequest:
+      type: object
+      required: [file_content]
+      properties:
+        file_content:
+          type: string
+          format: byte
+          description: Base64-encoded CSV file content
+        field_mapping:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of CSV column names to CRM field names
+        visibility:
+          type: string
+          enum: [shared, personal]
+        merge_by_email:
+          type: boolean
+
+    ImportContactsVCardRequest:
+      type: object
+      required: [file_content]
+      properties:
+        file_content:
+          type: string
+          format: byte
+          description: Base64-encoded vCard file content
+        visibility:
+          type: string
+          enum: [shared, personal]
+        merge_by_email:
+          type: boolean
+
+    EmailImportError:
+      type: object
+      properties:
+        row:
+          type: integer
+        field:
+          type: string
+        error:
+          type: string
+
+    EmailImportContactsResponse:
+      type: object
+      properties:
+        imported_count:
+          type: integer
+        merged_count:
+          type: integer
+        skipped_count:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailImportError"
+
+    EmailExportContactsRequest:
+      type: object
+      properties:
+        contact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        fields:
+          type: array
+          items:
+            type: string
+          description: Restrict exported fields; omit for all fields
+
+    EmailExportContactsResponse:
+      type: object
+      properties:
+        file_content:
+          type: string
+          format: byte
+          description: Base64-encoded file content (CSV or vCard depending on endpoint)
+        filename:
           type: string
 
   responses:

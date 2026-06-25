@@ -8632,6 +8632,897 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/formulare/schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List form schemas */
+        get: operations["listFormSchemas"];
+        put?: never;
+        /** Create a form schema */
+        post: operations["createFormSchema"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/schemas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a form schema by ID */
+        get: operations["getFormSchema"];
+        put?: never;
+        post?: never;
+        /** Delete a form schema */
+        delete: operations["deleteFormSchema"];
+        options?: never;
+        head?: never;
+        /** Update a form schema */
+        patch: operations["updateFormSchema"];
+        trace?: never;
+    };
+    "/api/v1/formulare/schemas/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate a form schema */
+        post: operations["duplicateFormSchema"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/schemas/{id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get submission statistics for a form schema */
+        get: operations["getFormStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/schemas/{id}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List submissions for a form schema */
+        get: operations["listFormSubmissions"];
+        put?: never;
+        /** Create a submission for a form schema */
+        post: operations["createFormSubmission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/schemas/{id}/submissions/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export submissions for a form schema as CSV or XLSX */
+        get: operations["exportFormSubmissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/schemas/{id}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List webhooks for a form schema */
+        get: operations["listFormWebhooks"];
+        put?: never;
+        /** Create a webhook for a form schema */
+        post: operations["createFormWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/submissions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a submission by ID */
+        get: operations["getFormSubmission"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update submission status */
+        patch: operations["updateFormSubmissionStatus"];
+        trace?: never;
+    };
+    "/api/v1/formulare/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a webhook by ID */
+        get: operations["getFormWebhook"];
+        put?: never;
+        post?: never;
+        /** Delete a webhook */
+        delete: operations["deleteFormWebhook"];
+        options?: never;
+        head?: never;
+        /** Update a webhook */
+        patch: operations["updateFormWebhook"];
+        trace?: never;
+    };
+    "/api/v1/formulare/webhooks/{id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List deliveries for a specific webhook */
+        get: operations["listFormWebhookDeliveriesForWebhook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/formulare/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List webhook deliveries (global, filterable) */
+        get: operations["listFormWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List contracts */
+        get: operations["listContracts"];
+        put?: never;
+        /** Create a contract */
+        post: operations["createContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a contract by ID
+         * @description Returns the contract including nested parties and reminders.
+         */
+        get: operations["getContract"];
+        put?: never;
+        post?: never;
+        /** Delete a contract */
+        delete: operations["deleteContract"];
+        options?: never;
+        head?: never;
+        /** Update a contract */
+        patch: operations["updateContract"];
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export a contract (plain text; PDF in Sprint 3) */
+        get: operations["exportContract"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts/{id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save a digital signature on a contract */
+        put: operations["saveContractSignature"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts/{id}/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List parties for a contract */
+        get: operations["listContractParties"];
+        put?: never;
+        /** Add a party to a contract */
+        post: operations["addContractParty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts/{id}/parties/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a party from a contract */
+        delete: operations["removeContractParty"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts/{id}/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List reminders for a contract */
+        get: operations["listContractReminders"];
+        put?: never;
+        /** Create a reminder for a contract */
+        post: operations["createContractReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vertraege/contracts/{id}/reminders/{reminderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a contract reminder */
+        delete: operations["deleteContractReminder"];
+        options?: never;
+        head?: never;
+        /** Update a contract reminder */
+        patch: operations["updateContractReminder"];
+        trace?: never;
+    };
+    "/api/v1/email/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get email account for a user */
+        get: operations["getEmailAccount"];
+        put?: never;
+        /** Create an email account (IMAP/SMTP) */
+        post: operations["createEmailAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update an email account */
+        put: operations["updateEmailAccount"];
+        post?: never;
+        /** Delete an email account */
+        delete: operations["deleteEmailAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/accounts/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test IMAP/SMTP connection credentials */
+        post: operations["testEmailConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List IMAP folders for an account */
+        get: operations["listEmailFolders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single folder */
+        get: operations["getEmailFolder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/folders/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync folders from IMAP server */
+        post: operations["syncEmailFolders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List messages in a folder (paginated) */
+        get: operations["listEmailMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single message (with body and attachments) */
+        get: operations["getEmailMessage"];
+        put?: never;
+        post?: never;
+        /** Delete a message */
+        delete: operations["deleteEmailMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/thread/{threadId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get all messages in a thread */
+        get: operations["getThreadMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a message as read */
+        post: operations["markEmailRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/{id}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a message as unread */
+        post: operations["markEmailUnread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/{id}/star": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Toggle star on a message */
+        post: operations["toggleEmailStar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/messages/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a message to a different folder */
+        post: operations["moveEmailToFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send an email (with optional UWG §7 consent check when contact_id is set) */
+        post: operations["sendEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/send/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save or update a draft */
+        post: operations["saveEmailDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/send/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reply to a message */
+        post: operations["replyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/send/forward": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Forward a message */
+        post: operations["forwardEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/signatures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List signatures for a user */
+        get: operations["listEmailSignatures"];
+        put?: never;
+        /** Create a signature */
+        post: operations["createEmailSignature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/signatures/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a signature */
+        get: operations["getEmailSignature"];
+        /** Update a signature */
+        put: operations["updateEmailSignature"];
+        post?: never;
+        /** Delete a signature */
+        delete: operations["deleteEmailSignature"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/signatures/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a signature as the default for a user */
+        post: operations["setDefaultEmailSignature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/links/message/{messageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get CRM contact links for a message */
+        get: operations["getEmailContactLinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Link a message to a CRM contact */
+        post: operations["linkEmailToContact"];
+        /** Unlink a message from a CRM contact */
+        delete: operations["unlinkEmailFromContact"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/links/contact/{contactId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get emails linked to a CRM contact (paginated) */
+        get: operations["getContactEmails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/sync/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger IMAP sync for an account */
+        post: operations["triggerEmailSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/sync/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get sync status for an account */
+        get: operations["getEmailSyncStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/sync/read-flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Propagate read/unread flag back to IMAP server */
+        post: operations["setEmailReadFlag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/attachments/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload an attachment (multipart/form-data, max 50 MB) */
+        post: operations["uploadEmailAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/attachments/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a pre-signed download URL for an attachment */
+        get: operations["getEmailAttachmentDownloadURL"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/contacts/import/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import CRM contacts from a CSV file */
+        post: operations["importContactsCSV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/contacts/import/vcard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import CRM contacts from a vCard file */
+        post: operations["importContactsVCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/contacts/export/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export CRM contacts as CSV (file_content is base64-encoded bytes) */
+        post: operations["exportContactsCSV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email/contacts/export/vcard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export CRM contacts as vCard (file_content is base64-encoded bytes) */
+        post: operations["exportContactsVCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12140,6 +13031,603 @@ export interface components {
             action: "delete" | "anonymize";
             enabled?: boolean;
             description?: string;
+        };
+        /** @description A form schema definition (fields layout + metadata). */
+        FormSchema: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            title?: string;
+            description?: string;
+            /**
+             * Format: byte
+             * @description JSON-array of FormField (base64-encoded bytes on the wire)
+             */
+            fields?: string;
+            /**
+             * @description Proto enum: 1=draft, 2=active, 3=archived
+             * @enum {string}
+             */
+            status?: "draft" | "active" | "archived";
+            is_template?: boolean;
+            is_public?: boolean;
+            /** Format: int32 */
+            page_count?: number;
+            /** Format: int32 */
+            submission_count?: number;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+            deleted_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A single form submission (answers from one respondent). */
+        FormSubmission: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            form_schema_id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /**
+             * Format: byte
+             * @description JSON-object of field answers (base64-encoded bytes on the wire)
+             */
+            answers?: string;
+            /**
+             * @description Proto enum: 1=new, 2=read, 3=archived
+             * @enum {string}
+             */
+            status?: "new" | "read" | "archived";
+            submitted_by?: string;
+            ip_address?: string;
+            submitted_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A webhook subscription attached to a form schema. */
+        FormWebhook: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            form_schema_id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uri */
+            url?: string;
+            /** @description HMAC secret (write-only; returned masked or omitted) */
+            secret?: string;
+            events?: string[];
+            active?: boolean;
+            last_triggered_at?: components["schemas"]["ProtoTimestamp"];
+            last_status?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A single delivery attempt for a webhook event. */
+        FormWebhookDelivery: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            webhook_id?: string;
+            /** Format: uuid */
+            submission_id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /**
+             * Format: byte
+             * @description Raw delivery payload (base64-encoded bytes on the wire)
+             */
+            payload?: string;
+            /**
+             * @description Proto enum: 1=pending, 2=delivered, 3=failed, 4=dead
+             * @enum {string}
+             */
+            status?: "pending" | "delivered" | "failed" | "dead";
+            /** Format: int32 */
+            attempt_count?: number;
+            /** Format: int32 */
+            max_attempts?: number;
+            next_attempt_at?: components["schemas"]["ProtoTimestamp"];
+            last_error?: string;
+            /** Format: int32 */
+            last_response_code?: number;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            delivered_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Aggregated submission statistics for a form schema. */
+        FormStats: {
+            /** Format: uuid */
+            form_schema_id?: string;
+            /** Format: int32 */
+            total_count?: number;
+            /** Format: int32 */
+            new_count?: number;
+            /** Format: int32 */
+            last_7d_count?: number;
+            /** Format: int32 */
+            last_30d_count?: number;
+        };
+        /** @description A contract managed in the Vertraege module. */
+        VertraegeContract: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            contract_number?: string;
+            title?: string;
+            /** @enum {string} */
+            contract_type?: "rental" | "service" | "employment" | "nda" | "other";
+            /** @enum {string} */
+            status?: "draft" | "active" | "expired" | "terminated";
+            starts_on?: components["schemas"]["ProtoTimestamp"];
+            ends_on?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uri */
+            document_url?: string;
+            notes?: string;
+            /** Format: uuid */
+            created_by?: string;
+            /** @description Phase D placeholder (Skribble); null until then */
+            signature_provider?: string;
+            /** @description data:image/png;base64,... or data:image/svg+xml;base64,... */
+            signature_data?: string;
+            signed_at?: components["schemas"]["ProtoTimestamp"];
+            signed_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description Populated only by GET /contracts/{id} */
+            parties?: components["schemas"]["VertraegeContractParty"][];
+            /** @description Populated only by GET /contracts/{id} */
+            reminders?: components["schemas"]["VertraegeContractReminder"][];
+        };
+        /** @description A party (contact, company, or external) linked to a contract. */
+        VertraegeContractParty: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            contract_id?: string;
+            /** @enum {string} */
+            party_type?: "contact" | "company" | "external";
+            /** Format: uuid */
+            contact_id?: string;
+            /** Format: uuid */
+            company_id?: string;
+            external_name?: string;
+            role_in_contract?: string;
+            signed_on?: components["schemas"]["ProtoTimestamp"];
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A scheduled reminder attached to a contract. */
+        VertraegeContractReminder: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            contract_id?: string;
+            remind_at?: components["schemas"]["ProtoTimestamp"];
+            /** @enum {string} */
+            reminder_type?: "renewal" | "expiry" | "payment" | "custom";
+            subject?: string;
+            message?: string;
+            /** @enum {string} */
+            status?: "pending" | "sent" | "cancelled";
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            sent_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        EmailAddressInfo: {
+            name?: string;
+            /** Format: email */
+            email?: string;
+        };
+        EmailAttachmentInfo: {
+            /** Format: uuid */
+            id?: string;
+            filename?: string;
+            content_type?: string;
+            /** Format: int64 */
+            size_bytes?: number;
+            /** @description Internal MinIO object key (not exposed to end users) */
+            minio_key?: string;
+            /** @description CID reference for inline images */
+            content_id?: string;
+            is_inline?: boolean;
+        };
+        EmailAccountInfo: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            user_id?: string;
+            /** Format: email */
+            email_address?: string;
+            display_name?: string;
+            imap_host?: string;
+            imap_port?: number;
+            smtp_host?: string;
+            smtp_port?: number;
+            username?: string;
+            use_ssl?: boolean;
+            sync_enabled?: boolean;
+            /** Format: date-time */
+            last_sync_at?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CreateEmailAccountRequest: {
+            /** Format: uuid */
+            user_id: string;
+            /** Format: email */
+            email_address: string;
+            display_name?: string;
+            imap_host: string;
+            imap_port: number;
+            smtp_host: string;
+            smtp_port: number;
+            username: string;
+            /** @description Plaintext; encrypted at service layer */
+            password: string;
+            use_ssl?: boolean;
+            sync_enabled?: boolean;
+        };
+        CreateEmailAccountResponse: {
+            account?: components["schemas"]["EmailAccountInfo"];
+        };
+        GetEmailAccountResponse: {
+            account?: components["schemas"]["EmailAccountInfo"];
+        };
+        UpdateEmailAccountRequest: {
+            display_name?: string | null;
+            imap_host?: string | null;
+            imap_port?: number | null;
+            smtp_host?: string | null;
+            smtp_port?: number | null;
+            username?: string | null;
+            password?: string | null;
+            use_ssl?: boolean | null;
+            sync_enabled?: boolean | null;
+        };
+        UpdateEmailAccountResponse: {
+            account?: components["schemas"]["EmailAccountInfo"];
+        };
+        TestEmailConnectionRequest: {
+            imap_host: string;
+            imap_port: number;
+            smtp_host: string;
+            smtp_port: number;
+            username: string;
+            password: string;
+            use_ssl?: boolean;
+        };
+        TestEmailConnectionResponse: {
+            imap_ok?: boolean;
+            smtp_ok?: boolean;
+            imap_error?: string;
+            smtp_error?: string;
+        };
+        EmailFolderInfo: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            account_id?: string;
+            name?: string;
+            imap_name?: string;
+            /** @enum {string} */
+            folder_type?: "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive" | "custom";
+            /** Format: int64 */
+            uid_validity?: number;
+            message_count?: number;
+            unread_count?: number;
+            sort_order?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        ListFoldersResponse: {
+            folders?: components["schemas"]["EmailFolderInfo"][];
+        };
+        GetFolderResponse: {
+            folder?: components["schemas"]["EmailFolderInfo"];
+        };
+        SyncFoldersRequest: {
+            /** Format: uuid */
+            account_id: string;
+        };
+        EmailMessageInfo: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            account_id?: string;
+            /** Format: uuid */
+            folder_id?: string;
+            /**
+             * Format: int64
+             * @description IMAP UID
+             */
+            uid?: number;
+            /** @description RFC 2822 Message-ID header value */
+            message_id_header?: string;
+            in_reply_to?: string;
+            references?: string[];
+            thread_id?: string;
+            from?: components["schemas"]["EmailAddressInfo"];
+            to?: components["schemas"]["EmailAddressInfo"][];
+            cc?: components["schemas"]["EmailAddressInfo"][];
+            bcc?: components["schemas"]["EmailAddressInfo"][];
+            subject?: string;
+            /** @description Short plain-text excerpt (~100 chars) */
+            preview?: string;
+            body_text?: string;
+            body_html?: string;
+            is_read?: boolean;
+            is_starred?: boolean;
+            is_draft?: boolean;
+            has_attachments?: boolean;
+            /** Format: date-time */
+            date?: string;
+            /** Format: int64 */
+            size_bytes?: number;
+            attachments?: components["schemas"]["EmailAttachmentInfo"][];
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        EmailListMessagesResponse: {
+            messages?: components["schemas"]["EmailMessageInfo"][];
+            total?: number;
+        };
+        GetMessageResponse: {
+            message?: components["schemas"]["EmailMessageInfo"];
+        };
+        GetThreadMessagesResponse: {
+            messages?: components["schemas"]["EmailMessageInfo"][];
+        };
+        ToggleStarResponse: {
+            is_starred?: boolean;
+        };
+        MoveToFolderRequest: {
+            /** Format: uuid */
+            target_folder_id: string;
+        };
+        SendEmailRequest: {
+            /** Format: uuid */
+            account_id: string;
+            to: string[];
+            cc?: string[];
+            bcc?: string[];
+            subject: string;
+            body_html?: string;
+            body_text?: string;
+            attachment_ids?: string[];
+            /** @description For in-thread sending */
+            in_reply_to_message_id?: string | null;
+            /** Format: uuid */
+            signature_id?: string | null;
+            /**
+             * Format: uuid
+             * @description When set, triggers UWG §7 marketing-consent pre-check
+             */
+            contact_id?: string | null;
+        };
+        SendEmailResponse: {
+            message?: components["schemas"]["EmailMessageInfo"];
+        };
+        SaveDraftRequest: {
+            /** Format: uuid */
+            account_id: string;
+            /**
+             * Format: uuid
+             * @description If set, updates an existing draft
+             */
+            draft_id?: string | null;
+            to?: string[];
+            cc?: string[];
+            bcc?: string[];
+            subject?: string;
+            body_html?: string;
+            body_text?: string;
+            attachment_ids?: string[];
+            in_reply_to_message_id?: string | null;
+        };
+        SaveDraftResponse: {
+            message?: components["schemas"]["EmailMessageInfo"];
+        };
+        ReplyEmailRequest: {
+            /** Format: uuid */
+            account_id: string;
+            /** Format: uuid */
+            original_message_id: string;
+            body_html?: string;
+            body_text?: string;
+            /** @default false */
+            reply_all: boolean;
+            attachment_ids?: string[];
+        };
+        ReplyEmailResponse: {
+            message?: components["schemas"]["EmailMessageInfo"];
+        };
+        ForwardEmailRequest: {
+            /** Format: uuid */
+            account_id: string;
+            /** Format: uuid */
+            original_message_id: string;
+            to: string[];
+            body_html?: string;
+            body_text?: string;
+            attachment_ids?: string[];
+        };
+        ForwardEmailResponse: {
+            message?: components["schemas"]["EmailMessageInfo"];
+        };
+        EmailSignatureInfo: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            user_id?: string;
+            name?: string;
+            html_content?: string;
+            is_default?: boolean;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        CreateSignatureRequest: {
+            /** Format: uuid */
+            user_id: string;
+            name: string;
+            html_content: string;
+            is_default?: boolean;
+        };
+        CreateSignatureResponse: {
+            signature?: components["schemas"]["EmailSignatureInfo"];
+        };
+        GetSignatureResponse: {
+            signature?: components["schemas"]["EmailSignatureInfo"];
+        };
+        ListSignaturesResponse: {
+            signatures?: components["schemas"]["EmailSignatureInfo"][];
+        };
+        UpdateSignatureRequest: {
+            name?: string | null;
+            html_content?: string | null;
+            is_default?: boolean | null;
+        };
+        UpdateSignatureResponse: {
+            signature?: components["schemas"]["EmailSignatureInfo"];
+        };
+        SetDefaultSignatureRequest: {
+            /** Format: uuid */
+            user_id: string;
+        };
+        SetDefaultSignatureResponse: {
+            signature?: components["schemas"]["EmailSignatureInfo"];
+        };
+        EmailContactLinkInfo: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            message_id?: string;
+            /** Format: uuid */
+            contact_id?: string;
+            /** @enum {string} */
+            link_type?: "auto" | "manual";
+            /** Format: date-time */
+            created_at?: string;
+        };
+        GetEmailContactLinksResponse: {
+            links?: components["schemas"]["EmailContactLinkInfo"][];
+        };
+        LinkEmailToContactRequest: {
+            /** Format: uuid */
+            message_id: string;
+            /** Format: uuid */
+            contact_id: string;
+            /**
+             * @default manual
+             * @enum {string}
+             */
+            link_type: "auto" | "manual";
+        };
+        LinkEmailToContactResponse: {
+            link?: components["schemas"]["EmailContactLinkInfo"];
+        };
+        UnlinkEmailFromContactRequest: {
+            /** Format: uuid */
+            message_id: string;
+            /** Format: uuid */
+            contact_id: string;
+        };
+        GetContactEmailsResponse: {
+            messages?: components["schemas"]["EmailMessageInfo"][];
+            total?: number;
+        };
+        TriggerSyncRequest: {
+            /** Format: uuid */
+            account_id: string;
+        };
+        TriggerSyncResponse: {
+            /** @enum {string} */
+            status?: "started" | "already_syncing";
+        };
+        GetSyncStatusResponse: {
+            /** @enum {string} */
+            status?: "idle" | "syncing" | "error";
+            /** Format: date-time */
+            last_sync_at?: string;
+            error_message?: string;
+        };
+        SetReadFlagRequest: {
+            /** Format: uuid */
+            message_id: string;
+            is_read: boolean;
+        };
+        UploadAttachmentResponse: {
+            /** Format: uuid */
+            id?: string;
+            minio_key?: string;
+            /** Format: int64 */
+            size_bytes?: number;
+        };
+        GetAttachmentDownloadURLResponse: {
+            /** Format: uri */
+            download_url?: string;
+            filename?: string;
+            content_type?: string;
+            /** Format: int64 */
+            size_bytes?: number;
+        };
+        ImportContactsCSVRequest: {
+            /**
+             * Format: byte
+             * @description Base64-encoded CSV file content
+             */
+            file_content: string;
+            /** @description Map of CSV column names to CRM field names */
+            field_mapping?: {
+                [key: string]: string;
+            };
+            /** @enum {string} */
+            visibility?: "shared" | "personal";
+            merge_by_email?: boolean;
+        };
+        ImportContactsVCardRequest: {
+            /**
+             * Format: byte
+             * @description Base64-encoded vCard file content
+             */
+            file_content: string;
+            /** @enum {string} */
+            visibility?: "shared" | "personal";
+            merge_by_email?: boolean;
+        };
+        EmailImportError: {
+            row?: number;
+            field?: string;
+            error?: string;
+        };
+        EmailImportContactsResponse: {
+            imported_count?: number;
+            merged_count?: number;
+            skipped_count?: number;
+            errors?: components["schemas"]["EmailImportError"][];
+        };
+        EmailExportContactsRequest: {
+            contact_ids?: string[];
+            /** @description Restrict exported fields; omit for all fields */
+            fields?: string[];
+        };
+        EmailExportContactsResponse: {
+            /**
+             * Format: byte
+             * @description Base64-encoded file content (CSV or vCard depending on endpoint)
+             */
+            file_content?: string;
+            filename?: string;
         };
     };
     responses: {
@@ -26363,6 +27851,2032 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listFormSchemas: {
+        parameters: {
+            query?: {
+                search?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated form schema list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schemas?: components["schemas"]["FormSchema"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createFormSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    description?: string;
+                    /**
+                     * Format: byte
+                     * @description JSON-array of FormField (base64-encoded bytes)
+                     */
+                    fields?: string;
+                    is_template?: boolean;
+                    is_public?: boolean;
+                    /** Format: int32 */
+                    page_count?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Form schema created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schema?: components["schemas"]["FormSchema"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getFormSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Form schema */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schema?: components["schemas"]["FormSchema"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteFormSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Form schema deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateFormSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    description?: string;
+                    /**
+                     * Format: byte
+                     * @description JSON-array of FormField (base64-encoded bytes)
+                     */
+                    fields?: string;
+                    is_template?: boolean;
+                    is_public?: boolean;
+                    /** Format: int32 */
+                    page_count?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Form schema updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schema?: components["schemas"]["FormSchema"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    duplicateFormSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    new_title?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Duplicated form schema */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schema?: components["schemas"]["FormSchema"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFormStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Form submission statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stats?: components["schemas"]["FormStats"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listFormSubmissions: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated submission list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        submissions?: components["schemas"]["FormSubmission"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createFormSubmission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: byte
+                     * @description JSON-object of field answers (base64-encoded bytes)
+                     */
+                    answers?: string;
+                    submitted_by?: string;
+                    ip_address?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Submission created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        submission?: components["schemas"]["FormSubmission"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    exportFormSubmissions: {
+        parameters: {
+            query?: {
+                format?: "csv" | "xlsx";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Submission export file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listFormWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        webhooks?: components["schemas"]["FormWebhook"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createFormWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uri */
+                    url: string;
+                    secret?: string;
+                    events?: string[];
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Webhook created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        webhook?: components["schemas"]["FormWebhook"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getFormSubmission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Form submission */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        submission?: components["schemas"]["FormSubmission"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateFormSubmissionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "new" | "read" | "archived";
+                };
+            };
+        };
+        responses: {
+            /** @description Submission status updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        submission?: components["schemas"]["FormSubmission"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFormWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        webhook?: components["schemas"]["FormWebhook"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteFormWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateFormWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uri */
+                    url?: string;
+                    secret?: string;
+                    events?: string[];
+                    /** @description true = replace the full events list */
+                    events_set?: boolean;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Webhook updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        webhook?: components["schemas"]["FormWebhook"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listFormWebhookDeliveriesForWebhook: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery list for webhook */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deliveries?: components["schemas"]["FormWebhookDelivery"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listFormWebhookDeliveries: {
+        parameters: {
+            query?: {
+                webhook_id?: string;
+                submission_id?: string;
+                status?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated delivery list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deliveries?: components["schemas"]["FormWebhookDelivery"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listContracts: {
+        parameters: {
+            query?: {
+                status?: "draft" | "active" | "expired" | "terminated";
+                contract_type?: "rental" | "service" | "employment" | "nda" | "other";
+                /** @description Filter by party contact_id (Contact-360 view) */
+                contact_id?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated contract list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contracts?: components["schemas"]["VertraegeContract"][];
+                        total?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    contract_number: string;
+                    title: string;
+                    /** @enum {string} */
+                    contract_type: "rental" | "service" | "employment" | "nda" | "other";
+                    /** @description RFC3339 date string */
+                    starts_on?: string;
+                    /** @description RFC3339 date string (optional) */
+                    ends_on?: string;
+                    /** Format: uri */
+                    document_url?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract?: components["schemas"]["VertraegeContract"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract (with parties and reminders) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract?: components["schemas"]["VertraegeContract"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    /** @enum {string} */
+                    contract_type?: "rental" | "service" | "employment" | "nda" | "other";
+                    /** @enum {string} */
+                    status?: "draft" | "active" | "expired" | "terminated";
+                    /** @description RFC3339 date string */
+                    starts_on?: string;
+                    /** @description RFC3339 date string */
+                    ends_on?: string;
+                    /** @description Set true to remove the ends_on date */
+                    clear_ends_on?: boolean;
+                    /** Format: uri */
+                    document_url?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract?: components["schemas"]["VertraegeContract"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    exportContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract export file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveContractSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description data:image/png;base64,... or data:image/svg+xml;base64,... */
+                    signature_data: string;
+                    /** @description Display name or user ID of signer */
+                    signed_by: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract with signature saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract?: components["schemas"]["VertraegeContract"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listContractParties: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Party list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        parties?: components["schemas"]["VertraegeContractParty"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addContractParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    party_type: "contact" | "company" | "external";
+                    /** Format: uuid */
+                    contact_id?: string;
+                    /** Format: uuid */
+                    company_id?: string;
+                    external_name?: string;
+                    role_in_contract: string;
+                    /** @description RFC3339 datetime string */
+                    signed_on?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Party added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        party?: components["schemas"]["VertraegeContractParty"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeContractParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Party removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listContractReminders: {
+        parameters: {
+            query?: {
+                only_pending?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reminder list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reminders?: components["schemas"]["VertraegeContractReminder"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createContractReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description RFC3339 datetime string */
+                    remind_at?: string;
+                    /** @enum {string} */
+                    reminder_type?: "renewal" | "expiry" | "payment" | "custom";
+                    subject: string;
+                    message?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Reminder created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reminder?: components["schemas"]["VertraegeContractReminder"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteContractReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                reminderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reminder deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateContractReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                reminderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description RFC3339 datetime string */
+                    remind_at?: string;
+                    /** @enum {string} */
+                    reminder_type?: "renewal" | "expiry" | "payment" | "custom";
+                    subject?: string;
+                    message?: string;
+                    /** @enum {string} */
+                    status?: "pending" | "sent" | "cancelled";
+                };
+            };
+        };
+        responses: {
+            /** @description Reminder updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reminder?: components["schemas"]["VertraegeContractReminder"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getEmailAccount: {
+        parameters: {
+            query: {
+                user_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Email account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetEmailAccountResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createEmailAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmailAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Account created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateEmailAccountResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateEmailAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmailAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Account updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateEmailAccountResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEmailAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    testEmailConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestEmailConnectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Connection test result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestEmailConnectionResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listEmailFolders: {
+        parameters: {
+            query: {
+                account_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListFoldersResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getEmailFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetFolderResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    syncEmailFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncFoldersRequest"];
+            };
+        };
+        responses: {
+            /** @description Synced folder list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListFoldersResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listEmailMessages: {
+        parameters: {
+            query: {
+                folder_id: string;
+                page?: number;
+                per_page?: number;
+                search?: string;
+                sort_by?: "date" | "subject" | "from" | "size";
+                sort_desc?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message list with total count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailListMessagesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getEmailMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetMessageResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEmailMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getThreadMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                threadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Thread messages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetThreadMessagesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    markEmailRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked as read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    markEmailUnread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked as unread */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    toggleEmailStar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Star toggled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToggleStarResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    moveEmailToFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveToFolderRequest"];
+            };
+        };
+        responses: {
+            /** @description Message moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Email sent; message record returned */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendEmailResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    saveEmailDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Draft saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveDraftResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    replyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Reply sent */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyEmailResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    forwardEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForwardEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Forward sent */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardEmailResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEmailSignatures: {
+        parameters: {
+            query: {
+                user_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signature list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSignaturesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createEmailSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSignatureRequest"];
+            };
+        };
+        responses: {
+            /** @description Signature created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateSignatureResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getEmailSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signature detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetSignatureResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEmailSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSignatureRequest"];
+            };
+        };
+        responses: {
+            /** @description Signature updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateSignatureResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEmailSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signature deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setDefaultEmailSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetDefaultSignatureRequest"];
+            };
+        };
+        responses: {
+            /** @description Default signature set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetDefaultSignatureResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getEmailContactLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact links for the message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetEmailContactLinksResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    linkEmailToContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkEmailToContactRequest"];
+            };
+        };
+        responses: {
+            /** @description Link created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkEmailToContactResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    unlinkEmailFromContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkEmailFromContactRequest"];
+            };
+        };
+        responses: {
+            /** @description Link removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getContactEmails: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                contactId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Emails linked to the contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetContactEmailsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    triggerEmailSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriggerSyncRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync triggered or already running */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriggerSyncResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getEmailSyncStatus: {
+        parameters: {
+            query: {
+                account_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetSyncStatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    setEmailReadFlag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetReadFlagRequest"];
+            };
+        };
+        responses: {
+            /** @description Flag set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    uploadEmailAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** Format: uuid */
+                    account_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Attachment uploaded; ID usable in send/draft requests */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAttachmentResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getEmailAttachmentDownloadURL: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Download URL and metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetAttachmentDownloadURLResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    importContactsCSV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportContactsCSVRequest"];
+            };
+        };
+        responses: {
+            /** @description Import result with counts and errors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailImportContactsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    importContactsVCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportContactsVCardRequest"];
+            };
+        };
+        responses: {
+            /** @description Import result with counts and errors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailImportContactsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    exportContactsCSV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailExportContactsRequest"];
+            };
+        };
+        responses: {
+            /** @description CSV file content (base64) and filename */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailExportContactsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    exportContactsVCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailExportContactsRequest"];
+            };
+        };
+        responses: {
+            /** @description vCard file content (base64) and filename */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailExportContactsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
 }
