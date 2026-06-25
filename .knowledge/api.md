@@ -1,11 +1,11 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-06-25
+updated: 2026-06-26
 ---
 # API-Referenz
 
 ## OpenAPI Spec
-- Datei: `backend/api/openapi.yaml` (~26.000 Zeilen, OpenAPI 3.0.3)
+- Datei: `backend/api/openapi.yaml` (~28.600 Zeilen, OpenAPI 3.0.3)
 - TypeScript-Generierung: `npm run api:generate` → `desktop/src/renderer/src/api/types.ts` (232KB)
 - Gateway: HTTP REST auf Port 8080, leitet intern an gRPC-Services weiter
 - **Fehler-Shape (vereinheitlicht 2026-06-19, F20):** Gateway-Handler antworten mit JSON `{error}` (via `response.Error`) bzw. `{error, code, details}` fuer Validierungsfehler (via `decodeAndValidate`/`internal/validation`). Kein `text/plain http.Error` mehr — ~420 Stellen ueber 27 `route_*.go` umgestellt.
@@ -61,6 +61,8 @@ updated: 2026-06-25
 | Registrar | (intern) | Service-Registrierung im Gateway |
 | Health | `/health` | Public, kein Auth, Version/Commit/BuildTime |
 
+> **RBAC Welle-2 (Migr. 234, 2026-06-26, `17e609e9`):** berichte/helpdesk/wiki/formulare/vertraege waren admin-only (manager+member → 403 auf allen Routen). Jetzt: `manager` = volle operative Rechte (read+write auf alle 5), `member` = read-only + Self-Service `formulare:submissions:write` (helpdesk bleibt für member read-only — flache Permission, write würde SLA/Queue-Config freigeben). Permissions existierten bereits (Seed 080/090/129); 234 fügt nur `role_permissions`-Rows hinzu (idempotent). Prod-Grant-Counts verifiziert: admin=20, manager=20, member=11. ⚠ Wirkt erst nach JWT-Refresh (perms im Token). Siehe [[security]].
+
 ## Auth-Flow
 1. POST `/api/v1/auth/login` (email + password)
 2. Falls 2FA aktiv: `requires_two_factor: true` + pending token
@@ -83,6 +85,7 @@ updated: 2026-06-25
 - **Pre-Recording-Consent 412 (seit 2026-04-28, Welle 3):** `POST /api/v1/video/recordings/start` returniert 412 Precondition Failed wenn der Initiator nicht vorher `POST /api/v1/video/recordings/{id}/initiator-consent` aufgerufen hat. Frontend zeigt Pre-Dialog vor StartRecording. Details: [[security]] "Pre-Recording-Consent".
 - **Proto-Serialisierung via `response.Proto` (Welle F / R3-P0-1, 2026-06-21):** Proto-Message-zurueckgebende Handler serialisieren ueber `response.Proto` (protojson, `UseProtoNames`+`UseEnumNumbers`) statt `response.JSON` (encoding/json) → `google.protobuf.Timestamp` als **RFC3339** statt `{seconds,nanos}`, Enums als Integer (FE-kompatibel). Umgestellt: alle 25 Proto-Handler in `route_video.go` (Meetings/Recordings/Action-Items/Presence) + Dialer (7a). Hand-geschriebene Ext-Structs ohne `proto.Message` (z.B. `GetRecordingConsents`) bleiben `response.JSON`. ⚠ `response.Proto` rendert `int64`/`uint64` als JSON-**String** (proto3-Spec) — pro Modul FE-int64-Audit noetig vor Umstellung, kein globaler Blind-Sweep. Helper: `backend/internal/server/response/response.go`. Siehe [[troubleshooting]].
 - **OpenAPI-Doku-Konvention fuer Wire-Shape (2026-06-25, dialer/inventar/vermietung dokumentiert):** Beim Speccen von Handler-Responses die Serialisierung des Handlers nachbilden, NICHT die Wunsch-Shape. `response.Proto` (z.B. dialer) → Timestamps `type: string, format: date-time` (RFC3339), int64 als String. `response.JSON` (z.B. inventar/vermietung, encoding/json ueber Protobuf) → Timestamp-Felder als `$ref: #/components/schemas/ProtoTimestamp` (das ist die echte `{seconds,nanos}`-Wire-Shape, NICHT RFC3339), int64 als JSON-Number (`type: integer, format: int64`), Enums als Integer NUR wenn das Proto-Feld ein echtes Enum ist (String-Felder bleiben `type: string` mit `enum`-Liste). Request-/Query-Datumsfelder immer als RFC3339-`string` (Handler parst Strings). Schemas modul-praefixiert (`Dialer*`/`Inventar*`/`Vermietung*`), List-Envelope `{<plural>:[...], total}`, Single `{<singular>: <Schema>}` (response.JSON) bzw. Proto direkt (response.Proto). ⚠ Spec ist OpenAPI **3.0** → `exclusiveMinimum`/`exclusiveMaximum` muessen **boolean** sein (`minimum: 0, exclusiveMinimum: true`), nicht numerisch (das ist 3.1/JSON-Schema-Stil und faellt `swagger-cli validate` durch). Gate ist rein strukturell (`npx @apidevtools/swagger-cli validate`) — KEIN Route-vs-Spec-Drift-Check, Shape-Korrektheit per Handler-Spot-Check sichern.
+- **OpenAPI-Doku erweitert (2026-06-26, `18845322`):** rapporte (31 Ops, 8 Schemas) + einkauf-extended (catalog/ratings/framework-contracts, 18 Ops, 5 Schemas) neu dokumentiert; schichten + fuhrpark von inline `{type:object}` auf benannte Schemas gehoben (14 Schemas, 44 Response-`$ref`s). Vorab verifiziert: produktion/schichten/fuhrpark hatten KEINEN Pfad-Drift (nur rapporte fehlte komplett, einkauf-ext fehlte). Alle via `response.JSON` → Timestamp-Felder als `ProtoTimestamp` — ABER Proto-`string`-Timestamps (FuhrparkFuelLog/TripLog/Document, RapporteMeasurement/MeasurementPosition/Template) bleiben `type: string` (NICHT `$ref`). produktion-ext (`RegisterExtRoutes`, 17 BOM/WorkStep/Machine/QualityCheck-Ops) ist toter Code (nirgends aufgerufen) → bewusst NICHT dokumentiert. swagger-cli valid, kein Content-Verlust (49 neue Ops, +2473 Zeilen netto; git zeigt riesigen non-minimal Diff über das repetitive YAML — irreführend, kein echter Verlust).
 
 ## Frontend-Integration
 - API-Client: `desktop/src/renderer/src/api/client.ts` (openapi-fetch)
@@ -91,7 +94,7 @@ updated: 2026-06-25
 - 401-Interception → transparenter Token-Refresh mit Concurrent De-Duplication
 - **Offline-Queue (seit Welle 3):** Bei `!navigator.onLine` werden Mutations in IndexedDB-Queue gepuffert (`api/offline-queue.ts`, idb-keyval) statt `OfflineError` zu werfen. `useOnlineStatus`-Hook drained bei Online-Event (max 5 parallel, exp-Backoff, Dead-Letter nach 5 Versuchen). UI: `<OfflineBanner />` zeigt Queue-Count + Manual-Drain.
 - 40+ React Query Hooks in `desktop/src/renderer/src/api/hooks/`
-- Dialer: Eigener `dialer-client.ts` (typed fetch, nicht openapi-fetch). dialer/inventar/vermietung seit 2026-06-25 in `openapi.yaml` dokumentiert (~70 Operationen, `Dialer*`/`Inventar*`/`Vermietung*`-Schemas, Commit `46a86a8a`)
+- Dialer: Eigener `dialer-client.ts` (typed fetch, nicht openapi-fetch). dialer/inventar/vermietung seit 2026-06-25 in `openapi.yaml` dokumentiert (~70 Operationen, `Dialer*`/`Inventar*`/`Vermietung*`-Schemas, Commit `46a86a8a`); rapporte/einkauf-extended/schichten/fuhrpark seit 2026-06-26 (`Rapporte*`/`Einkauf*`/`Schichten*`/`Fuhrpark*`-Schemas, Commit `18845322`)
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur & Gateway Routes
