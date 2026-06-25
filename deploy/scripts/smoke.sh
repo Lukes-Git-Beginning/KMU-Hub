@@ -495,7 +495,7 @@ if [[ -n "$BERICHTE_TOKEN" && "$BERICHTE_TOKEN" != "null" ]]; then
     DEFS_BODY=$(echo "$DEFS_RESP" | sed '$d')
 
     if [[ "$DEFS_CODE" == "200" ]]; then
-        DEFS_COUNT=$(echo "$DEFS_BODY" | jq 'length' 2>/dev/null || echo "0")
+        DEFS_COUNT=$(echo "$DEFS_BODY" | jq '.definitions | length' 2>/dev/null || echo "0")
         if [[ "$DEFS_COUNT" -ge "1" ]]; then
             pass "GET /berichte/definitions = 200 ($DEFS_COUNT definitions)"
         else
@@ -503,7 +503,7 @@ if [[ -n "$BERICHTE_TOKEN" && "$BERICHTE_TOKEN" != "null" ]]; then
         fi
 
         # 20. Run a report (first definition in the list)
-        FIRST_DEF_ID=$(echo "$DEFS_BODY" | jq -r '.[0].id' 2>/dev/null || echo "")
+        FIRST_DEF_ID=$(echo "$DEFS_BODY" | jq -r '.definitions[0].id' 2>/dev/null || echo "")
         if [[ -n "$FIRST_DEF_ID" && "$FIRST_DEF_ID" != "null" ]]; then
             RUN_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
                 "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/run" \
