@@ -12,6 +12,10 @@ on:
 env:
   GO_VERSION: "1.25.6"
 
+# Least-privilege token: only checkout + tests run here — read-only is sufficient.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

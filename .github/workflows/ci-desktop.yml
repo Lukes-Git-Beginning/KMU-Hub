@@ -12,6 +12,10 @@ on:
       - "desktop/**"
       - ".github/workflows/ci-desktop.yml"
 
+# Least-privilege token: jobs only checkout + run npm — read-only is sufficient.
+permissions:
+  contents: read
+
 # Cancel superseded runs on the same ref to avoid burning Actions minutes on
 # commits that a later push has already obsoleted.
 concurrency:

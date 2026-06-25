@@ -18,6 +18,11 @@ on:
           - "false"
           - "true"
 
+# Least-privilege token: the deploy authenticates to Hetzner via SSH secret and
+# notifies Discord via webhook secret — GITHUB_TOKEN is only used to checkout.
+permissions:
+  contents: read
+
 concurrency:
   group: production-deploy
   cancel-in-progress: false
