@@ -18,8 +18,8 @@ on:
           - "false"
           - "true"
 
-# Least-privilege token: the deploy authenticates to Hetzner via SSH secret and
-# notifies Discord via webhook secret — GITHUB_TOKEN is only used to checkout.
+# Least-privilege token: the deploy runs on a self-hosted runner via local
+# scripts + webhook secrets — GITHUB_TOKEN is unused, so read-only is enough.
 permissions:
   contents: read
 
@@ -28,14 +28,15 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_HOST: 178.104.38.195
-  DEPLOY_USER: deploy
   DEPLOY_PATH: /opt/kmuhub
 
 jobs:
   deploy:
     name: Deploy to Production
-    runs-on: ubuntu-latest
+    # Self-hosted runner on the production host (deploy user). The deploy runs
+    # locally — no SSH hop, no idle GitHub-hosted minutes. Only cd.yml targets
+    # this label; CI/nightly/scans stay on ubuntu-latest for isolation.
+    runs-on: [self-hosted, kmuhub-prod]
     # Serial 24-service build (~19 min, OOM if parallelised on 16 GB) + DB migration
     # + recreate + smoke can exceed 20 min when a shared proto forces wide rebuilds.
     timeout-minutes: 40
@@ -46,31 +47,21 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.HETZNER_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy via SSH
-        # Invocation matches the documented manual deploy:
-        # - sudo: deploy.sh needs root for compose/build operations
-        # - GIT_SSH_COMMAND: git pull inside deploy.sh authenticates with the
-        #   server-local github_deploy key
-        # Smoke tests run as part of deploy.sh (24 checks, first fully green
-        # 2026-06-05); a failing smoke triggers the deploy.sh auto-rollback.
+      - name: Deploy
+        # Runs directly on the production host (self-hosted runner as the deploy
+        # user) — no SSH hop, no checkout. deploy.sh operates on /opt/kmuhub and
+        # does its own `git pull` via the server-local github_deploy key.
+        # - sudo: deploy.sh needs root for compose/build (deploy has passwordless
+        #   sudo); GIT_SSH_COMMAND is forwarded by sudo's NAME=value parsing.
+        # Smoke tests run inside deploy.sh; a failing smoke triggers auto-rollback.
         run: |
           DEPLOY_FLAGS=""
           if [[ "${{ inputs.skip_backup }}" == "true" ]]; then
             DEPLOY_FLAGS="--skip-backup"
           fi
 
-          ssh -i ~/.ssh/deploy_key ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} \
-            "cd ${{ env.DEPLOY_PATH }} && sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' bash deploy/scripts/deploy.sh --force $DEPLOY_FLAGS"
+          cd ${{ env.DEPLOY_PATH }}
+          sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' bash deploy/scripts/deploy.sh --force $DEPLOY_FLAGS
 
       - name: Post-deploy smoke check
         run: |
@@ -103,7 +94,3 @@ jobs:
           curl -s -X POST "${{ secrets.ALERT_WEBHOOK_URL }}" \
             -H 'Content-type: application/json' \
             --data "{\"text\":\":x: Deploy to production FAILED — commit \`${{ github.sha }}\` — check <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|the run>\"}"
-
-      - name: Cleanup SSH key
-        if: always()
-        run: rm -f ~/.ssh/deploy_key
