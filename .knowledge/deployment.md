@@ -93,6 +93,7 @@ Datei: `deploy/docker/docker-compose.yml`
 - **`nightly.yml`** (seit 2026-06-09) — self-contained Go-Smoke-Suite (baut eigene 6 Services, kein e2e-Artefakt). Trigger: taeglich 03:00 UTC + `workflow_dispatch`.
 - **`claude-pr.yml`** — Automatisches Claude Code PR-Review (Architektur-Compliance, Security)
 - **`security-review.yml`** — Security-fokussiertes Code-Review bei PRs
+- **⚠ Coverage-Lücke (bewusst akzeptiert, 2026-06-25):** Beide Claude-Workflows feuern **nur bei PRs** (`pull_request`). Bei direct-to-main (Default seit Sprint 1) laufen sie faktisch **nie** → main-Pushes bekommen kein automatisches Claude-Review. Bewusste Geschwindigkeits-Entscheidung; Security-Basis-Abdeckung via `scans.yml` (gosec/trivy/npm-audit) + lokale `/code-review`/`/security-review`-Skills vor Push. Für riskante Changes (Auth/Payment/Migration) optional PR nutzen, dann greifen beide automatisch.
 
 ### CD Pipeline (`.github/workflows/cd.yml`)
 - ✅ **LIVE seit 2026-06-05** — erster automatischer Production-Deploy erfolgreich (Run `27017597354`, 18m04s, Code `91a3014c`, Migrations 118→129, 14/14 Container healthy, kein Rollback). **Jeder gruene Push auf main deployt seither automatisch nach Production.**
@@ -110,6 +111,7 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 - **Deployment Lock:** PID-File (`/opt/kmuhub/.deploy.lock`), verhindert parallele Deploys
 - **Pre-Deploy Snapshot:** `PREV_SHA` + Migrations-Stand
 - **Build-Args:** `--build-arg BUILD_VERSION/BUILD_COMMIT/BUILD_TIME` für ldflags
+- **Build-Cache (seit 2026-06-25, `e75bbd2b`):** Alle 24 Service-Dockerfiles nutzen BuildKit cache-mounts (`# syntax=docker/dockerfile:1` + `RUN --mount=type=cache` für `/go/pkg/mod` Module-Cache + `/root/.cache/go-build` Compile-Cache). Der go-build-Cache persistiert über den seriellen 24-Service-Build UND zwischen Deploys → geteilte `internal/*`+Deps werden nur **einmal** kompiliert (sharing=shared default), statt 24× neu. Auf Prod gemessen: go-build-Step **32.7s (cold) → 2.4s (warm)**. Erster Deploy nach Umstellung füllt den Cache (teils schon schneller, da Service 2–24 vom ersten profitieren); Folge-Code-Deploys ~5–8 min statt ~18. Cache lebt im BuildKit-Worker; bei Disk-Druck `sudo docker builder prune` (leert den Cache → nächster Build cold). `Dockerfile.migrate` unverändert (kein Go-Build).
 - **Auto-Rollback:** Bei Health-Check- oder Smoke-Failure: checkout PREV_SHA, **rebuild Code, restart Container — aber KEIN `migrate down`**. Code geht zurück, DB-Schema bleibt vorne → Drift moeglich. Bei Schema-aendernden Wellen: Smoke-Failure-Triage VOR re-deploy, ggf. `--skip-smoke` als Notbremse (Welle 1 Lesson 2026-05-10).
 - **Deploy-History:** TSV-Log (`/opt/kmuhub/deploy-history.log`): timestamp, prev_sha, new_sha, status, duration
 - **No-Change Detection:** Skipped wenn SHA identisch
