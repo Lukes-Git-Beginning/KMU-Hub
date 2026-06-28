@@ -553,7 +553,9 @@ function BreakoutPanel({ meetingId, participants, onClose }: BreakoutPanelProps)
   const [roomCount, setRoomCount] = useState(2)
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
 
-  const { data: rooms = [] } = useBreakoutRooms(meetingId)
+  const { data: roomsData } = useBreakoutRooms(meetingId)
+  const rooms = useMemo(() => roomsData?.rooms ?? [], [roomsData])
+  const assignments = useMemo(() => roomsData?.assignments ?? [], [roomsData])
   const createRooms = useCreateBreakoutRooms(meetingId)
   const assignParticipant = useAssignBreakoutParticipant(meetingId)
   const closeRooms = useCloseBreakoutRooms(meetingId)
@@ -561,14 +563,19 @@ function BreakoutPanel({ meetingId, participants, onClose }: BreakoutPanelProps)
 
   const hasRooms = rooms.length > 0
 
-  // Map: participant identity → index into rooms[] (-1 = main room / not assigned)
+  // Map: participant identity (= user_id) → index into rooms[]. Membership comes
+  // from the assignments list (user_id → breakout_room_id); a participant absent
+  // from the map is in the main room.
   const participantRoomIndex = useMemo(() => {
+    const roomIdToIndex = new Map<string, number>()
+    rooms.forEach((room, i) => roomIdToIndex.set(room.id, i))
     const map = new Map<string, number>()
-    rooms.forEach((room, i) => {
-      room.participant_ids.forEach((pid) => map.set(pid, i))
+    assignments.forEach((a) => {
+      const idx = roomIdToIndex.get(a.breakout_room_id)
+      if (idx !== undefined) map.set(a.user_id, idx)
     })
     return map
-  }, [rooms])
+  }, [rooms, assignments])
 
   const mainRoomParticipants = participants.filter(
     (p) => !participantRoomIndex.has(p.identity),
@@ -750,7 +757,6 @@ function BreakoutPanel({ meetingId, participants, onClose }: BreakoutPanelProps)
  *      VideoCallView with the new credentials, causing LiveKit to reconnect.
  */
 function useBreakoutSwitch(meetingId: string | undefined) {
-  const { t } = useTranslation()
   const room = useRoomContext()
   const queryClient = useQueryClient()
   const breakoutRoomLabel = useVideoStore((s) => s.breakoutRoomLabel)

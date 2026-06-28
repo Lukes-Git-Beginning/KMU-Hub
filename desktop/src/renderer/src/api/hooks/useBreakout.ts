@@ -39,8 +39,10 @@ export function useBreakoutAssignment(meetingId: string | undefined) {
 }
 
 /**
- * Host-only: poll all breakout rooms for the meeting with participant lists.
- * Polls every 8 s to reflect assignment changes made by the host.
+ * Host-only: poll all breakout rooms for the meeting plus the per-participant
+ * assignment list. Returns the full ListBreakoutRoomsResponse ({ rooms, assignments })
+ * — membership is derived from `assignments` (user_id → breakout_room_id), since
+ * the canonical BreakoutRoom carries no participant list. Polls every 8 s.
  */
 export function useBreakoutRooms(meetingId: string | undefined) {
   return useQuery({
@@ -48,7 +50,6 @@ export function useBreakoutRooms(meetingId: string | undefined) {
     queryFn: () => listBreakoutRooms(meetingId!),
     enabled: !!meetingId,
     refetchInterval: 8_000,
-    select: (data) => data.rooms,
   })
 }
 

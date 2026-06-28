@@ -117,6 +117,9 @@ function EMPLOYEES_SHORT() {
 
 // lean: single shared store for all breakout calls; resets between live-reload cycles.
 let _breakoutRooms: BreakoutRoom[] = []
+// Assignments are tracked separately (canonical model): the BreakoutRoom carries
+// no participant list — membership is a user_id → breakout_room_id mapping.
+let _breakoutAssignments: { user_id: string; breakout_room_id: string }[] = []
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -159,81 +162,87 @@ export const videoHandlers = [
   }),
 
   // -------------------------------------------------------------------------
-  // Breakout rooms (Wave 6A demo handlers)
+  // Breakout rooms (Wave 6A demo handlers) — canonical model: rooms + a separate
+  // assignments list. Paths mirror the real gateway (/breakout-rooms[...]).
   // -------------------------------------------------------------------------
 
-  // Create breakout rooms
-  http.post(`${API}/api/v1/meetings/:meetingId/breakout`, async ({ params, request }) => {
-    const body = await request.json() as { count: number }
+  // Create breakout rooms — returns the bare BreakoutRoom[] (matches createBreakoutRooms).
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout-rooms`, async ({ params, request }) => {
+    const body = (await request.json()) as { count: number; labels?: string[] }
     const count = Math.max(1, Math.min(20, body.count ?? 2))
+    const meetingId = String(params.meetingId)
+    _breakoutAssignments = []
     _breakoutRooms = Array.from({ length: count }, (_, i) => ({
-      id: `br-${String(params.meetingId)}-${i + 1}`,
-      meeting_id: String(params.meetingId),
-      label: `Raum ${i + 1}`,
+      id: `br-${meetingId}-${i + 1}`,
+      meeting_id: meetingId,
+      room_name: `breakout-${meetingId}-${i + 1}`,
+      label: body.labels?.[i] ?? `Gruppe ${i + 1}`,
+      sort_index: i + 1,
       status: 'open' as const,
-      participant_ids: [],
+      created_by: 'demo-host',
+      closed_at: null,
+      created_at: new Date(0).toISOString(),
     }))
-    return HttpResponse.json({ rooms: _breakoutRooms })
+    return HttpResponse.json(_breakoutRooms)
   }),
 
-  // List breakout rooms
-  http.get(`${API}/api/v1/meetings/:meetingId/breakout`, () => {
-    return HttpResponse.json({ rooms: _breakoutRooms })
+  // List breakout rooms — { rooms, assignments } (host overview).
+  http.get(`${API}/api/v1/meetings/:meetingId/breakout-rooms`, () => {
+    return HttpResponse.json({ rooms: _breakoutRooms, assignments: _breakoutAssignments })
   }),
 
-  // Assign participant to a room (or back to main room)
-  http.post(`${API}/api/v1/meetings/:meetingId/breakout/assign`, async ({ request }) => {
-    const body = await request.json() as { target_user_id: string; breakout_room_id: string | null }
-    _breakoutRooms = _breakoutRooms.map((room) => {
-      // Remove from current room first
-      const withoutTarget = room.participant_ids.filter((id) => id !== body.target_user_id)
-      // Add to target room
-      const participantIds =
-        room.id === body.breakout_room_id
-          ? [...withoutTarget, body.target_user_id]
-          : withoutTarget
-      return { ...room, participant_ids: participantIds }
-    })
+  // Assign participant to a room (breakout_room_id null = back to main room).
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout-rooms/assign`, async ({ request }) => {
+    const body = (await request.json()) as { target_user_id: string; breakout_room_id: string | null }
+    _breakoutAssignments = _breakoutAssignments.filter((a) => a.user_id !== body.target_user_id)
+    if (body.breakout_room_id) {
+      _breakoutAssignments.push({ user_id: body.target_user_id, breakout_room_id: body.breakout_room_id })
+    }
     return HttpResponse.json({})
   }),
 
-  // Join breakout room (returns a demo token)
-  http.post(`${API}/api/v1/meetings/:meetingId/breakout/join`, ({ params }) => {
-    const room = _breakoutRooms[0] ?? {
-      id: `br-${String(params.meetingId)}-1`,
-      meeting_id: String(params.meetingId),
-      label: 'Raum 1',
-      status: 'open' as const,
-      participant_ids: [],
-    }
+  // Join breakout room (returns a demo token + the first open room).
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout-rooms/join`, ({ params }) => {
+    const meetingId = String(params.meetingId)
+    const room =
+      _breakoutRooms[0] ?? {
+        id: `br-${meetingId}-1`,
+        meeting_id: meetingId,
+        room_name: `breakout-${meetingId}-1`,
+        label: 'Gruppe 1',
+        sort_index: 1,
+        status: 'open' as const,
+        created_by: 'demo-host',
+        closed_at: null,
+        created_at: new Date(0).toISOString(),
+      }
     return HttpResponse.json({
-      token: `demo-breakout-token-${Date.now()}`,
+      token: 'demo-breakout-token',
+      room_name: room.room_name,
       ws_url: 'wss://demo.livekit.example/breakout',
-      room,
+      breakout_room: room,
     })
   }),
 
-  // Get caller's current breakout assignment (demo: always main room)
-  http.get(`${API}/api/v1/meetings/:meetingId/breakout/assignment`, () => {
+  // Get caller's current breakout assignment (demo: always main room).
+  http.get(`${API}/api/v1/meetings/:meetingId/breakout-rooms/assignment`, () => {
     return HttpResponse.json({ room: null })
   }),
 
-  // Return participant to main room
-  http.post(`${API}/api/v1/meetings/:meetingId/breakout/return`, async ({ request }) => {
-    const body = await request.json() as { target_user_id?: string } | null
+  // Return participant to main room.
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout-rooms/return`, async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as { target_user_id?: string } | null
     const targetId = body?.target_user_id
     if (targetId) {
-      _breakoutRooms = _breakoutRooms.map((room) => ({
-        ...room,
-        participant_ids: room.participant_ids.filter((id) => id !== targetId),
-      }))
+      _breakoutAssignments = _breakoutAssignments.filter((a) => a.user_id !== targetId)
     }
     return HttpResponse.json({})
   }),
 
-  // Close all breakout rooms
-  http.post(`${API}/api/v1/meetings/:meetingId/breakout/close`, () => {
+  // Close all breakout rooms.
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout-rooms/close`, () => {
     _breakoutRooms = []
+    _breakoutAssignments = []
     return HttpResponse.json({})
   }),
 ]
