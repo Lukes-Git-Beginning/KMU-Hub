@@ -60,7 +60,7 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 		queueID = &id
 	}
 
-	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID)
+	t, err := s.svc.CreateTicket(ctx, tenantID, requesterID, req.GetSubject(), req.GetPriority(), assigneeID, queueID, req.GetDescription(), req.GetCategory())
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -786,6 +786,13 @@ func ticketToProto(t *helpdesk.Ticket) *helpdeskv1.Ticket {
 	}
 	if t.ResolvedAt != nil {
 		msg.ResolvedAt = timestamppb.New(*t.ResolvedAt)
+	}
+	msg.Description = t.Description
+	msg.Category = t.Category
+	msg.TicketNumber = int32(t.TicketNumber)
+	msg.RequesterName = t.RequesterName
+	if t.AssigneeName != nil {
+		msg.AssigneeName = t.AssigneeName
 	}
 	return msg
 }

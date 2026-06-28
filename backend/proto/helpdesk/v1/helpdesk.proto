@@ -83,6 +83,13 @@ message Ticket {
   optional google.protobuf.Timestamp resolved_at = 12;
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
+  // Denormalized display names resolved from users (empty when unresolved).
+  optional string assignee_name = 15;
+  string requester_name = 16;
+  string description = 17;
+  string category = 18;
+  // Per-tenant sequential ticket number (1-based).
+  int32 ticket_number = 19;
 }
 
 message TicketMessage {
@@ -138,6 +145,8 @@ message CreateTicketRequest {
   optional string assignee_id = 4;
   optional string queue_id = 5;
   string tenant_id = 6;
+  optional string description = 7;
+  optional string category = 8;
 }
 
 message GetTicketRequest {

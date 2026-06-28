@@ -105,10 +105,12 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 // ============================================================================
 
 type createTicketRequest struct {
-	Subject    string  `json:"subject" validate:"required,max=200"`
-	Priority   string  `json:"priority" validate:"omitempty,oneof=low normal high urgent"`
-	AssigneeID *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
-	QueueID    *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
+	Subject     string  `json:"subject" validate:"required,max=200"`
+	Priority    string  `json:"priority" validate:"omitempty,oneof=low normal high urgent"`
+	AssigneeID  *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
+	QueueID     *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
+	Description *string `json:"description,omitempty"`
+	Category    *string `json:"category,omitempty" validate:"omitempty,max=100"`
 }
 
 type updateTicketRequest struct {
@@ -239,6 +241,8 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 		Priority:    req.Priority,
 		AssigneeId:  req.AssigneeID,
 		QueueId:     req.QueueID,
+		Description: req.Description,
+		Category:    req.Category,
 	}
 
 	resp, err := client.CreateTicket(r.Context(), grpcReq)

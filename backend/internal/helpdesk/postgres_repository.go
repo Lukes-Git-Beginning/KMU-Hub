@@ -27,26 +27,55 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 // ---------------------------------------------------------------------------
 
 func (r *PostgresRepository) CreateTicket(ctx context.Context, t *Ticket) error {
+	// Allocate the next per-tenant ticket number atomically. On first ticket for
+	// a tenant the row is inserted with next_number=2 and 1 is returned; on every
+	// subsequent ticket next_number is incremented and the prior value returned.
+	if err := r.pool.QueryRow(ctx,
+		`INSERT INTO helpdesk_ticket_counters (tenant_id, next_number)
+		 VALUES ($1, 2)
+		 ON CONFLICT (tenant_id)
+		   DO UPDATE SET next_number = helpdesk_ticket_counters.next_number + 1
+		 RETURNING next_number - 1`,
+		t.TenantID,
+	).Scan(&t.TicketNumber); err != nil {
+		return fmt.Errorf("allocate ticket number: %w", err)
+	}
+
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO tickets
 		    (id, tenant_id, subject, status, priority, assignee_id, requester_id,
 		     queue_id, due_at, merged_into_id, first_response_at, resolved_at,
-		     created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		     description, category, ticket_number, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
 		t.ID, t.TenantID, t.Subject, t.Status, t.Priority,
 		t.AssigneeID, t.RequesterID, t.QueueID, t.DueAt,
 		t.MergedIntoID, t.FirstResponseAt, t.ResolvedAt,
+		t.Description, t.Category, t.TicketNumber,
 		t.CreatedAt, t.UpdatedAt,
 	)
 	return err
 }
 
+// ticketSelectColumns is the shared SELECT body for ticket reads. It denormalizes
+// assignee/requester display names via LEFT JOINs on users (falling back to email,
+// then empty) and COALESCEs nullable text columns. Every query feeding scanTicket /
+// scanTicketFromRows MUST use this column list so the scan order stays aligned.
+const ticketSelectColumns = `
+	t.id, t.tenant_id, t.subject, t.status, t.priority, t.assignee_id, t.requester_id,
+	t.queue_id, t.due_at, t.merged_into_id, t.first_response_at, t.resolved_at,
+	t.created_at, t.updated_at,
+	COALESCE(t.description, '') AS description,
+	COALESCE(t.category, '')    AS category,
+	t.ticket_number,
+	COALESCE(NULLIF(CONCAT_WS(' ', a.first_name, a.last_name), ''), a.email)         AS assignee_name,
+	COALESCE(NULLIF(CONCAT_WS(' ', req.first_name, req.last_name), ''), req.email, '') AS requester_name
+FROM tickets t
+LEFT JOIN users a   ON t.assignee_id  = a.id
+LEFT JOIN users req ON t.requester_id = req.id`
+
 func (r *PostgresRepository) GetTicketByID(ctx context.Context, id uuid.UUID) (*Ticket, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, subject, status, priority, assignee_id, requester_id,
-		        queue_id, due_at, merged_into_id, first_response_at, resolved_at,
-		        created_at, updated_at
-		 FROM tickets WHERE id = $1`, id,
+		`SELECT `+ticketSelectColumns+` WHERE t.id = $1`, id,
 	)
 	return scanTicket(row)
 }
@@ -60,12 +89,12 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 	)
 	args = append(args, tenantID)
 	if statusFilter != nil {
-		whereExtra = " AND status = $2"
+		whereExtra = " AND t.status = $2"
 		args = append(args, *statusFilter)
 	}
 
 	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM tickets WHERE tenant_id = $1%s", whereExtra)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM tickets t WHERE t.tenant_id = $1%s", whereExtra)
 	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
@@ -75,12 +104,9 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 	args = append(args, pageSize, offset)
 
 	query := fmt.Sprintf(
-		`SELECT id, tenant_id, subject, status, priority, assignee_id, requester_id,
-		        queue_id, due_at, merged_into_id, first_response_at, resolved_at,
-		        created_at, updated_at
-		 FROM tickets
-		 WHERE tenant_id = $1%s
-		 ORDER BY created_at DESC
+		`SELECT `+ticketSelectColumns+`
+		 WHERE t.tenant_id = $1%s
+		 ORDER BY t.created_at DESC
 		 LIMIT $%d OFFSET $%d`,
 		whereExtra, limitArg, offsetArg,
 	)
@@ -128,7 +154,8 @@ func (r *PostgresRepository) DeleteTicket(ctx context.Context, id uuid.UUID) err
 // Note: pg_trgm similarity search would give better fuzzy results but requires
 // the pg_trgm extension. We use ILIKE-prefix as a safe default. If pg_trgm is
 // available in production, replace the WHERE clause with:
-//   similarity(subject, $3) > 0.4
+//
+//	similarity(subject, $3) > 0.4
 func (r *PostgresRepository) FindOpenTicketsByRequester(ctx context.Context, tenantID, requesterID uuid.UUID, subjectPrefix string) ([]*Ticket, error) {
 	prefix := strings.TrimSpace(subjectPrefix)
 	if len(prefix) > 60 {
@@ -136,15 +163,12 @@ func (r *PostgresRepository) FindOpenTicketsByRequester(ctx context.Context, ten
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, subject, status, priority, assignee_id, requester_id,
-		        queue_id, due_at, merged_into_id, first_response_at, resolved_at,
-		        created_at, updated_at
-		 FROM tickets
-		 WHERE tenant_id = $1
-		   AND requester_id = $2
-		   AND status NOT IN ('merged','closed','solved')
-		   AND subject ILIKE $3
-		 ORDER BY created_at DESC
+		`SELECT `+ticketSelectColumns+`
+		 WHERE t.tenant_id = $1
+		   AND t.requester_id = $2
+		   AND t.status NOT IN ('merged','closed','solved')
+		   AND t.subject ILIKE $3
+		 ORDER BY t.created_at DESC
 		 LIMIT 20`,
 		tenantID, requesterID, prefix+"%",
 	)
@@ -661,9 +685,9 @@ func (r *PostgresRepository) GetHelpdeskStats(ctx context.Context, tenantID uuid
 
 func (r *PostgresRepository) GetBusinessHours(ctx context.Context, tenantID uuid.UUID) (*BusinessHours, error) {
 	var (
-		bh          BusinessHours
-		schedJSON   []byte
-		holsJSON    []byte
+		bh        BusinessHours
+		schedJSON []byte
+		holsJSON  []byte
 	)
 	err := r.pool.QueryRow(ctx,
 		`SELECT tenant_id, schedule, holidays, timezone, updated_at
@@ -730,6 +754,8 @@ func scanTicket(row scannable) (*Ticket, error) {
 		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
 		&t.CreatedAt, &t.UpdatedAt,
+		&t.Description, &t.Category, &t.TicketNumber,
+		&t.AssigneeName, &t.RequesterName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTicketNotFound
@@ -744,14 +770,16 @@ func scanTicketFromRows(rows pgx.Rows) (*Ticket, error) {
 		&t.AssigneeID, &t.RequesterID, &t.QueueID, &t.DueAt,
 		&t.MergedIntoID, &t.FirstResponseAt, &t.ResolvedAt,
 		&t.CreatedAt, &t.UpdatedAt,
+		&t.Description, &t.Category, &t.TicketNumber,
+		&t.AssigneeName, &t.RequesterName,
 	)
 	return &t, err
 }
 
 func scanMessageFromRows(rows pgx.Rows) (*TicketMessage, error) {
 	var (
-		m           TicketMessage
-		attachJSON  []byte
+		m          TicketMessage
+		attachJSON []byte
 	)
 	err := rows.Scan(
 		&m.ID, &m.TenantID, &m.TicketID, &m.AuthorID, &m.Body, &m.Internal, &attachJSON, &m.CreatedAt,

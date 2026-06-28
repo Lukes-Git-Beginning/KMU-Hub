@@ -34,6 +34,8 @@ func (s *Service) CreateTicket(
 	priority string,
 	assigneeID *uuid.UUID,
 	queueID *uuid.UUID,
+	description string,
+	category string,
 ) (*Ticket, error) {
 	if subject == "" {
 		return nil, fmt.Errorf("subject must not be empty")
@@ -55,6 +57,8 @@ func (s *Service) CreateTicket(
 		AssigneeID:  assigneeID,
 		RequesterID: requesterID,
 		QueueID:     queueID,
+		Description: description,
+		Category:    category,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}

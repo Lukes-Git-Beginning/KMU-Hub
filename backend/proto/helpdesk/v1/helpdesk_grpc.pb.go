@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: helpdesk/v1/helpdesk.proto
+// source: proto/helpdesk/v1/helpdesk.proto
 
 package helpdeskv1
 
@@ -1428,5 +1428,5 @@ var HelpdeskService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "helpdesk/v1/helpdesk.proto",
+	Metadata: "proto/helpdesk/v1/helpdesk.proto",
 }

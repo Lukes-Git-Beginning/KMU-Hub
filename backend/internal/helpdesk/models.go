@@ -54,8 +54,8 @@ var ValidTicketPriorities = map[string]bool{
 type SLAStatus string
 
 const (
-	SLAStatusOnTrack SLAStatus = "on_track"
-	SLAStatusAtRisk  SLAStatus = "at_risk"
+	SLAStatusOnTrack  SLAStatus = "on_track"
+	SLAStatusAtRisk   SLAStatus = "at_risk"
 	SLAStatusBreached SLAStatus = "breached"
 )
 
@@ -77,31 +77,37 @@ type Ticket struct {
 	MergedIntoID    *uuid.UUID `json:"merged_into_id,omitempty"`
 	FirstResponseAt *time.Time `json:"first_response_at,omitempty"`
 	ResolvedAt      *time.Time `json:"resolved_at,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	Description     string     `json:"description"`
+	Category        string     `json:"category"`
+	TicketNumber    int        `json:"ticket_number"`
+	// Denormalized via JOIN on users (read side only; not persisted here).
+	AssigneeName  *string   `json:"assignee_name,omitempty"`
+	RequesterName string    `json:"requester_name"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // TicketMessage is a single reply or internal note on a ticket.
 type TicketMessage struct {
-	ID          uuid.UUID   `json:"id"`
-	TenantID    uuid.UUID   `json:"tenant_id"`
-	TicketID    uuid.UUID   `json:"ticket_id"`
-	AuthorID    uuid.UUID   `json:"author_id"`
-	Body        string      `json:"body"`
-	Internal    bool        `json:"internal"`
-	Attachments []string    `json:"attachments"`
-	CreatedAt   time.Time   `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	TenantID    uuid.UUID `json:"tenant_id"`
+	TicketID    uuid.UUID `json:"ticket_id"`
+	AuthorID    uuid.UUID `json:"author_id"`
+	Body        string    `json:"body"`
+	Internal    bool      `json:"internal"`
+	Attachments []string  `json:"attachments"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // TicketQueue is a named bucket into which tickets are routed.
 type TicketQueue struct {
-	ID               uuid.UUID  `json:"id"`
-	TenantID         uuid.UUID  `json:"tenant_id"`
-	Name             string     `json:"name"`
+	ID                uuid.UUID  `json:"id"`
+	TenantID          uuid.UUID  `json:"tenant_id"`
+	Name              string     `json:"name"`
 	DefaultAssigneeID *uuid.UUID `json:"default_assignee_id,omitempty"`
-	SLAPolicyID      *uuid.UUID `json:"sla_policy_id,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	SLAPolicyID       *uuid.UUID `json:"sla_policy_id,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
 // CannedResponse is a pre-written reply template.
