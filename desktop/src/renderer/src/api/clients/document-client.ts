@@ -207,6 +207,22 @@ function normalizeFile(raw: unknown): DocumentFile {
   }
 }
 
+// ListShares goes through response.ProtoList (UseEnumNumbers), so `permission`
+// arrives as an int (1=read, 2=write). MSW returned the string union, so this was
+// mock-hidden. Coalesce to the typed union; also normalize Timestamps.
+const SHARE_PERMISSION_BY_INT: Record<number, SharePermission> = { 1: 'read', 2: 'write' }
+
+function normalizeShare(raw: unknown): DocumentShare {
+  const s = normalizeWireTimestamps(raw) as Record<string, unknown>
+  return {
+    ...(s as unknown as DocumentShare),
+    permission:
+      typeof s.permission === 'number'
+        ? (SHARE_PERMISSION_BY_INT[s.permission] ?? 'read')
+        : ((s.permission as SharePermission) ?? 'read'),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Folders
 // ---------------------------------------------------------------------------
@@ -403,10 +419,11 @@ export const documentShareApi = {
   },
 
   async list(entityType: string, entityId: string): Promise<ListSharesResponse> {
+    // Gateway registers GET under /shares/entity (a bare GET /shares has no handler → 405).
     const raw = await request<unknown>(
-      `/api/v1/documents/shares${qs({ entity_type: entityType, entity_id: entityId })}`,
+      `/api/v1/documents/shares/entity${qs({ entity_type: entityType, entity_id: entityId })}`,
     )
-    return { shares: unwrapList<DocumentShare>(raw, 'shares') }
+    return { shares: unwrapList<DocumentShare>(raw, 'shares').map(normalizeShare) }
   },
 
   async listSharedWithMe(entityType?: string): Promise<ListSharesResponse> {
