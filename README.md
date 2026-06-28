@@ -34,7 +34,7 @@ Standardsoftware zwingt KMUs in Workflows, die nicht zu ihren Prozessen passen. 
 | | |
 |---|---|
 | **Phase** | Pre-Launch — **Sprint 4 aktiv** (2026-06-08 – 06-21); Sprint 5 (Pre-Launch-Audit) ab 06-22 |
-| **Launch-Datum** | 2026-07-01 (ZFA-Pilot-0) |
+| **Launch-Datum** | 2026-09-01 (ZFA-Pilot-0) |
 | **Version** | 0.1.0 (Pre-Release) |
 | **Production** | [app.zentria.tech](https://app.zentria.tech) — 24 `cmd`-Services (23 µSvc + Gateway), `COSMI_ENV=production` scharf · **Migrationskopf: Prod 209 / Repo 213** |
 | **Blocker** | Alle 16 P0-Launch-Blocker dicht (2026-06-05); launch-kritisch offen nur R2-P1.10 (Partitionierung) |
@@ -386,7 +386,7 @@ Designphilosophie + Motion-Tokens + Anti-Patterns: [`.knowledge/design.md`](.kno
 | [`CLAUDE.md`](CLAUDE.md) | Entwicklungsrichtlinien, Architektur-Regeln, Kommandos |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Commit-Konventionen, Branch-Strategie, Build-/Test-Gates |
 | [`.planning/status-overview.md`](.planning/status-overview.md) | Live-Status-Snapshot (Modul-Reifegrad, Blocker-Burndown) |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | 6-Sprint-Plan bis Launch 2026-07-01 (Single Source of Truth) |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | 6-Sprint-Plan bis Launch 2026-09-01 (Single Source of Truth) |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architektur-Entscheidungen (ADRs) |
 | [`docs/LEARNINGS.md`](docs/LEARNINGS.md) | Lessons Learned aus Vorgängerprojekt |
 | [`docs/PRICING.md`](docs/PRICING.md) | Modul-x-User Preismodell |

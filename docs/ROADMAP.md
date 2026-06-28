@@ -1,9 +1,8 @@
 # Cosmi — Kern-Roadmap
 
-> **Status (2026-04-26):** Sprint 1 abgeschlossen + Sprint 2 Welle 0+1 done. Heute 4 commits auf main: 2245ecb (Welle-0 FK-Fixes), 9438ba0 (4 Module backend), e4b98b9 (3 Sprint-1-Carry-Items), ad04191 (20-Blocker-Bugfix-Sweep aus Welle-0+1-Review). Auf Kurs fuer Pilot-0 01.07.
-> **Zwei-Deadline-Modell** (Stand 2026-06-08, Playbook: `docs/BACKEND-LAUNCH-PLAN.md`):
-> - **Pilot-0: 2026-07-01** — ZFA-Pilot-tauglicher Kern (Kalender-Booking, Dialer-Consent, Passwort-Reset, korrekte Demo-Daten). +4 Wochen verschoben nach Runde 2 — 9 neue P0-Launch-Blocker + Option-B-Full + finance-Normalisierung.
-> - **Volle P0-Feature-Parität: 2026-09-01** — E-Rechnung/GoBD/DATEV/Bexio + Rest der Finance-Block-Wellen (Wellen 4–7).
+> **Status (2026-04-26):** Sprint 1 abgeschlossen + Sprint 2 Welle 0+1 done. Heute 4 commits auf main: 2245ecb (Welle-0 FK-Fixes), 9438ba0 (4 Module backend), e4b98b9 (3 Sprint-1-Carry-Items), ad04191 (20-Blocker-Bugfix-Sweep aus Welle-0+1-Review). Auf Kurs fuer Launch 01.09.
+> **Ein-Launch-Modell** (Stand 2026-06-28, Playbook: `docs/BACKEND-LAUNCH-PLAN.md`): Pilot-0 und volle P0-Feature-Parität fallen auf **2026-09-01** zusammen — das frühere Zwei-Deadline-Modell (Pilot-0 01.07 / volle P0 01.09) ist aufgelöst.
+> - **Launch: 2026-09-01** — ZFA-Pilot-tauglicher Kern (Kalender-Booking, Dialer-Consent, Passwort-Reset, korrekte Demo-Daten) **plus** voller P0-Scope: E-Rechnung/GoBD/DATEV/Bexio + Finance-Block-Wellen 4–7.
 > **UG-Gruendung:** 2026-06-01 bleibt, Pilot-Tag separat
 > **Konsolidiert aus:** ROADMAP (alt), BUSINESS-ROADMAP, PRODUCT-STRATEGY, DIALER-ROADMAP, I18N-ROADMAP, PERFORMANCE-PLAN, .knowledge/milestones.md
 > **Eigentuemer dieser Datei:** Luke. Jede andere Roadmap-Datei ist SUPERSEDED.
@@ -16,17 +15,16 @@
 
 Bis 2026-04-18 lagen Produkt-, Technik- und Business-Pfade auf 11 verschiedene Dokumente verteilt. Zwei Rigorosum-Runden am 18.04. haben harte Defizite aufgedeckt: **Runde 1** (Gesamtnote 3.3, wild-wren-Plan) identifizierte 7 P0-Launch-Blocker in Backend/Frontend/Ops. **Runde 2 Vertiefung** (Gesamtnote 4.1, functional-seahorse-Plan) lieferte 9 zusaetzliche P0-Blocker in Integrationen, Realtime-Kern und DB-Schema — darunter ein komplett fehlender TURN/STUN-Server und ein faktisch wirkungsloser Recording-Consent-Check. Kombinierte Launch-Reife: **3.7**.
 
-Konsequenz: Launch von 01.06. auf **01.07. verschoben** (+4 Wochen), um 16 P0-Blocker + Option-B-Full-Retrofit (~50 Tabellen) + finance_line_items-Normalisierung sauber umzusetzen. UG-Gruendung bleibt auf 01.06.
+Konsequenz: Launch von 01.06. auf 01.07. (Runde 2, +4 Wochen), dann auf **01.09. verschoben** — um 16 P0-Blocker + Option-B-Full-Retrofit (~50 Tabellen) + finance_line_items-Normalisierung + den vollen Finance-Block (Wellen 4–7) sauber umzusetzen. UG-Gruendung bleibt auf 01.06.
 
 Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden deprecatet (siehe §8).
 
 ### North Star
 
-**Cosmi geht in zwei Stufen live** (Playbook: `docs/BACKEND-LAUNCH-PLAN.md`):
-- **Pilot-0 (2026-07-01):** ZFA-tauglicher Kern — alle 14 Module, keine Mock-Daten, Option-B aktiv, Pilot-kritische Flows (Terminbuchung, Dialer-Consent, Passwort-Reset) abgesichert.
-- **Volle P0-Feature-Parität (2026-09-01):** E-Rechnung/GoBD/DATEV/Bexio, vollständige Finance-Block-Wellen.
+**Cosmi geht am 2026-09-01 live** (ein Launch, Playbook: `docs/BACKEND-LAUNCH-PLAN.md`):
+- **Launch (2026-09-01):** ZFA-tauglicher Kern — alle 14 Module, keine Mock-Daten, Option-B aktiv, Pilot-kritische Flows (Terminbuchung, Dialer-Consent, Passwort-Reset) abgesichert — **plus** volle P0-Feature-Parität: E-Rechnung/GoBD/DATEV/Bexio, vollständige Finance-Block-Wellen 4–7.
 
-**Pilot-0 am 2026-07-01 erfordert:**
+**Der Launch am 2026-09-01 erfordert:**
 - **14 echten Modulen** (keine Mock-Daten mehr in user-sichtbaren Pfaden)
 - **Multi-Tenancy Option-B aktiv** (RLS auf ~50 Tabellen, Instanz-pro-Pilot + tenant_id-Isolation — kein Downgrade-Risiko)
 - **DSGVO-Consent-Enforcement** in allen Send-Flows (Email, Dialer) + Realtime-Recording (Join-with-Consent + persistenter Banner)
@@ -88,7 +86,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 | Alt | Neu |
 |---|---|
-| Launch 01.05. → 01.06. | **Pilot-0: 01.07. / volle P0: 01.09.** (Zwei-Deadline-Modell nach Runde 2 + Dariens Handover; Playbook: `docs/BACKEND-LAUNCH-PLAN.md`) |
+| Launch 01.05. → 01.06. → 01.07. | **Ein Launch: 01.09.** (Pilot-0 + volle P0-Parität zusammengelegt; vormals Zwei-Deadline-Modell nach Runde 2 + Dariens Handover; Playbook: `docs/BACKEND-LAUNCH-PLAN.md`) |
 | "11 Industry-Module bleiben auf Mock" (alte ROADMAP §Scope-Entscheidungen) | **Alle 14 Module werden echt** |
 | "React Native Scaffold existiert" (alter Audit) | **Mobile-Ordner leer, wird geloescht** |
 | Multi-Tenancy Option-A permanent | **Option-B-Full jetzt, ~50 Tabellen Retrofit** |
@@ -101,7 +99,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 ---
 
-## 3. Sprint-Plan bis 2026-07-01
+## 3. Sprint-Plan bis 2026-09-01
 
 **10 Wochen = 6 Sprints. Parallelitaet via Git-Worktrees + Sub-Agenten (Sonnet fuer Code-Volumen, Opus fuer Architektur-Entscheidungen).**
 
@@ -245,7 +243,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 ---
 
-### Sprint 5 — Integration, Polish, Pre-Launch-Audit (2026-06-22 – 2026-06-30, 1.5 Wochen)
+### Sprint 5 — Integration, Polish, Pre-Launch-Audit (bis Gate S5 2026-08-31)
 
 **Ziel:** End-to-End-Tests, Content-Cleanup, Peer-Review, Rigorosum Runde 3, Launch-Freigabe.
 
@@ -259,7 +257,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | S5.6 | Finaler Smoke auf Prod (`deploy/scripts/smoke.sh`) | 30min | Launch |
 | S5.7 | UG-Notartermin (01.06. parallel zu Sprint 3), Konto aktiv | extern | Legal |
 
-**Ende Sprint 5:** Launch-Freigabe. ZFA-Pilot-0-Onboarding ab 01.07.
+**Ende Sprint 5:** Launch-Freigabe. ZFA-Pilot-0-Onboarding ab 01.09. (Hinweis: Der durch die Verschiebung auf 01.09 gewonnene Puffer trägt den jetzt launch-kritischen Finance-Block — Wellen 4–7, vormals „volle P0 01.09".)
 
 ---
 
@@ -381,9 +379,9 @@ Falls ein Modul bis zum Launch-Freeze (2026-05-28) nicht fertig ist: **Feature-F
 
 ---
 
-## 6. Post-Launch Phase C (Juni – September 2026)
+## 6. Post-Launch Phase C (September – Dezember 2026)
 
-### Phase C — Pilot-Betrieb (Juni – Juli 2026)
+### Phase C — Pilot-Betrieb (September – Oktober 2026)
 
 - **Track: Legal** — AVV/DPA mit Anwalt finalisieren
 - **Track: Onboarding** — ZFA-Pilot-0 + 2 Dienstleister-Piloten (kostenlos)
@@ -391,7 +389,7 @@ Falls ein Modul bis zum Launch-Freeze (2026-05-28) nicht fertig ist: **Feature-F
 - **Track: P2-Aufholsprint** — DSGVO-Erasure, Rollen-Route-Guards, Duplikat-Konsolidierung
 - **Track: Demo-Video** — Hero (3–5 Min) + Outreach (60–90 Sek)
 
-### Phase D — Production Hardening + Handwerks-Pilot (August – September 2026)
+### Phase D — Production Hardening + Handwerks-Pilot (November – Dezember 2026)
 
 - Redis Caching Layer (3 Tiers) — aus PERFORMANCE-PLAN §5.2
 - PgBouncer als DB Connection Pool
@@ -400,7 +398,7 @@ Falls ein Modul bis zum Launch-Freeze (2026-05-28) nicht fertig ist: **Feature-F
 - OnlyOffice → Collabora Migration (Lizenz-Risiko mitigieren)
 - Dialer Phase 2 (PSTN-SIP) — wenn ZFA-Pilot Phase 1 stabil (siehe alter DIALER-ROADMAP)
 
-### Phase E — Kommerzieller Launch (Q4 2026)
+### Phase E — Kommerzieller Launch (Q1 2027)
 
 - Stripe/SEPA-Integration
 - Desktop-Installer-Pipeline (`electron-builder`)
@@ -412,7 +410,7 @@ Falls ein Modul bis zum Launch-Freeze (2026-05-28) nicht fertig ist: **Feature-F
 
 #### Orbit Appliance — Roadmap (ADR-008)
 
-**Grundsatz:** Zentria = Integrator (kein Hardware-Hersteller). Cosmi auf neutralem Mini-PC + nacktem Standard-Linux + Docker, identisch zur Hetzner-Cloud. Kein eigenes OS, kein Synology/DSM. ⚠ Integrator-/CRA-Rechtslage vor Bau anwaltlich bestaetigen. Kein Launch-Blocker fuer 01.07.
+**Grundsatz:** Zentria = Integrator (kein Hardware-Hersteller). Cosmi auf neutralem Mini-PC + nacktem Standard-Linux + Docker, identisch zur Hetzner-Cloud. Kein eigenes OS, kein Synology/DSM. ⚠ Integrator-/CRA-Rechtslage vor Bau anwaltlich bestaetigen. Kein Launch-Blocker fuer 01.09.
 
 **Spikes / Gates (Vorarbeiten):**
 
@@ -492,7 +490,7 @@ Jeder Sprint endet mit einem harten Gate. Ohne gruenes Gate kein Fortschritt.
 - [x] **Finance-Service-Coverage ≥50%** (vorher <15%): ✅ invoice 69.6% · quote 63.7% · creditnote 51.3% (testcontainers-go, `-tags=integration`)
 - [ ] Alle R1-P1 + R2-P1 erledigt (Input-Validation, LiveKit-HMAC, Automation-Tenant-Isolation, Circuit-Breaker, Meeting-Rollen, WS-Token, Redis-Subscription-State, DB-FKs-Nachzug, Partitionierung, Recording-Cronjob)
 
-### Gate S5 (2026-06-30) — PILOT-0-FREIGABE (ZFA, 01.07.)
+### Gate S5 (2026-08-31) — LAUNCH-FREIGABE (ZFA, 01.09.)
 
 - [ ] Peer-Review durch Ex-Mitgruender abgeschlossen, kein P0/P1 offen
 - [ ] **Rigorosum Runde 3 (Claude)**: Gesamtnote ≥2.3, alle R1-P0 + R2-P0 geschlossen
@@ -502,8 +500,7 @@ Jeder Sprint endet mit einem harten Gate. Ohne gruenes Gate kein Fortschritt.
 - [ ] UG eingetragen (seit 01.06.), Konto aktiv
 - [ ] Pilot-kritische Flows gruen: Kalender-Terminbuchung, Dialer-Consent, Passwort-Reset, Demo-Daten korrekt
 
-**Pilot-0-Go-Live: 2026-07-01** (ZFA-Einstieg)
-**Volle P0-Feature-Parität: 2026-09-01** (E-Rechnung/GoBD/DATEV/Bexio — Wellen 4–7 aus `docs/BACKEND-LAUNCH-PLAN.md`)
+**Launch / Pilot-0-Go-Live: 2026-09-01** (ZFA-Einstieg, voller P0-Scope inkl. E-Rechnung/GoBD/DATEV/Bexio — Finance-Block-Wellen 4–7 aus `docs/BACKEND-LAUNCH-PLAN.md`)
 
 ---
 
@@ -554,7 +551,7 @@ Folgende Dateien werden mit dem Check-in dieser Roadmap zu historischen Referenz
 4. **Plugin-System:** **Feature-Flag OFF bis Phase D** — Config-Plugins bleiben aktiv, WASM-Runtime nicht instanziert. Ehrlicher Pitch. WASM-Haertung (Ed25519-Signing + WASI-Deny-Set) nur wenn Phase-D-Markt-Signal positiv.
 5. **TURN/STUN:** **Build, not Buy** — coturn self-hosted auf eigenem CAX11 (ARM Ampere, ~€3.80/Monat, 20TB Traffic), kein Vendor-Lock auf LiveKit Cloud.
 6. **`finance_invoices.line_items`:** **Vor Launch normalisieren** in `finance_invoice_lines`-Tabelle + parallel Finance-Test-Coverage auf ≥50% ausbauen (vorher <15%). GoBD/ZUGFeRD-tauglich machen.
-7. **Zwei-Deadline-Modell** (bestätigt 2026-06-08, Dariens Handover): **Pilot-0: 2026-07-01** (ZFA-Kern, +4 Wochen gegenueber alter Planung); **volle P0-Feature-Parität: 2026-09-01** (Finance-Block Wellen 4–7). UG-Gruendung 01.06 bleibt stehen. Playbook: `docs/BACKEND-LAUNCH-PLAN.md`.
+7. **Ein-Launch-Modell** (aktualisiert 2026-06-28; vormals Zwei-Deadline nach Dariens Handover 2026-06-08): **Launch 2026-09-01** — ZFA-Kern + volle P0-Feature-Parität (Finance-Block Wellen 4–7) zusammengelegt. UG-Gruendung 01.06 bleibt stehen. Playbook: `docs/BACKEND-LAUNCH-PLAN.md`.
 
 ### Weiterhin offen (nicht launch-blockend)
 
@@ -563,5 +560,5 @@ Folgende Dateien werden mit dem Check-in dieser Roadmap zu historischen Referenz
 
 ---
 
-*Letztes Update: 2026-06-11 — Zwei-Deadline-Modell synchronisiert (Pilot-0: 01.07 / volle P0: 01.09), Gate S5 auf Pilot-0-Freigabe umformuliert, BACKEND-LAUNCH-PLAN.md als Playbook verlinkt. Vorheriger Stand: 2026-04-28 Abend (Sprint 2 Welle 2A+2B+2C done).*
-*Naechste Ueberarbeitung: Gate S5 (2026-06-30)*
+*Letztes Update: 2026-06-28 — Launch auf **2026-09-01** korrigiert, Zwei-Deadline-Modell aufgelöst (Pilot-0 + volle P0-Parität = ein Launch), Gate S5 → 31.08, Pilot-/Phase-Fenster mitverschoben. Vorheriger Stand: 2026-06-11 (Zwei-Deadline-Modell synchronisiert).*
+*Naechste Ueberarbeitung: Gate S5 (2026-08-31)*

@@ -9,8 +9,8 @@
 
 Cosmi (Software) der **Zentria UG i.G.** ist ein All-in-One-CRM für DACH-KMUs mit EU-Datensouveränität und
 befindet sich in der **Pre-Launch-Phase**: **Sprint 4 läuft aktiv** (2026-06-08 – 2026-06-21), Sprint 5
-(Pre-Launch-Audit) beginnt in 4 Tagen. Die nächsten Fixpunkte sind **UG-Gründung 2026-06-01**,
-**Pilot-0-Go-Live (ZFA) 2026-07-01** und **volle P0-Feature-Parität 2026-09-01**. Die kombinierte
+(Pre-Launch-Audit) beginnt in 4 Tagen. Die nächsten Fixpunkte sind **UG-Gründung 2026-06-01** und der
+**Launch (ZFA-Pilot-0 + volle P0-Feature-Parität) 2026-09-01**. Die kombinierte
 Launch-Reife liegt bei **Note 3.7** (Rigorosum Runde 1 „wild-wren" 3.3 + Runde 2 „functional-seahorse" 4.1);
 Rigorosum Runde 3 steht in Sprint 5 aus. **Alle 16 P0-Launch-Blocker (7 aus R1 + 9 aus R2) sind geschlossen**,
 zuletzt R2-P0.4 (Recording-Consent-Modal) am 2026-06-05; offen sind noch 2 von 20 P1. Zuletzt live gingen die
@@ -77,16 +77,15 @@ gantt
     S2 7 Module + Option-B Phase 1      :done,   s2, 2026-05-11, 2026-05-24
     S3 Option-B Phase 2 + Ansible       :done,   s3, 2026-05-25, 2026-06-07
     S4 Finance-Normalisierung + P1      :active, s4, 2026-06-08, 2026-06-21
-    S5 Pre-Launch-Audit + Rigorosum R3  :        s5, 2026-06-22, 2026-06-30
+    S5 Pre-Launch-Audit + Rigorosum R3  :        s5, 2026-06-22, 2026-08-31
     section Meilensteine
     UG-Gruendung           :milestone, m1, 2026-06-01, 0d
-    Pilot-0 Launch ZFA     :milestone, m2, 2026-07-01, 0d
-    Volle P0-Paritaet      :milestone, m3, 2026-09-01, 0d
+    Launch ZFA + volle P0  :milestone, m2, 2026-09-01, 0d
 ```
 
 *Caption: Sprint 0–3 sind abgeschlossen, **Sprint 4 ist aktiv** (heute 2026-06-18, Tag 11/14), Sprint 5
-folgt direkt. Der Launch-Termin Pilot-0 (2026-07-01) wurde nach Rigorosum Runde 2 um 4 Wochen verschoben;
-die volle P0-Feature-Parität (E-Rechnung/GoBD/DATEV/Bexio) ist als zweite Deadline auf 2026-09-01 entkoppelt.*
+folgt direkt. Der Launch wurde von 01.07 auf **2026-09-01** verschoben; Pilot-0 (ZFA) und volle
+P0-Feature-Parität (E-Rechnung/GoBD/DATEV/Bexio) fallen damit auf einen Launch-Termin zusammen.*
 
 ---
 
@@ -230,17 +229,14 @@ gantt
     dateFormat YYYY-MM-DD
     axisFormat %b
     section Dienstleister
-    Pilot-0 ZFA Go-Live         :milestone, p0, 2026-07-01, 0d
-    Pilot 1-3 Dienstleister     :p13, 2026-07-01, 2026-10-31
+    Launch ZFA + volle P0       :milestone, p0, 2026-09-01, 0d
+    Pilot 1-3 Dienstleister     :p13, 2026-09-01, 2026-12-31
     section Handwerk
-    Handwerk-Piloten            :hw, 2026-10-01, 2026-12-31
-    section Feature-Parity
-    Volle P0-Paritaet           :milestone, fp, 2026-09-01, 0d
+    Handwerk-Piloten            :hw, 2026-12-01, 2027-02-28
 ```
 
-*Caption: Der Rollout startet mit dem ZFA-Pilot-0 am 2026-07-01, gefolgt von Dienstleister-Piloten bis
-Oktober; Handwerk-Piloten beginnen ab Oktober/November. Die volle P0-Parität (Finance-Wellen) markiert
-parallel den 2026-09-01-Meilenstein.*
+*Caption: Der Rollout startet mit dem ZFA-Pilot-0 am 2026-09-01 (gleichzeitig volle P0-Parität / Finance-Wellen),
+gefolgt von Dienstleister-Piloten bis Dezember; Handwerk-Piloten beginnen ab Dezember/Januar.*
 
 ---
 

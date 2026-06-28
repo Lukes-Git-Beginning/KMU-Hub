@@ -1,8 +1,8 @@
 # Pilot-0 Onboarding
 
-> Status: Skelett. Inhaltliche Befuellung in Sprint 5/6 vor Launch 2026-07-01.
+> Status: Skelett. Inhaltliche Befuellung in Sprint 5/6 vor Launch 2026-09-01.
 
-Dokumentation und Materialien fuer den ersten produktiven Pilot-Kunden (ZFA, Start 2026-07-01).
+Dokumentation und Materialien fuer den ersten produktiven Pilot-Kunden (ZFA, Start 2026-09-01).
 
 ## Inhalt
 

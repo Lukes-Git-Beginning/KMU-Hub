@@ -92,7 +92,7 @@ Smoke-Test 12/21 PASS (9 known-broken Tests deferred — siehe MEMORY `project_s
 | S3.6 cd.yml Auto-Deploy | ✅ workflow_run-Trigger |
 | S3.7 Dialer-Coverage 12% → 30% | ✅ `1f6c4c0` (31.8% real) |
 
-S3.MT.4 Audit auf Sprint 5 verschoben (User-Entscheidung). **Naechste Schritte:** Sprint 4 ab 2026-06-08 (`finance_invoices.line_items`-Normalisierung nach ADR-0007, Skeleton in `a1a8d54` bereit) → Sprint 5 (Peer-Review + Rigorosum Runde 3) → Launch 01.07.
+S3.MT.4 Audit auf Sprint 5 verschoben (User-Entscheidung). **Naechste Schritte:** Sprint 4 ab 2026-06-08 (`finance_invoices.line_items`-Normalisierung nach ADR-0007, Skeleton in `a1a8d54` bereit) → Sprint 5 (Peer-Review + Rigorosum Runde 3) → Launch 01.09.
 
 **Lessons:**
 - **Image-Pinning ohne expiration-tracking ist fragil.** minio/mc-Tags rotieren weg, redis-Pins koennen Down-grade sein. Sprint-3-Image-Pin-Commit `7a22d83` brauchte 2 Korrekturen.
@@ -364,7 +364,7 @@ Strategische Roadmap: `docs/DIALER-ROADMAP.md`
 ## Rigorosum Runde 1 + 2 (2026-04-18)
 - **Runde 1 (wild-wren):** Gesamtnote 3.3 — 7 P0-Launch-Blocker + 8 P1 + 7 P2 + 9 P3 identifiziert (Backend/Frontend/Ops)
 - **Runde 2 Vertiefung (functional-seahorse):** Gesamtnote 4.1 — 9 neue P0-Blocker in Integrationen, Realtime-Kern, DB-Schema + 12 P1 + 15 P2 + 6 P3
-- Kombinierte Launch-Reife **3.7** → Launch auf 2026-07-01 verschoben (+4 Wochen)
+- Kombinierte Launch-Reife **3.7** → Launch auf 2026-07-01 verschoben (+4 Wochen); später auf **2026-09-01** korrigiert (Ein-Launch-Modell, 2026-06-28)
 - Strategische Entscheidungen: Option-B-Full Multi-Tenancy, coturn self-hosted, Join-with-Consent, WASM Feature-Flag OFF, `finance_invoices.line_items` vor Launch normalisieren
 - Details: siehe `docs/ROADMAP.md` (Single Source of Truth) und MEMORY `project_rigorosum_april.md`, `project_rigorosum_runde2.md`
 

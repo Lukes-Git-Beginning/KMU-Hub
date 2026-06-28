@@ -17,7 +17,7 @@ Bildunterschriften.
 
 ## Quellen — in dieser Reihenfolge lesen, nichts annehmen
 1. `README.md` — Projektüberblick, Tech-Stack, Setup
-2. `docs/ROADMAP.md` — **Single Source of Truth**, 6-Sprint-Plan bis Launch **2026-07-01**
+2. `docs/ROADMAP.md` — **Single Source of Truth**, 6-Sprint-Plan bis Launch **2026-09-01**
 3. `docs/MODULES_SCOPE_MATRIX.md` — 14 Module × Tabellen/RPCs/Hooks/Flag-Keys/Pilot-Prio/Sprint
 4. `docs/ARCHITECTURE.md` — ADRs / Architektur-Entscheidungen
 5. `.knowledge/_index.md` + `.knowledge/milestones.md` — Master-Index, Meilensteine, Rigorosum-Runden 1+2
@@ -39,8 +39,8 @@ heutigen Datum.
    rapporte, produktion, einkauf, inventar, hr/zeiterfassung, finanzen, dialer, …). Markdown-Tabelle mit
    Ampeln (✅ voll · 🟡 teilweise · ⬜ Stub/offen) je Dimension **Backend-RPCs · FE-Wiring · Live-Flag ·
    Pilot-Prio**, **plus** ein Mermaid-`pie` der Status-Verteilung.
-2. **Roadmap-Gantt** — `gantt` der 6 Sprints bis 2026-07-01: abgeschlossene als `done`, laufender als `active`,
-   Rest Default; Meilensteine UG-Gründung 01.06 + Launch 01.07 als `milestone`.
+2. **Roadmap-Gantt** — `gantt` der 6 Sprints bis 2026-09-01: abgeschlossene als `done`, laufender als `active`,
+   Rest Default; Meilensteine UG-Gründung 01.06 + Launch 01.09 als `milestone`.
 3. **Architektur-Überblick** — `graph LR`: Desktop (Electron/React) + PWA → API-Gateway (Go) → gRPC-Service-
    Cluster (24) → PostgreSQL 16 / Redis / LiveKit; Feature-Flag- und Consent-Layer andeuten; WASM-Plugin =
    OFF kennzeichnen.

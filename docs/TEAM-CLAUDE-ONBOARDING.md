@@ -181,7 +181,7 @@ Einzelne `.md`-Files im gleichen Ordner, z.B.:
 
 **Meistens: Nichts.** Claude pflegt das selbst. Wenn ihr ihm etwas Wichtiges sagt, das zukünftige Sessions wissen sollen, sagt einfach:
 
-> *"Merk dir: Unser Launch-Datum ist jetzt 01.07.2026, nicht mehr 01.06."*
+> *"Merk dir: Unser Launch-Datum ist jetzt 01.09.2026, nicht mehr 01.07."*
 
 Claude legt dann eine Memory-Datei an oder aktualisiert eine bestehende.
 

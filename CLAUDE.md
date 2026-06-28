@@ -9,7 +9,7 @@
 - **Zielgruppe:** Branchenunabhaengige KMUs (5-200 Mitarbeiter)
 - **Team:** 1 Dev + 2 Business, AI-First Development
 - **Branding:** Software="Cosmi", Firma="Zentria"
-- **Timeline:** Launch 2026-07-01 — Detail-Roadmap in `docs/ROADMAP.md`
+- **Timeline:** Launch 2026-09-01 — Detail-Roadmap in `docs/ROADMAP.md`
 - **Version:** 0.1.0
 
 ## Tech-Stack
@@ -96,7 +96,7 @@ Single Source of Truth fuer projektspezifisches Wissen. Notes haben YAML-Frontma
 
 | Note | Inhalt |
 |------|--------|
-| `_index.md` | Master-Index, 6-Sprint-Roadmap bis Launch 01.07 |
+| `_index.md` | Master-Index, 6-Sprint-Roadmap bis Launch 01.09 |
 | `architektur.md` | Services, Routes, Architektur-Regeln (Detail mit Code), Entwicklungs-Kommandos, Feature-Flags, Consent-Wrapper, WASM-OFF |
 | `stack.md` | Strategy Decisions, Frontend-Bibliotheken, dompurify, Mobile=PWA |
 | `i18n.md` | i18next-Architektur, Schluessel-Konventionen, ICU-Plural-Bug |

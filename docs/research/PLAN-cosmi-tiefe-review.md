@@ -11,7 +11,7 @@
 
 ## Context
 
-Du hast einen 5-Phasen-Recherche-Plan (Phasen A-E + Phase F als separater Implementation-Plan) vorgelegt, der vor Launch (2026-07-01) jedes der 27 Cosmi-Module gegen 3-5 Marktführer auseinandernimmt, Cross-Modul-Strategie + Settings-Architektur + Workspace-Patterns synthetisiert und in einer Discussion-Doc als Diskussionsgrundlage konsolidiert. Ziel: Lücken zur Markttauglichkeit systematisch sichtbar machen, statt sie intuitiv zu raten.
+Du hast einen 5-Phasen-Recherche-Plan (Phasen A-E + Phase F als separater Implementation-Plan) vorgelegt, der vor Launch (2026-09-01) jedes der 27 Cosmi-Module gegen 3-5 Marktführer auseinandernimmt, Cross-Modul-Strategie + Settings-Architektur + Workspace-Patterns synthetisiert und in einer Discussion-Doc als Diskussionsgrundlage konsolidiert. Ziel: Lücken zur Markttauglichkeit systematisch sichtbar machen, statt sie intuitiv zu raten.
 
 Der Plan ist in der Form sauber strukturiert und in der Absicht richtig. Beim Drei-Pässe-Read sind aber mehrere harte Probleme aufgefallen, die der Plan vor Ausführung lösen muss — sonst produzieren wir 12-17 Tage Output, der gegen falsche Baselines argumentiert und die Pre-Launch-Zeit verbrennt.
 
@@ -82,7 +82,7 @@ Dariens Diagnose stimmt — die Größenordnung war zu klein angesetzt. Migratio
 
 ### 2.1 Tiefe-First-Reihenfolge ist Pilot-2/3-First — verkehrte Pre-Launch-Priorität
 
-Dariens Welle 1 (Shells = Vermietung, Fuhrpark, Schichten, Rapporte) sind alle **Pilot-2/Handwerk-Module** laut MODULES_SCOPE_MATRIX. Pilot 1 startet 2026-07-01 mit dem **Dienstleister-Segment** und braucht: helpdesk, vertraege, formulare, wiki, berichte, buchhaltung/finanzen, video + bestehende CRM/Work/Email/Kontakte/Dokumente/Kalender/Chat. Tiefe-First verbrennt die ersten 5-7 Recherche-Tage mit Modulen, die für den Launch keinen Wert liefern.
+Dariens Welle 1 (Shells = Vermietung, Fuhrpark, Schichten, Rapporte) sind alle **Pilot-2/Handwerk-Module** laut MODULES_SCOPE_MATRIX. Pilot 1 startet 2026-09-01 mit dem **Dienstleister-Segment** und braucht: helpdesk, vertraege, formulare, wiki, berichte, buchhaltung/finanzen, video + bestehende CRM/Work/Email/Kontakte/Dokumente/Kalender/Chat. Tiefe-First verbrennt die ersten 5-7 Recherche-Tage mit Modulen, die für den Launch keinen Wert liefern.
 
 ### 2.2 27 × ≥50 Funktionen = ~1350 Funktions-Einträge — Halluzinations-Risiko
 
@@ -118,7 +118,7 @@ User hat 2026-05-07 entschieden: **27-Modul-Scope wie Darien wird beibehalten**,
 
 ### 3.1 Welle-Reihenfolge: Pilot-1-First statt Tiefe-First
 
-Begründung: Recherche-Output muss vor Launch (2026-07-01) Pilot-1-Backlog liefern. Handwerk-Module recherchieren wenn sie an die Reihe kommen.
+Begründung: Recherche-Output muss vor Launch (2026-09-01) Pilot-1-Backlog liefern. Handwerk-Module recherchieren wenn sie an die Reihe kommen.
 
 | Neu | Module | Pilot-Bezug | Notiz |
 |---|---|---|---|
@@ -316,7 +316,7 @@ Nach Phase E ist der Plan erfolgreich, wenn:
 
 ### Risiken wenn wir den modifizierten Plan ausführen
 
-- **R1 — Time-To-Launch-Druck.** 14 Tage Recherche zwischen Gate S2 (2026-05-24) und Launch (2026-07-01) lassen 17 Tage für Implementation. Mitigation: Welle-1-Output nach 1.5 Tagen kann **bereits vor Phase E in Sprint 3 fließen** — nicht warten bis alle Phasen fertig sind. Das ist explizit erlaubt.
+- **R1 — Time-To-Launch-Druck.** Recherche zwischen Gate S2 (2026-05-24) und Launch (2026-09-01) — durch die Verschiebung von 01.07 auf 01.09 deutlich entspannter Implementierungspuffer. Mitigation: Welle-1-Output nach 1.5 Tagen kann **bereits vor Phase E in Sprint 3 fließen** — nicht warten bis alle Phasen fertig sind. Das ist explizit erlaubt.
 - **R2 — Halluzinations-Risiko bei Sub-Agents trotz Hardening.** Quellen-Pflicht und Stichproben-Re-Check mitigieren, aber nicht eliminieren. Mitigation: Codebase-Baseline (Phase A0) als Anker — Sub-Agent kann nicht "wir brauchen X" sagen, wenn Baseline zeigt "X ist seit Sprint 1 wired".
 - **R3 — Welle B7 (Handwerk) fällt aus.** Akzeptabel — Pilot-2/3 ist Q3/Q4 2026, Recherche kann parallel zu Sprint 5 laufen.
 - **R4 — ADR-007 (Settings) verlangsamt Sprint 3.** Settings-Migration ist 3-5 Wochen Aufwand. Pre-Launch unrealistisch komplett umzusetzen. Mitigation: ADR-007 entscheidet Reihenfolge, Sprint 3 macht **nur Tenant-Config-API + Branding-Bypass-Cleanup** (höchste UX-Priorität für Pilot-1), Rest in Sprint 5/6.

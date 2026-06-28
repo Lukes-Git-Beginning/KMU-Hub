@@ -1,4 +1,4 @@
-# Backend Launch-Plan — Wellen-Playbook bis Pilot (01.07) + voller P0 (01.09)
+# Backend Launch-Plan — Wellen-Playbook bis Launch (01.09)
 
 > **Zweck:** Dependency-geordnetes Wellen-Playbook für die Backend-Arbeit Richtung Launch. Jede Welle ist ein
 > **eigenständiges Auftragspaket** — du kannst sie einzeln in einer Session starten ODER 2–3 als Chain
@@ -15,11 +15,10 @@
 
 - **Arbeitsteilung:** Claude/Darien = Frontend (mock-first, viele Module gebaut), **Luke = Backend**. Bei
   🟢-FE-Punkten genügt der Endpoint → FE tauscht Mock-Store gegen TanStack-Hook ohne weitere Abstimmung.
-- **Zwei Deadlines (von Luke bestätigt — Dariens 01.09 ist korrekt):**
-  - **01.07 = ZFA-Pilot-0** (begrenzter Scope). Pilot-kritisch: Online-Terminbuchung, Dialer-Consent-Absicherung,
-    Passwort-Reset, korrekte Demo-Daten.
-  - **01.09 = volle P0-Feature-Parität** (E-Rechnung/GoBD/DATEV/Bexio + Rest).
-  - ✅ **ROADMAP-Sync erledigt 2026-06-11:** `docs/ROADMAP.md` auf Zwei-Deadline-Modell (Pilot-0: 01.07 / volle P0: 01.09) aktualisiert, Gate S5 als Pilot-0-Freigabe umformuliert, BACKEND-LAUNCH-PLAN.md als Playbook verlinkt.
+- **Ein Launch am 01.09 (Stand 2026-06-28):** Pilot-0 und volle P0-Feature-Parität fallen auf **2026-09-01** zusammen — das frühere Zwei-Deadline-Modell ist aufgelöst. Die Wellen-Reihenfolge unten bleibt als **Prioritäts-Sequenz** gültig (zuerst Pilot-kritisch, dann Finance-Block), alle Deadlines ≤01.09:
+  - **Pilot-kritisch (zuerst):** Online-Terminbuchung, Dialer-Consent-Absicherung, Passwort-Reset, korrekte Demo-Daten.
+  - **Voller P0-Scope (danach, bis Launch):** E-Rechnung/GoBD/DATEV/Bexio + Rest.
+  - ✅ **ROADMAP-Sync 2026-06-28:** `docs/ROADMAP.md` auf Ein-Launch-Modell (2026-09-01) aktualisiert, Gate S5 → 31.08, BACKEND-LAUNCH-PLAN.md als Playbook verlinkt.
 - **Aktueller Stand main:** `29e77fb7` (S4.1 alle 4 Wellen). **R1-P1.7 Input-Validation ✅ KOMPLETT** — `decodeAndValidate[T]` in allen JSON-Body-Mutation-Handlern über ~52 Route-Files (verbleibende GET-only/Protokoll-Handler: Webhook/WOPI/CalDAV/proto-direct-Passthrough bewusst ausgenommen). Production auf CCX-Migration/TURN wartet noch (Pilot-0-IP-Bestellung gebündelt).
 
 ### Wie dieses Dokument zu benutzen ist
@@ -56,7 +55,7 @@ Aus `CLAUDE.md` + `.knowledge/` — gilt für jeden neuen Endpoint/Service/Migra
 
 ## 2. Prioritäts-Logik (Launch-Impact, nicht Modul-Wichtigkeit)
 
-- **Pilot-kritisch (≤ 01.07):** Welle 0 (Risk-Fixes), Welle 2 (Passwort-Reset), Welle 3 (Kalender-Booking).
+- **Pilot-kritisch (≤ 01.09):** Welle 0 (Risk-Fixes), Welle 2 (Passwort-Reset), Welle 3 (Kalender-Booking).
 - **Voll-P0 (≤ 01.09):** Welle 4–7 (Finance-Block), Rest von Welle 0/1.
 - **Fundament (so früh wie möglich, entsperrt viele Module):** Welle 1 (Settings-Scope + Upload + Signatur).
 - **P1 Feature-Parität (FE scharfschalten):** Welle 8–11.
@@ -92,14 +91,14 @@ Welle 11 team P1 (Payroll/DATEV-HR) ──────────────�
 > 🟢 = FE wiring-ready (Endpoint genügt) · 🟡 = FE teilweise · 🔴 = FE wartet / Contract vorher abstimmen.
 
 ### Welle 0 — Quick Wins + Risk-Fixes ✅ ERLEDIGT 2026-06-11
-- **Ziel:** Compliance-Loch schließen + mehrere Module visuell entsperren. **Deadline:** Pilot (≤01.07). **Prereq:** keine. **Aufwand:** ½–1 Tag.
+- **Ziel:** Compliance-Loch schließen + mehrere Module visuell entsperren. **Deadline:** Pilot (≤01.09). **Prereq:** keine. **Aufwand:** ½–1 Tag.
 - **Backend-Scope:**
   1. **Dialer-Consent-Fix (⚠ DSGVO) — ✅ ERLEDIGT 2026-06-09 (Chain PILOT):** `cmd/dialer/main.go:92` nutzt jetzt `NewServiceWithConsent` mit `crm/consent`-Asserter verdrahtet. Regressionstest grün. Keine Anrufe mehr ohne Consent möglich.
   2. **Demo-`userName`-Fix — ✅ ERLEDIGT 2026-06-11 (`7a367047`):** `mocks/handlers/team.ts` auf `EmployeeProfile`-camelCase-Shape (`userName`) angeglichen. Demo-Login → team/Mentions zeigen jetzt Namen. ⚠ Hinweis: Das echte Gateway serialisiert `hr.pb.go` via `encoding/json` mit snake_case-Tags (`user_name`) — Demo-Mode ist jetzt camelCase-konsistent; gegen das echte Backend würde das team-Modul weiterhin „Unbekannt" zeigen (FE↔BE-Shape-Mismatch, siehe `.planning/backend-gaps.md` §team).
 - **Verifikation:** ✅ Dialer-Consent-Test rot→grün; Demo-Login → team/Mentions zeigen Namen.
 
 ### Welle 2 — Auth P0: Passwort-Reset
-- **Ziel:** „Passwort vergessen"-Flow. **Deadline:** Pilot (≤01.07). **Prereq:** keine. **FE:** 🔴 (Login-Redesign wartet darauf). **Aufwand:** ~1 Tag.
+- **Ziel:** „Passwort vergessen"-Flow. **Deadline:** Pilot (≤01.09). **Prereq:** keine. **FE:** 🔴 (Login-Redesign wartet darauf). **Aufwand:** ~1 Tag.
 - **Backend-Scope:** auth-Service: `POST /api/v1/auth/forgot-password` (Mail-Token, rate-limited, kein User-Enumeration-Leak)
   + `POST /api/v1/auth/reset-password` (Token + neues Passwort, Strength-Check via vorhandenem `go-password-validator`).
   Token-Tabelle (`password_reset_tokens`, tenant_id, expiry, single-use) + Mail-Versand über vorhandenen email-Dispatcher.
@@ -121,7 +120,7 @@ Welle 11 team P1 (Payroll/DATEV-HR) ──────────────�
 - **Verifikation:** Resolve-Order-Test (user > lead > tenant), RBAC-Schreibschutz-Test, Upload-Roundtrip, Tenant-Isolation.
 
 ### Welle 3 — Kalender Public-Booking (ZFA-Pilot-kritisch)
-- **Ziel:** Öffentliche Online-Terminbuchung. **Deadline:** Pilot (≤01.07) — Akquise hängt daran. **Prereq:** keine (calendar-Service existiert). **FE:** 🟢 (Flow als Mock fertig). **Aufwand:** 2–3 Tage.
+- **Ziel:** Öffentliche Online-Terminbuchung. **Deadline:** Pilot (≤01.09) — Akquise hängt daran. **Prereq:** keine (calendar-Service existiert). **FE:** 🟢 (Flow als Mock fertig). **Aufwand:** 2–3 Tage.
 - **Backend-Scope:**
   - `GET/POST/PUT/DELETE /api/v1/calendar/booking-pages` (Slug, Services, Verfügbarkeitsregeln) — authenticated.
   - `GET /api/v1/public/book/:slug` — **öffentlich/unauthenticated** (eigene Route-Gruppe ohne authMiddleware, Rate-Limit + Bot-Schutz).
@@ -217,7 +216,7 @@ Detail in Anhang A (Dariens Handover, P2) + `.planning/backend-gaps.md`. Kurzlis
 
 ## 6. Empfohlene Chains (für „2–3 Wellen am Stück durchlaufen lassen")
 
-- **Chain PILOT (höchste Dringlichkeit, ≤01.07):** Welle 0 → Welle 2 → Welle 3. *(klein+klein+mittel, alle unabhängig)*
+- **Chain PILOT (höchste Dringlichkeit, ≤01.09):** Welle 0 → Welle 2 → Welle 3. *(klein+klein+mittel, alle unabhängig)*
 - **Chain FUNDAMENT (max. Hebel):** Welle 1 allein laufen lassen (breit, entsperrt P1-Module).
 - **Chain FINANCE-P0 (≤01.09, sequentiell wegen Prereq):** Welle 4 → Welle 5 → (Welle 6 ∥ Welle 7).
 - **Chain FE-SCHARFSCHALTUNG (P1):** Welle 8 → Welle 9 → Welle 10. *(jede entsperrt ein gebautes FE-Modul)*

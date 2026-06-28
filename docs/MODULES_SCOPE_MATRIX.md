@@ -9,7 +9,7 @@
 > Module store→API verdrahtet sind) fuehrt [`.planning/status-overview.md`](../.planning/status-overview.md)
 > (Modul-Reifegrad-Matrix, laufend gepflegt). Backend-RPCs sind ueber alle 14 Module in Sprint 1+2 gebaut.
 
-> Alle 14 Module hatten initial Mock-Frontend (Stores unter `desktop/src/renderer/src/stores/<modul>.ts`) und werden bis Launch 2026-07-01 mit echtem Backend ausgestattet. `buchhaltung` und `video` sind Completion-Taetigkeiten (Backend teilweise vorhanden), alle anderen sind Neubau.
+> Alle 14 Module hatten initial Mock-Frontend (Stores unter `desktop/src/renderer/src/stores/<modul>.ts`) und werden bis Launch 2026-09-01 mit echtem Backend ausgestattet. `buchhaltung` und `video` sind Completion-Taetigkeiten (Backend teilweise vorhanden), alle anderen sind Neubau.
 
 ---
 

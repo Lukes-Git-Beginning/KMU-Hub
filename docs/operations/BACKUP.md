@@ -2,7 +2,7 @@
 
 > Status: Skelett. Inhaltliche Befuellung in Sprint 5 vor Launch.
 
-## Ziele (vor Launch 2026-07-01)
+## Ziele (vor Launch 2026-09-01)
 
 - **RPO** (Recovery Point Objective): max. 1h Datenverlust
 - **RTO** (Recovery Time Objective): max. 4h bis Wiederherstellung
