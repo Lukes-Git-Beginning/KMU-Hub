@@ -225,12 +225,28 @@ func (b *stubCRMBridge) ResolveFilterContacts(_ context.Context, _ uuid.UUID) ([
 
 // newDialerTestServer builds a DialerGRPCServer backed by in-memory stubs.
 // Returns the server plus the underlying repos for state assertions.
+// grantingAssertRepo is a consent.AssertRepo stub that always reports active
+// phone consent, so InitiateDialerCall's fail-closed consent gate passes in the
+// happy-path test. Validation-path tests fail before the consent check is reached.
+type grantingAssertRepo struct{}
+
+func (grantingAssertRepo) ActiveConsent(_ context.Context, _ uuid.UUID, _ consent.Channel) (bool, error) {
+	return true, nil
+}
+
+func (grantingAssertRepo) ContactHasEmail(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 func newDialerTestServer() (*DialerGRPCServer, *stubCampaignRepo, *stubCallRepo, *stubOutcomeRepo, *stubCRMBridge) {
 	cr := newStubCampaignRepo()
 	cl := newStubCallRepo()
 	or := newStubOutcomeRepo()
 	br := newStubCRMBridge()
-	svc := dialer.NewService(cr, cl, or, &stubAgentStatusRepo{}, nil, br, nil)
+	// InitiateDialerCall fails closed without a consent asserter (8c66164c), so
+	// wire one that grants consent for the happy path.
+	asserter := consent.NewAsserter(grantingAssertRepo{}, nil)
+	svc := dialer.NewServiceWithConsent(cr, cl, or, &stubAgentStatusRepo{}, nil, br, nil, asserter)
 	srv := NewDialerGRPCServer(svc)
 	return srv, cr, cl, or, br
 }
