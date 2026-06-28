@@ -546,8 +546,9 @@ func (vr *VideoRoutes) HandleListRecordings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	userID := middleware.GetUserID(r.Context())
 	q := r.URL.Query()
-	grpcReq := &videov1.ListRecordingsRequest{}
+	grpcReq := &videov1.ListRecordingsRequest{UserId: &userID}
 	if callID := q.Get("call_id"); callID != "" {
 		grpcReq.CallId = &callID
 	}

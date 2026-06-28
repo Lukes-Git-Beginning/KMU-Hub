@@ -2194,11 +2194,14 @@ func (x *GetRecordingConsentRequest) GetRecordingId() string {
 }
 
 type ListRecordingsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CallId        *string                `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3,oneof" json:"call_id,omitempty"`
-	MeetingId     *string                `protobuf:"bytes,2,opt,name=meeting_id,json=meetingId,proto3,oneof" json:"meeting_id,omitempty"`
-	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	CallId    *string                `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3,oneof" json:"call_id,omitempty"`
+	MeetingId *string                `protobuf:"bytes,2,opt,name=meeting_id,json=meetingId,proto3,oneof" json:"meeting_id,omitempty"`
+	Page      int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize  int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// user_id is stamped by the gateway from the authenticated context; the
+	// service enforces participant-only access (call_participants/meeting_attendees).
+	UserId        *string `protobuf:"bytes,5,opt,name=user_id,json=userId,proto3,oneof" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2259,6 +2262,13 @@ func (x *ListRecordingsRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListRecordingsRequest) GetUserId() string {
+	if x != nil && x.UserId != nil {
+		return *x.UserId
+	}
+	return ""
 }
 
 type ListRecordingsResponse struct {
@@ -5203,16 +5213,19 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1c\n" +
 	"\tconsented\x18\x03 \x01(\bR\tconsented\"?\n" +
 	"\x1aGetRecordingConsentRequest\x12!\n" +
-	"\frecording_id\x18\x01 \x01(\tR\vrecordingId\"\xa5\x01\n" +
+	"\frecording_id\x18\x01 \x01(\tR\vrecordingId\"\xcf\x01\n" +
 	"\x15ListRecordingsRequest\x12\x1c\n" +
 	"\acall_id\x18\x01 \x01(\tH\x00R\x06callId\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"meeting_id\x18\x02 \x01(\tH\x01R\tmeetingId\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x04 \x01(\x05R\bpageSizeB\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1c\n" +
+	"\auser_id\x18\x05 \x01(\tH\x02R\x06userId\x88\x01\x01B\n" +
 	"\n" +
 	"\b_call_idB\r\n" +
-	"\v_meeting_id\"c\n" +
+	"\v_meeting_idB\n" +
+	"\n" +
+	"\b_user_id\"c\n" +
 	"\x16ListRecordingsResponse\x123\n" +
 	"\n" +
 	"recordings\x18\x01 \x03(\v2\x13.video.v1.RecordingR\n" +

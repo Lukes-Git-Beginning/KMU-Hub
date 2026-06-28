@@ -23,8 +23,8 @@ type Service struct {
 	agentStore      *AgentStatusStore
 	crmBridge       CRMBridge
 	emitter         *PGEventEmitter // nil-safe; events are skipped when nil
-	// consentAsserter, when non-nil, enforces active phone consent before
-	// initiating a call. Nil-safe for tests and legacy code paths.
+	// consentAsserter enforces active phone consent before initiating a call.
+	// InitiateDialerCall fails closed when this is nil — see NewServiceWithConsent.
 	consentAsserter *consent.Asserter
 }
 
@@ -532,16 +532,18 @@ func (s *Service) InitiateDialerCall(
 	agentID uuid.UUID,
 	videoCallSessionID *uuid.UUID,
 ) (*CallSession, error) {
-	// Consent pre-check: resolve the real CRM contact ID, then assert active
-	// phone consent before opening a call session.
-	if s.consentAsserter != nil {
-		cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID)
-		if err != nil {
-			return nil, fmt.Errorf("initiate call – resolve contact for consent check: %w", err)
-		}
-		if err := s.consentAsserter.Assert(ctx, cc.ContactID, consent.ChannelPhone); err != nil {
-			return nil, err
-		}
+	// Consent pre-check (DSGVO / §7 UWG): every outbound call MUST verify active
+	// phone consent. Fail closed — a service built without a consent asserter
+	// (the bare NewService path) must never place a call.
+	if s.consentAsserter == nil {
+		return nil, ErrConsentNotConfigured
+	}
+	cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID)
+	if err != nil {
+		return nil, fmt.Errorf("initiate call – resolve contact for consent check: %w", err)
+	}
+	if err = s.consentAsserter.Assert(ctx, cc.ContactID, consent.ChannelPhone); err != nil {
+		return nil, err
 	}
 
 	now := time.Now().UTC()

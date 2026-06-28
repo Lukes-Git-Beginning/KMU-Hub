@@ -348,6 +348,9 @@ message ListRecordingsRequest {
   optional string meeting_id = 2;
   int32 page = 3;
   int32 page_size = 4;
+  // user_id is stamped by the gateway from the authenticated context; the
+  // service enforces participant-only access (call_participants/meeting_attendees).
+  optional string user_id = 5;
 }
 
 message ListRecordingsResponse {

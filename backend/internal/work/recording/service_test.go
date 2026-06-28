@@ -167,7 +167,7 @@ func (m *mockRepo) ListExpiredRecordings(_ context.Context, before time.Time) ([
 	return result, nil
 }
 
-func (m *mockRepo) ListRecordingsWithAccess(_ context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error) {
+func (m *mockRepo) ListRecordingsWithAccess(_ context.Context, userID uuid.UUID, callID, meetingID *uuid.UUID) ([]Recording, error) {
 	// Simplified mock: return all completed/processing recordings if user is in participantUsers
 	if !slices.Contains(m.participantUsers, userID) {
 		return nil, nil
@@ -176,6 +176,9 @@ func (m *mockRepo) ListRecordingsWithAccess(_ context.Context, userID uuid.UUID,
 	var result []Recording
 	for _, rec := range m.recordings {
 		if rec.Status != RecordingStatusCompleted && rec.Status != RecordingStatusProcessing {
+			continue
+		}
+		if callID != nil && (rec.CallID == nil || *rec.CallID != *callID) {
 			continue
 		}
 		if meetingID != nil && (rec.MeetingID == nil || *rec.MeetingID != *meetingID) {
@@ -546,12 +549,12 @@ func TestListRecordingsWithAccess_OnlyParticipantRecordings(t *testing.T) {
 	}
 
 	// user1 should see recordings
-	recs, err := svc.ListRecordingsWithAccess(context.Background(), user1, nil)
+	recs, err := svc.ListRecordingsWithAccess(context.Background(), user1, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, recs, 1)
 
 	// user2 should NOT see recordings
-	recs, err = svc.ListRecordingsWithAccess(context.Background(), user2, nil)
+	recs, err = svc.ListRecordingsWithAccess(context.Background(), user2, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, recs, 0)
 }

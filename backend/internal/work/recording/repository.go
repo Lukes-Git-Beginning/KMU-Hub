@@ -22,7 +22,7 @@ type Repository interface {
 	GetConsentsWithUser(ctx context.Context, recordingID uuid.UUID) ([]RecordingConsentWithUser, error)
 	CountPendingConsents(ctx context.Context, recordingID uuid.UUID, participantIDs []uuid.UUID) (int, error)
 	ListExpiredRecordings(ctx context.Context, before time.Time) ([]Recording, error)
-	ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error)
+	ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, callID, meetingID *uuid.UUID) ([]Recording, error)
 	GetRecordingParticipants(ctx context.Context, recordingID uuid.UUID) ([]uuid.UUID, error)
 	// Pre-recording consent (Migration 000107)
 	MarkInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) error

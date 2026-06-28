@@ -386,6 +386,16 @@ func (s *VideoGRPCServer) GetRecordingConsent(ctx context.Context, req *videov1.
 }
 
 func (s *VideoGRPCServer) ListRecordings(ctx context.Context, req *videov1.ListRecordingsRequest) (*videov1.ListRecordingsResponse, error) {
+	// Authz: recordings are visible only to call/meeting participants. The gateway
+	// stamps the authenticated user into req.UserId; fail closed if it is missing.
+	if req.UserId == nil || *req.UserId == "" {
+		return nil, status.Error(codes.PermissionDenied, "missing user context")
+	}
+	userID, err := uuid.Parse(*req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	var callID *uuid.UUID
 	if req.CallId != nil {
 		cid, parseErr := uuid.Parse(*req.CallId)
@@ -404,7 +414,7 @@ func (s *VideoGRPCServer) ListRecordings(ctx context.Context, req *videov1.ListR
 		meetingID = &mid
 	}
 
-	recordings, err := s.recordingService.ListRecordings(ctx, callID, meetingID)
+	recordings, err := s.recordingService.ListRecordingsWithAccess(ctx, userID, callID, meetingID)
 	if err != nil {
 		return nil, mapRecordingError(err)
 	}

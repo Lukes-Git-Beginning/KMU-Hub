@@ -23,4 +23,8 @@ var (
 	ErrCampaignHasNoContacts   = errors.New("campaign has no contacts")
 	ErrContactNotInCampaign    = errors.New("contact not in campaign")
 	ErrCampaignContactNotFound = errors.New("campaign contact not found")
+	// ErrConsentNotConfigured is returned when an outbound call is attempted on a
+	// service built without a consent asserter (the bare NewService path).
+	// Fail-closed guard (DSGVO / §7 UWG): such a service must never place calls.
+	ErrConsentNotConfigured = errors.New("dialer consent asserter not configured")
 )

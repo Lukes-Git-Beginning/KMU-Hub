@@ -598,8 +598,8 @@ func (s *Service) ListRecordingsByMeeting(ctx context.Context, meetingID uuid.UU
 // ListRecordingsWithAccess returns recordings a user has access to, optionally filtered by meeting.
 // This is the Phase 11 integration point: the central file manager calls this to discover
 // recordings per meeting and enforce participant-only access.
-func (s *Service) ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error) {
-	return s.repo.ListRecordingsWithAccess(ctx, userID, meetingID)
+func (s *Service) ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, callID, meetingID *uuid.UUID) ([]Recording, error) {
+	return s.repo.ListRecordingsWithAccess(ctx, userID, callID, meetingID)
 }
 
 // GetRecordingParticipants returns the user IDs who have access to a recording.

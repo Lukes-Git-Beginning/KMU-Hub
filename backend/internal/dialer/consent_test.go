@@ -83,9 +83,10 @@ func TestInitiateDialerCall_AllowedByConsent(t *testing.T) {
 	assert.Len(t, h.calls.sessions, 1, "one session must be created when consent is active")
 }
 
-// TestInitiateDialerCall_NoAsserter_Allowed verifies the nil-safe path:
-// when no asserter is wired in (legacy / test path), the call is allowed.
-func TestInitiateDialerCall_NoAsserter_Allowed(t *testing.T) {
+// TestInitiateDialerCall_NoAsserter_Denied verifies the fail-closed guard:
+// a service built without a consent asserter (the bare NewService path) must
+// never place a call (DSGVO / §7 UWG) and must not create a call session.
+func TestInitiateDialerCall_NoAsserter_Denied(t *testing.T) {
 	h := newTestHarness() // no asserter injected
 
 	campaignID := uuid.New()
@@ -97,8 +98,8 @@ func TestInitiateDialerCall_NoAsserter_Allowed(t *testing.T) {
 		ContactID:  uuid.New(),
 	}
 
-	session, err := h.svc.InitiateDialerCall(context.Background(), uuid.Nil, ccID, uuid.New(), nil)
+	_, err := h.svc.InitiateDialerCall(context.Background(), uuid.Nil, ccID, uuid.New(), nil)
 
-	require.NoError(t, err)
-	require.NotNil(t, session)
+	require.ErrorIs(t, err, ErrConsentNotConfigured)
+	assert.Empty(t, h.calls.sessions, "call session must not be created without a consent asserter")
 }

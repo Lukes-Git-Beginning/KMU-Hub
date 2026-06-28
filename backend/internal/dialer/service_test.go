@@ -611,7 +611,7 @@ func TestLogCallOutcome_CrossTenant(t *testing.T) {
 // TestInitiateDialerCall_TenantIDTagged verifies that a successfully initiated
 // call session is tagged with the caller's tenantID.
 func TestInitiateDialerCall_TenantIDTagged(t *testing.T) {
-	h := newTestHarness()
+	h := newTestHarnessWithConsent(true) // active consent so the call proceeds
 	tenantA := uuid.New()
 	ccID := uuid.New()
 

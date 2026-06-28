@@ -228,9 +228,9 @@ func (r *PostgresRepository) ListExpiredRecordings(ctx context.Context, before t
 	)
 }
 
-func (r *PostgresRepository) ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error) {
-	// Returns recordings where the user was a participant (via call_participants or meeting_attendees)
-	// Optionally filtered by meeting ID
+func (r *PostgresRepository) ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, callID, meetingID *uuid.UUID) ([]Recording, error) {
+	// Returns recordings where the user was a participant (via call_participants or meeting_attendees),
+	// optionally filtered by call ID and/or meeting ID.
 	query := `
 		SELECT DISTINCT r.id, r.tenant_id, r.call_id, r.meeting_id, r.started_by, r.consent_snapshot,
 		       r.status, r.egress_id, r.file_url,
@@ -242,10 +242,13 @@ func (r *PostgresRepository) ListRecordingsWithAccess(ctx context.Context, userI
 		  AND r.status IN ('completed', 'processing')`
 
 	args := []any{userID}
-	argIdx := 2
 
+	if callID != nil {
+		query += fmt.Sprintf(" AND r.call_id = $%d", len(args)+1)
+		args = append(args, *callID)
+	}
 	if meetingID != nil {
-		query += fmt.Sprintf(" AND r.meeting_id = $%d", argIdx)
+		query += fmt.Sprintf(" AND r.meeting_id = $%d", len(args)+1)
 		args = append(args, *meetingID)
 	}
 
