@@ -1,6 +1,28 @@
-# RESUME — nächster Einstieg (Stand 2026-06-25, Session-Ende #4)
+# RESUME — nächster Einstieg (Stand 2026-06-28, Session-Ende #5)
 
-> **★★★ SESSION-ENDE 2026-06-25 #4 — main gepusht (admin-Sub gemergt `79020623`, danach Doku). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+> **★★★★ SESSION-ENDE 2026-06-28 #5 — main `31330bb2` (alles gepusht, CI grün, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **AUFTRAG NEUES TERMINAL: X-4-Settings-Rest fertigmachen** (Darien: „im neuen Terminal X-4-Rest, dann schauen wir weiter").
+> **Rezept steht** (Referenz `stores/crmPrefs.ts` + `api/settings-persist.ts` + zentraler `hooks/useHydrateModuleSettings.ts`). Pro Store: persist behalten, `serverInitialized` + `initFromServer` (loadModuleSettings) + Write-Through (saveModuleSettings) in Settern, dann **in `useHydrateModuleSettings.ts` registrieren** (kein pro-Page-useEffect mehr — zentral in DeskEnvironment). Verify-Muster: `desktop/scripts/qa-x4-central-hydrator.mjs` (Server-Wert via API setzen mit Idempotency-Key → frischer Client hydratisiert).
+> **X-4-Rest:** tenant-Settings (wikiSettings/dashboardSettings/zeiterfassungSettings/financeTenant — scope `'tenant'`, Schreiben nur Lead/Admin) · mittel (workPrefs/vertraegePrefs) · gemischt dialer/automatisierung/berichte/mail/formulare-Prefs = **Store-Split → Welle 2, NICHT jetzt**. Voller Plan: `.planning/welle1-finish-plan.md`.
+>
+> **Diese Session (#5) gebaut — Welle 1 self-doable praktisch durch (alles gepusht):**
+> 1. **helpdesk echt-geschaltet** (`a1242d6d`) — Lukes tenant-Fix wirkt; 1 mock-Bug (KB/Routing-`undefined`-Crash → `unwrapList`); helpdesk-demo-Seed (6 Tickets, diverse UUIDs für Ticket-Nr).
+> 2. **kommunikation-Inbox echt-geschaltet** (`9621ecc4`) — **3 mock-Bugs**: received_at `{seconds,nanos}`→ISO (ConversationList-Sort-Crash) · channel-Int→String · getMessage `{message}`-unwrap (Thread-Crash). inbox-demo-Seed (6 Messages). `inbox-client.ts` `normalizeMessage`.
+> 3. **documents** (`50b8632a`) — K6 Share-List-URL `/shares`→`/shares/entity` (war 405) · K7 `normalizeShare` Enum-Int. READ regressionsfrei.
+> 4. **zeiterfassung** (`faf4fe8c`) — live verifiziert (−16h15m), AbsenceCalendar-guard.
+> 5. **security NUR verifiziert** — Backend echt (~25 Endpoints real), echt-schaltbar, NICHT geschaltet (Darien-Wunsch). Master-Plan „2/10" überholt.
+> 6. **X-4: 8 personal-Prefs-Stores + zentraler Hydrator** (`07d31f3a`+`943ab109`) — crm/finance/team/dashboard/helpdesk/zeiterfassung/wiki/dokumente. Live verifiziert.
+> 7. **DB-Migr. 227–234 nachgezogen** (hing auf 226 — migrate-Image war auch stale, neu gebaut).
+>
+> **★ DOCKER-REALITÄT (wichtig):** Die laufenden Images waren **vor Lukes Pull** (alter Code). Für Echt-Schaltung **Gateway + notification + auth + migrate neu bauen** nötig (`docker compose build <svc>` dann `up -d --no-deps --no-build <svc>`; Gateway mit `-f docker-compose.flags.yml`). Stack läuft (15 Services healthy). Bringup: `--no-deps --no-build` (OOM!), DB-User `kmuhub`/`kmuhub`, Login `demo@local.test`/`Demo1234!`. **PUT-Settings braucht Idempotency-Key-Header** (setzt `authenticatedRequest` automatisch; curl-Tests brauchen ihn manuell).
+> **★ LUKE-TEXT rausgegeben** (Darien verschickt): Dank + Prod-Seed/Feature-Flags-Bitte + neue Backend-Gaps. Alles in `backend-gaps.md` (28.06.-Block): helpdesk-Namen/Kategorie/ticket_number · inbox-Thread-RPC+Canned · documents-naked-Shapes · mails-IMAP (Luke).
+> **★ HETZNER-REVIEW-CAVEAT:** Code deployed ≠ auf Hetzner mit Daten sichtbar — Prod braucht Feature-Flags (`.env.production`) + Prod-Seed (Demo-Daten nur lokal). Luke-Schritt.
+> **★ MASTER/BACKEND-PLAN aktualisiert** (§0+§6 / 28.06.-Block). ~18 Module echt-verkabelt, FE ~50–55 %.
+
+---
+_(Historie #4 folgt)_
+
 >
 > **⚠ NEUE REGEL (Luke): CI-grün beim Push → AUTO-DEPLOY auf Hetzner.** Jeder Push MUSS CI-grün sein. Desktop-CI (`ci-desktop.yml`) = `eslint src/` + `npx tsc --noEmit` (full, ~3,5min grün) + `vitest` + `npm run build`. Vor JEDEM Push lokal grün fahren (eslint auf geänderte Dateien reicht meist; full-tsc ist grün). [[feedback_hetzner_review_workflow]]
 >

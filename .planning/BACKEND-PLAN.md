@@ -33,6 +33,14 @@
 
 → **FE-Aufgabe:** für all diese die 🟢-Hooks von Mock auf echt umstellen (MASTER-PLAN Batch 1).
 
+### 28.06.-Update (Lukes Welle + Dariens Echt-Schaltung)
+- ✅ **F-5 OpenAPI** großteils erledigt (dialer/inventar/vermietung/rapporte/einkauf-ext/schichten/fuhrpark + security/auth dokumentiert).
+- ✅ **helpdesk** Gateway-tenant-Fix (`ListTickets` setzt `TenantId`) → FE echt-geschaltet. **Inbox** `unread-count`-Route + document-Shapes gefixt → FE echt-geschaltet.
+- 🟢 **security/DSGVO** Backend **verifiziert echt** (~25 Endpoints: audit/vault/gdpr/password/ip/retention, echte DB-Tabellen) — **nicht „2/10"**; FE S-1…S-5 echt-schaltbar (eigene Entscheidung, noch nicht geschaltet).
+- 🟠 **M-1 Inbox teilweise echt:** Nachrichtenliste läuft; offen bleibt `ListThreadMessages` (Verlauf FE-synthetisch) + Canned-CRUD (s.u.).
+- **Neue FE-tolerant-abgefangene Gaps (kanonisch Backend, `backend-gaps.md` 28.06.):** helpdesk `assignee_name`/`requester_name`/`description`/`category`/`ticket_number` · documents Link/Share/Tag-POST wrappen + RevertVersion-Shape + SharedWithMe-Konsistenz · Inbox Thread+Canned.
+- ⚠ **Deploy:** Prod braucht `COSMI_MODULE_*_ENABLED` in `.env.production` + Prod-Seed (helpdesk/inbox Demo-Daten nur lokal), sonst auf Hetzner leere/fehlende Module.
+
 ---
 
 ## 2 · Backend-Lücken nach Priorität

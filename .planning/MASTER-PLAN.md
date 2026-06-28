@@ -24,7 +24,8 @@
 3. **„1.0-bau-fertig" je Modul =** alle FE-Phasen + Demo-Tiefe + **echtes Backend verkabelt** (wo vorhanden; 🔒-Teile warten auf Lukes Track). **Review-Abnahme kommt danach gebündelt** (Welle 6).
 4. **Mobile-Features** (GPS-Stempel, Offline-Rapporte, Barcode-Scan) = Post-1.0 (Handy-App-Phase). Im Plan mit 📱 markiert, nicht in 1.0 eingeplant.
 
-### Gesamtstand (verifiziert 23.06., aktualisiert 25.06.)
+### Gesamtstand (verifiziert 23.06., aktualisiert 25.06. + 28.06.)
+- **28.06.-Update:** Welle 1 self-doable **praktisch durch**. Heute echt-geschaltet+verifiziert: **helpdesk** (Lukes tenant-Fix), **kommunikation-Inbox** (3 mock-Bugs gefixt: Timestamp-Sort/channel-Int/getMessage-wrap), zeiterfassung+documents nachgezogen. **security verifiziert** (Backend echt, ~25 Endpoints — nicht „2/10", echt-schaltbar). **X-4: 8 personal-Prefs-Stores echt + zentraler Hydrator** (`useHydrateModuleSettings` in DeskEnvironment). **DB-Migr. 227–234 nachgezogen.** **~18 Module echt-verkabelt.** Offen X-4: tenant-Settings (4) + workPrefs/vertraegePrefs + gemischte (5, Welle 2). Details: `.planning/welle1-finish-plan.md`.
 - **~110–120 von ~220 FE-Phasen fertig (~50–55 %).**
 - **Welle 1 (Echt-Schaltung) weit fortgeschritten:** **~16 Module echt-verkabelt** (kontakte/crm/work/finanzen/notifications/vertraege/work-Labels/dialer/dashboard/zeiterfassung + 25.06.: documents/calendar/wiki/automatisierung/berichte/kommunikation-chat). **6 mock-verdeckte Backend-/Wire-Bugs gefunden+gefixt** (FE-tolerant) + 2 Deploy-Blocker für Luke (Feature-Flags X-7, helpdesk-tenant).
 - **Self-doable Modul-Echt-Schaltung praktisch durch.** Welle-1-Rest hängt an Luke-Backend: helpdesk (tenant-Bug) · security/DSGVO (2/10 Endpoints) · mails (IMAP) · kommunikation-Inbox (notification-Service). Einziger großer self-doable Rest: **X-4 Settings-Rollout** (~12 Stores, dokumente=Referenz steht).
@@ -229,13 +230,14 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 ### Welle 6 — FINALE REVIEW  ·  alle Module bau-fertig → händisch abnehmen  ·  Team, aufgeteilt
 **Erst jetzt**, wenn FE + Backend + Verkabelung stehen: jedes Modul aufgeteilt im Team durchklicken, Screenshots + Notizen, anpassen bis **abgenommen** — an der (fast) fertigen Version. **Voraussetzung:** Lukes Backend-Track ist für die 🔒-Module verkabelt (sonst reviewt man noch Mock-Stände).
 
-**Bau-Status heute** (aktualisiert 25.06., was am Ende in die Review-Welle einfließt):
+**Bau-Status heute** (aktualisiert 28.06., was am Ende in die Review-Welle einfließt):
 | Bau-Status | Module |
 |---|---|
-| ✅ **echt-verkabelt** (Welle 1, ~16) | **kontakte** (Referenz) · crm (companies/deals/pipeline/tags) · work · finanzen/Buchhaltung · dialer-Supervisor · dashboard-Layout · zeiterfassung/HR · notifications · vertraege · work-Labels · **documents** · **calendar** · **wiki** · **automatisierung** · **berichte** · **kommunikation(chat/Team)** |
-| 🔒 **echt-Schaltung wartet auf Luke-Backend** | **helpdesk** (ListTickets-tenant-Bug) · **security/DSGVO** (nur 2/10 Endpoints da) · **mails** (IMAP/SMTP) · **kommunikation-Inbox** (notification-Service) |
-| ✅ **FE-mock-first gebaut, Echt-Schaltung wartet auf Luke** | **admin** (A-1…A-5, gemergt 25.06. — Benutzer/RBAC/Lizenz/Branding) |
-| 🔧 **self-doable Rest** | **X-4 Settings-Rollout** (~12 Stores, dokumente = Referenz) · team/profil (Teil-Schaltung, gemischt) |
+| ✅ **echt-verkabelt** (Welle 1, ~18) | **kontakte** (Referenz) · crm (companies/deals/pipeline/tags) · work · finanzen/Buchhaltung · dialer-Supervisor · dashboard-Layout · zeiterfassung/HR · notifications · vertraege · work-Labels · documents · calendar · wiki · automatisierung · berichte · kommunikation(chat/Team) · **helpdesk** (28.06.) · **kommunikation-Inbox** (28.06.) |
+| 🟢 **Backend verifiziert echt — echt-schaltbar (nicht mehr blockiert)** | **security/DSGVO** (~25 Endpoints real, 28.06. verifiziert — FE S-1…S-5 gegen echtes Backend schaltbar) |
+| 🔒 **echt-Schaltung wartet auf Luke-Backend** | **mails** (IMAP/SMTP) |
+| ✅ **FE-mock-first gebaut, Echt-Schaltung wartet auf Luke** | **admin** (A-1…A-5 — Benutzer/RBAC/Lizenz/Branding; Auth-Invite/RBAC-Persist Backend offen) |
+| 🔧 **self-doable Rest** | **X-4 Settings-Rest** (tenant-Settings 4 + workPrefs/vertraegePrefs; 8 personal-Prefs + Hydrator ✅ 28.06.) · team/profil (Teil-Schaltung, gemischt) |
 | ⬜ **noch bauen** (Wellen 2–5) | formulare/video (Demo-Tiefe) · settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
 
 **Review-Abnahme (Welle 6):** aufgeteilt — jeder klickt das Modul durch, macht Screenshots + Notizen, passt an (tote Buttons, Detail-Views, leere Zustände, Raw-Keys, Umlaute, Style), bis es **abgenommen** ist. Haken in §2/§3.
