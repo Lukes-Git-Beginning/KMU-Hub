@@ -9,6 +9,7 @@ import type {
   InboxListFilter,
   InboxMessageList,
   InboxMessage,
+  InboxChannel,
   UnreadCountResponse,
   TeamInbox,
   TeamInboxMember,
@@ -17,6 +18,30 @@ import type {
   Condition,
 } from './inbox-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
+import { normalizeWireTimestamps } from '@/api/wire-time'
+
+// ---------------------------------------------------------------------------
+// Wire-shape normalization
+//
+// The inbox runs through response.JSON over a protobuf message, so Timestamps
+// arrive as { seconds, nanos } and the channel enum as an int (1=email, 2=chat,
+// 3=notification). MSW returned the already-typed shapes, so this was mock-hidden
+// and surfaced as `received_at.localeCompare is not a function` (sort crash) and
+// a wrong channel filter against the real backend. Normalize on the way in.
+// ---------------------------------------------------------------------------
+
+const CHANNEL_BY_INT: Record<number, InboxChannel> = { 1: 'email', 2: 'chat', 3: 'notification' }
+
+function normalizeMessage(raw: unknown): InboxMessage {
+  const m = normalizeWireTimestamps(raw) as Record<string, unknown>
+  return {
+    ...(m as unknown as InboxMessage),
+    channel:
+      typeof m.channel === 'number'
+        ? (CHANNEL_BY_INT[m.channel] ?? 'notification')
+        : ((m.channel as InboxChannel) ?? 'notification'),
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Internal fetch helpers
@@ -66,11 +91,21 @@ export function listMessages(filter: InboxListFilter): Promise<InboxMessageList>
   if (filter.search) params.search = filter.search
   if (filter.page_size) params.page_size = filter.page_size
   if (filter.page_token) params.page_token = filter.page_token
-  return inboxGet<InboxMessageList>('/messages', params)
+  return inboxGet<unknown>('/messages', params).then((raw) => {
+    const o = (raw ?? {}) as Record<string, unknown>
+    return {
+      ...(o as unknown as InboxMessageList),
+      messages: (Array.isArray(o.messages) ? o.messages : []).map(normalizeMessage),
+    }
+  })
 }
 
 export function getMessage(id: string): Promise<InboxMessage> {
-  return inboxGet<InboxMessage>(`/messages/${id}`)
+  // GET /messages/{id} wraps the message ({ message: {...} }), unlike the list.
+  return inboxGet<unknown>(`/messages/${id}`).then((raw) => {
+    const o = (raw ?? {}) as Record<string, unknown>
+    return normalizeMessage('message' in o ? o.message : o)
+  })
 }
 
 export function markRead(id: string): Promise<void> {
