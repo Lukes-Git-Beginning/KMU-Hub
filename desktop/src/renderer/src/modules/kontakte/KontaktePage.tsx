@@ -87,12 +87,8 @@ export default function KontaktePage() {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDirection>('asc')
   // Initialise from the user's personal CRM default (Modul-Einstellungen → CRM → Persönlich).
+  // Backend hydration runs centrally in DeskEnvironment (useHydrateModuleSettings, X-4).
   const [viewMode, setViewMode] = useState<ViewMode>(() => useCrmPrefsStore.getState().defaultContactView)
-
-  // Hydrate personal CRM prefs from the backend once per session (X-4 settings rollout).
-  useEffect(() => {
-    void useCrmPrefsStore.getState().initFromServer()
-  }, [])
 
   // Modal state — which contact is open in the detail modal
   const [detailContactId, setDetailContactId] = useState<string | null>(null)

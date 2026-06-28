@@ -7,6 +7,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
 import { useSettingsStore } from '@/stores/settings'
+import { useHydrateModuleSettings } from '@/hooks/useHydrateModuleSettings'
 import { AppShell } from './AppShell'
 
 // Background gradient presets
@@ -59,6 +60,9 @@ export function DeskEnvironment() {
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
   const isDark = storeTheme === 'auto' ? systemIsDark : storeTheme === 'dark'
+
+  // Hydrate backend-persisted module preferences once after login (X-4).
+  useHydrateModuleSettings()
 
   // Sync .dark class on <html>
   useEffect(() => {
