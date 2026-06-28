@@ -234,7 +234,7 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 | Bau-Status | Module |
 |---|---|
 | ✅ **echt-verkabelt** (Welle 1, ~18) | **kontakte** (Referenz) · crm (companies/deals/pipeline/tags) · work · finanzen/Buchhaltung · dialer-Supervisor · dashboard-Layout · zeiterfassung/HR · notifications · vertraege · work-Labels · documents · calendar · wiki · automatisierung · berichte · kommunikation(chat/Team) · **helpdesk** (28.06.) · **kommunikation-Inbox** (28.06.) |
-| 🟢 **Backend verifiziert echt — echt-schaltbar (nicht mehr blockiert)** | **security/DSGVO** (~25 Endpoints real, 28.06. verifiziert — FE S-1…S-5 gegen echtes Backend schaltbar) |
+| 📦 **eigener Block → an Luke delegiert** | **security/DSGVO** (Backend verifiziert echt ~25 Endpoints; FE S-1…S-5 mock-fertig. Echt-Schaltung = eigener Batch wegen Umfang [10 Tabs] + heikle Lösch-/Vault-Pfade → Luke. Paket: `.planning/security-echtschaltung-luke.md`) |
 | 🔒 **echt-Schaltung wartet auf Luke-Backend** | **mails** (IMAP/SMTP) |
 | ✅ **FE-mock-first gebaut, Echt-Schaltung wartet auf Luke** | **admin** (A-1…A-5 — Benutzer/RBAC/Lizenz/Branding; Auth-Invite/RBAC-Persist Backend offen) |
 | 🔧 **self-doable Rest** | **X-4 Settings-Rest** (tenant-Settings 4 + workPrefs/vertraegePrefs; 8 personal-Prefs + Hydrator ✅ 28.06.) · team/profil (Teil-Schaltung, gemischt) |
