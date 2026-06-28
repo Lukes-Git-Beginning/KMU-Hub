@@ -205,7 +205,7 @@ export function AbsenceCalendar() {
                   </td>
                   {allDays.map((d, i) => {
                     const dateKey = formatDateKey(d)
-                    const matchingEntry = data.entries.find((e) => isInRange(dateKey, e.startDate, e.endDate))
+                    const matchingEntry = (data.entries ?? []).find((e) => isInRange(dateKey, e.startDate, e.endDate))
                     const isWeekStart = i % 5 === 0 && i > 0
 
                     // When showAbsenceReason is disabled, show neutral gray
