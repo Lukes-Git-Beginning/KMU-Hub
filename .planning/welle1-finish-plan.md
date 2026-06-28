@@ -1,5 +1,21 @@
 # Welle 1 — Abschluss-Plan (autonomer Lauf, Start 2026-06-28)
 
+## ▶ STATUS 2026-06-28 (autonomer Lauf #1, alles gepusht, CI grün)
+- **A1 zeiterfassung** ✅ echt verifiziert (Balance −16h15m), AbsenceCalendar-guard — `faf4fe8c`
+- **A2 helpdesk** ✅ echt-geschaltet (Lukes tenant-Fix), 1 mock-Bug (KB/Routing undefined), Demo-Seed 6 Tickets — `a1242d6d`
+- **B documents** ✅ K6 Share-URL (405→200) + K7 normalizeShare, READ regressionsfrei — `50b8632a`
+- **A3 inbox** ✅ echt-geschaltet, 3 mock-Bugs (Timestamp-Sort-Crash/channel-Int/getMessage-wrap), Demo-Seed 6 Messages — `9621ecc4`
+- **C security** ✅ NUR verifiziert: Backend echt (nicht „2/10"), ~25 Endpoints real, echt-schaltbar (Luke-frei). KEINE Echt-Schaltung (User-Wunsch)
+- **D X-4** 🟡 Pattern etabliert + verifiziert an **crmPrefs** (Referenz): `api/settings-persist.ts` Helper + initFromServer/Write-Through + KontaktePage-Hydration. Live: Default→Server hydratisiert ✓ — `07d31f3a`
+- **DB-Migrationen 227–234 nachgezogen** (waren auf 226). **4 mock-verdeckte Bugs** gefixt. Luke-Notizen in `backend-gaps.md` (28.06.-Block).
+
+### ⏭ OFFEN X-4-Rollout (~12 Stores) — ⚠ ARCHITEKTUR-ENTSCHEIDUNG vor Bau:
+**Hydration-Strategie:** (a) pro-Page-`useEffect` (etabliert, wie crmPrefs/dashboard/dokumente — aber 12 Aufrufstellen) ODER (b) **zentraler Boot-Hydrator** (ein Punkt nach Login hydratet alle migrierten Stores, DRY). → mit Darien klären, dann Rollout.
+Trivial-personal (Rezept = crmPrefs): financePrefs · teamPrefs · dashboardPrefs · helpdeskPrefs · zeiterfassungPrefs · wikiPrefs · dokumentePrefs. Tenant: wikiSettings · dashboardSettings · zeiterfassungSettings · financeTenant. Mittel: workPrefs · vertraegePrefs. Gemischt (Store-Split, Welle 2): dialer/automatisierung/berichte/mail/formulare-Prefs.
+
+---
+
+
 > Ziel: **alles self-doable von Welle 1 fertig**, dann Übergang Welle 2. Luke-Gebundenes bleibt liegen (notiert, nicht warten).
 > Lebende Checkliste — pro Item Status pflegen. Backend-Stand gegen Code verifiziert (nicht nur Lukes Wort).
 
