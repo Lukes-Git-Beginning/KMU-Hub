@@ -109,6 +109,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update own profile
+         * @description Self-service update of the authenticated user's first_name, last_name and/or avatar_url. The user is resolved from the JWT, never the body. Cannot change is_active.
+         */
+        patch: operations["updateProfile"];
+        trace?: never;
+    };
     "/api/v1/auth/change-password": {
         parameters: {
             query?: never;
@@ -8148,6 +8168,512 @@ export interface paths {
         patch: operations["updatePurchaseOrderLine"];
         trace?: never;
     };
+    "/api/v1/einkauf/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List catalog items */
+        get: operations["listEinkaufCatalogItems"];
+        put?: never;
+        /** Create a catalog item */
+        post: operations["createEinkaufCatalogItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/einkauf/catalog/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a catalog item */
+        get: operations["getEinkaufCatalogItem"];
+        put?: never;
+        post?: never;
+        /** Delete a catalog item */
+        delete: operations["deleteEinkaufCatalogItem"];
+        options?: never;
+        head?: never;
+        /** Update a catalog item */
+        patch: operations["updateEinkaufCatalogItem"];
+        trace?: never;
+    };
+    "/api/v1/einkauf/suppliers/{supplierId}/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List ratings for a supplier */
+        get: operations["listEinkaufSupplierRatings"];
+        put?: never;
+        /** Create a supplier rating */
+        post: operations["createEinkaufSupplierRating"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/einkauf/suppliers/{supplierId}/ratings/{ratingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a supplier rating */
+        delete: operations["deleteEinkaufSupplierRating"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/einkauf/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List framework contracts */
+        get: operations["listEinkaufFrameworkContracts"];
+        put?: never;
+        /** Create a framework contract */
+        post: operations["createEinkaufFrameworkContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/einkauf/contracts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a framework contract (includes line items) */
+        get: operations["getEinkaufFrameworkContract"];
+        put?: never;
+        post?: never;
+        /** Delete a framework contract */
+        delete: operations["deleteEinkaufFrameworkContract"];
+        options?: never;
+        head?: never;
+        /** Update a framework contract */
+        patch: operations["updateEinkaufFrameworkContract"];
+        trace?: never;
+    };
+    "/api/v1/einkauf/contracts/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a line item to a framework contract */
+        post: operations["createEinkaufContractItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/einkauf/contracts/{id}/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a framework contract item */
+        delete: operations["deleteEinkaufContractItem"];
+        options?: never;
+        head?: never;
+        /** Update a framework contract item */
+        patch: operations["updateEinkaufContractItem"];
+        trace?: never;
+    };
+    "/api/v1/einkauf/contracts/{id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List call-offs for a framework contract */
+        get: operations["listEinkaufContractCalls"];
+        put?: never;
+        /** Create a call-off against a framework contract */
+        post: operations["createEinkaufContractCall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List work reports */
+        get: operations["listRapporteReports"];
+        put?: never;
+        /** Create a work report */
+        post: operations["createRapporteReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a work report by ID */
+        get: operations["getRapporteReport"];
+        put?: never;
+        post?: never;
+        /** Delete a work report */
+        delete: operations["deleteRapporteReport"];
+        options?: never;
+        head?: never;
+        /** Update a work report */
+        patch: operations["updateRapporteReport"];
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save digital signature for a report */
+        put: operations["saveRapporteReportSignature"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a draft report for approval */
+        post: operations["submitRapporteReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a submitted report
+         * @description Requires rapporte:report/approve permission.
+         */
+        post: operations["approveRapporteReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a submitted report
+         * @description Requires rapporte:report/approve permission.
+         */
+        post: operations["rejectRapporteReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List lines for a report */
+        get: operations["listRapporteLines"];
+        put?: never;
+        /** Add a line to a report */
+        post: operations["addRapporteLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List attachments for a report */
+        get: operations["listRapporteAttachments"];
+        put?: never;
+        /**
+         * Register an attachment for a report
+         * @description The caller must pre-upload the file to object storage and supply the resulting object_key. This endpoint only registers the metadata; it does not accept multipart uploads.
+         */
+        post: operations["uploadRapporteAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/reports/{id}/export/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export a report as PDF */
+        get: operations["exportRapportePDF"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/lines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a report line */
+        delete: operations["deleteRapporteLine"];
+        options?: never;
+        head?: never;
+        /** Update a report line */
+        patch: operations["updateRapporteLine"];
+        trace?: never;
+    };
+    "/api/v1/rapporte/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an attachment */
+        delete: operations["deleteRapporteAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get report statistics for the tenant */
+        get: operations["getRapporteReportStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List reports pending approval */
+        get: operations["listRapportePendingApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List measurements */
+        get: operations["listRapporteMeasurements"];
+        put?: never;
+        /** Create a measurement */
+        post: operations["createRapporteMeasurement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/measurements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a measurement by ID */
+        get: operations["getRapporteMeasurement"];
+        /** Update a measurement */
+        put: operations["updateRapporteMeasurement"];
+        post?: never;
+        /** Delete a measurement */
+        delete: operations["deleteRapporteMeasurement"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/measurements/{id}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a position to a measurement */
+        post: operations["addRapporteMeasurementPosition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/measurements/positions/{pos_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a measurement position */
+        delete: operations["deleteRapporteMeasurementPosition"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List report templates */
+        get: operations["listRapporteTemplates"];
+        put?: never;
+        /** Create a report template */
+        post: operations["createRapporteTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rapporte/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a report template by ID */
+        get: operations["getRapporteTemplate"];
+        /** Update a report template */
+        put: operations["updateRapporteTemplate"];
+        post?: never;
+        /** Delete a report template */
+        delete: operations["deleteRapporteTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/sessions": {
         parameters: {
             query?: never;
@@ -9523,6 +10049,850 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dialer/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List dialer campaigns */
+        get: operations["listDialerCampaigns"];
+        put?: never;
+        /** Create a campaign */
+        post: operations["createDialerCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a campaign by ID */
+        get: operations["getDialerCampaign"];
+        /** Update a campaign */
+        put: operations["updateDialerCampaign"];
+        post?: never;
+        /** Archive a campaign */
+        delete: operations["archiveDialerCampaign"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a campaign */
+        post: operations["startDialerCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause a campaign */
+        post: operations["pauseDialerCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List contacts in a campaign */
+        get: operations["listDialerCampaignContacts"];
+        put?: never;
+        /** Add contacts to a campaign */
+        post: operations["addContactsToDialerCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get next contact for agent
+         * @description Returns the next pending campaign contact for the calling agent (or an explicit agent_id). Used to drive the preview/power dialer queue.
+         */
+        get: operations["getDialerNextContact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}/contacts/{cid}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Skip a campaign contact */
+        post: operations["skipDialerCampaignContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}/contacts/{cid}/requeue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requeue a skipped campaign contact */
+        post: operations["requeueDialerCampaignContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/campaigns/{id}/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Campaign dashboard statistics */
+        get: operations["getDialerCampaignDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Initiate a dialer call session */
+        post: operations["initiateDialerCall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/calls/{id}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log call outcome */
+        post: operations["logDialerCallOutcome"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/calls/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save call notes */
+        put: operations["saveDialerCallNotes"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/calls/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete wrap-up for a call session */
+        post: operations["completeDialerCallWrapUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/agent-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get agent dialer status */
+        get: operations["getDialerAgentStatus"];
+        /** Set agent dialer status */
+        put: operations["setDialerAgentStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/agent-status/campaign/{campaignId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get all agent statuses for a campaign */
+        get: operations["getDialerCampaignAgents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/outcomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List call outcomes */
+        get: operations["listDialerCallOutcomes"];
+        put?: never;
+        /** Create a call outcome */
+        post: operations["createDialerCallOutcome"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/outcomes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a call outcome */
+        put: operations["updateDialerCallOutcome"];
+        post?: never;
+        /** Delete a call outcome */
+        delete: operations["deleteDialerCallOutcome"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dialer/dashboard/agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent dashboard statistics */
+        get: operations["getDialerAgentDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List inventory items */
+        get: operations["listInventarItems"];
+        put?: never;
+        /** Create an inventory item */
+        post: operations["createInventarItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an inventory item by ID */
+        get: operations["getInventarItem"];
+        put?: never;
+        post?: never;
+        /** Delete an inventory item */
+        delete: operations["deleteInventarItem"];
+        options?: never;
+        head?: never;
+        /** Update an inventory item */
+        patch: operations["updateInventarItem"];
+        trace?: never;
+    };
+    "/api/v1/inventar/items/{id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adjust stock quantity for an item */
+        post: operations["adjustInventarStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/items/{id}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List movements for an item */
+        get: operations["listInventarItemMovements"];
+        put?: never;
+        /** Record a stock movement for an item */
+        post: operations["recordInventarMovement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/items/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get stock history for an item */
+        get: operations["getInventarStockHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transfer stock between two items */
+        post: operations["transferInventarStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/warnings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List stock warnings */
+        get: operations["listInventarWarnings"];
+        put?: never;
+        /** Create a stock warning */
+        post: operations["createInventarWarning"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/warnings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a stock warning */
+        patch: operations["updateInventarWarning"];
+        trace?: never;
+    };
+    "/api/v1/inventar/warnings/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge a stock warning */
+        post: operations["acknowledgeInventarWarning"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregated stock report */
+        get: operations["getInventarStockReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export inventory as file */
+        get: operations["exportInventar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List inventory locations */
+        get: operations["listInventarLocations"];
+        put?: never;
+        /** Create an inventory location */
+        post: operations["createInventarLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/locations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an inventory location by ID */
+        get: operations["getInventarLocation"];
+        put?: never;
+        post?: never;
+        /** Delete an inventory location */
+        delete: operations["deleteInventarLocation"];
+        options?: never;
+        head?: never;
+        /** Update an inventory location */
+        patch: operations["updateInventarLocation"];
+        trace?: never;
+    };
+    "/api/v1/inventar/inventur": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Inventur sessions */
+        get: operations["listInventurSessions"];
+        put?: never;
+        /** Create an Inventur session */
+        post: operations["createInventurSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/inventur/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an Inventur session by ID */
+        get: operations["getInventurSession"];
+        put?: never;
+        post?: never;
+        /** Delete an Inventur session */
+        delete: operations["deleteInventurSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/inventur/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Inventur session status */
+        patch: operations["updateInventurSessionStatus"];
+        trace?: never;
+    };
+    "/api/v1/inventar/inventur/{id}/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upsert an Inventur count entry */
+        post: operations["upsertInventurCount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/inventur/{id}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Book Inventur differences to stock */
+        post: operations["bookInventurDifferences"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List rental objects */
+        get: operations["listVermietungObjects"];
+        put?: never;
+        /** Create a rental object */
+        post: operations["createVermietungObject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/objects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a rental object by ID */
+        get: operations["getVermietungObject"];
+        put?: never;
+        post?: never;
+        /** Delete a rental object */
+        delete: operations["deleteVermietungObject"];
+        options?: never;
+        head?: never;
+        /** Update a rental object */
+        patch: operations["updateVermietungObject"];
+        trace?: never;
+    };
+    "/api/v1/vermietung/objects/{id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check availability of a rental object */
+        get: operations["checkVermietungAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/rentals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List rentals */
+        get: operations["listVermietungRentals"];
+        put?: never;
+        /** Create a rental */
+        post: operations["createVermietungRental"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/rentals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a rental by ID */
+        get: operations["getVermietungRental"];
+        put?: never;
+        post?: never;
+        /** Delete a rental */
+        delete: operations["deleteVermietungRental"];
+        options?: never;
+        head?: never;
+        /** Update a rental */
+        patch: operations["updateVermietungRental"];
+        trace?: never;
+    };
+    "/api/v1/vermietung/rentals/{id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a rental (transition to active) */
+        post: operations["startVermietungRental"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/rentals/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End a rental (transition to completed) */
+        post: operations["endVermietungRental"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/rentals/{id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save rental signature */
+        put: operations["saveVermietungRentalSignature"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/rentals/{id}/inspections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List inspections for a rental */
+        get: operations["listVermietungInspections"];
+        put?: never;
+        /** Create an inspection for a rental */
+        post: operations["createVermietungInspection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/inspections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an inspection by ID */
+        get: operations["getVermietungInspection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update an inspection */
+        patch: operations["updateVermietungInspection"];
+        trace?: never;
+    };
+    "/api/v1/vermietung/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get rental calendar for a month */
+        get: operations["getVermietungCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vermietung/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export rental report */
+        get: operations["exportVermietungRentalReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9539,6 +10909,16 @@ export interface components {
             roles?: string[];
             /** Format: date-time */
             created_at?: string;
+            two_factor_enabled?: boolean;
+            locale?: string;
+            /** @description Presigned-upload object key for the user's avatar ({tenant_id}/avatar/{uuid}{ext}). Resolve to a viewable URL via /api/v1/files/presign-download. Empty string when unset. */
+            avatar_url?: string;
+        };
+        /** @description Self-service profile patch. All fields optional; the user is taken from the JWT, never the body. Cannot change is_active (admin-only). */
+        UpdateProfileRequest: {
+            first_name?: string;
+            last_name?: string;
+            avatar_url?: string;
         };
         RegisterRequest: {
             /** Format: email */
@@ -13629,6 +15009,971 @@ export interface components {
             file_content?: string;
             filename?: string;
         };
+        DialerCampaign: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            /** @description Present only when set */
+            description?: string;
+            /** @description CampaignStatus integer (UseEnumNumbers): 0=UNSPECIFIED 1=DRAFT 2=ACTIVE 3=PAUSED 4=COMPLETED 5=ARCHIVED */
+            status?: number;
+            /** @description CampaignMode integer: 0=UNSPECIFIED 1=PREVIEW 2=POWER 3=PREDICTIVE */
+            mode?: number;
+            /** @description JSON-encoded campaign settings (wrap-up timeout, retry rules). Omitted when unset. */
+            settings?: string;
+            /** Format: uuid */
+            created_by?: string;
+            assigned_agent_ids?: string[];
+            contact_count?: number;
+            completed_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /**
+             * Format: date-time
+             * @description Omitted when not yet started
+             */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description Omitted when not yet completed
+             */
+            completed_at?: string;
+        };
+        DialerCampaignContact: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            campaign_id?: string;
+            /** Format: uuid */
+            contact_id?: string;
+            /** @description Queue position within the campaign */
+            position?: number;
+            /** @description CampaignContactStatus integer: 0=UNSPECIFIED 1=PENDING 2=IN_PROGRESS 3=COMPLETED 4=SKIPPED 5=CALLBACK */
+            status?: number;
+            /**
+             * Format: uuid
+             * @description Omitted when no outcome logged yet
+             */
+            outcome_id?: string;
+            /** @description Omitted when empty */
+            notes?: string;
+            /**
+             * Format: date-time
+             * @description Omitted when no callback scheduled
+             */
+            callback_at?: string;
+            /**
+             * Format: date-time
+             * @description Omitted when never called
+             */
+            last_called_at?: string;
+            call_count?: number;
+            /** @description Denormalized from contact record */
+            contact_name?: string;
+            contact_phone?: string;
+            /** @description Omitted when contact has no company */
+            contact_company?: string;
+        };
+        DialerCallSession: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            campaign_contact_id?: string;
+            /**
+             * Format: uuid
+             * @description FK to LiveKit video call_sessions. Present only when call was routed via LiveKit.
+             */
+            call_session_id?: string;
+            /** Format: uuid */
+            agent_id?: string;
+            /**
+             * Format: uuid
+             * @description Omitted until outcome is logged
+             */
+            outcome_id?: string;
+            /** @description Omitted until call completes */
+            duration_seconds?: number;
+            /** @description Omitted when empty */
+            notes?: string;
+            /** @description Free-text next-action note; omitted when empty */
+            next_action?: string;
+            /**
+             * Format: uuid
+             * @description Omitted when no appointment was created
+             */
+            appointment_id?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /**
+             * Format: date-time
+             * @description Omitted until wrap-up is completed
+             */
+            wrap_up_completed_at?: string;
+        };
+        DialerAgentStatus: {
+            /** Format: uuid */
+            user_id?: string;
+            /** @description AgentDialerStatus integer: 0=UNSPECIFIED 1=AVAILABLE 2=ON_CALL 3=WRAP_UP 4=BREAK 5=OFFLINE */
+            status?: number;
+            /**
+             * Format: uuid
+             * @description Present only while assigned to a campaign
+             */
+            campaign_id?: string;
+            /**
+             * Format: date-time
+             * @description Timestamp when the agent entered the current status
+             */
+            since?: string;
+            /** @description Denormalized from user record */
+            first_name?: string;
+            last_name?: string;
+        };
+        DialerCallOutcome: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            label?: string;
+            /** @description Hex color string, e.g. #4CAF50 */
+            color?: string;
+            is_positive?: boolean;
+            is_callback?: boolean;
+            is_appointment?: boolean;
+            sort_order?: number;
+            is_active?: boolean;
+        };
+        /** @description Per-outcome call count aggregation, used in dashboard breakdowns */
+        DialerOutcomeCount: {
+            /** Format: uuid */
+            outcome_id?: string;
+            outcome_label?: string;
+            outcome_color?: string;
+            count?: number;
+        };
+        DialerCampaignDashboard: {
+            /** Format: uuid */
+            campaign_id?: string;
+            total_contacts?: number;
+            completed_contacts?: number;
+            pending_contacts?: number;
+            skipped_contacts?: number;
+            callback_contacts?: number;
+            total_calls?: number;
+            positive_calls?: number;
+            /** Format: float */
+            average_duration_seconds?: number;
+            /** Format: float */
+            calls_per_hour?: number;
+            outcome_breakdown?: components["schemas"]["DialerOutcomeCount"][];
+        };
+        DialerAgentDashboard: {
+            /** Format: uuid */
+            agent_id?: string;
+            total_calls_today?: number;
+            /** Format: float */
+            average_duration_seconds?: number;
+            /** Format: float */
+            calls_per_hour?: number;
+            outcome_breakdown?: components["schemas"]["DialerOutcomeCount"][];
+            /**
+             * Format: uuid
+             * @description Omitted when agent has no active campaign
+             */
+            active_campaign_id?: string;
+            /** @description Omitted when agent has no active campaign */
+            active_campaign_name?: string;
+        };
+        /** @description An inventory item tracked in the Inventar module. */
+        InventarItem: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            sku?: string;
+            barcode?: string | null;
+            /**
+             * Format: int64
+             * @description Current stock quantity
+             */
+            quantity?: number;
+            /**
+             * Format: int64
+             * @description Minimum stock threshold; below this triggers a warning
+             */
+            min_quantity?: number;
+            /** @description Unit of measure (e.g. Stk, kg, m) */
+            unit?: string;
+            /** @description Free-text location label */
+            location?: string | null;
+            /**
+             * Format: uuid
+             * @description Reference to an InventarLocation
+             */
+            location_id?: string | null;
+            category?: string | null;
+            /** Format: double */
+            price?: number | null;
+            /** @description ISO 4217 currency code (e.g. EUR) */
+            currency?: string | null;
+            batch_number?: string | null;
+            serial_numbers?: string[];
+            linked_purchase_order?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A stock movement record (in, out, adjustment, or transfer). */
+        InventarMovement: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            item_id?: string;
+            /**
+             * @description Type of movement: in=stock receipt, out=stock issue, adjustment=manual correction, transfer=inter-item transfer
+             * @enum {string}
+             */
+            movement_type?: "in" | "out" | "adjustment" | "transfer";
+            /** Format: int64 */
+            quantity?: number;
+            /** Format: uuid */
+            performed_by?: string | null;
+            reason?: string;
+            reference?: string | null;
+            location_from?: string | null;
+            location_to?: string | null;
+            notes?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A low-stock warning for an inventory item. */
+        InventarWarning: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            item_id?: string;
+            /**
+             * Format: int64
+             * @description Quantity threshold that triggered the warning
+             */
+            threshold?: number;
+            /**
+             * Format: int64
+             * @description Quantity at the time the warning was created
+             */
+            current_quantity?: number;
+            /**
+             * @description Warning lifecycle status
+             * @enum {string}
+             */
+            status?: "active" | "acknowledged" | "resolved";
+            acknowledged_at?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uuid */
+            acknowledged_by?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A physical or logical storage location in the Inventar module. */
+        InventarLocation: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            address?: string;
+            /**
+             * @description Location type: warehouse, store, or vehicle
+             * @enum {string}
+             */
+            type?: "warehouse" | "store" | "vehicle";
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description An Inventur (physical stocktake) session. */
+        InventarInventurSession: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            /** @description Planned date of the stocktake */
+            date?: components["schemas"]["ProtoTimestamp"];
+            /**
+             * @description Session lifecycle status
+             * @enum {string}
+             */
+            status?: "open" | "counting" | "review" | "completed";
+            /** Format: uuid */
+            location_id?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** @description Count entries for this session */
+            counts?: components["schemas"]["InventarInventurCount"][];
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A single item count entry within an Inventur session. */
+        InventarInventurCount: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            session_id?: string;
+            /** Format: uuid */
+            item_id?: string;
+            /**
+             * Format: int64
+             * @description Expected quantity (from current stock record)
+             */
+            expected?: number;
+            /**
+             * Format: int64
+             * @description Actual counted quantity; null until counted
+             */
+            counted?: number | null;
+            counted_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A physical object available for rental. */
+        VermietungRentalObject: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            description?: string;
+            category?: string;
+            /** Format: double */
+            daily_rate?: number;
+            /** Format: double */
+            deposit?: number;
+            location?: string;
+            notes?: string;
+            active?: boolean;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A rental booking linking a renter to a rental object for a date range. */
+        VermietungRental: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            object_id?: string;
+            /** Format: uuid */
+            contact_id?: string;
+            renter_name?: string;
+            start_date?: components["schemas"]["ProtoTimestamp"];
+            end_date?: components["schemas"]["ProtoTimestamp"];
+            /**
+             * @description reserved | active | completed | cancelled
+             * @enum {string}
+             */
+            status?: "reserved" | "active" | "completed" | "cancelled";
+            /** Format: double */
+            total_price?: number;
+            deposit_paid?: boolean;
+            notes?: string;
+            /** @description data:image/png;base64,... or data:image/svg+xml;base64,... */
+            signature_data?: string;
+            signed_at?: components["schemas"]["ProtoTimestamp"];
+            signed_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A handover or return inspection record for a rental. */
+        VermietungRentalInspection: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            rental_id?: string;
+            /**
+             * @description handover | return
+             * @enum {string}
+             */
+            kind?: "handover" | "return";
+            notes?: string;
+            photo_urls?: string[];
+            /** Format: uuid */
+            performed_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Aggregated calendar view — all rentals for one object within the requested month. */
+        VermietungCalendarEntry: {
+            /** Format: uuid */
+            object_id?: string;
+            object_name?: string;
+            rentals?: components["schemas"]["VermietungRental"][];
+        };
+        /** @description A work report (Rapporte) in the field-report module. Status follows the state machine: draft → submitted → approved | rejected. created_at/updated_at/reviewed_at/signed_at are Proto wire timestamps ({seconds, nanos}) because the service uses google.protobuf.Timestamp. */
+        RapporteReport: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            title?: string;
+            description?: string;
+            /**
+             * @description Report lifecycle state
+             * @enum {string}
+             */
+            status?: "draft" | "submitted" | "approved" | "rejected";
+            /** Format: uuid */
+            author_id?: string;
+            /** Format: uuid */
+            reviewer_id?: string | null;
+            reviewed_at?: components["schemas"]["ProtoTimestamp"] | null;
+            review_note?: string;
+            /** Format: double */
+            lat?: number | null;
+            /** Format: double */
+            lon?: number | null;
+            /** @description YYYY-MM-DD */
+            report_date?: string;
+            /** @description Data URI (data:image/png;base64,… or data:image/svg+xml;base64,…) */
+            signature_data?: string;
+            signed_at?: components["schemas"]["ProtoTimestamp"] | null;
+            signed_by?: string;
+            weather?: string;
+            /** Format: double */
+            temperature?: number;
+            /** @description HH:MM */
+            work_start?: string;
+            /** @description HH:MM */
+            work_end?: string;
+            /** Format: int32 */
+            break_minutes?: number;
+            project_name?: string;
+            workers?: components["schemas"]["RapporteWorker"][];
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A worker entry attached to a work report. */
+        RapporteWorker: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            report_id?: string;
+            name?: string;
+            role?: string;
+            /** Format: double */
+            hours?: number;
+            /** @description ISO-8601 string as returned by the service (string field in proto) */
+            created_at?: string;
+        };
+        /** @description A line item within a work report. created_at/updated_at are Proto wire timestamps ({seconds, nanos}). */
+        RapporteLine: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            report_id?: string;
+            /**
+             * Format: int32
+             * @description Display order within the report
+             */
+            position?: number;
+            description?: string;
+            /** Format: double */
+            quantity?: number;
+            unit?: string;
+            notes?: string;
+            category?: string;
+            article?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A file attachment linked to a work report (and optionally to a specific line). created_at is a Proto wire timestamp ({seconds, nanos}). */
+        RapporteAttachment: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            report_id?: string;
+            /** Format: uuid */
+            line_id?: string | null;
+            filename?: string;
+            content_type?: string;
+            /** Format: int64 */
+            size_bytes?: number;
+            /** @description Object storage key */
+            object_key?: string;
+            /** @description Short-lived presigned download URL generated by the service */
+            presigned_url?: string;
+            /** Format: uuid */
+            uploaded_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A measurement sheet that can be linked to a work report. Positions are embedded. created_at/updated_at are plain strings (not proto Timestamps) because the Measurement proto uses string fields for those. */
+        RapporteMeasurement: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            report_id?: string | null;
+            title?: string;
+            location?: string;
+            measured_by?: string;
+            /** @description Free-text date/time string as provided by the caller */
+            measured_at?: string;
+            notes?: string;
+            positions?: components["schemas"]["RapporteMeasurementPosition"][];
+            /** @description String timestamp (not a Proto wire timestamp) */
+            created_at?: string;
+            /** @description String timestamp (not a Proto wire timestamp) */
+            updated_at?: string;
+        };
+        /** @description A single position within a measurement sheet. created_at is a plain string (not a Proto wire timestamp). */
+        RapporteMeasurementPosition: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            measurement_id?: string;
+            /** Format: int32 */
+            position_number?: number;
+            description?: string;
+            unit?: string;
+            /** Format: double */
+            quantity?: number;
+            /** Format: double */
+            unit_price?: number;
+            /** @description String timestamp (not a Proto wire timestamp) */
+            created_at?: string;
+        };
+        /** @description A reusable report template. created_at/updated_at are plain strings (not Proto wire timestamps) because the ReportTemplate proto uses string fields. */
+        RapporteTemplate: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            description?: string;
+            category?: string;
+            /** @description JSON string describing the default line items to pre-populate */
+            default_lines_json?: string;
+            is_active?: boolean;
+            /** @description String timestamp (not a Proto wire timestamp) */
+            created_at?: string;
+            /** @description String timestamp (not a Proto wire timestamp) */
+            updated_at?: string;
+        };
+        /** @description Aggregate report counts for the tenant. Returned flat (no envelope wrapper). */
+        RapporteReportStats: {
+            /** Format: int32 */
+            total_reports?: number;
+            /** Format: int32 */
+            draft_count?: number;
+            /** Format: int32 */
+            submitted_count?: number;
+            /** Format: int32 */
+            approved_count?: number;
+            /** Format: int32 */
+            rejected_count?: number;
+        };
+        /** @description A supplier catalog item in the Einkauf module. */
+        EinkaufCatalogItem: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            supplier_id?: string;
+            name?: string;
+            sku?: string;
+            category?: string;
+            /** @description Agreed price as numeric string (e.g. "12.50") */
+            price?: string;
+            /** @description ISO 4217 currency code (e.g. EUR) */
+            currency?: string;
+            /** @description Unit of measure (e.g. Stk, kg, m) */
+            unit?: string;
+            available?: boolean;
+            /** @description Minimum order quantity as numeric string */
+            min_order_qty?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A quality/delivery/price rating submitted for a supplier. `rated_by` is the user ID of the submitter (nullable if recorded without an authenticated user context). */
+        EinkaufSupplierRating: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            supplier_id?: string;
+            /** @enum {string} */
+            category?: "quality" | "delivery" | "price";
+            /** @description Score 1 (worst) – 5 (best) */
+            rating?: number;
+            comment?: string;
+            /**
+             * Format: uuid
+             * @description User UUID of the rater
+             */
+            rated_by?: string | null;
+            rated_at?: components["schemas"]["ProtoTimestamp"];
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A framework (blanket) contract with a supplier that defines budget, validity period, and agreed line items. The `items` array is populated only on single-entity GET (GetFrameworkContract); list responses return an empty array. */
+        EinkaufFrameworkContract: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            supplier_id?: string;
+            title?: string;
+            /** @description Human-readable contract reference number */
+            contract_nr?: string;
+            /** @description Contract start date as ProtoTimestamp (null if not set) */
+            start_date?: components["schemas"]["ProtoTimestamp"] | null;
+            /** @description Contract end date as ProtoTimestamp (null if not set) */
+            end_date?: components["schemas"]["ProtoTimestamp"] | null;
+            /** @description Budgeted contract value as numeric string */
+            total_value?: string;
+            /** @description Cumulative sum of all call-offs as numeric string */
+            used_value?: string;
+            /** @description ISO 4217 currency code (e.g. EUR) */
+            currency?: string;
+            /** @enum {string} */
+            status?: "draft" | "active" | "expired";
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description Line items — populated only on single-entity GET */
+            items?: components["schemas"]["EinkaufContractItem"][];
+        };
+        /** @description A line item within a framework contract, defining an agreed product/ service with its price, unit, and agreed quantity. `called_qty` tracks the cumulative quantity already called off. */
+        EinkaufContractItem: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            contract_id?: string;
+            name?: string;
+            /** @description Agreed unit price as numeric string */
+            unit_price?: string;
+            /** @description Unit of measure (e.g. Stk, kg, m) */
+            unit?: string;
+            /** @description Agreed total quantity as numeric string */
+            agreed_qty?: string;
+            /** @description Sum of quantity called off so far as numeric string */
+            called_qty?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A single call-off (Abruf) against a framework contract, recording the amount drawn and optionally linking to the resulting purchase order. `called_at` is the timestamp of the call-off event. */
+        EinkaufContractCall: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            contract_id?: string;
+            /**
+             * Format: uuid
+             * @description UUID of the linked purchase order, if any
+             */
+            po_id?: string | null;
+            /** @description Called-off value as numeric string */
+            amount?: string;
+            /** @description ISO 4217 currency code */
+            currency?: string;
+            called_at?: components["schemas"]["ProtoTimestamp"];
+            notes?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A shift assignment linking an employee to a shift (proto SchichtAssignment). */
+        SchichtenAssignment: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            shift_id?: string;
+            /** Format: uuid */
+            employee_id?: string;
+            assigned_at?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uuid */
+            assigned_by?: string | null;
+        };
+        /** @description Result of an ArbZG compliance check for a planned shift. */
+        SchichtenComplianceReport: {
+            /** @description true if the planned shift is ArbZG-compliant */
+            compliant?: boolean;
+            /** @description Human-readable reason; empty string when compliant */
+            violation_reason?: string;
+        };
+        /** @description A planned or published work shift (proto Shift). */
+        SchichtenShift: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            title?: string;
+            description?: string;
+            start_time?: components["schemas"]["ProtoTimestamp"];
+            end_time?: components["schemas"]["ProtoTimestamp"];
+            /**
+             * @description Lifecycle status of the shift
+             * @enum {string}
+             */
+            status?: "draft" | "published";
+            location?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Aggregate shift planning statistics for the current tenant (proto ShiftStatsResponse). */
+        SchichtenStats: {
+            total_shifts?: number;
+            published_shifts?: number;
+            draft_shifts?: number;
+            total_assignments?: number;
+            unique_employees?: number;
+        };
+        /** @description A shift-swap request between two employees (proto SwapRequest). */
+        SchichtenSwapRequest: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            assignment_id?: string;
+            /** Format: uuid */
+            shift_id?: string;
+            /** Format: uuid */
+            requested_by_employee_id?: string;
+            /** Format: uuid */
+            swap_with_employee_id?: string;
+            /** @enum {string} */
+            status?: "pending" | "approved" | "rejected";
+            reason?: string;
+            idempotency_key?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A reusable shift template (proto ShiftTemplate). */
+        SchichtenTemplate: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            description?: string;
+            /** @description 0 = Sunday, 6 = Saturday */
+            day_of_week?: number;
+            start_hour?: number;
+            start_minute?: number;
+            /** @description Duration in minutes; must be > 0 */
+            duration_minutes?: number;
+            location?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A vehicle damage report (proto Damage). */
+        FuhrparkDamage: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            description?: string;
+            /** @enum {string} */
+            severity?: "minor" | "moderate" | "major" | "totalled";
+            /** @enum {string} */
+            status?: "reported" | "in_repair" | "resolved";
+            /** Format: uuid */
+            reported_by?: string | null;
+            /** Format: uuid */
+            resolved_by?: string | null;
+            resolved_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description MinIO / S3 object keys of damage photos */
+            photo_keys?: string[];
+            /** Format: int64 */
+            cost_cents?: number | null;
+            notes?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A document attached to a vehicle (proto VehicleDocument). */
+        FuhrparkDocument: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            /** @enum {string} */
+            doc_type?: "registration" | "insurance" | "tuev" | "other";
+            name?: string;
+            /** @description MinIO / S3 object key */
+            object_key?: string;
+            /** @description ISO date YYYY-MM-DD */
+            upload_date?: string;
+            /** @description ISO date YYYY-MM-DD; absent when not applicable */
+            expiry_date?: string | null;
+            /** @description ISO-8601 string (proto string field, not Timestamp) */
+            created_at?: string;
+            updated_at?: string;
+        };
+        /** @description A fuel refuelling log entry (proto FuelLog). */
+        FuhrparkFuelLog: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            /** @description ISO date YYYY-MM-DD */
+            date?: string;
+            /** Format: double */
+            liters?: number;
+            /** Format: int64 */
+            cost_cents?: number;
+            /** Format: int64 */
+            mileage_km?: number;
+            /** @enum {string} */
+            fuel_type?: "diesel" | "petrol" | "electric" | "hybrid" | "other";
+            notes?: string;
+            /** @description ISO-8601 string (proto string field, not Timestamp) */
+            created_at?: string;
+            updated_at?: string;
+        };
+        /** @description A raw GPS position sample (proto GpsPosition). */
+        FuhrparkGpsPosition: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            /** Format: double */
+            lat?: number;
+            /** Format: double */
+            lng?: number;
+            /** Format: double */
+            speed_kmh?: number;
+            /** @description RFC-3339 string (proto string field) */
+            recorded_at?: string;
+        };
+        /** @description A reconstructed vehicle route from GPS data (proto VehicleRoute). */
+        FuhrparkRoute: {
+            /** Format: uuid */
+            vehicle_id?: string;
+            vehicle_name?: string;
+            /** @description ISO date YYYY-MM-DD */
+            date?: string;
+            positions?: components["schemas"]["FuhrparkGpsPosition"][];
+            /** Format: double */
+            daily_km?: number;
+            /** @enum {string} */
+            status?: "driving" | "parked" | "unknown";
+            driver?: string;
+        };
+        /** @description A vehicle service/maintenance record (proto VehicleService). */
+        FuhrparkService: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            service_type?: string;
+            description?: string | null;
+            /** @description ISO date YYYY-MM-DD */
+            scheduled_at?: string;
+            completed_at?: components["schemas"]["ProtoTimestamp"];
+            /** Format: int64 */
+            cost_cents?: number | null;
+            workshop?: string | null;
+            /** Format: int64 */
+            mileage_km?: number | null;
+            /** @enum {string} */
+            status?: "scheduled" | "in_progress" | "completed" | "cancelled";
+            notes?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A vehicle trip (Fahrtenbuch) entry (proto TripLog). */
+        FuhrparkTripLog: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            /** @description ISO date YYYY-MM-DD */
+            date?: string;
+            start_location?: string;
+            end_location?: string;
+            purpose?: string;
+            /** Format: int64 */
+            start_km?: number;
+            /** Format: int64 */
+            end_km?: number;
+            /**
+             * Format: int64
+             * @description Computed distance: end_km − start_km
+             */
+            km?: number;
+            is_private?: boolean;
+            driver_name?: string;
+            notes?: string;
+            /** @description ISO-8601 string (proto string field, not Timestamp) */
+            created_at?: string;
+            updated_at?: string;
+        };
+        /** @description A fleet vehicle (proto Vehicle). */
+        FuhrparkVehicle: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            license_plate?: string;
+            make?: string;
+            model?: string;
+            year?: number;
+            vin?: string | null;
+            color?: string | null;
+            /** @enum {string} */
+            fuel_type?: "petrol" | "diesel" | "electric" | "hybrid" | "other";
+            /** @enum {string} */
+            status?: "active" | "in_service" | "inactive" | "decommissioned";
+            /** Format: int64 */
+            mileage_km?: number;
+            /** @description ISO date YYYY-MM-DD; absent if not set */
+            tuev_due_date?: string | null;
+            /**
+             * Format: uuid
+             * @description Driver assignment (stub Sprint 3)
+             */
+            assigned_driver_id?: string | null;
+            notes?: string | null;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
     };
     responses: {
         /** @description Bad request */
@@ -13831,6 +16176,32 @@ export interface operations {
                     "application/json": components["schemas"]["GetUserResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated user profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetUserResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -24310,7 +26681,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        shifts?: components["schemas"]["SchichtenShift"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -24345,7 +26719,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        shift?: components["schemas"]["SchichtenShift"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24376,7 +26752,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        published_count?: number;
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24400,7 +26778,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        shift?: components["schemas"]["SchichtenShift"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -24458,7 +26838,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        shift?: components["schemas"]["SchichtenShift"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24483,7 +26865,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        assignments?: components["schemas"]["SchichtenAssignment"][];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -24515,7 +26899,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        assignment?: components["schemas"]["SchichtenAssignment"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24563,7 +26949,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        templates?: components["schemas"]["SchichtenTemplate"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -24596,7 +26985,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        template?: components["schemas"]["SchichtenTemplate"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24654,7 +27045,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        template?: components["schemas"]["SchichtenTemplate"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24690,7 +27083,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        shifts?: components["schemas"]["SchichtenShift"][];
+                        created_count?: number;
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24716,7 +27112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SchichtenComplianceReport"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24738,7 +27134,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SchichtenStats"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -24764,7 +27160,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        swap_requests?: components["schemas"]["SchichtenSwapRequest"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -24801,7 +27200,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        swap_request?: components["schemas"]["SchichtenSwapRequest"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -24825,7 +27226,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        swap_request?: components["schemas"]["SchichtenSwapRequest"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -24849,7 +27252,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        swap_request?: components["schemas"]["SchichtenSwapRequest"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25347,7 +27752,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        vehicles?: components["schemas"]["FuhrparkVehicle"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25387,7 +27795,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        vehicle?: components["schemas"]["FuhrparkVehicle"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25411,7 +27821,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        vehicle?: components["schemas"]["FuhrparkVehicle"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25476,7 +27888,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        vehicle?: components["schemas"]["FuhrparkVehicle"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25530,7 +27944,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        services?: components["schemas"]["FuhrparkService"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25567,7 +27984,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        service?: components["schemas"]["FuhrparkService"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25594,7 +28013,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        damages?: components["schemas"]["FuhrparkDamage"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25631,7 +28053,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        damage?: components["schemas"]["FuhrparkDamage"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25658,7 +28082,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        fuel_logs?: components["schemas"]["FuhrparkFuelLog"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25697,7 +28124,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        fuel_log?: components["schemas"]["FuhrparkFuelLog"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25724,7 +28153,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        trip_logs?: components["schemas"]["FuhrparkTripLog"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25764,7 +28196,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        trip_log?: components["schemas"]["FuhrparkTripLog"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25791,7 +28225,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        documents?: components["schemas"]["FuhrparkDocument"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25825,7 +28262,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        document?: components["schemas"]["FuhrparkDocument"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25852,7 +28291,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        services?: components["schemas"]["FuhrparkService"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25876,7 +28318,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        services?: components["schemas"]["FuhrparkService"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25936,7 +28381,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        service?: components["schemas"]["FuhrparkService"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -25971,7 +28418,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        service?: components["schemas"]["FuhrparkService"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -25998,7 +28447,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        damages?: components["schemas"]["FuhrparkDamage"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -26034,7 +28486,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        damage?: components["schemas"]["FuhrparkDamage"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -26069,7 +28523,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        damage?: components["schemas"]["FuhrparkDamage"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -26095,7 +28551,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        fuel_logs?: components["schemas"]["FuhrparkFuelLog"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -26155,7 +28614,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        fuel_log?: components["schemas"]["FuhrparkFuelLog"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -26182,7 +28643,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        trip_logs?: components["schemas"]["FuhrparkTripLog"][];
+                        total?: number;
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -26244,7 +28708,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        trip_log?: components["schemas"]["FuhrparkTripLog"];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -26306,7 +28772,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        ingested?: number;
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -26332,7 +28800,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        routes?: components["schemas"]["FuhrparkRoute"][];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -26357,7 +28827,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        positions?: components["schemas"]["FuhrparkGpsPosition"][];
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -26379,7 +28851,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        vehicles?: components["schemas"]["FuhrparkVehicle"][];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -26928,6 +29402,1598 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEinkaufCatalogItems: {
+        parameters: {
+            query?: {
+                supplier_id?: string;
+                category?: string;
+                search?: string;
+                /** @description Filter by availability */
+                available?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog item list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items?: components["schemas"]["EinkaufCatalogItem"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createEinkaufCatalogItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    supplier_id: string;
+                    name: string;
+                    sku?: string;
+                    category?: string;
+                    /** @description Numeric string (e.g. "12.50") */
+                    price: string;
+                    /** @example EUR */
+                    currency?: string;
+                    unit?: string;
+                    available?: boolean;
+                    /** @description Minimum order quantity as numeric string */
+                    min_order_qty?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Catalog item created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["EinkaufCatalogItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getEinkaufCatalogItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["EinkaufCatalogItem"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEinkaufCatalogItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEinkaufCatalogItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    sku?: string;
+                    category?: string;
+                    /** @description Numeric string */
+                    price?: string;
+                    currency?: string;
+                    unit?: string;
+                    available?: boolean;
+                    /** @description Numeric string */
+                    min_order_qty?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Catalog item updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["EinkaufCatalogItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEinkaufSupplierRatings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Supplier rating list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ratings?: components["schemas"]["EinkaufSupplierRating"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createEinkaufSupplierRating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    category: "quality" | "delivery" | "price";
+                    rating: number;
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Rating created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rating?: components["schemas"]["EinkaufSupplierRating"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteEinkaufSupplierRating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplierId: string;
+                ratingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEinkaufFrameworkContracts: {
+        parameters: {
+            query?: {
+                supplier_id?: string;
+                status?: "draft" | "active" | "expired";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Framework contract list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contracts?: components["schemas"]["EinkaufFrameworkContract"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createEinkaufFrameworkContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    supplier_id: string;
+                    title: string;
+                    contract_nr?: string;
+                    /**
+                     * Format: date
+                     * @description ISO 8601 date (YYYY-MM-DD)
+                     */
+                    start_date?: string;
+                    /**
+                     * Format: date
+                     * @description ISO 8601 date (YYYY-MM-DD)
+                     */
+                    end_date?: string;
+                    /** @description Budgeted value as numeric string (e.g. "10000.00") */
+                    total_value?: string;
+                    /** @example EUR */
+                    currency?: string;
+                    /**
+                     * @default draft
+                     * @enum {string}
+                     */
+                    status?: "draft" | "active" | "expired";
+                };
+            };
+        };
+        responses: {
+            /** @description Framework contract created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract?: components["schemas"]["EinkaufFrameworkContract"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getEinkaufFrameworkContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Framework contract with line items populated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract?: components["schemas"]["EinkaufFrameworkContract"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEinkaufFrameworkContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEinkaufFrameworkContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    supplier_id?: string;
+                    title?: string;
+                    contract_nr?: string;
+                    /** Format: date */
+                    start_date?: string;
+                    /** Format: date */
+                    end_date?: string;
+                    /** @description Numeric string */
+                    total_value?: string;
+                    currency?: string;
+                    /** @enum {string} */
+                    status?: "draft" | "active" | "expired";
+                };
+            };
+        };
+        responses: {
+            /** @description Framework contract updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract?: components["schemas"]["EinkaufFrameworkContract"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createEinkaufContractItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @description Numeric string */
+                    unit_price?: string;
+                    unit?: string;
+                    /** @description Agreed total quantity as numeric string */
+                    agreed_qty?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract item added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["EinkaufContractItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEinkaufContractItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEinkaufContractItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** @description Numeric string */
+                    unit_price?: string;
+                    unit?: string;
+                    /** @description Numeric string */
+                    agreed_qty?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract item updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["EinkaufContractItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEinkaufContractCalls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract call-off list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calls?: components["schemas"]["EinkaufContractCall"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createEinkaufContractCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description Optional linked purchase order
+                     */
+                    po_id?: string;
+                    /** @description Called-off value as numeric string */
+                    amount: string;
+                    /** @example EUR */
+                    currency?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract call-off created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        call?: components["schemas"]["EinkaufContractCall"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRapporteReports: {
+        parameters: {
+            query?: {
+                search?: string;
+                /** @description Filter by report status */
+                status?: "draft" | "submitted" | "approved" | "rejected";
+                /** @description Filter by author UUID */
+                author_id?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated report list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reports?: components["schemas"]["RapporteReport"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRapporteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    description?: string;
+                    /** Format: uuid */
+                    author_id: string;
+                    /** Format: double */
+                    lat?: number | null;
+                    /** Format: double */
+                    lon?: number | null;
+                    /** @description Date in YYYY-MM-DD format; defaults to today if omitted */
+                    report_date?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Report created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report?: components["schemas"]["RapporteReport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRapporteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Work report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report?: components["schemas"]["RapporteReport"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRapporteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateRapporteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    description?: string;
+                    /** Format: double */
+                    lat?: number | null;
+                    /** Format: double */
+                    lon?: number | null;
+                    /** @description YYYY-MM-DD */
+                    report_date?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report?: components["schemas"]["RapporteReport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveRapporteReportSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Data URI — data:image/png;base64,… or data:image/svg+xml;base64,… */
+                    signature_data: string;
+                    /** @description Name or identifier of the signer */
+                    signed_by: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Report with signature saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report?: components["schemas"]["RapporteReport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    submitRapporteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report transitioned to submitted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report?: components["schemas"]["RapporteReport"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    approveRapporteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    reviewer_id: string;
+                    review_note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Report approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report?: components["schemas"]["RapporteReport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    rejectRapporteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    reviewer_id: string;
+                    review_note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Report rejected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        report?: components["schemas"]["RapporteReport"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRapporteLines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report lines (no pagination; all lines returned) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lines?: components["schemas"]["RapporteLine"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addRapporteLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description: string;
+                    /** Format: double */
+                    quantity?: number;
+                    unit?: string;
+                    notes?: string;
+                    /** Format: int32 */
+                    position?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Line added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        line?: components["schemas"]["RapporteLine"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRapporteAttachments: {
+        parameters: {
+            query?: {
+                /** @description Filter by line UUID */
+                line_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Report ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attachment list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attachments?: components["schemas"]["RapporteAttachment"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    uploadRapporteAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    line_id?: string | null;
+                    filename: string;
+                    content_type?: string;
+                    /** Format: int64 */
+                    size_bytes: number;
+                    /** @description Pre-computed object storage key supplied by the caller */
+                    object_key: string;
+                    /** Format: uuid */
+                    uploaded_by: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Attachment registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attachment?: components["schemas"]["RapporteAttachment"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    exportRapportePDF: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF binary payload */
+            200: {
+                headers: {
+                    /** @description attachment; filename="<report-title>.pdf" */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRapporteLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Line ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Line deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateRapporteLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Line ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string;
+                    /** Format: double */
+                    quantity?: number;
+                    unit?: string;
+                    notes?: string;
+                    /** Format: int32 */
+                    position?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated line */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        line?: components["schemas"]["RapporteLine"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRapporteAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Attachment ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attachment deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRapporteReportStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregate report counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RapporteReportStats"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listRapportePendingApprovals: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of submitted reports awaiting review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reports?: components["schemas"]["RapporteReport"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listRapporteMeasurements: {
+        parameters: {
+            query?: {
+                /** @description Filter by report UUID */
+                report_id?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated measurement list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        measurements?: components["schemas"]["RapporteMeasurement"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRapporteMeasurement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    report_id?: string | null;
+                    title: string;
+                    location?: string;
+                    measured_by?: string;
+                    measured_at?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Measurement created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        measurement?: components["schemas"]["RapporteMeasurement"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRapporteMeasurement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Measurement with positions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        measurement?: components["schemas"]["RapporteMeasurement"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateRapporteMeasurement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    location?: string;
+                    measured_by?: string;
+                    measured_at?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated measurement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        measurement?: components["schemas"]["RapporteMeasurement"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRapporteMeasurement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Measurement deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addRapporteMeasurementPosition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Measurement ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int32 */
+                    position_number?: number;
+                    description: string;
+                    unit?: string;
+                    /** Format: double */
+                    quantity?: number;
+                    /** Format: double */
+                    unit_price?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Position added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        position?: components["schemas"]["RapporteMeasurementPosition"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRapporteMeasurementPosition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Position ID */
+                pos_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Position deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRapporteTemplates: {
+        parameters: {
+            query?: {
+                /** @description Return only active templates */
+                active_only?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated template list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        templates?: components["schemas"]["RapporteTemplate"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRapporteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    category?: string;
+                    /** @description JSON string describing default lines to pre-populate on report creation */
+                    default_lines_json?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Template created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        template?: components["schemas"]["RapporteTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRapporteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        template?: components["schemas"]["RapporteTemplate"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateRapporteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    category?: string;
+                    default_lines_json?: string;
+                    is_active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        template?: components["schemas"]["RapporteTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRapporteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -29877,6 +33943,2358 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listDialerCampaigns: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                /** @description Filter by CampaignStatus integer: 0=UNSPECIFIED 1=DRAFT 2=ACTIVE 3=PAUSED 4=COMPLETED 5=ARCHIVED */
+                status_filter?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated campaign list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        campaigns?: components["schemas"]["DialerCampaign"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createDialerCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    /** @description CampaignMode integer: 0=UNSPECIFIED 1=PREVIEW 2=POWER 3=PREDICTIVE */
+                    mode: number;
+                    assigned_agent_ids?: string[];
+                    /** @description JSON-encoded campaign settings (wrap-up timeout, retry rules) */
+                    settings?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Campaign created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCampaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDialerCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCampaign"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDialerCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string;
+                    assigned_agent_ids?: string[];
+                    /** @description JSON-encoded campaign settings */
+                    settings?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Campaign updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCampaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveDialerCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign archived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example campaign archived */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startDialerCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCampaign"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pauseDialerCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign paused */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCampaign"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDialerCampaignContacts: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                /** @description CampaignContactStatus integer: 0=UNSPECIFIED 1=PENDING 2=IN_PROGRESS 3=COMPLETED 4=SKIPPED 5=CALLBACK */
+                status_filter?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated campaign contacts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contacts?: components["schemas"]["DialerCampaignContact"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addContactsToDialerCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Explicit contact UUIDs to add */
+                    contact_ids?: string[];
+                    /**
+                     * Format: uuid
+                     * @description Saved filter ID (alternative to contact_ids)
+                     */
+                    filter_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contacts added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added_count?: number;
+                        /** @description Contacts already in this campaign */
+                        skipped_count?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDialerNextContact: {
+        parameters: {
+            query?: {
+                /** @description Agent user UUID; defaults to the authenticated user */
+                agent_id?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Next campaign contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCampaignContact"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    skipDialerCampaignContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description Campaign contact UUID */
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact skipped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example contact skipped */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    requeueDialerCampaignContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description Campaign contact UUID */
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact requeued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example contact requeued */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDialerCampaignDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign dashboard */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCampaignDashboard"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    initiateDialerCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaign_contact_id: string;
+                    /**
+                     * Format: uuid
+                     * @description Defaults to authenticated user
+                     */
+                    agent_id?: string;
+                    /**
+                     * Format: uuid
+                     * @description LiveKit call session UUID, if pre-created via VideoService
+                     */
+                    call_session_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Dialer call session created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCallSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    logDialerCallOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Dialer call session UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    outcome_id: string;
+                    notes?: string;
+                    next_action?: string;
+                    /**
+                     * Format: date-time
+                     * @description RFC3339 timestamp for scheduled callback
+                     */
+                    callback_at?: string;
+                    /** Format: uuid */
+                    appointment_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Outcome logged; updated call session returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCallSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveDialerCallNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Dialer call session UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    notes: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Notes saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example notes saved */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    completeDialerCallWrapUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Dialer call session UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description Defaults to authenticated user
+                     */
+                    agent_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Wrap-up completed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example wrap-up completed */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDialerAgentStatus: {
+        parameters: {
+            query?: {
+                /** @description User UUID; defaults to the authenticated user */
+                user_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerAgentStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setDialerAgentStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description Defaults to authenticated user
+                     */
+                    user_id?: string;
+                    /** @description AgentDialerStatus integer: 0=UNSPECIFIED 1=AVAILABLE 2=ON_CALL 3=WRAP_UP 4=BREAK 5=OFFLINE */
+                    status: number;
+                    /** Format: uuid */
+                    campaign_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Agent status updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerAgentStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDialerCampaignAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent statuses for the campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agents?: components["schemas"]["DialerAgentStatus"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDialerCallOutcomes: {
+        parameters: {
+            query?: {
+                /** @description When true, include inactive outcomes (default active-only) */
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of call outcomes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        outcomes?: components["schemas"]["DialerCallOutcome"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createDialerCallOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    label: string;
+                    /** @description Hex color string, e.g. #4CAF50 */
+                    color?: string;
+                    is_positive?: boolean;
+                    is_callback?: boolean;
+                    is_appointment?: boolean;
+                    sort_order?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Call outcome created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCallOutcome"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateDialerCallOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    label?: string;
+                    color?: string;
+                    is_positive?: boolean;
+                    is_callback?: boolean;
+                    is_appointment?: boolean;
+                    sort_order?: number;
+                    is_active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Call outcome updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerCallOutcome"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDialerCallOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Outcome deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example outcome deleted */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDialerAgentDashboard: {
+        parameters: {
+            query?: {
+                /** @description Agent user UUID; defaults to the authenticated user */
+                agent_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent dashboard */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DialerAgentDashboard"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listInventarItems: {
+        parameters: {
+            query?: {
+                search?: string;
+                location?: string;
+                /** @description Filter to items below min_quantity */
+                low_stock?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated item list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items?: components["schemas"]["InventarItem"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createInventarItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    sku: string;
+                    barcode?: string;
+                    /** Format: int64 */
+                    quantity?: number;
+                    /** Format: int64 */
+                    min_quantity?: number;
+                    unit?: string;
+                    location?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Item created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["InventarItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getInventarItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inventory item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["InventarItem"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteInventarItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Item deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateInventarItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    sku?: string;
+                    barcode?: string;
+                    /** Format: int64 */
+                    min_quantity?: number;
+                    unit?: string;
+                    location?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["InventarItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adjustInventarStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: int64
+                     * @description Positive = stock in, negative = stock out
+                     */
+                    delta: number;
+                    /** Format: uuid */
+                    performed_by?: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated item after stock adjustment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item?: components["schemas"]["InventarItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listInventarItemMovements: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated movement list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        movements?: components["schemas"]["InventarMovement"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordInventarMovement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Allowed values: in, out, adjustment (transfer via POST /transfer)
+                     * @enum {string}
+                     */
+                    movement_type: "in" | "out" | "adjustment";
+                    /** Format: int64 */
+                    quantity: number;
+                    /** Format: uuid */
+                    performed_by?: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Movement recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        movement?: components["schemas"]["InventarMovement"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getInventarStockHistory: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated stock history (movements) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        movements?: components["schemas"]["InventarMovement"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    transferInventarStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    from_item_id: string;
+                    /** Format: uuid */
+                    to_item_id: string;
+                    /** Format: int64 */
+                    quantity: number;
+                    /** Format: uuid */
+                    performed_by?: string;
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Transfer completed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listInventarWarnings: {
+        parameters: {
+            query?: {
+                /** @description Filter by warning status */
+                status?: "active" | "acknowledged" | "resolved";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated warning list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        warnings?: components["schemas"]["InventarWarning"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createInventarWarning: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    item_id: string;
+                    /** Format: int64 */
+                    threshold: number;
+                    /** Format: int64 */
+                    current_quantity: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Warning created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        warning?: components["schemas"]["InventarWarning"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateInventarWarning: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "active" | "acknowledged" | "resolved";
+                };
+            };
+        };
+        responses: {
+            /** @description Updated warning */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        warning?: components["schemas"]["InventarWarning"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acknowledgeInventarWarning: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description UUID of acknowledging user; falls back to authenticated user if omitted
+                     */
+                    acknowledged_by?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Acknowledged warning */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        warning?: components["schemas"]["InventarWarning"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getInventarStockReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stock report summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Total number of distinct items */
+                        total_items?: number;
+                        /**
+                         * Format: int64
+                         * @description Sum of all item quantities
+                         */
+                        total_quantity?: number;
+                        /** @description Number of items below min_quantity */
+                        low_stock_count?: number;
+                        /** @description Number of warnings with status=active */
+                        active_warnings?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    exportInventar: {
+        parameters: {
+            query?: {
+                /** @description Export format; currently only csv is supported */
+                format?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Binary file download */
+            200: {
+                headers: {
+                    /** @description attachment; filename=inventar.csv */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listInventarLocations: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated location list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        locations?: components["schemas"]["InventarLocation"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createInventarLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    address?: string;
+                    /** @enum {string} */
+                    type?: "warehouse" | "store" | "vehicle";
+                };
+            };
+        };
+        responses: {
+            /** @description Location created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        location?: components["schemas"]["InventarLocation"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getInventarLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inventory location */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        location?: components["schemas"]["InventarLocation"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteInventarLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Location deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateInventarLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    address?: string;
+                    /** @enum {string} */
+                    type?: "warehouse" | "store" | "vehicle";
+                };
+            };
+        };
+        responses: {
+            /** @description Updated location */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        location?: components["schemas"]["InventarLocation"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listInventurSessions: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated Inventur session list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sessions?: components["schemas"]["InventarInventurSession"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createInventurSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @description Date string in YYYY-MM-DD format */
+                    date?: string;
+                    /** Format: uuid */
+                    location_id?: string;
+                    item_ids?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Inventur session created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: components["schemas"]["InventarInventurSession"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getInventurSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inventur session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: components["schemas"]["InventarInventurSession"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteInventurSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inventur session deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateInventurSessionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "open" | "counting" | "review" | "completed";
+                };
+            };
+        };
+        responses: {
+            /** @description Updated Inventur session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: components["schemas"]["InventarInventurSession"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    upsertInventurCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    item_id: string;
+                    /** Format: int64 */
+                    counted: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Count upserted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count?: components["schemas"]["InventarInventurCount"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    bookInventurDifferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description UUID of user booking the differences; optional
+                     */
+                    booked_by?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Inventur session after booking */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: components["schemas"]["InventarInventurSession"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listVermietungObjects: {
+        parameters: {
+            query?: {
+                search?: string;
+                category?: string;
+                active_only?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated rental object list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        objects?: components["schemas"]["VermietungRentalObject"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createVermietungObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    category?: string;
+                    /** Format: double */
+                    daily_rate: number;
+                    /** Format: double */
+                    deposit: number;
+                    location?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Rental object created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        object?: components["schemas"]["VermietungRentalObject"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getVermietungObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental object */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        object?: components["schemas"]["VermietungRentalObject"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteVermietungObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental object deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVermietungObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string;
+                    category?: string;
+                    /** Format: double */
+                    daily_rate?: number;
+                    /** Format: double */
+                    deposit?: number;
+                    location?: string;
+                    notes?: string;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Rental object updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        object?: components["schemas"]["VermietungRentalObject"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    checkVermietungAvailability: {
+        parameters: {
+            query: {
+                /** @description RFC3339 timestamp */
+                start_date: string;
+                /** @description RFC3339 timestamp */
+                end_date: string;
+                /** @description Exclude this rental ID from conflict detection (use when editing an existing rental) */
+                exclude_rental_id?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Availability result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        available?: boolean;
+                        conflicting_rentals?: components["schemas"]["VermietungRental"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listVermietungRentals: {
+        parameters: {
+            query?: {
+                object_id?: string;
+                status?: "reserved" | "active" | "completed" | "cancelled";
+                /** @description RFC3339 timestamp — filter start_date >= from */
+                from?: string;
+                /** @description RFC3339 timestamp — filter start_date <= to */
+                to?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated rental list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rentals?: components["schemas"]["VermietungRental"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createVermietungRental: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    object_id: string;
+                    /** Format: uuid */
+                    contact_id?: string;
+                    renter_name: string;
+                    /** @description RFC3339 timestamp */
+                    start_date: string;
+                    /** @description RFC3339 timestamp */
+                    end_date: string;
+                    /** Format: double */
+                    total_price?: number;
+                    deposit_paid?: boolean;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Rental created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rental?: components["schemas"]["VermietungRental"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getVermietungRental: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rental?: components["schemas"]["VermietungRental"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteVermietungRental: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVermietungRental: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    renter_name?: string;
+                    /** @description RFC3339 timestamp */
+                    start_date?: string;
+                    /** @description RFC3339 timestamp */
+                    end_date?: string;
+                    /** Format: double */
+                    total_price?: number;
+                    deposit_paid?: boolean;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Rental updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rental?: components["schemas"]["VermietungRental"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startVermietungRental: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rental?: components["schemas"]["VermietungRental"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    endVermietungRental: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental ended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rental?: components["schemas"]["VermietungRental"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveVermietungRentalSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description data:image/png;base64,... or data:image/svg+xml;base64,... */
+                    signature_data: string;
+                    signed_by: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Signature saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rental?: components["schemas"]["VermietungRental"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listVermietungInspections: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated inspection list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inspections?: components["schemas"]["VermietungRentalInspection"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createVermietungInspection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "handover" | "return";
+                    notes?: string;
+                    photo_urls?: string[];
+                    /** Format: uuid */
+                    performed_by?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Inspection created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inspection?: components["schemas"]["VermietungRentalInspection"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getVermietungInspection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inspection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inspection?: components["schemas"]["VermietungRentalInspection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVermietungInspection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    notes?: string;
+                    photo_urls?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Inspection updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inspection?: components["schemas"]["VermietungRentalInspection"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getVermietungCalendar: {
+        parameters: {
+            query?: {
+                /** @description Calendar year (e.g. 2026) */
+                year?: number;
+                /** @description Calendar month (1-12) */
+                month?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calendar entries for the requested month */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries?: components["schemas"]["VermietungCalendarEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    exportVermietungRentalReport: {
+        parameters: {
+            query?: {
+                /** @description Export format (default: csv) */
+                format?: "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Binary export file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

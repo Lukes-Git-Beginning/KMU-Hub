@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Settings, HelpCircle, ChevronDown, LogOut, User, Keyboard } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarSrc } from '@/api/hooks/useAvatarSrc'
 import { cn } from '@/lib/cn'
 import { ConfirmDialog } from '@/components/shared'
 import { toast } from 'sonner'
@@ -16,6 +17,7 @@ export function ProfileMenu() {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const avatarSrc = useAvatarSrc(user?.avatarUrl)
 
   const firstName = user?.firstName ?? 'User'
   const lastName = user?.lastName ?? ''
@@ -82,6 +84,7 @@ export function ProfileMenu() {
           <p className="text-[11px] leading-[16px] text-muted-foreground">{role}</p>
         </div>
         <Avatar className="ring-2 ring-transparent hover:ring-primary transition-all">
+          {avatarSrc && <AvatarImage src={avatarSrc} alt="" />}
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
         <ChevronDown
@@ -107,6 +110,7 @@ export function ProfileMenu() {
             >
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12 ring-2 ring-primary">
+                  {avatarSrc && <AvatarImage src={avatarSrc} alt="" />}
                   <AvatarFallback className="text-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div>

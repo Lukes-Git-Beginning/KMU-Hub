@@ -21,7 +21,9 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { API_BASE_URL } from '@/lib/constants'
+import { presignUpload } from '@/api/utils/presignUpload'
+import { useAvatarSrc } from '@/api/hooks/useAvatarSrc'
+import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 import {
   useDNDStatus,
   useEnableDND,
@@ -37,9 +39,9 @@ const PRESENCE_OPTIONS = [
   { value: 'offline', labelKey: 'profil.presence.invisible', dot: 'bg-slate-400' },
 ] as const satisfies ReadonlyArray<{ value: PresenceLevel; labelKey: string; dot: string }>
 
-// Keep stored avatars comfortably below the localStorage quota (mock-first —
-// the real upload endpoint is pending, see backend-handover).
-const MAX_AVATAR_BYTES = 1.5 * 1024 * 1024
+// Avatars upload browser-direct to object storage; the cap stays modest (the
+// gateway also enforces a 50 MB hard limit on presigned uploads).
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
 // Role keys that map to i18n translations. Unknown roles are displayed raw.
 const KNOWN_ROLE_KEYS = ['admin', 'manager', 'employee'] as const satisfies ReadonlyArray<string>
@@ -51,6 +53,7 @@ export default function ProfilTab() {
   const mailSignature = useSettingsStore((s) => s.mail.signature)
   const updateMail = useSettingsStore((s) => s.updateMail)
   const user = useAuthStore((s) => s.user)
+  const updateUser = useAuthStore((s) => s.updateUser)
   const navigate = useNavigate()
 
   const [form, setForm] = useState({ ...profile })
@@ -98,24 +101,25 @@ export default function ProfilTab() {
     }
   }
 
-  // Avatar upload — routed through a demo MSW endpoint (POST .../avatar echoes
-  // the URL back), then persisted locally so it survives reload. The real
-  // backend stores the file and returns a CDN URL (same mutation shape).
+  // Avatar upload — browser-direct via the presigned-upload service
+  // (scope=avatar), then PATCH /auth/profile registers the object key on the
+  // user. The stored key is resolved to a viewable URL via useAvatarSrc.
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const avatarSrc = useAvatarSrc(user?.avatarUrl)
 
   const avatarMutation = useMutation({
-    mutationFn: async (dataUrl: string): Promise<string> => {
-      const res = await fetch(`${API_BASE_URL}/api/v1/hr/employees/${user?.id ?? 'me'}/avatar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatarUrl: dataUrl }),
+    mutationFn: async (file: File): Promise<string> => {
+      const objectKey = await presignUpload('avatar', file)
+      await authenticatedRequest({
+        method: 'PATCH',
+        path: '/api/v1/auth/profile',
+        body: { avatar_url: objectKey },
       })
-      const json = (await res.json()) as { avatarUrl?: string }
-      return json.avatarUrl || dataUrl
+      return objectKey
     },
-    onSuccess: (url) => {
-      updateProfile({ avatarUrl: url })
+    onSuccess: (objectKey) => {
+      updateUser({ avatarUrl: objectKey })
       setAvatarPreview(null)
       toast.success(t('profil.avatar.saved'))
     },
@@ -133,13 +137,7 @@ export default function ProfilTab() {
       return
     }
     setAvatarPreview(URL.createObjectURL(file))
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        avatarMutation.mutate(reader.result)
-      }
-    }
-    reader.readAsDataURL(file)
+    avatarMutation.mutate(file)
   }
 
   const initials = `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase()
@@ -190,8 +188,8 @@ export default function ProfilTab() {
         <div className="flex items-start gap-5">
           <div className="relative">
             <Avatar className="h-20 w-20 ring-4 ring-primary/20">
-              {(avatarPreview || profile.avatarUrl) && (
-                <AvatarImage src={avatarPreview ?? profile.avatarUrl ?? undefined} alt="" />
+              {(avatarPreview || avatarSrc) && (
+                <AvatarImage src={avatarPreview ?? avatarSrc ?? undefined} alt="" />
               )}
               <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
                 {initials}

@@ -37,6 +37,8 @@ export interface User {
   firstName: string
   lastName: string
   roles: string[]
+  /** Avatar object key ({tenant_id}/avatar/{uuid}{ext}); resolve via useAvatarSrc. */
+  avatarUrl: string | null
 }
 
 interface AuthState {
@@ -72,6 +74,9 @@ interface AuthState {
 
   /** Refresh the access token. Returns the new token or null on failure. */
   refreshToken: () => Promise<string | null>
+
+  /** Merge a partial update into the current user (e.g. after a profile edit). */
+  updateUser: (patch: Partial<User>) => void
 }
 
 /** Convert backend UserInfo to our User type. */
@@ -82,6 +87,7 @@ function toUser(info: UserInfo): User {
     firstName: info.first_name ?? '',
     lastName: info.last_name ?? '',
     roles: info.roles ?? [],
+    avatarUrl: info.avatar_url ?? null,
   }
 }
 
@@ -353,6 +359,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       firstName: result.user.first_name,
       lastName: result.user.last_name,
       roles: result.user.roles,
+      avatarUrl: (result.user as { avatar_url?: string }).avatar_url ?? null,
     }
 
     // Persist tokens via Electron safeStorage only when rememberMe is true
@@ -445,6 +452,14 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     } catch {
       return null
     }
+  },
+
+  updateUser(patch: Partial<User>) {
+    const current = get().user
+    if (!current) return
+    const updated = { ...current, ...patch }
+    cacheUser(updated)
+    set({ user: updated })
   },
 }))
 

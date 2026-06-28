@@ -2,7 +2,8 @@ import { useLocation, NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
 import { useFilteredNavItems } from '@/hooks/useFilteredNavItems'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useAvatarSrc } from '@/api/hooks/useAvatarSrc'
 import {
   Tooltip,
   TooltipContent,
@@ -17,6 +18,7 @@ export function ClassicSidebar() {
   const storeUser = useAuthStore((s) => s.user)
   const user = storeUser ?? MOCK_USER
   const initials = `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
+  const avatarSrc = useAvatarSrc(storeUser?.avatarUrl)
 
   return (
     <aside className="flex w-[72px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar glass-surface">
@@ -53,6 +55,7 @@ export function ClassicSidebar() {
             <div className="flex justify-center py-2">
               <div className="relative">
                 <Avatar className="h-8 w-8">
+                  {avatarSrc && <AvatarImage src={avatarSrc} alt="" />}
                   <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
                     {initials}
                   </AvatarFallback>
