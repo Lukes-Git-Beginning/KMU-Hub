@@ -35,10 +35,11 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 	// on lower(email), migration 000148). Callers normalize the input, but this
 	// also matches any legacy mixed-case row not yet backfilled.
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at,
+		        two_factor_enabled, locale
 		 FROM users WHERE lower(email) = $1`, email,
 	).Scan(&user.ID, &user.TenantID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
-		&user.IsActive, &user.CreatedAt, &user.UpdatedAt)
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.TwoFactorEnabled, &user.Locale)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
@@ -48,10 +49,11 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 func (r *PostgresRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	var user models.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at,
+		        two_factor_enabled, locale
 		 FROM users WHERE id = $1`, id,
 	).Scan(&user.ID, &user.TenantID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
-		&user.IsActive, &user.CreatedAt, &user.UpdatedAt)
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.TwoFactorEnabled, &user.Locale)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
@@ -82,7 +84,8 @@ func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) (
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at,
+		        two_factor_enabled, locale
 		 FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset,
 	)
 	if err != nil {
@@ -94,7 +97,7 @@ func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) (
 	for rows.Next() {
 		var u models.User
 		if err := rows.Scan(&u.ID, &u.TenantID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName,
-			&u.IsActive, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.IsActive, &u.CreatedAt, &u.UpdatedAt, &u.TwoFactorEnabled, &u.Locale); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, &u)
