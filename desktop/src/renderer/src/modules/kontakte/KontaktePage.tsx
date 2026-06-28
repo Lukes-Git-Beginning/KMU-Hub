@@ -89,6 +89,11 @@ export default function KontaktePage() {
   // Initialise from the user's personal CRM default (Modul-Einstellungen → CRM → Persönlich).
   const [viewMode, setViewMode] = useState<ViewMode>(() => useCrmPrefsStore.getState().defaultContactView)
 
+  // Hydrate personal CRM prefs from the backend once per session (X-4 settings rollout).
+  useEffect(() => {
+    void useCrmPrefsStore.getState().initFromServer()
+  }, [])
+
   // Modal state — which contact is open in the detail modal
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
 
