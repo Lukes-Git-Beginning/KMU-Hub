@@ -618,7 +618,9 @@ func (d *DocumentRoutes) HandleRevertFileVersion(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{"file": resp.File})
+	// FE expects {version}; resp.File is the now-current file after revert. lean: rename key only;
+	// if FE needs version metadata instead of the file object, add a version field to the proto.
+	response.JSON(w, http.StatusOK, map[string]interface{}{"version": resp.File})
 }
 
 // ============================================================================
@@ -656,7 +658,7 @@ func (d *DocumentRoutes) HandleLinkFileToEntity(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Link)
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"link": resp.Link})
 }
 
 type unlinkFileFromEntityRequest struct {
@@ -747,7 +749,7 @@ func (d *DocumentRoutes) HandleShareEntity(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Share)
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"share": resp.Share})
 }
 
 type unshareEntityRequest struct {
@@ -881,7 +883,7 @@ func (d *DocumentRoutes) HandleCreateTag(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Tag)
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"tag": resp.Tag})
 }
 
 func (d *DocumentRoutes) HandleDeleteTag(w http.ResponseWriter, r *http.Request) {
