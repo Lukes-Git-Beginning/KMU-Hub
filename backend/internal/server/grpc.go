@@ -230,6 +230,36 @@ func (s *AuthGRPCServer) GetProfile(ctx context.Context, req *authv1.GetProfileR
 	}, nil
 }
 
+func (s *AuthGRPCServer) UpdateProfile(ctx context.Context, req *authv1.UpdateProfileRequest) (*authv1.UpdateProfileResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	var firstName, lastName, avatarURL *string
+	if req.FirstName != nil {
+		v := *req.FirstName
+		firstName = &v
+	}
+	if req.LastName != nil {
+		v := *req.LastName
+		lastName = &v
+	}
+	if req.AvatarUrl != nil {
+		v := *req.AvatarUrl
+		avatarURL = &v
+	}
+
+	user, err := s.authService.UpdateProfile(ctx, userID, firstName, lastName, avatarURL)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.UpdateProfileResponse{
+		User: toUserInfo(user, nil),
+	}, nil
+}
+
 func (s *AuthGRPCServer) ChangePassword(ctx context.Context, req *authv1.ChangePasswordRequest) (*authv1.ChangePasswordResponse, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
@@ -578,6 +608,7 @@ func toUserInfo(user *models.User, roles []string) *authv1.UserInfo {
 		CreatedAt:        user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		TwoFactorEnabled: user.TwoFactorEnabled,
 		Locale:           user.Locale,
+		AvatarUrl:        user.AvatarURL,
 	}
 }
 

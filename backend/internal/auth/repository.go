@@ -13,6 +13,7 @@ type Repository interface {
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	UpdateUser(ctx context.Context, user *models.User) error
+	UpdateProfile(ctx context.Context, user *models.User) error
 	UpdatePassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
 	ListUsers(ctx context.Context, offset, limit int) ([]*models.User, int, error)
 

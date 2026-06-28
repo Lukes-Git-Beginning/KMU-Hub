@@ -283,6 +283,35 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/auth/profile:
+    patch:
+      summary: Update own profile
+      description: >
+        Self-service update of the authenticated user's first_name, last_name
+        and/or avatar_url. The user is resolved from the JWT, never the body.
+        Cannot change is_active.
+      tags: [auth]
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetUserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/auth/change-password:
     post:
       summary: Change password
@@ -20005,6 +20034,32 @@ components:
         created_at:
           type: string
           format: date-time
+        two_factor_enabled:
+          type: boolean
+        locale:
+          type: string
+        avatar_url:
+          type: string
+          description: >
+            Presigned-upload object key for the user's avatar
+            ({tenant_id}/avatar/{uuid}{ext}). Resolve to a viewable URL via
+            /api/v1/files/presign-download. Empty string when unset.
+
+    UpdateProfileRequest:
+      type: object
+      description: >
+        Self-service profile patch. All fields optional; the user is taken from
+        the JWT, never the body. Cannot change is_active (admin-only).
+      properties:
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        avatar_url:
+          type: string
+          maxLength: 512
 
     RegisterRequest:
       type: object

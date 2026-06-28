@@ -36,10 +36,10 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 	// also matches any legacy mixed-case row not yet backfilled.
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at,
-		        two_factor_enabled, locale
+		        two_factor_enabled, locale, avatar_url
 		 FROM users WHERE lower(email) = $1`, email,
 	).Scan(&user.ID, &user.TenantID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
-		&user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.TwoFactorEnabled, &user.Locale)
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.TwoFactorEnabled, &user.Locale, &user.AvatarURL)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
@@ -50,10 +50,10 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*mo
 	var user models.User
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at,
-		        two_factor_enabled, locale
+		        two_factor_enabled, locale, avatar_url
 		 FROM users WHERE id = $1`, id,
 	).Scan(&user.ID, &user.TenantID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
-		&user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.TwoFactorEnabled, &user.Locale)
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.TwoFactorEnabled, &user.Locale, &user.AvatarURL)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
@@ -64,6 +64,16 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *models.User) 
 	_, err := r.pool.Exec(ctx,
 		`UPDATE users SET first_name = $1, last_name = $2, is_active = $3, updated_at = $4 WHERE id = $5`,
 		user.FirstName, user.LastName, user.IsActive, user.UpdatedAt, user.ID,
+	)
+	return err
+}
+
+// UpdateProfile writes the self-service profile fields. Unlike UpdateUser it
+// never touches is_active (that stays admin-only).
+func (r *PostgresRepository) UpdateProfile(ctx context.Context, user *models.User) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE users SET first_name = $1, last_name = $2, avatar_url = $3, updated_at = $4 WHERE id = $5`,
+		user.FirstName, user.LastName, user.AvatarURL, user.UpdatedAt, user.ID,
 	)
 	return err
 }
@@ -85,7 +95,7 @@ func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) (
 
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at,
-		        two_factor_enabled, locale
+		        two_factor_enabled, locale, avatar_url
 		 FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset,
 	)
 	if err != nil {
@@ -97,7 +107,7 @@ func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) (
 	for rows.Next() {
 		var u models.User
 		if err := rows.Scan(&u.ID, &u.TenantID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName,
-			&u.IsActive, &u.CreatedAt, &u.UpdatedAt, &u.TwoFactorEnabled, &u.Locale); err != nil {
+			&u.IsActive, &u.CreatedAt, &u.UpdatedAt, &u.TwoFactorEnabled, &u.Locale, &u.AvatarURL); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, &u)

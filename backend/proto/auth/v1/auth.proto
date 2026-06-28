@@ -21,6 +21,7 @@ service AuthService {
 
   // Profile & Password
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
 
   // Invitations
@@ -166,6 +167,7 @@ message UserInfo {
   string created_at = 7;
   bool two_factor_enabled = 8;
   string locale = 9;
+  string avatar_url = 10;
 }
 
 // Profile & Password messages
@@ -175,6 +177,20 @@ message GetProfileRequest {
 }
 
 message GetProfileResponse {
+  UserInfo user = 1;
+}
+
+// Self-service profile update. user_id is injected by the gateway from the
+// authenticated context, never trusted from the request body. Unlike the
+// admin-only UpdateUser, this cannot change is_active.
+message UpdateProfileRequest {
+  string user_id = 1;
+  optional string first_name = 2;
+  optional string last_name = 3;
+  optional string avatar_url = 4;
+}
+
+message UpdateProfileResponse {
   UserInfo user = 1;
 }
 

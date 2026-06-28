@@ -15,15 +15,15 @@ import (
 
 // mockRepository implements Repository for testing
 type mockRepository struct {
-	users              map[uuid.UUID]*models.User
-	usersByEmail       map[string]*models.User
-	refreshTokens      map[string]*models.RefreshToken // keyed by token_hash
-	userRoles          map[uuid.UUID][]string
-	userPerms          map[uuid.UUID][]string
-	invitations        map[uuid.UUID]*models.Invitation
-	invByToken         map[string]*models.Invitation
-	sessions           []*models.UserSession
-	recoveryCodes      []*models.RecoveryCode
+	users               map[uuid.UUID]*models.User
+	usersByEmail        map[string]*models.User
+	refreshTokens       map[string]*models.RefreshToken // keyed by token_hash
+	userRoles           map[uuid.UUID][]string
+	userPerms           map[uuid.UUID][]string
+	invitations         map[uuid.UUID]*models.Invitation
+	invByToken          map[string]*models.Invitation
+	sessions            []*models.UserSession
+	recoveryCodes       []*models.RecoveryCode
 	passwordResetTokens map[string]*models.PasswordResetToken // keyed by token_hash
 }
 
@@ -65,6 +65,12 @@ func (m *mockRepository) GetUserByID(_ context.Context, id uuid.UUID) (*models.U
 }
 
 func (m *mockRepository) UpdateUser(_ context.Context, user *models.User) error {
+	m.users[user.ID] = user
+	m.usersByEmail[user.Email] = user
+	return nil
+}
+
+func (m *mockRepository) UpdateProfile(_ context.Context, user *models.User) error {
 	m.users[user.ID] = user
 	m.usersByEmail[user.Email] = user
 	return nil

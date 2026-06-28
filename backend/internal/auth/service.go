@@ -332,6 +332,33 @@ func (s *Service) UpdateUser(ctx context.Context, userID uuid.UUID, firstName, l
 	return user, nil
 }
 
+// UpdateProfile applies the self-service profile fields for the authenticated
+// user. avatarURL holds the presigned-upload object key. Cannot change is_active.
+func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, firstName, lastName, avatarURL *string) (*models.User, error) {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+
+	if firstName != nil {
+		user.FirstName = *firstName
+	}
+	if lastName != nil {
+		user.LastName = *lastName
+	}
+	if avatarURL != nil {
+		user.AvatarURL = *avatarURL
+	}
+	user.UpdatedAt = time.Now()
+
+	if err := s.repo.UpdateProfile(ctx, user); err != nil {
+		return nil, err
+	}
+
+	slog.Info("profile updated", "user_id", userID)
+	return user, nil
+}
+
 func (s *Service) AssignRole(ctx context.Context, userID uuid.UUID, roleName string) error {
 	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
 		return ErrUserNotFound

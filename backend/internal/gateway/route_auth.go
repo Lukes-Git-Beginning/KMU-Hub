@@ -75,6 +75,7 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware)
 			r.Get("/me", a.HandleGetProfile)
+			r.Patch("/profile", a.HandleUpdateProfile)
 			r.Post("/change-password", a.HandleChangePassword)
 
 			// 2FA management (protected)
@@ -398,6 +399,42 @@ func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 
 	resp, err := client.GetProfile(r.Context(), &authv1.GetProfileRequest{UserId: userID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// updateProfileRequest is the self-service profile patch. All fields optional;
+// user_id comes from the JWT context, never the body.
+type updateProfileRequest struct {
+	FirstName *string `json:"first_name,omitempty" validate:"omitempty,max=100"`
+	LastName  *string `json:"last_name,omitempty" validate:"omitempty,max=100"`
+	AvatarURL *string `json:"avatar_url,omitempty" validate:"omitempty,max=512"`
+}
+
+func (a *AuthRoutes) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[updateProfileRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateProfile(r.Context(), &authv1.UpdateProfileRequest{
+		UserId:    userID,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		AvatarUrl: req.AvatarURL,
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

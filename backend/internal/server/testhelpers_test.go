@@ -99,6 +99,12 @@ func (m *authMockRepo) UpdateUser(_ context.Context, user *models.User) error {
 	return nil
 }
 
+func (m *authMockRepo) UpdateProfile(_ context.Context, user *models.User) error {
+	m.users[user.ID] = user
+	m.usersByEmail[user.Email] = user
+	return nil
+}
+
 func (m *authMockRepo) ListUsers(_ context.Context, offset, limit int) ([]*models.User, int, error) {
 	var all []*models.User
 	for _, u := range m.users {
@@ -444,11 +450,11 @@ func createAuthTestUser(repo *authMockRepo, email, password string, active bool)
 // ---------------------------------------------------------------------------
 
 type fileMockRepo struct {
-	members  map[string]bool             // "channelID:userID" → true
-	archived map[uuid.UUID]bool          // channelID → archived
+	members  map[string]bool    // "channelID:userID" → true
+	archived map[uuid.UUID]bool // channelID → archived
 	files    map[uuid.UUID]*models.ChatFile
 	quota    *models.StorageQuota
-	userInfo map[uuid.UUID][2]string // userID → [firstName, lastName]
+	userInfo map[uuid.UUID][2]string       // userID → [firstName, lastName]
 	roles    map[string]models.ChannelRole // "channelID:userID" → role
 }
 
@@ -587,7 +593,7 @@ func (m *fileMockScanner) Scan(_ context.Context, _ io.Reader, _ string) error {
 
 type fileMockThumbGen struct{}
 
-func (m *fileMockThumbGen) CanGenerate(_ string) bool                                  { return false }
+func (m *fileMockThumbGen) CanGenerate(_ string) bool { return false }
 func (m *fileMockThumbGen) Generate(_ context.Context, _ io.Reader, _ string) (io.Reader, error) {
 	return nil, nil
 }

@@ -25,6 +25,10 @@ type User struct {
 
 	// Locale preference
 	Locale string `json:"locale"`
+
+	// Avatar object key ({tenant_id}/avatar/{uuid}{ext}) in MinIO; resolved to a
+	// viewable URL on the client via the presigned-download endpoint.
+	AvatarURL string `json:"avatar_url"`
 }
 
 type Role struct {
