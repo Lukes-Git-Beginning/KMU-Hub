@@ -58,6 +58,13 @@ const (
 	VideoService_MuteAllMeetingParticipants_FullMethodName = "/video.v1.VideoService/MuteAllMeetingParticipants"
 	VideoService_RemoveMeetingParticipant_FullMethodName   = "/video.v1.VideoService/RemoveMeetingParticipant"
 	VideoService_SetMeetingLock_FullMethodName             = "/video.v1.VideoService/SetMeetingLock"
+	VideoService_CreateBreakoutRooms_FullMethodName        = "/video.v1.VideoService/CreateBreakoutRooms"
+	VideoService_ListBreakoutRooms_FullMethodName          = "/video.v1.VideoService/ListBreakoutRooms"
+	VideoService_AssignBreakoutParticipant_FullMethodName  = "/video.v1.VideoService/AssignBreakoutParticipant"
+	VideoService_JoinBreakoutRoom_FullMethodName           = "/video.v1.VideoService/JoinBreakoutRoom"
+	VideoService_GetBreakoutAssignment_FullMethodName      = "/video.v1.VideoService/GetBreakoutAssignment"
+	VideoService_ReturnToMainRoom_FullMethodName           = "/video.v1.VideoService/ReturnToMainRoom"
+	VideoService_CloseBreakoutRooms_FullMethodName         = "/video.v1.VideoService/CloseBreakoutRooms"
 	VideoService_GetPresence_FullMethodName                = "/video.v1.VideoService/GetPresence"
 	VideoService_GetBulkPresence_FullMethodName            = "/video.v1.VideoService/GetBulkPresence"
 	VideoService_SetPresenceStatus_FullMethodName          = "/video.v1.VideoService/SetPresenceStatus"
@@ -121,6 +128,19 @@ type VideoServiceClient interface {
 	MuteAllMeetingParticipants(ctx context.Context, in *MuteAllMeetingParticipantsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RemoveMeetingParticipant(ctx context.Context, in *RemoveMeetingParticipantRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	SetMeetingLock(ctx context.Context, in *SetMeetingLockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Meeting Breakout Rooms (Wave 6A — host splits participants into LiveKit sub-rooms)
+	CreateBreakoutRooms(ctx context.Context, in *CreateBreakoutRoomsRequest, opts ...grpc.CallOption) (*CreateBreakoutRoomsResponse, error)
+	ListBreakoutRooms(ctx context.Context, in *ListBreakoutRoomsRequest, opts ...grpc.CallOption) (*ListBreakoutRoomsResponse, error)
+	AssignBreakoutParticipant(ctx context.Context, in *AssignBreakoutParticipantRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// JoinBreakoutRoom returns a LiveKit token (+ TURN ice_servers) for the caller's
+	// assigned sub-room; the client disconnects from the main room and reconnects.
+	JoinBreakoutRoom(ctx context.Context, in *JoinBreakoutRoomRequest, opts ...grpc.CallOption) (*JoinBreakoutRoomResponse, error)
+	// GetBreakoutAssignment is the authoritative poll target — it returns the
+	// caller's current sub-room (or unset = main room) so the client can detect a
+	// host-initiated move even if the DataChannel accelerator signal was missed.
+	GetBreakoutAssignment(ctx context.Context, in *GetBreakoutAssignmentRequest, opts ...grpc.CallOption) (*GetBreakoutAssignmentResponse, error)
+	ReturnToMainRoom(ctx context.Context, in *ReturnToMainRoomRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CloseBreakoutRooms(ctx context.Context, in *CloseBreakoutRoomsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Presence
 	GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*PresenceStatus, error)
 	GetBulkPresence(ctx context.Context, in *GetBulkPresenceRequest, opts ...grpc.CallOption) (*GetBulkPresenceResponse, error)
@@ -521,6 +541,76 @@ func (c *videoServiceClient) SetMeetingLock(ctx context.Context, in *SetMeetingL
 	return out, nil
 }
 
+func (c *videoServiceClient) CreateBreakoutRooms(ctx context.Context, in *CreateBreakoutRoomsRequest, opts ...grpc.CallOption) (*CreateBreakoutRoomsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateBreakoutRoomsResponse)
+	err := c.cc.Invoke(ctx, VideoService_CreateBreakoutRooms_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ListBreakoutRooms(ctx context.Context, in *ListBreakoutRoomsRequest, opts ...grpc.CallOption) (*ListBreakoutRoomsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBreakoutRoomsResponse)
+	err := c.cc.Invoke(ctx, VideoService_ListBreakoutRooms_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) AssignBreakoutParticipant(ctx context.Context, in *AssignBreakoutParticipantRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_AssignBreakoutParticipant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) JoinBreakoutRoom(ctx context.Context, in *JoinBreakoutRoomRequest, opts ...grpc.CallOption) (*JoinBreakoutRoomResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JoinBreakoutRoomResponse)
+	err := c.cc.Invoke(ctx, VideoService_JoinBreakoutRoom_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) GetBreakoutAssignment(ctx context.Context, in *GetBreakoutAssignmentRequest, opts ...grpc.CallOption) (*GetBreakoutAssignmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBreakoutAssignmentResponse)
+	err := c.cc.Invoke(ctx, VideoService_GetBreakoutAssignment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ReturnToMainRoom(ctx context.Context, in *ReturnToMainRoomRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_ReturnToMainRoom_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) CloseBreakoutRooms(ctx context.Context, in *CloseBreakoutRoomsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_CloseBreakoutRooms_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *videoServiceClient) GetPresence(ctx context.Context, in *GetPresenceRequest, opts ...grpc.CallOption) (*PresenceStatus, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PresenceStatus)
@@ -654,6 +744,19 @@ type VideoServiceServer interface {
 	MuteAllMeetingParticipants(context.Context, *MuteAllMeetingParticipantsRequest) (*emptypb.Empty, error)
 	RemoveMeetingParticipant(context.Context, *RemoveMeetingParticipantRequest) (*emptypb.Empty, error)
 	SetMeetingLock(context.Context, *SetMeetingLockRequest) (*emptypb.Empty, error)
+	// Meeting Breakout Rooms (Wave 6A — host splits participants into LiveKit sub-rooms)
+	CreateBreakoutRooms(context.Context, *CreateBreakoutRoomsRequest) (*CreateBreakoutRoomsResponse, error)
+	ListBreakoutRooms(context.Context, *ListBreakoutRoomsRequest) (*ListBreakoutRoomsResponse, error)
+	AssignBreakoutParticipant(context.Context, *AssignBreakoutParticipantRequest) (*emptypb.Empty, error)
+	// JoinBreakoutRoom returns a LiveKit token (+ TURN ice_servers) for the caller's
+	// assigned sub-room; the client disconnects from the main room and reconnects.
+	JoinBreakoutRoom(context.Context, *JoinBreakoutRoomRequest) (*JoinBreakoutRoomResponse, error)
+	// GetBreakoutAssignment is the authoritative poll target — it returns the
+	// caller's current sub-room (or unset = main room) so the client can detect a
+	// host-initiated move even if the DataChannel accelerator signal was missed.
+	GetBreakoutAssignment(context.Context, *GetBreakoutAssignmentRequest) (*GetBreakoutAssignmentResponse, error)
+	ReturnToMainRoom(context.Context, *ReturnToMainRoomRequest) (*emptypb.Empty, error)
+	CloseBreakoutRooms(context.Context, *CloseBreakoutRoomsRequest) (*emptypb.Empty, error)
 	// Presence
 	GetPresence(context.Context, *GetPresenceRequest) (*PresenceStatus, error)
 	GetBulkPresence(context.Context, *GetBulkPresenceRequest) (*GetBulkPresenceResponse, error)
@@ -787,6 +890,27 @@ func (UnimplementedVideoServiceServer) RemoveMeetingParticipant(context.Context,
 }
 func (UnimplementedVideoServiceServer) SetMeetingLock(context.Context, *SetMeetingLockRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetMeetingLock not implemented")
+}
+func (UnimplementedVideoServiceServer) CreateBreakoutRooms(context.Context, *CreateBreakoutRoomsRequest) (*CreateBreakoutRoomsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBreakoutRooms not implemented")
+}
+func (UnimplementedVideoServiceServer) ListBreakoutRooms(context.Context, *ListBreakoutRoomsRequest) (*ListBreakoutRoomsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBreakoutRooms not implemented")
+}
+func (UnimplementedVideoServiceServer) AssignBreakoutParticipant(context.Context, *AssignBreakoutParticipantRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignBreakoutParticipant not implemented")
+}
+func (UnimplementedVideoServiceServer) JoinBreakoutRoom(context.Context, *JoinBreakoutRoomRequest) (*JoinBreakoutRoomResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method JoinBreakoutRoom not implemented")
+}
+func (UnimplementedVideoServiceServer) GetBreakoutAssignment(context.Context, *GetBreakoutAssignmentRequest) (*GetBreakoutAssignmentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBreakoutAssignment not implemented")
+}
+func (UnimplementedVideoServiceServer) ReturnToMainRoom(context.Context, *ReturnToMainRoomRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReturnToMainRoom not implemented")
+}
+func (UnimplementedVideoServiceServer) CloseBreakoutRooms(context.Context, *CloseBreakoutRoomsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CloseBreakoutRooms not implemented")
 }
 func (UnimplementedVideoServiceServer) GetPresence(context.Context, *GetPresenceRequest) (*PresenceStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPresence not implemented")
@@ -1517,6 +1641,132 @@ func _VideoService_SetMeetingLock_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VideoService_CreateBreakoutRooms_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBreakoutRoomsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).CreateBreakoutRooms(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_CreateBreakoutRooms_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).CreateBreakoutRooms(ctx, req.(*CreateBreakoutRoomsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ListBreakoutRooms_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBreakoutRoomsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ListBreakoutRooms(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ListBreakoutRooms_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ListBreakoutRooms(ctx, req.(*ListBreakoutRoomsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_AssignBreakoutParticipant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignBreakoutParticipantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).AssignBreakoutParticipant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_AssignBreakoutParticipant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).AssignBreakoutParticipant(ctx, req.(*AssignBreakoutParticipantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_JoinBreakoutRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinBreakoutRoomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).JoinBreakoutRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_JoinBreakoutRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).JoinBreakoutRoom(ctx, req.(*JoinBreakoutRoomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_GetBreakoutAssignment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBreakoutAssignmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).GetBreakoutAssignment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_GetBreakoutAssignment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).GetBreakoutAssignment(ctx, req.(*GetBreakoutAssignmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ReturnToMainRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReturnToMainRoomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ReturnToMainRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ReturnToMainRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ReturnToMainRoom(ctx, req.(*ReturnToMainRoomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_CloseBreakoutRooms_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CloseBreakoutRoomsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).CloseBreakoutRooms(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_CloseBreakoutRooms_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).CloseBreakoutRooms(ctx, req.(*CloseBreakoutRoomsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VideoService_GetPresence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetPresenceRequest)
 	if err := dec(in); err != nil {
@@ -1819,6 +2069,34 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetMeetingLock",
 			Handler:    _VideoService_SetMeetingLock_Handler,
+		},
+		{
+			MethodName: "CreateBreakoutRooms",
+			Handler:    _VideoService_CreateBreakoutRooms_Handler,
+		},
+		{
+			MethodName: "ListBreakoutRooms",
+			Handler:    _VideoService_ListBreakoutRooms_Handler,
+		},
+		{
+			MethodName: "AssignBreakoutParticipant",
+			Handler:    _VideoService_AssignBreakoutParticipant_Handler,
+		},
+		{
+			MethodName: "JoinBreakoutRoom",
+			Handler:    _VideoService_JoinBreakoutRoom_Handler,
+		},
+		{
+			MethodName: "GetBreakoutAssignment",
+			Handler:    _VideoService_GetBreakoutAssignment_Handler,
+		},
+		{
+			MethodName: "ReturnToMainRoom",
+			Handler:    _VideoService_ReturnToMainRoom_Handler,
+		},
+		{
+			MethodName: "CloseBreakoutRooms",
+			Handler:    _VideoService_CloseBreakoutRooms_Handler,
 		},
 		{
 			MethodName: "GetPresence",

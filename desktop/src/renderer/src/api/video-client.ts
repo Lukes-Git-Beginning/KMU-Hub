@@ -38,6 +38,11 @@ import type {
   MeetingChatMessage,
   MeetingChatHistoryResponse,
   SendMeetingChatMessageRequest,
+  BreakoutRoom,
+  CreateBreakoutRoomsRequest,
+  ListBreakoutRoomsResponse,
+  JoinBreakoutRoomResponse,
+  BreakoutAssignmentResponse,
 } from './video-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
@@ -332,3 +337,57 @@ export const kickParticipant = (meetingId: string, targetUserId: string) =>
  */
 export const setMeetingLock = (meetingId: string, locked: boolean) =>
   post<void>(`/api/v1/meetings/${meetingId}/lock`, { locked })
+
+// ---------------------------------------------------------------------------
+// Breakout Rooms (Wave 6A)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create n LiveKit sub-rooms for a meeting (host/co-host only).
+ * Labels are auto-generated ("Gruppe N") when omitted.
+ */
+export const createBreakoutRooms = (meetingId: string, req: CreateBreakoutRoomsRequest) =>
+  post<BreakoutRoom[]>(`/api/v1/meetings/${meetingId}/breakout-rooms`, req)
+
+/** List all open breakout rooms + current participant assignments (host overview). */
+export const listBreakoutRooms = (meetingId: string) =>
+  get<ListBreakoutRoomsResponse>(`/api/v1/meetings/${meetingId}/breakout-rooms`)
+
+/**
+ * Assign a participant to a sub-room, or pass breakoutRoomId=null to move them
+ * back to the main room. Host/co-host only.
+ */
+export const assignBreakoutParticipant = (
+  meetingId: string,
+  targetUserId: string,
+  breakoutRoomId: string | null,
+) =>
+  post<void>(`/api/v1/meetings/${meetingId}/breakout-rooms/assign`, {
+    target_user_id: targetUserId,
+    breakout_room_id: breakoutRoomId,
+  })
+
+/**
+ * Join the caller's currently assigned breakout room — returns a LiveKit token
+ * (+ TURN ice_servers) for the sub-room. The client reconnects to this room.
+ */
+export const joinBreakoutRoom = (meetingId: string) =>
+  post<JoinBreakoutRoomResponse>(`/api/v1/meetings/${meetingId}/breakout-rooms/join`)
+
+/**
+ * Get the caller's own breakout assignment (authoritative reconnect poll target).
+ * room is null when the caller is in the main room.
+ */
+export const getBreakoutAssignment = (meetingId: string) =>
+  get<BreakoutAssignmentResponse>(`/api/v1/meetings/${meetingId}/breakout-rooms/assignment`)
+
+/**
+ * Move a participant back to the main room. Without targetUserId the caller
+ * returns themselves; a host/co-host may pull another participant back.
+ */
+export const returnToMainRoom = (meetingId: string, targetUserId?: string) =>
+  post<void>(`/api/v1/meetings/${meetingId}/breakout-rooms/return`, { target_user_id: targetUserId })
+
+/** Close all open breakout rooms and pull every participant back to the main room. */
+export const closeBreakoutRooms = (meetingId: string) =>
+  post<void>(`/api/v1/meetings/${meetingId}/breakout-rooms/close`)

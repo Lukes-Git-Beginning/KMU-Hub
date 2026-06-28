@@ -63,6 +63,20 @@ service VideoService {
   rpc RemoveMeetingParticipant(RemoveMeetingParticipantRequest) returns (google.protobuf.Empty);
   rpc SetMeetingLock(SetMeetingLockRequest) returns (google.protobuf.Empty);
 
+  // Meeting Breakout Rooms (Wave 6A — host splits participants into LiveKit sub-rooms)
+  rpc CreateBreakoutRooms(CreateBreakoutRoomsRequest) returns (CreateBreakoutRoomsResponse);
+  rpc ListBreakoutRooms(ListBreakoutRoomsRequest) returns (ListBreakoutRoomsResponse);
+  rpc AssignBreakoutParticipant(AssignBreakoutParticipantRequest) returns (google.protobuf.Empty);
+  // JoinBreakoutRoom returns a LiveKit token (+ TURN ice_servers) for the caller's
+  // assigned sub-room; the client disconnects from the main room and reconnects.
+  rpc JoinBreakoutRoom(JoinBreakoutRoomRequest) returns (JoinBreakoutRoomResponse);
+  // GetBreakoutAssignment is the authoritative poll target — it returns the
+  // caller's current sub-room (or unset = main room) so the client can detect a
+  // host-initiated move even if the DataChannel accelerator signal was missed.
+  rpc GetBreakoutAssignment(GetBreakoutAssignmentRequest) returns (GetBreakoutAssignmentResponse);
+  rpc ReturnToMainRoom(ReturnToMainRoomRequest) returns (google.protobuf.Empty);
+  rpc CloseBreakoutRooms(CloseBreakoutRoomsRequest) returns (google.protobuf.Empty);
+
   // Presence
   rpc GetPresence(GetPresenceRequest) returns (PresenceStatus);
   rpc GetBulkPresence(GetBulkPresenceRequest) returns (GetBulkPresenceResponse);
@@ -646,4 +660,87 @@ message RemoveMeetingParticipantRequest {
 message SetMeetingLockRequest {
   string meeting_id = 1;
   bool locked = 2;
+}
+
+// ============================================================================
+// Meeting Breakout Rooms RPCs (Wave 6A)
+// ============================================================================
+
+message BreakoutRoom {
+  string id = 1;
+  string meeting_id = 2;
+  // room_name is the LiveKit room identifier ("breakout-{meetingID}-{index}").
+  string room_name = 3;
+  string label = 4;       // display name, e.g. "Gruppe 1"
+  int32 sort_index = 5;
+  string status = 6;      // "open" | "closed"
+  string created_by = 7;
+  optional google.protobuf.Timestamp closed_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// BreakoutAssignmentInfo maps a participant to their sub-room (host UI overview).
+message BreakoutAssignmentInfo {
+  string user_id = 1;
+  string breakout_room_id = 2;
+}
+
+message CreateBreakoutRoomsRequest {
+  string meeting_id = 1;
+  int32 count = 2;             // number of rooms to create (1-20)
+  repeated string labels = 3;  // optional; auto-generated ("Gruppe N") when empty
+}
+
+message CreateBreakoutRoomsResponse {
+  repeated BreakoutRoom rooms = 1;
+}
+
+message ListBreakoutRoomsRequest {
+  string meeting_id = 1;
+}
+
+message ListBreakoutRoomsResponse {
+  repeated BreakoutRoom rooms = 1;
+  repeated BreakoutAssignmentInfo assignments = 2;
+}
+
+message AssignBreakoutParticipantRequest {
+  string meeting_id = 1;
+  string target_user_id = 2;
+  // breakout_room_id unset = move the participant back to the main room.
+  optional string breakout_room_id = 3;
+}
+
+message JoinBreakoutRoomRequest {
+  string meeting_id = 1;
+  string user_id = 2;
+}
+
+message JoinBreakoutRoomResponse {
+  string token = 1;
+  string room_name = 2;
+  string ws_url = 3;
+  repeated IceServer ice_servers = 4;
+  BreakoutRoom breakout_room = 5;
+}
+
+message GetBreakoutAssignmentRequest {
+  string meeting_id = 1;
+  string user_id = 2;
+}
+
+message GetBreakoutAssignmentResponse {
+  // room unset = the participant is currently in the main room.
+  optional BreakoutRoom room = 1;
+}
+
+message ReturnToMainRoomRequest {
+  string meeting_id = 1;
+  // target_user_id may be the caller (self-return) or, for a host/co-host, another
+  // participant being pulled back to the main room.
+  string target_user_id = 2;
+}
+
+message CloseBreakoutRoomsRequest {
+  string meeting_id = 1;
 }

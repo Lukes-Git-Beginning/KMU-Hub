@@ -397,3 +397,70 @@ export interface KickParticipantRequest {
 export interface SetMeetingLockRequest {
   locked: boolean
 }
+
+// ---------------------------------------------------------------------------
+// Breakout room entities (Wave 6A)
+// ---------------------------------------------------------------------------
+
+export type BreakoutRoomStatus = 'open' | 'closed'
+
+/** A LiveKit sub-room created by the host during a meeting. */
+export interface BreakoutRoom {
+  id: string
+  meeting_id: string
+  /** LiveKit room identifier ("breakout-{meetingID}-{index}"). */
+  room_name: string
+  label: string
+  sort_index: number
+  status: BreakoutRoomStatus
+  created_by: string
+  closed_at: string | null
+  created_at: string
+}
+
+/** Maps a participant to their assigned sub-room (host overview). */
+export interface BreakoutAssignmentInfo {
+  user_id: string
+  breakout_room_id: string
+}
+
+/** Request body for POST /meetings/{id}/breakout-rooms */
+export interface CreateBreakoutRoomsRequest {
+  count: number
+  labels?: string[]
+}
+
+/** Response for GET /meetings/{id}/breakout-rooms (host overview). */
+export interface ListBreakoutRoomsResponse {
+  rooms: BreakoutRoom[]
+  assignments: BreakoutAssignmentInfo[]
+}
+
+/** Request body for POST /meetings/{id}/breakout-rooms/assign */
+export interface AssignBreakoutParticipantRequest {
+  target_user_id: string
+  /** null = move the participant back to the main room. */
+  breakout_room_id: string | null
+}
+
+/** Response for POST /meetings/{id}/breakout-rooms/join — token for the sub-room. */
+export interface JoinBreakoutRoomResponse {
+  token: string
+  room_name: string
+  ws_url: string
+  /** Per-session TURN credentials; empty/absent when TURN is not configured. */
+  ice_servers?: IceServer[]
+  breakout_room: BreakoutRoom
+}
+
+/** Response for GET /meetings/{id}/breakout-rooms/assignment — caller's own room. */
+export interface BreakoutAssignmentResponse {
+  /** null = the caller is currently in the main room. */
+  room: BreakoutRoom | null
+}
+
+/** Request body for POST /meetings/{id}/breakout-rooms/return */
+export interface ReturnToMainRoomRequest {
+  /** Defaults to the caller; a host may pull another participant back. */
+  target_user_id?: string
+}
