@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Camera, Plus, Check, AlertTriangle, XCircle } from 'lucide-react'
+import { Camera, Plus, Check, AlertTriangle, XCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Rental } from '@/api/vermietung-types'
 import { useCreateInspection } from '@/api/hooks/useVermietung'
+import { presignUpload } from '@/api/utils/presignUpload'
+import { useAvatarSrc } from '@/api/hooks/useAvatarSrc'
 import SignatureCanvas from '../rapporte/SignatureCanvas'
 import {
   Dialog,
@@ -112,7 +114,9 @@ export default function ZustandsprotokollDialog({
   const [type, setType] = useState<ProtokollType>('pickup')
   const [date, setDate] = useState(todayISO)
   const [checklist, setChecklist] = useState<ChecklistRow[]>(createDefaultChecklist)
-  const [photoCount, setPhotoCount] = useState(0)
+  const [photoKeys, setPhotoKeys] = useState<string[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const [notes, setNotes] = useState('')
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | undefined>()
   const [createdBy, setCreatedBy] = useState('')
@@ -135,6 +139,28 @@ export default function ZustandsprotokollDialog({
     setChecklist((prev) => prev.filter((_, i) => i !== idx))
   }
 
+  // ---- Photos ----
+  // Each photo uploads browser-direct via the presigned-upload service
+  // (scope=vermietung); the resulting object keys are passed straight into
+  // CreateInspection.photo_urls (the backend already persists them end-to-end).
+
+  const handlePhotoFile = async (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('vermietung.zustandsprotokoll.photoErrorType'))
+      return
+    }
+    setUploadingPhoto(true)
+    try {
+      const key = await presignUpload('vermietung', file)
+      setPhotoKeys((prev) => [...prev, key])
+    } catch {
+      toast.error(t('vermietung.zustandsprotokoll.photoUploadError'))
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   // ---- Save ----
 
   const handleSave = () => {
@@ -153,7 +179,7 @@ export default function ZustandsprotokollDialog({
         rentalId: reservation.id,
         kind: type === 'pickup' ? 'handover' : 'return',
         notes: notesWithMeta,
-        photo_urls: [],
+        photo_urls: photoKeys,
       },
       {
         onSuccess: () => {
@@ -314,34 +340,44 @@ export default function ZustandsprotokollDialog({
             </div>
           </div>
 
-          {/* ---------- Fotos (mock counter) ---------- */}
+          {/* ---------- Fotos ---------- */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               {t('vermietung.zustandsprotokoll.labelFotos')}
             </label>
-            <div className="flex items-center gap-3">
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                void handlePhotoFile(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              {photoKeys.map((key, idx) => (
+                <InspectionPhotoThumb
+                  key={key}
+                  objectKey={key}
+                  onRemove={() => setPhotoKeys((prev) => prev.filter((_, i) => i !== idx))}
+                  removeLabel={t('vermietung.zustandsprotokoll.buttonRemoveLast')}
+                />
+              ))}
               <button
                 type="button"
-                onClick={() => setPhotoCount((c) => c + 1)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
               >
                 <Camera className="h-4 w-4" />
                 {t('vermietung.zustandsprotokoll.buttonAddPhoto')}
               </button>
-              <span className="text-sm text-foreground font-medium tabular-nums">
-                {photoCount === 1
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {photoKeys.length === 1
                   ? t('vermietung.zustandsprotokoll.photoSingular')
-                  : t('vermietung.zustandsprotokoll.photoPlural', { count: photoCount })}
+                  : t('vermietung.zustandsprotokoll.photoPlural', { count: photoKeys.length })}
               </span>
-              {photoCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setPhotoCount((c) => Math.max(0, c - 1))}
-                  className="text-xs text-muted-foreground hover:text-error transition-colors"
-                >
-                  {t('vermietung.zustandsprotokoll.buttonRemoveLast')}
-                </button>
-              )}
             </div>
           </div>
 
@@ -428,5 +464,40 @@ export default function ZustandsprotokollDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Photo thumbnail — resolves the stored object key to a viewable URL.
+// ---------------------------------------------------------------------------
+
+function InspectionPhotoThumb({
+  objectKey,
+  onRemove,
+  removeLabel,
+}: {
+  objectKey: string
+  onRemove: () => void
+  removeLabel: string
+}) {
+  const src = useAvatarSrc(objectKey)
+  return (
+    <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-border bg-secondary">
+      {src ? (
+        <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <Camera className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={removeLabel}
+        className="absolute right-0.5 top-0.5 rounded-full bg-card/80 p-0.5 text-muted-foreground hover:text-error transition-colors"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
   )
 }

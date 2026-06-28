@@ -9263,6 +9263,8 @@
   "vermietung.tab.objekte": "Oggetti ({count})",
   "vermietung.tab.reservierungen": "Prenotazioni ({count})",
   "vermietung.zustandsprotokoll.buttonAddPhoto": "Aggiungi foto",
+  "vermietung.zustandsprotokoll.photoErrorType": "Seleziona un file immagine.",
+  "vermietung.zustandsprotokoll.photoUploadError": "Impossibile caricare la foto.",
   "vermietung.zustandsprotokoll.buttonAddPoint": "Punto",
   "vermietung.zustandsprotokoll.buttonRemoveLast": "Rimuovi ultimo",
   "vermietung.zustandsprotokoll.buttonRemoveSignature": "Rimuovi firma",

@@ -9297,6 +9297,8 @@
   "vermietung.tab.objekte": "Items ({count})",
   "vermietung.tab.reservierungen": "Reservations ({count})",
   "vermietung.zustandsprotokoll.buttonAddPhoto": "Add photo",
+  "vermietung.zustandsprotokoll.photoErrorType": "Please choose an image file.",
+  "vermietung.zustandsprotokoll.photoUploadError": "Photo could not be uploaded.",
   "vermietung.zustandsprotokoll.buttonAddPoint": "Add point",
   "vermietung.zustandsprotokoll.buttonRemoveLast": "Remove last",
   "vermietung.zustandsprotokoll.buttonRemoveSignature": "Remove signature",
