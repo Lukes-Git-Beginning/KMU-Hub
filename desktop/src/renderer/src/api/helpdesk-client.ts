@@ -237,7 +237,9 @@ export function getSLAStatus(ticketId: string) {
 // ---------------------------------------------------------------------------
 
 export function listKBArticles() {
-  return request<{ articles: KBArticle[] }>({ method: 'GET', path: `${BASE}/kb-articles` })
+  return request<unknown>({ method: 'GET', path: `${BASE}/kb-articles` }).then((v) =>
+    unwrapList<KBArticle>(v, 'articles'),
+  )
 }
 
 export function createKBArticle(body: CreateKBArticleInput) {
@@ -257,7 +259,9 @@ export function deleteKBArticle(id: string) {
 // ---------------------------------------------------------------------------
 
 export function listRoutingRules() {
-  return request<{ rules: RoutingRule[] }>({ method: 'GET', path: `${BASE}/routing-rules` })
+  return request<unknown>({ method: 'GET', path: `${BASE}/routing-rules` }).then((v) =>
+    unwrapList<RoutingRule>(v, 'rules'),
+  )
 }
 
 export function createRoutingRule(body: CreateRoutingRuleInput) {

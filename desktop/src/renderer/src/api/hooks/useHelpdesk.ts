@@ -342,7 +342,7 @@ export function useApplySLA() {
 export function useKBArticles() {
   return useQuery({
     queryKey: helpdeskKeys.kbArticles(),
-    queryFn: () => listKBArticles().then((r) => r.articles),
+    queryFn: () => listKBArticles(),
   })
 }
 
@@ -382,7 +382,7 @@ export function useDeleteKBArticle() {
 export function useRoutingRules() {
   return useQuery({
     queryKey: helpdeskKeys.routingRules(),
-    queryFn: () => listRoutingRules().then((r) => r.rules),
+    queryFn: () => listRoutingRules(),
   })
 }
 
