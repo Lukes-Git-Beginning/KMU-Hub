@@ -1,6 +1,7 @@
 -- Prod inbox seed — unified-inbox messages across channels (email/chat/notification)
 -- plus a few canned responses, for echt-Schaltung review on Hetzner.
--- Idempotent via the UNIQUE (user_id, channel, source_id) index and canned PK.
+-- Idempotent + re-targetable: deletes its fixed-UUID rows first, then re-inserts
+-- (safe to re-run with a different reviewer user_id).
 --
 -- inbox_messages is USER-scoped: user_id MUST be the reviewer, or the inbox stays
 -- empty for them. Run as a DB superuser (bypasses RLS):
@@ -22,6 +23,10 @@
 \endif
 
 BEGIN;
+
+-- Delete-first (not ON CONFLICT) so the seed is re-runnable with a DIFFERENT
+-- reviewer user_id without colliding on the fixed primary keys.
+DELETE FROM inbox_messages WHERE id::text LIKE 'b1000001-%';
 
 INSERT INTO inbox_messages
   (id, user_id, channel, source_id, sender_name, sender_email, subject, preview, is_read, is_starred, tags, received_at, tenant_id)
@@ -49,12 +54,10 @@ VALUES
   ('b1000001-0000-0000-0000-000000000006', :'reviewer_id',
    'chat','demo-msg-6','Sabine Brandt',NULL,'Re: Angebot 2026-0312',
    'Perfekt, dann warten wir auf die aktualisierte Version. Danke!',true,false,
-   '{Vertrieb}', now() - interval '2 days', :'tenant_id')
-ON CONFLICT (user_id, channel, source_id) DO UPDATE SET
-  subject = EXCLUDED.subject, preview = EXCLUDED.preview, is_read = EXCLUDED.is_read,
-  is_starred = EXCLUDED.is_starred, received_at = EXCLUDED.received_at, updated_at = now();
+   '{Vertrieb}', now() - interval '2 days', :'tenant_id');
 
 -- Canned responses (tenant-scoped reply templates).
+DELETE FROM inbox_canned_responses WHERE id::text LIKE 'c1a00001-%';
 INSERT INTO inbox_canned_responses (id, tenant_id, name, body)
 VALUES
   ('c1a00001-0000-0000-0000-000000000001', :'tenant_id', 'Eingangsbestätigung',
@@ -62,9 +65,7 @@ VALUES
   ('c1a00001-0000-0000-0000-000000000002', :'tenant_id', 'Rückfrage Unterlagen',
    'Könnten Sie uns zur weiteren Bearbeitung bitte die zugehörigen Unterlagen zukommen lassen? Vielen Dank.'),
   ('c1a00001-0000-0000-0000-000000000003', :'tenant_id', 'Abschluss',
-   'Wir betrachten Ihr Anliegen damit als erledigt. Bei weiteren Fragen stehen wir gerne zur Verfügung.')
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name, body = EXCLUDED.body, updated_at = now();
+   'Wir betrachten Ihr Anliegen damit als erledigt. Bei weiteren Fragen stehen wir gerne zur Verfügung.');
 
 COMMIT;
 
