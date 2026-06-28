@@ -26,7 +26,8 @@ type Repository interface {
 	AddAttendee(ctx context.Context, meetingID, userID uuid.UUID) error
 	RemoveAttendee(ctx context.Context, meetingID, userID uuid.UUID) error
 	UpdateAttendeeRSVP(ctx context.Context, meetingID, userID uuid.UUID, rsvp string) error
-	GetAttendees(ctx context.Context, meetingID uuid.UUID) ([]MeetingAttendee, error)
+	// GetAttendees returns attendees with denormalized user info (first_name, last_name).
+	GetAttendees(ctx context.Context, meetingID uuid.UUID) ([]MeetingAttendeeWithUser, error)
 
 	// Notes
 	SaveNotes(ctx context.Context, notes *MeetingNotes) error
@@ -60,6 +61,21 @@ type Repository interface {
 	// Lock
 	// SetLocked updates the locked column on the meeting row.
 	SetLocked(ctx context.Context, tenantID, meetingID uuid.UUID, locked bool) error
+
+	// Breakout Rooms (Wave 6A)
+	CreateBreakoutRoom(ctx context.Context, r *BreakoutRoom) error
+	ListBreakoutRooms(ctx context.Context, meetingID, tenantID uuid.UUID) ([]*BreakoutRoom, error)
+	GetBreakoutRoom(ctx context.Context, id, tenantID uuid.UUID) (*BreakoutRoom, error)
+	// CloseAllBreakoutRooms sets status='closed' on all open rooms; returns the room_names closed.
+	CloseAllBreakoutRooms(ctx context.Context, meetingID, tenantID uuid.UUID) ([]string, error)
+	// UpsertBreakoutAssignment assigns or re-assigns a user to a breakout room. Idempotent.
+	UpsertBreakoutAssignment(ctx context.Context, meetingID, breakoutRoomID, userID, assignedBy uuid.UUID) error
+	// GetBreakoutAssignmentForUser returns the open breakout room the user is assigned to,
+	// or nil, nil when no open assignment exists.
+	GetBreakoutAssignmentForUser(ctx context.Context, meetingID, userID, tenantID uuid.UUID) (*BreakoutRoom, error)
+	ListBreakoutAssignments(ctx context.Context, meetingID, tenantID uuid.UUID) ([]BreakoutAssignment, error)
+	ClearBreakoutAssignment(ctx context.Context, meetingID, userID, tenantID uuid.UUID) error
+	ClearAllBreakoutAssignments(ctx context.Context, meetingID, tenantID uuid.UUID) error
 }
 
 // MeetingFilter contains filtering parameters for listing meetings

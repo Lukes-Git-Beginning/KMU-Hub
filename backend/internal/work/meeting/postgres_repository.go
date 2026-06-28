@@ -278,9 +278,13 @@ func (r *PostgresRepository) UpdateAttendeeRSVP(ctx context.Context, meetingID, 
 	return nil
 }
 
-func (r *PostgresRepository) GetAttendees(ctx context.Context, meetingID uuid.UUID) ([]MeetingAttendee, error) {
+func (r *PostgresRepository) GetAttendees(ctx context.Context, meetingID uuid.UUID) ([]MeetingAttendeeWithUser, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT meeting_id, user_id, rsvp_status FROM meeting_attendees WHERE meeting_id=$1`,
+		`SELECT ma.meeting_id, ma.user_id, ma.rsvp_status,
+		        COALESCE(u.first_name, ''), COALESCE(u.last_name, '')
+		   FROM meeting_attendees ma
+		   LEFT JOIN users u ON u.id = ma.user_id
+		  WHERE ma.meeting_id = $1`,
 		meetingID,
 	)
 	if err != nil {
@@ -288,10 +292,10 @@ func (r *PostgresRepository) GetAttendees(ctx context.Context, meetingID uuid.UU
 	}
 	defer rows.Close()
 
-	var attendees []MeetingAttendee
+	var attendees []MeetingAttendeeWithUser
 	for rows.Next() {
-		var a MeetingAttendee
-		if err := rows.Scan(&a.MeetingID, &a.UserID, &a.RSVPStatus); err != nil {
+		var a MeetingAttendeeWithUser
+		if err := rows.Scan(&a.MeetingID, &a.UserID, &a.RSVPStatus, &a.FirstName, &a.LastName); err != nil {
 			return nil, fmt.Errorf("scan attendee: %w", err)
 		}
 		attendees = append(attendees, a)
@@ -599,6 +603,175 @@ func (r *PostgresRepository) SetLocked(ctx context.Context, tenantID, meetingID 
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
+	}
+	return nil
+}
+
+
+// ============================================================================
+// Breakout Room Repository Methods
+// ============================================================================
+
+func (r *PostgresRepository) CreateBreakoutRoom(ctx context.Context, room *BreakoutRoom) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO meeting_breakout_rooms
+		    (id, tenant_id, meeting_id, room_name, label, sort_index, status, created_by, created_at)
+		 VALUES ($1, (SELECT tenant_id FROM meetings WHERE id = $2), $2, $3, $4, $5, $6, $7, $8)`,
+		room.ID, room.MeetingID, room.RoomName, room.Label, room.SortIndex,
+		room.Status, room.CreatedBy, room.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("create breakout room: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ListBreakoutRooms(ctx context.Context, meetingID, tenantID uuid.UUID) ([]*BreakoutRoom, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, meeting_id, room_name, label, sort_index, status, created_by, closed_at, created_at
+		   FROM meeting_breakout_rooms
+		  WHERE meeting_id = $1 AND tenant_id = $2
+		  ORDER BY sort_index`,
+		meetingID, tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list breakout rooms: %w", err)
+	}
+	defer rows.Close()
+
+	var rooms []*BreakoutRoom
+	for rows.Next() {
+		var br BreakoutRoom
+		if err := rows.Scan(&br.ID, &br.TenantID, &br.MeetingID, &br.RoomName, &br.Label,
+			&br.SortIndex, &br.Status, &br.CreatedBy, &br.ClosedAt, &br.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan breakout room: %w", err)
+		}
+		rooms = append(rooms, &br)
+	}
+	return rooms, rows.Err()
+}
+
+func (r *PostgresRepository) GetBreakoutRoom(ctx context.Context, id, tenantID uuid.UUID) (*BreakoutRoom, error) {
+	var br BreakoutRoom
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, meeting_id, room_name, label, sort_index, status, created_by, closed_at, created_at
+		   FROM meeting_breakout_rooms
+		  WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	).Scan(&br.ID, &br.TenantID, &br.MeetingID, &br.RoomName, &br.Label,
+		&br.SortIndex, &br.Status, &br.CreatedBy, &br.ClosedAt, &br.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrBreakoutRoomNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get breakout room: %w", err)
+	}
+	return &br, nil
+}
+
+func (r *PostgresRepository) CloseAllBreakoutRooms(ctx context.Context, meetingID, tenantID uuid.UUID) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`UPDATE meeting_breakout_rooms
+		    SET status = 'closed', closed_at = now()
+		  WHERE meeting_id = $1 AND tenant_id = $2 AND status = 'open'
+		  RETURNING room_name`,
+		meetingID, tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("close all breakout rooms: %w", err)
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("scan room name: %w", err)
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
+}
+
+func (r *PostgresRepository) UpsertBreakoutAssignment(ctx context.Context, meetingID, breakoutRoomID, userID, assignedBy uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO meeting_breakout_assignments
+		    (id, tenant_id, meeting_id, breakout_room_id, user_id, assigned_by, assigned_at)
+		 VALUES (gen_random_uuid(), (SELECT tenant_id FROM meetings WHERE id = $1), $1, $2, $3, $4, now())
+		 ON CONFLICT (meeting_id, user_id) DO UPDATE
+		    SET breakout_room_id = EXCLUDED.breakout_room_id,
+		        assigned_by      = EXCLUDED.assigned_by,
+		        assigned_at      = EXCLUDED.assigned_at`,
+		meetingID, breakoutRoomID, userID, assignedBy,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert breakout assignment: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetBreakoutAssignmentForUser(ctx context.Context, meetingID, userID, tenantID uuid.UUID) (*BreakoutRoom, error) {
+	var br BreakoutRoom
+	err := r.pool.QueryRow(ctx,
+		`SELECT br.id, br.tenant_id, br.meeting_id, br.room_name, br.label, br.sort_index,
+		        br.status, br.created_by, br.closed_at, br.created_at
+		   FROM meeting_breakout_assignments ba
+		   JOIN meeting_breakout_rooms br ON br.id = ba.breakout_room_id
+		  WHERE ba.meeting_id = $1 AND ba.user_id = $2 AND ba.tenant_id = $3`,
+		meetingID, userID, tenantID,
+	).Scan(&br.ID, &br.TenantID, &br.MeetingID, &br.RoomName, &br.Label,
+		&br.SortIndex, &br.Status, &br.CreatedBy, &br.ClosedAt, &br.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil // not assigned — not an error
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get breakout assignment for user: %w", err)
+	}
+	return &br, nil
+}
+
+func (r *PostgresRepository) ListBreakoutAssignments(ctx context.Context, meetingID, tenantID uuid.UUID) ([]BreakoutAssignment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT meeting_id, breakout_room_id, user_id
+		   FROM meeting_breakout_assignments
+		  WHERE meeting_id = $1 AND tenant_id = $2`,
+		meetingID, tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list breakout assignments: %w", err)
+	}
+	defer rows.Close()
+
+	var assignments []BreakoutAssignment
+	for rows.Next() {
+		var a BreakoutAssignment
+		if err := rows.Scan(&a.MeetingID, &a.BreakoutRoomID, &a.UserID); err != nil {
+			return nil, fmt.Errorf("scan breakout assignment: %w", err)
+		}
+		assignments = append(assignments, a)
+	}
+	return assignments, rows.Err()
+}
+
+func (r *PostgresRepository) ClearBreakoutAssignment(ctx context.Context, meetingID, userID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM meeting_breakout_assignments
+		  WHERE meeting_id = $1 AND user_id = $2 AND tenant_id = $3`,
+		meetingID, userID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("clear breakout assignment: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ClearAllBreakoutAssignments(ctx context.Context, meetingID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM meeting_breakout_assignments WHERE meeting_id = $1 AND tenant_id = $2`,
+		meetingID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("clear all breakout assignments: %w", err)
 	}
 	return nil
 }

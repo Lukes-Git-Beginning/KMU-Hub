@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
 import { daysAgo, daysFromNow, hoursAgo } from '../data/date-helpers'
+import type { BreakoutRoom } from '@/api/video-types'
 
 const API = API_BASE_URL
 
@@ -111,6 +112,13 @@ function EMPLOYEES_SHORT() {
 }
 
 // ---------------------------------------------------------------------------
+// Breakout room demo state (stateful module-level store)
+// ---------------------------------------------------------------------------
+
+// lean: single shared store for all breakout calls; resets between live-reload cycles.
+let _breakoutRooms: BreakoutRoom[] = []
+
+// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
@@ -148,5 +156,84 @@ export const videoHandlers = [
     }
     // Bare Meeting object — getMeeting() expects Meeting, not { meeting }.
     return HttpResponse.json(meeting)
+  }),
+
+  // -------------------------------------------------------------------------
+  // Breakout rooms (Wave 6A demo handlers)
+  // -------------------------------------------------------------------------
+
+  // Create breakout rooms
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout`, async ({ params, request }) => {
+    const body = await request.json() as { count: number }
+    const count = Math.max(1, Math.min(20, body.count ?? 2))
+    _breakoutRooms = Array.from({ length: count }, (_, i) => ({
+      id: `br-${String(params.meetingId)}-${i + 1}`,
+      meeting_id: String(params.meetingId),
+      label: `Raum ${i + 1}`,
+      status: 'open' as const,
+      participant_ids: [],
+    }))
+    return HttpResponse.json({ rooms: _breakoutRooms })
+  }),
+
+  // List breakout rooms
+  http.get(`${API}/api/v1/meetings/:meetingId/breakout`, () => {
+    return HttpResponse.json({ rooms: _breakoutRooms })
+  }),
+
+  // Assign participant to a room (or back to main room)
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout/assign`, async ({ request }) => {
+    const body = await request.json() as { target_user_id: string; breakout_room_id: string | null }
+    _breakoutRooms = _breakoutRooms.map((room) => {
+      // Remove from current room first
+      const withoutTarget = room.participant_ids.filter((id) => id !== body.target_user_id)
+      // Add to target room
+      const participantIds =
+        room.id === body.breakout_room_id
+          ? [...withoutTarget, body.target_user_id]
+          : withoutTarget
+      return { ...room, participant_ids: participantIds }
+    })
+    return HttpResponse.json({})
+  }),
+
+  // Join breakout room (returns a demo token)
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout/join`, ({ params }) => {
+    const room = _breakoutRooms[0] ?? {
+      id: `br-${String(params.meetingId)}-1`,
+      meeting_id: String(params.meetingId),
+      label: 'Raum 1',
+      status: 'open' as const,
+      participant_ids: [],
+    }
+    return HttpResponse.json({
+      token: `demo-breakout-token-${Date.now()}`,
+      ws_url: 'wss://demo.livekit.example/breakout',
+      room,
+    })
+  }),
+
+  // Get caller's current breakout assignment (demo: always main room)
+  http.get(`${API}/api/v1/meetings/:meetingId/breakout/assignment`, () => {
+    return HttpResponse.json({ room: null })
+  }),
+
+  // Return participant to main room
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout/return`, async ({ request }) => {
+    const body = await request.json() as { target_user_id?: string } | null
+    const targetId = body?.target_user_id
+    if (targetId) {
+      _breakoutRooms = _breakoutRooms.map((room) => ({
+        ...room,
+        participant_ids: room.participant_ids.filter((id) => id !== targetId),
+      }))
+    }
+    return HttpResponse.json({})
+  }),
+
+  // Close all breakout rooms
+  http.post(`${API}/api/v1/meetings/:meetingId/breakout/close`, () => {
+    _breakoutRooms = []
+    return HttpResponse.json({})
   }),
 ]

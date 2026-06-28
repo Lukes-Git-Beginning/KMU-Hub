@@ -193,15 +193,7 @@ func (s *Service) GetMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meet
 		return nil, fmt.Errorf("get attendees: %w", err)
 	}
 
-	result := &MeetingWithAttendees{
-		Meeting:   *m,
-		Attendees: make([]MeetingAttendeeWithUser, len(attendees)),
-	}
-	for i, a := range attendees {
-		result.Attendees[i] = MeetingAttendeeWithUser{MeetingAttendee: a}
-	}
-
-	return result, nil
+	return &MeetingWithAttendees{Meeting: *m, Attendees: attendees}, nil
 }
 
 // UpdateMeeting updates a meeting (only allowed when scheduled)
@@ -436,6 +428,22 @@ func (s *Service) EndMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meet
 				"error", delErr,
 			)
 		}
+	}
+
+	// Best-effort breakout cleanup before generating summary
+	if _, brErr := s.repo.CloseAllBreakoutRooms(ctx, id, tenantID); brErr != nil {
+		slog.Warn("meeting ended: failed to close breakout rooms", "meeting_id", id, "error", brErr)
+	}
+	if brErr := s.repo.ClearAllBreakoutAssignments(ctx, id, tenantID); brErr != nil {
+		slog.Warn("meeting ended: failed to clear breakout assignments", "meeting_id", id, "error", brErr)
+	}
+
+	// Best-effort breakout cleanup before generating summary
+	if _, brErr := s.repo.CloseAllBreakoutRooms(ctx, id, tenantID); brErr != nil {
+		slog.Warn("meeting ended: failed to close breakout rooms", "meeting_id", id, "error", brErr)
+	}
+	if brErr := s.repo.ClearAllBreakoutAssignments(ctx, id, tenantID); brErr != nil {
+		slog.Warn("meeting ended: failed to clear breakout assignments", "meeting_id", id, "error", brErr)
 	}
 
 	// Generate summary
@@ -1153,5 +1161,156 @@ func (s *Service) SetMeetingLock(ctx context.Context, meetingID, tenantID, calle
 		"locked", locked,
 		"by", callerID,
 	)
+	return nil
+}
+
+// ============================================================================
+// Breakout Room Service Methods (Wave 6A)
+// ============================================================================
+
+// CreateBreakoutRooms creates n breakout rooms for the meeting.
+// Only the host or a co-host may call this.
+func (s *Service) CreateBreakoutRooms(ctx context.Context, meetingID, tenantID, callerID uuid.UUID, count int32, labels []string) ([]*BreakoutRoom, error) {
+	if count < 1 || count > 20 {
+		return nil, ErrBreakoutCountInvalid
+	}
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return nil, fmt.Errorf("check host: %w", err)
+	}
+	if !ok {
+		return nil, ErrBreakoutNotAuthorized
+	}
+
+	rooms := make([]*BreakoutRoom, 0, count)
+	for i := int32(0); i < count; i++ {
+		label := fmt.Sprintf("Raum %d", i+1)
+		if int(i) < len(labels) && labels[i] != "" {
+			label = labels[i]
+		}
+		roomName := "meeting-" + meetingID.String() + "-breakout-" + uuid.New().String()
+		room := &BreakoutRoom{
+			ID:        uuid.New(),
+			MeetingID: meetingID,
+			RoomName:  roomName,
+			Label:     label,
+			SortIndex: int(i),
+			Status:    "open",
+			CreatedBy: callerID,
+			CreatedAt: time.Now().UTC(),
+		}
+		if err := s.repo.CreateBreakoutRoom(ctx, room); err != nil {
+			return nil, fmt.Errorf("create breakout room %d: %w", i+1, err)
+		}
+		rooms = append(rooms, room)
+	}
+	slog.Info("breakout rooms created", "meeting_id", meetingID, "count", count, "by", callerID)
+	return rooms, nil
+}
+
+// ListBreakoutRooms returns all breakout rooms for a meeting.
+func (s *Service) ListBreakoutRooms(ctx context.Context, meetingID, tenantID uuid.UUID) ([]*BreakoutRoom, error) {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListBreakoutRooms(ctx, meetingID, tenantID)
+}
+
+// AssignBreakoutParticipant assigns targetUserID to a breakout room (or unassigns if roomID is nil).
+// Only host or co-host may assign.
+func (s *Service) AssignBreakoutParticipant(ctx context.Context, meetingID, tenantID, callerID, targetUserID uuid.UUID, roomID *uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return fmt.Errorf("check host: %w", err)
+	}
+	if !ok {
+		return ErrBreakoutNotAuthorized
+	}
+	if roomID == nil {
+		// Unassign
+		return s.repo.ClearBreakoutAssignment(ctx, meetingID, targetUserID, tenantID)
+	}
+	return s.repo.UpsertBreakoutAssignment(ctx, meetingID, *roomID, targetUserID, callerID)
+}
+
+// GetBreakoutAssignment returns the breakout room the caller is assigned to.
+func (s *Service) GetBreakoutAssignment(ctx context.Context, meetingID, tenantID, userID uuid.UUID) (*BreakoutRoom, error) {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
+		return nil, err
+	}
+	room, err := s.repo.GetBreakoutAssignmentForUser(ctx, meetingID, userID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("get breakout assignment: %w", err)
+	}
+	return room, nil
+}
+
+// JoinBreakoutRoom returns the room the caller is assigned to.
+// Returns ErrNoBreakoutAssignment if the caller has not been assigned.
+func (s *Service) JoinBreakoutRoom(ctx context.Context, meetingID, tenantID, callerID uuid.UUID) (*BreakoutRoom, error) {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
+		return nil, err
+	}
+	room, err := s.repo.GetBreakoutAssignmentForUser(ctx, meetingID, callerID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("get breakout assignment: %w", err)
+	}
+	if room == nil {
+		return nil, ErrNoBreakoutAssignment
+	}
+	return room, nil
+}
+
+// ReturnToMainRoom moves a participant back to the main meeting room.
+// If targetUserID is provided, only host/co-host may kick another user back.
+func (s *Service) ReturnToMainRoom(ctx context.Context, meetingID, tenantID, callerID uuid.UUID, targetUserID *uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	userID := callerID
+	if targetUserID != nil {
+		// Force-return of another participant: host/co-host only
+		ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+		if err != nil {
+			return fmt.Errorf("check host: %w", err)
+		}
+		if !ok {
+			return ErrBreakoutNotAuthorized
+		}
+		userID = *targetUserID
+	}
+	return s.repo.ClearBreakoutAssignment(ctx, meetingID, userID, tenantID)
+}
+
+// CloseBreakoutRooms closes all open breakout rooms for the meeting.
+// Only host or co-host may close.
+func (s *Service) CloseBreakoutRooms(ctx context.Context, meetingID, tenantID, callerID uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
+	if err != nil {
+		return err
+	}
+	ok, err := s.isHostOrCoHost(ctx, m, tenantID, callerID)
+	if err != nil {
+		return fmt.Errorf("check host: %w", err)
+	}
+	if !ok {
+		return ErrBreakoutNotAuthorized
+	}
+	if _, err := s.repo.CloseAllBreakoutRooms(ctx, meetingID, tenantID); err != nil {
+		return fmt.Errorf("close breakout rooms: %w", err)
+	}
+	if err := s.repo.ClearAllBreakoutAssignments(ctx, meetingID, tenantID); err != nil {
+		slog.Warn("close breakout rooms: failed to clear assignments", "meeting_id", meetingID, "error", err)
+	}
+	slog.Info("breakout rooms closed", "meeting_id", meetingID, "by", callerID)
 	return nil
 }

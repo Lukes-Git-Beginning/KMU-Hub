@@ -4,7 +4,7 @@
  * Full-featured page with active calls, call history, and device settings.
  * Integrates with meetings store for live meetings and call history data.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -25,6 +25,7 @@ import { useMeetingsStore, type CallHistoryEntry } from '../../stores/meetings'
 import { useMeetings, useJoinMeeting } from '@/api/hooks/useMeetings'
 import { VideoCallView } from '@/features/video/VideoCallView'
 import type { IceServer } from '@/api/video-types'
+import { useVideoStore } from '@/stores/video'
 import { backendMeetingToUI } from '../meetings/mappers'
 import { PageHeader } from '@/components/shared'
 import { formatDate } from '@/lib/format'
@@ -312,6 +313,24 @@ export default function VideoPage() {
     wsUrl: string
     iceServers?: IceServer[]
   } | null>(null)
+
+  // Wave 6A: when a breakout room switch happens inside VideoCallView, the store
+  // gets a new token/wsUrl pair via switchBreakoutRoom. Sync those credentials back
+  // to local activeCall so VideoCallView re-renders with the new LiveKit connection.
+  const storedToken = useVideoStore((s) => s.activeCallToken)
+  const storedWsUrl = useVideoStore((s) => s.livekitWsUrl)
+  const storedIceServers = useVideoStore((s) => s.activeCallIceServers)
+  useEffect(() => {
+    if (!activeCall) return
+    if (!storedToken || !storedWsUrl) return // guard: only when store has valid credentials
+    if (storedToken === activeCall.token) return // no change
+    setActiveCall((prev) =>
+      prev
+        ? { ...prev, token: storedToken, wsUrl: storedWsUrl, iceServers: storedIceServers ?? undefined }
+        : null,
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedToken, storedWsUrl, storedIceServers])
 
   const handleJoin = (id: string) => {
     if (apiIds.has(id)) {

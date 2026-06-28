@@ -1935,6 +1935,14 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, meeting.ErrNoNotesToSummarize):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, meeting.ErrBreakoutRoomNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, meeting.ErrNoBreakoutAssignment):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, meeting.ErrBreakoutCountInvalid):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, meeting.ErrBreakoutNotAuthorized):
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		slog.Error("unhandled meeting service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
@@ -2208,4 +2216,230 @@ func (s *VideoGRPCServer) GetRecordingDownloadURL(ctx context.Context, req *vide
 		Url:       url,
 		ExpiresAt: timestamppb.New(expiresAt),
 	}, nil
+}
+
+
+// ============================================================================
+// Breakout Room gRPC Handlers (Wave 6A)
+// ============================================================================
+
+func (s *VideoGRPCServer) CreateBreakoutRooms(ctx context.Context, req *videov1.CreateBreakoutRoomsRequest) (*videov1.CreateBreakoutRoomsResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	rooms, err := s.meetingService.CreateBreakoutRooms(ctx, meetingID, tenantID, callerID, req.Count, req.Labels)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+	protoRooms := make([]*videov1.BreakoutRoom, len(rooms))
+	for i, r := range rooms {
+		protoRooms[i] = breakoutRoomToProto(r)
+	}
+	return &videov1.CreateBreakoutRoomsResponse{Rooms: protoRooms}, nil
+}
+
+func (s *VideoGRPCServer) ListBreakoutRooms(ctx context.Context, req *videov1.ListBreakoutRoomsRequest) (*videov1.ListBreakoutRoomsResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	rooms, err := s.meetingService.ListBreakoutRooms(ctx, meetingID, tenantID)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+	protoRooms := make([]*videov1.BreakoutRoom, len(rooms))
+	for i, r := range rooms {
+		protoRooms[i] = breakoutRoomToProto(r)
+	}
+	return &videov1.ListBreakoutRoomsResponse{Rooms: protoRooms}, nil
+}
+
+func (s *VideoGRPCServer) AssignBreakoutParticipant(ctx context.Context, req *videov1.AssignBreakoutParticipantRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	targetUserID, err := uuid.Parse(req.TargetUserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid target_user_id")
+	}
+	var roomID *uuid.UUID
+	if req.BreakoutRoomId != nil {
+		rid, pErr := uuid.Parse(*req.BreakoutRoomId)
+		if pErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid breakout_room_id")
+		}
+		roomID = &rid
+	}
+	if err := s.meetingService.AssignBreakoutParticipant(ctx, meetingID, tenantID, callerID, targetUserID, roomID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) JoinBreakoutRoom(ctx context.Context, req *videov1.JoinBreakoutRoomRequest) (*videov1.JoinBreakoutRoomResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	room, err := s.meetingService.JoinBreakoutRoom(ctx, meetingID, tenantID, callerID)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+
+	// Mint a LiveKit token for the breakout room
+	displayName := callerIDStr // fallback
+	mwa, mErr := s.meetingService.GetMeeting(ctx, meetingID, tenantID)
+	if mErr == nil {
+		displayName = attendeeDisplayName(mwa.Attendees, callerIDStr)
+	}
+	joinToken := ""
+	if s.tokenGen != nil {
+		t, tokenErr := s.tokenGen.GenerateToken(room.RoomName, callerIDStr, displayName)
+		if tokenErr != nil {
+			slog.Error("failed to generate breakout join token", "meeting_id", meetingID, "error", tokenErr)
+			return nil, status.Error(codes.Internal, "failed to generate join token")
+		}
+		joinToken = t
+	}
+
+	resp := &videov1.JoinBreakoutRoomResponse{
+		BreakoutRoom: breakoutRoomToProto(room),
+		Token:        joinToken,
+		RoomName:     room.RoomName,
+		WsUrl:        s.publicWSURL,
+	}
+	if s.tokenGen != nil {
+		for _, ice := range s.tokenGen.TURNIceServers(callerIDStr) {
+			resp.IceServers = append(resp.IceServers, &videov1.IceServer{
+				Urls:       ice.URLs,
+				Username:   ice.Username,
+				Credential: ice.Credential,
+			})
+		}
+	}
+	return resp, nil
+}
+
+func (s *VideoGRPCServer) GetBreakoutAssignment(ctx context.Context, req *videov1.GetBreakoutAssignmentRequest) (*videov1.GetBreakoutAssignmentResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	userID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	room, err := s.meetingService.GetBreakoutAssignment(ctx, meetingID, tenantID, userID)
+	if err != nil {
+		return nil, mapMeetingError(err)
+	}
+	resp := &videov1.GetBreakoutAssignmentResponse{}
+	if room != nil {
+		resp.Room = breakoutRoomToProto(room)
+	}
+	return resp, nil
+}
+
+func (s *VideoGRPCServer) ReturnToMainRoom(ctx context.Context, req *videov1.ReturnToMainRoomRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	// target_user_id is a plain string; empty = the caller returns themselves.
+	var targetUserID *uuid.UUID
+	if req.TargetUserId != "" {
+		tid, pErr := uuid.Parse(req.TargetUserId)
+		if pErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid target_user_id")
+		}
+		targetUserID = &tid
+	}
+	if err := s.meetingService.ReturnToMainRoom(ctx, meetingID, tenantID, callerID, targetUserID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) CloseBreakoutRooms(ctx context.Context, req *videov1.CloseBreakoutRoomsRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+	callerIDStr := middleware.GetUserID(ctx)
+	callerID, err := uuid.Parse(callerIDStr)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in token")
+	}
+	meetingID, err := uuid.Parse(req.MeetingId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+	if err := s.meetingService.CloseBreakoutRooms(ctx, meetingID, tenantID, callerID); err != nil {
+		return nil, mapMeetingError(err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func breakoutRoomToProto(r *meeting.BreakoutRoom) *videov1.BreakoutRoom {
+	p := &videov1.BreakoutRoom{
+		Id:        r.ID.String(),
+		MeetingId: r.MeetingID.String(),
+		RoomName:  r.RoomName,
+		Label:     r.Label,
+		SortIndex: int32(r.SortIndex),
+		Status:    r.Status,
+		CreatedBy: r.CreatedBy.String(),
+		CreatedAt: timestamppb.New(r.CreatedAt),
+	}
+	if r.ClosedAt != nil {
+		p.ClosedAt = timestamppb.New(*r.ClosedAt)
+	}
+	return p
 }

@@ -144,3 +144,25 @@ type MeetingChatMessage struct {
 	Message    string    `json:"message"`
 	CreatedAt  time.Time `json:"created_at"`
 }
+
+
+// BreakoutRoom represents a breakout room spawned from a main meeting (Wave 6A).
+type BreakoutRoom struct {
+	ID        uuid.UUID  `json:"id"`
+	TenantID  uuid.UUID  `json:"tenant_id"`
+	MeetingID uuid.UUID  `json:"meeting_id"`
+	RoomName  string     `json:"room_name"`
+	Label     string     `json:"label"`
+	SortIndex int        `json:"sort_index"`
+	Status    string     `json:"status"`
+	CreatedBy uuid.UUID  `json:"created_by"`
+	ClosedAt  *time.Time `json:"closed_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+// BreakoutAssignment maps a user to a breakout room within a meeting.
+type BreakoutAssignment struct {
+	MeetingID      uuid.UUID `json:"meeting_id"`
+	BreakoutRoomID uuid.UUID `json:"breakout_room_id"`
+	UserID         uuid.UUID `json:"user_id"`
+}

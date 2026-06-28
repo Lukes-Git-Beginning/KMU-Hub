@@ -40,6 +40,12 @@ interface VideoState {
   callDuration: number // seconds since call start
 
   /**
+   * Label of the breakout room the local user is currently in; null when in the main room.
+   * Set atomically by switchBreakoutRoom, cleared by clearActiveCall.
+   */
+  breakoutRoomLabel: string | null
+
+  /**
    * LiveKit room controls injected by VideoCallView (InnerCallView) so that
    * FloatingCallBar can toggle mic/cam without needing LiveKitRoom context.
    * Cleared when the call ends.
@@ -56,6 +62,13 @@ interface VideoState {
   setCallDuration: (seconds: number) => void
   setIncomingCall: (call: IncomingCallData | null) => void
   setRoomControls: (controls: LiveKitRoomControls | null) => void
+  /**
+   * Atomically update the LiveKit connection credentials for a breakout room switch.
+   * Does NOT reset isInCall or FloatingBar visibility — the user stays "in the call"
+   * while the room transitions. The parent component syncs from these fields to
+   * re-render VideoCallView with the new token, causing LiveKit to reconnect.
+   */
+  switchBreakoutRoom: (token: string, wsUrl: string, iceServers: IceServer[] | null, label: string | null) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +84,7 @@ export const useVideoStore = create<VideoState>()((set) => ({
   isInCall: false,
   isFloatingBarVisible: false,
   callDuration: 0,
+  breakoutRoomLabel: null,
   roomControls: null,
   incomingCall: null,
 
@@ -94,6 +108,7 @@ export const useVideoStore = create<VideoState>()((set) => ({
       isInCall: false,
       isFloatingBarVisible: false,
       callDuration: 0,
+      breakoutRoomLabel: null,
       roomControls: null,
     }),
 
@@ -108,4 +123,18 @@ export const useVideoStore = create<VideoState>()((set) => ({
 
   setRoomControls: (controls: LiveKitRoomControls | null) =>
     set({ roomControls: controls }),
+
+  switchBreakoutRoom: (
+    token: string,
+    wsUrl: string,
+    iceServers: IceServer[] | null,
+    label: string | null,
+  ) =>
+    set({
+      activeCallToken: token,
+      livekitWsUrl: wsUrl,
+      activeCallIceServers: iceServers,
+      breakoutRoomLabel: label,
+      // isInCall and isFloatingBarVisible intentionally NOT reset — user stays in call.
+    }),
 }))

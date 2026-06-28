@@ -53,12 +53,17 @@ export function registerScreenshareHandlers(): void {
       fetchWindowIcons: false,
     })
 
-    return sources.map((src) => ({
+    const mapped = sources.map((src) => ({
       id: src.id,
       name: src.name,
       thumbnailDataUrl: src.thumbnail ? src.thumbnail.toDataURL() : '',
       type: src.id.startsWith('screen:') ? 'screen' : 'window',
-    }))
+    })) as ScreenSourceInfo[]
+
+    // [screenshare] diagnostic: log available sources for Windows smoke testing
+    console.log(`[screenshare] get-sources: ${mapped.length} source(s) found`, mapped.map((s) => `${s.type}:${s.name}(${s.id})`))
+
+    return mapped
   })
 
   // -------------------------------------------------------------------------
@@ -68,6 +73,8 @@ export function registerScreenshareHandlers(): void {
   // -------------------------------------------------------------------------
   ipcMain.handle('screenshare:set-source', (_event, sourceId: string) => {
     _pendingSourceId = sourceId || null
+    // [screenshare] diagnostic: record which source the user selected
+    console.log(`[screenshare] set-source: ${_pendingSourceId ?? '(cleared)'}`)
   })
 
   // -------------------------------------------------------------------------
@@ -102,29 +109,41 @@ export function registerScreenshareHandlers(): void {
       const audioCapture = process.platform !== 'darwin' ? 'loopback' : undefined
 
       if (requestedSourceId) {
+        // [screenshare] diagnostic: pending path
+        console.log(`[screenshare] setDisplayMediaRequestHandler: pending-path, requestedSourceId=${requestedSourceId} cachedId=${cachedId ?? 'null'} constraintId=${constraintSourceId ?? 'null'}`)
         desktopCapturer
           .getSources({ types: ['screen', 'window'], thumbnailSize: { width: 1, height: 1 } })
           .then((sources) => {
             const chosen = sources.find((s) => s.id === requestedSourceId)
             if (chosen) {
+              console.log(`[screenshare] setDisplayMediaRequestHandler: resolved source name=${chosen.name}`)
               callback({ video: chosen, audio: audioCapture })
             } else {
               // sourceId not found (e.g. window closed) → fall back to primary screen
               const primaryScreen = sources.find((s) => s.id.startsWith('screen:'))
+              console.log(`[screenshare] setDisplayMediaRequestHandler: sourceId not found, falling back to primary screen name=${primaryScreen?.name ?? 'none'}`)
               callback({ video: primaryScreen ?? sources[0], audio: audioCapture })
             }
           })
-          .catch(() => callback({}))
+          .catch((err) => {
+            console.error('[screenshare] setDisplayMediaRequestHandler: getSources error (pending path)', err)
+            callback({})
+          })
         return
       }
 
       // No sourceId — fall back to the primary screen (e.g. non-Electron browser path)
+      console.log('[screenshare] setDisplayMediaRequestHandler: no sourceId, falling back to primary screen')
       desktopCapturer
         .getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } })
         .then((sources) => {
+          console.log(`[screenshare] setDisplayMediaRequestHandler: primary-screen fallback name=${sources[0]?.name ?? 'none'}`)
           callback({ video: sources[0] ?? undefined, audio: audioCapture })
         })
-        .catch(() => callback({}))
+        .catch((err) => {
+          console.error('[screenshare] setDisplayMediaRequestHandler: getSources error (fallback path)', err)
+          callback({})
+        })
     },
     { useSystemPicker: false },
   )

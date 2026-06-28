@@ -16,17 +16,21 @@ var testTenantID = uuid.New()
 
 type mockRepo struct {
 	meetings     map[uuid.UUID]*Meeting
-	attendees    map[uuid.UUID][]MeetingAttendee
+	attendees    map[uuid.UUID][]MeetingAttendeeWithUser
 	notes        map[uuid.UUID][]MeetingNotes // keyed by meeting ID
 	actionItems  map[uuid.UUID][]MeetingActionItem
 	chatMessages map[uuid.UUID][]MeetingChatMessage // keyed by meeting ID
 	cohosts      map[uuid.UUID][]MeetingCoHost      // keyed by meeting ID
+	breakoutRooms              map[uuid.UUID]*BreakoutRoom
+	breakoutAssignments        map[string]*BreakoutAssignment
+	breakoutRoomsClosed        bool
+	breakoutAssignmentsCleared bool
 }
 
 func newMockRepo() *mockRepo {
 	return &mockRepo{
 		meetings:     make(map[uuid.UUID]*Meeting),
-		attendees:    make(map[uuid.UUID][]MeetingAttendee),
+		attendees:    make(map[uuid.UUID][]MeetingAttendeeWithUser),
 		notes:        make(map[uuid.UUID][]MeetingNotes),
 		actionItems:  make(map[uuid.UUID][]MeetingActionItem),
 		chatMessages: make(map[uuid.UUID][]MeetingChatMessage),
@@ -105,11 +109,11 @@ func (m *mockRepo) ListMeetings(_ context.Context, filter MeetingFilter) ([]Meet
 }
 
 func (m *mockRepo) AddAttendee(_ context.Context, meetingID, userID uuid.UUID) error {
-	m.attendees[meetingID] = append(m.attendees[meetingID], MeetingAttendee{
+	m.attendees[meetingID] = append(m.attendees[meetingID], MeetingAttendeeWithUser{MeetingAttendee: MeetingAttendee{
 		MeetingID:  meetingID,
 		UserID:     userID,
 		RSVPStatus: MeetingRSVPPending,
-	})
+	}})
 	return nil
 }
 
@@ -135,7 +139,7 @@ func (m *mockRepo) UpdateAttendeeRSVP(_ context.Context, meetingID, userID uuid.
 	return ErrNotFound
 }
 
-func (m *mockRepo) GetAttendees(_ context.Context, meetingID uuid.UUID) ([]MeetingAttendee, error) {
+func (m *mockRepo) GetAttendees(_ context.Context, meetingID uuid.UUID) ([]MeetingAttendeeWithUser, error) {
 	return m.attendees[meetingID], nil
 }
 
@@ -1186,7 +1190,7 @@ func TestEndMeeting_CallsDeleteRoom(t *testing.T) {
 		UpdatedAt:      time.Now(),
 	}
 	require.NoError(t, repo.CreateMeeting(ctx, m))
-	repo.attendees[m.ID] = []MeetingAttendee{{MeetingID: m.ID, UserID: m.OrganizerID}}
+	repo.attendees[m.ID] = []MeetingAttendeeWithUser{{MeetingAttendee: MeetingAttendee{MeetingID: m.ID, UserID: m.OrganizerID}}}
 
 	_, err := svc.EndMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
@@ -1211,7 +1215,7 @@ func TestEndMeeting_NoRoomName_DoesNotPanic(t *testing.T) {
 		UpdatedAt:      time.Now(),
 	}
 	require.NoError(t, repo.CreateMeeting(ctx, m))
-	repo.attendees[m.ID] = []MeetingAttendee{{MeetingID: m.ID, UserID: m.OrganizerID}}
+	repo.attendees[m.ID] = []MeetingAttendeeWithUser{{MeetingAttendee: MeetingAttendee{MeetingID: m.ID, UserID: m.OrganizerID}}}
 
 	_, err := svc.EndMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err) // must not panic when RoomName is nil
@@ -1865,4 +1869,220 @@ func TestGenerateAISummary_Success(t *testing.T) {
 	require.NotNil(t, stored.AISummary)
 	assert.Equal(t, "Kurzfassung der Notizen.", *stored.AISummary)
 	require.NotNil(t, stored.AISummaryAt)
+}
+
+// --- Breakout Room Mock Methods ---
+
+func (m *mockRepo) CreateBreakoutRoom(_ context.Context, r *BreakoutRoom) error {
+	if m.breakoutRooms == nil {
+		m.breakoutRooms = make(map[uuid.UUID]*BreakoutRoom)
+	}
+	cp := *r
+	m.breakoutRooms[r.ID] = &cp
+	return nil
+}
+
+func (m *mockRepo) ListBreakoutRooms(_ context.Context, meetingID, _ uuid.UUID) ([]*BreakoutRoom, error) {
+	var result []*BreakoutRoom
+	for _, r := range m.breakoutRooms {
+		if r.MeetingID == meetingID {
+			cp := *r
+			result = append(result, &cp)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRepo) GetBreakoutRoom(_ context.Context, id, _ uuid.UUID) (*BreakoutRoom, error) {
+	r, ok := m.breakoutRooms[id]
+	if !ok {
+		return nil, ErrBreakoutRoomNotFound
+	}
+	cp := *r
+	return &cp, nil
+}
+
+func (m *mockRepo) CloseAllBreakoutRooms(_ context.Context, meetingID, _ uuid.UUID) ([]string, error) {
+	m.breakoutRoomsClosed = true
+	var names []string
+	for _, r := range m.breakoutRooms {
+		if r.MeetingID == meetingID && r.Status == "open" {
+			r.Status = "closed"
+			names = append(names, r.RoomName)
+		}
+	}
+	return names, nil
+}
+
+func (m *mockRepo) UpsertBreakoutAssignment(_ context.Context, meetingID, breakoutRoomID, userID, assignedBy uuid.UUID) error {
+	if m.breakoutAssignments == nil {
+		m.breakoutAssignments = make(map[string]*BreakoutAssignment)
+	}
+	key := meetingID.String() + ":" + userID.String()
+	m.breakoutAssignments[key] = &BreakoutAssignment{
+		MeetingID:      meetingID,
+		BreakoutRoomID: breakoutRoomID,
+		UserID:         userID,
+	}
+	_ = assignedBy
+	return nil
+}
+
+func (m *mockRepo) GetBreakoutAssignmentForUser(_ context.Context, meetingID, userID, tenantID uuid.UUID) (*BreakoutRoom, error) {
+	if m.breakoutAssignments == nil {
+		return nil, nil
+	}
+	key := meetingID.String() + ":" + userID.String()
+	asgn, ok := m.breakoutAssignments[key]
+	if !ok {
+		return nil, nil
+	}
+	_ = tenantID
+	return m.GetBreakoutRoom(context.Background(), asgn.BreakoutRoomID, uuid.Nil)
+}
+
+func (m *mockRepo) ListBreakoutAssignments(_ context.Context, meetingID, _ uuid.UUID) ([]BreakoutAssignment, error) {
+	var result []BreakoutAssignment
+	for _, a := range m.breakoutAssignments {
+		if a.MeetingID == meetingID {
+			result = append(result, *a)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRepo) ClearBreakoutAssignment(_ context.Context, meetingID, userID, _ uuid.UUID) error {
+	if m.breakoutAssignments == nil {
+		return nil
+	}
+	key := meetingID.String() + ":" + userID.String()
+	delete(m.breakoutAssignments, key)
+	return nil
+}
+
+func (m *mockRepo) ClearAllBreakoutAssignments(_ context.Context, meetingID, _ uuid.UUID) error {
+	m.breakoutAssignmentsCleared = true
+	for key, a := range m.breakoutAssignments {
+		if a.MeetingID == meetingID {
+			delete(m.breakoutAssignments, key)
+		}
+	}
+	return nil
+}
+
+// --- Breakout Room Tests ---
+
+func TestCreateBreakoutRooms_HostOnly(t *testing.T) {
+	svc, repo := newTestService()
+	ctx := context.Background()
+
+	hostID := uuid.New()
+	mtg := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    hostID,
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(1 * time.Hour),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, mtg))
+
+	nonHost := uuid.New()
+	_, err := svc.CreateBreakoutRooms(ctx, mtg.ID, testTenantID, nonHost, 3, nil)
+	assert.ErrorIs(t, err, ErrBreakoutNotAuthorized)
+}
+
+func TestCreateBreakoutRooms_CountBounds(t *testing.T) {
+	svc, repo := newTestService()
+	ctx := context.Background()
+
+	hostID := uuid.New()
+	mtg := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    hostID,
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(1 * time.Hour),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, mtg))
+
+	_, err := svc.CreateBreakoutRooms(ctx, mtg.ID, testTenantID, hostID, 0, nil)
+	assert.ErrorIs(t, err, ErrBreakoutCountInvalid, "count=0 should be invalid")
+
+	_, err = svc.CreateBreakoutRooms(ctx, mtg.ID, testTenantID, hostID, 21, nil)
+	assert.ErrorIs(t, err, ErrBreakoutCountInvalid, "count=21 should be invalid")
+}
+
+func TestAssignBreakoutParticipant_NonHost(t *testing.T) {
+	svc, repo := newTestService()
+	ctx := context.Background()
+
+	hostID := uuid.New()
+	roomID := uuid.New()
+	mtg := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    hostID,
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(1 * time.Hour),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, mtg))
+
+	nonHost := uuid.New()
+	targetUser := uuid.New()
+	err := svc.AssignBreakoutParticipant(ctx, mtg.ID, testTenantID, nonHost, targetUser, &roomID)
+	assert.ErrorIs(t, err, ErrBreakoutNotAuthorized)
+}
+
+func TestJoinBreakoutRoom_NoAssignment(t *testing.T) {
+	svc, repo := newTestService()
+	ctx := context.Background()
+
+	userID := uuid.New()
+	mtg := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    uuid.New(),
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(1 * time.Hour),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, mtg))
+
+	_, err := svc.JoinBreakoutRoom(ctx, mtg.ID, testTenantID, userID)
+	assert.ErrorIs(t, err, ErrNoBreakoutAssignment)
+}
+
+func TestEndMeeting_CallsBreakoutCleanup(t *testing.T) {
+	svc, repo, _ := newTestServiceWithRoomMgr()
+	ctx := context.Background()
+
+	hostID := uuid.New()
+	roomName := "meeting-test-room"
+	mtg := &Meeting{
+		ID:             uuid.New(),
+		TenantID:       testTenantID,
+		Title:          "Test",
+		OrganizerID:    hostID,
+		Status:         MeetingStatusInProgress,
+		ScheduledStart: time.Now().Add(-2 * time.Hour),
+		ScheduledEnd:   time.Now().Add(-1 * time.Hour),
+		RoomName:       &roomName,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	require.NoError(t, repo.CreateMeeting(ctx, mtg))
+	repo.attendees[mtg.ID] = []MeetingAttendeeWithUser{{MeetingAttendee: MeetingAttendee{MeetingID: mtg.ID, UserID: hostID}}}
+
+	_, err := svc.EndMeeting(ctx, mtg.ID, testTenantID)
+	require.NoError(t, err)
+
+	assert.True(t, repo.breakoutRoomsClosed, "CloseAllBreakoutRooms should have been called")
+	assert.True(t, repo.breakoutAssignmentsCleared, "ClearAllBreakoutAssignments should have been called")
 }

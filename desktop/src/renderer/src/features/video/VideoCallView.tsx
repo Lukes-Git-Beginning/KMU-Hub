@@ -24,6 +24,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   LiveKitRoom,
   GridLayout,
@@ -47,7 +48,16 @@ import { Track, RoomEvent, ConnectionQuality, type Participant } from 'livekit-c
 import '@livekit/components-styles'
 
 import { useVideoStore } from '@/stores/video'
-import type { IceServer } from '@/api/video-types'
+import type { BreakoutRoom, IceServer } from '@/api/video-types'
+import { joinBreakoutRoom, joinMeeting } from '@/api/video-client'
+import {
+  useBreakoutAssignment,
+  useBreakoutRooms,
+  useCreateBreakoutRooms,
+  useAssignBreakoutParticipant,
+  useCloseBreakoutRooms,
+  useReturnToMainRoom,
+} from '@/api/hooks/useBreakout'
 import { CallControls } from './CallControls'
 import { RecordingActiveBanner } from './RecordingActiveBanner'
 import { ScreenShareView } from './ScreenShareView'
@@ -67,10 +77,13 @@ import { RecordingConsentDialog } from './RecordingConsentDialog'
 import { cn } from '@/lib'
 
 // ---------------------------------------------------------------------------
-// Hand-raise DataChannel topic & payload
+// DataChannel topics
 // ---------------------------------------------------------------------------
 
 const HAND_TOPIC = 'cosmi-hand'
+/** Breakout signal: sent by the host to trigger an immediate assignment re-fetch
+ * on all participants still in the main room (fast path for main→breakout). */
+const BREAKOUT_TOPIC = 'cosmi-breakout'
 
 interface HandPayload {
   type: 'hand'
@@ -453,6 +466,365 @@ function DeviceSelector({ onClose }: DeviceSelectorProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Breakout: participant row with assignment menu (host panel)
+// ---------------------------------------------------------------------------
+
+interface BreakoutParticipantRowProps {
+  participant: Participant
+  rooms: BreakoutRoom[]
+  /** -1 = main room */
+  currentRoomIndex: number
+  onAssign: (roomId: string) => void
+  onReturn: () => void
+}
+
+function BreakoutParticipantRow({
+  participant,
+  rooms,
+  currentRoomIndex,
+  onAssign,
+  onReturn,
+}: BreakoutParticipantRowProps) {
+  const { t } = useTranslation()
+  const [showMenu, setShowMenu] = useState(false)
+
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-[10px] font-medium text-zinc-300">
+        {(participant.name || participant.identity).slice(0, 2).toUpperCase()}
+      </div>
+      <span className="flex-1 truncate text-xs text-zinc-300">
+        {participant.name || participant.identity}
+      </span>
+      <div className="relative">
+        <button
+          onClick={() => setShowMenu((v) => !v)}
+          className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-zinc-300"
+          aria-label={t('features.video.breakout.assign')}
+        >
+          {/* Three-dot vertical menu SVG */}
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+            <circle cx="6" cy="2" r="1.2" />
+            <circle cx="6" cy="6" r="1.2" />
+            <circle cx="6" cy="10" r="1.2" />
+          </svg>
+        </button>
+        {showMenu && (
+          <div className="absolute right-0 z-50 mt-1 w-36 rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl">
+            {currentRoomIndex !== -1 && (
+              <button
+                onClick={() => { onReturn(); setShowMenu(false) }}
+                className="w-full px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
+              >
+                {t('features.video.breakout.returnToMain')}
+              </button>
+            )}
+            {rooms.map((room, i) => {
+              if (i === currentRoomIndex) return null
+              return (
+                <button
+                  key={room.id}
+                  onClick={() => { onAssign(room.id); setShowMenu(false) }}
+                  className="w-full px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
+                >
+                  {t('features.video.breakout.roomLabel', { index: i + 1 })}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Breakout: host management panel
+// ---------------------------------------------------------------------------
+
+interface BreakoutPanelProps {
+  meetingId: string
+  participants: Participant[]
+  onClose: () => void
+}
+
+function BreakoutPanel({ meetingId, participants, onClose }: BreakoutPanelProps) {
+  const { t } = useTranslation()
+  const [roomCount, setRoomCount] = useState(2)
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+
+  const { data: rooms = [] } = useBreakoutRooms(meetingId)
+  const createRooms = useCreateBreakoutRooms(meetingId)
+  const assignParticipant = useAssignBreakoutParticipant(meetingId)
+  const closeRooms = useCloseBreakoutRooms(meetingId)
+  const returnToMain = useReturnToMainRoom(meetingId)
+
+  const hasRooms = rooms.length > 0
+
+  // Map: participant identity → index into rooms[] (-1 = main room / not assigned)
+  const participantRoomIndex = useMemo(() => {
+    const map = new Map<string, number>()
+    rooms.forEach((room, i) => {
+      room.participant_ids.forEach((pid) => map.set(pid, i))
+    })
+    return map
+  }, [rooms])
+
+  const mainRoomParticipants = participants.filter(
+    (p) => !participantRoomIndex.has(p.identity),
+  )
+
+  return (
+    <div className="flex w-72 flex-shrink-0 flex-col border-l border-zinc-800 bg-zinc-900/95">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5">
+        <span className="text-sm font-medium text-zinc-200">
+          {t('features.video.breakout.title')}
+        </span>
+        <button
+          onClick={onClose}
+          className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+          aria-label="Close"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Body */}
+      {!hasRooms ? (
+        /* Create rooms form */
+        <div className="space-y-3 p-3">
+          <p className="text-xs text-zinc-400">{t('features.video.breakout.empty')}</p>
+          <p className="text-xs text-zinc-500">{t('features.video.breakout.emptyHint')}</p>
+          <div className="flex items-center gap-2">
+            <label className="shrink-0 text-xs text-zinc-400">
+              {t('features.video.breakout.roomCountLabel')}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={roomCount}
+              onChange={(e) =>
+                setRoomCount(Math.max(1, Math.min(20, Number(e.target.value))))
+              }
+              className="w-16 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm text-zinc-200"
+            />
+          </div>
+          <button
+            onClick={() => createRooms.mutate({ count: roomCount })}
+            disabled={createRooms.isPending}
+            className="w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {t('features.video.breakout.create')}
+          </button>
+          {createRooms.isError && (
+            <p className="text-xs text-red-400">{t('features.video.breakout.createError')}</p>
+          )}
+        </div>
+      ) : (
+        /* Rooms + assignment */
+        <div className="flex-1 overflow-y-auto py-1">
+          {/* Main room */}
+          <div className="px-3 py-2">
+            <p className="mb-1 text-xs font-medium text-zinc-400">
+              {t('features.video.breakout.mainRoom')}
+              {' '}
+              <span className="text-zinc-600">
+                ({t('features.video.breakout.participantCount', { count: mainRoomParticipants.length })})
+              </span>
+            </p>
+            {mainRoomParticipants.map((p) => (
+              <BreakoutParticipantRow
+                key={p.identity}
+                participant={p}
+                rooms={rooms}
+                currentRoomIndex={-1}
+                onAssign={(roomId) =>
+                  assignParticipant.mutate({ targetUserId: p.identity, breakoutRoomId: roomId })
+                }
+                onReturn={() => returnToMain.mutate(p.identity)}
+              />
+            ))}
+          </div>
+
+          {/* Breakout rooms */}
+          {rooms.map((room, i) => {
+            const roomParticipants = participants.filter(
+              (p) => participantRoomIndex.get(p.identity) === i,
+            )
+            return (
+              <div key={room.id} className="border-t border-zinc-800/60 px-3 py-2">
+                <p className="mb-1 text-xs font-medium text-zinc-400">
+                  {t('features.video.breakout.roomLabel', { index: i + 1 })}
+                  {' '}
+                  <span className="text-zinc-600">
+                    ({t('features.video.breakout.participantCount', { count: roomParticipants.length })})
+                  </span>
+                </p>
+                {roomParticipants.map((p) => (
+                  <BreakoutParticipantRow
+                    key={p.identity}
+                    participant={p}
+                    rooms={rooms}
+                    currentRoomIndex={i}
+                    onAssign={(roomId) =>
+                      assignParticipant.mutate({ targetUserId: p.identity, breakoutRoomId: roomId })
+                    }
+                    onReturn={() => returnToMain.mutate(p.identity)}
+                  />
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Footer: close all rooms */}
+      {hasRooms && (
+        <div className="border-t border-zinc-800 p-2">
+          {!showCloseConfirm ? (
+            <button
+              onClick={() => setShowCloseConfirm(true)}
+              className="w-full rounded-lg border border-red-800/50 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-900/20"
+            >
+              {t('features.video.breakout.closeAll')}
+            </button>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="text-center text-xs text-zinc-400">
+                {t('features.video.breakout.closeConfirm')}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowCloseConfirm(false)}
+                  className="flex-1 rounded-lg border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-800"
+                >
+                  ×
+                </button>
+                <button
+                  onClick={() => {
+                    closeRooms.mutate()
+                    setShowCloseConfirm(false)
+                  }}
+                  disabled={closeRooms.isPending}
+                  className="flex-1 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                >
+                  {t('features.video.breakout.closeAll')}
+                </button>
+              </div>
+            </div>
+          )}
+          {closeRooms.isError && (
+            <p className="mt-1 text-xs text-red-400">
+              {t('features.video.breakout.closeError')}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Breakout: reconnect hook (must run inside LiveKitRoom context)
+// ---------------------------------------------------------------------------
+
+/**
+ * Polls for the local user's breakout room assignment and triggers a LiveKit
+ * room switch when the assignment changes.
+ *
+ * Flow:
+ *   1. `useBreakoutAssignment` polls every 8 s (authoritative).
+ *   2. `useDataChannel(BREAKOUT_TOPIC)` invalidates the poll early when the
+ *      host broadcasts a signal (main→breakout fast path).
+ *   3. `RoomEvent.Disconnected` while in a breakout triggers an immediate
+ *      re-fetch (catches forced-close without waiting 8 s).
+ *   4. When the assignment label differs from `breakoutRoomLabel` in the store,
+ *      the hook calls `joinBreakoutRoom` (into breakout) or `joinMeeting`
+ *      (back to main) and updates the store via `switchBreakoutRoom`.
+ *      The parent component reacts to the changed store token and re-renders
+ *      VideoCallView with the new credentials, causing LiveKit to reconnect.
+ */
+function useBreakoutSwitch(meetingId: string | undefined) {
+  const { t } = useTranslation()
+  const room = useRoomContext()
+  const queryClient = useQueryClient()
+  const breakoutRoomLabel = useVideoStore((s) => s.breakoutRoomLabel)
+  const switchBreakoutRoom = useVideoStore((s) => s.switchBreakoutRoom)
+
+  const { data: assignedRoom } = useBreakoutAssignment(meetingId)
+
+  // DataChannel subscriber: invalidate assignment immediately on host signal.
+  const onBreakoutDCMessage = useCallback(() => {
+    if (!meetingId) return
+    queryClient.invalidateQueries({ queryKey: ['breakout', 'assignment', meetingId] })
+  }, [queryClient, meetingId])
+  useDataChannel(BREAKOUT_TOPIC, onBreakoutDCMessage)
+
+  // Disconnect during breakout → re-fetch without waiting for 8 s poll cycle.
+  useEffect(() => {
+    if (!meetingId) return
+    const handleDisconnected = () => {
+      if (breakoutRoomLabel !== null) {
+        queryClient.invalidateQueries({ queryKey: ['breakout', 'assignment', meetingId] })
+      }
+    }
+    room.on(RoomEvent.Disconnected, handleDisconnected)
+    return () => {
+      room.off(RoomEvent.Disconnected, handleDisconnected)
+    }
+  }, [room, meetingId, breakoutRoomLabel, queryClient])
+
+  // lean: ref-based guard prevents re-entrant switches during an in-flight join.
+  // If assignment changes again mid-flight it will be caught by the next poll cycle (≤8 s).
+  const switchingRef = useRef(false)
+  const [isSwitching, setIsSwitching] = useState(false)
+  const [switchLabel, setSwitchLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!meetingId || assignedRoom === undefined || switchingRef.current) return
+    const assignedLabel = assignedRoom?.label ?? null
+    if (assignedLabel === breakoutRoomLabel) return
+
+    switchingRef.current = true
+    setIsSwitching(true)
+    setSwitchLabel(assignedLabel)
+
+    const doSwitch = async () => {
+      try {
+        if (assignedLabel !== null) {
+          // Moving into a breakout room: exchange for a room-scoped token.
+          const res = await joinBreakoutRoom(meetingId)
+          switchBreakoutRoom(res.token, res.ws_url, res.ice_servers ?? null, assignedLabel)
+        } else {
+          // Returning to the main meeting room.
+          const res = await joinMeeting(meetingId)
+          switchBreakoutRoom(res.token, res.ws_url, res.ice_servers ?? null, null)
+        }
+      } catch {
+        // Switch failed — reset guard; next poll cycle will retry.
+      } finally {
+        switchingRef.current = false
+        setIsSwitching(false)
+        setSwitchLabel(null)
+      }
+    }
+
+    doSwitch()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignedRoom, meetingId, breakoutRoomLabel])
+
+  // Expose current assignment label for the non-host current-room banner.
+  const currentBreakoutLabel = assignedRoom?.label ?? null
+
+  return { isSwitching, switchLabel: switchLabel ?? currentBreakoutLabel, currentBreakoutLabel }
+}
+
+// ---------------------------------------------------------------------------
 // Inner component (must be inside LiveKitRoom to use room hooks)
 // ---------------------------------------------------------------------------
 
@@ -576,6 +948,7 @@ function InnerCallView({
   const [showRoster, setShowRoster] = useState(false)
   const [showDeviceSelector, setShowDeviceSelector] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showBreakoutPanel, setShowBreakoutPanel] = useState(false)
 
   // Wave 4.1: Electron screen-source picker
   const [showScreenPicker, setShowScreenPicker] = useState(false)
@@ -601,6 +974,12 @@ function InnerCallView({
   // Wave 3: derive host role from meeting organizer + co-host list
   const isOrganizer = !!currentUserId && currentUserId === organizerId
   const isHost = isOrganizer || (!!currentUserId && coHosts.includes(currentUserId))
+
+  // Wave 6A: breakout room switch hook (poll + DC accelerator + Disconnected guard)
+  const { isSwitching, switchLabel, currentBreakoutLabel } = useBreakoutSwitch(meetingId)
+
+  // Non-host self-return to main room (no targetUserId = self)
+  const returnToMainSelf = useReturnToMainRoom(meetingId ?? '')
 
   const setRoomControls = useVideoStore((s) => s.setRoomControls)
 
@@ -703,8 +1082,10 @@ function InnerCallView({
           // Non-Electron path (web fallback): browser's native picker
           await localParticipant.setScreenShareEnabled(true, { audio: true })
         }
-      } catch {
-        // User may have cancelled the native dialog or no source found — safe to ignore
+      } catch (err) {
+        // User may have cancelled the native dialog or no source found.
+        // Log for [screenshare] Windows smoke diagnostics (readable via read_console_messages).
+        console.error('[screenshare] setScreenShareEnabled failed', err)
       }
     },
     [localParticipant],
@@ -781,10 +1162,35 @@ function InnerCallView({
         </div>
       )}
 
+      {/* Wave 6A: current breakout room indicator for non-host participants */}
+      {!isHost && currentBreakoutLabel && meetingId && (
+        <div className="flex items-center justify-between border-b border-amber-900/40 bg-amber-900/20 px-4 py-1.5">
+          <span className="text-xs text-amber-300">
+            {t('features.video.breakout.currentRoom', { label: currentBreakoutLabel })}
+          </span>
+          <button
+            onClick={() => returnToMainSelf.mutate(undefined)}
+            disabled={returnToMainSelf.isPending}
+            className="text-xs text-amber-400 underline-offset-2 transition-opacity hover:underline disabled:opacity-50"
+          >
+            {t('features.video.breakout.returnToMain')}
+          </button>
+        </div>
+      )}
+
       {/* Main content: video area + optional roster/chat sidebar */}
       <div className="relative flex flex-1 overflow-hidden">
         {/* Video area (reaction floats are overlaid here) */}
         <div className="relative flex-1 overflow-hidden">
+          {/* Wave 6A: breakout room switching overlay — shown while LiveKit reconnects */}
+          {isSwitching && switchLabel && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80">
+              <p className="rounded-lg bg-zinc-800/90 px-4 py-2 text-sm font-medium text-zinc-200">
+                {t('features.video.breakout.switching', { label: switchLabel })}
+              </p>
+            </div>
+          )}
+
           {/* Wave 2: Reaction float overlay */}
           <ReactionLayer floats={floats} />
           {isScreenSharing ? (
@@ -881,8 +1287,8 @@ function InnerCallView({
             )}
             onClick={() => {
               setShowRoster((v) => !v)
-              // Collapse chat when opening roster (and vice versa for clean sidebar)
-              if (!showRoster) setShowChat(false)
+              // Collapse other panels when opening roster for clean sidebar
+              if (!showRoster) { setShowChat(false); setShowBreakoutPanel(false) }
             }}
             title={t('features.video.roster.title')}
             aria-label={t('features.video.roster.title')}
@@ -916,7 +1322,7 @@ function InnerCallView({
             )}
             onClick={() => {
               setShowChat((v) => !v)
-              if (!showChat) setShowRoster(false)
+              if (!showChat) { setShowRoster(false); setShowBreakoutPanel(false) }
             }}
             title={t('features.video.chat.title')}
             aria-label={t('features.video.chat.title')}
@@ -937,6 +1343,42 @@ function InnerCallView({
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </button>
+
+          {/* Wave 6A: Breakout panel toggle — host only */}
+          {isHost && meetingId && (
+            <button
+              className={cn(
+                'absolute left-28 top-4 z-30 rounded-lg p-2 backdrop-blur-sm transition-colors',
+                showBreakoutPanel
+                  ? 'bg-primary text-white'
+                  : 'bg-zinc-800/80 text-white hover:bg-zinc-700',
+              )}
+              onClick={() => {
+                setShowBreakoutPanel((v) => !v)
+                if (!showBreakoutPanel) { setShowRoster(false); setShowChat(false) }
+              }}
+              title={t('features.video.breakout.openPanel')}
+              aria-label={t('features.video.breakout.openPanel')}
+            >
+              {/* Breakout/split-rooms SVG */}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="2" y="3" width="9" height="18" rx="2" />
+                <rect x="13" y="3" width="9" height="8" rx="2" />
+                <rect x="13" y="13" width="9" height="8" rx="2" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Live participant roster sidebar (1.3) */}
@@ -956,6 +1398,15 @@ function InnerCallView({
             meetingId={callId}
             localDisplayName={localDisplayName}
             onClose={() => setShowChat(false)}
+          />
+        )}
+
+        {/* Wave 6A: Breakout panel (host only) */}
+        {showBreakoutPanel && isHost && meetingId && (
+          <BreakoutPanel
+            meetingId={meetingId}
+            participants={participants}
+            onClose={() => setShowBreakoutPanel(false)}
           />
         )}
       </div>

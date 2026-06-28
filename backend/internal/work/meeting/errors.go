@@ -28,4 +28,9 @@ var (
 	ErrCoHostNotFound        = errors.New("co-host entry not found")
 	ErrLLMUnavailable        = errors.New("AI summary is not available — no LLM is configured")
 	ErrNoNotesToSummarize    = errors.New("no meeting notes available to summarize")
+
+	ErrBreakoutRoomNotFound  = errors.New("breakout room not found")
+	ErrNoBreakoutAssignment  = errors.New("no breakout assignment")
+	ErrBreakoutCountInvalid  = errors.New("breakout count must be between 1 and 20")
+	ErrBreakoutNotAuthorized = errors.New("only host or co-host can manage breakout rooms")
 )

@@ -172,6 +172,15 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Post("/{meetingId}/chat", vr.HandleSaveMeetingChatMessage)
 		r.Get("/{meetingId}/chat", vr.HandleListMeetingChatMessages)
 
+		// Breakout Rooms (Wave 6A — host/co-host only for mutations, authz in service)
+		r.Post("/{id}/breakout-rooms", vr.HandleCreateBreakoutRooms)
+		r.Get("/{id}/breakout-rooms", vr.HandleListBreakoutRooms)
+		r.Post("/{id}/breakout-rooms/assign", vr.HandleAssignBreakoutParticipant)
+		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/breakout-rooms/join", vr.HandleJoinBreakoutRoom)
+		r.Get("/{id}/breakout-rooms/assignment", vr.HandleGetBreakoutAssignment)
+		r.Post("/{id}/breakout-rooms/return", vr.HandleReturnToMainRoom)
+		r.Post("/{id}/breakout-rooms/close", vr.HandleCloseBreakoutRooms)
+
 		// Host Controls (Wave 3 — meeting-scoped authz in the service, no RBAC guard)
 		r.Post("/{meetingId}/cohosts", vr.HandlePromoteCoHost)
 		r.Delete("/{meetingId}/cohosts/{userId}", vr.HandleDemoteCoHost)
@@ -282,6 +291,21 @@ type setMeetingLockHTTPRequest struct {
 type updatePresenceConfigHTTPRequest struct {
 	AwayTimeoutSeconds int32 `json:"away_timeout_seconds" validate:"required,gt=0"`
 }
+
+type createBreakoutRoomsHTTPRequest struct {
+	Count  int32    `json:"count" validate:"required,min=1,max=20"`
+	Labels []string `json:"labels,omitempty"`
+}
+
+type assignBreakoutParticipantHTTPRequest struct {
+	TargetUserID   string  `json:"target_user_id" validate:"required,uuid"`
+	BreakoutRoomID *string `json:"breakout_room_id,omitempty" validate:"omitempty,uuid"`
+}
+
+type returnToMainRoomHTTPRequest struct {
+	TargetUserID *string `json:"target_user_id,omitempty" validate:"omitempty,uuid"`
+}
+
 
 // ============================================================================
 // Call Handlers
@@ -2044,4 +2068,168 @@ func (vr *VideoRoutes) HandleSetMeetingLock(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	response.JSON(w, http.StatusOK, map[string]string{"status": "meeting lock updated"})
+}
+
+// ============================================================================
+// Breakout Room Handlers (Wave 6A)
+// ============================================================================
+
+// POST /api/v1/meetings/{id}/breakout-rooms
+func (vr *VideoRoutes) HandleCreateBreakoutRooms(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeAndValidate[createBreakoutRoomsHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+	resp, err := client.CreateBreakoutRooms(r.Context(), &videov1.CreateBreakoutRoomsRequest{
+		MeetingId: meetingID,
+		Count:     req.Count,
+		Labels:    req.Labels,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusCreated, resp)
+}
+
+// GET /api/v1/meetings/{id}/breakout-rooms
+func (vr *VideoRoutes) HandleListBreakoutRooms(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	resp, err := client.ListBreakoutRooms(r.Context(), &videov1.ListBreakoutRoomsRequest{MeetingId: meetingID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// POST /api/v1/meetings/{id}/breakout-rooms/assign
+func (vr *VideoRoutes) HandleAssignBreakoutParticipant(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeAndValidate[assignBreakoutParticipantHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+	_, err = client.AssignBreakoutParticipant(r.Context(), &videov1.AssignBreakoutParticipantRequest{
+		MeetingId:      meetingID,
+		TargetUserId:   req.TargetUserID,
+		BreakoutRoomId: req.BreakoutRoomID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "assigned"})
+}
+
+// POST /api/v1/meetings/{id}/breakout-rooms/join
+func (vr *VideoRoutes) HandleJoinBreakoutRoom(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	resp, err := client.JoinBreakoutRoom(r.Context(), &videov1.JoinBreakoutRoomRequest{MeetingId: meetingID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// GET /api/v1/meetings/{id}/breakout-rooms/assignment
+func (vr *VideoRoutes) HandleGetBreakoutAssignment(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	resp, err := client.GetBreakoutAssignment(r.Context(), &videov1.GetBreakoutAssignmentRequest{MeetingId: meetingID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// POST /api/v1/meetings/{id}/breakout-rooms/return
+func (vr *VideoRoutes) HandleReturnToMainRoom(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeAndValidate[returnToMainRoomHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+	targetUserID := ""
+	if req.TargetUserID != nil {
+		targetUserID = *req.TargetUserID
+	}
+	_, err = client.ReturnToMainRoom(r.Context(), &videov1.ReturnToMainRoomRequest{
+		MeetingId:    meetingID,
+		TargetUserId: targetUserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "returned"})
+}
+
+// POST /api/v1/meetings/{id}/breakout-rooms/close
+func (vr *VideoRoutes) HandleCloseBreakoutRooms(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	_, err = client.CloseBreakoutRooms(r.Context(), &videov1.CloseBreakoutRoomsRequest{MeetingId: meetingID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "breakout rooms closed"})
 }

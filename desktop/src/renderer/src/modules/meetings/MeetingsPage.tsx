@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Video,
@@ -27,6 +27,7 @@ import { MeetingFormDialog } from './MeetingFormDialog'
 import { MeetingDetailPanel } from './MeetingDetailPanel'
 import { VideoCallView } from '@/features/video/VideoCallView'
 import type { IceServer } from '@/api/video-types'
+import { useVideoStore } from '@/stores/video'
 import { backendMeetingToUI } from './mappers'
 import { formatDate } from '@/lib/format'
 
@@ -119,6 +120,22 @@ export default function MeetingsPage() {
     wsUrl: string
     iceServers?: IceServer[]
   } | null>(null)
+
+  // Wave 6A: sync store token/wsUrl back to local activeCall on breakout room switch.
+  const storedToken = useVideoStore((s) => s.activeCallToken)
+  const storedWsUrl = useVideoStore((s) => s.livekitWsUrl)
+  const storedIceServers = useVideoStore((s) => s.activeCallIceServers)
+  useEffect(() => {
+    if (!activeCall) return
+    if (!storedToken || !storedWsUrl) return
+    if (storedToken === activeCall.token) return
+    setActiveCall((prev) =>
+      prev
+        ? { ...prev, token: storedToken, wsUrl: storedWsUrl, iceServers: storedIceServers ?? undefined }
+        : null,
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedToken, storedWsUrl, storedIceServers])
 
   // All meetings are joinable via the backend. Local-store meetings that are
   // not yet synced to the backend show a start-failed toast on join attempt.
