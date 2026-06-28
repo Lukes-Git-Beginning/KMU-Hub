@@ -33,6 +33,17 @@ export interface InventarItem {
   linked_purchase_order: string | null
 }
 
+export interface ItemAttachment {
+  id: string
+  tenant_id: string
+  item_id: string
+  name: string
+  object_key: string
+  file_type: string
+  created_at: string
+  updated_at: string
+}
+
 export interface InventarMovement {
   id: string
   tenant_id: string

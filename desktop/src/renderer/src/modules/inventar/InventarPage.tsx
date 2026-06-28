@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -24,6 +24,8 @@ import {
   Link2,
   ClipboardCheck,
   AlertTriangle,
+  Paperclip,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -46,8 +48,10 @@ import {
   useInventarLocations, useInventurSessions,
   useCreateInventarItem, useUpdateInventarItem, useDeleteInventarItem,
   useAdjustStock, useRecordMovement, useBookInventurDifferences,
+  useItemAttachments, useUploadItemAttachment, useDeleteItemAttachment,
 } from '@/api/hooks/useInventar'
-import type { InventarItem, InventoryLocation, InventurSession, InventurCount } from '@/api/inventar-types'
+import { useAvatarSrc } from '@/api/hooks/useAvatarSrc'
+import type { InventarItem, InventoryLocation, InventurSession, InventurCount, ItemAttachment } from '@/api/inventar-types'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 
@@ -1490,6 +1494,9 @@ export default function InventarPage() {
                 )
               })()}
             </div>
+
+            {/* Anhänge */}
+            <ItemAttachmentsSection itemId={selectedItem.id} />
           </div>
         )}
       </DetailPanel>
@@ -1530,6 +1537,106 @@ export default function InventarPage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />
+    </div>
+  )
+}
+
+// ─── Item Attachments ─────────────────────────────────────────────
+// Browser-direct upload (scope=inventar) + register against the item.
+
+function ItemAttachmentsSection({ itemId }: { itemId: string }) {
+  const { t } = useTranslation()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const attachmentsQuery = useItemAttachments(itemId)
+  const uploadMut = useUploadItemAttachment()
+  const deleteMut = useDeleteItemAttachment()
+  const attachments = attachmentsQuery.data?.attachments ?? []
+
+  const handleFile = (file: File | undefined) => {
+    if (!file) return
+    uploadMut.mutate(
+      { itemId, file },
+      { onError: () => toast.error(t('inventar.detail.attachmentUploadError')) },
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t('inventar.detail.attachments')}
+        </h4>
+        <input
+          ref={fileRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            handleFile(e.target.files?.[0])
+            e.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploadMut.isPending}
+          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          <Paperclip className="h-3 w-3" />
+          {t('inventar.detail.attachmentAdd')}
+        </button>
+      </div>
+      {attachments.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-2">{t('inventar.detail.attachmentsEmpty')}</p>
+      ) : (
+        <div className="space-y-1">
+          {attachments.map((att) => (
+            <ItemAttachmentRow
+              key={att.id}
+              attachment={att}
+              onRemove={() => deleteMut.mutate({ id: att.id, itemId })}
+              removeLabel={t('inventar.detail.attachmentRemove')}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ItemAttachmentRow({
+  attachment,
+  onRemove,
+  removeLabel,
+}: {
+  attachment: ItemAttachment
+  onRemove: () => void
+  removeLabel: string
+}) {
+  const src = useAvatarSrc(attachment.object_key)
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-border-muted p-2">
+      <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      {src ? (
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 min-w-0 truncate text-xs text-primary hover:underline"
+        >
+          {attachment.name}
+        </a>
+      ) : (
+        <span className="flex-1 min-w-0 truncate text-xs text-foreground">{attachment.name}</span>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={removeLabel}
+        title={removeLabel}
+        className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-error transition-colors"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   )
 }

@@ -34,7 +34,11 @@ import {
   deleteInventurSession,
   upsertInventurCount,
   bookInventurDifferences,
+  listItemAttachments,
+  createItemAttachment,
+  deleteItemAttachment,
 } from '../inventar-client'
+import { presignUpload } from '../utils/presignUpload'
 import type {
   CreateItemInput,
   UpdateItemInput,
@@ -67,6 +71,7 @@ export const inventarKeys = {
     ['inventar', 'items', itemId, 'history', params] as const,
   warnings: (params?: ListWarningsParams) => ['inventar', 'warnings', params] as const,
   report: () => ['inventar', 'report'] as const,
+  attachments: (itemId: string) => ['inventar', 'items', itemId, 'attachments'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -359,5 +364,43 @@ export function useBookInventurDifferences() {
       qc.invalidateQueries({ queryKey: ['inventar', 'items'] })
       qc.invalidateQueries({ queryKey: inventarKeys.report() })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Item Attachments
+// ---------------------------------------------------------------------------
+
+export function useItemAttachments(itemId: string) {
+  return useQuery({
+    queryKey: inventarKeys.attachments(itemId),
+    queryFn: () => listItemAttachments(itemId),
+    enabled: !!itemId,
+  })
+}
+
+/** Uploads a file browser-direct (scope=inventar) then registers it on the item. */
+export function useUploadItemAttachment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
+      const objectKey = await presignUpload('inventar', file)
+      return createItemAttachment(itemId, {
+        name: file.name,
+        object_key: objectKey,
+        file_type: file.type || 'application/octet-stream',
+      })
+    },
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: inventarKeys.attachments(variables.itemId) }),
+  })
+}
+
+export function useDeleteItemAttachment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id }: { id: string; itemId: string }) => deleteItemAttachment(id),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: inventarKeys.attachments(variables.itemId) }),
   })
 }

@@ -30,6 +30,7 @@ import type {
   UpdateLocationInput,
   CreateInventurSessionInput,
   InventurStatus,
+  ItemAttachment,
 } from './inventar-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 import { API_BASE_URL } from '@/lib/constants'
@@ -227,4 +228,30 @@ export function upsertInventurCount(sessionId: string, body: { item_id: string; 
 
 export function bookInventurDifferences(sessionId: string, body?: { booked_by?: string }) {
   return request<{ session: InventurSession }>({ method: 'POST', path: `${BASE}/inventur/${sessionId}/book`, body })
+}
+
+// ---------------------------------------------------------------------------
+// Item Attachments
+// ---------------------------------------------------------------------------
+
+export function listItemAttachments(itemId: string) {
+  return request<{ attachments: ItemAttachment[] }>({
+    method: 'GET',
+    path: `${BASE}/items/${itemId}/attachments`,
+  })
+}
+
+export function createItemAttachment(
+  itemId: string,
+  body: { name: string; object_key: string; file_type: string },
+) {
+  return request<{ attachment: ItemAttachment }>({
+    method: 'POST',
+    path: `${BASE}/items/${itemId}/attachments`,
+    body,
+  })
+}
+
+export function deleteItemAttachment(id: string) {
+  return request<void>({ method: 'DELETE', path: `${BASE}/attachments/${id}` })
 }
