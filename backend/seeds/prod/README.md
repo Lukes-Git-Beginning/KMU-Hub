@@ -53,18 +53,20 @@ UUID des Review-Accounts (z.B. Dariens Prod-Login) notieren → `<reviewer-uuid>
 
 ## 3. Seeds einspielen (idempotent, als Superuser → bypasst RLS)
 
+Die UUID **ohne** Anführungszeichen übergeben — die Skripte quoten via `:'reviewer_id'` selbst.
+
 ```bash
 sudo docker exec -i <pg-container> psql -U kmuhub -d kmuhub \
-  -v reviewer_id="'<reviewer-uuid>'" \
+  -v reviewer_id=<reviewer-uuid> \
   -f - < backend/seeds/prod/helpdesk-seed.sql
 
 sudo docker exec -i <pg-container> psql -U kmuhub -d kmuhub \
-  -v reviewer_id="'<reviewer-uuid>'" \
+  -v reviewer_id=<reviewer-uuid> \
   -f - < backend/seeds/prod/inbox-seed.sql
 ```
 
 `tenant_id` defaultet auf den Bootstrap-Tenant `00000000-…-0001`. Anderer Tenant:
-zusätzlich `-v tenant_id="'<tenant-uuid>'"`.
+zusätzlich `-v tenant_id=<tenant-uuid>` (ebenfalls ohne Quotes).
 
 Beide Skripte geben am Ende Zählungen aus (tickets/open/messages bzw.
 inbox_messages/unread/canned) — müssen > 0 sein. Mehrfaches Ausführen ist sicher

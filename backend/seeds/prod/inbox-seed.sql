@@ -5,10 +5,11 @@
 -- inbox_messages is USER-scoped: user_id MUST be the reviewer, or the inbox stays
 -- empty for them. Run as a DB superuser (bypasses RLS):
 --   docker exec -i <pg> psql -U kmuhub -d kmuhub \
---     -v reviewer_id="'<reviewer-user-uuid>'" \
+--     -v reviewer_id=<reviewer-user-uuid> \
 --     -f - < backend/seeds/prod/inbox-seed.sql
+-- Pass the UUID WITHOUT quotes — the script quotes it via :'reviewer_id' itself.
 -- Resolve the reviewer with:  SELECT id, email FROM users;
--- tenant_id defaults to the bootstrap tenant; override with -v tenant_id="'<uuid>'".
+-- tenant_id defaults to the bootstrap tenant; override with -v tenant_id=<uuid>.
 
 \if :{?reviewer_id}
 \else
