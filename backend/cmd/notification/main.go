@@ -24,6 +24,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/inbox/message"
 	"github.com/kmuhub/kmuhub/internal/inbox/routing"
 	"github.com/kmuhub/kmuhub/internal/inbox/team"
+	"github.com/kmuhub/kmuhub/internal/inbox/thread"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -131,6 +132,7 @@ func main() {
 	inboxMessageRepo := message.NewPostgresRepository(pool)
 	inboxTeamRepo := team.NewPostgresRepository(pool)
 	inboxRoutingRepo := routing.NewPostgresRepository(pool)
+	inboxThreadRepo := thread.NewPostgresRepository(pool)
 
 	// Initialize channel adapters (nil clients for now -- they'll be connected
 	// when concrete gRPC clients are available via gateway connections)
@@ -143,6 +145,7 @@ func main() {
 	inboxMessageService := message.NewService(inboxMessageRepo, adapterRegistry)
 	inboxTeamService := team.NewService(inboxTeamRepo, inboxMessageRepo)
 	inboxRoutingService := routing.NewService(inboxRoutingRepo, inboxMessageRepo, nil)
+	inboxThreadService := thread.NewService(inboxThreadRepo)
 
 	// Create and register InboxConsumer on EventBus
 	inboxConsumer := &InboxConsumer{
@@ -194,7 +197,7 @@ func main() {
 	notificationv1.RegisterNotificationServiceServer(grpcServer, notifGRPC)
 
 	// Register InboxService on the same gRPC server
-	inboxGRPC := server.NewInboxGRPCServer(inboxMessageService, inboxTeamService, inboxRoutingService)
+	inboxGRPC := server.NewInboxGRPCServer(inboxMessageService, inboxTeamService, inboxRoutingService, inboxThreadService)
 	inboxv1.RegisterInboxServiceServer(grpcServer, inboxGRPC)
 	slog.Info("inbox service co-hosted on notification gRPC server")
 
@@ -505,4 +508,3 @@ func (ic *InboxConsumer) extractSenderName(evt models.EventPayload) string {
 		return "System"
 	}
 }
-

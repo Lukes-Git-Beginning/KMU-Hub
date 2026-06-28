@@ -19,33 +19,38 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InboxService_ListMessages_FullMethodName      = "/inbox.v1.InboxService/ListMessages"
-	InboxService_GetMessage_FullMethodName        = "/inbox.v1.InboxService/GetMessage"
-	InboxService_MarkRead_FullMethodName          = "/inbox.v1.InboxService/MarkRead"
-	InboxService_MarkUnread_FullMethodName        = "/inbox.v1.InboxService/MarkUnread"
-	InboxService_ToggleStar_FullMethodName        = "/inbox.v1.InboxService/ToggleStar"
-	InboxService_ArchiveMessage_FullMethodName    = "/inbox.v1.InboxService/ArchiveMessage"
-	InboxService_UnarchiveMessage_FullMethodName  = "/inbox.v1.InboxService/UnarchiveMessage"
-	InboxService_SnoozeMessage_FullMethodName     = "/inbox.v1.InboxService/SnoozeMessage"
-	InboxService_UnsnoozeMessage_FullMethodName   = "/inbox.v1.InboxService/UnsnoozeMessage"
-	InboxService_ReplyToMessage_FullMethodName    = "/inbox.v1.InboxService/ReplyToMessage"
-	InboxService_AssignMessage_FullMethodName     = "/inbox.v1.InboxService/AssignMessage"
-	InboxService_GetUnreadCount_FullMethodName    = "/inbox.v1.InboxService/GetUnreadCount"
-	InboxService_BulkMarkRead_FullMethodName      = "/inbox.v1.InboxService/BulkMarkRead"
-	InboxService_BulkArchive_FullMethodName       = "/inbox.v1.InboxService/BulkArchive"
-	InboxService_CreateTeamInbox_FullMethodName   = "/inbox.v1.InboxService/CreateTeamInbox"
-	InboxService_UpdateTeamInbox_FullMethodName   = "/inbox.v1.InboxService/UpdateTeamInbox"
-	InboxService_DeleteTeamInbox_FullMethodName   = "/inbox.v1.InboxService/DeleteTeamInbox"
-	InboxService_ListTeamInboxes_FullMethodName   = "/inbox.v1.InboxService/ListTeamInboxes"
-	InboxService_AddTeamMember_FullMethodName     = "/inbox.v1.InboxService/AddTeamMember"
-	InboxService_RemoveTeamMember_FullMethodName  = "/inbox.v1.InboxService/RemoveTeamMember"
-	InboxService_ListTeamMembers_FullMethodName   = "/inbox.v1.InboxService/ListTeamMembers"
-	InboxService_ClaimMessage_FullMethodName      = "/inbox.v1.InboxService/ClaimMessage"
-	InboxService_CreateRoutingRule_FullMethodName = "/inbox.v1.InboxService/CreateRoutingRule"
-	InboxService_UpdateRoutingRule_FullMethodName = "/inbox.v1.InboxService/UpdateRoutingRule"
-	InboxService_DeleteRoutingRule_FullMethodName = "/inbox.v1.InboxService/DeleteRoutingRule"
-	InboxService_ListRoutingRules_FullMethodName  = "/inbox.v1.InboxService/ListRoutingRules"
-	InboxService_TestRoutingRule_FullMethodName   = "/inbox.v1.InboxService/TestRoutingRule"
+	InboxService_ListMessages_FullMethodName         = "/inbox.v1.InboxService/ListMessages"
+	InboxService_GetMessage_FullMethodName           = "/inbox.v1.InboxService/GetMessage"
+	InboxService_MarkRead_FullMethodName             = "/inbox.v1.InboxService/MarkRead"
+	InboxService_MarkUnread_FullMethodName           = "/inbox.v1.InboxService/MarkUnread"
+	InboxService_ToggleStar_FullMethodName           = "/inbox.v1.InboxService/ToggleStar"
+	InboxService_ArchiveMessage_FullMethodName       = "/inbox.v1.InboxService/ArchiveMessage"
+	InboxService_UnarchiveMessage_FullMethodName     = "/inbox.v1.InboxService/UnarchiveMessage"
+	InboxService_SnoozeMessage_FullMethodName        = "/inbox.v1.InboxService/SnoozeMessage"
+	InboxService_UnsnoozeMessage_FullMethodName      = "/inbox.v1.InboxService/UnsnoozeMessage"
+	InboxService_ReplyToMessage_FullMethodName       = "/inbox.v1.InboxService/ReplyToMessage"
+	InboxService_AssignMessage_FullMethodName        = "/inbox.v1.InboxService/AssignMessage"
+	InboxService_GetUnreadCount_FullMethodName       = "/inbox.v1.InboxService/GetUnreadCount"
+	InboxService_BulkMarkRead_FullMethodName         = "/inbox.v1.InboxService/BulkMarkRead"
+	InboxService_BulkArchive_FullMethodName          = "/inbox.v1.InboxService/BulkArchive"
+	InboxService_ListThreadMessages_FullMethodName   = "/inbox.v1.InboxService/ListThreadMessages"
+	InboxService_CreateCannedResponse_FullMethodName = "/inbox.v1.InboxService/CreateCannedResponse"
+	InboxService_ListCannedResponses_FullMethodName  = "/inbox.v1.InboxService/ListCannedResponses"
+	InboxService_UpdateCannedResponse_FullMethodName = "/inbox.v1.InboxService/UpdateCannedResponse"
+	InboxService_DeleteCannedResponse_FullMethodName = "/inbox.v1.InboxService/DeleteCannedResponse"
+	InboxService_CreateTeamInbox_FullMethodName      = "/inbox.v1.InboxService/CreateTeamInbox"
+	InboxService_UpdateTeamInbox_FullMethodName      = "/inbox.v1.InboxService/UpdateTeamInbox"
+	InboxService_DeleteTeamInbox_FullMethodName      = "/inbox.v1.InboxService/DeleteTeamInbox"
+	InboxService_ListTeamInboxes_FullMethodName      = "/inbox.v1.InboxService/ListTeamInboxes"
+	InboxService_AddTeamMember_FullMethodName        = "/inbox.v1.InboxService/AddTeamMember"
+	InboxService_RemoveTeamMember_FullMethodName     = "/inbox.v1.InboxService/RemoveTeamMember"
+	InboxService_ListTeamMembers_FullMethodName      = "/inbox.v1.InboxService/ListTeamMembers"
+	InboxService_ClaimMessage_FullMethodName         = "/inbox.v1.InboxService/ClaimMessage"
+	InboxService_CreateRoutingRule_FullMethodName    = "/inbox.v1.InboxService/CreateRoutingRule"
+	InboxService_UpdateRoutingRule_FullMethodName    = "/inbox.v1.InboxService/UpdateRoutingRule"
+	InboxService_DeleteRoutingRule_FullMethodName    = "/inbox.v1.InboxService/DeleteRoutingRule"
+	InboxService_ListRoutingRules_FullMethodName     = "/inbox.v1.InboxService/ListRoutingRules"
+	InboxService_TestRoutingRule_FullMethodName      = "/inbox.v1.InboxService/TestRoutingRule"
 )
 
 // InboxServiceClient is the client API for InboxService service.
@@ -69,6 +74,17 @@ type InboxServiceClient interface {
 	GetUnreadCount(ctx context.Context, in *GetUnreadCountRequest, opts ...grpc.CallOption) (*GetUnreadCountResponse, error)
 	BulkMarkRead(ctx context.Context, in *BulkMarkReadRequest, opts ...grpc.CallOption) (*BulkMarkReadResponse, error)
 	BulkArchive(ctx context.Context, in *BulkArchiveRequest, opts ...grpc.CallOption) (*BulkArchiveResponse, error)
+	// =========================================================================
+	// Thread (1 RPC)
+	// =========================================================================
+	ListThreadMessages(ctx context.Context, in *ListThreadMessagesRequest, opts ...grpc.CallOption) (*ListThreadMessagesResponse, error)
+	// =========================================================================
+	// Canned Responses (4 RPCs)
+	// =========================================================================
+	CreateCannedResponse(ctx context.Context, in *CreateCannedResponseRequest, opts ...grpc.CallOption) (*CannedResponseInfo, error)
+	ListCannedResponses(ctx context.Context, in *ListCannedResponsesRequest, opts ...grpc.CallOption) (*ListCannedResponsesResponse, error)
+	UpdateCannedResponse(ctx context.Context, in *UpdateCannedResponseRequest, opts ...grpc.CallOption) (*CannedResponseInfo, error)
+	DeleteCannedResponse(ctx context.Context, in *DeleteCannedResponseRequest, opts ...grpc.CallOption) (*DeleteCannedResponseResponse, error)
 	// =========================================================================
 	// Team Inboxes (8 RPCs)
 	// =========================================================================
@@ -238,6 +254,56 @@ func (c *inboxServiceClient) BulkArchive(ctx context.Context, in *BulkArchiveReq
 	return out, nil
 }
 
+func (c *inboxServiceClient) ListThreadMessages(ctx context.Context, in *ListThreadMessagesRequest, opts ...grpc.CallOption) (*ListThreadMessagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListThreadMessagesResponse)
+	err := c.cc.Invoke(ctx, InboxService_ListThreadMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) CreateCannedResponse(ctx context.Context, in *CreateCannedResponseRequest, opts ...grpc.CallOption) (*CannedResponseInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CannedResponseInfo)
+	err := c.cc.Invoke(ctx, InboxService_CreateCannedResponse_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) ListCannedResponses(ctx context.Context, in *ListCannedResponsesRequest, opts ...grpc.CallOption) (*ListCannedResponsesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCannedResponsesResponse)
+	err := c.cc.Invoke(ctx, InboxService_ListCannedResponses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) UpdateCannedResponse(ctx context.Context, in *UpdateCannedResponseRequest, opts ...grpc.CallOption) (*CannedResponseInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CannedResponseInfo)
+	err := c.cc.Invoke(ctx, InboxService_UpdateCannedResponse_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) DeleteCannedResponse(ctx context.Context, in *DeleteCannedResponseRequest, opts ...grpc.CallOption) (*DeleteCannedResponseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteCannedResponseResponse)
+	err := c.cc.Invoke(ctx, InboxService_DeleteCannedResponse_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *inboxServiceClient) CreateTeamInbox(ctx context.Context, in *CreateTeamInboxRequest, opts ...grpc.CallOption) (*CreateTeamInboxResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateTeamInboxResponse)
@@ -390,6 +456,17 @@ type InboxServiceServer interface {
 	BulkMarkRead(context.Context, *BulkMarkReadRequest) (*BulkMarkReadResponse, error)
 	BulkArchive(context.Context, *BulkArchiveRequest) (*BulkArchiveResponse, error)
 	// =========================================================================
+	// Thread (1 RPC)
+	// =========================================================================
+	ListThreadMessages(context.Context, *ListThreadMessagesRequest) (*ListThreadMessagesResponse, error)
+	// =========================================================================
+	// Canned Responses (4 RPCs)
+	// =========================================================================
+	CreateCannedResponse(context.Context, *CreateCannedResponseRequest) (*CannedResponseInfo, error)
+	ListCannedResponses(context.Context, *ListCannedResponsesRequest) (*ListCannedResponsesResponse, error)
+	UpdateCannedResponse(context.Context, *UpdateCannedResponseRequest) (*CannedResponseInfo, error)
+	DeleteCannedResponse(context.Context, *DeleteCannedResponseRequest) (*DeleteCannedResponseResponse, error)
+	// =========================================================================
 	// Team Inboxes (8 RPCs)
 	// =========================================================================
 	CreateTeamInbox(context.Context, *CreateTeamInboxRequest) (*CreateTeamInboxResponse, error)
@@ -459,6 +536,21 @@ func (UnimplementedInboxServiceServer) BulkMarkRead(context.Context, *BulkMarkRe
 }
 func (UnimplementedInboxServiceServer) BulkArchive(context.Context, *BulkArchiveRequest) (*BulkArchiveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BulkArchive not implemented")
+}
+func (UnimplementedInboxServiceServer) ListThreadMessages(context.Context, *ListThreadMessagesRequest) (*ListThreadMessagesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListThreadMessages not implemented")
+}
+func (UnimplementedInboxServiceServer) CreateCannedResponse(context.Context, *CreateCannedResponseRequest) (*CannedResponseInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateCannedResponse not implemented")
+}
+func (UnimplementedInboxServiceServer) ListCannedResponses(context.Context, *ListCannedResponsesRequest) (*ListCannedResponsesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCannedResponses not implemented")
+}
+func (UnimplementedInboxServiceServer) UpdateCannedResponse(context.Context, *UpdateCannedResponseRequest) (*CannedResponseInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateCannedResponse not implemented")
+}
+func (UnimplementedInboxServiceServer) DeleteCannedResponse(context.Context, *DeleteCannedResponseRequest) (*DeleteCannedResponseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteCannedResponse not implemented")
 }
 func (UnimplementedInboxServiceServer) CreateTeamInbox(context.Context, *CreateTeamInboxRequest) (*CreateTeamInboxResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateTeamInbox not implemented")
@@ -772,6 +864,96 @@ func _InboxService_BulkArchive_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InboxService_ListThreadMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListThreadMessagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).ListThreadMessages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_ListThreadMessages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).ListThreadMessages(ctx, req.(*ListThreadMessagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_CreateCannedResponse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCannedResponseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).CreateCannedResponse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_CreateCannedResponse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).CreateCannedResponse(ctx, req.(*CreateCannedResponseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_ListCannedResponses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCannedResponsesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).ListCannedResponses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_ListCannedResponses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).ListCannedResponses(ctx, req.(*ListCannedResponsesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_UpdateCannedResponse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCannedResponseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).UpdateCannedResponse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_UpdateCannedResponse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).UpdateCannedResponse(ctx, req.(*UpdateCannedResponseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_DeleteCannedResponse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCannedResponseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).DeleteCannedResponse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_DeleteCannedResponse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).DeleteCannedResponse(ctx, req.(*DeleteCannedResponseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _InboxService_CreateTeamInbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateTeamInboxRequest)
 	if err := dec(in); err != nil {
@@ -1068,6 +1250,26 @@ var InboxService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BulkArchive",
 			Handler:    _InboxService_BulkArchive_Handler,
+		},
+		{
+			MethodName: "ListThreadMessages",
+			Handler:    _InboxService_ListThreadMessages_Handler,
+		},
+		{
+			MethodName: "CreateCannedResponse",
+			Handler:    _InboxService_CreateCannedResponse_Handler,
+		},
+		{
+			MethodName: "ListCannedResponses",
+			Handler:    _InboxService_ListCannedResponses_Handler,
+		},
+		{
+			MethodName: "UpdateCannedResponse",
+			Handler:    _InboxService_UpdateCannedResponse_Handler,
+		},
+		{
+			MethodName: "DeleteCannedResponse",
+			Handler:    _InboxService_DeleteCannedResponse_Handler,
 		},
 		{
 			MethodName: "CreateTeamInbox",

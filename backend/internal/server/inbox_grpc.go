@@ -16,6 +16,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/inbox/message"
 	"github.com/kmuhub/kmuhub/internal/inbox/routing"
 	"github.com/kmuhub/kmuhub/internal/inbox/team"
+	"github.com/kmuhub/kmuhub/internal/inbox/thread"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
@@ -27,6 +28,7 @@ type InboxGRPCServer struct {
 	messageService *message.Service
 	teamService    *team.Service
 	routingService *routing.Service
+	threadService  *thread.Service
 }
 
 // NewInboxGRPCServer creates a new Inbox gRPC server.
@@ -34,11 +36,13 @@ func NewInboxGRPCServer(
 	messageSvc *message.Service,
 	teamSvc *team.Service,
 	routingSvc *routing.Service,
+	threadSvc *thread.Service,
 ) *InboxGRPCServer {
 	return &InboxGRPCServer{
 		messageService: messageSvc,
 		teamService:    teamSvc,
 		routingService: routingSvc,
+		threadService:  threadSvc,
 	}
 }
 
@@ -343,9 +347,149 @@ func (s *InboxGRPCServer) ReplyToMessage(ctx context.Context, req *inboxv1.Reply
 		return nil, mapInboxError(err)
 	}
 
+	// Persist the reply into the durable thread (best-effort: the reply itself
+	// already succeeded via the channel adapter).
+	if err := s.threadService.AppendReply(ctx, tenantID, msgID, userID, req.Body); err != nil {
+		slog.Warn("inbox: failed to persist reply to thread", "message_id", msgID, "error", err)
+	}
+
 	return &inboxv1.ReplyToMessageResponse{
 		Success: true,
 	}, nil
+}
+
+// ============================================================================
+// Thread + Canned Responses
+// ============================================================================
+
+func (s *InboxGRPCServer) ListThreadMessages(ctx context.Context, req *inboxv1.ListThreadMessagesRequest) (*inboxv1.ListThreadMessagesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	msgID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	// Load the originating message (enforces tenant isolation) to seed the
+	// inbound original on first read.
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	seed := thread.InboundSeed{
+		SenderName: msg.SenderName,
+		Body:       msg.Preview,
+		CreatedAt:  msg.ReceivedAt,
+	}
+	msgs, err := s.threadService.ListThread(ctx, tenantID, msgID, seed)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	out := make([]*inboxv1.ThreadMessageInfo, 0, len(msgs))
+	for _, m := range msgs {
+		out = append(out, toThreadMessageInfo(m))
+	}
+	return &inboxv1.ListThreadMessagesResponse{Messages: out}, nil
+}
+
+func (s *InboxGRPCServer) CreateCannedResponse(ctx context.Context, req *inboxv1.CreateCannedResponseRequest) (*inboxv1.CannedResponseInfo, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	if req.Name == "" || req.Body == "" {
+		return nil, status.Error(codes.InvalidArgument, "name and body are required")
+	}
+
+	c, err := s.threadService.CreateCanned(ctx, tenantID, req.Name, req.Body)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+	return toCannedResponseInfo(c), nil
+}
+
+func (s *InboxGRPCServer) ListCannedResponses(ctx context.Context, _ *inboxv1.ListCannedResponsesRequest) (*inboxv1.ListCannedResponsesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	items, err := s.threadService.ListCanned(ctx, tenantID)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	out := make([]*inboxv1.CannedResponseInfo, 0, len(items))
+	for _, c := range items {
+		out = append(out, toCannedResponseInfo(c))
+	}
+	return &inboxv1.ListCannedResponsesResponse{CannedResponses: out}, nil
+}
+
+func (s *InboxGRPCServer) UpdateCannedResponse(ctx context.Context, req *inboxv1.UpdateCannedResponseRequest) (*inboxv1.CannedResponseInfo, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	c, err := s.threadService.UpdateCanned(ctx, tenantID, id, req.Name, req.Body)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+	return toCannedResponseInfo(c), nil
+}
+
+func (s *InboxGRPCServer) DeleteCannedResponse(ctx context.Context, req *inboxv1.DeleteCannedResponseRequest) (*inboxv1.DeleteCannedResponseResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	if err := s.threadService.DeleteCanned(ctx, tenantID, id); err != nil {
+		return nil, mapInboxError(err)
+	}
+	return &inboxv1.DeleteCannedResponseResponse{}, nil
+}
+
+func toThreadMessageInfo(m *thread.ThreadMessage) *inboxv1.ThreadMessageInfo {
+	info := &inboxv1.ThreadMessageInfo{
+		Id:         m.ID.String(),
+		MessageId:  m.MessageID.String(),
+		AuthorName: m.AuthorName,
+		Direction:  m.Direction,
+		Body:       m.Body,
+		CreatedAt:  timestamppb.New(m.CreatedAt),
+	}
+	if m.AuthorID != nil {
+		aid := m.AuthorID.String()
+		info.AuthorId = &aid
+	}
+	return info
+}
+
+func toCannedResponseInfo(c *thread.CannedResponse) *inboxv1.CannedResponseInfo {
+	return &inboxv1.CannedResponseInfo{
+		Id:        c.ID.String(),
+		Name:      c.Name,
+		Body:      c.Body,
+		CreatedAt: timestamppb.New(c.CreatedAt),
+		UpdatedAt: timestamppb.New(c.UpdatedAt),
+	}
 }
 
 func (s *InboxGRPCServer) AssignMessage(ctx context.Context, req *inboxv1.AssignMessageRequest) (*inboxv1.AssignMessageResponse, error) {
@@ -1160,6 +1304,8 @@ func mapInboxError(err error) error {
 		return status.Error(codes.Unimplemented, err.Error())
 	case errors.Is(err, message.ErrDuplicateMessage):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, thread.ErrCannedResponseNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, team.ErrTeamInboxNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, team.ErrNotTeamAdmin):

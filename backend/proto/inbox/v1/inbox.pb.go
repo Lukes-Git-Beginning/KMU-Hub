@@ -2213,6 +2213,544 @@ func (x *BulkArchiveResponse) GetUpdatedCount() int32 {
 	return 0
 }
 
+type ThreadMessageInfo struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	MessageId string                 `protobuf:"bytes,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	AuthorId  *string                `protobuf:"bytes,3,opt,name=author_id,json=authorId,proto3,oneof" json:"author_id,omitempty"`
+	// Resolved display name (user name, else external sender, else empty).
+	AuthorName string `protobuf:"bytes,4,opt,name=author_name,json=authorName,proto3" json:"author_name,omitempty"`
+	// "inbound" | "outbound" | "internal"
+	Direction     string                 `protobuf:"bytes,5,opt,name=direction,proto3" json:"direction,omitempty"`
+	Body          string                 `protobuf:"bytes,6,opt,name=body,proto3" json:"body,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ThreadMessageInfo) Reset() {
+	*x = ThreadMessageInfo{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ThreadMessageInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ThreadMessageInfo) ProtoMessage() {}
+
+func (x *ThreadMessageInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ThreadMessageInfo.ProtoReflect.Descriptor instead.
+func (*ThreadMessageInfo) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *ThreadMessageInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ThreadMessageInfo) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *ThreadMessageInfo) GetAuthorId() string {
+	if x != nil && x.AuthorId != nil {
+		return *x.AuthorId
+	}
+	return ""
+}
+
+func (x *ThreadMessageInfo) GetAuthorName() string {
+	if x != nil {
+		return x.AuthorName
+	}
+	return ""
+}
+
+func (x *ThreadMessageInfo) GetDirection() string {
+	if x != nil {
+		return x.Direction
+	}
+	return ""
+}
+
+func (x *ThreadMessageInfo) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *ThreadMessageInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type ListThreadMessagesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListThreadMessagesRequest) Reset() {
+	*x = ListThreadMessagesRequest{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListThreadMessagesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListThreadMessagesRequest) ProtoMessage() {}
+
+func (x *ListThreadMessagesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListThreadMessagesRequest.ProtoReflect.Descriptor instead.
+func (*ListThreadMessagesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ListThreadMessagesRequest) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *ListThreadMessagesRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListThreadMessagesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*ThreadMessageInfo   `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListThreadMessagesResponse) Reset() {
+	*x = ListThreadMessagesResponse{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListThreadMessagesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListThreadMessagesResponse) ProtoMessage() {}
+
+func (x *ListThreadMessagesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListThreadMessagesResponse.ProtoReflect.Descriptor instead.
+func (*ListThreadMessagesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ListThreadMessagesResponse) GetMessages() []*ThreadMessageInfo {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+type CannedResponseInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Body          string                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CannedResponseInfo) Reset() {
+	*x = CannedResponseInfo{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CannedResponseInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CannedResponseInfo) ProtoMessage() {}
+
+func (x *CannedResponseInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CannedResponseInfo.ProtoReflect.Descriptor instead.
+func (*CannedResponseInfo) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *CannedResponseInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CannedResponseInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CannedResponseInfo) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *CannedResponseInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *CannedResponseInfo) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateCannedResponseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Body          string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCannedResponseRequest) Reset() {
+	*x = CreateCannedResponseRequest{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCannedResponseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCannedResponseRequest) ProtoMessage() {}
+
+func (x *CreateCannedResponseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCannedResponseRequest.ProtoReflect.Descriptor instead.
+func (*CreateCannedResponseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *CreateCannedResponseRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateCannedResponseRequest) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+type ListCannedResponsesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCannedResponsesRequest) Reset() {
+	*x = ListCannedResponsesRequest{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCannedResponsesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCannedResponsesRequest) ProtoMessage() {}
+
+func (x *ListCannedResponsesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCannedResponsesRequest.ProtoReflect.Descriptor instead.
+func (*ListCannedResponsesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{38}
+}
+
+type ListCannedResponsesResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	CannedResponses []*CannedResponseInfo  `protobuf:"bytes,1,rep,name=canned_responses,json=cannedResponses,proto3" json:"canned_responses,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListCannedResponsesResponse) Reset() {
+	*x = ListCannedResponsesResponse{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCannedResponsesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCannedResponsesResponse) ProtoMessage() {}
+
+func (x *ListCannedResponsesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCannedResponsesResponse.ProtoReflect.Descriptor instead.
+func (*ListCannedResponsesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ListCannedResponsesResponse) GetCannedResponses() []*CannedResponseInfo {
+	if x != nil {
+		return x.CannedResponses
+	}
+	return nil
+}
+
+type UpdateCannedResponseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Body          *string                `protobuf:"bytes,3,opt,name=body,proto3,oneof" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCannedResponseRequest) Reset() {
+	*x = UpdateCannedResponseRequest{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCannedResponseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCannedResponseRequest) ProtoMessage() {}
+
+func (x *UpdateCannedResponseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCannedResponseRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCannedResponseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *UpdateCannedResponseRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateCannedResponseRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateCannedResponseRequest) GetBody() string {
+	if x != nil && x.Body != nil {
+		return *x.Body
+	}
+	return ""
+}
+
+type DeleteCannedResponseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCannedResponseRequest) Reset() {
+	*x = DeleteCannedResponseRequest{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCannedResponseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCannedResponseRequest) ProtoMessage() {}
+
+func (x *DeleteCannedResponseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCannedResponseRequest.ProtoReflect.Descriptor instead.
+func (*DeleteCannedResponseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *DeleteCannedResponseRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteCannedResponseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCannedResponseResponse) Reset() {
+	*x = DeleteCannedResponseResponse{}
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCannedResponseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCannedResponseResponse) ProtoMessage() {}
+
+func (x *DeleteCannedResponseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCannedResponseResponse.ProtoReflect.Descriptor instead.
+func (*DeleteCannedResponseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{42}
+}
+
 type CreateTeamInboxRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	UserId         string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -2226,7 +2764,7 @@ type CreateTeamInboxRequest struct {
 
 func (x *CreateTeamInboxRequest) Reset() {
 	*x = CreateTeamInboxRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[33]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2238,7 +2776,7 @@ func (x *CreateTeamInboxRequest) String() string {
 func (*CreateTeamInboxRequest) ProtoMessage() {}
 
 func (x *CreateTeamInboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[33]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2251,7 +2789,7 @@ func (x *CreateTeamInboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTeamInboxRequest.ProtoReflect.Descriptor instead.
 func (*CreateTeamInboxRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{33}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *CreateTeamInboxRequest) GetUserId() string {
@@ -2298,7 +2836,7 @@ type CreateTeamInboxResponse struct {
 
 func (x *CreateTeamInboxResponse) Reset() {
 	*x = CreateTeamInboxResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[34]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2310,7 +2848,7 @@ func (x *CreateTeamInboxResponse) String() string {
 func (*CreateTeamInboxResponse) ProtoMessage() {}
 
 func (x *CreateTeamInboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[34]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2323,7 +2861,7 @@ func (x *CreateTeamInboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTeamInboxResponse.ProtoReflect.Descriptor instead.
 func (*CreateTeamInboxResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{34}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CreateTeamInboxResponse) GetTeamInbox() *TeamInboxInfo {
@@ -2347,7 +2885,7 @@ type UpdateTeamInboxRequest struct {
 
 func (x *UpdateTeamInboxRequest) Reset() {
 	*x = UpdateTeamInboxRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[35]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2359,7 +2897,7 @@ func (x *UpdateTeamInboxRequest) String() string {
 func (*UpdateTeamInboxRequest) ProtoMessage() {}
 
 func (x *UpdateTeamInboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[35]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2372,7 +2910,7 @@ func (x *UpdateTeamInboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTeamInboxRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTeamInboxRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{35}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *UpdateTeamInboxRequest) GetTeamInboxId() string {
@@ -2426,7 +2964,7 @@ type UpdateTeamInboxResponse struct {
 
 func (x *UpdateTeamInboxResponse) Reset() {
 	*x = UpdateTeamInboxResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[36]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2438,7 +2976,7 @@ func (x *UpdateTeamInboxResponse) String() string {
 func (*UpdateTeamInboxResponse) ProtoMessage() {}
 
 func (x *UpdateTeamInboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[36]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2451,7 +2989,7 @@ func (x *UpdateTeamInboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTeamInboxResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTeamInboxResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{36}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *UpdateTeamInboxResponse) GetTeamInbox() *TeamInboxInfo {
@@ -2471,7 +3009,7 @@ type DeleteTeamInboxRequest struct {
 
 func (x *DeleteTeamInboxRequest) Reset() {
 	*x = DeleteTeamInboxRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[37]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2483,7 +3021,7 @@ func (x *DeleteTeamInboxRequest) String() string {
 func (*DeleteTeamInboxRequest) ProtoMessage() {}
 
 func (x *DeleteTeamInboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[37]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2496,7 +3034,7 @@ func (x *DeleteTeamInboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTeamInboxRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTeamInboxRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{37}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *DeleteTeamInboxRequest) GetTeamInboxId() string {
@@ -2521,7 +3059,7 @@ type DeleteTeamInboxResponse struct {
 
 func (x *DeleteTeamInboxResponse) Reset() {
 	*x = DeleteTeamInboxResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[38]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2533,7 +3071,7 @@ func (x *DeleteTeamInboxResponse) String() string {
 func (*DeleteTeamInboxResponse) ProtoMessage() {}
 
 func (x *DeleteTeamInboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[38]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2546,7 +3084,7 @@ func (x *DeleteTeamInboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTeamInboxResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTeamInboxResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{38}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{48}
 }
 
 type ListTeamInboxesRequest struct {
@@ -2558,7 +3096,7 @@ type ListTeamInboxesRequest struct {
 
 func (x *ListTeamInboxesRequest) Reset() {
 	*x = ListTeamInboxesRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[39]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2570,7 +3108,7 @@ func (x *ListTeamInboxesRequest) String() string {
 func (*ListTeamInboxesRequest) ProtoMessage() {}
 
 func (x *ListTeamInboxesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[39]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2583,7 +3121,7 @@ func (x *ListTeamInboxesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamInboxesRequest.ProtoReflect.Descriptor instead.
 func (*ListTeamInboxesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{39}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListTeamInboxesRequest) GetUserId() string {
@@ -2602,7 +3140,7 @@ type ListTeamInboxesResponse struct {
 
 func (x *ListTeamInboxesResponse) Reset() {
 	*x = ListTeamInboxesResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[40]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2614,7 +3152,7 @@ func (x *ListTeamInboxesResponse) String() string {
 func (*ListTeamInboxesResponse) ProtoMessage() {}
 
 func (x *ListTeamInboxesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[40]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2627,7 +3165,7 @@ func (x *ListTeamInboxesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamInboxesResponse.ProtoReflect.Descriptor instead.
 func (*ListTeamInboxesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{40}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListTeamInboxesResponse) GetTeamInboxes() []*TeamInboxInfo {
@@ -2649,7 +3187,7 @@ type AddTeamMemberRequest struct {
 
 func (x *AddTeamMemberRequest) Reset() {
 	*x = AddTeamMemberRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[41]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2661,7 +3199,7 @@ func (x *AddTeamMemberRequest) String() string {
 func (*AddTeamMemberRequest) ProtoMessage() {}
 
 func (x *AddTeamMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[41]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2674,7 +3212,7 @@ func (x *AddTeamMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTeamMemberRequest.ProtoReflect.Descriptor instead.
 func (*AddTeamMemberRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{41}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *AddTeamMemberRequest) GetTeamInboxId() string {
@@ -2714,7 +3252,7 @@ type AddTeamMemberResponse struct {
 
 func (x *AddTeamMemberResponse) Reset() {
 	*x = AddTeamMemberResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[42]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2726,7 +3264,7 @@ func (x *AddTeamMemberResponse) String() string {
 func (*AddTeamMemberResponse) ProtoMessage() {}
 
 func (x *AddTeamMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[42]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2739,7 +3277,7 @@ func (x *AddTeamMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTeamMemberResponse.ProtoReflect.Descriptor instead.
 func (*AddTeamMemberResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{42}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *AddTeamMemberResponse) GetMember() *TeamMemberInfo {
@@ -2760,7 +3298,7 @@ type RemoveTeamMemberRequest struct {
 
 func (x *RemoveTeamMemberRequest) Reset() {
 	*x = RemoveTeamMemberRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[43]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2772,7 +3310,7 @@ func (x *RemoveTeamMemberRequest) String() string {
 func (*RemoveTeamMemberRequest) ProtoMessage() {}
 
 func (x *RemoveTeamMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[43]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2785,7 +3323,7 @@ func (x *RemoveTeamMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveTeamMemberRequest.ProtoReflect.Descriptor instead.
 func (*RemoveTeamMemberRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{43}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *RemoveTeamMemberRequest) GetTeamInboxId() string {
@@ -2817,7 +3355,7 @@ type RemoveTeamMemberResponse struct {
 
 func (x *RemoveTeamMemberResponse) Reset() {
 	*x = RemoveTeamMemberResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[44]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2829,7 +3367,7 @@ func (x *RemoveTeamMemberResponse) String() string {
 func (*RemoveTeamMemberResponse) ProtoMessage() {}
 
 func (x *RemoveTeamMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[44]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2842,7 +3380,7 @@ func (x *RemoveTeamMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveTeamMemberResponse.ProtoReflect.Descriptor instead.
 func (*RemoveTeamMemberResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{44}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{54}
 }
 
 type ListTeamMembersRequest struct {
@@ -2855,7 +3393,7 @@ type ListTeamMembersRequest struct {
 
 func (x *ListTeamMembersRequest) Reset() {
 	*x = ListTeamMembersRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[45]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2867,7 +3405,7 @@ func (x *ListTeamMembersRequest) String() string {
 func (*ListTeamMembersRequest) ProtoMessage() {}
 
 func (x *ListTeamMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[45]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2880,7 +3418,7 @@ func (x *ListTeamMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamMembersRequest.ProtoReflect.Descriptor instead.
 func (*ListTeamMembersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{45}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ListTeamMembersRequest) GetTeamInboxId() string {
@@ -2906,7 +3444,7 @@ type ListTeamMembersResponse struct {
 
 func (x *ListTeamMembersResponse) Reset() {
 	*x = ListTeamMembersResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[46]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2918,7 +3456,7 @@ func (x *ListTeamMembersResponse) String() string {
 func (*ListTeamMembersResponse) ProtoMessage() {}
 
 func (x *ListTeamMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[46]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2931,7 +3469,7 @@ func (x *ListTeamMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamMembersResponse.ProtoReflect.Descriptor instead.
 func (*ListTeamMembersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{46}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ListTeamMembersResponse) GetMembers() []*TeamMemberInfo {
@@ -2951,7 +3489,7 @@ type ClaimMessageRequest struct {
 
 func (x *ClaimMessageRequest) Reset() {
 	*x = ClaimMessageRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[47]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2963,7 +3501,7 @@ func (x *ClaimMessageRequest) String() string {
 func (*ClaimMessageRequest) ProtoMessage() {}
 
 func (x *ClaimMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[47]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2976,7 +3514,7 @@ func (x *ClaimMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimMessageRequest.ProtoReflect.Descriptor instead.
 func (*ClaimMessageRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{47}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ClaimMessageRequest) GetMessageId() string {
@@ -3002,7 +3540,7 @@ type ClaimMessageResponse struct {
 
 func (x *ClaimMessageResponse) Reset() {
 	*x = ClaimMessageResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[48]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3014,7 +3552,7 @@ func (x *ClaimMessageResponse) String() string {
 func (*ClaimMessageResponse) ProtoMessage() {}
 
 func (x *ClaimMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[48]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3027,7 +3565,7 @@ func (x *ClaimMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimMessageResponse.ProtoReflect.Descriptor instead.
 func (*ClaimMessageResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{48}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ClaimMessageResponse) GetMessage() *InboxMessageInfo {
@@ -3051,7 +3589,7 @@ type CreateRoutingRuleRequest struct {
 
 func (x *CreateRoutingRuleRequest) Reset() {
 	*x = CreateRoutingRuleRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[49]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3063,7 +3601,7 @@ func (x *CreateRoutingRuleRequest) String() string {
 func (*CreateRoutingRuleRequest) ProtoMessage() {}
 
 func (x *CreateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[49]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3076,7 +3614,7 @@ func (x *CreateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*CreateRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{49}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *CreateRoutingRuleRequest) GetUserId() string {
@@ -3130,7 +3668,7 @@ type CreateRoutingRuleResponse struct {
 
 func (x *CreateRoutingRuleResponse) Reset() {
 	*x = CreateRoutingRuleResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[50]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3142,7 +3680,7 @@ func (x *CreateRoutingRuleResponse) String() string {
 func (*CreateRoutingRuleResponse) ProtoMessage() {}
 
 func (x *CreateRoutingRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[50]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3155,7 +3693,7 @@ func (x *CreateRoutingRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRoutingRuleResponse.ProtoReflect.Descriptor instead.
 func (*CreateRoutingRuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{50}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *CreateRoutingRuleResponse) GetRule() *RoutingRuleInfo {
@@ -3181,7 +3719,7 @@ type UpdateRoutingRuleRequest struct {
 
 func (x *UpdateRoutingRuleRequest) Reset() {
 	*x = UpdateRoutingRuleRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[51]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3193,7 +3731,7 @@ func (x *UpdateRoutingRuleRequest) String() string {
 func (*UpdateRoutingRuleRequest) ProtoMessage() {}
 
 func (x *UpdateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[51]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3206,7 +3744,7 @@ func (x *UpdateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{51}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *UpdateRoutingRuleRequest) GetRuleId() string {
@@ -3274,7 +3812,7 @@ type UpdateRoutingRuleResponse struct {
 
 func (x *UpdateRoutingRuleResponse) Reset() {
 	*x = UpdateRoutingRuleResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[52]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3286,7 +3824,7 @@ func (x *UpdateRoutingRuleResponse) String() string {
 func (*UpdateRoutingRuleResponse) ProtoMessage() {}
 
 func (x *UpdateRoutingRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[52]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3299,7 +3837,7 @@ func (x *UpdateRoutingRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRoutingRuleResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRoutingRuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{52}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *UpdateRoutingRuleResponse) GetRule() *RoutingRuleInfo {
@@ -3319,7 +3857,7 @@ type DeleteRoutingRuleRequest struct {
 
 func (x *DeleteRoutingRuleRequest) Reset() {
 	*x = DeleteRoutingRuleRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[53]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3331,7 +3869,7 @@ func (x *DeleteRoutingRuleRequest) String() string {
 func (*DeleteRoutingRuleRequest) ProtoMessage() {}
 
 func (x *DeleteRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[53]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3344,7 +3882,7 @@ func (x *DeleteRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{53}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *DeleteRoutingRuleRequest) GetRuleId() string {
@@ -3369,7 +3907,7 @@ type DeleteRoutingRuleResponse struct {
 
 func (x *DeleteRoutingRuleResponse) Reset() {
 	*x = DeleteRoutingRuleResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[54]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3381,7 +3919,7 @@ func (x *DeleteRoutingRuleResponse) String() string {
 func (*DeleteRoutingRuleResponse) ProtoMessage() {}
 
 func (x *DeleteRoutingRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[54]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3394,7 +3932,7 @@ func (x *DeleteRoutingRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoutingRuleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRoutingRuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{54}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{64}
 }
 
 type ListRoutingRulesRequest struct {
@@ -3408,7 +3946,7 @@ type ListRoutingRulesRequest struct {
 
 func (x *ListRoutingRulesRequest) Reset() {
 	*x = ListRoutingRulesRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[55]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3420,7 +3958,7 @@ func (x *ListRoutingRulesRequest) String() string {
 func (*ListRoutingRulesRequest) ProtoMessage() {}
 
 func (x *ListRoutingRulesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[55]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3433,7 +3971,7 @@ func (x *ListRoutingRulesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoutingRulesRequest.ProtoReflect.Descriptor instead.
 func (*ListRoutingRulesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{55}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ListRoutingRulesRequest) GetUserId() string {
@@ -3466,7 +4004,7 @@ type ListRoutingRulesResponse struct {
 
 func (x *ListRoutingRulesResponse) Reset() {
 	*x = ListRoutingRulesResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[56]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3478,7 +4016,7 @@ func (x *ListRoutingRulesResponse) String() string {
 func (*ListRoutingRulesResponse) ProtoMessage() {}
 
 func (x *ListRoutingRulesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[56]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3491,7 +4029,7 @@ func (x *ListRoutingRulesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoutingRulesResponse.ProtoReflect.Descriptor instead.
 func (*ListRoutingRulesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{56}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ListRoutingRulesResponse) GetRules() []*RoutingRuleInfo {
@@ -3512,7 +4050,7 @@ type TestRoutingRuleRequest struct {
 
 func (x *TestRoutingRuleRequest) Reset() {
 	*x = TestRoutingRuleRequest{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[57]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3524,7 +4062,7 @@ func (x *TestRoutingRuleRequest) String() string {
 func (*TestRoutingRuleRequest) ProtoMessage() {}
 
 func (x *TestRoutingRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[57]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3537,7 +4075,7 @@ func (x *TestRoutingRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestRoutingRuleRequest.ProtoReflect.Descriptor instead.
 func (*TestRoutingRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{57}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *TestRoutingRuleRequest) GetUserId() string {
@@ -3570,7 +4108,7 @@ type TestRoutingRuleResponse struct {
 
 func (x *TestRoutingRuleResponse) Reset() {
 	*x = TestRoutingRuleResponse{}
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[58]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3582,7 +4120,7 @@ func (x *TestRoutingRuleResponse) String() string {
 func (*TestRoutingRuleResponse) ProtoMessage() {}
 
 func (x *TestRoutingRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[58]
+	mi := &file_proto_inbox_v1_inbox_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3595,7 +4133,7 @@ func (x *TestRoutingRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestRoutingRuleResponse.ProtoReflect.Descriptor instead.
 func (*TestRoutingRuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{58}
+	return file_proto_inbox_v1_inbox_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *TestRoutingRuleResponse) GetMatches() bool {
@@ -3797,7 +4335,49 @@ const file_proto_inbox_v1_inbox_proto_rawDesc = "" +
 	"\vmessage_ids\x18\x02 \x03(\tR\n" +
 	"messageIds\":\n" +
 	"\x13BulkArchiveResponse\x12#\n" +
-	"\rupdated_count\x18\x01 \x01(\x05R\fupdatedCount\"\xe9\x01\n" +
+	"\rupdated_count\x18\x01 \x01(\x05R\fupdatedCount\"\x80\x02\n" +
+	"\x11ThreadMessageInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x02 \x01(\tR\tmessageId\x12 \n" +
+	"\tauthor_id\x18\x03 \x01(\tH\x00R\bauthorId\x88\x01\x01\x12\x1f\n" +
+	"\vauthor_name\x18\x04 \x01(\tR\n" +
+	"authorName\x12\x1c\n" +
+	"\tdirection\x18\x05 \x01(\tR\tdirection\x12\x12\n" +
+	"\x04body\x18\x06 \x01(\tR\x04body\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\f\n" +
+	"\n" +
+	"_author_id\"S\n" +
+	"\x19ListThreadMessagesRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"U\n" +
+	"\x1aListThreadMessagesResponse\x127\n" +
+	"\bmessages\x18\x01 \x03(\v2\x1b.inbox.v1.ThreadMessageInfoR\bmessages\"\xc2\x01\n" +
+	"\x12CannedResponseInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04body\x18\x03 \x01(\tR\x04body\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"E\n" +
+	"\x1bCreateCannedResponseRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04body\x18\x02 \x01(\tR\x04body\"\x1c\n" +
+	"\x1aListCannedResponsesRequest\"f\n" +
+	"\x1bListCannedResponsesResponse\x12G\n" +
+	"\x10canned_responses\x18\x01 \x03(\v2\x1c.inbox.v1.CannedResponseInfoR\x0fcannedResponses\"q\n" +
+	"\x1bUpdateCannedResponseRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
+	"\x04body\x18\x03 \x01(\tH\x01R\x04body\x88\x01\x01B\a\n" +
+	"\x05_nameB\a\n" +
+	"\x05_body\"-\n" +
+	"\x1bDeleteCannedResponseRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x1e\n" +
+	"\x1cDeleteCannedResponseResponse\"\xe9\x01\n" +
 	"\x16CreateTeamInboxRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -3912,12 +4492,13 @@ const file_proto_inbox_v1_inbox_proto_rawDesc = "" +
 	"conditions\x12=\n" +
 	"\ftest_message\x18\x03 \x01(\v2\x1a.inbox.v1.InboxMessageInfoR\vtestMessage\"3\n" +
 	"\x17TestRoutingRuleResponse\x12\x18\n" +
-	"\amatches\x18\x01 \x01(\bR\amatches*a\n" +
+	"\amatches\x18\x01 \x01(\bR\amatches*t\n" +
 	"\aChannel\x12\x17\n" +
 	"\x13CHANNEL_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rCHANNEL_EMAIL\x10\x01\x12\x10\n" +
 	"\fCHANNEL_CHAT\x10\x02\x12\x18\n" +
-	"\x14CHANNEL_NOTIFICATION\x10\x03*n\n" +
+	"\x14CHANNEL_NOTIFICATION\x10\x03\x12\x11\n" +
+	"\rCHANNEL_GUEST\x10\x04*n\n" +
 	"\x0eAssignmentMode\x12\x1f\n" +
 	"\x1bASSIGNMENT_MODE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16ASSIGNMENT_MODE_MANUAL\x10\x01\x12\x1f\n" +
@@ -3929,7 +4510,7 @@ const file_proto_inbox_v1_inbox_proto_rawDesc = "" +
 	"\x0eTeamMemberRole\x12\x19\n" +
 	"\x15TEAM_ROLE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fTEAM_ROLE_ADMIN\x10\x01\x12\x14\n" +
-	"\x10TEAM_ROLE_MEMBER\x10\x022\xed\x11\n" +
+	"\x10TEAM_ROLE_MEMBER\x10\x022\xd3\x15\n" +
 	"\fInboxService\x12M\n" +
 	"\fListMessages\x12\x1d.inbox.v1.ListMessagesRequest\x1a\x1e.inbox.v1.ListMessagesResponse\x12G\n" +
 	"\n" +
@@ -3947,7 +4528,12 @@ const file_proto_inbox_v1_inbox_proto_rawDesc = "" +
 	"\rAssignMessage\x12\x1e.inbox.v1.AssignMessageRequest\x1a\x1f.inbox.v1.AssignMessageResponse\x12S\n" +
 	"\x0eGetUnreadCount\x12\x1f.inbox.v1.GetUnreadCountRequest\x1a .inbox.v1.GetUnreadCountResponse\x12M\n" +
 	"\fBulkMarkRead\x12\x1d.inbox.v1.BulkMarkReadRequest\x1a\x1e.inbox.v1.BulkMarkReadResponse\x12J\n" +
-	"\vBulkArchive\x12\x1c.inbox.v1.BulkArchiveRequest\x1a\x1d.inbox.v1.BulkArchiveResponse\x12V\n" +
+	"\vBulkArchive\x12\x1c.inbox.v1.BulkArchiveRequest\x1a\x1d.inbox.v1.BulkArchiveResponse\x12_\n" +
+	"\x12ListThreadMessages\x12#.inbox.v1.ListThreadMessagesRequest\x1a$.inbox.v1.ListThreadMessagesResponse\x12[\n" +
+	"\x14CreateCannedResponse\x12%.inbox.v1.CreateCannedResponseRequest\x1a\x1c.inbox.v1.CannedResponseInfo\x12b\n" +
+	"\x13ListCannedResponses\x12$.inbox.v1.ListCannedResponsesRequest\x1a%.inbox.v1.ListCannedResponsesResponse\x12[\n" +
+	"\x14UpdateCannedResponse\x12%.inbox.v1.UpdateCannedResponseRequest\x1a\x1c.inbox.v1.CannedResponseInfo\x12e\n" +
+	"\x14DeleteCannedResponse\x12%.inbox.v1.DeleteCannedResponseRequest\x1a&.inbox.v1.DeleteCannedResponseResponse\x12V\n" +
 	"\x0fCreateTeamInbox\x12 .inbox.v1.CreateTeamInboxRequest\x1a!.inbox.v1.CreateTeamInboxResponse\x12V\n" +
 	"\x0fUpdateTeamInbox\x12 .inbox.v1.UpdateTeamInboxRequest\x1a!.inbox.v1.UpdateTeamInboxResponse\x12V\n" +
 	"\x0fDeleteTeamInbox\x12 .inbox.v1.DeleteTeamInboxRequest\x1a!.inbox.v1.DeleteTeamInboxResponse\x12V\n" +
@@ -3975,92 +4561,102 @@ func file_proto_inbox_v1_inbox_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_inbox_v1_inbox_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_proto_inbox_v1_inbox_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
+var file_proto_inbox_v1_inbox_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_proto_inbox_v1_inbox_proto_goTypes = []any{
-	(Channel)(0),                      // 0: inbox.v1.Channel
-	(AssignmentMode)(0),               // 1: inbox.v1.AssignmentMode
-	(TeamInboxVisibility)(0),          // 2: inbox.v1.TeamInboxVisibility
-	(TeamMemberRole)(0),               // 3: inbox.v1.TeamMemberRole
-	(*InboxMessageInfo)(nil),          // 4: inbox.v1.InboxMessageInfo
-	(*TeamInboxInfo)(nil),             // 5: inbox.v1.TeamInboxInfo
-	(*TeamMemberInfo)(nil),            // 6: inbox.v1.TeamMemberInfo
-	(*RoutingRuleInfo)(nil),           // 7: inbox.v1.RoutingRuleInfo
-	(*UnreadCountByChannel)(nil),      // 8: inbox.v1.UnreadCountByChannel
-	(*ListMessagesRequest)(nil),       // 9: inbox.v1.ListMessagesRequest
-	(*ListMessagesResponse)(nil),      // 10: inbox.v1.ListMessagesResponse
-	(*GetMessageRequest)(nil),         // 11: inbox.v1.GetMessageRequest
-	(*GetMessageResponse)(nil),        // 12: inbox.v1.GetMessageResponse
-	(*MarkReadRequest)(nil),           // 13: inbox.v1.MarkReadRequest
-	(*MarkReadResponse)(nil),          // 14: inbox.v1.MarkReadResponse
-	(*MarkUnreadRequest)(nil),         // 15: inbox.v1.MarkUnreadRequest
-	(*MarkUnreadResponse)(nil),        // 16: inbox.v1.MarkUnreadResponse
-	(*ToggleStarRequest)(nil),         // 17: inbox.v1.ToggleStarRequest
-	(*ToggleStarResponse)(nil),        // 18: inbox.v1.ToggleStarResponse
-	(*ArchiveMessageRequest)(nil),     // 19: inbox.v1.ArchiveMessageRequest
-	(*ArchiveMessageResponse)(nil),    // 20: inbox.v1.ArchiveMessageResponse
-	(*UnarchiveMessageRequest)(nil),   // 21: inbox.v1.UnarchiveMessageRequest
-	(*UnarchiveMessageResponse)(nil),  // 22: inbox.v1.UnarchiveMessageResponse
-	(*SnoozeMessageRequest)(nil),      // 23: inbox.v1.SnoozeMessageRequest
-	(*SnoozeMessageResponse)(nil),     // 24: inbox.v1.SnoozeMessageResponse
-	(*UnsnoozeMessageRequest)(nil),    // 25: inbox.v1.UnsnoozeMessageRequest
-	(*UnsnoozeMessageResponse)(nil),   // 26: inbox.v1.UnsnoozeMessageResponse
-	(*ReplyToMessageRequest)(nil),     // 27: inbox.v1.ReplyToMessageRequest
-	(*ReplyToMessageResponse)(nil),    // 28: inbox.v1.ReplyToMessageResponse
-	(*AssignMessageRequest)(nil),      // 29: inbox.v1.AssignMessageRequest
-	(*AssignMessageResponse)(nil),     // 30: inbox.v1.AssignMessageResponse
-	(*GetUnreadCountRequest)(nil),     // 31: inbox.v1.GetUnreadCountRequest
-	(*GetUnreadCountResponse)(nil),    // 32: inbox.v1.GetUnreadCountResponse
-	(*BulkMarkReadRequest)(nil),       // 33: inbox.v1.BulkMarkReadRequest
-	(*BulkMarkReadResponse)(nil),      // 34: inbox.v1.BulkMarkReadResponse
-	(*BulkArchiveRequest)(nil),        // 35: inbox.v1.BulkArchiveRequest
-	(*BulkArchiveResponse)(nil),       // 36: inbox.v1.BulkArchiveResponse
-	(*CreateTeamInboxRequest)(nil),    // 37: inbox.v1.CreateTeamInboxRequest
-	(*CreateTeamInboxResponse)(nil),   // 38: inbox.v1.CreateTeamInboxResponse
-	(*UpdateTeamInboxRequest)(nil),    // 39: inbox.v1.UpdateTeamInboxRequest
-	(*UpdateTeamInboxResponse)(nil),   // 40: inbox.v1.UpdateTeamInboxResponse
-	(*DeleteTeamInboxRequest)(nil),    // 41: inbox.v1.DeleteTeamInboxRequest
-	(*DeleteTeamInboxResponse)(nil),   // 42: inbox.v1.DeleteTeamInboxResponse
-	(*ListTeamInboxesRequest)(nil),    // 43: inbox.v1.ListTeamInboxesRequest
-	(*ListTeamInboxesResponse)(nil),   // 44: inbox.v1.ListTeamInboxesResponse
-	(*AddTeamMemberRequest)(nil),      // 45: inbox.v1.AddTeamMemberRequest
-	(*AddTeamMemberResponse)(nil),     // 46: inbox.v1.AddTeamMemberResponse
-	(*RemoveTeamMemberRequest)(nil),   // 47: inbox.v1.RemoveTeamMemberRequest
-	(*RemoveTeamMemberResponse)(nil),  // 48: inbox.v1.RemoveTeamMemberResponse
-	(*ListTeamMembersRequest)(nil),    // 49: inbox.v1.ListTeamMembersRequest
-	(*ListTeamMembersResponse)(nil),   // 50: inbox.v1.ListTeamMembersResponse
-	(*ClaimMessageRequest)(nil),       // 51: inbox.v1.ClaimMessageRequest
-	(*ClaimMessageResponse)(nil),      // 52: inbox.v1.ClaimMessageResponse
-	(*CreateRoutingRuleRequest)(nil),  // 53: inbox.v1.CreateRoutingRuleRequest
-	(*CreateRoutingRuleResponse)(nil), // 54: inbox.v1.CreateRoutingRuleResponse
-	(*UpdateRoutingRuleRequest)(nil),  // 55: inbox.v1.UpdateRoutingRuleRequest
-	(*UpdateRoutingRuleResponse)(nil), // 56: inbox.v1.UpdateRoutingRuleResponse
-	(*DeleteRoutingRuleRequest)(nil),  // 57: inbox.v1.DeleteRoutingRuleRequest
-	(*DeleteRoutingRuleResponse)(nil), // 58: inbox.v1.DeleteRoutingRuleResponse
-	(*ListRoutingRulesRequest)(nil),   // 59: inbox.v1.ListRoutingRulesRequest
-	(*ListRoutingRulesResponse)(nil),  // 60: inbox.v1.ListRoutingRulesResponse
-	(*TestRoutingRuleRequest)(nil),    // 61: inbox.v1.TestRoutingRuleRequest
-	(*TestRoutingRuleResponse)(nil),   // 62: inbox.v1.TestRoutingRuleResponse
-	(*timestamppb.Timestamp)(nil),     // 63: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),           // 64: google.protobuf.Struct
+	(Channel)(0),                         // 0: inbox.v1.Channel
+	(AssignmentMode)(0),                  // 1: inbox.v1.AssignmentMode
+	(TeamInboxVisibility)(0),             // 2: inbox.v1.TeamInboxVisibility
+	(TeamMemberRole)(0),                  // 3: inbox.v1.TeamMemberRole
+	(*InboxMessageInfo)(nil),             // 4: inbox.v1.InboxMessageInfo
+	(*TeamInboxInfo)(nil),                // 5: inbox.v1.TeamInboxInfo
+	(*TeamMemberInfo)(nil),               // 6: inbox.v1.TeamMemberInfo
+	(*RoutingRuleInfo)(nil),              // 7: inbox.v1.RoutingRuleInfo
+	(*UnreadCountByChannel)(nil),         // 8: inbox.v1.UnreadCountByChannel
+	(*ListMessagesRequest)(nil),          // 9: inbox.v1.ListMessagesRequest
+	(*ListMessagesResponse)(nil),         // 10: inbox.v1.ListMessagesResponse
+	(*GetMessageRequest)(nil),            // 11: inbox.v1.GetMessageRequest
+	(*GetMessageResponse)(nil),           // 12: inbox.v1.GetMessageResponse
+	(*MarkReadRequest)(nil),              // 13: inbox.v1.MarkReadRequest
+	(*MarkReadResponse)(nil),             // 14: inbox.v1.MarkReadResponse
+	(*MarkUnreadRequest)(nil),            // 15: inbox.v1.MarkUnreadRequest
+	(*MarkUnreadResponse)(nil),           // 16: inbox.v1.MarkUnreadResponse
+	(*ToggleStarRequest)(nil),            // 17: inbox.v1.ToggleStarRequest
+	(*ToggleStarResponse)(nil),           // 18: inbox.v1.ToggleStarResponse
+	(*ArchiveMessageRequest)(nil),        // 19: inbox.v1.ArchiveMessageRequest
+	(*ArchiveMessageResponse)(nil),       // 20: inbox.v1.ArchiveMessageResponse
+	(*UnarchiveMessageRequest)(nil),      // 21: inbox.v1.UnarchiveMessageRequest
+	(*UnarchiveMessageResponse)(nil),     // 22: inbox.v1.UnarchiveMessageResponse
+	(*SnoozeMessageRequest)(nil),         // 23: inbox.v1.SnoozeMessageRequest
+	(*SnoozeMessageResponse)(nil),        // 24: inbox.v1.SnoozeMessageResponse
+	(*UnsnoozeMessageRequest)(nil),       // 25: inbox.v1.UnsnoozeMessageRequest
+	(*UnsnoozeMessageResponse)(nil),      // 26: inbox.v1.UnsnoozeMessageResponse
+	(*ReplyToMessageRequest)(nil),        // 27: inbox.v1.ReplyToMessageRequest
+	(*ReplyToMessageResponse)(nil),       // 28: inbox.v1.ReplyToMessageResponse
+	(*AssignMessageRequest)(nil),         // 29: inbox.v1.AssignMessageRequest
+	(*AssignMessageResponse)(nil),        // 30: inbox.v1.AssignMessageResponse
+	(*GetUnreadCountRequest)(nil),        // 31: inbox.v1.GetUnreadCountRequest
+	(*GetUnreadCountResponse)(nil),       // 32: inbox.v1.GetUnreadCountResponse
+	(*BulkMarkReadRequest)(nil),          // 33: inbox.v1.BulkMarkReadRequest
+	(*BulkMarkReadResponse)(nil),         // 34: inbox.v1.BulkMarkReadResponse
+	(*BulkArchiveRequest)(nil),           // 35: inbox.v1.BulkArchiveRequest
+	(*BulkArchiveResponse)(nil),          // 36: inbox.v1.BulkArchiveResponse
+	(*ThreadMessageInfo)(nil),            // 37: inbox.v1.ThreadMessageInfo
+	(*ListThreadMessagesRequest)(nil),    // 38: inbox.v1.ListThreadMessagesRequest
+	(*ListThreadMessagesResponse)(nil),   // 39: inbox.v1.ListThreadMessagesResponse
+	(*CannedResponseInfo)(nil),           // 40: inbox.v1.CannedResponseInfo
+	(*CreateCannedResponseRequest)(nil),  // 41: inbox.v1.CreateCannedResponseRequest
+	(*ListCannedResponsesRequest)(nil),   // 42: inbox.v1.ListCannedResponsesRequest
+	(*ListCannedResponsesResponse)(nil),  // 43: inbox.v1.ListCannedResponsesResponse
+	(*UpdateCannedResponseRequest)(nil),  // 44: inbox.v1.UpdateCannedResponseRequest
+	(*DeleteCannedResponseRequest)(nil),  // 45: inbox.v1.DeleteCannedResponseRequest
+	(*DeleteCannedResponseResponse)(nil), // 46: inbox.v1.DeleteCannedResponseResponse
+	(*CreateTeamInboxRequest)(nil),       // 47: inbox.v1.CreateTeamInboxRequest
+	(*CreateTeamInboxResponse)(nil),      // 48: inbox.v1.CreateTeamInboxResponse
+	(*UpdateTeamInboxRequest)(nil),       // 49: inbox.v1.UpdateTeamInboxRequest
+	(*UpdateTeamInboxResponse)(nil),      // 50: inbox.v1.UpdateTeamInboxResponse
+	(*DeleteTeamInboxRequest)(nil),       // 51: inbox.v1.DeleteTeamInboxRequest
+	(*DeleteTeamInboxResponse)(nil),      // 52: inbox.v1.DeleteTeamInboxResponse
+	(*ListTeamInboxesRequest)(nil),       // 53: inbox.v1.ListTeamInboxesRequest
+	(*ListTeamInboxesResponse)(nil),      // 54: inbox.v1.ListTeamInboxesResponse
+	(*AddTeamMemberRequest)(nil),         // 55: inbox.v1.AddTeamMemberRequest
+	(*AddTeamMemberResponse)(nil),        // 56: inbox.v1.AddTeamMemberResponse
+	(*RemoveTeamMemberRequest)(nil),      // 57: inbox.v1.RemoveTeamMemberRequest
+	(*RemoveTeamMemberResponse)(nil),     // 58: inbox.v1.RemoveTeamMemberResponse
+	(*ListTeamMembersRequest)(nil),       // 59: inbox.v1.ListTeamMembersRequest
+	(*ListTeamMembersResponse)(nil),      // 60: inbox.v1.ListTeamMembersResponse
+	(*ClaimMessageRequest)(nil),          // 61: inbox.v1.ClaimMessageRequest
+	(*ClaimMessageResponse)(nil),         // 62: inbox.v1.ClaimMessageResponse
+	(*CreateRoutingRuleRequest)(nil),     // 63: inbox.v1.CreateRoutingRuleRequest
+	(*CreateRoutingRuleResponse)(nil),    // 64: inbox.v1.CreateRoutingRuleResponse
+	(*UpdateRoutingRuleRequest)(nil),     // 65: inbox.v1.UpdateRoutingRuleRequest
+	(*UpdateRoutingRuleResponse)(nil),    // 66: inbox.v1.UpdateRoutingRuleResponse
+	(*DeleteRoutingRuleRequest)(nil),     // 67: inbox.v1.DeleteRoutingRuleRequest
+	(*DeleteRoutingRuleResponse)(nil),    // 68: inbox.v1.DeleteRoutingRuleResponse
+	(*ListRoutingRulesRequest)(nil),      // 69: inbox.v1.ListRoutingRulesRequest
+	(*ListRoutingRulesResponse)(nil),     // 70: inbox.v1.ListRoutingRulesResponse
+	(*TestRoutingRuleRequest)(nil),       // 71: inbox.v1.TestRoutingRuleRequest
+	(*TestRoutingRuleResponse)(nil),      // 72: inbox.v1.TestRoutingRuleResponse
+	(*timestamppb.Timestamp)(nil),        // 73: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),              // 74: google.protobuf.Struct
 }
 var file_proto_inbox_v1_inbox_proto_depIdxs = []int32{
 	0,  // 0: inbox.v1.InboxMessageInfo.channel:type_name -> inbox.v1.Channel
-	63, // 1: inbox.v1.InboxMessageInfo.snoozed_until:type_name -> google.protobuf.Timestamp
-	64, // 2: inbox.v1.InboxMessageInfo.metadata:type_name -> google.protobuf.Struct
-	63, // 3: inbox.v1.InboxMessageInfo.received_at:type_name -> google.protobuf.Timestamp
-	63, // 4: inbox.v1.InboxMessageInfo.created_at:type_name -> google.protobuf.Timestamp
-	63, // 5: inbox.v1.InboxMessageInfo.updated_at:type_name -> google.protobuf.Timestamp
+	73, // 1: inbox.v1.InboxMessageInfo.snoozed_until:type_name -> google.protobuf.Timestamp
+	74, // 2: inbox.v1.InboxMessageInfo.metadata:type_name -> google.protobuf.Struct
+	73, // 3: inbox.v1.InboxMessageInfo.received_at:type_name -> google.protobuf.Timestamp
+	73, // 4: inbox.v1.InboxMessageInfo.created_at:type_name -> google.protobuf.Timestamp
+	73, // 5: inbox.v1.InboxMessageInfo.updated_at:type_name -> google.protobuf.Timestamp
 	1,  // 6: inbox.v1.TeamInboxInfo.assignment_mode:type_name -> inbox.v1.AssignmentMode
 	2,  // 7: inbox.v1.TeamInboxInfo.visibility:type_name -> inbox.v1.TeamInboxVisibility
-	63, // 8: inbox.v1.TeamInboxInfo.created_at:type_name -> google.protobuf.Timestamp
-	63, // 9: inbox.v1.TeamInboxInfo.updated_at:type_name -> google.protobuf.Timestamp
+	73, // 8: inbox.v1.TeamInboxInfo.created_at:type_name -> google.protobuf.Timestamp
+	73, // 9: inbox.v1.TeamInboxInfo.updated_at:type_name -> google.protobuf.Timestamp
 	3,  // 10: inbox.v1.TeamMemberInfo.role:type_name -> inbox.v1.TeamMemberRole
-	63, // 11: inbox.v1.TeamMemberInfo.created_at:type_name -> google.protobuf.Timestamp
+	73, // 11: inbox.v1.TeamMemberInfo.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 12: inbox.v1.RoutingRuleInfo.channel:type_name -> inbox.v1.Channel
-	64, // 13: inbox.v1.RoutingRuleInfo.conditions:type_name -> google.protobuf.Struct
-	64, // 14: inbox.v1.RoutingRuleInfo.actions:type_name -> google.protobuf.Struct
-	63, // 15: inbox.v1.RoutingRuleInfo.created_at:type_name -> google.protobuf.Timestamp
-	63, // 16: inbox.v1.RoutingRuleInfo.updated_at:type_name -> google.protobuf.Timestamp
+	74, // 13: inbox.v1.RoutingRuleInfo.conditions:type_name -> google.protobuf.Struct
+	74, // 14: inbox.v1.RoutingRuleInfo.actions:type_name -> google.protobuf.Struct
+	73, // 15: inbox.v1.RoutingRuleInfo.created_at:type_name -> google.protobuf.Timestamp
+	73, // 16: inbox.v1.RoutingRuleInfo.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 17: inbox.v1.UnreadCountByChannel.channel:type_name -> inbox.v1.Channel
 	0,  // 18: inbox.v1.ListMessagesRequest.channel:type_name -> inbox.v1.Channel
 	4,  // 19: inbox.v1.ListMessagesResponse.messages:type_name -> inbox.v1.InboxMessageInfo
@@ -4070,93 +4666,108 @@ var file_proto_inbox_v1_inbox_proto_depIdxs = []int32{
 	4,  // 23: inbox.v1.ToggleStarResponse.message:type_name -> inbox.v1.InboxMessageInfo
 	4,  // 24: inbox.v1.ArchiveMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
 	4,  // 25: inbox.v1.UnarchiveMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
-	63, // 26: inbox.v1.SnoozeMessageRequest.snooze_until:type_name -> google.protobuf.Timestamp
+	73, // 26: inbox.v1.SnoozeMessageRequest.snooze_until:type_name -> google.protobuf.Timestamp
 	4,  // 27: inbox.v1.SnoozeMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
 	4,  // 28: inbox.v1.UnsnoozeMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
 	4,  // 29: inbox.v1.AssignMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
 	8,  // 30: inbox.v1.GetUnreadCountResponse.by_channel:type_name -> inbox.v1.UnreadCountByChannel
-	1,  // 31: inbox.v1.CreateTeamInboxRequest.assignment_mode:type_name -> inbox.v1.AssignmentMode
-	2,  // 32: inbox.v1.CreateTeamInboxRequest.visibility:type_name -> inbox.v1.TeamInboxVisibility
-	5,  // 33: inbox.v1.CreateTeamInboxResponse.team_inbox:type_name -> inbox.v1.TeamInboxInfo
-	1,  // 34: inbox.v1.UpdateTeamInboxRequest.assignment_mode:type_name -> inbox.v1.AssignmentMode
-	2,  // 35: inbox.v1.UpdateTeamInboxRequest.visibility:type_name -> inbox.v1.TeamInboxVisibility
-	5,  // 36: inbox.v1.UpdateTeamInboxResponse.team_inbox:type_name -> inbox.v1.TeamInboxInfo
-	5,  // 37: inbox.v1.ListTeamInboxesResponse.team_inboxes:type_name -> inbox.v1.TeamInboxInfo
-	3,  // 38: inbox.v1.AddTeamMemberRequest.role:type_name -> inbox.v1.TeamMemberRole
-	6,  // 39: inbox.v1.AddTeamMemberResponse.member:type_name -> inbox.v1.TeamMemberInfo
-	6,  // 40: inbox.v1.ListTeamMembersResponse.members:type_name -> inbox.v1.TeamMemberInfo
-	4,  // 41: inbox.v1.ClaimMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
-	0,  // 42: inbox.v1.CreateRoutingRuleRequest.channel:type_name -> inbox.v1.Channel
-	64, // 43: inbox.v1.CreateRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
-	64, // 44: inbox.v1.CreateRoutingRuleRequest.actions:type_name -> google.protobuf.Struct
-	7,  // 45: inbox.v1.CreateRoutingRuleResponse.rule:type_name -> inbox.v1.RoutingRuleInfo
-	0,  // 46: inbox.v1.UpdateRoutingRuleRequest.channel:type_name -> inbox.v1.Channel
-	64, // 47: inbox.v1.UpdateRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
-	64, // 48: inbox.v1.UpdateRoutingRuleRequest.actions:type_name -> google.protobuf.Struct
-	7,  // 49: inbox.v1.UpdateRoutingRuleResponse.rule:type_name -> inbox.v1.RoutingRuleInfo
-	0,  // 50: inbox.v1.ListRoutingRulesRequest.channel:type_name -> inbox.v1.Channel
-	7,  // 51: inbox.v1.ListRoutingRulesResponse.rules:type_name -> inbox.v1.RoutingRuleInfo
-	64, // 52: inbox.v1.TestRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
-	4,  // 53: inbox.v1.TestRoutingRuleRequest.test_message:type_name -> inbox.v1.InboxMessageInfo
-	9,  // 54: inbox.v1.InboxService.ListMessages:input_type -> inbox.v1.ListMessagesRequest
-	11, // 55: inbox.v1.InboxService.GetMessage:input_type -> inbox.v1.GetMessageRequest
-	13, // 56: inbox.v1.InboxService.MarkRead:input_type -> inbox.v1.MarkReadRequest
-	15, // 57: inbox.v1.InboxService.MarkUnread:input_type -> inbox.v1.MarkUnreadRequest
-	17, // 58: inbox.v1.InboxService.ToggleStar:input_type -> inbox.v1.ToggleStarRequest
-	19, // 59: inbox.v1.InboxService.ArchiveMessage:input_type -> inbox.v1.ArchiveMessageRequest
-	21, // 60: inbox.v1.InboxService.UnarchiveMessage:input_type -> inbox.v1.UnarchiveMessageRequest
-	23, // 61: inbox.v1.InboxService.SnoozeMessage:input_type -> inbox.v1.SnoozeMessageRequest
-	25, // 62: inbox.v1.InboxService.UnsnoozeMessage:input_type -> inbox.v1.UnsnoozeMessageRequest
-	27, // 63: inbox.v1.InboxService.ReplyToMessage:input_type -> inbox.v1.ReplyToMessageRequest
-	29, // 64: inbox.v1.InboxService.AssignMessage:input_type -> inbox.v1.AssignMessageRequest
-	31, // 65: inbox.v1.InboxService.GetUnreadCount:input_type -> inbox.v1.GetUnreadCountRequest
-	33, // 66: inbox.v1.InboxService.BulkMarkRead:input_type -> inbox.v1.BulkMarkReadRequest
-	35, // 67: inbox.v1.InboxService.BulkArchive:input_type -> inbox.v1.BulkArchiveRequest
-	37, // 68: inbox.v1.InboxService.CreateTeamInbox:input_type -> inbox.v1.CreateTeamInboxRequest
-	39, // 69: inbox.v1.InboxService.UpdateTeamInbox:input_type -> inbox.v1.UpdateTeamInboxRequest
-	41, // 70: inbox.v1.InboxService.DeleteTeamInbox:input_type -> inbox.v1.DeleteTeamInboxRequest
-	43, // 71: inbox.v1.InboxService.ListTeamInboxes:input_type -> inbox.v1.ListTeamInboxesRequest
-	45, // 72: inbox.v1.InboxService.AddTeamMember:input_type -> inbox.v1.AddTeamMemberRequest
-	47, // 73: inbox.v1.InboxService.RemoveTeamMember:input_type -> inbox.v1.RemoveTeamMemberRequest
-	49, // 74: inbox.v1.InboxService.ListTeamMembers:input_type -> inbox.v1.ListTeamMembersRequest
-	51, // 75: inbox.v1.InboxService.ClaimMessage:input_type -> inbox.v1.ClaimMessageRequest
-	53, // 76: inbox.v1.InboxService.CreateRoutingRule:input_type -> inbox.v1.CreateRoutingRuleRequest
-	55, // 77: inbox.v1.InboxService.UpdateRoutingRule:input_type -> inbox.v1.UpdateRoutingRuleRequest
-	57, // 78: inbox.v1.InboxService.DeleteRoutingRule:input_type -> inbox.v1.DeleteRoutingRuleRequest
-	59, // 79: inbox.v1.InboxService.ListRoutingRules:input_type -> inbox.v1.ListRoutingRulesRequest
-	61, // 80: inbox.v1.InboxService.TestRoutingRule:input_type -> inbox.v1.TestRoutingRuleRequest
-	10, // 81: inbox.v1.InboxService.ListMessages:output_type -> inbox.v1.ListMessagesResponse
-	12, // 82: inbox.v1.InboxService.GetMessage:output_type -> inbox.v1.GetMessageResponse
-	14, // 83: inbox.v1.InboxService.MarkRead:output_type -> inbox.v1.MarkReadResponse
-	16, // 84: inbox.v1.InboxService.MarkUnread:output_type -> inbox.v1.MarkUnreadResponse
-	18, // 85: inbox.v1.InboxService.ToggleStar:output_type -> inbox.v1.ToggleStarResponse
-	20, // 86: inbox.v1.InboxService.ArchiveMessage:output_type -> inbox.v1.ArchiveMessageResponse
-	22, // 87: inbox.v1.InboxService.UnarchiveMessage:output_type -> inbox.v1.UnarchiveMessageResponse
-	24, // 88: inbox.v1.InboxService.SnoozeMessage:output_type -> inbox.v1.SnoozeMessageResponse
-	26, // 89: inbox.v1.InboxService.UnsnoozeMessage:output_type -> inbox.v1.UnsnoozeMessageResponse
-	28, // 90: inbox.v1.InboxService.ReplyToMessage:output_type -> inbox.v1.ReplyToMessageResponse
-	30, // 91: inbox.v1.InboxService.AssignMessage:output_type -> inbox.v1.AssignMessageResponse
-	32, // 92: inbox.v1.InboxService.GetUnreadCount:output_type -> inbox.v1.GetUnreadCountResponse
-	34, // 93: inbox.v1.InboxService.BulkMarkRead:output_type -> inbox.v1.BulkMarkReadResponse
-	36, // 94: inbox.v1.InboxService.BulkArchive:output_type -> inbox.v1.BulkArchiveResponse
-	38, // 95: inbox.v1.InboxService.CreateTeamInbox:output_type -> inbox.v1.CreateTeamInboxResponse
-	40, // 96: inbox.v1.InboxService.UpdateTeamInbox:output_type -> inbox.v1.UpdateTeamInboxResponse
-	42, // 97: inbox.v1.InboxService.DeleteTeamInbox:output_type -> inbox.v1.DeleteTeamInboxResponse
-	44, // 98: inbox.v1.InboxService.ListTeamInboxes:output_type -> inbox.v1.ListTeamInboxesResponse
-	46, // 99: inbox.v1.InboxService.AddTeamMember:output_type -> inbox.v1.AddTeamMemberResponse
-	48, // 100: inbox.v1.InboxService.RemoveTeamMember:output_type -> inbox.v1.RemoveTeamMemberResponse
-	50, // 101: inbox.v1.InboxService.ListTeamMembers:output_type -> inbox.v1.ListTeamMembersResponse
-	52, // 102: inbox.v1.InboxService.ClaimMessage:output_type -> inbox.v1.ClaimMessageResponse
-	54, // 103: inbox.v1.InboxService.CreateRoutingRule:output_type -> inbox.v1.CreateRoutingRuleResponse
-	56, // 104: inbox.v1.InboxService.UpdateRoutingRule:output_type -> inbox.v1.UpdateRoutingRuleResponse
-	58, // 105: inbox.v1.InboxService.DeleteRoutingRule:output_type -> inbox.v1.DeleteRoutingRuleResponse
-	60, // 106: inbox.v1.InboxService.ListRoutingRules:output_type -> inbox.v1.ListRoutingRulesResponse
-	62, // 107: inbox.v1.InboxService.TestRoutingRule:output_type -> inbox.v1.TestRoutingRuleResponse
-	81, // [81:108] is the sub-list for method output_type
-	54, // [54:81] is the sub-list for method input_type
-	54, // [54:54] is the sub-list for extension type_name
-	54, // [54:54] is the sub-list for extension extendee
-	0,  // [0:54] is the sub-list for field type_name
+	73, // 31: inbox.v1.ThreadMessageInfo.created_at:type_name -> google.protobuf.Timestamp
+	37, // 32: inbox.v1.ListThreadMessagesResponse.messages:type_name -> inbox.v1.ThreadMessageInfo
+	73, // 33: inbox.v1.CannedResponseInfo.created_at:type_name -> google.protobuf.Timestamp
+	73, // 34: inbox.v1.CannedResponseInfo.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 35: inbox.v1.ListCannedResponsesResponse.canned_responses:type_name -> inbox.v1.CannedResponseInfo
+	1,  // 36: inbox.v1.CreateTeamInboxRequest.assignment_mode:type_name -> inbox.v1.AssignmentMode
+	2,  // 37: inbox.v1.CreateTeamInboxRequest.visibility:type_name -> inbox.v1.TeamInboxVisibility
+	5,  // 38: inbox.v1.CreateTeamInboxResponse.team_inbox:type_name -> inbox.v1.TeamInboxInfo
+	1,  // 39: inbox.v1.UpdateTeamInboxRequest.assignment_mode:type_name -> inbox.v1.AssignmentMode
+	2,  // 40: inbox.v1.UpdateTeamInboxRequest.visibility:type_name -> inbox.v1.TeamInboxVisibility
+	5,  // 41: inbox.v1.UpdateTeamInboxResponse.team_inbox:type_name -> inbox.v1.TeamInboxInfo
+	5,  // 42: inbox.v1.ListTeamInboxesResponse.team_inboxes:type_name -> inbox.v1.TeamInboxInfo
+	3,  // 43: inbox.v1.AddTeamMemberRequest.role:type_name -> inbox.v1.TeamMemberRole
+	6,  // 44: inbox.v1.AddTeamMemberResponse.member:type_name -> inbox.v1.TeamMemberInfo
+	6,  // 45: inbox.v1.ListTeamMembersResponse.members:type_name -> inbox.v1.TeamMemberInfo
+	4,  // 46: inbox.v1.ClaimMessageResponse.message:type_name -> inbox.v1.InboxMessageInfo
+	0,  // 47: inbox.v1.CreateRoutingRuleRequest.channel:type_name -> inbox.v1.Channel
+	74, // 48: inbox.v1.CreateRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
+	74, // 49: inbox.v1.CreateRoutingRuleRequest.actions:type_name -> google.protobuf.Struct
+	7,  // 50: inbox.v1.CreateRoutingRuleResponse.rule:type_name -> inbox.v1.RoutingRuleInfo
+	0,  // 51: inbox.v1.UpdateRoutingRuleRequest.channel:type_name -> inbox.v1.Channel
+	74, // 52: inbox.v1.UpdateRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
+	74, // 53: inbox.v1.UpdateRoutingRuleRequest.actions:type_name -> google.protobuf.Struct
+	7,  // 54: inbox.v1.UpdateRoutingRuleResponse.rule:type_name -> inbox.v1.RoutingRuleInfo
+	0,  // 55: inbox.v1.ListRoutingRulesRequest.channel:type_name -> inbox.v1.Channel
+	7,  // 56: inbox.v1.ListRoutingRulesResponse.rules:type_name -> inbox.v1.RoutingRuleInfo
+	74, // 57: inbox.v1.TestRoutingRuleRequest.conditions:type_name -> google.protobuf.Struct
+	4,  // 58: inbox.v1.TestRoutingRuleRequest.test_message:type_name -> inbox.v1.InboxMessageInfo
+	9,  // 59: inbox.v1.InboxService.ListMessages:input_type -> inbox.v1.ListMessagesRequest
+	11, // 60: inbox.v1.InboxService.GetMessage:input_type -> inbox.v1.GetMessageRequest
+	13, // 61: inbox.v1.InboxService.MarkRead:input_type -> inbox.v1.MarkReadRequest
+	15, // 62: inbox.v1.InboxService.MarkUnread:input_type -> inbox.v1.MarkUnreadRequest
+	17, // 63: inbox.v1.InboxService.ToggleStar:input_type -> inbox.v1.ToggleStarRequest
+	19, // 64: inbox.v1.InboxService.ArchiveMessage:input_type -> inbox.v1.ArchiveMessageRequest
+	21, // 65: inbox.v1.InboxService.UnarchiveMessage:input_type -> inbox.v1.UnarchiveMessageRequest
+	23, // 66: inbox.v1.InboxService.SnoozeMessage:input_type -> inbox.v1.SnoozeMessageRequest
+	25, // 67: inbox.v1.InboxService.UnsnoozeMessage:input_type -> inbox.v1.UnsnoozeMessageRequest
+	27, // 68: inbox.v1.InboxService.ReplyToMessage:input_type -> inbox.v1.ReplyToMessageRequest
+	29, // 69: inbox.v1.InboxService.AssignMessage:input_type -> inbox.v1.AssignMessageRequest
+	31, // 70: inbox.v1.InboxService.GetUnreadCount:input_type -> inbox.v1.GetUnreadCountRequest
+	33, // 71: inbox.v1.InboxService.BulkMarkRead:input_type -> inbox.v1.BulkMarkReadRequest
+	35, // 72: inbox.v1.InboxService.BulkArchive:input_type -> inbox.v1.BulkArchiveRequest
+	38, // 73: inbox.v1.InboxService.ListThreadMessages:input_type -> inbox.v1.ListThreadMessagesRequest
+	41, // 74: inbox.v1.InboxService.CreateCannedResponse:input_type -> inbox.v1.CreateCannedResponseRequest
+	42, // 75: inbox.v1.InboxService.ListCannedResponses:input_type -> inbox.v1.ListCannedResponsesRequest
+	44, // 76: inbox.v1.InboxService.UpdateCannedResponse:input_type -> inbox.v1.UpdateCannedResponseRequest
+	45, // 77: inbox.v1.InboxService.DeleteCannedResponse:input_type -> inbox.v1.DeleteCannedResponseRequest
+	47, // 78: inbox.v1.InboxService.CreateTeamInbox:input_type -> inbox.v1.CreateTeamInboxRequest
+	49, // 79: inbox.v1.InboxService.UpdateTeamInbox:input_type -> inbox.v1.UpdateTeamInboxRequest
+	51, // 80: inbox.v1.InboxService.DeleteTeamInbox:input_type -> inbox.v1.DeleteTeamInboxRequest
+	53, // 81: inbox.v1.InboxService.ListTeamInboxes:input_type -> inbox.v1.ListTeamInboxesRequest
+	55, // 82: inbox.v1.InboxService.AddTeamMember:input_type -> inbox.v1.AddTeamMemberRequest
+	57, // 83: inbox.v1.InboxService.RemoveTeamMember:input_type -> inbox.v1.RemoveTeamMemberRequest
+	59, // 84: inbox.v1.InboxService.ListTeamMembers:input_type -> inbox.v1.ListTeamMembersRequest
+	61, // 85: inbox.v1.InboxService.ClaimMessage:input_type -> inbox.v1.ClaimMessageRequest
+	63, // 86: inbox.v1.InboxService.CreateRoutingRule:input_type -> inbox.v1.CreateRoutingRuleRequest
+	65, // 87: inbox.v1.InboxService.UpdateRoutingRule:input_type -> inbox.v1.UpdateRoutingRuleRequest
+	67, // 88: inbox.v1.InboxService.DeleteRoutingRule:input_type -> inbox.v1.DeleteRoutingRuleRequest
+	69, // 89: inbox.v1.InboxService.ListRoutingRules:input_type -> inbox.v1.ListRoutingRulesRequest
+	71, // 90: inbox.v1.InboxService.TestRoutingRule:input_type -> inbox.v1.TestRoutingRuleRequest
+	10, // 91: inbox.v1.InboxService.ListMessages:output_type -> inbox.v1.ListMessagesResponse
+	12, // 92: inbox.v1.InboxService.GetMessage:output_type -> inbox.v1.GetMessageResponse
+	14, // 93: inbox.v1.InboxService.MarkRead:output_type -> inbox.v1.MarkReadResponse
+	16, // 94: inbox.v1.InboxService.MarkUnread:output_type -> inbox.v1.MarkUnreadResponse
+	18, // 95: inbox.v1.InboxService.ToggleStar:output_type -> inbox.v1.ToggleStarResponse
+	20, // 96: inbox.v1.InboxService.ArchiveMessage:output_type -> inbox.v1.ArchiveMessageResponse
+	22, // 97: inbox.v1.InboxService.UnarchiveMessage:output_type -> inbox.v1.UnarchiveMessageResponse
+	24, // 98: inbox.v1.InboxService.SnoozeMessage:output_type -> inbox.v1.SnoozeMessageResponse
+	26, // 99: inbox.v1.InboxService.UnsnoozeMessage:output_type -> inbox.v1.UnsnoozeMessageResponse
+	28, // 100: inbox.v1.InboxService.ReplyToMessage:output_type -> inbox.v1.ReplyToMessageResponse
+	30, // 101: inbox.v1.InboxService.AssignMessage:output_type -> inbox.v1.AssignMessageResponse
+	32, // 102: inbox.v1.InboxService.GetUnreadCount:output_type -> inbox.v1.GetUnreadCountResponse
+	34, // 103: inbox.v1.InboxService.BulkMarkRead:output_type -> inbox.v1.BulkMarkReadResponse
+	36, // 104: inbox.v1.InboxService.BulkArchive:output_type -> inbox.v1.BulkArchiveResponse
+	39, // 105: inbox.v1.InboxService.ListThreadMessages:output_type -> inbox.v1.ListThreadMessagesResponse
+	40, // 106: inbox.v1.InboxService.CreateCannedResponse:output_type -> inbox.v1.CannedResponseInfo
+	43, // 107: inbox.v1.InboxService.ListCannedResponses:output_type -> inbox.v1.ListCannedResponsesResponse
+	40, // 108: inbox.v1.InboxService.UpdateCannedResponse:output_type -> inbox.v1.CannedResponseInfo
+	46, // 109: inbox.v1.InboxService.DeleteCannedResponse:output_type -> inbox.v1.DeleteCannedResponseResponse
+	48, // 110: inbox.v1.InboxService.CreateTeamInbox:output_type -> inbox.v1.CreateTeamInboxResponse
+	50, // 111: inbox.v1.InboxService.UpdateTeamInbox:output_type -> inbox.v1.UpdateTeamInboxResponse
+	52, // 112: inbox.v1.InboxService.DeleteTeamInbox:output_type -> inbox.v1.DeleteTeamInboxResponse
+	54, // 113: inbox.v1.InboxService.ListTeamInboxes:output_type -> inbox.v1.ListTeamInboxesResponse
+	56, // 114: inbox.v1.InboxService.AddTeamMember:output_type -> inbox.v1.AddTeamMemberResponse
+	58, // 115: inbox.v1.InboxService.RemoveTeamMember:output_type -> inbox.v1.RemoveTeamMemberResponse
+	60, // 116: inbox.v1.InboxService.ListTeamMembers:output_type -> inbox.v1.ListTeamMembersResponse
+	62, // 117: inbox.v1.InboxService.ClaimMessage:output_type -> inbox.v1.ClaimMessageResponse
+	64, // 118: inbox.v1.InboxService.CreateRoutingRule:output_type -> inbox.v1.CreateRoutingRuleResponse
+	66, // 119: inbox.v1.InboxService.UpdateRoutingRule:output_type -> inbox.v1.UpdateRoutingRuleResponse
+	68, // 120: inbox.v1.InboxService.DeleteRoutingRule:output_type -> inbox.v1.DeleteRoutingRuleResponse
+	70, // 121: inbox.v1.InboxService.ListRoutingRules:output_type -> inbox.v1.ListRoutingRulesResponse
+	72, // 122: inbox.v1.InboxService.TestRoutingRule:output_type -> inbox.v1.TestRoutingRuleResponse
+	91, // [91:123] is the sub-list for method output_type
+	59, // [59:91] is the sub-list for method input_type
+	59, // [59:59] is the sub-list for extension type_name
+	59, // [59:59] is the sub-list for extension extendee
+	0,  // [0:59] is the sub-list for field type_name
 }
 
 func init() { file_proto_inbox_v1_inbox_proto_init() }
@@ -4167,17 +4778,19 @@ func file_proto_inbox_v1_inbox_proto_init() {
 	file_proto_inbox_v1_inbox_proto_msgTypes[0].OneofWrappers = []any{}
 	file_proto_inbox_v1_inbox_proto_msgTypes[3].OneofWrappers = []any{}
 	file_proto_inbox_v1_inbox_proto_msgTypes[5].OneofWrappers = []any{}
-	file_proto_inbox_v1_inbox_proto_msgTypes[35].OneofWrappers = []any{}
-	file_proto_inbox_v1_inbox_proto_msgTypes[49].OneofWrappers = []any{}
-	file_proto_inbox_v1_inbox_proto_msgTypes[51].OneofWrappers = []any{}
-	file_proto_inbox_v1_inbox_proto_msgTypes[55].OneofWrappers = []any{}
+	file_proto_inbox_v1_inbox_proto_msgTypes[33].OneofWrappers = []any{}
+	file_proto_inbox_v1_inbox_proto_msgTypes[40].OneofWrappers = []any{}
+	file_proto_inbox_v1_inbox_proto_msgTypes[45].OneofWrappers = []any{}
+	file_proto_inbox_v1_inbox_proto_msgTypes[59].OneofWrappers = []any{}
+	file_proto_inbox_v1_inbox_proto_msgTypes[61].OneofWrappers = []any{}
+	file_proto_inbox_v1_inbox_proto_msgTypes[65].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_inbox_v1_inbox_proto_rawDesc), len(file_proto_inbox_v1_inbox_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   59,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

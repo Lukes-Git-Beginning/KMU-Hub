@@ -27,6 +27,19 @@ service InboxService {
   rpc BulkArchive(BulkArchiveRequest) returns (BulkArchiveResponse);
 
   // =========================================================================
+  // Thread (1 RPC)
+  // =========================================================================
+  rpc ListThreadMessages(ListThreadMessagesRequest) returns (ListThreadMessagesResponse);
+
+  // =========================================================================
+  // Canned Responses (4 RPCs)
+  // =========================================================================
+  rpc CreateCannedResponse(CreateCannedResponseRequest) returns (CannedResponseInfo);
+  rpc ListCannedResponses(ListCannedResponsesRequest) returns (ListCannedResponsesResponse);
+  rpc UpdateCannedResponse(UpdateCannedResponseRequest) returns (CannedResponseInfo);
+  rpc DeleteCannedResponse(DeleteCannedResponseRequest) returns (DeleteCannedResponseResponse);
+
+  // =========================================================================
   // Team Inboxes (8 RPCs)
   // =========================================================================
   rpc CreateTeamInbox(CreateTeamInboxRequest) returns (CreateTeamInboxResponse);
@@ -284,6 +297,66 @@ message BulkArchiveRequest {
 message BulkArchiveResponse {
   int32 updated_count = 1;
 }
+
+// ============================================================================
+// Thread RPCs - Requests & Responses
+// ============================================================================
+
+message ThreadMessageInfo {
+  string id = 1;
+  string message_id = 2;
+  optional string author_id = 3;
+  // Resolved display name (user name, else external sender, else empty).
+  string author_name = 4;
+  // "inbound" | "outbound" | "internal"
+  string direction = 5;
+  string body = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ListThreadMessagesRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message ListThreadMessagesResponse {
+  repeated ThreadMessageInfo messages = 1;
+}
+
+// ============================================================================
+// Canned Response RPCs - Requests & Responses
+// ============================================================================
+
+message CannedResponseInfo {
+  string id = 1;
+  string name = 2;
+  string body = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message CreateCannedResponseRequest {
+  string name = 1;
+  string body = 2;
+}
+
+message ListCannedResponsesRequest {}
+
+message ListCannedResponsesResponse {
+  repeated CannedResponseInfo canned_responses = 1;
+}
+
+message UpdateCannedResponseRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string body = 3;
+}
+
+message DeleteCannedResponseRequest {
+  string id = 1;
+}
+
+message DeleteCannedResponseResponse {}
 
 // ============================================================================
 // Team Inbox RPCs - Requests & Responses

@@ -62,6 +62,13 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk-read", ir.HandleBulkMarkRead)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk-archive", ir.HandleBulkArchive)
 
+		// Thread + canned-response endpoints (reuse inbox read/write permissions)
+		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/{id}/thread", ir.HandleListThreadMessages)
+		r.With(middleware.RequirePermission("inbox", "read")).Get("/canned-responses", ir.HandleListCannedResponses)
+		r.With(middleware.RequirePermission("inbox", "write")).Post("/canned-responses", ir.HandleCreateCannedResponse)
+		r.With(middleware.RequirePermission("inbox", "write")).Put("/canned-responses/{id}", ir.HandleUpdateCannedResponse)
+		r.With(middleware.RequirePermission("inbox", "write")).Delete("/canned-responses/{id}", ir.HandleDeleteCannedResponse)
+
 		// Team inbox endpoints
 		r.With(middleware.RequireRole("admin", "manager")).Post("/teams", ir.HandleCreateTeamInbox)
 		r.With(middleware.RequirePermission("inbox", "write")).Put("/teams/{id}", ir.HandleUpdateTeamInbox)
@@ -506,6 +513,141 @@ func (ir *InboxRoutes) HandleBulkArchive(w http.ResponseWriter, r *http.Request)
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Thread + Canned-Response Handlers
+// ============================================================================
+
+func (ir *InboxRoutes) HandleListThreadMessages(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListThreadMessages(r.Context(), &inboxv1.ListThreadMessagesRequest{
+		MessageId: messageID,
+		UserId:    userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type inboxCannedResponseRequest struct {
+	Name string `json:"name" validate:"required,max=200"`
+	Body string `json:"body" validate:"required"`
+}
+
+type updateInboxCannedResponseRequest struct {
+	Name *string `json:"name,omitempty" validate:"omitempty,min=1,max=200"`
+	Body *string `json:"body,omitempty" validate:"omitempty,min=1"`
+}
+
+func (ir *InboxRoutes) HandleListCannedResponses(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	resp, err := client.ListCannedResponses(r.Context(), &inboxv1.ListCannedResponsesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InboxRoutes) HandleCreateCannedResponse(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	body, ok := decodeAndValidate[inboxCannedResponseRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateCannedResponse(r.Context(), &inboxv1.CreateCannedResponseRequest{
+		Name: body.Name,
+		Body: body.Body,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"canned_response": resp})
+}
+
+func (ir *InboxRoutes) HandleUpdateCannedResponse(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	body, ok := decodeAndValidate[updateInboxCannedResponseRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &inboxv1.UpdateCannedResponseRequest{Id: id}
+	if body.Name != nil {
+		grpcReq.Name = body.Name
+	}
+	if body.Body != nil {
+		grpcReq.Body = body.Body
+	}
+
+	resp, err := client.UpdateCannedResponse(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{"canned_response": resp})
+}
+
+func (ir *InboxRoutes) HandleDeleteCannedResponse(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteCannedResponse(r.Context(), &inboxv1.DeleteCannedResponseRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "canned response deleted"})
 }
 
 // ============================================================================
