@@ -46,6 +46,11 @@ service InventarService {
   rpc ListInventurSessions(ListInventurSessionsRequest) returns (ListInventurSessionsResponse);
   rpc UpsertInventurCount(UpsertInventurCountRequest) returns (InventurCountResponse);
   rpc BookInventurDifferences(BookInventurDifferencesRequest) returns (InventurSessionResponse);
+
+  // Item attachments
+  rpc CreateItemAttachment(CreateItemAttachmentRequest) returns (ItemAttachmentResponse);
+  rpc ListItemAttachments(ListItemAttachmentsRequest) returns (ListItemAttachmentsResponse);
+  rpc DeleteItemAttachment(DeleteItemAttachmentRequest) returns (DeleteItemAttachmentResponse);
 }
 
 // ============================================================================
@@ -430,3 +435,46 @@ message BookInventurDifferencesRequest {
 message InventurSessionResponse {
   InventurSession session = 1;
 }
+
+// ============================================================================
+// Item Attachment Messages
+// ============================================================================
+
+message ItemAttachment {
+  string id = 1;
+  string tenant_id = 2;
+  string item_id = 3;
+  string name = 4;
+  string object_key = 5;
+  string file_type = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateItemAttachmentRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  string name = 3;
+  string object_key = 4;
+  string file_type = 5;
+}
+
+message ItemAttachmentResponse {
+  ItemAttachment attachment = 1;
+}
+
+message ListItemAttachmentsRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+}
+
+message ListItemAttachmentsResponse {
+  repeated ItemAttachment attachments = 1;
+}
+
+message DeleteItemAttachmentRequest {
+  string tenant_id = 1;
+  string attachment_id = 2;
+}
+
+message DeleteItemAttachmentResponse {}

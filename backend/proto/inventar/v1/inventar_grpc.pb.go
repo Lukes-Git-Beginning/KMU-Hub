@@ -47,6 +47,9 @@ const (
 	InventarService_ListInventurSessions_FullMethodName        = "/inventar.v1.InventarService/ListInventurSessions"
 	InventarService_UpsertInventurCount_FullMethodName         = "/inventar.v1.InventarService/UpsertInventurCount"
 	InventarService_BookInventurDifferences_FullMethodName     = "/inventar.v1.InventarService/BookInventurDifferences"
+	InventarService_CreateItemAttachment_FullMethodName        = "/inventar.v1.InventarService/CreateItemAttachment"
+	InventarService_ListItemAttachments_FullMethodName         = "/inventar.v1.InventarService/ListItemAttachments"
+	InventarService_DeleteItemAttachment_FullMethodName        = "/inventar.v1.InventarService/DeleteItemAttachment"
 )
 
 // InventarServiceClient is the client API for InventarService service.
@@ -87,6 +90,10 @@ type InventarServiceClient interface {
 	ListInventurSessions(ctx context.Context, in *ListInventurSessionsRequest, opts ...grpc.CallOption) (*ListInventurSessionsResponse, error)
 	UpsertInventurCount(ctx context.Context, in *UpsertInventurCountRequest, opts ...grpc.CallOption) (*InventurCountResponse, error)
 	BookInventurDifferences(ctx context.Context, in *BookInventurDifferencesRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error)
+	// Item attachments
+	CreateItemAttachment(ctx context.Context, in *CreateItemAttachmentRequest, opts ...grpc.CallOption) (*ItemAttachmentResponse, error)
+	ListItemAttachments(ctx context.Context, in *ListItemAttachmentsRequest, opts ...grpc.CallOption) (*ListItemAttachmentsResponse, error)
+	DeleteItemAttachment(ctx context.Context, in *DeleteItemAttachmentRequest, opts ...grpc.CallOption) (*DeleteItemAttachmentResponse, error)
 }
 
 type inventarServiceClient struct {
@@ -377,6 +384,36 @@ func (c *inventarServiceClient) BookInventurDifferences(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *inventarServiceClient) CreateItemAttachment(ctx context.Context, in *CreateItemAttachmentRequest, opts ...grpc.CallOption) (*ItemAttachmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ItemAttachmentResponse)
+	err := c.cc.Invoke(ctx, InventarService_CreateItemAttachment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) ListItemAttachments(ctx context.Context, in *ListItemAttachmentsRequest, opts ...grpc.CallOption) (*ListItemAttachmentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListItemAttachmentsResponse)
+	err := c.cc.Invoke(ctx, InventarService_ListItemAttachments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) DeleteItemAttachment(ctx context.Context, in *DeleteItemAttachmentRequest, opts ...grpc.CallOption) (*DeleteItemAttachmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteItemAttachmentResponse)
+	err := c.cc.Invoke(ctx, InventarService_DeleteItemAttachment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InventarServiceServer is the server API for InventarService service.
 // All implementations must embed UnimplementedInventarServiceServer
 // for forward compatibility.
@@ -415,6 +452,10 @@ type InventarServiceServer interface {
 	ListInventurSessions(context.Context, *ListInventurSessionsRequest) (*ListInventurSessionsResponse, error)
 	UpsertInventurCount(context.Context, *UpsertInventurCountRequest) (*InventurCountResponse, error)
 	BookInventurDifferences(context.Context, *BookInventurDifferencesRequest) (*InventurSessionResponse, error)
+	// Item attachments
+	CreateItemAttachment(context.Context, *CreateItemAttachmentRequest) (*ItemAttachmentResponse, error)
+	ListItemAttachments(context.Context, *ListItemAttachmentsRequest) (*ListItemAttachmentsResponse, error)
+	DeleteItemAttachment(context.Context, *DeleteItemAttachmentRequest) (*DeleteItemAttachmentResponse, error)
 	mustEmbedUnimplementedInventarServiceServer()
 }
 
@@ -508,6 +549,15 @@ func (UnimplementedInventarServiceServer) UpsertInventurCount(context.Context, *
 }
 func (UnimplementedInventarServiceServer) BookInventurDifferences(context.Context, *BookInventurDifferencesRequest) (*InventurSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BookInventurDifferences not implemented")
+}
+func (UnimplementedInventarServiceServer) CreateItemAttachment(context.Context, *CreateItemAttachmentRequest) (*ItemAttachmentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateItemAttachment not implemented")
+}
+func (UnimplementedInventarServiceServer) ListItemAttachments(context.Context, *ListItemAttachmentsRequest) (*ListItemAttachmentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListItemAttachments not implemented")
+}
+func (UnimplementedInventarServiceServer) DeleteItemAttachment(context.Context, *DeleteItemAttachmentRequest) (*DeleteItemAttachmentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteItemAttachment not implemented")
 }
 func (UnimplementedInventarServiceServer) mustEmbedUnimplementedInventarServiceServer() {}
 func (UnimplementedInventarServiceServer) testEmbeddedByValue()                         {}
@@ -1034,6 +1084,60 @@ func _InventarService_BookInventurDifferences_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InventarService_CreateItemAttachment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateItemAttachmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).CreateItemAttachment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_CreateItemAttachment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).CreateItemAttachment(ctx, req.(*CreateItemAttachmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_ListItemAttachments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListItemAttachmentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).ListItemAttachments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_ListItemAttachments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).ListItemAttachments(ctx, req.(*ListItemAttachmentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_DeleteItemAttachment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteItemAttachmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).DeleteItemAttachment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_DeleteItemAttachment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).DeleteItemAttachment(ctx, req.(*DeleteItemAttachmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InventarService_ServiceDesc is the grpc.ServiceDesc for InventarService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1152,6 +1256,18 @@ var InventarService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BookInventurDifferences",
 			Handler:    _InventarService_BookInventurDifferences_Handler,
+		},
+		{
+			MethodName: "CreateItemAttachment",
+			Handler:    _InventarService_CreateItemAttachment_Handler,
+		},
+		{
+			MethodName: "ListItemAttachments",
+			Handler:    _InventarService_ListItemAttachments_Handler,
+		},
+		{
+			MethodName: "DeleteItemAttachment",
+			Handler:    _InventarService_DeleteItemAttachment_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

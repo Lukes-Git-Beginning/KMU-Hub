@@ -15,9 +15,10 @@ import (
 // ============================================================================
 
 type mockRepository struct {
-	items     map[uuid.UUID]*Item
-	movements map[uuid.UUID]*Movement
-	warnings  map[uuid.UUID]*Warning
+	items       map[uuid.UUID]*Item
+	movements   map[uuid.UUID]*Movement
+	warnings    map[uuid.UUID]*Warning
+	attachments []*ItemAttachment
 
 	// sku -> itemID for uniqueness checks (tenant-scoped)
 	skus map[string]uuid.UUID
@@ -245,6 +246,31 @@ func (m *mockRepository) ListInventurCounts(_ context.Context, sessionID uuid.UU
 }
 
 // compile-time interface check
+func (m *mockRepository) CreateItemAttachment(ctx context.Context, att *ItemAttachment) error {
+	m.attachments = append(m.attachments, att)
+	return nil
+}
+
+func (m *mockRepository) ListItemAttachments(ctx context.Context, tenantID, itemID uuid.UUID) ([]*ItemAttachment, error) {
+	var out []*ItemAttachment
+	for _, a := range m.attachments {
+		if a.TenantID == tenantID && a.ItemID == itemID {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+func (m *mockRepository) DeleteItemAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+	for i, a := range m.attachments {
+		if a.ID == attachmentID && a.TenantID == tenantID {
+			m.attachments = append(m.attachments[:i], m.attachments[i+1:]...)
+			return nil
+		}
+	}
+	return ErrAttachmentNotFound
+}
+
 var _ Repository = (*mockRepository)(nil)
 
 // ============================================================================

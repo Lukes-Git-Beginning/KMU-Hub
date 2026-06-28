@@ -122,6 +122,19 @@ type InventurSession struct {
 	UpdatedAt  time.Time       `json:"updated_at"`
 }
 
+// ItemAttachment represents a file attached to an inventory item. The file
+// lives in MinIO under object_key; the row only registers it.
+type ItemAttachment struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	ItemID    uuid.UUID `json:"item_id"`
+	Name      string    `json:"name"`
+	ObjectKey string    `json:"object_key"`
+	FileType  string    `json:"file_type"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // InventurCount represents one item's count within an inventory session.
 type InventurCount struct {
 	ID        uuid.UUID  `json:"id"`

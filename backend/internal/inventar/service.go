@@ -141,9 +141,9 @@ type ListWarningsInput struct {
 
 // StockReport is an aggregated view of inventory health.
 type StockReport struct {
-	TotalItems    int
-	TotalQuantity int64
-	LowStockCount int
+	TotalItems     int
+	TotalQuantity  int64
+	LowStockCount  int
 	ActiveWarnings int
 }
 
@@ -965,4 +965,55 @@ func (s *Service) maybeCreateWarning(ctx context.Context, item *Item) {
 			"threshold", item.MinQuantity,
 		)
 	}
+}
+
+// ============================================================================
+// Item Attachment methods
+// ============================================================================
+
+// CreateItemAttachmentInput holds the data to attach an uploaded file to an item.
+type CreateItemAttachmentInput struct {
+	TenantID  uuid.UUID
+	ItemID    uuid.UUID
+	Name      string
+	ObjectKey string
+	FileType  string
+}
+
+// CreateItemAttachment registers a browser-direct uploaded file against an item.
+func (s *Service) CreateItemAttachment(ctx context.Context, input CreateItemAttachmentInput) (*ItemAttachment, error) {
+	if strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.ObjectKey) == "" {
+		return nil, ErrInvalidInput
+	}
+	// Ensures the item exists in this tenant before attaching (also surfaces a
+	// clean NotFound instead of an FK violation).
+	if _, err := s.repo.GetItem(ctx, input.TenantID, input.ItemID); err != nil {
+		return nil, err
+	}
+
+	att := &ItemAttachment{
+		ID:        uuid.New(),
+		TenantID:  input.TenantID,
+		ItemID:    input.ItemID,
+		Name:      input.Name,
+		ObjectKey: input.ObjectKey,
+		FileType:  input.FileType,
+	}
+	if err := s.repo.CreateItemAttachment(ctx, att); err != nil {
+		return nil, fmt.Errorf("create item attachment: %w", err)
+	}
+
+	slog.Info("item attachment created", "attachment_id", att.ID, "item_id", att.ItemID)
+	return att, nil
+}
+
+// ListItemAttachments returns all attachments for an item in the tenant.
+func (s *Service) ListItemAttachments(ctx context.Context, tenantID, itemID uuid.UUID) ([]*ItemAttachment, error) {
+	return s.repo.ListItemAttachments(ctx, tenantID, itemID)
+}
+
+// DeleteItemAttachment removes an attachment registration (the MinIO object is
+// left in place; lifecycle/retention handles orphan cleanup).
+func (s *Service) DeleteItemAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+	return s.repo.DeleteItemAttachment(ctx, tenantID, attachmentID)
 }

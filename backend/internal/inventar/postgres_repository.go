@@ -629,5 +629,56 @@ func (r *PostgresRepository) scanWarningFromRows(rows pgx.Rows) (*Warning, error
 	return &w, nil
 }
 
+// ============================================================================
+// Item Attachments
+// ============================================================================
+
+func (r *PostgresRepository) CreateItemAttachment(ctx context.Context, att *ItemAttachment) error {
+	// created_at/updated_at default to NOW() in the schema; RETURNING populates
+	// the struct so the gRPC response carries real timestamps.
+	return r.pool.QueryRow(ctx,
+		`INSERT INTO inventory_item_attachments (id, tenant_id, item_id, name, object_key, file_type)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING created_at, updated_at`,
+		att.ID, att.TenantID, att.ItemID, att.Name, att.ObjectKey, att.FileType,
+	).Scan(&att.CreatedAt, &att.UpdatedAt)
+}
+
+func (r *PostgresRepository) ListItemAttachments(ctx context.Context, tenantID, itemID uuid.UUID) ([]*ItemAttachment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, item_id, name, object_key, file_type, created_at, updated_at
+		 FROM inventory_item_attachments
+		 WHERE tenant_id = $1 AND item_id = $2
+		 ORDER BY created_at DESC`, tenantID, itemID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var attachments []*ItemAttachment
+	for rows.Next() {
+		var a ItemAttachment
+		if scanErr := rows.Scan(&a.ID, &a.TenantID, &a.ItemID, &a.Name, &a.ObjectKey, &a.FileType,
+			&a.CreatedAt, &a.UpdatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		attachments = append(attachments, &a)
+	}
+	return attachments, rows.Err()
+}
+
+func (r *PostgresRepository) DeleteItemAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM inventory_item_attachments WHERE id = $1 AND tenant_id = $2`, attachmentID, tenantID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrAttachmentNotFound
+	}
+	return nil
+}
+
 // compile-time interface check
 var _ Repository = (*PostgresRepository)(nil)

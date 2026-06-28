@@ -13,4 +13,5 @@ var (
 	ErrInventurSessionNotFound  = errors.New("inventur session not found")
 	ErrInventurCountNotFound    = errors.New("inventur count not found")
 	ErrInventurAlreadyCompleted = errors.New("inventur session is already completed")
+	ErrAttachmentNotFound       = errors.New("inventory item attachment not found")
 )

@@ -3506,6 +3506,410 @@ func (x *InventurSessionResponse) GetSession() *InventurSession {
 	return nil
 }
 
+type ItemAttachment struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,3,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	ObjectKey     string                 `protobuf:"bytes,5,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
+	FileType      string                 `protobuf:"bytes,6,opt,name=file_type,json=fileType,proto3" json:"file_type,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemAttachment) Reset() {
+	*x = ItemAttachment{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemAttachment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemAttachment) ProtoMessage() {}
+
+func (x *ItemAttachment) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemAttachment.ProtoReflect.Descriptor instead.
+func (*ItemAttachment) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *ItemAttachment) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ItemAttachment) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ItemAttachment) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+func (x *ItemAttachment) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ItemAttachment) GetObjectKey() string {
+	if x != nil {
+		return x.ObjectKey
+	}
+	return ""
+}
+
+func (x *ItemAttachment) GetFileType() string {
+	if x != nil {
+		return x.FileType
+	}
+	return ""
+}
+
+func (x *ItemAttachment) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *ItemAttachment) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateItemAttachmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	ObjectKey     string                 `protobuf:"bytes,4,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
+	FileType      string                 `protobuf:"bytes,5,opt,name=file_type,json=fileType,proto3" json:"file_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateItemAttachmentRequest) Reset() {
+	*x = CreateItemAttachmentRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateItemAttachmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateItemAttachmentRequest) ProtoMessage() {}
+
+func (x *CreateItemAttachmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateItemAttachmentRequest.ProtoReflect.Descriptor instead.
+func (*CreateItemAttachmentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *CreateItemAttachmentRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateItemAttachmentRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+func (x *CreateItemAttachmentRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateItemAttachmentRequest) GetObjectKey() string {
+	if x != nil {
+		return x.ObjectKey
+	}
+	return ""
+}
+
+func (x *CreateItemAttachmentRequest) GetFileType() string {
+	if x != nil {
+		return x.FileType
+	}
+	return ""
+}
+
+type ItemAttachmentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Attachment    *ItemAttachment        `protobuf:"bytes,1,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemAttachmentResponse) Reset() {
+	*x = ItemAttachmentResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemAttachmentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemAttachmentResponse) ProtoMessage() {}
+
+func (x *ItemAttachmentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemAttachmentResponse.ProtoReflect.Descriptor instead.
+func (*ItemAttachmentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ItemAttachmentResponse) GetAttachment() *ItemAttachment {
+	if x != nil {
+		return x.Attachment
+	}
+	return nil
+}
+
+type ListItemAttachmentsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListItemAttachmentsRequest) Reset() {
+	*x = ListItemAttachmentsRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListItemAttachmentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListItemAttachmentsRequest) ProtoMessage() {}
+
+func (x *ListItemAttachmentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListItemAttachmentsRequest.ProtoReflect.Descriptor instead.
+func (*ListItemAttachmentsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *ListItemAttachmentsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListItemAttachmentsRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+type ListItemAttachmentsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Attachments   []*ItemAttachment      `protobuf:"bytes,1,rep,name=attachments,proto3" json:"attachments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListItemAttachmentsResponse) Reset() {
+	*x = ListItemAttachmentsResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListItemAttachmentsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListItemAttachmentsResponse) ProtoMessage() {}
+
+func (x *ListItemAttachmentsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListItemAttachmentsResponse.ProtoReflect.Descriptor instead.
+func (*ListItemAttachmentsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ListItemAttachmentsResponse) GetAttachments() []*ItemAttachment {
+	if x != nil {
+		return x.Attachments
+	}
+	return nil
+}
+
+type DeleteItemAttachmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	AttachmentId  string                 `protobuf:"bytes,2,opt,name=attachment_id,json=attachmentId,proto3" json:"attachment_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteItemAttachmentRequest) Reset() {
+	*x = DeleteItemAttachmentRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteItemAttachmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteItemAttachmentRequest) ProtoMessage() {}
+
+func (x *DeleteItemAttachmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteItemAttachmentRequest.ProtoReflect.Descriptor instead.
+func (*DeleteItemAttachmentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *DeleteItemAttachmentRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteItemAttachmentRequest) GetAttachmentId() string {
+	if x != nil {
+		return x.AttachmentId
+	}
+	return ""
+}
+
+type DeleteItemAttachmentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteItemAttachmentResponse) Reset() {
+	*x = DeleteItemAttachmentResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteItemAttachmentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteItemAttachmentResponse) ProtoMessage() {}
+
+func (x *DeleteItemAttachmentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteItemAttachmentResponse.ProtoReflect.Descriptor instead.
+func (*DeleteItemAttachmentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{57}
+}
+
 var File_proto_inventar_v1_inventar_proto protoreflect.FileDescriptor
 
 const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
@@ -3861,7 +4265,39 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\n" +
 	"_booked_by\"Q\n" +
 	"\x17InventurSessionResponse\x126\n" +
-	"\asession\x18\x01 \x01(\v2\x1c.inventar.v1.InventurSessionR\asession2\xd7\x13\n" +
+	"\asession\x18\x01 \x01(\v2\x1c.inventar.v1.InventurSessionR\asession\"\x9c\x02\n" +
+	"\x0eItemAttachment\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x03 \x01(\tR\x06itemId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"object_key\x18\x05 \x01(\tR\tobjectKey\x12\x1b\n" +
+	"\tfile_type\x18\x06 \x01(\tR\bfileType\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa3\x01\n" +
+	"\x1bCreateItemAttachmentRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"object_key\x18\x04 \x01(\tR\tobjectKey\x12\x1b\n" +
+	"\tfile_type\x18\x05 \x01(\tR\bfileType\"U\n" +
+	"\x16ItemAttachmentResponse\x12;\n" +
+	"\n" +
+	"attachment\x18\x01 \x01(\v2\x1b.inventar.v1.ItemAttachmentR\n" +
+	"attachment\"R\n" +
+	"\x1aListItemAttachmentsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\\\n" +
+	"\x1bListItemAttachmentsResponse\x12=\n" +
+	"\vattachments\x18\x01 \x03(\v2\x1b.inventar.v1.ItemAttachmentR\vattachments\"_\n" +
+	"\x1bDeleteItemAttachmentRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
+	"\rattachment_id\x18\x02 \x01(\tR\fattachmentId\"\x1e\n" +
+	"\x1cDeleteItemAttachmentResponse2\x95\x16\n" +
 	"\x0fInventarService\x12G\n" +
 	"\n" +
 	"CreateItem\x12\x1e.inventar.v1.CreateItemRequest\x1a\x19.inventar.v1.ItemResponse\x12A\n" +
@@ -3893,7 +4329,10 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\x15DeleteInventurSession\x12).inventar.v1.DeleteInventurSessionRequest\x1a*.inventar.v1.DeleteInventurSessionResponse\x12k\n" +
 	"\x14ListInventurSessions\x12(.inventar.v1.ListInventurSessionsRequest\x1a).inventar.v1.ListInventurSessionsResponse\x12b\n" +
 	"\x13UpsertInventurCount\x12'.inventar.v1.UpsertInventurCountRequest\x1a\".inventar.v1.InventurCountResponse\x12l\n" +
-	"\x17BookInventurDifferences\x12+.inventar.v1.BookInventurDifferencesRequest\x1a$.inventar.v1.InventurSessionResponseB7Z5github.com/kmuhub/kmuhub/proto/inventar/v1;inventarv1b\x06proto3"
+	"\x17BookInventurDifferences\x12+.inventar.v1.BookInventurDifferencesRequest\x1a$.inventar.v1.InventurSessionResponse\x12e\n" +
+	"\x14CreateItemAttachment\x12(.inventar.v1.CreateItemAttachmentRequest\x1a#.inventar.v1.ItemAttachmentResponse\x12h\n" +
+	"\x13ListItemAttachments\x12'.inventar.v1.ListItemAttachmentsRequest\x1a(.inventar.v1.ListItemAttachmentsResponse\x12k\n" +
+	"\x14DeleteItemAttachment\x12(.inventar.v1.DeleteItemAttachmentRequest\x1a).inventar.v1.DeleteItemAttachmentResponseB7Z5github.com/kmuhub/kmuhub/proto/inventar/v1;inventarv1b\x06proto3"
 
 var (
 	file_proto_inventar_v1_inventar_proto_rawDescOnce sync.Once
@@ -3907,7 +4346,7 @@ func file_proto_inventar_v1_inventar_proto_rawDescGZIP() []byte {
 	return file_proto_inventar_v1_inventar_proto_rawDescData
 }
 
-var file_proto_inventar_v1_inventar_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_proto_inventar_v1_inventar_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_proto_inventar_v1_inventar_proto_goTypes = []any{
 	(*Item)(nil),                               // 0: inventar.v1.Item
 	(*Movement)(nil),                           // 1: inventar.v1.Movement
@@ -3960,94 +4399,111 @@ var file_proto_inventar_v1_inventar_proto_goTypes = []any{
 	(*InventurCountResponse)(nil),              // 48: inventar.v1.InventurCountResponse
 	(*BookInventurDifferencesRequest)(nil),     // 49: inventar.v1.BookInventurDifferencesRequest
 	(*InventurSessionResponse)(nil),            // 50: inventar.v1.InventurSessionResponse
-	(*timestamppb.Timestamp)(nil),              // 51: google.protobuf.Timestamp
+	(*ItemAttachment)(nil),                     // 51: inventar.v1.ItemAttachment
+	(*CreateItemAttachmentRequest)(nil),        // 52: inventar.v1.CreateItemAttachmentRequest
+	(*ItemAttachmentResponse)(nil),             // 53: inventar.v1.ItemAttachmentResponse
+	(*ListItemAttachmentsRequest)(nil),         // 54: inventar.v1.ListItemAttachmentsRequest
+	(*ListItemAttachmentsResponse)(nil),        // 55: inventar.v1.ListItemAttachmentsResponse
+	(*DeleteItemAttachmentRequest)(nil),        // 56: inventar.v1.DeleteItemAttachmentRequest
+	(*DeleteItemAttachmentResponse)(nil),       // 57: inventar.v1.DeleteItemAttachmentResponse
+	(*timestamppb.Timestamp)(nil),              // 58: google.protobuf.Timestamp
 }
 var file_proto_inventar_v1_inventar_proto_depIdxs = []int32{
-	51, // 0: inventar.v1.Item.created_at:type_name -> google.protobuf.Timestamp
-	51, // 1: inventar.v1.Item.updated_at:type_name -> google.protobuf.Timestamp
-	51, // 2: inventar.v1.Movement.created_at:type_name -> google.protobuf.Timestamp
-	51, // 3: inventar.v1.Warning.created_at:type_name -> google.protobuf.Timestamp
-	51, // 4: inventar.v1.Warning.acknowledged_at:type_name -> google.protobuf.Timestamp
+	58, // 0: inventar.v1.Item.created_at:type_name -> google.protobuf.Timestamp
+	58, // 1: inventar.v1.Item.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 2: inventar.v1.Movement.created_at:type_name -> google.protobuf.Timestamp
+	58, // 3: inventar.v1.Warning.created_at:type_name -> google.protobuf.Timestamp
+	58, // 4: inventar.v1.Warning.acknowledged_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: inventar.v1.ItemResponse.item:type_name -> inventar.v1.Item
 	0,  // 6: inventar.v1.ListItemsResponse.items:type_name -> inventar.v1.Item
 	1,  // 7: inventar.v1.MovementResponse.movement:type_name -> inventar.v1.Movement
 	1,  // 8: inventar.v1.ListMovementsResponse.movements:type_name -> inventar.v1.Movement
 	2,  // 9: inventar.v1.WarningResponse.warning:type_name -> inventar.v1.Warning
 	2,  // 10: inventar.v1.ListWarningsResponse.warnings:type_name -> inventar.v1.Warning
-	51, // 11: inventar.v1.Location.created_at:type_name -> google.protobuf.Timestamp
-	51, // 12: inventar.v1.Location.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 11: inventar.v1.Location.created_at:type_name -> google.protobuf.Timestamp
+	58, // 12: inventar.v1.Location.updated_at:type_name -> google.protobuf.Timestamp
 	29, // 13: inventar.v1.LocationResponse.location:type_name -> inventar.v1.Location
 	29, // 14: inventar.v1.ListLocationsResponse.locations:type_name -> inventar.v1.Location
-	51, // 15: inventar.v1.InventurCount.counted_at:type_name -> google.protobuf.Timestamp
-	51, // 16: inventar.v1.InventurSession.date:type_name -> google.protobuf.Timestamp
+	58, // 15: inventar.v1.InventurCount.counted_at:type_name -> google.protobuf.Timestamp
+	58, // 16: inventar.v1.InventurSession.date:type_name -> google.protobuf.Timestamp
 	38, // 17: inventar.v1.InventurSession.counts:type_name -> inventar.v1.InventurCount
-	51, // 18: inventar.v1.InventurSession.created_at:type_name -> google.protobuf.Timestamp
-	51, // 19: inventar.v1.InventurSession.updated_at:type_name -> google.protobuf.Timestamp
-	51, // 20: inventar.v1.CreateInventurSessionRequest.date:type_name -> google.protobuf.Timestamp
+	58, // 18: inventar.v1.InventurSession.created_at:type_name -> google.protobuf.Timestamp
+	58, // 19: inventar.v1.InventurSession.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 20: inventar.v1.CreateInventurSessionRequest.date:type_name -> google.protobuf.Timestamp
 	39, // 21: inventar.v1.ListInventurSessionsResponse.sessions:type_name -> inventar.v1.InventurSession
 	38, // 22: inventar.v1.InventurCountResponse.count:type_name -> inventar.v1.InventurCount
 	39, // 23: inventar.v1.InventurSessionResponse.session:type_name -> inventar.v1.InventurSession
-	3,  // 24: inventar.v1.InventarService.CreateItem:input_type -> inventar.v1.CreateItemRequest
-	4,  // 25: inventar.v1.InventarService.GetItem:input_type -> inventar.v1.GetItemRequest
-	5,  // 26: inventar.v1.InventarService.UpdateItem:input_type -> inventar.v1.UpdateItemRequest
-	6,  // 27: inventar.v1.InventarService.DeleteItem:input_type -> inventar.v1.DeleteItemRequest
-	9,  // 28: inventar.v1.InventarService.ListItems:input_type -> inventar.v1.ListItemsRequest
-	11, // 29: inventar.v1.InventarService.AdjustStock:input_type -> inventar.v1.AdjustStockRequest
-	12, // 30: inventar.v1.InventarService.TransferStock:input_type -> inventar.v1.TransferStockRequest
-	14, // 31: inventar.v1.InventarService.RecordMovement:input_type -> inventar.v1.RecordMovementRequest
-	16, // 32: inventar.v1.InventarService.ListMovements:input_type -> inventar.v1.ListMovementsRequest
-	18, // 33: inventar.v1.InventarService.GetStockHistory:input_type -> inventar.v1.GetStockHistoryRequest
-	19, // 34: inventar.v1.InventarService.CreateWarning:input_type -> inventar.v1.CreateWarningRequest
-	20, // 35: inventar.v1.InventarService.UpdateWarning:input_type -> inventar.v1.UpdateWarningRequest
-	21, // 36: inventar.v1.InventarService.AcknowledgeWarning:input_type -> inventar.v1.AcknowledgeWarningRequest
-	23, // 37: inventar.v1.InventarService.ListWarnings:input_type -> inventar.v1.ListWarningsRequest
-	25, // 38: inventar.v1.InventarService.GetStockReport:input_type -> inventar.v1.GetStockReportRequest
-	27, // 39: inventar.v1.InventarService.ExportInventory:input_type -> inventar.v1.ExportInventoryRequest
-	30, // 40: inventar.v1.InventarService.CreateLocation:input_type -> inventar.v1.CreateLocationRequest
-	31, // 41: inventar.v1.InventarService.GetLocation:input_type -> inventar.v1.GetLocationRequest
-	32, // 42: inventar.v1.InventarService.UpdateLocation:input_type -> inventar.v1.UpdateLocationRequest
-	33, // 43: inventar.v1.InventarService.DeleteLocation:input_type -> inventar.v1.DeleteLocationRequest
-	36, // 44: inventar.v1.InventarService.ListLocations:input_type -> inventar.v1.ListLocationsRequest
-	40, // 45: inventar.v1.InventarService.CreateInventurSession:input_type -> inventar.v1.CreateInventurSessionRequest
-	41, // 46: inventar.v1.InventarService.GetInventurSession:input_type -> inventar.v1.GetInventurSessionRequest
-	42, // 47: inventar.v1.InventarService.UpdateInventurSessionStatus:input_type -> inventar.v1.UpdateInventurSessionStatusRequest
-	43, // 48: inventar.v1.InventarService.DeleteInventurSession:input_type -> inventar.v1.DeleteInventurSessionRequest
-	45, // 49: inventar.v1.InventarService.ListInventurSessions:input_type -> inventar.v1.ListInventurSessionsRequest
-	47, // 50: inventar.v1.InventarService.UpsertInventurCount:input_type -> inventar.v1.UpsertInventurCountRequest
-	49, // 51: inventar.v1.InventarService.BookInventurDifferences:input_type -> inventar.v1.BookInventurDifferencesRequest
-	8,  // 52: inventar.v1.InventarService.CreateItem:output_type -> inventar.v1.ItemResponse
-	8,  // 53: inventar.v1.InventarService.GetItem:output_type -> inventar.v1.ItemResponse
-	8,  // 54: inventar.v1.InventarService.UpdateItem:output_type -> inventar.v1.ItemResponse
-	7,  // 55: inventar.v1.InventarService.DeleteItem:output_type -> inventar.v1.DeleteItemResponse
-	10, // 56: inventar.v1.InventarService.ListItems:output_type -> inventar.v1.ListItemsResponse
-	8,  // 57: inventar.v1.InventarService.AdjustStock:output_type -> inventar.v1.ItemResponse
-	13, // 58: inventar.v1.InventarService.TransferStock:output_type -> inventar.v1.TransferStockResponse
-	15, // 59: inventar.v1.InventarService.RecordMovement:output_type -> inventar.v1.MovementResponse
-	17, // 60: inventar.v1.InventarService.ListMovements:output_type -> inventar.v1.ListMovementsResponse
-	17, // 61: inventar.v1.InventarService.GetStockHistory:output_type -> inventar.v1.ListMovementsResponse
-	22, // 62: inventar.v1.InventarService.CreateWarning:output_type -> inventar.v1.WarningResponse
-	22, // 63: inventar.v1.InventarService.UpdateWarning:output_type -> inventar.v1.WarningResponse
-	22, // 64: inventar.v1.InventarService.AcknowledgeWarning:output_type -> inventar.v1.WarningResponse
-	24, // 65: inventar.v1.InventarService.ListWarnings:output_type -> inventar.v1.ListWarningsResponse
-	26, // 66: inventar.v1.InventarService.GetStockReport:output_type -> inventar.v1.StockReportResponse
-	28, // 67: inventar.v1.InventarService.ExportInventory:output_type -> inventar.v1.ExportInventoryResponse
-	35, // 68: inventar.v1.InventarService.CreateLocation:output_type -> inventar.v1.LocationResponse
-	35, // 69: inventar.v1.InventarService.GetLocation:output_type -> inventar.v1.LocationResponse
-	35, // 70: inventar.v1.InventarService.UpdateLocation:output_type -> inventar.v1.LocationResponse
-	34, // 71: inventar.v1.InventarService.DeleteLocation:output_type -> inventar.v1.DeleteLocationResponse
-	37, // 72: inventar.v1.InventarService.ListLocations:output_type -> inventar.v1.ListLocationsResponse
-	50, // 73: inventar.v1.InventarService.CreateInventurSession:output_type -> inventar.v1.InventurSessionResponse
-	50, // 74: inventar.v1.InventarService.GetInventurSession:output_type -> inventar.v1.InventurSessionResponse
-	50, // 75: inventar.v1.InventarService.UpdateInventurSessionStatus:output_type -> inventar.v1.InventurSessionResponse
-	44, // 76: inventar.v1.InventarService.DeleteInventurSession:output_type -> inventar.v1.DeleteInventurSessionResponse
-	46, // 77: inventar.v1.InventarService.ListInventurSessions:output_type -> inventar.v1.ListInventurSessionsResponse
-	48, // 78: inventar.v1.InventarService.UpsertInventurCount:output_type -> inventar.v1.InventurCountResponse
-	50, // 79: inventar.v1.InventarService.BookInventurDifferences:output_type -> inventar.v1.InventurSessionResponse
-	52, // [52:80] is the sub-list for method output_type
-	24, // [24:52] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	58, // 24: inventar.v1.ItemAttachment.created_at:type_name -> google.protobuf.Timestamp
+	58, // 25: inventar.v1.ItemAttachment.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 26: inventar.v1.ItemAttachmentResponse.attachment:type_name -> inventar.v1.ItemAttachment
+	51, // 27: inventar.v1.ListItemAttachmentsResponse.attachments:type_name -> inventar.v1.ItemAttachment
+	3,  // 28: inventar.v1.InventarService.CreateItem:input_type -> inventar.v1.CreateItemRequest
+	4,  // 29: inventar.v1.InventarService.GetItem:input_type -> inventar.v1.GetItemRequest
+	5,  // 30: inventar.v1.InventarService.UpdateItem:input_type -> inventar.v1.UpdateItemRequest
+	6,  // 31: inventar.v1.InventarService.DeleteItem:input_type -> inventar.v1.DeleteItemRequest
+	9,  // 32: inventar.v1.InventarService.ListItems:input_type -> inventar.v1.ListItemsRequest
+	11, // 33: inventar.v1.InventarService.AdjustStock:input_type -> inventar.v1.AdjustStockRequest
+	12, // 34: inventar.v1.InventarService.TransferStock:input_type -> inventar.v1.TransferStockRequest
+	14, // 35: inventar.v1.InventarService.RecordMovement:input_type -> inventar.v1.RecordMovementRequest
+	16, // 36: inventar.v1.InventarService.ListMovements:input_type -> inventar.v1.ListMovementsRequest
+	18, // 37: inventar.v1.InventarService.GetStockHistory:input_type -> inventar.v1.GetStockHistoryRequest
+	19, // 38: inventar.v1.InventarService.CreateWarning:input_type -> inventar.v1.CreateWarningRequest
+	20, // 39: inventar.v1.InventarService.UpdateWarning:input_type -> inventar.v1.UpdateWarningRequest
+	21, // 40: inventar.v1.InventarService.AcknowledgeWarning:input_type -> inventar.v1.AcknowledgeWarningRequest
+	23, // 41: inventar.v1.InventarService.ListWarnings:input_type -> inventar.v1.ListWarningsRequest
+	25, // 42: inventar.v1.InventarService.GetStockReport:input_type -> inventar.v1.GetStockReportRequest
+	27, // 43: inventar.v1.InventarService.ExportInventory:input_type -> inventar.v1.ExportInventoryRequest
+	30, // 44: inventar.v1.InventarService.CreateLocation:input_type -> inventar.v1.CreateLocationRequest
+	31, // 45: inventar.v1.InventarService.GetLocation:input_type -> inventar.v1.GetLocationRequest
+	32, // 46: inventar.v1.InventarService.UpdateLocation:input_type -> inventar.v1.UpdateLocationRequest
+	33, // 47: inventar.v1.InventarService.DeleteLocation:input_type -> inventar.v1.DeleteLocationRequest
+	36, // 48: inventar.v1.InventarService.ListLocations:input_type -> inventar.v1.ListLocationsRequest
+	40, // 49: inventar.v1.InventarService.CreateInventurSession:input_type -> inventar.v1.CreateInventurSessionRequest
+	41, // 50: inventar.v1.InventarService.GetInventurSession:input_type -> inventar.v1.GetInventurSessionRequest
+	42, // 51: inventar.v1.InventarService.UpdateInventurSessionStatus:input_type -> inventar.v1.UpdateInventurSessionStatusRequest
+	43, // 52: inventar.v1.InventarService.DeleteInventurSession:input_type -> inventar.v1.DeleteInventurSessionRequest
+	45, // 53: inventar.v1.InventarService.ListInventurSessions:input_type -> inventar.v1.ListInventurSessionsRequest
+	47, // 54: inventar.v1.InventarService.UpsertInventurCount:input_type -> inventar.v1.UpsertInventurCountRequest
+	49, // 55: inventar.v1.InventarService.BookInventurDifferences:input_type -> inventar.v1.BookInventurDifferencesRequest
+	52, // 56: inventar.v1.InventarService.CreateItemAttachment:input_type -> inventar.v1.CreateItemAttachmentRequest
+	54, // 57: inventar.v1.InventarService.ListItemAttachments:input_type -> inventar.v1.ListItemAttachmentsRequest
+	56, // 58: inventar.v1.InventarService.DeleteItemAttachment:input_type -> inventar.v1.DeleteItemAttachmentRequest
+	8,  // 59: inventar.v1.InventarService.CreateItem:output_type -> inventar.v1.ItemResponse
+	8,  // 60: inventar.v1.InventarService.GetItem:output_type -> inventar.v1.ItemResponse
+	8,  // 61: inventar.v1.InventarService.UpdateItem:output_type -> inventar.v1.ItemResponse
+	7,  // 62: inventar.v1.InventarService.DeleteItem:output_type -> inventar.v1.DeleteItemResponse
+	10, // 63: inventar.v1.InventarService.ListItems:output_type -> inventar.v1.ListItemsResponse
+	8,  // 64: inventar.v1.InventarService.AdjustStock:output_type -> inventar.v1.ItemResponse
+	13, // 65: inventar.v1.InventarService.TransferStock:output_type -> inventar.v1.TransferStockResponse
+	15, // 66: inventar.v1.InventarService.RecordMovement:output_type -> inventar.v1.MovementResponse
+	17, // 67: inventar.v1.InventarService.ListMovements:output_type -> inventar.v1.ListMovementsResponse
+	17, // 68: inventar.v1.InventarService.GetStockHistory:output_type -> inventar.v1.ListMovementsResponse
+	22, // 69: inventar.v1.InventarService.CreateWarning:output_type -> inventar.v1.WarningResponse
+	22, // 70: inventar.v1.InventarService.UpdateWarning:output_type -> inventar.v1.WarningResponse
+	22, // 71: inventar.v1.InventarService.AcknowledgeWarning:output_type -> inventar.v1.WarningResponse
+	24, // 72: inventar.v1.InventarService.ListWarnings:output_type -> inventar.v1.ListWarningsResponse
+	26, // 73: inventar.v1.InventarService.GetStockReport:output_type -> inventar.v1.StockReportResponse
+	28, // 74: inventar.v1.InventarService.ExportInventory:output_type -> inventar.v1.ExportInventoryResponse
+	35, // 75: inventar.v1.InventarService.CreateLocation:output_type -> inventar.v1.LocationResponse
+	35, // 76: inventar.v1.InventarService.GetLocation:output_type -> inventar.v1.LocationResponse
+	35, // 77: inventar.v1.InventarService.UpdateLocation:output_type -> inventar.v1.LocationResponse
+	34, // 78: inventar.v1.InventarService.DeleteLocation:output_type -> inventar.v1.DeleteLocationResponse
+	37, // 79: inventar.v1.InventarService.ListLocations:output_type -> inventar.v1.ListLocationsResponse
+	50, // 80: inventar.v1.InventarService.CreateInventurSession:output_type -> inventar.v1.InventurSessionResponse
+	50, // 81: inventar.v1.InventarService.GetInventurSession:output_type -> inventar.v1.InventurSessionResponse
+	50, // 82: inventar.v1.InventarService.UpdateInventurSessionStatus:output_type -> inventar.v1.InventurSessionResponse
+	44, // 83: inventar.v1.InventarService.DeleteInventurSession:output_type -> inventar.v1.DeleteInventurSessionResponse
+	46, // 84: inventar.v1.InventarService.ListInventurSessions:output_type -> inventar.v1.ListInventurSessionsResponse
+	48, // 85: inventar.v1.InventarService.UpsertInventurCount:output_type -> inventar.v1.InventurCountResponse
+	50, // 86: inventar.v1.InventarService.BookInventurDifferences:output_type -> inventar.v1.InventurSessionResponse
+	53, // 87: inventar.v1.InventarService.CreateItemAttachment:output_type -> inventar.v1.ItemAttachmentResponse
+	55, // 88: inventar.v1.InventarService.ListItemAttachments:output_type -> inventar.v1.ListItemAttachmentsResponse
+	57, // 89: inventar.v1.InventarService.DeleteItemAttachment:output_type -> inventar.v1.DeleteItemAttachmentResponse
+	59, // [59:90] is the sub-list for method output_type
+	28, // [28:59] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_proto_inventar_v1_inventar_proto_init() }
@@ -4076,7 +4532,7 @@ func file_proto_inventar_v1_inventar_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_inventar_v1_inventar_proto_rawDesc), len(file_proto_inventar_v1_inventar_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   51,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

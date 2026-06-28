@@ -52,4 +52,9 @@ type Repository interface {
 	// Inventur Counts
 	UpsertInventurCount(ctx context.Context, count *InventurCount) error
 	ListInventurCounts(ctx context.Context, sessionID uuid.UUID) ([]*InventurCount, error)
+
+	// Item Attachments
+	CreateItemAttachment(ctx context.Context, att *ItemAttachment) error
+	ListItemAttachments(ctx context.Context, tenantID, itemID uuid.UUID) ([]*ItemAttachment, error)
+	DeleteItemAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error
 }

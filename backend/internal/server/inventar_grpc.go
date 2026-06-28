@@ -791,8 +791,88 @@ func (s *InventarGRPCServer) BookInventurDifferences(ctx context.Context, req *i
 }
 
 // ============================================================================
+// Item Attachment RPCs
+// ============================================================================
+
+func (s *InventarGRPCServer) CreateItemAttachment(ctx context.Context, req *inventarv1.CreateItemAttachmentRequest) (*inventarv1.ItemAttachmentResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	itemID, err := uuid.Parse(req.GetItemId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid item_id: %v", err)
+	}
+
+	att, err := s.svc.CreateItemAttachment(ctx, inventar.CreateItemAttachmentInput{
+		TenantID:  tenantID,
+		ItemID:    itemID,
+		Name:      req.GetName(),
+		ObjectKey: req.GetObjectKey(),
+		FileType:  req.GetFileType(),
+	})
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.ItemAttachmentResponse{Attachment: itemAttachmentToProto(att)}, nil
+}
+
+func (s *InventarGRPCServer) ListItemAttachments(ctx context.Context, req *inventarv1.ListItemAttachmentsRequest) (*inventarv1.ListItemAttachmentsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	itemID, err := uuid.Parse(req.GetItemId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid item_id: %v", err)
+	}
+
+	atts, err := s.svc.ListItemAttachments(ctx, tenantID, itemID)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	resp := &inventarv1.ListItemAttachmentsResponse{}
+	for _, a := range atts {
+		resp.Attachments = append(resp.Attachments, itemAttachmentToProto(a))
+	}
+	return resp, nil
+}
+
+func (s *InventarGRPCServer) DeleteItemAttachment(ctx context.Context, req *inventarv1.DeleteItemAttachmentRequest) (*inventarv1.DeleteItemAttachmentResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	attachmentID, err := uuid.Parse(req.GetAttachmentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid attachment_id: %v", err)
+	}
+
+	if err := s.svc.DeleteItemAttachment(ctx, tenantID, attachmentID); err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.DeleteItemAttachmentResponse{}, nil
+}
+
+// ============================================================================
 // Conversion helpers
 // ============================================================================
+
+func itemAttachmentToProto(a *inventar.ItemAttachment) *inventarv1.ItemAttachment {
+	if a == nil {
+		return nil
+	}
+	return &inventarv1.ItemAttachment{
+		Id:        a.ID.String(),
+		TenantId:  a.TenantID.String(),
+		ItemId:    a.ItemID.String(),
+		Name:      a.Name,
+		ObjectKey: a.ObjectKey,
+		FileType:  a.FileType,
+		CreatedAt: timestamppb.New(a.CreatedAt),
+		UpdatedAt: timestamppb.New(a.UpdatedAt),
+	}
+}
 
 func itemToProto(item *inventar.Item) *inventarv1.Item {
 	if item == nil {
@@ -951,6 +1031,8 @@ func mapInventarError(err error) error {
 	case errors.Is(err, inventar.ErrInventurSessionNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, inventar.ErrInventurCountNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, inventar.ErrAttachmentNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, inventar.ErrInventurAlreadyCompleted):
 		return status.Error(codes.FailedPrecondition, err.Error())

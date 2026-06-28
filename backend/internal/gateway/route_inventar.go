@@ -63,8 +63,15 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(middleware.RequirePermission("inventar:movement", "read")).Get("/movements", ir.HandleListMovements)
 				r.With(middleware.RequirePermission("inventar:movement", "read")).Get("/history", ir.HandleGetStockHistory)
 				r.With(middleware.RequirePermission("inventar:movement", "write")).Post("/movements", ir.HandleRecordMovement)
+
+				// Attachments
+				r.With(middleware.RequirePermission("inventar:attachment", "read")).Get("/attachments", ir.HandleListItemAttachments)
+				r.With(middleware.RequirePermission("inventar:attachment", "write")).Post("/attachments", ir.HandleCreateItemAttachment)
 			})
 		})
+
+		// Attachment deletion (keyed by attachment id, not item id)
+		r.With(middleware.RequirePermission("inventar:attachment", "write")).Delete("/attachments/{id}", ir.HandleDeleteItemAttachment)
 
 		// Transfer between items
 		r.With(middleware.RequirePermission("inventar:item", "write")).Post("/transfer", ir.HandleTransferStock)
@@ -168,6 +175,14 @@ type updateWarningRequest struct {
 
 type acknowledgeWarningRequest struct {
 	AcknowledgedBy string `json:"acknowledged_by" validate:"omitempty,uuid"`
+}
+
+// createItemAttachmentRequest registers a presigned-upload object key against an
+// item. The file is already in MinIO (scope=inventar); only metadata is sent here.
+type createItemAttachmentRequest struct {
+	Name      string `json:"name"       validate:"required"`
+	ObjectKey string `json:"object_key" validate:"required"`
+	FileType  string `json:"file_type"`
 }
 
 // ============================================================================
@@ -751,7 +766,7 @@ type updateLocationRequest struct {
 
 type createInventurSessionRequest struct {
 	Name       string   `json:"name"                validate:"required"`
-	Date       *string  `json:"date,omitempty"`       // YYYY-MM-DD
+	Date       *string  `json:"date,omitempty"` // YYYY-MM-DD
 	LocationID *string  `json:"location_id,omitempty" validate:"omitempty,uuid"`
 	ItemIDs    []string `json:"item_ids,omitempty"`
 }
@@ -1146,4 +1161,100 @@ func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r
 		return
 	}
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Item Attachment Handlers
+// ============================================================================
+
+func (ir *InventarRoutes) HandleListItemAttachments(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	itemID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListItemAttachments(r.Context(), &inventarv1.ListItemAttachmentsRequest{
+		TenantId: tenantID.String(),
+		ItemId:   itemID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleCreateItemAttachment(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	itemID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[createItemAttachmentRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateItemAttachment(r.Context(), &inventarv1.CreateItemAttachmentRequest{
+		TenantId:  tenantID.String(),
+		ItemId:    itemID,
+		Name:      req.Name,
+		ObjectKey: req.ObjectKey,
+		FileType:  req.FileType,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (ir *InventarRoutes) HandleDeleteItemAttachment(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	attachmentID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteItemAttachment(r.Context(), &inventarv1.DeleteItemAttachmentRequest{
+		TenantId:     tenantID.String(),
+		AttachmentId: attachmentID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"status": "attachment deleted"})
 }
