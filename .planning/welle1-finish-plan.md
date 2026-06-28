@@ -6,7 +6,8 @@
 - **B documents** ✅ K6 Share-URL (405→200) + K7 normalizeShare, READ regressionsfrei — `50b8632a`
 - **A3 inbox** ✅ echt-geschaltet, 3 mock-Bugs (Timestamp-Sort-Crash/channel-Int/getMessage-wrap), Demo-Seed 6 Messages — `9621ecc4`
 - **C security** ✅ NUR verifiziert: Backend echt (nicht „2/10"), ~25 Endpoints real, echt-schaltbar (Luke-frei). KEINE Echt-Schaltung (User-Wunsch)
-- **D X-4** 🟡 Pattern etabliert + verifiziert an **crmPrefs** (Referenz): `api/settings-persist.ts` Helper + initFromServer/Write-Through + KontaktePage-Hydration. Live: Default→Server hydratisiert ✓ — `07d31f3a`
+- **D X-4** 🟢 **8 personal-Prefs-Stores echt-verkabelt + zentraler Hydrator**: `api/settings-persist.ts` (Helper) + `hooks/useHydrateModuleSettings.ts` (ein Punkt nach Login in DeskEnvironment, fire-and-forget). Stores: crmPrefs · financePrefs · teamPrefs · dashboardPrefs · helpdeskPrefs · zeiterfassungPrefs · wikiPrefs · dokumentePrefs. Live verifiziert: frischer Client hydratisiert crm/finance/wiki Server-Werte ✓ — `07d31f3a` (crmPrefs+Helper) + `943ab109` (Hydrator+7 Stores)
+  - **OFFEN X-4-Rest** (Rezept = crmPrefs, registrieren in useHydrateModuleSettings mit scope): **tenant-Settings** (wikiSettings/dashboardSettings/zeiterfassungSettings/financeTenant — scope `tenant`, Modul-Leiter-gated, Schreiben nur als Lead/Admin → saveModuleSettings swallowed sonst) · **mittel** (workPrefs/vertraegePrefs) · **gemischt** (dialer/automatisierung/berichte/mail/formulare-Prefs = Store-Split → Welle 2) · **groß** (workSettings/payrollSettings = Backend-API teils fehlt → Welle 2)
 - **DB-Migrationen 227–234 nachgezogen** (waren auf 226). **4 mock-verdeckte Bugs** gefixt. Luke-Notizen in `backend-gaps.md` (28.06.-Block).
 
 ### ⏭ OFFEN X-4-Rollout (~12 Stores) — ⚠ ARCHITEKTUR-ENTSCHEIDUNG vor Bau:
