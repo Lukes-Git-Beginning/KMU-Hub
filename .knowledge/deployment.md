@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-06-19
+updated: 2026-07-02
 ---
 # Deployment & Infrastruktur
 
@@ -215,7 +215,14 @@ Fuer Hetzner CPX42 (16GB RAM):
 shared_buffers=4GB, effective_cache_size=12GB, work_mem=64MB,
 maintenance_work_mem=512MB, max_connections=150
 ```
-Konfiguriert als `command:` Args im postgres Service.
+Konfiguriert als `command:` Args im postgres Service. **Seit 07-02** zusätzlich `-c shared_preload_libraries=pg_cron -c cron.database_name=kmuhub` (der prod-overlay-`command` ERSETZT den base-`command` → alle 7 Flags in `docker-compose.prod.yml` wiederholen, sonst gehen die Tuning-Flags verloren).
+
+## Partitionierung + pg_cron (R2-P1.10, 2026-07-02, `f137707f`)
+
+- **Custom Postgres-Image** `deploy/docker/postgres/Dockerfile` = `FROM pgvector/pgvector:pg16` + `postgresql-16-cron`. In `docker-compose.yml` `build: {context: ./postgres}` statt `image:`. Image-Wechsel datensicher am `docker_pgdata`-Volume (Docker re-init nur bei leerem Volume). ⚠ `postgres` ∉ `BUILDABLE_SERVICES` in deploy.sh → wird bei normalem Deploy nicht explizit gebaut; `up -d postgres` baut nur wenn Image fehlt (selbstheilend über den `build:`-Context).
+- **Migration 242** `partition_ephemeral_log_tables`: `events`/`dialer_call_events`/`automation_executions` deklarativ RANGE-partitioniert (created_at/occurred_at/started_at), PK→`(id, time_col)`, je 17 Partitionen (16 Monate −3…+12 + DEFAULT), RLS re-applied auf die 2 Tenant-Tabellen. `audit_log` AUSGESCHLOSSEN (§257/§147 AO + Hash-Kette). Alle pg_cron-Statements exception-safe (läuft auch ohne pg_cron durch → CI/dev).
+- **pg_cron 1.6, 2 Jobs:** `partition-advance-events` (`0 2 25 * *`, legt +2 Monatspartitionen an), `partition-retention-drop` (`30 3 * * *`, `drop_old_partitions(…, 90)` = 90d Retention). Monitoring: `SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20`.
+- **Rollout = manuelles Maintenance-Window** (Runbook `deploy/PARTITION_MAINTENANCE_RUNBOOK.md`), NICHT Auto-CD. Drei Fallstricke: (1) `.git` teilweise root-owned → `sudo chown -R deploy:deploy /opt/kmuhub/.git` VOR `git stash`; (2) `build migrate` VOR `run --rm migrate` (Dockerfile.migrate backt Migrationen ein, sonst silent no-op auf altem Kopf); (3) deploy.sh-Ordering fährt migrate VOR dem postgres-Restart → `gh workflow disable "CD"`, manuell fahren, danach `enable`. Ablauf: Backup→`build postgres`→`up -d postgres` (recreate mit pg_cron)→`SHOW shared_preload_libraries`-Gate→`build migrate`+`run --rm migrate`→verify (17 Partitionen/2 cron-Jobs/RLS)→Smoke→CD enable→optional Reconcile-Deploy (Postgres bleibt dabei unangetastet, `up -d postgres` no-op bei gleichem command).
 
 ## pprof Profiling
 - Aktivierung: `ENABLE_PPROF=true` Environment-Variable
