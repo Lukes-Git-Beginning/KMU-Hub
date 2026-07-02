@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-21
+updated: 2026-06-28
 ---
 # Architektur
 
@@ -136,6 +136,7 @@ Komplett-Ausbau der drei Module, mock-first wo kein Backend existiert. **Noch NI
 ### Backend R3 Welle F/G + Notifications/Wiki (2026-06-21, alle auf main, prod-deployt)
 - **R3 Welle F (Data-Integrity + P0-1-Rest):** alle 25 Proto-Handler in `route_video.go` auf `response.Proto` (protojson, RFC3339-Timestamps statt `{seconds,nanos}` — s. [[api]]); Helpdesk `MergeTickets` jetzt atomar via `Repository.MergeTicketTx` (eine pgx-TX `pool.Begin`→ReassignMessages+UpdateTicket→Commit, statt zwei getrennter Writes); `audit_log` DB-Level Append-Only-Trigger (Migr.222, GoBD — s. [[security]]); 29 aufgeschobene `tenant_id`-FKs validiert (Migr.223 — s. [[datenbank]]).
 - **R3 Welle G:** RBAC manager/member-Permission-Seed fuer 5 Module booking-pages/schichten/hr:time_*/inventar/einkauf (Migr.224, manager voll operativ / member Self-Service — s. [[security]]).
+- **Meeting-Parität (2026-06-23/28):** `route_video.go` erweitert um Host-Controls (cohosts/lock/mute, Migr.226), CRM-Link (227), KI-Summary (228, `LLM_BASE_URL`-gated) und **6A Breakout-Rooms** (2026-06-28, deployt). Breakout: 7 RPCs am VideoService (`CreateBreakoutRooms`/`ListBreakoutRooms`/`AssignBreakoutParticipant`/`JoinBreakoutRoom`/`GetBreakoutAssignment`/`ReturnToMainRoom`/`CloseBreakoutRooms`), Routen `/api/v1/meetings/{id}/breakout-rooms[...]`, eigene LiveKit-Sub-Rooms `breakout-{meetingID}-{i}` (LiveKit auto-create → kein expliziter CreateRoom), Authz rein service-layer `isHostOrCoHost` (kein neuer RBAC-Guard; join nutzt geseedetes `meetings:write`). FE-Room-Switch: 8s-Poll `GetBreakoutAssignment` ist autoritativ (DataChannel ist room-scoped → erreicht Sub-Rooms nicht → nur Accelerator für main→breakout); Store-`switchBreakoutRoom` tauscht den LiveKit-Token → `<LiveKitRoom>` reconnectet. Tabellen `meeting_breakout_rooms`+`meeting_breakout_assignments` (Migr.235, tenant_id+RLS, s. [[datenbank]]). Mitgenommen: Display-Name-Fix (`GetAttendees` JOIN users) + Screenshare-Diagnose-Logging.
 - **Notifications (Darien, N-1…N-5):** DND/Quiet-Hours-Gating vor Live-Toasts (`modules/notifications/notification-gating.ts`), Toast+Widget auf einheitliche MSW-Pipeline mit Live-Arrivals, Sidebar-Nav-Eintrag + gruppierte/gemutete Demo-Seeds, Pin/Dismiss-Persistenz via MSW + Deep-Link zu konkreten Items, lesbare Modul-Labels in den Event-Type-Preferences.
 - **Wiki (Darien, PB-1):** Artikel-Authoring auf die **shared block-document engine** umgezogen — `WikiRichEditor.tsx` (≈490 Zeilen) entfernt, `wiki-blocks.tsx` + erweiterter `wiki-adapter.ts` neu, `WikiArticle`/`WikiEditor` schlanker.
 
