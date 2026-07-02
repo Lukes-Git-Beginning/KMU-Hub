@@ -25,6 +25,23 @@ out/
 .planning/*.pdf
 desktop/scripts/screenshots/
 
+# === Planning session WIP (local-only resume/runbook/test scratch) ===
+.planning/backend-status-darien-2026-06-20.md
+.planning/create-test-meeting.py
+.planning/deploy-fix-resume-2026-06-25.md
+.planning/mock-exit-master-resume.md
+.planning/mock-exit-resume-2026-06-24.md
+.planning/videocall-test-RESUME.md
+.planning/videocall-test-runbook.md
+.planning/welle1-abschluss-resume-2026-06-25.md
+.planning/welle5-priority-sweep-resume.md
+.planning/meeting-parity/DELEGATION-PROMPT.md
+.planning/meeting-parity/HANDOFF-next-steps.md
+.planning/meeting-parity/LIVE-FEEDBACK-PROMPT.md
+.planning/meeting-parity/RUNBOOK.md
+.planning/meeting-parity/smoke-findings-2026-06-23.md
+.planning/meeting-parity/wave-0-autoclose.md
+
 # === Environment ===
 .env
 .env.*
