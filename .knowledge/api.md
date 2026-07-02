@@ -1,13 +1,16 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-06-26
+updated: 2026-07-02
 ---
 # API-Referenz
 
 ## OpenAPI Spec
-- Datei: `backend/api/openapi.yaml` (~28.600 Zeilen, OpenAPI 3.0.3)
-- TypeScript-Generierung: `npm run api:generate` → `desktop/src/renderer/src/api/types.ts` (232KB)
+- Datei: `backend/api/openapi.yaml` (~38.400 Zeilen, OpenAPI 3.0.3, **711 Pfade / 895 Operationen**)
+- TypeScript-Generierung: `npm run api:generate` → `desktop/src/renderer/src/api/types.ts`
 - Gateway: HTTP REST auf Port 8080, leitet intern an gRPC-Services weiter
+- **OpenAPI-Drift geschlossen (2026-07-02):** alle registrierten `/api/v1`-Routen sind jetzt im Spec. Nachdokumentiert wurden 11 zuvor fehlende/teilweise Gruppen (~185 + 48 Ops): documents, plugins, integrations (generic + bexio + lexware + DATEV-Upload), caldav, guest, feature-flags, global-search, produktion-ext, berichte, crm-ext-GDPR, biz-finance-Lücken, tenant/module-grants, files-presign, meeting-parity-extras (breakout/cohosts/moderation/recordings), hr/time/*, inventar-attachments, 2fa/validate, contact import/export, helpdesk business-hours, inbox canned-responses/thread.
+- **Drift-Guard (CI, 2026-07-02):** `backend/internal/gateway/openapi_drift_test.go` baut den chi-Router wie `cmd/gateway/main.go` (alle RouteRegistrar, nil-Backends, Flags on), walkt via `chi.Walk` alle Routen und failt, wenn ein `/api/v1`-Pfad im Spec fehlt. Läuft im bestehenden `test`-Job (kein DB/Redis, keine Workflow-Änderung). Allowlist bewusst leer; Nicht-`/api/v1`-Protokoll-Routen (health, wopi, well-known, caldav-webdav) sind außerhalb der Assertion. **Wichtig:** `openapi-validate` prüft nur YAML-Syntax — der echte Route↔Spec-Abgleich ist dieser Test.
+- **Bekannte Rest-Schuld (nicht Teil der Doku-Closure):** viele Handler serialisieren Proto-Timestamps als `{seconds,nanos}` (via `response.JSON` auf rohem Proto statt `response.Proto`) — im Spec ehrlich als `$ref: ProtoTimestamp` dokumentiert; einige alte Schemas (`InboxMessage`, `ContactInfo`) dokumentieren fälschlich `date-time`/camelCase (P0-1-Schuldklasse, separat).
 - **Fehler-Shape (vereinheitlicht 2026-06-19, F20):** Gateway-Handler antworten mit JSON `{error}` (via `response.Error`) bzw. `{error, code, details}` fuer Validierungsfehler (via `decodeAndValidate`/`internal/validation`). Kein `text/plain http.Error` mehr — ~420 Stellen ueber 27 `route_*.go` umgestellt.
 
 ## Endpoint-Gruppen
