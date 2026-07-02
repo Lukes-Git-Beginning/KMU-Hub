@@ -13612,6 +13612,851 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/meetings/{id}/breakout-rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List breakout rooms and current participant assignments for a meeting */
+        get: operations["listBreakoutRooms"];
+        put?: never;
+        /** Create breakout rooms for a meeting (host/co-host only, enforced in the service) */
+        post: operations["createBreakoutRooms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{id}/breakout-rooms/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign a participant to a breakout room (or back to main room when omitted) */
+        post: operations["assignBreakoutParticipant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{id}/breakout-rooms/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join the caller's assigned breakout room (requires meetings:write) */
+        post: operations["joinBreakoutRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{id}/breakout-rooms/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the caller's current breakout room assignment (poll target; unset means main room) */
+        get: operations["getBreakoutAssignment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{id}/breakout-rooms/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Return a participant (self, or another when host/co-host) to the main room */
+        post: operations["returnToMainRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{id}/breakout-rooms/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close all breakout rooms and return every participant to the main room (host/co-host only) */
+        post: operations["closeBreakoutRooms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{id}/ai-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate an LLM summary of the meeting's public notes (host/co-host only, enforced in the service) */
+        post: operations["generateMeetingSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{meetingId}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List persisted chat messages for a meeting */
+        get: operations["listMeetingChatMessages"];
+        put?: never;
+        /** Save a persisted in-call chat message */
+        post: operations["saveMeetingChatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{meetingId}/cohosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List co-hosts for a meeting */
+        get: operations["listCoHosts"];
+        put?: never;
+        /** Grant co-host rights to a user (organizer only, enforced in the service) */
+        post: operations["promoteCoHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{meetingId}/cohosts/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke co-host rights from a user (organizer only, enforced in the service) */
+        delete: operations["demoteCoHost"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{meetingId}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lock or unlock a meeting to new joiners (host/co-host only, enforced in the service) */
+        post: operations["setMeetingLock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{meetingId}/moderation/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Server-mute a single participant (host/co-host only, enforced in the service) */
+        post: operations["muteMeetingParticipant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{meetingId}/moderation/mute-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Server-mute all non-host participants (host/co-host only, enforced in the service) */
+        post: operations["muteAllMeetingParticipants"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meetings/{meetingId}/moderation/kick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove a participant from the meeting room (host/co-host only, enforced in the service) */
+        post: operations["removeMeetingParticipant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/video/meetings/{meetingId}/recordings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recordings for a specific meeting with pagination */
+        get: operations["listRecordingsByMeeting"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/video/recordings/{id}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the consent snapshot and live consent rows for a recording */
+        get: operations["getRecordingConsents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/video/recordings/{id}/tag-consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Overwrite the consent snapshot on a recording (requires recordings:admin) */
+        post: operations["tagRecordingWithConsents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/video/recordings/{id}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update mutable fields on a recording (requires recordings:admin) */
+        patch: operations["updateRecordingMetadata"];
+        trace?: never;
+    };
+    "/api/v1/video/recordings/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current status of a single recording (polling target) */
+        get: operations["getRecordingStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/video/recordings/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Generate a presigned MinIO GET URL for a completed recording */
+        get: operations["getRecordingDownloadURL"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/video/recordings/{id}/cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete a single recording past its retention period (requires recordings:admin; admin/cron endpoint) */
+        post: operations["cleanupExpiredRecording"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/video/recordings/{id}/initiator-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stamp initiator pre-recording consent before StartRecording (requires recording:write) */
+        post: operations["confirmInitiatorConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get time-tracking analytics (totals, trend, project breakdown) for the caller */
+        get: operations["getHrTimeAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the caller's running time balance (overtime/undertime) */
+        get: operations["getHrTimeBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current week's time overview for the whole team */
+        get: operations["getHrTimeTeam"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List time categories for the tenant */
+        get: operations["listHrTimeCategories"];
+        put?: never;
+        /** Create a time category */
+        post: operations["createHrTimeCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a time category */
+        put: operations["updateHrTimeCategory"];
+        post?: never;
+        /** Delete a time category */
+        delete: operations["deleteHrTimeCategory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List time templates for the tenant */
+        get: operations["listHrTimeTemplates"];
+        put?: never;
+        /** Create a time template */
+        post: operations["createHrTimeTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a time template */
+        delete: operations["deleteHrTimeTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List time projects for the tenant */
+        get: operations["listHrTimeProjects"];
+        put?: never;
+        /** Create a time project */
+        post: operations["createHrTimeProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/weeks/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the caller's week-approval status for a given week */
+        get: operations["getHrTimeWeekStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/weeks/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit the caller's own week for approval */
+        post: operations["submitHrTimeWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/weeks/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve an employee's submitted week (manager/admin) */
+        post: operations["approveHrTimeWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/weeks/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject an employee's submitted week (manager/admin) */
+        post: operations["rejectHrTimeWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a 2FA code (or recovery code) to complete a pending login
+         * @description Public endpoint — no bearer token required. Uses the short-lived pending_token returned by POST /auth/login instead of JWT auth.
+         */
+        post: operations["validate2FALogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/import/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import contacts from a CSV file (multipart upload) */
+        post: operations["importCRMContactsCSV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/import/vcard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import contacts from a vCard file (multipart upload) */
+        post: operations["importCRMContactsVCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a CSV file's columns and sample rows before import */
+        post: operations["previewCRMContactsImportCSV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/export/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export contacts as a CSV file
+         * @description Returns a raw binary stream (not base64/JSON) — Content-Type and Content-Disposition are set from the service response.
+         */
+        post: operations["exportCRMContactsCSV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/export/vcard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export contacts as a vCard file
+         * @description Returns a raw binary stream (not base64/JSON) — Content-Type and Content-Disposition are set from the service response.
+         */
+        post: operations["exportCRMContactsVCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a contact's visibility (shared vs personal) */
+        put: operations["updateContactVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/helpdesk/business-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the tenant's helpdesk business hours and holiday schedule */
+        get: operations["getHelpdeskBusinessHours"];
+        /** Update the tenant's helpdesk business hours and holiday schedule */
+        put: operations["updateHelpdeskBusinessHours"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/canned-responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List saved canned (template) replies for the inbox */
+        get: operations["listInboxCannedResponses"];
+        put?: never;
+        /** Create an inbox canned (template) reply */
+        post: operations["createInboxCannedResponse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/canned-responses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update an inbox canned (template) reply */
+        put: operations["updateInboxCannedResponse"];
+        post?: never;
+        /** Delete an inbox canned (template) reply */
+        delete: operations["deleteInboxCannedResponse"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{id}/thread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List thread messages (replies) for an inbox message */
+        get: operations["listInboxMessageThread"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get unread message count by channel (alias of GET /api/v1/inbox/unread-count)
+         * @description Registered as a second route to the same handler as GET /api/v1/inbox/unread-count (HandleGetUnreadCount) — kept for frontend routing/back-compat, not a distinct implementation.
+         */
+        get: operations["getInboxUnreadCountAlias"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/items/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List attachments for an inventory item */
+        get: operations["listInventarItemAttachments"];
+        put?: never;
+        /**
+         * Register an attachment for an inventory item
+         * @description Metadata-only — expects object_key from a prior presigned-upload step, does not accept the file body directly.
+         */
+        post: operations["createInventarItemAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventar/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an inventory item attachment
+         * @description Path {id} is the attachment ID, not the item ID.
+         */
+        delete: operations["deleteInventarItemAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -19744,6 +20589,467 @@ export interface components {
             object_key?: string;
             /** Format: date-time */
             expires_at?: string;
+        };
+        CreateBreakoutRoomsRequest: {
+            count: number;
+            /** @description Optional room labels; auto-generated ("Gruppe N") when empty. */
+            labels?: string[];
+        };
+        MeetingBreakoutRoom: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            meeting_id?: string;
+            /** @description LiveKit room identifier ("breakout-{meetingId}-{index}"). */
+            room_name?: string;
+            label?: string;
+            sort_index?: number;
+            /** @enum {string} */
+            status?: "open" | "closed";
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            closed_at?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        CreateBreakoutRoomsResponse: {
+            rooms?: components["schemas"]["MeetingBreakoutRoom"][];
+        };
+        MeetingBreakoutAssignment: {
+            /** Format: uuid */
+            user_id?: string;
+            /** Format: uuid */
+            breakout_room_id?: string;
+        };
+        ListBreakoutRoomsResponse: {
+            rooms?: components["schemas"]["MeetingBreakoutRoom"][];
+            assignments?: components["schemas"]["MeetingBreakoutAssignment"][];
+        };
+        AssignBreakoutParticipantRequest: {
+            /** Format: uuid */
+            target_user_id: string;
+            /**
+             * Format: uuid
+             * @description Omit to move the participant back to the main room.
+             */
+            breakout_room_id?: string;
+        };
+        JoinBreakoutRoomResponse: {
+            /** @description LiveKit JWT join token */
+            token?: string;
+            room_name?: string;
+            /** @description LiveKit WebSocket signaling URL */
+            ws_url?: string;
+            /** @description Per-session TURN credentials for the client RTCConfiguration; empty/absent when TURN is not configured. */
+            ice_servers?: {
+                urls?: string[];
+                username?: string;
+                credential?: string;
+            }[];
+            breakout_room?: components["schemas"]["MeetingBreakoutRoom"];
+        };
+        GetBreakoutAssignmentResponse: {
+            /** @description Absent when the caller is currently in the main room. */
+            room?: components["schemas"]["MeetingBreakoutRoom"];
+        };
+        ReturnToMainRoomRequest: {
+            /**
+             * Format: uuid
+             * @description Omit to self-return; a host/co-host may pass another participant's ID.
+             */
+            target_user_id?: string;
+        };
+        SaveMeetingChatMessageRequest: {
+            /** @description Display name of the authenticated sender (sender_id is resolved server-side from the JWT). */
+            sender_name?: string;
+            message: string;
+        };
+        MeetingChatMessage: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            meeting_id?: string;
+            /** Format: uuid */
+            sender_id?: string;
+            sender_name?: string;
+            message?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ListMeetingChatMessagesResponse: {
+            messages?: components["schemas"]["MeetingChatMessage"][];
+        };
+        PromoteCoHostRequest: {
+            /** Format: uuid */
+            user_id: string;
+        };
+        MeetingCoHost: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            meeting_id?: string;
+            /** Format: uuid */
+            user_id?: string;
+            /** Format: uuid */
+            granted_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ListCoHostsResponse: {
+            co_hosts?: components["schemas"]["MeetingCoHost"][];
+        };
+        SetMeetingLockRequest: {
+            locked: boolean;
+        };
+        /** @description Shared body shape for the mute and kick moderation actions. */
+        MeetingModerationTargetRequest: {
+            /** Format: uuid */
+            target_user_id: string;
+        };
+        RecordingConsentDetail: {
+            /** Format: uuid */
+            recording_id?: string;
+            /** Format: uuid */
+            user_id?: string;
+            consented?: boolean;
+            responded_at?: components["schemas"]["ProtoTimestamp"];
+            first_name?: string;
+            last_name?: string;
+        };
+        /** @description Encoded via encoding/json (not protojson) — responded_at is the raw {seconds,nanos} wire shape, not an RFC3339 string. */
+        RecordingConsentsResponse: {
+            /** Format: uuid */
+            recording_id?: string;
+            consents?: components["schemas"]["RecordingConsentDetail"][];
+            all_consented?: boolean;
+        };
+        RecordingConsentSnapshotEntry: {
+            /** Format: uuid */
+            user_id: string;
+            display_name: string;
+            /** @description Opaque ISO-8601 string forwarded as-is (not parsed/validated). */
+            joined_at?: string;
+        };
+        TagRecordingWithConsentsRequest: {
+            snapshot: components["schemas"]["RecordingConsentSnapshotEntry"][];
+        };
+        UpdateRecordingMetadataRequest: {
+            file_url?: string;
+            /** Format: int64 */
+            file_size_bytes?: number;
+            duration_seconds?: number;
+            /** @description RecordingStatus name (e.g. RECORDING_STATUS_COMPLETED). */
+            status?: string;
+        };
+        RecordingDownloadURLResponse: {
+            url?: string;
+            /** Format: date-time */
+            expires_at?: string;
+        };
+        /** @description Raw hr.v1.TimeCategory proto serialized via response.JSON (not response.Proto) — timestamp fields are ProtoTimestamp, not RFC3339. */
+        HrTimeCategory: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            color?: string;
+            icon?: string;
+            is_default?: boolean;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Shared body shape for create and update (PUT replaces all fields). */
+        HrTimeCategoryInput: {
+            name: string;
+            color?: string;
+            icon?: string;
+            is_default?: boolean;
+        };
+        /** @description Raw hr.v1.TimeTemplate proto serialized via response.JSON — timestamp fields are ProtoTimestamp, not RFC3339. */
+        HrTimeTemplate: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            /** Format: uuid */
+            category_id?: string;
+            description?: string;
+            estimated_minutes?: number;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        HrTimeCreateTemplateRequest: {
+            name: string;
+            /** Format: uuid */
+            category_id?: string;
+            description?: string;
+            estimated_minutes?: number;
+        };
+        /** @description Raw hr.v1.TimeProject proto serialized via response.JSON — timestamp fields are ProtoTimestamp, not RFC3339. */
+        HrTimeProject: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            customer_name?: string;
+            color?: string;
+            billable_default?: boolean;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        HrTimeCreateProjectRequest: {
+            name: string;
+            customer_name?: string;
+            color?: string;
+            billable_default?: boolean;
+        };
+        HrTimeTeamEntry: {
+            /** Format: uuid */
+            employee_id?: string;
+            name?: string;
+            department?: string;
+            week_minutes?: number;
+            target_minutes?: number;
+            overtime_minutes?: number;
+            clocked_in?: boolean;
+            /** @enum {string} */
+            week_status?: "open" | "submitted" | "approved" | "rejected";
+        };
+        /** @description Raw hr.v1.WeekApproval proto serialized via response.JSON — timestamp fields are ProtoTimestamp, not RFC3339. */
+        HrTimeWeekApproval: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            employee_id?: string;
+            /** Format: date */
+            week_start?: string;
+            /** @enum {string} */
+            status?: "open" | "submitted" | "approved" | "rejected";
+            submitted_at?: components["schemas"]["ProtoTimestamp"];
+            /** Format: uuid */
+            approved_by?: string;
+            approved_at?: components["schemas"]["ProtoTimestamp"];
+            rejection_reason?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        HrTimeSubmitWeekRequest: {
+            /** Format: date */
+            week_start: string;
+        };
+        HrTimeApproveWeekRequest: {
+            /** Format: uuid */
+            employee_id: string;
+            /** Format: date */
+            week_start: string;
+        };
+        HrTimeRejectWeekRequest: {
+            /** Format: uuid */
+            employee_id: string;
+            /** Format: date */
+            week_start: string;
+            rejection_reason?: string;
+        };
+        /** @description hr.v1.GetTimeAnalyticsResp serialized via response.JSON (no timestamp fields). */
+        HrTimeAnalytics: {
+            total_minutes?: number;
+            target_minutes?: number;
+            overtime_minutes?: number;
+            avg_daily_minutes?: number;
+            day_trend?: components["schemas"]["HrTimeDayTrendEntry"][];
+            by_project?: components["schemas"]["HrTimeProjectBreakdown"][];
+        };
+        HrTimeDayTrendEntry: {
+            /** Format: date */
+            date?: string;
+            net_minutes?: number;
+            target_minutes?: number;
+        };
+        HrTimeProjectBreakdown: {
+            /** Format: uuid */
+            project_id?: string;
+            project_name?: string;
+            minutes?: number;
+        };
+        /** @description hr.v1.GetTimeBalanceResp serialized via response.JSON — period_start/as_of are YYYY-MM-DD strings, not timestamps. */
+        HrTimeBalance: {
+            balance_minutes?: number;
+            target_weekly_minutes?: number;
+            /** Format: date */
+            period_start?: string;
+            /** Format: date */
+            as_of?: string;
+        };
+        Validate2FALoginRequest: {
+            /** @description Short-lived token returned by POST /auth/login when 2FA is required */
+            pending_token: string;
+            /** @description 6-digit TOTP code, or a recovery code if is_recovery_code is true */
+            code: string;
+            /** @default false */
+            is_recovery_code: boolean;
+        };
+        /** @description multipart/form-data. Additional dynamic fields named map_<csv_column> (form value = target CRM field name) configure the CSV-column-to-CRM-field mapping; not enumerable as a fixed schema property. */
+        ContactsImportCSVForm: {
+            /**
+             * Format: binary
+             * @description CSV file to import
+             */
+            file: string;
+            /**
+             * @default shared
+             * @enum {string}
+             */
+            visibility: "shared" | "personal";
+            /**
+             * @description Merge with existing contacts sharing the same email
+             * @enum {string}
+             */
+            merge_by_email?: "true" | "false";
+        };
+        ContactsImportVCardForm: {
+            /**
+             * Format: binary
+             * @description vCard (.vcf) file to import
+             */
+            file: string;
+            /**
+             * @default shared
+             * @enum {string}
+             */
+            visibility: "shared" | "personal";
+            /** @enum {string} */
+            merge_by_email?: "true" | "false";
+        };
+        ContactsPreviewImportForm: {
+            /**
+             * Format: binary
+             * @description CSV file to preview before import
+             */
+            file: string;
+        };
+        ContactsImportError: {
+            row?: number;
+            reason?: string;
+        };
+        /** @description Raw proto response serialized via response.JSON (encoding/json on the generated Go struct) — field names are snake_case per the pb.go json tags. */
+        ContactsImportResult: {
+            imported_count?: number;
+            merged_count?: number;
+            skipped_count?: number;
+            errors?: components["schemas"]["ContactsImportError"][];
+        };
+        ContactsPreviewImportResponse: {
+            columns?: string[];
+            sample_rows?: {
+                values?: string[];
+            }[];
+            /** @description Heuristic CSV-column -> CRM-field mapping */
+            detected_mapping?: {
+                [key: string]: string;
+            };
+        };
+        ContactsExportCSVRequest: {
+            /** @description Restrict export to these contacts; omit for all visible contacts */
+            contact_ids?: string[];
+            /** @description Restrict exported columns; omit for all fields */
+            fields?: string[];
+        };
+        ContactsExportVCardRequest: {
+            /** @description Restrict export to these contacts; omit for all visible contacts */
+            contact_ids?: string[];
+        };
+        UpdateContactVisibilityRequest: {
+            /** @enum {string} */
+            visibility: "shared" | "personal";
+        };
+        /** @description Raw proto response serialized via response.JSON — updated_at is the {seconds,nanos} wire shape, not an RFC3339 string. */
+        HelpdeskBusinessHours: {
+            /** Format: uuid */
+            tenant_id?: string;
+            /** @description JSON schedule map, e.g. {"Montag":{"active":true,"start":"08:00","end":"17:30"}, ...} */
+            schedule_json?: string;
+            /** @description JSON holiday list, e.g. [{"id":"h-1","date":"2026-01-01","name":"Neujahr"}, ...] */
+            holidays_json?: string;
+            timezone?: string;
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        UpdateHelpdeskBusinessHoursRequest: {
+            schedule_json: string;
+            holidays_json: string;
+            timezone: string;
+        };
+        /** @description Raw proto response serialized via response.JSON — timestamps are the {seconds,nanos} wire shape, not RFC3339 strings. */
+        InboxCannedResponse: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            body?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        InboxCannedResponseList: {
+            canned_responses?: components["schemas"]["InboxCannedResponse"][];
+        };
+        InboxCannedResponseWrapper: {
+            canned_response?: components["schemas"]["InboxCannedResponse"];
+        };
+        CreateInboxCannedResponseRequest: {
+            name: string;
+            body: string;
+        };
+        UpdateInboxCannedResponseRequest: {
+            name?: string;
+            body?: string;
+        };
+        /** @description Raw proto response serialized via response.JSON — created_at is the {seconds,nanos} wire shape, not an RFC3339 string. */
+        InboxThreadMessage: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            message_id?: string;
+            /** Format: uuid */
+            author_id?: string | null;
+            /** @description Resolved display name (user name, else external sender, else empty) */
+            author_name?: string;
+            /** @enum {string} */
+            direction?: "inbound" | "outbound" | "internal";
+            body?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        InboxThreadMessagesResponse: {
+            messages?: components["schemas"]["InboxThreadMessage"][];
+        };
+        /** @description Raw proto response serialized via response.JSON — timestamps are the {seconds,nanos} wire shape, not RFC3339 strings. */
+        InventarItemAttachment: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            item_id?: string;
+            name?: string;
+            object_key?: string;
+            file_type?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        InventarItemAttachmentList: {
+            attachments?: components["schemas"]["InventarItemAttachment"][];
+        };
+        InventarItemAttachmentResponse: {
+            attachment?: components["schemas"]["InventarItemAttachment"];
+        };
+        CreateInventarItemAttachmentRequest: {
+            name: string;
+            /** @description Object storage key from a prior presigned-upload step */
+            object_key: string;
+            file_type?: string;
         };
     };
     responses: {
@@ -45814,6 +47120,1584 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listBreakoutRooms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Breakout rooms and assignments listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListBreakoutRoomsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createBreakoutRooms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBreakoutRoomsRequest"];
+            };
+        };
+        responses: {
+            /** @description Breakout rooms created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateBreakoutRoomsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    assignBreakoutParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignBreakoutParticipantRequest"];
+            };
+        };
+        responses: {
+            /** @description Participant assigned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example assigned */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    joinBreakoutRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description LiveKit token, ws_url and per-session TURN ice_servers for the breakout room */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinBreakoutRoomResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getBreakoutAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current breakout room assignment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetBreakoutAssignmentResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    returnToMainRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnToMainRoomRequest"];
+            };
+        };
+        responses: {
+            /** @description Participant returned to the main room */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example returned */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    closeBreakoutRooms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Breakout rooms closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example breakout rooms closed */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    generateMeetingSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Meeting updated with the generated ai_summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingSchema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMeetingChatMessages: {
+        parameters: {
+            query?: {
+                /** @description Capped at 500 server-side; defaults to 100 when omitted. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chat messages listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMeetingChatMessagesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveMeetingChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveMeetingChatMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Chat message saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingChatMessage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCoHosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Co-hosts listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListCoHostsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    promoteCoHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoteCoHostRequest"];
+            };
+        };
+        responses: {
+            /** @description Co-host promoted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example co-host promoted */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    demoteCoHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Co-host demoted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example co-host demoted */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setMeetingLock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMeetingLockRequest"];
+            };
+        };
+        responses: {
+            /** @description Meeting lock updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example meeting lock updated */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    muteMeetingParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingModerationTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Participant muted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example participant muted */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    muteAllMeetingParticipants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All participants muted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example all participants muted */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeMeetingParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingModerationTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description Participant removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example participant removed */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRecordingsByMeeting: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+            };
+            header?: never;
+            path: {
+                meetingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recordings for the meeting (bare array, not wrapped) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingSchema"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRecordingConsents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consent snapshot and live consent status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingConsentsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    tagRecordingWithConsents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagRecordingWithConsentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Consent snapshot updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example consent snapshot updated */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateRecordingMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordingMetadataRequest"];
+            };
+        };
+        responses: {
+            /** @description Recording metadata updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingSchema"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRecordingStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current recording status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingSchema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRecordingDownloadURL: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Presigned download URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDownloadURLResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cleanupExpiredRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recording deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example recording deleted */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    confirmInitiatorConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pre-recording consent stamped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        stamped?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Pre-recording consent could not be confirmed: the recording does not exist or is not owned by the calling user. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getHrTimeAnalytics: {
+        parameters: {
+            query?: {
+                /** @description Aggregation range. Only 'month' is recognized explicitly; any other value (including omitted) defaults to the current week. */
+                range?: "week" | "month";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time analytics for the authenticated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeAnalytics"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getHrTimeBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time balance for the authenticated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeBalance"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getHrTimeTeam: {
+        parameters: {
+            query?: {
+                /** @description Week start date (YYYY-MM-DD, Monday). Defaults to the current week server-side when omitted. */
+                week_start?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-employee time overview for the requested week */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        team?: components["schemas"]["HrTimeTeamEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listHrTimeCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        categories?: components["schemas"]["HrTimeCategory"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createHrTimeCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeCategoryInput"];
+            };
+        };
+        responses: {
+            /** @description Time category created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeCategory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateHrTimeCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeCategoryInput"];
+            };
+        };
+        responses: {
+            /** @description Time category updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeCategory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteHrTimeCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time category deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listHrTimeTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        templates?: components["schemas"]["HrTimeTemplate"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createHrTimeTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeCreateTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Time template created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeTemplate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteHrTimeTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time template deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listHrTimeProjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time projects */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        projects?: components["schemas"]["HrTimeProject"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createHrTimeProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeCreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Time project created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeProject"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getHrTimeWeekStatus: {
+        parameters: {
+            query?: {
+                /** @description Week start date (YYYY-MM-DD, Monday). */
+                week_start?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Week approval status and minute totals for the authenticated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        week_approval?: components["schemas"]["HrTimeWeekApproval"];
+                        total_minutes?: number;
+                        target_minutes?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    submitHrTimeWeek: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeSubmitWeekRequest"];
+            };
+        };
+        responses: {
+            /** @description Week submitted for approval */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeWeekApproval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    approveHrTimeWeek: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeApproveWeekRequest"];
+            };
+        };
+        responses: {
+            /** @description Week approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeWeekApproval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    rejectHrTimeWeek: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeRejectWeekRequest"];
+            };
+        };
+        responses: {
+            /** @description Week rejected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrTimeWeekApproval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    validate2FALogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Validate2FALoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 2FA validated; login completed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    importCRMContactsCSV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ContactsImportCSVForm"];
+            };
+        };
+        responses: {
+            /** @description Import result with counts and per-row errors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactsImportResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    importCRMContactsVCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ContactsImportVCardForm"];
+            };
+        };
+        responses: {
+            /** @description Import result with counts and per-row errors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactsImportResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    previewCRMContactsImportCSV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ContactsPreviewImportForm"];
+            };
+        };
+        responses: {
+            /** @description Detected columns, sample rows, and a heuristic field mapping */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactsPreviewImportResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    exportCRMContactsCSV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactsExportCSVRequest"];
+            };
+        };
+        responses: {
+            /** @description CSV file download */
+            200: {
+                headers: {
+                    /** @description attachment; filename=<generated>.csv */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    exportCRMContactsVCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactsExportVCardRequest"];
+            };
+        };
+        responses: {
+            /** @description vCard file download */
+            200: {
+                headers: {
+                    /** @description attachment; filename=<generated>.vcf */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/vcard": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateContactVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateContactVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description Contact visibility updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getHelpdeskBusinessHours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Business hours schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskBusinessHours"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateHelpdeskBusinessHours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHelpdeskBusinessHoursRequest"];
+            };
+        };
+        responses: {
+            /** @description Business hours schedule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpdeskBusinessHours"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listInboxCannedResponses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canned response list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxCannedResponseList"];
+                };
+            };
+        };
+    };
+    createInboxCannedResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInboxCannedResponseRequest"];
+            };
+        };
+        responses: {
+            /** @description Canned response created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxCannedResponseWrapper"];
+                };
+            };
+        };
+    };
+    updateInboxCannedResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInboxCannedResponseRequest"];
+            };
+        };
+        responses: {
+            /** @description Canned response updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxCannedResponseWrapper"];
+                };
+            };
+        };
+    };
+    deleteInboxCannedResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canned response deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    listInboxMessageThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Thread messages for the given inbox message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxThreadMessagesResponse"];
+                };
+            };
+        };
+    };
+    getInboxUnreadCountAlias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unread counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxUnreadCount"];
+                };
+            };
+        };
+    };
+    listInventarItemAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Item attachments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventarItemAttachmentList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createInventarItemAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInventarItemAttachmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Attachment registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventarItemAttachmentResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteInventarItemAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attachment deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }
