@@ -226,6 +226,26 @@ tags:
 #   the /api/v1/tenant/module-leads and /api/v1/settings/* endpoints)
 # - Presigned file upload/download -> `documents`
 
+  # === openapi-drift sweep: r2a-video-meetings ===
+# r2a-video-meetings: gap-fill for breakout rooms, cohosts, lock, moderation,
+# chat, ai-summary and recording sub-ops. No new tags — reuses existing
+# [meetings] and [recordings] tags (declared above).
+
+  # === openapi-drift sweep: r2b-hr-time ===
+  - name: hr-time
+    description: >-
+      HR time tracking — clock in/out, breaks, corrections, time categories,
+      time templates, time projects, weekly submission/approval, and
+      analytics. Previously used only as an undeclared tag (wp8-partial-gaps
+      time-tracking-to-invoice endpoint); now formally declared since this
+      sweep adds the dedicated category/template/project/week/analytics
+      endpoints under /api/v1/hr/time/*.
+
+  # === openapi-drift sweep: r2c-misc-gaps ===
+# r2c-misc-gaps: no new tags — all endpoints reuse existing tags already
+# declared in the top-level tags: block: 2fa (~line 146), contacts (~line 22),
+# helpdesk-sla (~line 124), inbox-messages (~line 106), inventar (~line 154).
+
 paths:
   /health:
     get:
@@ -25431,6 +25451,1532 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  # === openapi-drift sweep: r2a-video-meetings ===
+  # ===========================================================================
+  # Meeting Breakout Rooms (Wave 6A — host/co-host authz enforced in the
+  # service; no RBAC guard except /join which requires meetings:write)
+  # ===========================================================================
+
+  /api/v1/meetings/{id}/breakout-rooms:
+    post:
+      summary: Create breakout rooms for a meeting (host/co-host only, enforced in the service)
+      tags: [meetings]
+      operationId: createBreakoutRooms
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBreakoutRoomsRequest"
+      responses:
+        "201":
+          description: Breakout rooms created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateBreakoutRoomsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      summary: List breakout rooms and current participant assignments for a meeting
+      tags: [meetings]
+      operationId: listBreakoutRooms
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Breakout rooms and assignments listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBreakoutRoomsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/breakout-rooms/assign:
+    post:
+      summary: Assign a participant to a breakout room (or back to main room when omitted)
+      tags: [meetings]
+      operationId: assignBreakoutParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignBreakoutParticipantRequest"
+      responses:
+        "200":
+          description: Participant assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: assigned
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/breakout-rooms/join:
+    post:
+      summary: Join the caller's assigned breakout room (requires meetings:write)
+      tags: [meetings]
+      operationId: joinBreakoutRoom
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: LiveKit token, ws_url and per-session TURN ice_servers for the breakout room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinBreakoutRoomResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/breakout-rooms/assignment:
+    get:
+      summary: Get the caller's current breakout room assignment (poll target; unset means main room)
+      tags: [meetings]
+      operationId: getBreakoutAssignment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Current breakout room assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetBreakoutAssignmentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/breakout-rooms/return:
+    post:
+      summary: Return a participant (self, or another when host/co-host) to the main room
+      tags: [meetings]
+      operationId: returnToMainRoom
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReturnToMainRoomRequest"
+      responses:
+        "200":
+          description: Participant returned to the main room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: returned
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/breakout-rooms/close:
+    post:
+      summary: Close all breakout rooms and return every participant to the main room (host/co-host only)
+      tags: [meetings]
+      operationId: closeBreakoutRooms
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Breakout rooms closed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: breakout rooms closed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Meeting AI Summary (Wave 7C — host/co-host authz enforced in the service)
+  # ===========================================================================
+
+  /api/v1/meetings/{id}/ai-summary:
+    post:
+      summary: Generate an LLM summary of the meeting's public notes (host/co-host only, enforced in the service)
+      tags: [meetings]
+      operationId: generateMeetingSummary
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Meeting updated with the generated ai_summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Meeting Chat (persisted in-call messages)
+  # ===========================================================================
+
+  /api/v1/meetings/{meetingId}/chat:
+    post:
+      summary: Save a persisted in-call chat message
+      tags: [meetings]
+      operationId: saveMeetingChatMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMeetingChatMessageRequest"
+      responses:
+        "201":
+          description: Chat message saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingChatMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      summary: List persisted chat messages for a meeting
+      tags: [meetings]
+      operationId: listMeetingChatMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Capped at 500 server-side; defaults to 100 when omitted.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Chat messages listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMeetingChatMessagesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Meeting Host Controls — Co-Hosts (Wave 3 — organizer-only, enforced in the service)
+  # ===========================================================================
+
+  /api/v1/meetings/{meetingId}/cohosts:
+    post:
+      summary: Grant co-host rights to a user (organizer only, enforced in the service)
+      tags: [meetings]
+      operationId: promoteCoHost
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromoteCoHostRequest"
+      responses:
+        "200":
+          description: Co-host promoted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: co-host promoted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      summary: List co-hosts for a meeting
+      tags: [meetings]
+      operationId: listCoHosts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Co-hosts listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListCoHostsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{meetingId}/cohosts/{userId}:
+    delete:
+      summary: Revoke co-host rights from a user (organizer only, enforced in the service)
+      tags: [meetings]
+      operationId: demoteCoHost
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Co-host demoted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: co-host demoted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Meeting Host Controls — Lock and Moderation (Wave 3 — host/co-host authz
+  # enforced in the service, no RBAC guard)
+  # ===========================================================================
+
+  /api/v1/meetings/{meetingId}/lock:
+    post:
+      summary: Lock or unlock a meeting to new joiners (host/co-host only, enforced in the service)
+      tags: [meetings]
+      operationId: setMeetingLock
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetMeetingLockRequest"
+      responses:
+        "200":
+          description: Meeting lock updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: meeting lock updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{meetingId}/moderation/mute:
+    post:
+      summary: Server-mute a single participant (host/co-host only, enforced in the service)
+      tags: [meetings]
+      operationId: muteMeetingParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingModerationTargetRequest"
+      responses:
+        "200":
+          description: Participant muted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: participant muted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{meetingId}/moderation/mute-all:
+    post:
+      summary: Server-mute all non-host participants (host/co-host only, enforced in the service)
+      tags: [meetings]
+      operationId: muteAllMeetingParticipants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: All participants muted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: all participants muted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{meetingId}/moderation/kick:
+    post:
+      summary: Remove a participant from the meeting room (host/co-host only, enforced in the service)
+      tags: [meetings]
+      operationId: removeMeetingParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingModerationTargetRequest"
+      responses:
+        "200":
+          description: Participant removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: participant removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Recordings by Meeting
+  # ===========================================================================
+
+  /api/v1/video/meetings/{meetingId}/recordings:
+    get:
+      summary: List recordings for a specific meeting with pagination
+      tags: [recordings]
+      operationId: listRecordingsByMeeting
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Recordings for the meeting (bare array, not wrapped)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecordingSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Recording Sub-Operations (S1.7 / Welle 1.B — recording-tag gRPC extension)
+  # ===========================================================================
+
+  /api/v1/video/recordings/{id}/consents:
+    get:
+      summary: Get the consent snapshot and live consent rows for a recording
+      tags: [recordings]
+      operationId: getRecordingConsents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Consent snapshot and live consent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingConsentsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings/{id}/tag-consents:
+    post:
+      summary: Overwrite the consent snapshot on a recording (requires recordings:admin)
+      tags: [recordings]
+      operationId: tagRecordingWithConsents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagRecordingWithConsentsRequest"
+      responses:
+        "200":
+          description: Consent snapshot updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: consent snapshot updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings/{id}/metadata:
+    patch:
+      summary: Update mutable fields on a recording (requires recordings:admin)
+      tags: [recordings]
+      operationId: updateRecordingMetadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecordingMetadataRequest"
+      responses:
+        "200":
+          description: Recording metadata updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings/{id}/status:
+    get:
+      summary: Get the current status of a single recording (polling target)
+      tags: [recordings]
+      operationId: getRecordingStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Current recording status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings/{id}/download:
+    get:
+      summary: Generate a presigned MinIO GET URL for a completed recording
+      tags: [recordings]
+      operationId: getRecordingDownloadURL
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Presigned download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingDownloadURLResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings/{id}/cleanup:
+    post:
+      summary: Delete a single recording past its retention period (requires recordings:admin; admin/cron endpoint)
+      tags: [recordings]
+      operationId: cleanupExpiredRecording
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Recording deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: recording deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings/{id}/initiator-consent:
+    post:
+      summary: Stamp initiator pre-recording consent before StartRecording (requires recording:write)
+      tags: [recordings]
+      operationId: confirmInitiatorConsent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Pre-recording consent stamped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stamped:
+                    type: boolean
+                    example: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "412":
+          description: >-
+            Pre-recording consent could not be confirmed: the recording does
+            not exist or is not owned by the calling user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # === openapi-drift sweep: r2b-hr-time ===
+  # --- HR time tracking: analytics, balance, categories, templates, ---
+  # --- projects, team, week approvals (route_hr.go, gap-fill sweep) ---
+  # All handlers below use response.JSON on a raw proto message (not
+  # response.Proto), so google.protobuf.Timestamp fields serialize as
+  # ProtoTimestamp ({seconds,nanos}), not RFC3339 strings.
+
+  /api/v1/hr/time/analytics:
+    get:
+      summary: Get time-tracking analytics (totals, trend, project breakdown) for the caller
+      tags: [hr-time]
+      operationId: getHrTimeAnalytics
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: range
+          in: query
+          description: "Aggregation range. Only 'month' is recognized explicitly; any other value (including omitted) defaults to the current week."
+          schema: { type: string, enum: [week, month], default: week }
+      responses:
+        "200":
+          description: Time analytics for the authenticated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeAnalytics" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/hr/time/balance:
+    get:
+      summary: Get the caller's running time balance (overtime/undertime)
+      tags: [hr-time]
+      operationId: getHrTimeBalance
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Time balance for the authenticated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeBalance" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/hr/time/team:
+    get:
+      summary: Get the current week's time overview for the whole team
+      tags: [hr-time]
+      operationId: getHrTimeTeam
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: week_start
+          in: query
+          description: "Week start date (YYYY-MM-DD, Monday). Defaults to the current week server-side when omitted."
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Per-employee time overview for the requested week
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    type: array
+                    items: { $ref: "#/components/schemas/HrTimeTeamEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/hr/time/categories:
+    get:
+      summary: List time categories for the tenant
+      tags: [hr-time]
+      operationId: listHrTimeCategories
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Time categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items: { $ref: "#/components/schemas/HrTimeCategory" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a time category
+      tags: [hr-time]
+      operationId: createHrTimeCategory
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeCategoryInput" }
+      responses:
+        "201":
+          description: Time category created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeCategory" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/hr/time/categories/{id}:
+    put:
+      summary: Update a time category
+      tags: [hr-time]
+      operationId: updateHrTimeCategory
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeCategoryInput" }
+      responses:
+        "200":
+          description: Time category updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeCategory" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a time category
+      tags: [hr-time]
+      operationId: deleteHrTimeCategory
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Time category deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/hr/time/templates:
+    get:
+      summary: List time templates for the tenant
+      tags: [hr-time]
+      operationId: listHrTimeTemplates
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Time templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/HrTimeTemplate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a time template
+      tags: [hr-time]
+      operationId: createHrTimeTemplate
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeCreateTemplateRequest" }
+      responses:
+        "201":
+          description: Time template created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeTemplate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/hr/time/templates/{id}:
+    delete:
+      summary: Delete a time template
+      tags: [hr-time]
+      operationId: deleteHrTimeTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Time template deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/hr/time/projects:
+    get:
+      summary: List time projects for the tenant
+      tags: [hr-time]
+      operationId: listHrTimeProjects
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Time projects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items: { $ref: "#/components/schemas/HrTimeProject" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a time project
+      tags: [hr-time]
+      operationId: createHrTimeProject
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeCreateProjectRequest" }
+      responses:
+        "201":
+          description: Time project created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeProject" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/hr/time/weeks/status:
+    get:
+      summary: Get the caller's week-approval status for a given week
+      tags: [hr-time]
+      operationId: getHrTimeWeekStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: week_start
+          in: query
+          description: "Week start date (YYYY-MM-DD, Monday)."
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Week approval status and minute totals for the authenticated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  week_approval: { $ref: "#/components/schemas/HrTimeWeekApproval" }
+                  total_minutes: { type: integer }
+                  target_minutes: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/hr/time/weeks/submit:
+    post:
+      summary: Submit the caller's own week for approval
+      tags: [hr-time]
+      operationId: submitHrTimeWeek
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeSubmitWeekRequest" }
+      responses:
+        "200":
+          description: Week submitted for approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeWeekApproval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/hr/time/weeks/approve:
+    post:
+      summary: Approve an employee's submitted week (manager/admin)
+      tags: [hr-time]
+      operationId: approveHrTimeWeek
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeApproveWeekRequest" }
+      responses:
+        "200":
+          description: Week approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeWeekApproval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/hr/time/weeks/reject:
+    post:
+      summary: Reject an employee's submitted week (manager/admin)
+      tags: [hr-time]
+      operationId: rejectHrTimeWeek
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeRejectWeekRequest" }
+      responses:
+        "200":
+          description: Week rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeWeekApproval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # === openapi-drift sweep: r2c-misc-gaps ===
+  # --- 2FA: pending-login validation (backend/internal/gateway/route_auth.go) ---
+  # Public route (no bearer token) — called after POST /auth/login returns a
+  # pending_token because the account has 2FA enabled.
+
+  /api/v1/auth/2fa/validate:
+    post:
+      summary: Validate a 2FA code (or recovery code) to complete a pending login
+      description: >-
+        Public endpoint — no bearer token required. Uses the short-lived
+        pending_token returned by POST /auth/login instead of JWT auth.
+      tags: [2fa]
+      operationId: validate2FALogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Validate2FALoginRequest"
+      responses:
+        "200":
+          description: 2FA validated; login completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --- Contacts: import/export/visibility (backend/internal/gateway/route_crm_contacts.go) ---
+  # Distinct from the /api/v1/email/contacts/* endpoints (tag `mails`), which take
+  # base64 JSON bodies. These CRM-native endpoints take real multipart uploads and
+  # stream binary files back directly (no base64 wrapping).
+
+  /api/v1/contacts/import/csv:
+    post:
+      summary: Import contacts from a CSV file (multipart upload)
+      tags: [contacts]
+      operationId: importCRMContactsCSV
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ContactsImportCSVForm"
+      responses:
+        "200":
+          description: Import result with counts and per-row errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactsImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/contacts/import/vcard:
+    post:
+      summary: Import contacts from a vCard file (multipart upload)
+      tags: [contacts]
+      operationId: importCRMContactsVCard
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ContactsImportVCardForm"
+      responses:
+        "200":
+          description: Import result with counts and per-row errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactsImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/contacts/import/preview:
+    post:
+      summary: Preview a CSV file's columns and sample rows before import
+      tags: [contacts]
+      operationId: previewCRMContactsImportCSV
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ContactsPreviewImportForm"
+      responses:
+        "200":
+          description: Detected columns, sample rows, and a heuristic field mapping
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactsPreviewImportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/contacts/export/csv:
+    post:
+      summary: Export contacts as a CSV file
+      description: >-
+        Returns a raw binary stream (not base64/JSON) — Content-Type and
+        Content-Disposition are set from the service response.
+      tags: [contacts]
+      operationId: exportCRMContactsCSV
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactsExportCSVRequest"
+      responses:
+        "200":
+          description: CSV file download
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: "attachment; filename=<generated>.csv"
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/contacts/export/vcard:
+    post:
+      summary: Export contacts as a vCard file
+      description: >-
+        Returns a raw binary stream (not base64/JSON) — Content-Type and
+        Content-Disposition are set from the service response.
+      tags: [contacts]
+      operationId: exportCRMContactsVCard
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactsExportVCardRequest"
+      responses:
+        "200":
+          description: vCard file download
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: "attachment; filename=<generated>.vcf"
+          content:
+            text/vcard:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/contacts/{id}/visibility:
+    put:
+      summary: Update a contact's visibility (shared vs personal)
+      tags: [contacts]
+      operationId: updateContactVisibility
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactVisibilityRequest"
+      responses:
+        "200":
+          description: Contact visibility updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --- Helpdesk: business hours (backend/internal/gateway/route_helpdesk.go) ---
+  # response.JSON on the raw *helpdeskv1.BusinessHoursResponse proto — updated_at
+  # serializes as {seconds,nanos}, not RFC3339 (see ProtoTimestamp).
+
+  /api/v1/helpdesk/business-hours:
+    get:
+      summary: Get the tenant's helpdesk business hours and holiday schedule
+      tags: [helpdesk-sla]
+      operationId: getHelpdeskBusinessHours
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Business hours schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskBusinessHours"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Update the tenant's helpdesk business hours and holiday schedule
+      tags: [helpdesk-sla]
+      operationId: updateHelpdeskBusinessHours
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHelpdeskBusinessHoursRequest"
+      responses:
+        "200":
+          description: Business hours schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelpdeskBusinessHours"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # --- Inbox: canned responses, thread messages, unread-count alias
+  # (backend/internal/gateway/route_inbox.go) ---
+  # response.JSON on raw inbox proto messages — timestamps serialize as
+  # {seconds,nanos}, not RFC3339 (see ProtoTimestamp). Follows this module's
+  # existing minimal-responses convention (mostly 200/201 only, see neighboring
+  # /api/v1/inbox/teams* and /api/v1/inbox/rules* paths already documented above).
+
+  /api/v1/inbox/canned-responses:
+    get:
+      summary: List saved canned (template) replies for the inbox
+      tags: [inbox-messages]
+      operationId: listInboxCannedResponses
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Canned response list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCannedResponseList"
+    post:
+      summary: Create an inbox canned (template) reply
+      tags: [inbox-messages]
+      operationId: createInboxCannedResponse
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInboxCannedResponseRequest"
+      responses:
+        "201":
+          description: Canned response created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCannedResponseWrapper"
+
+  /api/v1/inbox/canned-responses/{id}:
+    put:
+      summary: Update an inbox canned (template) reply
+      tags: [inbox-messages]
+      operationId: updateInboxCannedResponse
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInboxCannedResponseRequest"
+      responses:
+        "200":
+          description: Canned response updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCannedResponseWrapper"
+    delete:
+      summary: Delete an inbox canned (template) reply
+      tags: [inbox-messages]
+      operationId: deleteInboxCannedResponse
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Canned response deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+  /api/v1/inbox/messages/{id}/thread:
+    get:
+      summary: List thread messages (replies) for an inbox message
+      tags: [inbox-messages]
+      operationId: listInboxMessageThread
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Thread messages for the given inbox message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxThreadMessagesResponse"
+
+  /api/v1/inbox/messages/unread-count:
+    get:
+      summary: Get unread message count by channel (alias of GET /api/v1/inbox/unread-count)
+      description: >-
+        Registered as a second route to the same handler as GET
+        /api/v1/inbox/unread-count (HandleGetUnreadCount) — kept for
+        frontend routing/back-compat, not a distinct implementation.
+      tags: [inbox-messages]
+      operationId: getInboxUnreadCountAlias
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Unread counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxUnreadCount"
+
+  # --- Inventar: item attachments (backend/internal/gateway/route_inventar.go) ---
+  # response.JSON on raw inventar proto messages — timestamps serialize as
+  # {seconds,nanos}, not RFC3339 (see ProtoTimestamp). POST is metadata-only:
+  # it registers an object_key produced by a prior presigned-upload step, it
+  # does not accept the file body directly.
+
+  /api/v1/inventar/items/{id}/attachments:
+    get:
+      summary: List attachments for an inventory item
+      tags: [inventar]
+      operationId: listInventarItemAttachments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Item attachments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventarItemAttachmentList"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Register an attachment for an inventory item
+      description: >-
+        Metadata-only — expects object_key from a prior presigned-upload
+        step, does not accept the file body directly.
+      tags: [inventar]
+      operationId: createInventarItemAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInventarItemAttachmentRequest"
+      responses:
+        "201":
+          description: Attachment registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventarItemAttachmentResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/inventar/attachments/{id}:
+    delete:
+      summary: Delete an inventory item attachment
+      description: Path {id} is the attachment ID, not the item ID.
+      tags: [inventar]
+      operationId: deleteInventarItemAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Attachment deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -36011,6 +37557,805 @@ components:
         expires_at:
           type: string
           format: date-time
+
+    # === openapi-drift sweep: r2a-video-meetings ===
+    # =========================================================================
+    # Meeting Breakout Room Schemas (Wave 6A)
+    # =========================================================================
+
+    CreateBreakoutRoomsRequest:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
+          minimum: 1
+          maximum: 20
+        labels:
+          type: array
+          description: Optional room labels; auto-generated ("Gruppe N") when empty.
+          items:
+            type: string
+
+    MeetingBreakoutRoom:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meeting_id:
+          type: string
+          format: uuid
+        room_name:
+          type: string
+          description: LiveKit room identifier ("breakout-{meetingId}-{index}").
+        label:
+          type: string
+        sort_index:
+          type: integer
+        status:
+          type: string
+          enum: [open, closed]
+        created_by:
+          type: string
+          format: uuid
+        closed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    CreateBreakoutRoomsResponse:
+      type: object
+      properties:
+        rooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingBreakoutRoom"
+
+    MeetingBreakoutAssignment:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        breakout_room_id:
+          type: string
+          format: uuid
+
+    ListBreakoutRoomsResponse:
+      type: object
+      properties:
+        rooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingBreakoutRoom"
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingBreakoutAssignment"
+
+    AssignBreakoutParticipantRequest:
+      type: object
+      required: [target_user_id]
+      properties:
+        target_user_id:
+          type: string
+          format: uuid
+        breakout_room_id:
+          type: string
+          format: uuid
+          description: Omit to move the participant back to the main room.
+
+    JoinBreakoutRoomResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: LiveKit JWT join token
+        room_name:
+          type: string
+        ws_url:
+          type: string
+          description: LiveKit WebSocket signaling URL
+        ice_servers:
+          type: array
+          description: >-
+            Per-session TURN credentials for the client RTCConfiguration;
+            empty/absent when TURN is not configured.
+          items:
+            type: object
+            properties:
+              urls:
+                type: array
+                items:
+                  type: string
+              username:
+                type: string
+              credential:
+                type: string
+        breakout_room:
+          $ref: "#/components/schemas/MeetingBreakoutRoom"
+
+    GetBreakoutAssignmentResponse:
+      type: object
+      properties:
+        room:
+          description: Absent when the caller is currently in the main room.
+          allOf:
+            - $ref: "#/components/schemas/MeetingBreakoutRoom"
+
+    ReturnToMainRoomRequest:
+      type: object
+      properties:
+        target_user_id:
+          type: string
+          format: uuid
+          description: Omit to self-return; a host/co-host may pass another participant's ID.
+
+    # =========================================================================
+    # Meeting Chat Schemas
+    # =========================================================================
+
+    SaveMeetingChatMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        sender_name:
+          type: string
+          description: Display name of the authenticated sender (sender_id is resolved server-side from the JWT).
+        message:
+          type: string
+
+    MeetingChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meeting_id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        sender_name:
+          type: string
+        message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ListMeetingChatMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingChatMessage"
+
+    # =========================================================================
+    # Meeting Host Controls Schemas (Wave 3 — co-hosts, lock, moderation)
+    # =========================================================================
+
+    PromoteCoHostRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+
+    MeetingCoHost:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meeting_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        granted_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    ListCoHostsResponse:
+      type: object
+      properties:
+        co_hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingCoHost"
+
+    SetMeetingLockRequest:
+      type: object
+      required: [locked]
+      properties:
+        locked:
+          type: boolean
+
+    MeetingModerationTargetRequest:
+      type: object
+      description: Shared body shape for the mute and kick moderation actions.
+      required: [target_user_id]
+      properties:
+        target_user_id:
+          type: string
+          format: uuid
+
+    # =========================================================================
+    # Recording Sub-Operation Schemas (S1.7 / Welle 1.B)
+    # =========================================================================
+
+    RecordingConsentDetail:
+      type: object
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        consented:
+          type: boolean
+        responded_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        first_name:
+          type: string
+        last_name:
+          type: string
+
+    RecordingConsentsResponse:
+      type: object
+      description: >-
+        Encoded via encoding/json (not protojson) — responded_at is the raw
+        {seconds,nanos} wire shape, not an RFC3339 string.
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+        consents:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordingConsentDetail"
+        all_consented:
+          type: boolean
+
+    RecordingConsentSnapshotEntry:
+      type: object
+      required: [user_id, display_name]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        joined_at:
+          type: string
+          description: Opaque ISO-8601 string forwarded as-is (not parsed/validated).
+
+    TagRecordingWithConsentsRequest:
+      type: object
+      required: [snapshot]
+      properties:
+        snapshot:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RecordingConsentSnapshotEntry"
+
+    UpdateRecordingMetadataRequest:
+      type: object
+      properties:
+        file_url:
+          type: string
+        file_size_bytes:
+          type: integer
+          format: int64
+        duration_seconds:
+          type: integer
+        status:
+          type: string
+          description: RecordingStatus name (e.g. RECORDING_STATUS_COMPLETED).
+
+    RecordingDownloadURLResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    # === openapi-drift sweep: r2b-hr-time ===
+    HrTimeCategory:
+      type: object
+      description: >-
+        Raw hr.v1.TimeCategory proto serialized via response.JSON (not
+        response.Proto) — timestamp fields are ProtoTimestamp, not RFC3339.
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        name: { type: string }
+        color: { type: string }
+        icon: { type: string }
+        is_default: { type: boolean }
+        created_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+        updated_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+
+    HrTimeCategoryInput:
+      type: object
+      description: Shared body shape for create and update (PUT replaces all fields).
+      required: [name]
+      properties:
+        name: { type: string }
+        color: { type: string }
+        icon: { type: string }
+        is_default: { type: boolean }
+
+    HrTimeTemplate:
+      type: object
+      description: >-
+        Raw hr.v1.TimeTemplate proto serialized via response.JSON — timestamp
+        fields are ProtoTimestamp, not RFC3339.
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        name: { type: string }
+        category_id: { type: string, format: uuid }
+        description: { type: string }
+        estimated_minutes: { type: integer }
+        created_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+        updated_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+
+    HrTimeCreateTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        category_id: { type: string, format: uuid }
+        description: { type: string }
+        estimated_minutes: { type: integer, minimum: 0 }
+
+    HrTimeProject:
+      type: object
+      description: >-
+        Raw hr.v1.TimeProject proto serialized via response.JSON — timestamp
+        fields are ProtoTimestamp, not RFC3339.
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        name: { type: string }
+        customer_name: { type: string }
+        color: { type: string }
+        billable_default: { type: boolean }
+        created_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+        updated_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+
+    HrTimeCreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        customer_name: { type: string }
+        color: { type: string }
+        billable_default: { type: boolean }
+
+    HrTimeTeamEntry:
+      type: object
+      properties:
+        employee_id: { type: string, format: uuid }
+        name: { type: string }
+        department: { type: string }
+        week_minutes: { type: integer }
+        target_minutes: { type: integer }
+        overtime_minutes: { type: integer }
+        clocked_in: { type: boolean }
+        week_status: { type: string, enum: [open, submitted, approved, rejected] }
+
+    HrTimeWeekApproval:
+      type: object
+      description: >-
+        Raw hr.v1.WeekApproval proto serialized via response.JSON — timestamp
+        fields are ProtoTimestamp, not RFC3339.
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        week_start: { type: string, format: date }
+        status: { type: string, enum: [open, submitted, approved, rejected] }
+        submitted_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+        approved_by: { type: string, format: uuid }
+        approved_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+        rejection_reason: { type: string }
+        created_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+        updated_at: { $ref: "#/components/schemas/ProtoTimestamp" }
+
+    HrTimeSubmitWeekRequest:
+      type: object
+      required: [week_start]
+      properties:
+        week_start: { type: string, format: date }
+
+    HrTimeApproveWeekRequest:
+      type: object
+      required: [employee_id, week_start]
+      properties:
+        employee_id: { type: string, format: uuid }
+        week_start: { type: string, format: date }
+
+    HrTimeRejectWeekRequest:
+      type: object
+      required: [employee_id, week_start]
+      properties:
+        employee_id: { type: string, format: uuid }
+        week_start: { type: string, format: date }
+        rejection_reason: { type: string }
+
+    HrTimeAnalytics:
+      type: object
+      description: hr.v1.GetTimeAnalyticsResp serialized via response.JSON (no timestamp fields).
+      properties:
+        total_minutes: { type: integer }
+        target_minutes: { type: integer }
+        overtime_minutes: { type: integer }
+        avg_daily_minutes: { type: integer }
+        day_trend:
+          type: array
+          items: { $ref: "#/components/schemas/HrTimeDayTrendEntry" }
+        by_project:
+          type: array
+          items: { $ref: "#/components/schemas/HrTimeProjectBreakdown" }
+
+    HrTimeDayTrendEntry:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        net_minutes: { type: integer }
+        target_minutes: { type: integer }
+
+    HrTimeProjectBreakdown:
+      type: object
+      properties:
+        project_id: { type: string, format: uuid }
+        project_name: { type: string }
+        minutes: { type: integer }
+
+    HrTimeBalance:
+      type: object
+      description: hr.v1.GetTimeBalanceResp serialized via response.JSON — period_start/as_of are YYYY-MM-DD strings, not timestamps.
+      properties:
+        balance_minutes: { type: integer }
+        target_weekly_minutes: { type: integer }
+        period_start: { type: string, format: date }
+        as_of: { type: string, format: date }
+
+    # === openapi-drift sweep: r2c-misc-gaps ===
+    # --- 2FA: pending-login validation ---
+
+    Validate2FALoginRequest:
+      type: object
+      required: [pending_token, code]
+      properties:
+        pending_token:
+          type: string
+          description: Short-lived token returned by POST /auth/login when 2FA is required
+        code:
+          type: string
+          description: 6-digit TOTP code, or a recovery code if is_recovery_code is true
+        is_recovery_code:
+          type: boolean
+          default: false
+
+    # --- Contacts: import/export/visibility (multipart forms; binary export) ---
+
+    ContactsImportCSVForm:
+      type: object
+      required: [file]
+      description: >-
+        multipart/form-data. Additional dynamic fields named map_<csv_column>
+        (form value = target CRM field name) configure the CSV-column-to-CRM-field
+        mapping; not enumerable as a fixed schema property.
+      properties:
+        file:
+          type: string
+          format: binary
+          description: CSV file to import
+        visibility:
+          type: string
+          enum: [shared, personal]
+          default: shared
+        merge_by_email:
+          type: string
+          enum: ["true", "false"]
+          description: Merge with existing contacts sharing the same email
+
+    ContactsImportVCardForm:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: vCard (.vcf) file to import
+        visibility:
+          type: string
+          enum: [shared, personal]
+          default: shared
+        merge_by_email:
+          type: string
+          enum: ["true", "false"]
+
+    ContactsPreviewImportForm:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: CSV file to preview before import
+
+    ContactsImportError:
+      type: object
+      properties:
+        row:
+          type: integer
+        reason:
+          type: string
+
+    ContactsImportResult:
+      type: object
+      description: >-
+        Raw proto response serialized via response.JSON (encoding/json on the
+        generated Go struct) — field names are snake_case per the pb.go json
+        tags.
+      properties:
+        imported_count:
+          type: integer
+        merged_count:
+          type: integer
+        skipped_count:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactsImportError"
+
+    ContactsPreviewImportResponse:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        sample_rows:
+          type: array
+          items:
+            type: object
+            properties:
+              values:
+                type: array
+                items:
+                  type: string
+        detected_mapping:
+          type: object
+          additionalProperties:
+            type: string
+          description: Heuristic CSV-column -> CRM-field mapping
+
+    ContactsExportCSVRequest:
+      type: object
+      properties:
+        contact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Restrict export to these contacts; omit for all visible contacts
+        fields:
+          type: array
+          items:
+            type: string
+          description: Restrict exported columns; omit for all fields
+
+    ContactsExportVCardRequest:
+      type: object
+      properties:
+        contact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Restrict export to these contacts; omit for all visible contacts
+
+    UpdateContactVisibilityRequest:
+      type: object
+      required: [visibility]
+      properties:
+        visibility:
+          type: string
+          enum: [shared, personal]
+
+    # --- Helpdesk: business hours ---
+
+    HelpdeskBusinessHours:
+      type: object
+      description: >-
+        Raw proto response serialized via response.JSON — updated_at is the
+        {seconds,nanos} wire shape, not an RFC3339 string.
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        schedule_json:
+          type: string
+          description: 'JSON schedule map, e.g. {"Montag":{"active":true,"start":"08:00","end":"17:30"}, ...}'
+        holidays_json:
+          type: string
+          description: 'JSON holiday list, e.g. [{"id":"h-1","date":"2026-01-01","name":"Neujahr"}, ...]'
+        timezone:
+          type: string
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    UpdateHelpdeskBusinessHoursRequest:
+      type: object
+      required: [schedule_json, holidays_json, timezone]
+      properties:
+        schedule_json:
+          type: string
+        holidays_json:
+          type: string
+        timezone:
+          type: string
+
+    # --- Inbox: canned responses + thread messages ---
+
+    InboxCannedResponse:
+      type: object
+      description: >-
+        Raw proto response serialized via response.JSON — timestamps are the
+        {seconds,nanos} wire shape, not RFC3339 strings.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        body:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InboxCannedResponseList:
+      type: object
+      properties:
+        canned_responses:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxCannedResponse"
+
+    InboxCannedResponseWrapper:
+      type: object
+      properties:
+        canned_response:
+          $ref: "#/components/schemas/InboxCannedResponse"
+
+    CreateInboxCannedResponseRequest:
+      type: object
+      required: [name, body]
+      properties:
+        name:
+          type: string
+        body:
+          type: string
+
+    UpdateInboxCannedResponseRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        body:
+          type: string
+
+    InboxThreadMessage:
+      type: object
+      description: >-
+        Raw proto response serialized via response.JSON — created_at is the
+        {seconds,nanos} wire shape, not an RFC3339 string.
+      properties:
+        id:
+          type: string
+          format: uuid
+        message_id:
+          type: string
+          format: uuid
+        author_id:
+          type: string
+          format: uuid
+          nullable: true
+        author_name:
+          type: string
+          description: Resolved display name (user name, else external sender, else empty)
+        direction:
+          type: string
+          enum: [inbound, outbound, internal]
+        body:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InboxThreadMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxThreadMessage"
+
+    # --- Inventar: item attachments ---
+
+    InventarItemAttachment:
+      type: object
+      description: >-
+        Raw proto response serialized via response.JSON — timestamps are the
+        {seconds,nanos} wire shape, not RFC3339 strings.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        object_key:
+          type: string
+        file_type:
+          type: string
+        created_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+        updated_at:
+          $ref: "#/components/schemas/ProtoTimestamp"
+
+    InventarItemAttachmentList:
+      type: object
+      properties:
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventarItemAttachment"
+
+    InventarItemAttachmentResponse:
+      type: object
+      properties:
+        attachment:
+          $ref: "#/components/schemas/InventarItemAttachment"
+
+    CreateInventarItemAttachmentRequest:
+      type: object
+      required: [name, object_key]
+      properties:
+        name:
+          type: string
+        object_key:
+          type: string
+          description: Object storage key from a prior presigned-upload step
+        file_type:
+          type: string
 
   responses:
     BadRequest:
