@@ -10893,6 +10893,2725 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/berichte/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List report definitions
+         * @description Requires berichte:reports:read permission.
+         */
+        get: operations["listBerichteDefinitions"];
+        put?: never;
+        /**
+         * Create a report definition
+         * @description Requires berichte:reports:write permission.
+         */
+        post: operations["createBerichteDefinition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/definitions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a report definition by ID
+         * @description Requires berichte:reports:read permission.
+         */
+        get: operations["getBerichteDefinition"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a report definition
+         * @description Requires berichte:reports:write permission.
+         */
+        delete: operations["deleteBerichteDefinition"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a report definition
+         * @description Requires berichte:reports:write permission. Only present fields are changed.
+         */
+        patch: operations["updateBerichteDefinition"];
+        trace?: never;
+    };
+    "/api/v1/berichte/definitions/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a report definition on demand
+         * @description Requires berichte:reports:read permission. Executes the report immediately (trigger=manual) and returns both the result payload and the run record. Serves from cache unless force_refresh is set.
+         */
+        post: operations["runBerichteReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/definitions/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run and export a report as a binary file
+         * @description Requires berichte:reports:read permission. Streams the rendered report as a binary download. Content-Disposition is set from the server-generated filename (safely quoted; path separators and control characters are stripped).
+         */
+        post: operations["exportBerichteReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/definitions/{id}/cache": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Invalidate the cached result(s) for a report definition
+         * @description Requires berichte:reports:write permission.
+         */
+        delete: operations["invalidateBerichteCache"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List report delivery schedules
+         * @description Requires berichte:reports:read permission.
+         */
+        get: operations["listBerichteSchedules"];
+        put?: never;
+        /**
+         * Create a report delivery schedule
+         * @description Requires berichte:reports:write permission.
+         */
+        post: operations["createBerichteSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a report delivery schedule
+         * @description Requires berichte:reports:write permission.
+         */
+        delete: operations["deleteBerichteSchedule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a report delivery schedule
+         * @description Requires berichte:reports:write permission. Only present fields are changed; recipients is only replaced when recipients_set is true (this allows clearing the list to empty, distinct from "unchanged").
+         */
+        patch: operations["updateBerichteSchedule"];
+        trace?: never;
+    };
+    "/api/v1/berichte/schedules/{id}/toggle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Toggle a report delivery schedule active/inactive
+         * @description Requires berichte:reports:write permission.
+         */
+        post: operations["toggleBerichteSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/berichte/kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get dashboard KPI tiles
+         * @description Requires berichte:reports:read permission.
+         */
+        get: operations["getBerichteDashboardKPIs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List document folders
+         * @description Requires documents:read permission.
+         */
+        get: operations["listDocumentFolders"];
+        put?: never;
+        /**
+         * Create a document folder
+         * @description Requires documents:write permission.
+         */
+        post: operations["createDocumentFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a document folder by ID
+         * @description Requires documents:read permission.
+         */
+        get: operations["getDocumentFolder"];
+        /**
+         * Update a document folder
+         * @description Requires documents:write permission. Setting parent_id moves the folder.
+         */
+        put: operations["updateDocumentFolder"];
+        post?: never;
+        /**
+         * Delete a document folder
+         * @description Requires documents:delete permission.
+         */
+        delete: operations["deleteDocumentFolder"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/folders/{id}/path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get breadcrumb path segments for a folder
+         * @description Requires documents:read permission. Returns root-to-leaf breadcrumb segments.
+         */
+        get: operations["getDocumentFolderPath"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/folders/initialize-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Initialize a user's personal document space
+         * @description Requires documents:write permission. Idempotent — safe to call repeatedly. Body is optional; when omitted (or user_id absent), defaults to the authenticated user's ID from the JWT. The created root folder is not returned in the response.
+         */
+        post: operations["initializeUserDocumentSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/folders/initialize-team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Initialize a team's document space
+         * @description Requires documents:write permission. A JSON body is required (an empty object is valid); team_id itself is optional. The created root folder is not returned in the response.
+         */
+        post: operations["initializeTeamDocumentSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List document files
+         * @description Requires documents:read permission.
+         */
+        get: operations["listDocumentFiles"];
+        put?: never;
+        /**
+         * Register metadata for a browser-uploaded file
+         * @description Requires documents:write permission. Registers metadata for a file already uploaded directly to object storage via a presigned PUT URL (POST /api/v1/files/presign-upload → PUT to MinIO → register here). Does not touch object storage itself. Owner is taken from the JWT.
+         */
+        post: operations["registerUploadedDocumentFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a document file by ID
+         * @description Requires documents:read permission.
+         */
+        get: operations["getDocumentFile"];
+        /**
+         * Update a document file
+         * @description Requires documents:write permission. filename renames; folder_id moves; is_favorite toggles the favorite flag.
+         */
+        put: operations["updateDocumentFile"];
+        post?: never;
+        /**
+         * Delete a document file
+         * @description Requires documents:delete permission.
+         */
+        delete: operations["deleteDocumentFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a document file to another folder
+         * @description Requires documents:write permission.
+         */
+        post: operations["copyDocumentFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a document file to another folder
+         * @description Requires documents:write permission.
+         */
+        post: operations["moveDocumentFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/download-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a download URL for a document file
+         * @description Requires documents:read permission.
+         */
+        get: operations["getDocumentFileDownloadUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List versions of a document file
+         * @description Requires documents:read permission.
+         */
+        get: operations["listDocumentFileVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/versions/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert a document file to a previous version
+         * @description Requires documents:write permission. Despite the "version" response key, the value is the file's now-current DocumentFile object after the revert (not a DocumentFileVersion) — see the HandleRevertFileVersion comment in route_document.go.
+         */
+        post: operations["revertDocumentFileVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/files/{id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List CRM entity links for a document file
+         * @description Requires documents:read permission.
+         */
+        get: operations["listDocumentFileEntityLinks"];
+        put?: never;
+        /**
+         * Link a document file to a CRM entity
+         * @description Requires documents:write permission.
+         */
+        post: operations["linkDocumentFileToEntity"];
+        /**
+         * Unlink a document file from a CRM entity
+         * @description Requires documents:write permission.
+         */
+        delete: operations["unlinkDocumentFileFromEntity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a file or folder with another user
+         * @description Requires documents:write permission.
+         */
+        post: operations["shareDocumentEntity"];
+        /**
+         * Revoke a file or folder share
+         * @description Requires documents:write permission.
+         */
+        delete: operations["unshareDocumentEntity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/shares/entity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List shares for a file or folder
+         * @description Requires documents:read permission. Both query parameters are required.
+         */
+        get: operations["listDocumentShares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/shares/shared-with-me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List files and folders shared with the authenticated user
+         * @description Requires documents:read permission.
+         */
+        get: operations["listDocumentsSharedWithMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List document tags
+         * @description Requires documents:read permission.
+         */
+        get: operations["listDocumentTags"];
+        put?: never;
+        /**
+         * Create a document tag
+         * @description Requires documents:write permission.
+         */
+        post: operations["createDocumentTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/tags/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a document tag
+         * @description Requires documents:delete permission.
+         */
+        delete: operations["deleteDocumentTag"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/tags/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a tag to a document file
+         * @description Requires documents:write permission.
+         */
+        post: operations["tagDocumentFile"];
+        /**
+         * Remove a tag from a document file
+         * @description Requires documents:write permission.
+         */
+        delete: operations["untagDocumentFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Full-text search document files
+         * @description Requires documents:read permission. The q query parameter is required.
+         */
+        get: operations["searchDocumentFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/virtual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List virtual files (attachments from chat, email, task)
+         * @description Requires documents:read permission.
+         */
+        get: operations["listVirtualDocumentFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/wopi/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a WOPI access token for a document file
+         * @description Requires documents:write permission. This is an authenticated token-issuance endpoint, not part of the bare WOPI protocol surface used by the OnlyOffice server (those live under /wopi/* and are out of scope here).
+         */
+        post: operations["generateDocumentWopiToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/wopi/discovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the OnlyOffice WOPI discovery actions
+         * @description Requires documents:read permission.
+         */
+        get: operations["getDocumentWopiDiscovery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/manifests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List plugin manifests */
+        get: operations["listPluginManifests"];
+        put?: never;
+        /** Create a plugin manifest (admin-only) */
+        post: operations["createPluginManifest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/manifests/{manifest_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a plugin manifest by ID (admin-only) */
+        get: operations["getPluginManifest"];
+        put?: never;
+        post?: never;
+        /** Delete a plugin manifest (admin-only) */
+        delete: operations["deletePluginManifest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List plugin installations for the current tenant */
+        get: operations["listPluginInstallations"];
+        put?: never;
+        /** Install a plugin for a tenant (admin-only) */
+        post: operations["installPlugin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/installations/{installation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a plugin installation by ID (admin-only) */
+        get: operations["getPluginInstallation"];
+        put?: never;
+        post?: never;
+        /** Uninstall a plugin (admin-only) */
+        delete: operations["uninstallPlugin"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/installations/{installation_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable a plugin installation (admin-only) */
+        post: operations["enablePluginInstallation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/installations/{installation_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable a plugin installation (admin-only) */
+        post: operations["disablePluginInstallation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/installations/{installation_id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List permissions granted to a plugin installation (admin-only) */
+        get: operations["listGrantedPluginPermissions"];
+        put?: never;
+        /** Approve requested permissions for a plugin installation (admin-only) */
+        post: operations["approvePluginPermissions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/installations/{installation_id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a plugin installation's settings (admin-only) */
+        get: operations["getPluginSettings"];
+        /** Update a plugin installation's settings (admin-only) */
+        put: operations["updatePluginSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/installations/{installation_id}/settings/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the JSON Schema for a plugin installation's settings (admin-only) */
+        get: operations["getPluginSettingsSchema"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/validation-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List validation rules for the current tenant (admin-only) */
+        get: operations["listPluginValidationRules"];
+        put?: never;
+        /** Create a validation rule (admin-only) */
+        post: operations["createPluginValidationRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/validation-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a validation rule (admin-only) */
+        put: operations["updatePluginValidationRule"];
+        post?: never;
+        /** Delete a validation rule (admin-only) */
+        delete: operations["deletePluginValidationRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/workflow-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List workflow rules for the current tenant (admin-only) */
+        get: operations["listPluginWorkflowRules"];
+        put?: never;
+        /** Create a workflow rule (admin-only) */
+        post: operations["createPluginWorkflowRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/workflow-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a workflow rule (admin-only) */
+        put: operations["updatePluginWorkflowRule"];
+        post?: never;
+        /** Delete a workflow rule (admin-only) */
+        delete: operations["deletePluginWorkflowRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List industry templates */
+        get: operations["listPluginIndustryTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/templates/{template_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply an industry template to the current tenant (admin-only) */
+        post: operations["applyPluginIndustryTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/execution-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List plugin hook execution logs for the current tenant (admin-only) */
+        get: operations["listPluginExecutionLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/produktion/boms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List BOMs (Stücklisten) */
+        get: operations["listProductionBOMs"];
+        put?: never;
+        /** Create a BOM */
+        post: operations["createProductionBOM"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/produktion/boms/{bomId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a BOM by ID */
+        get: operations["getProductionBOM"];
+        put?: never;
+        post?: never;
+        /** Delete a BOM */
+        delete: operations["deleteProductionBOM"];
+        options?: never;
+        head?: never;
+        /** Update a BOM */
+        patch: operations["updateProductionBOM"];
+        trace?: never;
+    };
+    "/api/v1/produktion/orders/{orderId}/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List work steps for a production order */
+        get: operations["listProductionOrderSteps"];
+        put?: never;
+        /** Create a work step on a production order */
+        post: operations["createProductionOrderStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/produktion/orders/{orderId}/steps/{stepId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a work step */
+        delete: operations["deleteProductionOrderStep"];
+        options?: never;
+        head?: never;
+        /** Update a work step */
+        patch: operations["updateProductionOrderStep"];
+        trace?: never;
+    };
+    "/api/v1/produktion/machines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List machines */
+        get: operations["listProductionMachines"];
+        put?: never;
+        /** Create a machine */
+        post: operations["createProductionMachine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/produktion/machines/{machineId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a machine by ID */
+        get: operations["getProductionMachine"];
+        put?: never;
+        post?: never;
+        /** Delete a machine */
+        delete: operations["deleteProductionMachine"];
+        options?: never;
+        head?: never;
+        /** Update a machine */
+        patch: operations["updateProductionMachine"];
+        trace?: never;
+    };
+    "/api/v1/produktion/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List quality checks */
+        get: operations["listProductionQualityChecks"];
+        put?: never;
+        /** Create a quality check */
+        post: operations["createProductionQualityCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/produktion/quality/{checkId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a quality check by ID */
+        get: operations["getProductionQualityCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List integration configs
+         * @description Requires admin role.
+         */
+        get: operations["listIntegrationConfigs"];
+        put?: never;
+        /**
+         * Create an integration config
+         * @description Requires admin role. platform must be a supported value (currently slack or teams) or the service returns 400. The config is created inactive (is_active=false) until verified via the test endpoint.
+         */
+        post: operations["createIntegrationConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/configs/{platform}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an integration config by platform
+         * @description Requires admin role.
+         */
+        get: operations["getIntegrationConfig"];
+        /**
+         * Update an integration config
+         * @description Requires admin role.
+         */
+        put: operations["updateIntegrationConfig"];
+        post?: never;
+        /**
+         * Delete an integration config
+         * @description Requires admin role.
+         */
+        delete: operations["deleteIntegrationConfig"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/configs/{platform}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test an integration config
+         * @description Requires admin role. NOTE (current backend state): TestIntegrationConfig is a stub -- it always returns success=true without actually probing the platform or validating that a config for the platform exists; real notification-send testing will be wired once the forwarder/platform clients are available to the notification service.
+         */
+        post: operations["testIntegrationConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/configs/{platform}/mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List channel mappings for an integration config
+         * @description Requires admin role.
+         */
+        get: operations["listIntegrationChannelMappings"];
+        put?: never;
+        /**
+         * Create a channel mapping for an integration config
+         * @description Requires admin role.
+         */
+        post: operations["createIntegrationChannelMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mappings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a channel mapping
+         * @description Requires admin role.
+         */
+        put: operations["updateIntegrationChannelMapping"];
+        post?: never;
+        /**
+         * Delete a channel mapping
+         * @description Requires admin role.
+         */
+        delete: operations["deleteIntegrationChannelMapping"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link the caller's KMU Hub account to an external platform account
+         * @description Any authenticated user (no admin role required). token is the raw, single-use link token surfaced by the platform bot (Teams `/kmuhub link` message or Slack `/kmuhub link` slash command); it is hashed server-side for lookup. Fails with 404 if the token is unknown, 409 if already used, 504 if expired (DeadlineExceeded mapping).
+         */
+        post: operations["linkIntegrationAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/link/{platform}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink the caller's account from an external platform
+         * @description Any authenticated user (no admin role required).
+         */
+        delete: operations["unlinkIntegrationAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/link/{platform}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the caller's account link status for a platform
+         * @description Any authenticated user (no admin role required). NOTE: despite the platform path segment, the handler currently ignores it and always returns ALL of the caller's linked platforms (GetAccountLinkStatus is called with only user_id, no platform filter).
+         */
+        get: operations["getIntegrationAccountLinkStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/teams/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inbound Microsoft Teams Bot Framework webhook
+         * @description Public endpoint (no bearerAuth) called by the Microsoft Bot Framework for all bot interactions (messages, Action.Execute invokes). Authenticity is verified internally via Bot Framework JWT validation, not the gateway's standard auth middleware. Returns 404 (JSON ErrorResponse) if the Teams integration is not configured on this deployment (teamsWebhook handler unset). On JWT verification failure the underlying handler writes a PLAIN TEXT "unauthorized" body via http.Error (not the JSON ErrorResponse shape).
+         */
+        post: operations["handleTeamsWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/interact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inbound Slack interactive message callback (Block Kit button clicks)
+         * @description Public endpoint (no bearerAuth) called by Slack for block_actions interaction payloads. Authenticity is verified internally via the Slack request signing secret, not the gateway's standard auth middleware. Body is application/x-www-form-urlencoded with a single `payload` field containing the JSON-encoded Slack InteractionCallback. Returns 404 (JSON ErrorResponse) if the Slack integration is not configured. Signature/parse failures return a PLAIN TEXT body via http.Error (not the JSON ErrorResponse shape).
+         */
+        post: operations["handleSlackInteraction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inbound Slack slash command (/kmuhub)
+         * @description Public endpoint (no bearerAuth) called by Slack for the /kmuhub slash command. Authenticity is verified internally via the Slack request signing secret, not the gateway's standard auth middleware. Body is application/x-www-form-urlencoded (Slack SlashCommand payload: command, text, user_id, channel_id, ...). Supported text subcommands: `link`, `unlink`; anything else returns a help message. Returns 404 (JSON ErrorResponse) if the Slack integration is not configured. Signature/parse failures return a PLAIN TEXT body via http.Error (not the JSON ErrorResponse shape).
+         */
+        post: operations["handleSlackSlashCommand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/oauth/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start the Slack app install (OAuth authorize) redirect
+         * @description Public endpoint (no bearerAuth). Redirects the browser to Slack's OAuth v2 authorize URL. Returns 404 (JSON ErrorResponse) if Slack OAuth is not configured (slackOAuth handler unset).
+         */
+        get: operations["slackOAuthInstall"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Slack OAuth install callback
+         * @description Public endpoint (no bearerAuth) -- Slack redirects here after the user approves the app install. Exchanges the authorization code for a bot token and redirects back into the app. NOTE (current backend state): the exchanged bot token is only logged, not yet persisted via CreateIntegrationConfig -- the frontend is expected to complete setup by calling POST /api/v1/integrations/configs with the vault key. Returns 404 (JSON ErrorResponse) if Slack OAuth is not configured. code/exchange failures return a PLAIN TEXT body via http.Error (not the JSON ErrorResponse shape).
+         */
+        get: operations["slackOAuthCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * DATEV OAuth redirect callback
+         * @description Public endpoint (no bearerAuth) -- DATEV redirects here after the tenant admin approves the connection. The tenant is recovered from the HMAC-signed `state` token (not from the caller's JWT, since this is an unauthenticated redirect). Always responds with a 302 redirect back into the app; there is no JSON error body on failure, only a `datev_error` query parameter on the redirect target.
+         */
+        get: operations["datevOAuthCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/oauth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the DATEV OAuth authorization URL
+         * @description Requires admin role. Issues an HMAC-signed, expiring CSRF state token (mirrors the Bexio OAuth flow) embedding the tenant_id, then asks the biz service for the DATEV authorization URL. Returns 409 if DATEV OAuth is not configured for this deployment (FailedPrecondition mapping), 500 if the state secret is not configured.
+         */
+        get: operations["getDatevAuthUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect the DATEV integration
+         * @description Requires admin role. Revokes stored tokens and deactivates the connection.
+         */
+        post: operations["disconnectDatev"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the DATEV connection status
+         * @description Requires admin role.
+         */
+        get: operations["getDatevConnectionStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger a DATEV Buchungsstapel export and upload
+         * @description Requires admin role. NOTE (current backend state): the upload service is invoked with empty invoice/credit-note slices at the gRPC layer, so document_count is always 0 regardless of the date range passed -- the full fetch-then-export orchestration is not yet wired end-to-end. On export/upload failure the RPC returns success=false with a 200 response (not an HTTP error), except for an invalid fiscal_year_start which is a 400.
+         */
+        post: operations["uploadDatevBuchungsstapel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/upload/beleg/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a single invoice PDF as a DATEV Belegbild
+         * @description Requires admin role. NOTE (current backend state): this is a placeholder RPC -- it logs the request and always returns success=true without retrieving or uploading a PDF; the invoice_id path parameter is also not validated as a UUID by the handler.
+         */
+        post: operations["uploadDatevBeleg"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the DATEV upload configuration
+         * @description Requires admin role. Returns 404 if no upload config has been saved yet for this tenant.
+         */
+        get: operations["getDatevUploadConfig"];
+        /**
+         * Update the DATEV upload configuration
+         * @description Requires admin role.
+         */
+        put: operations["updateDatevUploadConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/datev/upload/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent DATEV upload log entries
+         * @description Requires admin role.
+         */
+        get: operations["listDatevUploadLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bexio OAuth redirect callback
+         * @description Public endpoint (no bearerAuth) -- Bexio redirects here after the tenant admin approves the connection. The tenant is recovered from the HMAC-signed `state` token (not from the caller's JWT, since this is an unauthenticated redirect). Responds with a 302 redirect back into the app for the missing-code, callback-RPC-error and callback-RPC-unsuccessful paths (appends a `bexio_error` query param), and for the success path (appends `bexio_connected=true`). Two failure paths return a JSON ErrorResponse instead of redirecting: an invalid/expired `state` token (400) and a misconfigured BEXIO_STATE_SECRET (500, not formally listed below since it signals server misconfiguration, not a client error).
+         */
+        get: operations["bexioOAuthCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/oauth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the Bexio OAuth authorization URL
+         * @description Requires admin role. Issues an HMAC-signed, expiring CSRF state token embedding the tenant_id (mirrors the DATEV OAuth flow), then asks the biz service for the Bexio authorization URL. Returns 500 if BEXIO_STATE_SECRET is not configured for this deployment.
+         */
+        get: operations["getBexioAuthUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect the Bexio integration
+         * @description Requires admin role.
+         */
+        post: operations["disconnectBexio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the Bexio connection status
+         * @description Requires admin role.
+         */
+        get: operations["getBexioConnectionStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/sync/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger a manual Bexio sync
+         * @description Requires admin role.
+         */
+        post: operations["triggerBexioSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/sync/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the Bexio sync status overview
+         * @description Requires admin role.
+         */
+        get: operations["getBexioSyncStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/sync/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Bexio sync flags and polling intervals
+         * @description Requires admin role.
+         */
+        put: operations["updateBexioSyncConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/sync/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent Bexio sync log entries
+         * @description Requires admin role.
+         */
+        get: operations["listBexioSyncLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/mappings/{entity_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Bexio field mappings for an entity type
+         * @description Requires admin role.
+         */
+        get: operations["getBexioFieldMappings"];
+        /**
+         * Save Bexio field mappings for an entity type
+         * @description Requires admin role.
+         */
+        put: operations["updateBexioFieldMappings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/push/invoice/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push an invoice to Bexio
+         * @description Requires admin role. Business-level push failures (e.g. invoice not found, Bexio API error) do NOT surface as an HTTP error -- the RPC returns success=false with a 200 response and error_message set. Only a malformed invoice_id (not a valid UUID) produces a 400.
+         */
+        post: operations["pushBexioInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/bexio/push/quote/{quote_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push a quote to Bexio
+         * @description Requires admin role. Business-level push failures (e.g. quote not found, Bexio API error) do NOT surface as an HTTP error -- the RPC returns success=false with a 200 response and error_message set. Only a malformed quote_id (not a valid UUID) produces a 400.
+         */
+        post: operations["pushBexioQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inbound Lexware webhook event
+         * @description Public endpoint (no bearerAuth) -- called by Lexware (or a self-hosted relay) for invoice/quote/payment events. HMAC-SHA256 signature validation runs when LEXWARE_WEBHOOK_SECRET is configured: the `X-Signature` header is checked against the raw request body, rejecting with 401 when missing or invalid. When the secret is unset in production the request is rejected with 500 (webhook secret not configured, not formally listed below since it signals server misconfiguration); in dev/staging the check is skipped with a warning log instead.
+         */
+        post: operations["handleLexwareWebhookEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect the Lexware integration via API key
+         * @description Requires admin role. Stores the API key and activates the integration. Returns 400 (JSON ErrorResponse carrying the RPC's error_message) when the underlying ConnectLexware RPC reports success=false, e.g. an invalid API key.
+         */
+        post: operations["connectLexware"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect the Lexware integration
+         * @description Requires admin role.
+         */
+        post: operations["disconnectLexware"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the Lexware connection status
+         * @description Requires admin role.
+         */
+        get: operations["getLexwareConnectionStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test the Lexware API connection
+         * @description Requires admin role.
+         */
+        post: operations["testLexwareConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/sync/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger a manual Lexware sync
+         * @description Requires admin role.
+         */
+        post: operations["triggerLexwareSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/sync/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the Lexware sync status overview
+         * @description Requires admin role.
+         */
+        get: operations["getLexwareSyncStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/sync/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent Lexware sync log entries
+         * @description Requires admin role.
+         */
+        get: operations["listLexwareSyncLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/mappings/{entity_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Lexware field mappings for an entity type
+         * @description Requires admin role.
+         */
+        get: operations["getLexwareFieldMappings"];
+        /**
+         * Save Lexware field mappings for an entity type
+         * @description Requires admin role.
+         */
+        put: operations["updateLexwareFieldMappings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/push/invoice/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push an invoice to Lexware
+         * @description Requires admin role. Business-level push failures (e.g. invoice not found, Lexware API error) do NOT surface as an HTTP error -- the RPC returns success=false with a 200 response and error_message set. Only a malformed id (not a valid UUID) produces a 400.
+         */
+        post: operations["pushLexwareInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/lexware/push/quote/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push a quote to Lexware
+         * @description Requires admin role. Business-level push failures (e.g. quote not found, Lexware API error) do NOT surface as an HTTP error -- the RPC returns success=false with a 200 response and error_message set. Only a malformed id (not a valid UUID) produces a 400.
+         */
+        post: operations["pushLexwareQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/caldav/passwords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the current user's CalDAV app-specific passwords */
+        get: operations["listCaldavPasswords"];
+        put?: never;
+        /** Create a new CalDAV app-specific password */
+        post: operations["createCaldavPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/caldav/passwords/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a CalDAV app-specific password */
+        delete: operations["revokeCaldavPassword"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/caldav/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get CalDAV/CardDAV status for the current user */
+        get: operations["getCaldavStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/caldav/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Enable CalDAV/CardDAV for the current user */
+        put: operations["enableCaldav"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/caldav/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Disable CalDAV/CardDAV for the current user */
+        put: operations["disableCaldav"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/caldav/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the org-wide CalDAV/CardDAV enabled setting
+         * @description Requires admin role.
+         */
+        get: operations["getAdminCaldavSettings"];
+        /**
+         * Set the org-wide CalDAV/CardDAV enabled setting
+         * @description Requires admin role.
+         */
+        put: operations["updateAdminCaldavSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/caldav/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users with CalDAV app-specific passwords (audit)
+         * @description Requires admin role.
+         */
+        get: operations["listAdminCaldavUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/caldav/users/{userId}/passwords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke all CalDAV app-specific passwords for a user
+         * @description Requires admin role.
+         */
+        delete: operations["revokeAdminCaldavUserPasswords"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a guest chat session */
+        post: operations["createGuestSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/sessions/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a guest session token */
+        post: operations["validateGuestSessionToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/channels/{channelID}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List messages in a guest-accessible channel
+         * @description Requires a valid guest session (X-Guest-Token header); the session's channel_id must match {channelID}.
+         */
+        get: operations["listGuestChannelMessages"];
+        put?: never;
+        /**
+         * Send a message to a guest-accessible channel
+         * @description Requires a valid guest session (X-Guest-Token header); the session's channel_id must match {channelID}. Rate-limited per guest session.
+         */
+        post: operations["sendGuestChannelMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the public guest-chat channel config
+         * @description Requires a valid guest session (X-Guest-Token header). Returns only public-safe config fields (no internal IDs).
+         */
+        get: operations["getGuestChannelConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feature-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get resolved feature flag values for the authenticated user */
+        get: operations["getFeatureFlags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/global": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global search across CRM, documents, and email
+         * @description Requires search:read permission. Fans out to the CRM, Documents, and Email services in parallel with a 500ms budget; a slow or failing module is reported via its own `error` field instead of failing the whole request. Email search is not yet implemented and always returns an empty result set.
+         */
+        get: operations["globalSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find potential duplicate contacts for a contact */
+        get: operations["findContactDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a duplicate contact into a primary contact
+         * @description The duplicate contact's activities/deals are reassigned to the primary contact; the duplicate contact is then deleted.
+         */
+        post: operations["mergeContacts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the activity/event timeline for a contact */
+        get: operations["getContactTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current consent summary for a contact (GDPR) */
+        get: operations["getContactConsents"];
+        put?: never;
+        /** Grant a consent for a contact (GDPR) */
+        post: operations["grantContactConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/consents/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a previously granted consent for a contact (GDPR) */
+        delete: operations["revokeContactConsent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/consents/{type}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the full consent history for a contact and consent type (GDPR audit trail) */
+        get: operations["getContactConsentHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/gdpr/deletion-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request GDPR right-to-erasure deletion for a contact
+         * @description Creates a pending deletion request. Actual erasure happens separately via POST /api/v1/gdpr/deletion-requests/{id}/process (admin only).
+         */
+        post: operations["requestContactDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{id}/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find potential duplicate companies for a company */
+        get: operations["findCompanyDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a duplicate company into a primary company
+         * @description The duplicate company's contacts/deals are reassigned to the primary company; the duplicate company is then deleted.
+         */
+        post: operations["mergeCompanies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gdpr/deletion-requests/{id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Process a pending GDPR deletion request (admin only, performs the actual erasure) */
+        post: operations["processGdprDeletionRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/journal/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the GoBD gap-detection journal summary for a fiscal year
+         * @description gaps_detected should always be 0 for GoBD-compliant invoice numbering; a nonzero value indicates a numbering gap requiring investigation.
+         */
+        get: operations["getFinanceJournalSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/invoices/validate-number": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Validate the format and uniqueness of an invoice number */
+        get: operations["validateInvoiceNumber"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/invoices/{id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Administratively lock an invoice (GoBD immutability after lock) */
+        post: operations["lockInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/stats/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregated payment statistics for a date range */
+        get: operations["getPaymentStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/dunning/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Directly set a dunning record's status (admin override) */
+        put: operations["updateDunningStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/dunning/{id}/notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a dunning record as sent (notice dispatch) */
+        post: operations["sendDunningNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/export/gobd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate a GoBD-compliant CSV export (Paragraph 147 AO) */
+        post: operations["generateGobdExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/finance/deals/{dealId}/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a quote from a CRM deal
+         * @description Cross-service orchestration performed entirely on the biz gRPC service -- it fetches the deal plus its linked contact and company, and assembles the customer snapshot server-side.
+         */
+        post: operations["createQuoteFromDeal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/time/create-invoice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an invoice from an employee's time entries in a date range */
+        post: operations["createInvoiceFromTime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenant/module-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List module-access grants for the tenant */
+        get: operations["listModuleGrants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenant/module-grants/bulk-revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke multiple module-access grants in one call (admin only) */
+        post: operations["bulkRevokeModuleAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenant/module-grants/{user_id}/{module_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Grant a user access to a module (admin only) */
+        put: operations["grantModuleAccess"];
+        post?: never;
+        /** Revoke a user's access to a module (admin only) */
+        delete: operations["revokeModuleAccess"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/presign-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a short-lived presigned PUT URL for browser-direct file upload
+         * @description URL expires after 15 minutes. Does not touch object storage itself -- upload the file with a PUT to the returned URL, then register its metadata via POST /api/v1/files.
+         */
+        post: operations["presignFileUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/presign-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a short-lived presigned GET URL for a stored object
+         * @description URL expires after 1 hour. The document service enforces tenant ownership of the object key.
+         */
+        get: operations["presignFileDownload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -15973,6 +18692,1058 @@ export interface components {
             notes?: string | null;
             created_at?: components["schemas"]["ProtoTimestamp"];
             updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A saved custom report definition (query spec + metadata). */
+        BerichtDefinition: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            description?: string;
+            /** @description finanzen|crm|helpdesk|inventar|produktion|cross */
+            module?: string;
+            /** @description system|custom */
+            kind?: string;
+            /**
+             * Format: byte
+             * @description Raw JSONB aggregation spec (base64-encoded bytes on the wire)
+             */
+            query_config?: string;
+            /** @description pdf|csv|xlsx */
+            default_format?: string;
+            /** Format: uuid */
+            created_by?: string;
+            is_published?: boolean;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A recurring delivery schedule for a report definition. */
+        BerichtSchedule: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            definition_id?: string;
+            name?: string;
+            cron_expression?: string;
+            recipients?: string[];
+            /** @description pdf|csv|xlsx */
+            format?: string;
+            /**
+             * Format: byte
+             * @description Raw JSONB report params (base64-encoded bytes on the wire)
+             */
+            params?: string;
+            active?: boolean;
+            last_run_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description success|failed|skipped */
+            last_run_status?: string;
+            last_run_error?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A single execution record of a report definition (manual, scheduled, or API-triggered). */
+        BerichtRun: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            definition_id?: string;
+            /** Format: uuid */
+            schedule_id?: string;
+            /** @description manual|scheduled|api */
+            trigger?: string;
+            /**
+             * Format: byte
+             * @description Raw JSONB params supplied for this run (base64-encoded bytes on the wire)
+             */
+            params?: string;
+            /** Format: int32 */
+            duration_ms?: number;
+            /** Format: int32 */
+            row_count?: number;
+            /** @description success|failed */
+            status?: string;
+            error?: string;
+            started_at?: components["schemas"]["ProtoTimestamp"];
+            completed_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description The materialized output of a report run. payload is an opaque JSON document produced by the report engine ({columns, rows, series, totals, meta}); shape varies per report definition, so it travels as base64-encoded bytes rather than a typed schema. */
+        BerichtReportResult: {
+            /**
+             * Format: byte
+             * @description JSON-encoded {columns, rows, series, totals, meta} (base64-encoded bytes on the wire)
+             */
+            payload?: string;
+            /** Format: int32 */
+            row_count?: number;
+            generated_at?: components["schemas"]["ProtoTimestamp"];
+            from_cache?: boolean;
+        };
+        /** @description A single dashboard KPI tile. */
+        BerichtKPI: {
+            id?: string;
+            label?: string;
+            /** @description Rendered value (string for display flexibility) */
+            value?: string;
+            unit?: string;
+            /** Format: double */
+            change_percent?: number;
+            module_id?: string;
+        };
+        /** @description Field names match document.v1.DocumentFolder. GET .../folders (list) serializes via protojson (created_at/updated_at as RFC3339 strings); GET/POST/PUT on a single folder serialize via Go encoding/json over the raw proto struct (created_at/updated_at as ProtoTimestamp {seconds,nanos}) — see the differing response schemas per operation. */
+        DocumentFolder: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /**
+             * Format: uuid
+             * @description Empty string if this is a root folder
+             */
+            parent_id?: string;
+            /** @description FolderSpaceType integer (UseEnumNumbers): 0=UNSPECIFIED 1=PERSONAL 2=TEAM 3=PROJECT */
+            space_type?: number;
+            /**
+             * Format: uuid
+             * @description User ID, team ID, or project ID depending on space_type
+             */
+            space_id?: string;
+            is_system?: boolean;
+            icon?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+            /** @description Computed, not stored */
+            file_count?: number;
+        };
+        /** @description Always serialized via Go encoding/json over the raw proto struct (never via protojson/ProtoList) — created_at/updated_at are ProtoTimestamp {seconds,nanos}. */
+        DocumentFile: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            folder_id?: string;
+            filename?: string;
+            mime_type?: string;
+            /** Format: int64 */
+            file_size?: number;
+            storage_key?: string;
+            thumbnail_key?: string;
+            current_version?: number;
+            /** Format: uuid */
+            owner_id?: string;
+            is_favorite?: boolean;
+            is_deleted?: boolean;
+            tags?: components["schemas"]["DocumentTag"][];
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Only ever returned via GET .../files/{id}/versions, which serializes via protojson (bare array) — unlike DocumentFile/DocumentFolder, created_at here is a real RFC3339 string, not a ProtoTimestamp object. */
+        DocumentFileVersion: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            file_id?: string;
+            version_number?: number;
+            version_label?: string;
+            storage_key?: string;
+            /** Format: int64 */
+            file_size?: number;
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        /** @description POST /shares serializes via encoding/json over the raw proto struct (created_at as ProtoTimestamp); GET /shares/entity serializes the same entity via protojson (created_at as an RFC3339 string) — see the differing response schemas per operation. */
+        DocumentShare: {
+            /** Format: uuid */
+            id?: string;
+            /** @description "file" or "folder" (not server-validated against an enum) */
+            entity_type?: string;
+            /** Format: uuid */
+            entity_id?: string;
+            /** Format: uuid */
+            shared_with_user_id?: string;
+            /** @description Denormalized from JOIN */
+            shared_with_user_name?: string;
+            /** @description SharePermission integer (UseEnumNumbers): 0=UNSPECIFIED 1=READ 2=WRITE */
+            permission?: number;
+            /** Format: uuid */
+            shared_by?: string;
+            /** @description Denormalized from JOIN */
+            shared_by_name?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description POST /tags serializes via encoding/json over the raw proto struct (created_at as ProtoTimestamp); GET /tags serializes the same entity via protojson (created_at as an RFC3339 string) — see the differing response schemas per operation. */
+        DocumentTag: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            color?: string;
+            /** @description Computed, not stored */
+            file_count?: number;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description POST .../links serializes via encoding/json over the raw proto struct (created_at as ProtoTimestamp); GET .../links serializes the same entity via protojson (created_at as an RFC3339 string) — see the differing response schemas per operation. */
+        DocumentEntityLink: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            file_id?: string;
+            /** @description Typically contact, company, deal, project, or task (not server-validated against an enum) */
+            entity_type?: string;
+            /** Format: uuid */
+            entity_id?: string;
+            /** @description Denormalized display name */
+            entity_name?: string;
+            /** Format: uuid */
+            linked_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Read-only reference to an attachment stored outside the document tree (chat, email, task) — not editable via the Files endpoints. Serialized via encoding/json over the raw proto struct (created_at as ProtoTimestamp). */
+        DocumentVirtualFile: {
+            id?: string;
+            filename?: string;
+            mime_type?: string;
+            /** Format: int64 */
+            file_size?: number;
+            storage_key?: string;
+            /** @description VirtualFileSource integer (UseEnumNumbers): 0=UNSPECIFIED 1=CHAT 2=EMAIL 3=TASK */
+            source_type?: number;
+            /** @description ID of the chat message, email, or task the file originated from */
+            source_id?: string;
+            source_name?: string;
+            /** Format: uuid */
+            uploaded_by?: string;
+            uploaded_by_name?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description One breadcrumb segment (root-to-leaf order) returned by GET /api/v1/documents/folders/{id}/path */
+        DocumentFolderPathSegment: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+        };
+        DocumentFileSearchResult: {
+            file?: components["schemas"]["DocumentFile"];
+            /** Format: float */
+            rank?: number;
+            snippet?: string;
+        };
+        /** @description One WOPI app action (e.g. Word/view) advertised by the OnlyOffice WOPI discovery document. */
+        DocumentWopiAction: {
+            /** @example Word */
+            app?: string;
+            /** @example view */
+            name?: string;
+            /** @example docx */
+            ext?: string;
+            /** @description WOPI action URL template */
+            url_src?: string;
+        };
+        /** @description A single hook binding declared by a plugin manifest. */
+        PluginHookRegistration: {
+            /** @description e.g. before_create, after_update */
+            hook_type?: string;
+            /** @description e.g. crm, work, biz */
+            module?: string;
+            /** @description e.g. contact, task, invoice */
+            entity_type?: string;
+            /** Format: int32 */
+            priority?: number;
+        };
+        /** @description A registered plugin definition. Returned via response.JSON (plain encoding/json over the generated proto struct, not protojson) — field names already match proto snake_case via struct tags, but created_at/updated_at serialize as the raw proto wire shape ({seconds,nanos}), not RFC-3339 strings. */
+        PluginManifest: {
+            /** Format: uuid */
+            id?: string;
+            /** @description Unique plugin slug. */
+            slug?: string;
+            name?: string;
+            description?: string;
+            /** @example 0.1.0 */
+            version?: string;
+            author?: string;
+            /** @description JSON Schema for the plugin's settings, encoded as a string. */
+            settings_schema?: string;
+            /** @description Permission keys the plugin requires (subject to per-installation approval). */
+            permissions?: string[];
+            hook_registrations?: components["schemas"]["PluginHookRegistration"][];
+            /** @description SHA-256 hash of the uploaded WASM binary, if plugin_type=wasm. */
+            wasm_binary_hash?: string;
+            /**
+             * @default config
+             * @enum {string}
+             */
+            plugin_type: "config" | "wasm";
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A per-tenant plugin installation, enriched with denormalized manifest fields and the currently granted permission set. created_at/updated_at are the raw proto wire shape ({seconds,nanos}). */
+        PluginInstallation: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            manifest_id?: string;
+            /** @enum {string} */
+            status?: "pending_approval" | "active" | "disabled" | "error" | "uninstalled";
+            /** @description Installation settings as a JSON string. */
+            settings?: string;
+            error_message?: string;
+            /** Format: uuid */
+            installed_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+            manifest_slug?: string;
+            manifest_name?: string;
+            manifest_version?: string;
+            /** @enum {string} */
+            plugin_type?: "config" | "wasm";
+            required_permissions?: string[];
+            granted_permissions?: string[];
+            /** @description JSON Schema for this installation's settings, encoded as a string. */
+            settings_schema?: string;
+        };
+        /** @description Config-based field validation rule, optionally scoped to one plugin installation. created_at/updated_at are the raw proto wire shape ({seconds,nanos}). */
+        PluginValidationRule: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /**
+             * Format: uuid
+             * @description Owning plugin installation, if the rule was installed by a plugin rather than authored directly.
+             */
+            installation_id?: string | null;
+            name?: string;
+            description?: string;
+            /** @description e.g. contact, deal, invoice */
+            entity_type?: string;
+            field_name?: string;
+            /** @enum {string} */
+            rule_type?: "regex" | "range" | "required_if" | "format" | "custom" | "enum";
+            /** @description Rule-type-specific configuration, encoded as a JSON string. */
+            rule_config?: string;
+            error_message?: string;
+            /** Format: int32 */
+            priority?: number;
+            enabled?: boolean;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Config-based automation trigger, optionally scoped to one plugin installation. created_at/updated_at are the raw proto wire shape ({seconds,nanos}). */
+        PluginWorkflowRule: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /**
+             * Format: uuid
+             * @description Owning plugin installation, if the rule was installed by a plugin rather than authored directly.
+             */
+            installation_id?: string | null;
+            name?: string;
+            description?: string;
+            /** @description e.g. contact.created, deal.stage_changed */
+            trigger_event?: string;
+            /** @description Trigger conditions, encoded as a JSON array string. */
+            conditions?: string;
+            /** @description Actions to run when conditions match, encoded as a JSON array string. */
+            actions?: string;
+            /** Format: int32 */
+            priority?: number;
+            enabled?: boolean;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A preconfigured industry template that can be applied to a tenant, bundling custom fields, validation rules, workflow rules, and default settings. Has no created_at/updated_at (not tracked in the proto message). */
+        PluginIndustryTemplate: {
+            /** Format: uuid */
+            id?: string;
+            slug?: string;
+            name?: string;
+            description?: string;
+            industry?: string;
+            /** @default building */
+            icon: string;
+            /** @description Custom field definitions, encoded as a JSON array string. */
+            custom_fields?: string;
+            /** @description Validation rules to seed, encoded as a JSON array string. */
+            validation_rules?: string;
+            /** @description Workflow rules to seed, encoded as a JSON array string. */
+            workflow_rules?: string;
+            /** @description Default plugin settings, encoded as a JSON object string. */
+            default_settings?: string;
+        };
+        /** @description Audit trail entry for one hook execution. created_at is the raw proto wire shape ({seconds,nanos}). */
+        PluginExecutionLog: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            installation_id?: string;
+            hook_type?: string;
+            module?: string;
+            entity_type?: string;
+            /** Format: uuid */
+            entity_id?: string;
+            /** Format: int32 */
+            duration_ms?: number;
+            /** @enum {string} */
+            status?: "success" | "error" | "timeout" | "skipped";
+            error_message?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A single material line on a BOM. */
+        ProduktionBomItem: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            bom_id?: string;
+            material_name?: string;
+            quantity?: number;
+            unit?: string;
+            sort_order?: number;
+        };
+        /** @description A bill of materials (Stückliste). */
+        ProduktionBom: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            product_name?: string;
+            sku?: string;
+            version?: string;
+            active?: boolean;
+            notes?: string;
+            items?: components["schemas"]["ProduktionBomItem"][];
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A work step (Arbeitsschritt) on a production order. */
+        ProduktionOrderStep: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            order_id?: string;
+            step_nr?: number;
+            name?: string;
+            description?: string;
+            duration_minutes?: number;
+            /** @description pending, in_progress, completed, or skipped */
+            status?: string;
+            assignee?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A production machine. */
+        ProduktionMachine: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            name?: string;
+            type?: string;
+            /** @description available, in_use, or maintenance */
+            status?: string;
+            notes?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A quality inspection record (Qualitätsprüfung) for a production order. */
+        ProduktionQualityCheck: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            order_id?: string;
+            inspector?: string;
+            checked_at?: components["schemas"]["ProtoTimestamp"];
+            passed?: boolean;
+            defects_found?: number;
+            notes?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Admin-configured platform integration (Teams/Slack). credentials_vault_key is intentionally never returned by the API -- secrets stay server-side. */
+        IntegrationConfig: {
+            /** Format: uuid */
+            id?: string;
+            /** @description e.g. slack, teams */
+            platform?: string;
+            is_active?: boolean;
+            /** @description JSON-encoded string with platform-specific metadata */
+            metadata?: string;
+            /** Format: uuid */
+            created_by?: string;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description Routes a KMU Hub module's notifications to a specific platform channel. */
+        IntegrationChannelMapping: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            config_id?: string;
+            channel_id?: string;
+            channel_name?: string;
+            /** @description KMU Hub module keys routed to this channel (e.g. deals, tasks) */
+            modules?: string[];
+            is_active?: boolean;
+            created_at?: components["schemas"]["ProtoTimestamp"];
+            updated_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        /** @description A KMU Hub user's linked account on an external platform (Teams/Slack). */
+        IntegrationAccountLink: {
+            /** @description e.g. slack, teams */
+            platform?: string;
+            external_display_name?: string;
+            linked_at?: components["schemas"]["ProtoTimestamp"];
+        };
+        DatevUploadLogEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** @description e.g. buchungsstapel, beleg */
+            upload_type?: string;
+            status?: string;
+            /** Format: int32 */
+            file_size?: number;
+            /** Format: int32 */
+            document_count?: number;
+            /** @description Present only when the upload run failed */
+            error_message?: string;
+            /** Format: date-time */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description Present only once the upload run has finished
+             */
+            completed_at?: string;
+        };
+        BexioSyncLogEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** @description e.g. contacts, payments */
+            sync_type?: string;
+            status?: string;
+            /** Format: int32 */
+            items_processed?: number;
+            /** Format: int32 */
+            items_created?: number;
+            /** Format: int32 */
+            items_updated?: number;
+            /** Format: int32 */
+            items_failed?: number;
+            /** @description Present only when the sync run failed */
+            error_message?: string;
+            /** Format: date-time */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description Present only once the sync run has finished
+             */
+            completed_at?: string;
+        };
+        /** @description Raw proto struct returned by GET (bare array) and accepted as-is by PUT via decodeAndValidate -- json tags match the proto field names below (response.JSON on the raw struct, not protojson). */
+        BexioFieldMappingEntry: {
+            kmuhub_field?: string;
+            bexio_field?: string;
+            /** @enum {string} */
+            direction?: "inbound" | "outbound" | "both";
+            required?: boolean;
+        };
+        LexwareSyncLogEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** @description e.g. contacts, invoices, quotes */
+            sync_type?: string;
+            status?: string;
+            /** Format: int32 */
+            items_processed?: number;
+            /** Format: int32 */
+            items_created?: number;
+            /** Format: int32 */
+            items_updated?: number;
+            /** Format: int32 */
+            items_failed?: number;
+            /** @description Present only when the sync run failed */
+            error_message?: string;
+            /** Format: date-time */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description Present only once the sync run has finished
+             */
+            completed_at?: string;
+        };
+        /** @description Raw proto struct returned by GET (bare array) and accepted as-is by PUT via decodeAndValidate -- json tags match the proto field names below (response.JSON on the raw struct, not protojson). */
+        LexwareFieldMappingEntry: {
+            kmuhub_field?: string;
+            lexware_field?: string;
+            /** @enum {string} */
+            direction?: "inbound" | "outbound" | "both";
+            required?: boolean;
+        };
+        /** @description An app-specific password used for CalDAV/CardDAV HTTP Basic Auth. The plaintext password is never returned by this endpoint. */
+        CaldavPasswordInfo: {
+            /** Format: uuid */
+            id?: string;
+            label?: string;
+            /** @description First few characters of the password, shown for identification */
+            password_prefix?: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        CaldavCreatePasswordRequest: {
+            label: string;
+        };
+        /** @description Returned once at creation time — the plaintext password is never retrievable again. Field names differ from CaldavPasswordInfo (password/prefix vs. password_prefix). */
+        CaldavCreatePasswordResponse: {
+            /** @description Plaintext app-specific password (shown once) */
+            password?: string;
+            /** Format: uuid */
+            id?: string;
+            label?: string;
+            /** @description First few characters of the password */
+            prefix?: string;
+        };
+        CaldavStatusResponse: {
+            /** @description Whether CalDAV/CardDAV is enabled organization-wide */
+            org_enabled?: boolean;
+            /** @description Whether the current user has CalDAV/CardDAV enabled */
+            user_enabled?: boolean;
+            /** @description Number of active (non-revoked) app-specific passwords for the current user */
+            password_count?: number;
+            /** Format: uuid */
+            user_id?: string;
+            caldav_url?: string;
+            carddav_url?: string;
+        };
+        CaldavAdminSettings: {
+            /** @description Whether CalDAV/CardDAV is enabled organization-wide */
+            enabled?: boolean;
+        };
+        /** @description Admin-facing summary of a user's CalDAV enablement, for audit purposes. */
+        CaldavUserInfo: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: email */
+            email?: string;
+            first_name?: string;
+            last_name?: string;
+            caldav_enabled?: boolean;
+            password_count?: number;
+            /** Format: date-time */
+            last_used?: string | null;
+        };
+        /** @description A validated guest chat session, as returned to the guest client (the token hash is never exposed). */
+        GuestSession: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            channel_id?: string;
+            display_name?: string;
+            /** Format: email */
+            email?: string | null;
+            ip_address?: string | null;
+            user_agent?: string | null;
+            /** Format: date-time */
+            last_activity_at?: string;
+            is_active?: boolean;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            expires_at?: string;
+        };
+        /** @description Full per-channel guest chat configuration (admin/internal shape). See GuestPublicConfig for the subset exposed to guests. */
+        GuestChannelConfig: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            tenant_id?: string;
+            /** Format: uuid */
+            channel_id?: string;
+            welcome_message?: string;
+            logo_url?: string | null;
+            primary_color?: string;
+            token_expiry_hours?: number;
+            max_file_size_mb?: number;
+            allowed_file_types?: string;
+            is_active?: boolean;
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        /** @description Public-safe subset of GuestChannelConfig returned by GET /api/v1/guest/config (no internal IDs). */
+        GuestPublicConfig: {
+            welcome_message?: string;
+            logo_url?: string | null;
+            primary_color?: string;
+            max_file_size_mb?: number;
+            allowed_file_types?: string;
+        };
+        GuestCreateSessionRequest: {
+            /** Format: uuid */
+            channel_id: string;
+            display_name: string;
+            /** Format: email */
+            email?: string | null;
+        };
+        GuestCreateSessionResponse: {
+            /** @description Guest session token — pass as the X-Guest-Token header on subsequent requests */
+            token?: string;
+            session?: components["schemas"]["GuestSession"];
+        };
+        GuestValidateTokenRequest: {
+            token: string;
+        };
+        GuestValidateTokenResponse: {
+            session?: components["schemas"]["GuestSession"];
+            /** @description Present only if guest chat config exists for the session's channel */
+            config?: components["schemas"]["GuestChannelConfig"];
+        };
+        GuestSendMessageRequest: {
+            content: string;
+        };
+        FeatureFlagsResponse: {
+            /** @description Map of flag key (e.g. "modules.dialer", "plugins.wasm") to its resolved boolean value */
+            flags?: {
+                [key: string]: boolean;
+            };
+            /** @example v1 */
+            version?: string;
+        };
+        /** @description Result set for one search backend. Item shape in `results` is module-specific (e.g. CRM SearchResult, document FileSearchResult) — see the search and documents tags for the underlying record shapes. */
+        GlobalSearchModuleResult: {
+            /** @enum {string} */
+            module?: "crm" | "documents" | "email";
+            results?: {
+                [key: string]: unknown;
+            }[];
+            total?: number;
+            /** @description Present only if this module's search failed or timed out; other modules still return normally */
+            error?: string;
+        };
+        GlobalSearchResponse: {
+            query?: string;
+            modules?: components["schemas"]["GlobalSearchModuleResult"][];
+        };
+        /** @description Raw crmv1.ContactInfo proto as serialized by response.JSON. Distinct from the ContactInfo schema used by the primary /api/v1/contacts endpoints (same underlying proto type, but that schema documents an unrelated, already-drifted camelCase projection -- this one reflects the actual snake_case wire shape). */
+        CrmContactSnapshot: {
+            /** Format: uuid */
+            id?: string;
+            first_name?: string;
+            last_name?: string;
+            email?: string;
+            phone?: string;
+            /** Format: uuid */
+            company_id?: string | null;
+            company_name?: string | null;
+            position?: string;
+            notes?: string;
+            tags?: components["schemas"]["CrmTagSnapshot"][];
+            custom_fields?: {
+                [key: string]: string;
+            };
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /** @enum {string} */
+            visibility?: "shared" | "personal";
+            /** Format: uuid */
+            owner_id?: string | null;
+        };
+        /** @description Raw crmv1.CompanyInfo proto as serialized by response.JSON. Distinct from the CompanyInfo schema used by the primary /api/v1/companies endpoints (same underlying proto type, but that schema documents an unrelated, already-drifted camelCase projection -- this one reflects the actual snake_case wire shape). */
+        CrmCompanySnapshot: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            domain?: string;
+            industry?: string;
+            employee_count?: number;
+            address?: string;
+            city?: string;
+            country?: string;
+            notes?: string;
+            tags?: components["schemas"]["CrmTagSnapshot"][];
+            custom_fields?: {
+                [key: string]: string;
+            };
+            contact_count?: number;
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        /** @description Raw crmv1.TagInfo proto, nested inside CrmContactSnapshot/CrmCompanySnapshot. */
+        CrmTagSnapshot: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            color?: string;
+            /** @enum {string} */
+            entity_type?: "contact" | "company" | "deal" | "activity";
+            /** Format: date-time */
+            created_at?: string;
+        };
+        CrmDuplicateContactCandidate: {
+            contact?: components["schemas"]["CrmContactSnapshot"];
+            /**
+             * Format: double
+             * @description Similarity score, higher is more similar
+             */
+            similarity?: number;
+            /** @enum {string} */
+            match_type?: "email_exact" | "name_fuzzy" | "phone_exact";
+        };
+        CrmContactDuplicatesResponse: {
+            duplicates?: components["schemas"]["CrmDuplicateContactCandidate"][];
+            total?: number;
+        };
+        CrmDuplicateCompanyCandidate: {
+            company?: components["schemas"]["CrmCompanySnapshot"];
+            /**
+             * Format: double
+             * @description Similarity score, higher is more similar
+             */
+            similarity?: number;
+            /** @enum {string} */
+            match_type?: "domain_exact" | "name_fuzzy";
+        };
+        CrmCompanyDuplicatesResponse: {
+            duplicates?: components["schemas"]["CrmDuplicateCompanyCandidate"][];
+            total?: number;
+        };
+        /** @description Shared request body for POST /api/v1/contacts/merge and POST /api/v1/companies/merge. */
+        CrmMergeRequest: {
+            /**
+             * Format: uuid
+             * @description Record that survives the merge
+             */
+            primary_id: string;
+            /**
+             * Format: uuid
+             * @description Record that is merged into primary_id and then deleted
+             */
+            duplicate_id: string;
+        };
+        CrmTimelineEvent: {
+            id?: string;
+            /** @description e.g. activity, deal_linked */
+            event_type?: string;
+            /** Format: date-time */
+            occurred_at?: string;
+            title?: string;
+            description?: string | null;
+            created_by_name?: string;
+            metadata?: {
+                data?: {
+                    [key: string]: string;
+                };
+            } | null;
+        };
+        CrmContactTimelineResponse: {
+            events?: components["schemas"]["CrmTimelineEvent"][];
+            total?: number;
+        };
+        /** @description Raw crmv1.ConsentRecord proto as serialized by response.JSON. */
+        GdprConsentRecord: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            contact_id?: string;
+            consent_type?: string;
+            granted?: boolean;
+            /** @description e.g. consent, contract, legitimate_interest */
+            legal_basis?: string;
+            /** @description e.g. web_form, phone, import */
+            source?: string;
+            ip_address?: string | null;
+            notes?: string;
+            /** Format: date-time */
+            granted_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        GdprConsentSummary: {
+            /** Format: uuid */
+            contact_id?: string;
+            /** @description Map keyed by consent_type -> latest ConsentRecord for that type */
+            consents?: {
+                [key: string]: components["schemas"]["GdprConsentRecord"];
+            };
+        };
+        GdprGrantConsentRequest: {
+            consent_type: string;
+            /** @description e.g. web_form, phone, import */
+            source: string;
+            /** @description e.g. consent, contract, legitimate_interest */
+            legal_basis: string;
+            ip_address?: string | null;
+        };
+        GdprConsentHistoryResponse: {
+            history?: components["schemas"]["GdprConsentRecord"][];
+            total?: number;
+        };
+        /** @description Raw crmv1.GDPRDeletionRequest proto as serialized by response.JSON. */
+        GdprDeletionRequest: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            contact_id?: string;
+            /** Format: uuid */
+            requested_by?: string | null;
+            reason?: string;
+            /** @enum {string} */
+            status?: "pending" | "processing" | "completed";
+            /** Format: date-time */
+            completed_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        /** @description Raw bizv1.GetJournalSummaryResponse proto as serialized by response.JSON. */
+        FinanceJournalSummary: {
+            year?: number;
+            /** @description Count of invoice numbers assigned */
+            total_invoices_issued?: number;
+            /** @description Should always be 0 for GoBD-compliant invoice numbering */
+            gaps_detected?: number;
+            /** @description e.g. RE-2026-0001 */
+            first_number?: string;
+            /** @description e.g. RE-2026-0042 */
+            last_number?: string;
+            /** @description Numeric part of the last assigned invoice number */
+            highest_sequence?: number;
+        };
+        /** @description Raw bizv1.ValidateInvoiceNumberResponse proto as serialized by response.JSON. */
+        FinanceInvoiceNumberValidation: {
+            /** @description Matches pattern RE-YYYY-NNNN */
+            valid_format?: boolean;
+            /** @description True if the number is already assigned to an invoice */
+            already_used?: boolean;
+            /** @description Normalized form of the number, empty when the format is invalid */
+            canonical?: string;
+        };
+        /** @description Raw bizv1.LockInvoiceResponse proto as serialized by response.JSON. */
+        FinanceInvoiceLockResult: {
+            /**
+             * Format: byte
+             * @description Base64-encoded legacy JSON snapshot of the locked invoice (models.Invoice shape, not the Invoice schema)
+             */
+            invoice_json?: string;
+            /**
+             * Format: date-time
+             * @description RFC3339 timestamp of when the lock was applied
+             */
+            locked_at?: string;
+        };
+        /** @description Raw bizv1.GetPaymentStatsResponse proto as serialized by response.JSON. */
+        FinancePaymentStats: {
+            total_invoices?: number;
+            total_paid?: number;
+            total_outstanding?: number;
+            /** @description Decimal as string */
+            total_paid_amount?: string;
+            /** @description Decimal as string */
+            total_outstanding_amount?: string;
+            /** @description Decimal as string; "0" if no data */
+            average_days_to_pay?: string;
+        };
+        HrTimeCreateInvoiceRequest: {
+            /** Format: uuid */
+            employee_id: string;
+            customer_name: string;
+            customer_address?: string;
+            /** Format: email */
+            customer_email?: string;
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+            /** @description Decimal as string */
+            hourly_rate: string;
+            /** @description Optional; defaults to "Arbeitszeit {from}-{to}" */
+            description?: string;
+            /**
+             * @default standard
+             * @enum {string}
+             */
+            tax_mode: "standard" | "reverse_charge" | "kleinunternehmer";
+        };
+        SettingsModuleGrant: {
+            /** Format: uuid */
+            userId?: string;
+            userName?: string;
+            /** @description One of the ModuleId values (see lib/pricing.ts) */
+            moduleId?: string;
+            /** Format: date-time */
+            grantedAt?: string;
+            /** Format: date-time */
+            lastActiveAt?: string | null;
+        };
+        FilePresignUploadRequest: {
+            /** @description Logical storage scope/prefix for the upload */
+            scope: string;
+            file_name: string;
+            content_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+        };
+        FilePresignUploadResponse: {
+            /**
+             * Format: uri
+             * @description Presigned PUT URL, valid for 15 minutes
+             */
+            upload_url?: string;
+            object_key?: string;
+            /** Format: date-time */
+            expires_at?: string;
+        };
+        FilePresignDownloadResponse: {
+            /**
+             * Format: uri
+             * @description Presigned GET URL, valid for 1 hour
+             */
+            download_url?: string;
+            object_key?: string;
+            /** Format: date-time */
+            expires_at?: string;
         };
     };
     responses: {
@@ -36293,6 +40064,5754 @@ export interface operations {
                     "application/octet-stream": string;
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listBerichteDefinitions: {
+        parameters: {
+            query?: {
+                search?: string;
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+                sort_by?: string;
+                sort_desc?: boolean;
+                /** @description Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross */
+                module?: string;
+                /** @description Filter by kind: system|custom */
+                kind?: string;
+                is_published?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated report definition list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        definitions?: components["schemas"]["BerichtDefinition"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createBerichteDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    /** @description finanzen|crm|helpdesk|inventar|produktion|cross */
+                    module: string;
+                    /** @description system|custom (defaults to custom) */
+                    kind?: string;
+                    /**
+                     * Format: byte
+                     * @description Raw JSONB aggregation spec (base64-encoded bytes on the wire)
+                     */
+                    query_config?: string;
+                    /** @description pdf|csv|xlsx */
+                    default_format?: string;
+                    is_published?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Report definition created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        definition?: components["schemas"]["BerichtDefinition"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBerichteDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report definition */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        definition?: components["schemas"]["BerichtDefinition"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteBerichteDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report definition deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateBerichteDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string;
+                    /** @description finanzen|crm|helpdesk|inventar|produktion|cross */
+                    module?: string;
+                    /**
+                     * Format: byte
+                     * @description Raw JSONB aggregation spec (base64-encoded bytes on the wire); empty means no change
+                     */
+                    query_config?: string;
+                    /** @description pdf|csv|xlsx */
+                    default_format?: string;
+                    is_published?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Report definition updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        definition?: components["schemas"]["BerichtDefinition"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    runBerichteReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: byte
+                     * @description JSON-encoded report filter params (base64-encoded bytes on the wire)
+                     */
+                    params?: string;
+                    /** @description Bypass any cached result and recompute */
+                    force_refresh?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Report result and run record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        result?: components["schemas"]["BerichtReportResult"];
+                        run?: components["schemas"]["BerichtRun"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    exportBerichteReport: {
+        parameters: {
+            query?: {
+                /** @description Export format; defaults to pdf */
+                format?: "pdf" | "csv" | "xlsx";
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: byte
+                     * @description JSON-encoded report filter params (base64-encoded bytes on the wire)
+                     */
+                    params?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Exported report file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "text/csv": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    invalidateBerichteCache: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Number of cache entries evicted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int32 */
+                        evicted?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listBerichteSchedules: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+                definition_id?: string;
+                active?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated schedule list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schedules?: components["schemas"]["BerichtSchedule"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createBerichteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    definition_id?: string;
+                    name: string;
+                    /** @description Standard cron expression */
+                    cron_expression: string;
+                    recipients?: string[];
+                    /** @enum {string} */
+                    format?: "pdf" | "csv" | "xlsx";
+                    /**
+                     * Format: byte
+                     * @description JSON-encoded report params (base64-encoded bytes on the wire)
+                     */
+                    params?: string;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Schedule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schedule?: components["schemas"]["BerichtSchedule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteBerichteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Schedule deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateBerichteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    cron_expression?: string;
+                    recipients?: string[];
+                    /** @description Set true to replace recipients with the (possibly empty) recipients array above */
+                    recipients_set?: boolean;
+                    /** @enum {string} */
+                    format?: "pdf" | "csv" | "xlsx";
+                    /**
+                     * Format: byte
+                     * @description JSON-encoded report params (base64-encoded bytes on the wire)
+                     */
+                    params?: string;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Schedule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schedule?: components["schemas"]["BerichtSchedule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    toggleBerichteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    active: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Schedule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schedule?: components["schemas"]["BerichtSchedule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getBerichteDashboardKPIs: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated module list (e.g. finanzen,crm,helpdesk); empty means all modules */
+                modules?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dashboard KPI tiles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        kpis?: components["schemas"]["BerichtKPI"][];
+                        generated_at?: components["schemas"]["ProtoTimestamp"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listDocumentFolders: {
+        parameters: {
+            query?: {
+                /** @description Filter by parent folder ID */
+                parent_id?: string;
+                /** @description Unrecognized values are treated as unspecified (no filter). */
+                space_type?: "personal" | "team" | "project";
+                space_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder list (protojson — created_at/updated_at as RFC3339 strings) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["DocumentFolder"] & {
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                    })[];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createDocumentFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /**
+                     * Format: uuid
+                     * @description Omit or empty for a root folder
+                     */
+                    parent_id?: string;
+                    /** @enum {string} */
+                    space_type?: "personal" | "team" | "project";
+                    /** Format: uuid */
+                    space_id?: string;
+                    icon?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Folder created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        folder?: components["schemas"]["DocumentFolder"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDocumentFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        folder?: components["schemas"]["DocumentFolder"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDocumentFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /**
+                     * Format: uuid
+                     * @description Move the folder under a new parent
+                     */
+                    parent_id?: string;
+                    icon?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Folder updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        folder?: components["schemas"]["DocumentFolder"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDocumentFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        deleted?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDocumentFolderPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Breadcrumb segments (protojson bare array) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentFolderPathSegment"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    initializeUserDocumentSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    user_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description User space initialized */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        initialized?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    initializeTeamDocumentSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    team_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Team space initialized */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        initialized?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listDocumentFiles: {
+        parameters: {
+            query?: {
+                folder_id?: string;
+                owner_id?: string;
+                /** @description Unrecognized values fall back to unsorted. */
+                sort?: "name" | "size" | "date" | "type";
+                sort_dir?: "asc" | "desc";
+                /** @description Only the exact string "true" activates the is_favorite filter. */
+                favorites?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated file list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files?: components["schemas"]["DocumentFile"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    registerUploadedDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    folder_id: string;
+                    filename: string;
+                    mime_type?: string;
+                    /** Format: int64 */
+                    file_size: number;
+                    /** @description Object key returned by the presigned upload */
+                    storage_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description File registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["DocumentFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["DocumentFile"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    filename?: string;
+                    /** Format: uuid */
+                    folder_id?: string;
+                    is_favorite?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description File updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["DocumentFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        deleted?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    copyDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    target_folder_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description File copied */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["DocumentFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    moveDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    target_folder_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description File moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["DocumentFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDocumentFileDownloadUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Presigned download URL and file metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uri */
+                        download_url?: string;
+                        filename?: string;
+                        content_type?: string;
+                        /** Format: int64 */
+                        file_size?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDocumentFileVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Version history (protojson bare array, oldest→newest as stored) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentFileVersion"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    revertDocumentFileVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version_number: number;
+                };
+            };
+        };
+        responses: {
+            /** @description File reverted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        version?: components["schemas"]["DocumentFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDocumentFileEntityLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entity links (protojson bare array) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["DocumentEntityLink"] & {
+                        /** Format: date-time */
+                        created_at?: string;
+                    })[];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    linkDocumentFileToEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Typically contact, company, deal, project, or task (not server-validated against an enum) */
+                    entity_type: string;
+                    /** Format: uuid */
+                    entity_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Link created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        link?: components["schemas"]["DocumentEntityLink"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unlinkDocumentFileFromEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    entity_type: string;
+                    /** Format: uuid */
+                    entity_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Link removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        unlinked?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    shareDocumentEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description "file" or "folder" (not server-validated against an enum) */
+                    entity_type: string;
+                    /** Format: uuid */
+                    entity_id: string;
+                    /** Format: uuid */
+                    shared_with_user_id: string;
+                    /** @enum {string} */
+                    permission: "read" | "write";
+                };
+            };
+        };
+        responses: {
+            /** @description Share created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        share?: components["schemas"]["DocumentShare"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unshareDocumentEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    entity_type: string;
+                    /** Format: uuid */
+                    entity_id: string;
+                    /** Format: uuid */
+                    shared_with_user_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Share revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        unshared?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listDocumentShares: {
+        parameters: {
+            query: {
+                entity_type: string;
+                entity_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Share list (protojson — created_at as RFC3339 string) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["DocumentShare"] & {
+                        /** Format: date-time */
+                        created_at?: string;
+                    })[];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listDocumentsSharedWithMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Files and folders shared with the caller */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files?: components["schemas"]["DocumentFile"][];
+                        folders?: components["schemas"]["DocumentFolder"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listDocumentTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tag list (protojson — created_at as RFC3339 string) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["DocumentTag"] & {
+                        /** Format: date-time */
+                        created_at?: string;
+                    })[];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createDocumentTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    color?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tag created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tag?: components["schemas"]["DocumentTag"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteDocumentTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tag deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        deleted?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    tagDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    file_id: string;
+                    /** Format: uuid */
+                    tag_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description File tagged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        tagged?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    untagDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    file_id: string;
+                    /** Format: uuid */
+                    tag_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tag removed from file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        untagged?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    searchDocumentFiles: {
+        parameters: {
+            query: {
+                q: string;
+                /** @description Scope the search to a folder */
+                folder_id?: string;
+                tag_ids?: string[];
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Search results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results?: components["schemas"]["DocumentFileSearchResult"][];
+                        total?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listVirtualDocumentFiles: {
+        parameters: {
+            query?: {
+                source?: "chat" | "email" | "task";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated virtual file list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files?: components["schemas"]["DocumentVirtualFile"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    generateDocumentWopiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    file_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description WOPI access token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access_token?: string;
+                        /**
+                         * Format: int64
+                         * @description Token lifetime in seconds
+                         */
+                        access_token_ttl?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDocumentWopiDiscovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WOPI actions (protojson bare array) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentWopiAction"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listPluginManifests: {
+        parameters: {
+            query?: {
+                /** @description Optional filter on plugin_type (config or wasm). */
+                type?: "config" | "wasm";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Manifest list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginManifest"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createPluginManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Unique plugin slug. */
+                    slug: string;
+                    name: string;
+                    description?: string;
+                    /** @default 0.1.0 */
+                    version?: string;
+                    author?: string;
+                    /** @description JSON Schema for the plugin's settings, encoded as a string. */
+                    settings_schema?: string;
+                    permissions?: string[];
+                    hook_registrations?: components["schemas"]["PluginHookRegistration"][];
+                    /**
+                     * Format: byte
+                     * @description Base64-encoded WASM binary. Accepted but inert while plugins.wasm=false.
+                     */
+                    wasm_binary?: string;
+                    /**
+                     * @default config
+                     * @enum {string}
+                     */
+                    plugin_type?: "config" | "wasm";
+                };
+            };
+        };
+        responses: {
+            /** @description Manifest created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginManifest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPluginManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manifest_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Manifest */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginManifest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deletePluginManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                manifest_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Manifest deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPluginInstallations: {
+        parameters: {
+            query?: {
+                /** @description Optional filter on installation status. */
+                status?: "pending_approval" | "active" | "disabled" | "error" | "uninstalled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installation list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstallation"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    installPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    tenant_id: string;
+                    /** Format: uuid */
+                    manifest_id: string;
+                    /** Format: uuid */
+                    installed_by: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Installation created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstallation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getPluginInstallation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstallation"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    uninstallPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plugin uninstalled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    enablePluginInstallation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installation enabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstallation"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    disablePluginInstallation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installation disabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstallation"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listGrantedPluginPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Granted permission keys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    approvePluginPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    permissions: string[];
+                    /** Format: uuid */
+                    granted_by: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Permissions approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPluginSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings JSON object. The handler writes the stored settings column through unchanged (Content-Type: application/json), so the body shape is whatever JSON the plugin's settings_schema defines. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updatePluginSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Arbitrary JSON object; accepted as-is and stored as the installation's settings. */
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Settings updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPluginSettingsSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON Schema document, written through unchanged from the stored manifest settings_schema (Content-Type: application/json). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPluginValidationRules: {
+        parameters: {
+            query?: {
+                /** @description Optional filter, e.g. contact, deal, invoice. */
+                entity_type?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Validation rule list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginValidationRule"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPluginValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    tenant_id: string;
+                    /**
+                     * Format: uuid
+                     * @description Optional owning plugin installation.
+                     */
+                    installation_id?: string;
+                    name: string;
+                    description?: string;
+                    entity_type: string;
+                    field_name: string;
+                    /** @enum {string} */
+                    rule_type: "regex" | "range" | "required_if" | "format" | "custom" | "enum";
+                    /** @description Rule-type-specific configuration, encoded as a JSON string. */
+                    rule_config?: string;
+                    error_message?: string;
+                    /** Format: int32 */
+                    priority?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Validation rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginValidationRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updatePluginValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string;
+                    /** @description Rule-type-specific configuration, encoded as a JSON string. */
+                    rule_config?: string;
+                    error_message?: string;
+                    /** Format: int32 */
+                    priority?: number;
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Validation rule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginValidationRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deletePluginValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Validation rule deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPluginWorkflowRules: {
+        parameters: {
+            query?: {
+                /** @description Optional filter, e.g. contact.created, deal.stage_changed. */
+                trigger_event?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workflow rule list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginWorkflowRule"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPluginWorkflowRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    tenant_id: string;
+                    /**
+                     * Format: uuid
+                     * @description Optional owning plugin installation.
+                     */
+                    installation_id?: string;
+                    name: string;
+                    description?: string;
+                    trigger_event: string;
+                    /** @description Trigger conditions, encoded as a JSON array string. */
+                    conditions?: string;
+                    /** @description Actions to run when conditions match, encoded as a JSON array string. */
+                    actions?: string;
+                    /** Format: int32 */
+                    priority?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Workflow rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginWorkflowRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updatePluginWorkflowRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string;
+                    /** @description Trigger conditions, encoded as a JSON array string. */
+                    conditions?: string;
+                    /** @description Actions to run when conditions match, encoded as a JSON array string. */
+                    actions?: string;
+                    /** Format: int32 */
+                    priority?: number;
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Workflow rule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginWorkflowRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deletePluginWorkflowRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workflow rule deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPluginIndustryTemplates: {
+        parameters: {
+            query?: {
+                /** @description Optional filter, e.g. handwerk, dienstleister. */
+                industry?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Industry template list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginIndustryTemplate"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    applyPluginIndustryTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    applied_by: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Template applied */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /**
+                         * Format: uuid
+                         * @description Set if the template created a plugin installation.
+                         */
+                        installation_id?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPluginExecutionLogs: {
+        parameters: {
+            query?: {
+                /** @description Optional filter by plugin installation. */
+                installation_id?: string;
+                /** @description Max rows to return. Defaults to 100 server-side; non-numeric values fall back to the default. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execution log list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginExecutionLog"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listProductionBOMs: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated BOM list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        boms?: components["schemas"]["ProduktionBom"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProductionBOM: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    product_name: string;
+                    sku: string;
+                    version?: string;
+                    active?: boolean;
+                    notes?: string;
+                    items?: {
+                        material_name?: string;
+                        quantity?: number;
+                        unit?: string;
+                        sort_order?: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description BOM created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bom?: components["schemas"]["ProduktionBom"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getProductionBOM: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bomId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description BOM */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bom?: components["schemas"]["ProduktionBom"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteProductionBOM: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bomId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateProductionBOM: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bomId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    product_name?: string;
+                    sku?: string;
+                    version?: string;
+                    active?: boolean;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description BOM updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bom?: components["schemas"]["ProduktionBom"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listProductionOrderSteps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Work step list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        steps?: components["schemas"]["ProduktionOrderStep"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProductionOrderStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    step_nr?: number;
+                    name: string;
+                    description?: string;
+                    duration_minutes?: number;
+                    assignee?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Work step created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        step?: components["schemas"]["ProduktionOrderStep"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteProductionOrderStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                stepId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateProductionOrderStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                stepId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string;
+                    duration_minutes?: number;
+                    /** @description pending, in_progress, completed, or skipped */
+                    status?: string;
+                    assignee?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Work step updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        step?: components["schemas"]["ProduktionOrderStep"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listProductionMachines: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+                /** @description Filter by machine status: available, in_use, or maintenance */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated machine list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        machines?: components["schemas"]["ProduktionMachine"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProductionMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    type?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Machine created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        machine?: components["schemas"]["ProduktionMachine"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getProductionMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machineId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Machine */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        machine?: components["schemas"]["ProduktionMachine"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteProductionMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machineId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateProductionMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machineId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    type?: string;
+                    /** @description available, in_use, or maintenance */
+                    status?: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Machine updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        machine?: components["schemas"]["ProduktionMachine"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listProductionQualityChecks: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["page_size"];
+                /** @description Filter by production order ID */
+                order_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated quality check list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checks?: components["schemas"]["ProduktionQualityCheck"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProductionQualityCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    order_id: string;
+                    inspector: string;
+                    /**
+                     * Format: date-time
+                     * @description RFC3339; optional, defaults to the server's current time
+                     */
+                    checked_at?: string;
+                    passed?: boolean;
+                    defects_found?: number;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Quality check created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check?: components["schemas"]["ProduktionQualityCheck"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getProductionQualityCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                checkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quality check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check?: components["schemas"]["ProduktionQualityCheck"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listIntegrationConfigs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All configured integration platforms */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        configs?: components["schemas"]["IntegrationConfig"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createIntegrationConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description e.g. slack, teams */
+                    platform: string;
+                    /** @description Vault key referencing the platform credentials; the raw secret is never returned */
+                    credentials_vault_key: string;
+                    /** @description JSON-encoded string with platform-specific metadata; defaults to "{}" when omitted */
+                    metadata?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Config created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        config?: components["schemas"]["IntegrationConfig"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getIntegrationConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integration config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        config?: components["schemas"]["IntegrationConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateIntegrationConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    is_active?: boolean;
+                    /** @description Omit/null to keep the existing vault key */
+                    credentials_vault_key?: string | null;
+                    /** @description JSON-encoded string; defaults to "{}" when omitted */
+                    metadata?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Config updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        config?: components["schemas"]["IntegrationConfig"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteIntegrationConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Config deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example config deleted */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    testIntegrationConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Test result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        error_message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listIntegrationChannelMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channel mappings for the platform's config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        mappings?: components["schemas"]["IntegrationChannelMapping"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createIntegrationChannelMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    channel_id: string;
+                    channel_name: string;
+                    /** @description KMU Hub module keys routed to this channel (e.g. deals, tasks) */
+                    modules: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Mapping created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        mapping?: components["schemas"]["IntegrationChannelMapping"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateIntegrationChannelMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    channel_id: string;
+                    channel_name: string;
+                    modules: string[];
+                    is_active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Mapping updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        mapping?: components["schemas"]["IntegrationChannelMapping"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteIntegrationChannelMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mapping deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example mapping deleted */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    linkIntegrationAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Raw single-use link token from the platform bot */
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Account linked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        platform?: string;
+                        external_display_name?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Link token expired (gRPC DeadlineExceeded mapping) */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unlinkIntegrationAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account unlinked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example account unlinked */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getIntegrationAccountLinkStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration platform identifier, e.g. slack or teams (currently unused by the handler) */
+                platform: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All account links for the caller */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        links?: components["schemas"]["IntegrationAccountLink"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    handleTeamsWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Activity acknowledged. Body shape varies by activity type: Invoke responses return {statusCode, type, value}; Message responses return {type, text}; other activity types return an empty 200. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Bot Framework JWT verification failed (plain text body, not JSON) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    handleSlackInteraction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description JSON-encoded Slack InteractionCallback */
+                    payload: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Interaction acknowledged (empty body) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing payload or malformed JSON (plain text body, not JSON) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Slack signature verification failed (plain text body, not JSON) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    handleSlackSlashCommand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Slack response_type=ephemeral message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example ephemeral */
+                        response_type?: string;
+                        text?: string;
+                    };
+                };
+            };
+            /** @description Malformed request (plain text body, not JSON) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Slack signature verification failed (plain text body, not JSON) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    slackOAuthInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to https://slack.com/oauth/v2/authorize */
+            307: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    slackOAuthCallback: {
+        parameters: {
+            query: {
+                /** @description OAuth authorization code issued by Slack */
+                code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to /settings?tab=integrations&slack=connected */
+            307: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing code parameter (plain text body, not JSON) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Token exchange with Slack failed (plain text body, not JSON) */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+        };
+    };
+    datevOAuthCallback: {
+        parameters: {
+            query?: {
+                /** @description OAuth authorization code issued by DATEV; absent on a denied/failed authorization */
+                code?: string;
+                /** @description HMAC-signed CSRF state token issued by GET /oauth/authorize, encodes the tenant_id */
+                state?: string;
+                /** @description Error code from DATEV when the user denies authorization */
+                error?: string;
+                redirect_url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to /settings/integrations. On success appends ?datev_connected=true; on failure appends ?datev_error=<missing_authorization_code|state_not_configured|invalid_state|connection_failed|{service error message}>. */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDatevAuthUrl: {
+        parameters: {
+            query?: {
+                redirect_url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorization URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uri */
+                        authorization_url?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    disconnectDatev: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDatevConnectionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connected?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    uploadDatevBuchungsstapel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description YYYY-MM-DD */
+                    start_date?: string;
+                    /** @description YYYY-MM-DD */
+                    end_date?: string;
+                    /** @description YYYY-MM-DD */
+                    fiscal_year_start?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Upload result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /** Format: int32 */
+                        document_count?: number;
+                        /** Format: int32 */
+                        file_size?: number;
+                        error_message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    uploadDatevBeleg: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upload result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        error_message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDatevUploadConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upload configuration */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        client_number?: string;
+                        auto_upload_enabled?: boolean;
+                        upload_after_export?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDatevUploadConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    client_number?: string;
+                    auto_upload_enabled?: boolean;
+                    upload_after_export?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Configuration updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listDatevUploadLogs: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upload log entries, most recent first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatevUploadLogEntry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    bexioOAuthCallback: {
+        parameters: {
+            query?: {
+                /** @description OAuth authorization code issued by Bexio; absent on a denied/failed authorization */
+                code?: string;
+                /** @description HMAC-signed CSRF state token issued by GET /oauth/authorize, encodes the tenant_id */
+                state?: string;
+                /** @description Error code from Bexio when the user denies authorization; used as the bexio_error redirect value when code is absent */
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to /settings/integrations. On success appends ?bexio_connected=true; on failure appends ?bexio_error=<missing_authorization_code|{error query param}|connection_failed|{callback RPC error_message}>. */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getBexioAuthUrl: {
+        parameters: {
+            query?: {
+                redirect_url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorization URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uri */
+                        authorization_url?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    disconnectBexio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBexioConnectionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connected?: boolean;
+                        org_name?: string;
+                        /**
+                         * Format: date-time
+                         * @description Present only when connected=true. Genuine RFC3339 string (handler converts via .AsTime() before JSON-encoding), not the {seconds,nanos} ProtoTimestamp wire shape.
+                         */
+                        connected_at?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    triggerBexioSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description "contacts", "payments", or omitted/empty for all */
+                    sync_type?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Sync accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sync_id?: string;
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBexioSyncStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync status. last_contact_sync_at, last_payment_poll_at and last_sync_error_at are genuine RFC3339 strings (handler converts via .AsTime() before JSON-encoding), not the {seconds,nanos} ProtoTimestamp wire shape. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contact_sync_enabled?: boolean;
+                        invoice_push_enabled?: boolean;
+                        quote_push_enabled?: boolean;
+                        payment_poll_enabled?: boolean;
+                        /** Format: int32 */
+                        total_contacts_mapped?: number;
+                        /** Format: int32 */
+                        total_invoices_mapped?: number;
+                        /** Format: int32 */
+                        total_quotes_mapped?: number;
+                        /**
+                         * Format: date-time
+                         * @description Present only once a contact sync has run
+                         */
+                        last_contact_sync_at?: string;
+                        /**
+                         * Format: date-time
+                         * @description Present only once a payment poll has run
+                         */
+                        last_payment_poll_at?: string;
+                        /** @description Present only when the last sync attempt failed */
+                        last_sync_error?: string;
+                        /**
+                         * Format: date-time
+                         * @description Present only when the last sync attempt failed
+                         */
+                        last_sync_error_at?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateBexioSyncConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    contact_sync_enabled?: boolean;
+                    /** Format: int32 */
+                    contact_sync_interval_minutes?: number;
+                    invoice_push_enabled?: boolean;
+                    quote_push_enabled?: boolean;
+                    payment_poll_enabled?: boolean;
+                    /** Format: int32 */
+                    payment_poll_interval_minutes?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Sync config updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listBexioSyncLogs: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync log entries, most recent first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BexioSyncLogEntry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBexioFieldMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description e.g. contact, invoice, quote */
+                entity_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Field mappings for the entity type (bare array, not wrapped in an object) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BexioFieldMappingEntry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateBexioFieldMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description e.g. contact, invoice, quote */
+                entity_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    mappings: components["schemas"]["BexioFieldMappingEntry"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Field mappings saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    pushBexioInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Push result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /** @description Present only on success */
+                        bexio_id?: string;
+                        /** @description Present only on failure */
+                        error_message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    pushBexioQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quote_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Push result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /** @description Present only on success */
+                        bexio_id?: string;
+                        /** @description Present only on failure */
+                        error_message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    handleLexwareWebhookEvent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Hex-encoded HMAC-SHA256 signature of the raw request body; required when LEXWARE_WEBHOOK_SECRET is configured */
+                "X-Signature"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    event_type?: string;
+                    resource_id?: string;
+                    organization_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Event processed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    connectLexware: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    api_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Connected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    disconnectLexware: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getLexwareConnectionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connected?: boolean;
+                        /**
+                         * Format: date-time
+                         * @description Present only when connected=true. Genuine RFC3339 string (handler converts via .AsTime() before JSON-encoding), not the {seconds,nanos} ProtoTimestamp wire shape.
+                         */
+                        connected_at?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    testLexwareConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Test result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /** @description Present only when success=false */
+                        error_message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    triggerLexwareSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description "contacts", or omitted/empty for all */
+                    sync_type?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Sync accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sync_id?: string;
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getLexwareSyncStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync status. last_contact_sync_at and last_sync_error_at are genuine RFC3339 strings (handler converts via .AsTime() before JSON-encoding), not the {seconds,nanos} ProtoTimestamp wire shape. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contact_sync_enabled?: boolean;
+                        invoice_push_enabled?: boolean;
+                        quote_push_enabled?: boolean;
+                        webhook_enabled?: boolean;
+                        /** Format: int32 */
+                        total_contacts_mapped?: number;
+                        /** Format: int32 */
+                        total_invoices_mapped?: number;
+                        /** Format: int32 */
+                        total_quotes_mapped?: number;
+                        /**
+                         * Format: date-time
+                         * @description Present only once a contact sync has run
+                         */
+                        last_contact_sync_at?: string;
+                        /** @description Present only when the last sync attempt failed */
+                        last_sync_error?: string;
+                        /**
+                         * Format: date-time
+                         * @description Present only when the last sync attempt failed
+                         */
+                        last_sync_error_at?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listLexwareSyncLogs: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync log entries, most recent first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexwareSyncLogEntry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getLexwareFieldMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description e.g. contact, invoice, quote */
+                entity_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Field mappings for the entity type (bare array, not wrapped in an object) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexwareFieldMappingEntry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateLexwareFieldMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description e.g. contact, invoice, quote */
+                entity_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    mappings: components["schemas"]["LexwareFieldMappingEntry"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Field mappings saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    pushLexwareInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Invoice ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Push result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /** @description Present only on success */
+                        lexware_id?: string;
+                        /** @description Present only on failure */
+                        error_message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    pushLexwareQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Quote ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Push result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /** @description Present only on success */
+                        lexware_id?: string;
+                        /** @description Present only on failure */
+                        error_message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listCaldavPasswords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description App-specific passwords */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        passwords?: components["schemas"]["CaldavPasswordInfo"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createCaldavPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaldavCreatePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password created — the plaintext value is shown once and is never retrievable again */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaldavCreatePasswordResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    revokeCaldavPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Password revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example revoked */
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCaldavStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CalDAV status (org-wide + per-user) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaldavStatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    enableCaldav: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CalDAV enabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example enabled */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    disableCaldav: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CalDAV disabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example disabled */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAdminCaldavSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Org-wide CalDAV setting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaldavAdminSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateAdminCaldavSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaldavAdminSettings"];
+            };
+        };
+        responses: {
+            /** @description Setting updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaldavAdminSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAdminCaldavUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CalDAV user list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        users?: components["schemas"]["CaldavUserInfo"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    revokeAdminCaldavUserPasswords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Passwords revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        revoked_count?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createGuestSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestCreateSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Guest session created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestCreateSessionResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    validateGuestSessionToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestValidateTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Token is valid — returns the session and (if configured) the channel's guest config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestValidateTokenResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Invalid or expired guest token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listGuestChannelMessages: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Cursor — return messages created before this message ID */
+                before?: string;
+            };
+            header: {
+                /** @description Guest session token issued by POST /api/v1/guest/sessions */
+                "X-Guest-Token": string;
+            };
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Messages (chatv1.GetMessagesResponse passthrough) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMessagesResponse"];
+                };
+            };
+            /** @description Guest session required, or the token is invalid/expired */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Guest session does not grant access to this channel */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Chat service unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sendGuestChannelMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Guest session token issued by POST /api/v1/guest/sessions */
+                "X-Guest-Token": string;
+            };
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestSendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Message sent (chatv1.SendMessageResponse passthrough) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Guest session required, or the token is invalid/expired */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Guest session does not grant access to this channel */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Guest message rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Chat service unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getGuestChannelConfig: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Guest session token issued by POST /api/v1/guest/sessions */
+                "X-Guest-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public channel config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestPublicConfig"];
+                };
+            };
+            /** @description Guest session required, or the token is invalid/expired */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFeatureFlags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved feature flags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureFlagsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    globalSearch: {
+        parameters: {
+            query: {
+                /** @description Search query */
+                q: string;
+                /** @description Max results per module (default 5, max 20) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-module search results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalSearchResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    findContactDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Duplicate candidates ranked by similarity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrmContactDuplicatesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    mergeContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrmMergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Merged contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrmContactSnapshot"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContactTimeline: {
+        parameters: {
+            query?: {
+                /** @description Page number (1-based -- despite the query param name this is not a row offset, it maps directly to the proto page field) */
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Timeline events for the contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrmContactTimelineResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getContactConsents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest consent record per consent type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdprConsentSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    grantContactConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GdprGrantConsentRequest"];
+            };
+        };
+        responses: {
+            /** @description Consent record created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdprConsentRecord"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    revokeContactConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                /** @description Consent type identifier (e.g. marketing_email, call_recording) */
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Revoked consent record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdprConsentRecord"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getContactConsentHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                /** @description Consent type identifier (e.g. marketing_email, call_recording) */
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chronological consent record history, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdprConsentHistoryResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    requestContactDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Deletion request created (status "pending") */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdprDeletionRequest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    findCompanyDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Duplicate candidates ranked by similarity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrmCompanyDuplicatesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    mergeCompanies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrmMergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Merged company */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrmCompanySnapshot"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    processGdprDeletionRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deletion request ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deletion processed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example completed */
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFinanceJournalSummary: {
+        parameters: {
+            query: {
+                year: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Journal summary for the fiscal year */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceJournalSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    validateInvoiceNumber: {
+        parameters: {
+            query: {
+                /** @description e.g. RE-2026-0042 */
+                number: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Validation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceInvoiceNumberValidation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    lockInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoice locked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceInvoiceLockResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPaymentStats: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregated payment statistics for the date range */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinancePaymentStats"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateDunningStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "draft" | "sent" | "paid";
+                };
+            };
+        };
+        responses: {
+            /** @description Updated dunning record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DunningRecord"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendDunningNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dunning marked as sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dunning?: components["schemas"]["DunningRecord"];
+                        /** @description False until the dunning-notice email integration is wired up (Sprint 3 TODO) */
+                        email_queued?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    generateGobdExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    from_date: string;
+                    /** Format: date */
+                    to_date: string;
+                };
+            };
+        };
+        responses: {
+            /** @description GoBD CSV file download */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createQuoteFromDeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dealId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quote created from the deal */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createInvoiceFromTime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HrTimeCreateInvoiceRequest"];
+            };
+        };
+        responses: {
+            /** @description Invoice created from the time entries. Legacy JSON-encoded models.Invoice shape proxied through unchanged from the biz service -- does not share the field set of the Invoice schema. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listModuleGrants: {
+        parameters: {
+            query?: {
+                /** @description Filter by user ID */
+                user_id?: string;
+                /** @description Filter by module ID */
+                module_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of module-access grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        grants?: components["schemas"]["SettingsModuleGrant"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    bulkRevokeModuleAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    pairs: {
+                        /** Format: uuid */
+                        userId: string;
+                        moduleId: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Number of grants revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revokedCount?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    grantModuleAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Module access granted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsModuleGrant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    revokeModuleAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                module_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Module access revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    presignFileUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilePresignUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Presigned upload URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilePresignUploadResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    presignFileDownload: {
+        parameters: {
+            query: {
+                object_key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Presigned download URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilePresignDownloadResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };
