@@ -195,6 +195,7 @@ func documentedPaths(t *testing.T, specPath string) map[string]bool {
 	documented := make(map[string]bool)
 	inPaths := false
 	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimRight(line, "\r") // tolerate CRLF checkouts (Windows autocrlf)
 		if !inPaths {
 			if strings.HasPrefix(line, "paths:") {
 				inPaths = true
