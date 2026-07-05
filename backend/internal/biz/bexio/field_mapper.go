@@ -3,6 +3,7 @@ package bexio
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -244,6 +245,144 @@ func (fm *FieldMapper) MapInvoiceToBexio(invoice *models.Invoice, contactBexioID
 	return bi, nil
 }
 
+// ImportedInvoiceInput holds a Bexio invoice mapped for the read-only import path in
+// the finance service (source='bexio'). It carries only what a Bexio-origin invoice
+// provides; the finance service assigns no RE-number and never runs it through
+// Send()/NextNumberInTx, so the GoBD gap-free sequence stays untouched.
+type ImportedInvoiceInput struct {
+	ExternalID      string    // Bexio kb_invoice.id
+	ExternalNumber  string    // Bexio document_nr (shown as invoice_number)
+	Status          string    // mapped Cosmi status (draft/sent/paid/cancelled)
+	ContactID       uuid.UUID // resolved Cosmi contact; uuid.Nil when unresolved
+	CustomerName    string    // filled by the puller from the resolved contact
+	CustomerEmail   *string   // filled by the puller from the resolved contact
+	CustomerAddress *string   // filled by the puller from the resolved contact
+	InvoiceDate     time.Time
+	DueDate         *time.Time
+	Currency        string
+	Subtotal        decimal.Decimal
+	TotalTax        decimal.Decimal
+	GrossTotal      decimal.Decimal
+	Lines           []ImportedInvoiceLine
+	BexioUpdatedAt  *time.Time // for last-write-wins in bexio_entity_mappings
+}
+
+// ImportedInvoiceLine is a single Bexio position mapped to the Cosmi line shape.
+type ImportedInvoiceLine struct {
+	Position    int
+	Description string
+	Quantity    decimal.Decimal
+	UnitPrice   decimal.Decimal
+	TaxRate     decimal.Decimal
+	LineTotal   decimal.Decimal
+}
+
+// MapInvoiceToKMUHub maps a Bexio invoice to the read-only import shape (reverse of
+// MapInvoiceToBexio). Contact resolution (Bexio contact_id -> Cosmi contact UUID)
+// happens in the puller via the contact entity-mapping; pass uuid.Nil when unresolved.
+func (fm *FieldMapper) MapInvoiceToKMUHub(bi *BexioInvoice, contactID uuid.UUID, _ []models.BexioFieldMappingEntry, cache *LookupCache) (*ImportedInvoiceInput, error) {
+	in := &ImportedInvoiceInput{
+		ExternalID:     strconv.Itoa(bi.ID),
+		Status:         mapBexioInvoiceStatus(bi.KBItemStatusID),
+		ContactID:      contactID,
+		Currency:       resolveKMUHubCurrency(cache, bi.CurrencyID),
+		Subtotal:       parseBexioDecimal(bi.TotalNet),
+		TotalTax:       parseBexioDecimal(bi.TotalTaxes),
+		GrossTotal:     firstNonZeroDecimal(parseBexioDecimal(bi.TotalGross), parseBexioDecimal(bi.Total)),
+		BexioUpdatedAt: parseBexioTime(bi.UpdatedAt),
+	}
+	if bi.DocumentNr != nil {
+		in.ExternalNumber = *bi.DocumentNr
+	}
+	if t := parseBexioTime(bi.IsValidFrom); t != nil {
+		in.InvoiceDate = *t
+	}
+	if bi.IsValidTo != nil {
+		in.DueDate = parseBexioTime(*bi.IsValidTo)
+	}
+	in.Lines = mapBexioPositionsToLines(bi.Positions)
+	return in, nil
+}
+
+// mapBexioInvoiceStatus maps a Bexio KBItemStatusID to a Cosmi invoice status.
+// Imported invoices are read-only regardless of status (source='bexio' guard); the
+// mapping only drives display.
+func mapBexioInvoiceStatus(bexioStatusID int) string {
+	switch bexioStatusID {
+	case BexioStatusPaid:
+		return "paid"
+	case BexioStatusSent, BexioStatusPartial:
+		return "sent"
+	case BexioStatusDeclined:
+		return "cancelled"
+	case BexioStatusDraft, BexioStatusPending:
+		return "draft"
+	default:
+		return "sent"
+	}
+}
+
+// mapBexioPositionsToLines reverses mapLineItemsToPositions for the import path.
+// lean: tax_rate is not resolved — a Bexio position's tax_id is a tenant-specific tax
+// record, not a rate; defaults to 0. Add a Bexio tax lookup (like LookupCache) when
+// imported invoices must carry real VAT rates for reporting.
+func mapBexioPositionsToLines(positions []BexioInvoicePosition) []ImportedInvoiceLine {
+	lines := make([]ImportedInvoiceLine, 0, len(positions))
+	for i, p := range positions {
+		qty := parseBexioDecimalStr(p.Amount)
+		unit := parseBexioDecimalStr(p.UnitPrice)
+		total := qty.Mul(unit)
+		if p.PositionTotal != nil {
+			if t, err := decimal.NewFromString(*p.PositionTotal); err == nil {
+				total = t
+			}
+		}
+		lines = append(lines, ImportedInvoiceLine{
+			Position:    i + 1,
+			Description: p.Text,
+			Quantity:    qty,
+			UnitPrice:   unit,
+			TaxRate:     decimal.Zero,
+			LineTotal:   total,
+		})
+	}
+	return lines
+}
+
+// parseBexioDecimal parses an optional Bexio money string; nil/empty/invalid -> zero.
+func parseBexioDecimal(s *string) decimal.Decimal {
+	if s == nil {
+		return decimal.Zero
+	}
+	return parseBexioDecimalStr(*s)
+}
+
+func parseBexioDecimalStr(s string) decimal.Decimal {
+	if s == "" {
+		return decimal.Zero
+	}
+	d, err := decimal.NewFromString(s)
+	if err != nil {
+		return decimal.Zero
+	}
+	return d
+}
+
+func firstNonZeroDecimal(a, b decimal.Decimal) decimal.Decimal {
+	if !a.IsZero() {
+		return a
+	}
+	return b
+}
+
+// resolveKMUHubCurrency reverse-resolves a Bexio currency ID to a currency code.
+// lean: LookupCache only indexes code->ID, so a proper reverse lookup is not yet
+// available; falls back to the default currency. Add a reverse index in LookupCache
+// when imported Bexio invoices in foreign currencies must show their true currency.
+func resolveKMUHubCurrency(_ *LookupCache, _ int) string {
+	return models.DefaultCurrency
+}
+
 // --- Quote Mapping ---
 
 // MapQuoteToBexio maps a KMU Hub quote to a Bexio quote (KB offer). cache resolves
@@ -387,7 +526,3 @@ func ValidateFieldMappings(entityType string, mappings []models.BexioFieldMappin
 
 	return nil
 }
-
-// unused but required by plan for proper interface
-var _ = time.Now
-var _ = uuid.Nil
