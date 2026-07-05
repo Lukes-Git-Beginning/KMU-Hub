@@ -431,6 +431,14 @@ services:
       DATEV_TOKEN_URL: "https://login.datev.de/openidconnect/token"
       DATEV_AUTH_URL: "https://login.datev.de/openidconnect/authorize"
       DATEV_API_BASE_URL: "https://accounting-documents.api.datev.de"
+      # System SMTP for dunning notice emails (empty in dev → mailer logs instead
+      # of sending; no RequireSystemSMTP assertion here, so an unset host degrades
+      # to log-only rather than crash-looping biz).
+      SYSTEM_SMTP_HOST: ${SYSTEM_SMTP_HOST:-}
+      SYSTEM_SMTP_PORT: ${SYSTEM_SMTP_PORT:-587}
+      SYSTEM_SMTP_USER: ${SYSTEM_SMTP_USER:-}
+      SYSTEM_SMTP_PASSWORD: ${SYSTEM_SMTP_PASSWORD:-}
+      SYSTEM_SMTP_FROM: ${SYSTEM_SMTP_FROM:-noreply@zentria.tech}
     ports:
       - "50058:50058"
       - "9098:9098"
