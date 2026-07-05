@@ -183,7 +183,7 @@ func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +222,7 @@ func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (vr *VertraegeRoutes) HandleGetContract(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +250,7 @@ func (vr *VertraegeRoutes) HandleGetContract(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +295,7 @@ func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VertraegeRoutes) HandleDeleteContract(w http.ResponseWriter, r *http.Request) {
@@ -402,7 +402,7 @@ func (vr *VertraegeRoutes) HandleSaveContractSignature(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -434,7 +434,7 @@ func (vr *VertraegeRoutes) HandleListParties(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +480,7 @@ func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (vr *VertraegeRoutes) HandleRemoveParty(w http.ResponseWriter, r *http.Request) {
@@ -544,7 +544,7 @@ func (vr *VertraegeRoutes) HandleListReminders(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.Request) {
@@ -582,7 +582,7 @@ func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.Request) {
@@ -621,7 +621,7 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VertraegeRoutes) HandleDeleteReminder(w http.ResponseWriter, r *http.Request) {

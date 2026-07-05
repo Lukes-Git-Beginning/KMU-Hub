@@ -173,7 +173,7 @@ func (wr *WikiRoutes) HandleListArticles(w http.ResponseWriter, r *http.Request)
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +210,7 @@ func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
@@ -238,7 +238,7 @@ func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +281,7 @@ func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleDeleteArticle(w http.ResponseWriter, r *http.Request) {
@@ -341,7 +341,7 @@ func (wr *WikiRoutes) HandleSearchArticles(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -373,7 +373,7 @@ func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request)
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Request) {
@@ -409,7 +409,7 @@ func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -441,7 +441,7 @@ func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
@@ -482,7 +482,7 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
@@ -536,7 +536,7 @@ func (wr *WikiRoutes) HandleListCategories(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Request) {
@@ -568,7 +568,7 @@ func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (wr *WikiRoutes) HandleDeleteCategory(w http.ResponseWriter, r *http.Request) {
@@ -640,7 +640,7 @@ func (wr *WikiRoutes) HandleUpdateCategory(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type createShareTokenHTTPRequest struct {
@@ -682,7 +682,7 @@ func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (wr *WikiRoutes) HandleListShareTokens(w http.ResponseWriter, r *http.Request) {
@@ -710,7 +710,7 @@ func (wr *WikiRoutes) HandleListShareTokens(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (wr *WikiRoutes) HandleRevokeShareToken(w http.ResponseWriter, r *http.Request) {
@@ -766,5 +766,5 @@ func (wr *WikiRoutes) HandleGetVersion(w http.ResponseWriter, r *http.Request) {
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

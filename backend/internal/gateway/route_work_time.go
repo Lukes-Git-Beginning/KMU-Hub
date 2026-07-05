@@ -36,7 +36,7 @@ func (w *WorkRoutes) HandleStartTimer(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleStopTimer(wr http.ResponseWriter, r *http.Request) {
@@ -56,7 +56,7 @@ func (w *WorkRoutes) HandleStopTimer(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleGetActiveTimer(wr http.ResponseWriter, r *http.Request) {
@@ -76,7 +76,7 @@ func (w *WorkRoutes) HandleGetActiveTimer(wr http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 type addManualTimeEntryRequest struct {
@@ -125,7 +125,7 @@ func (w *WorkRoutes) HandleAddManualTimeEntry(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 type updateTimeEntryRequest struct {
@@ -178,7 +178,7 @@ func (w *WorkRoutes) HandleUpdateTimeEntry(wr http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteTimeEntry(wr http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func (w *WorkRoutes) HandleListTimeEntries(wr http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleGetTaskTimeSummary(wr http.ResponseWriter, r *http.Request) {
@@ -243,5 +243,5 @@ func (w *WorkRoutes) HandleGetTaskTimeSummary(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }

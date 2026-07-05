@@ -56,7 +56,8 @@ export interface DocumentFileVersion {
   version_number: number
   version_label: string | null
   storage_key: string
-  file_size: number
+  /** int64 on the wire — protojson serializes it as a string. */
+  file_size: number | string
   created_by: string
   created_by_name: string
   created_at: string

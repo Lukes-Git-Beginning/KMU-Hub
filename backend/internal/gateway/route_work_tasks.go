@@ -91,7 +91,7 @@ func (w *WorkRoutes) HandleCreateTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleGetTask(wr http.ResponseWriter, r *http.Request) {
@@ -112,7 +112,7 @@ func (w *WorkRoutes) HandleGetTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
@@ -165,7 +165,7 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 type updateTaskRequest struct {
@@ -236,7 +236,7 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteTask(wr http.ResponseWriter, r *http.Request) {
@@ -287,7 +287,7 @@ func (w *WorkRoutes) HandleMoveTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleListSubtasks(wr http.ResponseWriter, r *http.Request) {
@@ -309,7 +309,7 @@ func (w *WorkRoutes) HandleListSubtasks(wr http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -347,7 +347,7 @@ func (w *WorkRoutes) HandleCreateTaskDependency(wr http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteTaskDependency(wr http.ResponseWriter, r *http.Request) {
@@ -384,7 +384,7 @@ func (w *WorkRoutes) HandleListTaskDependencies(wr http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -426,7 +426,7 @@ func (w *WorkRoutes) HandleCreateTaskComment(wr http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 type updateCommentRequest struct {
@@ -456,7 +456,7 @@ func (w *WorkRoutes) HandleUpdateTaskComment(wr http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteTaskComment(wr http.ResponseWriter, r *http.Request) {
@@ -496,7 +496,7 @@ func (w *WorkRoutes) HandleListTaskComments(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -534,7 +534,7 @@ func (w *WorkRoutes) HandleLinkEntityToTask(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleUnlinkEntityFromTask(wr http.ResponseWriter, r *http.Request) {
@@ -571,7 +571,7 @@ func (w *WorkRoutes) HandleListTaskEntityLinks(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleListEntityTasks(wr http.ResponseWriter, r *http.Request) {
@@ -602,7 +602,7 @@ func (w *WorkRoutes) HandleListEntityTasks(wr http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -629,7 +629,7 @@ func (w *WorkRoutes) HandleListTaskActivities(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -677,7 +677,7 @@ func (w *WorkRoutes) HandleAttachFileToTask(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleRemoveTaskFile(wr http.ResponseWriter, r *http.Request) {
@@ -714,7 +714,7 @@ func (w *WorkRoutes) HandleListTaskFiles(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -756,7 +756,7 @@ func (w *WorkRoutes) HandleSetTaskCustomFieldValues(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleGetTaskCustomFieldValues(wr http.ResponseWriter, r *http.Request) {
@@ -776,7 +776,7 @@ func (w *WorkRoutes) HandleGetTaskCustomFieldValues(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -815,5 +815,5 @@ func (w *WorkRoutes) HandleSearchTasks(wr http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }

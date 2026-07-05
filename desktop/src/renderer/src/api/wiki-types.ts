@@ -50,7 +50,8 @@ export interface WikiAttachment {
   article_id: string
   file_ref: string
   mime: string
-  size: number
+  /** int64 on the wire — protojson serializes it as a string. */
+  size: number | string
   uploaded_by: string | null
   created_at: string
   /** Demo blob (data URL) — enables download + image preview without a backend. */

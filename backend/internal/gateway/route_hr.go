@@ -187,7 +187,7 @@ func (h *HRRoutes) HandleCreateLeaveRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.LeaveRequest)
+	response.Proto(w, http.StatusCreated, resp.LeaveRequest)
 }
 
 func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Request) {
@@ -241,7 +241,7 @@ func (h *HRRoutes) HandleGetLeaveRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.LeaveRequest)
+	response.Proto(w, http.StatusOK, resp.LeaveRequest)
 }
 
 type approveLeaveRequestHTTPReq struct {
@@ -273,7 +273,7 @@ func (h *HRRoutes) HandleApproveLeaveRequest(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.LeaveRequest)
+	response.Proto(w, http.StatusOK, resp.LeaveRequest)
 }
 
 type rejectLeaveRequestHTTPReq struct {
@@ -305,7 +305,7 @@ func (h *HRRoutes) HandleRejectLeaveRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.LeaveRequest)
+	response.Proto(w, http.StatusOK, resp.LeaveRequest)
 }
 
 func (h *HRRoutes) HandleCancelLeaveRequest(w http.ResponseWriter, r *http.Request) {
@@ -327,7 +327,7 @@ func (h *HRRoutes) HandleCancelLeaveRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.LeaveRequest)
+	response.Proto(w, http.StatusOK, resp.LeaveRequest)
 }
 
 func (h *HRRoutes) HandleGetLeaveBalance(w http.ResponseWriter, r *http.Request) {
@@ -353,7 +353,7 @@ func (h *HRRoutes) HandleGetLeaveBalance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Balance)
+	response.Proto(w, http.StatusOK, resp.Balance)
 }
 
 func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.Request) {
@@ -379,7 +379,7 @@ func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Balance)
+	response.Proto(w, http.StatusOK, resp.Balance)
 }
 
 func (h *HRRoutes) HandleListLeaveTypes(w http.ResponseWriter, r *http.Request) {
@@ -403,7 +403,7 @@ func (h *HRRoutes) HandleListLeaveTypes(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.LeaveTypes)
+	response.ProtoList(w, http.StatusOK, resp.LeaveTypes)
 }
 
 type recordSickLeaveHTTPReq struct {
@@ -476,7 +476,7 @@ func (h *HRRoutes) HandleClockIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Entry)
+	response.Proto(w, http.StatusCreated, resp.Entry)
 }
 
 func (h *HRRoutes) HandleClockOut(w http.ResponseWriter, r *http.Request) {
@@ -530,7 +530,7 @@ func (h *HRRoutes) HandleBreakStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.BreakEntry)
+	response.Proto(w, http.StatusCreated, resp.BreakEntry)
 }
 
 func (h *HRRoutes) HandleBreakEnd(w http.ResponseWriter, r *http.Request) {
@@ -550,7 +550,7 @@ func (h *HRRoutes) HandleBreakEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.BreakEntry)
+	response.Proto(w, http.StatusOK, resp.BreakEntry)
 }
 
 func (h *HRRoutes) HandleGetActiveShift(w http.ResponseWriter, r *http.Request) {
@@ -695,7 +695,7 @@ func (h *HRRoutes) HandleDailySummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Summary)
+	response.Proto(w, http.StatusOK, resp.Summary)
 }
 
 func (h *HRRoutes) HandleWeeklySummary(w http.ResponseWriter, r *http.Request) {
@@ -725,7 +725,7 @@ func (h *HRRoutes) HandleWeeklySummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Summary)
+	response.Proto(w, http.StatusOK, resp.Summary)
 }
 
 type submitCorrectionHTTPReq struct {
@@ -782,7 +782,7 @@ func (h *HRRoutes) HandleSubmitCorrection(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Correction)
+	response.Proto(w, http.StatusCreated, resp.Correction)
 }
 
 func (h *HRRoutes) HandleApproveCorrection(w http.ResponseWriter, r *http.Request) {
@@ -804,7 +804,7 @@ func (h *HRRoutes) HandleApproveCorrection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Correction)
+	response.Proto(w, http.StatusOK, resp.Correction)
 }
 
 // ============================================================================
@@ -837,7 +837,7 @@ func (h *HRRoutes) HandleGetAbsenceCalendar(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Absences)
+	response.ProtoList(w, http.StatusOK, resp.Absences)
 }
 
 // ============================================================================
@@ -892,7 +892,7 @@ func (h *HRRoutes) HandleGetSelfProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Employee)
+	response.Proto(w, http.StatusOK, resp.Employee)
 }
 
 func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
@@ -912,7 +912,7 @@ func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Employee)
+	response.Proto(w, http.StatusOK, resp.Employee)
 }
 
 type updateEmployeeHTTPReq struct {
@@ -956,7 +956,7 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Employee)
+	response.Proto(w, http.StatusOK, resp.Employee)
 }
 
 type updateSelfProfileHTTPReq struct {
@@ -996,7 +996,7 @@ func (h *HRRoutes) HandleUpdateSelfProfile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Employee)
+	response.Proto(w, http.StatusOK, resp.Employee)
 }
 
 func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Request) {
@@ -1016,7 +1016,7 @@ func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Documents)
+	response.ProtoList(w, http.StatusOK, resp.Documents)
 }
 
 type uploadDocumentHTTPReq struct {
@@ -1058,7 +1058,7 @@ func (h *HRRoutes) HandleUploadEmployeeDocument(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Document)
+	response.Proto(w, http.StatusCreated, resp.Document)
 }
 
 // ============================================================================
@@ -1086,7 +1086,7 @@ func (h *HRRoutes) HandleGetHRSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Settings)
+	response.Proto(w, http.StatusOK, resp.Settings)
 }
 
 type updateHRSettingsHTTPReq struct {
@@ -1133,7 +1133,7 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Settings)
+	response.Proto(w, http.StatusOK, resp.Settings)
 }
 
 // ============================================================================
@@ -1199,7 +1199,7 @@ func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Employee)
+	response.Proto(w, http.StatusCreated, resp.Employee)
 }
 
 // ============================================================================
@@ -1277,7 +1277,7 @@ func (h *HRRoutes) HandleCreateManualEntry(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Entry)
+	response.Proto(w, http.StatusCreated, resp.Entry)
 }
 
 func (h *HRRoutes) HandleGetTimeBalance(w http.ResponseWriter, r *http.Request) {
@@ -1440,7 +1440,7 @@ func (h *HRRoutes) HandleSubmitWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.WeekApproval)
+	response.Proto(w, http.StatusOK, resp.WeekApproval)
 }
 
 type approveWeekHTTPReq struct {
@@ -1478,7 +1478,7 @@ func (h *HRRoutes) HandleApproveWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.WeekApproval)
+	response.Proto(w, http.StatusOK, resp.WeekApproval)
 }
 
 type rejectWeekHTTPReq struct {
@@ -1518,7 +1518,7 @@ func (h *HRRoutes) HandleRejectWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.WeekApproval)
+	response.Proto(w, http.StatusOK, resp.WeekApproval)
 }
 
 // ============================================================================
@@ -1586,7 +1586,7 @@ func (h *HRRoutes) HandleCreateTimeCategory(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Category)
+	response.Proto(w, http.StatusCreated, resp.Category)
 }
 
 type updateTimeCategoryHTTPReq struct {
@@ -1628,7 +1628,7 @@ func (h *HRRoutes) HandleUpdateTimeCategory(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Category)
+	response.Proto(w, http.StatusOK, resp.Category)
 }
 
 func (h *HRRoutes) HandleDeleteTimeCategory(w http.ResponseWriter, r *http.Request) {
@@ -1714,7 +1714,7 @@ func (h *HRRoutes) HandleCreateTimeTemplate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Template)
+	response.Proto(w, http.StatusCreated, resp.Template)
 }
 
 func (h *HRRoutes) HandleDeleteTimeTemplate(w http.ResponseWriter, r *http.Request) {
@@ -1800,7 +1800,7 @@ func (h *HRRoutes) HandleCreateTimeProject(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Project)
+	response.Proto(w, http.StatusCreated, resp.Project)
 }
 
 // ============================================================================

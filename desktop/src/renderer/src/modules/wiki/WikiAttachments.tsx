@@ -26,11 +26,13 @@ function readAsDataUrl(file: File): Promise<string | undefined> {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatBytes(bytes: number): string {
-  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`
-  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${bytes} B`
+// bytes may arrive as a string — protojson serializes int64 (size) as a JSON string.
+function formatBytes(bytes: number | string): string {
+  const n = Number(bytes)
+  if (n >= 1073741824) return `${(n / 1073741824).toFixed(1)} GB`
+  if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`
+  if (n >= 1024) return `${(n / 1024).toFixed(0)} KB`
+  return `${n} B`
 }
 
 function iconForMime(mime: string): typeof FileText {
@@ -90,7 +92,7 @@ export function WikiAttachments({ articleId }: WikiAttachmentsProps) {
 
   // Trigger a real download — uses the stored data URL, or a generated demo blob
   // so the button is never dead for legacy/seed attachments without a blob.
-  const handleDownload = (att: { file_ref: string; mime: string; size: number; data_url?: string }) => {
+  const handleDownload = (att: { file_ref: string; mime: string; size: number | string; data_url?: string }) => {
     let href = att.data_url
     let revoke = false
     if (!href) {

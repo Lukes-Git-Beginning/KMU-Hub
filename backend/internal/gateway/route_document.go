@@ -13,6 +13,17 @@ import (
 )
 
 // DocumentRoutes handles HTTP routes for the Document backend service.
+//
+// lean: handlers that wrap a proto value in an ad-hoc envelope
+// (e.g. map[string]any{"folder": resp.Folder}) stay on response.JSON rather
+// than being migrated to protojson like the other modules. Two reasons hold
+// today: (1) the desktop document-client.ts already runs normalizeWireTimestamps
+// over every response, so the {seconds,nanos} timestamps are corrected
+// client-side; (2) DocumentFile.file_size is int64 and the FE reads it as a
+// number — protojson would emit it as a string and break the size display.
+// Upgrade path: when the FE wire-time normalizer is removed module-wide, switch
+// these to a proto-to-json.RawMessage envelope helper and coerce file_size on
+// the FE (as inventar/work already do).
 type DocumentRoutes struct {
 	registry *ServiceRegistry
 }

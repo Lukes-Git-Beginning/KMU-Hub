@@ -2,11 +2,13 @@ package gateway
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -14,6 +16,18 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
+
+// cannedResponseMarshaler mirrors response.Proto's protojson options for the two
+// canned-response handlers below, which wrap a proto.Message (CannedResponseInfo,
+// with real created_at/updated_at Timestamps) inside an ad-hoc {"canned_response": ...}
+// envelope. response.JSON can't fix nested proto Timestamps on its own, so these two
+// spots marshal via protojson first and embed the result as json.RawMessage.
+// lean: duplicates response.go's unexported protoMarshaler config; fold into an
+// exported response.ProtoEnvelope helper if a third envelope case shows up.
+var cannedResponseMarshaler = protojson.MarshalOptions{
+	UseProtoNames:  true,
+	UseEnumNumbers: true,
+}
 
 // InboxRoutes handles HTTP routes for the inbox service.
 // InboxService is co-hosted in the notification binary, so ServiceName
@@ -140,7 +154,7 @@ func (ir *InboxRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
@@ -166,7 +180,7 @@ func (ir *InboxRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +206,7 @@ func (ir *InboxRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleMarkUnread(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +232,7 @@ func (ir *InboxRoutes) HandleMarkUnread(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleToggleStar(w http.ResponseWriter, r *http.Request) {
@@ -244,7 +258,7 @@ func (ir *InboxRoutes) HandleToggleStar(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleArchiveMessage(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +284,7 @@ func (ir *InboxRoutes) HandleArchiveMessage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleUnarchiveMessage(w http.ResponseWriter, r *http.Request) {
@@ -296,7 +310,7 @@ func (ir *InboxRoutes) HandleUnarchiveMessage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type snoozeMessageRequest struct {
@@ -338,7 +352,7 @@ func (ir *InboxRoutes) HandleSnoozeMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleUnsnoozeMessage(w http.ResponseWriter, r *http.Request) {
@@ -364,7 +378,7 @@ func (ir *InboxRoutes) HandleUnsnoozeMessage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type replyToMessageRequest struct {
@@ -400,7 +414,7 @@ func (ir *InboxRoutes) HandleReplyToMessage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type assignMessageRequest struct {
@@ -436,7 +450,7 @@ func (ir *InboxRoutes) HandleAssignMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http.Request) {
@@ -456,7 +470,7 @@ func (ir *InboxRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type bulkIDsRequest struct {
@@ -486,7 +500,7 @@ func (ir *InboxRoutes) HandleBulkMarkRead(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleBulkArchive(w http.ResponseWriter, r *http.Request) {
@@ -512,7 +526,7 @@ func (ir *InboxRoutes) HandleBulkArchive(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -542,7 +556,7 @@ func (ir *InboxRoutes) HandleListThreadMessages(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type inboxCannedResponseRequest struct {
@@ -568,7 +582,7 @@ func (ir *InboxRoutes) HandleListCannedResponses(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleCreateCannedResponse(w http.ResponseWriter, r *http.Request) {
@@ -592,7 +606,13 @@ func (ir *InboxRoutes) HandleCreateCannedResponse(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, map[string]interface{}{"canned_response": resp})
+	b, err := cannedResponseMarshaler.Marshal(resp)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	response.JSON(w, http.StatusCreated, map[string]json.RawMessage{"canned_response": b})
 }
 
 func (ir *InboxRoutes) HandleUpdateCannedResponse(w http.ResponseWriter, r *http.Request) {
@@ -626,7 +646,13 @@ func (ir *InboxRoutes) HandleUpdateCannedResponse(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{"canned_response": resp})
+	b, err := cannedResponseMarshaler.Marshal(resp)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]json.RawMessage{"canned_response": b})
 }
 
 func (ir *InboxRoutes) HandleDeleteCannedResponse(w http.ResponseWriter, r *http.Request) {
@@ -689,7 +715,7 @@ func (ir *InboxRoutes) HandleCreateTeamInbox(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 type updateTeamInboxRequest struct {
@@ -744,7 +770,7 @@ func (ir *InboxRoutes) HandleUpdateTeamInbox(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleDeleteTeamInbox(w http.ResponseWriter, r *http.Request) {
@@ -790,7 +816,7 @@ func (ir *InboxRoutes) HandleListTeamInboxes(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type addTeamMemberRequest struct {
@@ -830,7 +856,7 @@ func (ir *InboxRoutes) HandleAddTeamMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (ir *InboxRoutes) HandleRemoveTeamMember(w http.ResponseWriter, r *http.Request) {
@@ -888,7 +914,7 @@ func (ir *InboxRoutes) HandleListTeamMembers(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleClaimMessage(w http.ResponseWriter, r *http.Request) {
@@ -914,7 +940,7 @@ func (ir *InboxRoutes) HandleClaimMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -974,7 +1000,7 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 type updateRoutingRuleRequest struct {
@@ -1046,7 +1072,7 @@ func (ir *InboxRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleDeleteRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1094,7 +1120,7 @@ func (ir *InboxRoutes) HandleListRoutingRules(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1133,7 +1159,7 @@ func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================

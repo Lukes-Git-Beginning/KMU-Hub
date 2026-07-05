@@ -251,7 +251,7 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +284,7 @@ func (h *HelpdeskRoutes) HandleListTickets(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleGetTicket(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +305,7 @@ func (h *HelpdeskRoutes) HandleGetTicket(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Request) {
@@ -339,7 +339,7 @@ func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleCloseTicket(w http.ResponseWriter, r *http.Request) {
@@ -360,7 +360,7 @@ func (h *HelpdeskRoutes) HandleCloseTicket(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleReopenTicket(w http.ResponseWriter, r *http.Request) {
@@ -381,7 +381,7 @@ func (h *HelpdeskRoutes) HandleReopenTicket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleAssignTicket(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +410,7 @@ func (h *HelpdeskRoutes) HandleAssignTicket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleMergeTickets(w http.ResponseWriter, r *http.Request) {
@@ -477,7 +477,7 @@ func (h *HelpdeskRoutes) HandleAddMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (h *HelpdeskRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request) {
@@ -498,7 +498,7 @@ func (h *HelpdeskRoutes) HandleListMessages(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -527,7 +527,7 @@ func (h *HelpdeskRoutes) HandleCreateQueue(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (h *HelpdeskRoutes) HandleListQueues(w http.ResponseWriter, r *http.Request) {
@@ -549,7 +549,7 @@ func (h *HelpdeskRoutes) HandleListQueues(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleUpdateQueue(w http.ResponseWriter, r *http.Request) {
@@ -580,7 +580,7 @@ func (h *HelpdeskRoutes) HandleUpdateQueue(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleDeleteQueue(w http.ResponseWriter, r *http.Request) {
@@ -629,7 +629,7 @@ func (h *HelpdeskRoutes) HandleCreateCannedResponse(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (h *HelpdeskRoutes) HandleListCannedResponses(w http.ResponseWriter, r *http.Request) {
@@ -651,7 +651,7 @@ func (h *HelpdeskRoutes) HandleListCannedResponses(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleUpdateCannedResponse(w http.ResponseWriter, r *http.Request) {
@@ -681,7 +681,7 @@ func (h *HelpdeskRoutes) HandleUpdateCannedResponse(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleDeleteCannedResponse(w http.ResponseWriter, r *http.Request) {
@@ -732,7 +732,7 @@ func (h *HelpdeskRoutes) HandleCreateSLAPolicy(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (h *HelpdeskRoutes) HandleListSLAPolicies(w http.ResponseWriter, r *http.Request) {
@@ -754,7 +754,7 @@ func (h *HelpdeskRoutes) HandleListSLAPolicies(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleUpdateSLAPolicy(w http.ResponseWriter, r *http.Request) {
@@ -786,7 +786,7 @@ func (h *HelpdeskRoutes) HandleUpdateSLAPolicy(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleApplySLAPolicy(w http.ResponseWriter, r *http.Request) {
@@ -815,7 +815,7 @@ func (h *HelpdeskRoutes) HandleApplySLAPolicy(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleGetSLAStatus(w http.ResponseWriter, r *http.Request) {
@@ -841,7 +841,7 @@ func (h *HelpdeskRoutes) HandleGetSLAStatus(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleDeleteSLAPolicy(w http.ResponseWriter, r *http.Request) {
@@ -888,7 +888,7 @@ func (h *HelpdeskRoutes) HandleListKBArticles(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleCreateKBArticle(w http.ResponseWriter, r *http.Request) {
@@ -921,7 +921,7 @@ func (h *HelpdeskRoutes) HandleCreateKBArticle(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (h *HelpdeskRoutes) HandleUpdateKBArticle(w http.ResponseWriter, r *http.Request) {
@@ -953,7 +953,7 @@ func (h *HelpdeskRoutes) HandleUpdateKBArticle(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleDeleteKBArticle(w http.ResponseWriter, r *http.Request) {
@@ -1000,7 +1000,7 @@ func (h *HelpdeskRoutes) HandleListRoutingRules(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1036,7 +1036,7 @@ func (h *HelpdeskRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (h *HelpdeskRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1069,7 +1069,7 @@ func (h *HelpdeskRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleDeleteRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1118,7 +1118,7 @@ func (h *HelpdeskRoutes) HandleGetBusinessHours(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (h *HelpdeskRoutes) HandleUpdateBusinessHours(w http.ResponseWriter, r *http.Request) {
@@ -1150,7 +1150,7 @@ func (h *HelpdeskRoutes) HandleUpdateBusinessHours(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1176,5 +1176,5 @@ func (h *HelpdeskRoutes) HandleGetHelpdeskStats(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

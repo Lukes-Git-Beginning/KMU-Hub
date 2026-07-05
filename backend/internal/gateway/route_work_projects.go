@@ -45,7 +45,7 @@ func (w *WorkRoutes) HandleCreateProject(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleGetProject(wr http.ResponseWriter, r *http.Request) {
@@ -66,7 +66,7 @@ func (w *WorkRoutes) HandleGetProject(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleListProjects(wr http.ResponseWriter, r *http.Request) {
@@ -93,7 +93,7 @@ func (w *WorkRoutes) HandleListProjects(wr http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 type updateProjectRequest struct {
@@ -132,7 +132,7 @@ func (w *WorkRoutes) HandleUpdateProject(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleArchiveProject(wr http.ResponseWriter, r *http.Request) {
@@ -153,7 +153,7 @@ func (w *WorkRoutes) HandleArchiveProject(wr http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteProject(wr http.ResponseWriter, r *http.Request) {
@@ -213,7 +213,7 @@ func (w *WorkRoutes) HandleAddProjectMember(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleRemoveProjectMember(wr http.ResponseWriter, r *http.Request) {
@@ -255,7 +255,7 @@ func (w *WorkRoutes) HandleListProjectMembers(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 type updateProjectMemberRoleRequest struct {
@@ -287,7 +287,7 @@ func (w *WorkRoutes) HandleUpdateProjectMemberRole(wr http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -323,7 +323,7 @@ func (w *WorkRoutes) HandleSaveProjectAsTemplate(wr http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 type createProjectFromTemplateRequest struct {
@@ -357,7 +357,7 @@ func (w *WorkRoutes) HandleCreateProjectFromTemplate(wr http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 // ============================================================================
@@ -401,7 +401,7 @@ func (w *WorkRoutes) HandleCreateProjectStatus(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 type updateStatusRequest struct {
@@ -445,7 +445,7 @@ func (w *WorkRoutes) HandleUpdateProjectStatus(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteProjectStatus(wr http.ResponseWriter, r *http.Request) {
@@ -493,7 +493,7 @@ func (w *WorkRoutes) HandleReorderProjectStatuses(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleListProjectStatuses(wr http.ResponseWriter, r *http.Request) {
@@ -513,7 +513,7 @@ func (w *WorkRoutes) HandleListProjectStatuses(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -539,7 +539,7 @@ func (w *WorkRoutes) HandleGetUserProjectPreference(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 type setPreferenceRequest struct {
@@ -587,5 +587,5 @@ func (w *WorkRoutes) HandleSetUserProjectPreference(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }

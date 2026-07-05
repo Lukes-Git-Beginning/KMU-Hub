@@ -262,7 +262,7 @@ func (cr *CalendarRoutes) HandleCreateCalendar(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (cr *CalendarRoutes) HandleGetCalendar(wr http.ResponseWriter, r *http.Request) {
@@ -283,7 +283,7 @@ func (cr *CalendarRoutes) HandleGetCalendar(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleListCalendars(wr http.ResponseWriter, r *http.Request) {
@@ -305,7 +305,7 @@ func (cr *CalendarRoutes) HandleListCalendars(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleUpdateCalendar(wr http.ResponseWriter, r *http.Request) {
@@ -345,7 +345,7 @@ func (cr *CalendarRoutes) HandleUpdateCalendar(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleDeleteCalendar(wr http.ResponseWriter, r *http.Request) {
@@ -390,7 +390,7 @@ func (cr *CalendarRoutes) HandleListCalendarMembers(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleAddCalendarMember(wr http.ResponseWriter, r *http.Request) {
@@ -417,7 +417,7 @@ func (cr *CalendarRoutes) HandleAddCalendarMember(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (cr *CalendarRoutes) HandleRemoveCalendarMember(wr http.ResponseWriter, r *http.Request) {
@@ -467,7 +467,7 @@ func (cr *CalendarRoutes) HandleUpdateCalendarMemberPermission(wr http.ResponseW
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -496,7 +496,7 @@ func (cr *CalendarRoutes) HandleListBrowsableCalendars(wr http.ResponseWriter, r
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleSubscribeToCalendar(wr http.ResponseWriter, r *http.Request) {
@@ -518,7 +518,7 @@ func (cr *CalendarRoutes) HandleSubscribeToCalendar(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleUnsubscribeFromCalendar(wr http.ResponseWriter, r *http.Request) {
@@ -588,7 +588,7 @@ func (cr *CalendarRoutes) HandleListEventsInRange(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleCreateEvent(wr http.ResponseWriter, r *http.Request) {
@@ -641,7 +641,7 @@ func (cr *CalendarRoutes) HandleCreateEvent(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (cr *CalendarRoutes) HandleGetEvent(wr http.ResponseWriter, r *http.Request) {
@@ -667,7 +667,7 @@ func (cr *CalendarRoutes) HandleGetEvent(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleUpdateEvent(wr http.ResponseWriter, r *http.Request) {
@@ -722,7 +722,7 @@ func (cr *CalendarRoutes) HandleUpdateEvent(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleDeleteEvent(wr http.ResponseWriter, r *http.Request) {
@@ -812,7 +812,7 @@ func (cr *CalendarRoutes) HandleUpdateRecurringEvent(wr http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleRSVPToEvent(wr http.ResponseWriter, r *http.Request) {
@@ -843,7 +843,7 @@ func (cr *CalendarRoutes) HandleRSVPToEvent(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleListEventAttendees(wr http.ResponseWriter, r *http.Request) {
@@ -866,7 +866,7 @@ func (cr *CalendarRoutes) HandleListEventAttendees(wr http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -899,7 +899,7 @@ func (cr *CalendarRoutes) HandleSetEventReminders(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleListEventReminders(wr http.ResponseWriter, r *http.Request) {
@@ -922,7 +922,7 @@ func (cr *CalendarRoutes) HandleListEventReminders(wr http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -946,7 +946,7 @@ func (cr *CalendarRoutes) HandleListEventCategories(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleCreateEventCategory(wr http.ResponseWriter, r *http.Request) {
@@ -973,7 +973,7 @@ func (cr *CalendarRoutes) HandleCreateEventCategory(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (cr *CalendarRoutes) HandleDeleteEventCategory(wr http.ResponseWriter, r *http.Request) {
@@ -1038,7 +1038,7 @@ func (cr *CalendarRoutes) HandleListResources(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleCreateResource(wr http.ResponseWriter, r *http.Request) {
@@ -1070,7 +1070,7 @@ func (cr *CalendarRoutes) HandleCreateResource(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (cr *CalendarRoutes) HandleGetResource(wr http.ResponseWriter, r *http.Request) {
@@ -1091,7 +1091,7 @@ func (cr *CalendarRoutes) HandleGetResource(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleUpdateResource(wr http.ResponseWriter, r *http.Request) {
@@ -1137,7 +1137,7 @@ func (cr *CalendarRoutes) HandleUpdateResource(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleDeleteResource(wr http.ResponseWriter, r *http.Request) {
@@ -1203,7 +1203,7 @@ func (cr *CalendarRoutes) HandleListResourceAvailability(wr http.ResponseWriter,
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1247,7 +1247,7 @@ func (cr *CalendarRoutes) HandleBookResource(wr http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (cr *CalendarRoutes) HandleCancelBooking(wr http.ResponseWriter, r *http.Request) {
@@ -1320,7 +1320,7 @@ func (cr *CalendarRoutes) HandleListHolidays(wr http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleSeedHolidays(wr http.ResponseWriter, r *http.Request) {
@@ -1344,7 +1344,7 @@ func (cr *CalendarRoutes) HandleSeedHolidays(wr http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 // ============================================================================
@@ -1368,7 +1368,7 @@ func (cr *CalendarRoutes) HandleGetCalendarPreferences(wr http.ResponseWriter, r
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (cr *CalendarRoutes) HandleUpdateCalendarPreferences(wr http.ResponseWriter, r *http.Request) {
@@ -1413,7 +1413,7 @@ func (cr *CalendarRoutes) HandleUpdateCalendarPreferences(wr http.ResponseWriter
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1459,7 +1459,7 @@ func (cr *CalendarRoutes) HandleListTaskDeadlinesInRange(wr http.ResponseWriter,
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1494,5 +1494,5 @@ func (cr *CalendarRoutes) HandleGenerateJoinToken(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }

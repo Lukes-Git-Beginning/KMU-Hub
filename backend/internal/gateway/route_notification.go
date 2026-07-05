@@ -110,7 +110,7 @@ func (n *NotificationRoutes) HandleListNotifications(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (n *NotificationRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +130,7 @@ func (n *NotificationRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (n *NotificationRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +156,7 @@ func (n *NotificationRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (n *NotificationRoutes) HandlePin(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +182,7 @@ func (n *NotificationRoutes) HandlePin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (n *NotificationRoutes) HandleUnpin(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +208,7 @@ func (n *NotificationRoutes) HandleUnpin(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (n *NotificationRoutes) HandleDismiss(w http.ResponseWriter, r *http.Request) {
@@ -234,7 +234,7 @@ func (n *NotificationRoutes) HandleDismiss(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (n *NotificationRoutes) HandleMarkAllRead(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +272,7 @@ func (n *NotificationRoutes) HandleMarkAllRead(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -303,7 +303,7 @@ func (n *NotificationRoutes) HandleGetPreferences(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updatePreferenceRequest struct {
@@ -347,7 +347,7 @@ func (n *NotificationRoutes) HandleUpdatePreference(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -374,7 +374,7 @@ func (n *NotificationRoutes) HandleListEventTypes(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -410,7 +410,7 @@ func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 type unmuteResourceRequest struct {
@@ -472,7 +472,7 @@ func (n *NotificationRoutes) HandleListMutedResources(w http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -496,7 +496,7 @@ func (n *NotificationRoutes) HandleGetQuietHours(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateQuietHoursRequest struct {
@@ -539,7 +539,7 @@ func (n *NotificationRoutes) HandleUpdateQuietHours(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type toggleDNDRequest struct {

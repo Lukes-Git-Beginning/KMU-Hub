@@ -151,11 +151,16 @@ export async function getFileDownloadUrl(fileId: string): Promise<string> {
 
 /**
  * Format file size in human-readable format.
+ *
+ * `bytes` accepts `string` because protojson serializes the backend's int64
+ * `file_size` field as a JSON string (proto3 spec); encoding/json previously
+ * emitted a number. Coerce before doing arithmetic.
  */
-export function formatFileSize(bytes?: number): string {
-  if (!bytes || bytes === 0) return '0 B'
+export function formatFileSize(bytes?: number | string): string {
+  const value = Number(bytes)
+  if (!value || value === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  const size = bytes / Math.pow(1024, i)
+  const i = Math.floor(Math.log(value) / Math.log(1024))
+  const size = value / Math.pow(1024, i)
   return `${size.toFixed(i > 0 ? 1 : 0)} ${units[i]}`
 }

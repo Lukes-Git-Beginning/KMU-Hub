@@ -37,7 +37,7 @@ func (w *WorkRoutes) HandleListLabels(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleCreateLabel(wr http.ResponseWriter, r *http.Request) {
@@ -63,7 +63,7 @@ func (w *WorkRoutes) HandleCreateLabel(wr http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleGetLabel(wr http.ResponseWriter, r *http.Request) {
@@ -84,7 +84,7 @@ func (w *WorkRoutes) HandleGetLabel(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleUpdateLabel(wr http.ResponseWriter, r *http.Request) {
@@ -115,7 +115,7 @@ func (w *WorkRoutes) HandleUpdateLabel(wr http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteLabel(wr http.ResponseWriter, r *http.Request) {
@@ -205,7 +205,7 @@ func (w *WorkRoutes) HandleListCustomFieldDefinitions(wr http.ResponseWriter, r 
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleCreateCustomFieldDefinition(wr http.ResponseWriter, r *http.Request) {
@@ -231,7 +231,7 @@ func (w *WorkRoutes) HandleCreateCustomFieldDefinition(wr http.ResponseWriter, r
 		return
 	}
 
-	response.JSON(wr, http.StatusCreated, resp)
+	response.Proto(wr, http.StatusCreated, resp)
 }
 
 func (w *WorkRoutes) HandleGetCustomFieldDefinition(wr http.ResponseWriter, r *http.Request) {
@@ -252,7 +252,7 @@ func (w *WorkRoutes) HandleGetCustomFieldDefinition(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleUpdateCustomFieldDefinition(wr http.ResponseWriter, r *http.Request) {
@@ -285,7 +285,7 @@ func (w *WorkRoutes) HandleUpdateCustomFieldDefinition(wr http.ResponseWriter, r
 		return
 	}
 
-	response.JSON(wr, http.StatusOK, resp)
+	response.Proto(wr, http.StatusOK, resp)
 }
 
 func (w *WorkRoutes) HandleDeleteCustomFieldDefinition(wr http.ResponseWriter, r *http.Request) {
