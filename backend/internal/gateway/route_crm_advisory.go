@@ -66,7 +66,7 @@ func (c *CRMRoutes) HandleCreateAdvisoryProtocol(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 // HandleGetAdvisoryProtocol GET /api/v1/advisory-protocols/{id}
@@ -88,7 +88,7 @@ func (c *CRMRoutes) HandleGetAdvisoryProtocol(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleListAdvisoryProtocols GET /api/v1/contacts/{contactId}/advisory-protocols
@@ -110,7 +110,7 @@ func (c *CRMRoutes) HandleListAdvisoryProtocols(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // updateAdvisoryProtocolRequest is the JSON body for updating a protocol.
@@ -273,7 +273,7 @@ func (c *CRMRoutes) HandleUpdateAdvisoryProtocol(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleDeleteAdvisoryProtocol DELETE /api/v1/advisory-protocols/{id}
@@ -317,7 +317,7 @@ func (c *CRMRoutes) HandleHandOverAdvisoryProtocol(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleAdvisoryProtocolPDF GET /api/v1/advisory-protocols/{id}/pdf
@@ -352,5 +352,5 @@ func (c *CRMRoutes) HandleReferralReport(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

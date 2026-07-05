@@ -44,7 +44,7 @@ func (c *CRMRoutes) HandleCreatePipelineStage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetPipelineStage(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func (c *CRMRoutes) HandleGetPipelineStage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListPipelineStages(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,7 @@ func (c *CRMRoutes) HandleListPipelineStages(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updatePipelineStageRequest struct {
@@ -132,7 +132,7 @@ func (c *CRMRoutes) HandleUpdatePipelineStage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeletePipelineStage(w http.ResponseWriter, r *http.Request) {
@@ -180,7 +180,7 @@ func (c *CRMRoutes) HandleReorderPipelineStages(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -256,7 +256,7 @@ func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetDeal(w http.ResponseWriter, r *http.Request) {
@@ -283,7 +283,7 @@ func (c *CRMRoutes) HandleGetDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListDeals(w http.ResponseWriter, r *http.Request) {
@@ -338,7 +338,7 @@ func (c *CRMRoutes) HandleListDeals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateDealRequest struct {
@@ -414,7 +414,7 @@ func (c *CRMRoutes) HandleUpdateDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeleteDeal(w http.ResponseWriter, r *http.Request) {
@@ -481,7 +481,7 @@ func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type modifyDealTagsRequest struct {

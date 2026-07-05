@@ -206,7 +206,7 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Request) {
@@ -241,7 +241,7 @@ func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request) {
@@ -269,7 +269,7 @@ func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Request) {
@@ -309,7 +309,7 @@ func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleDeleteReport(w http.ResponseWriter, r *http.Request) {
@@ -369,7 +369,7 @@ func (rr *RapporteRoutes) HandleSubmitReport(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Request) {
@@ -404,7 +404,7 @@ func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Request) {
@@ -439,7 +439,7 @@ func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -471,7 +471,7 @@ func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) {
@@ -509,7 +509,7 @@ func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Request) {
@@ -553,7 +553,7 @@ func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleDeleteLine(w http.ResponseWriter, r *http.Request) {
@@ -618,7 +618,7 @@ func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
@@ -659,7 +659,7 @@ func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
@@ -726,7 +726,7 @@ func (rr *RapporteRoutes) HandleSaveReportSignature(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -752,7 +752,7 @@ func (rr *RapporteRoutes) HandleGetReportStats(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *http.Request) {
@@ -778,7 +778,7 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleExportPDF(w http.ResponseWriter, r *http.Request) {
@@ -873,7 +873,7 @@ func (rr *RapporteRoutes) HandleListMeasurements(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleCreateMeasurement(w http.ResponseWriter, r *http.Request) {
@@ -906,7 +906,7 @@ func (rr *RapporteRoutes) HandleCreateMeasurement(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (rr *RapporteRoutes) HandleGetMeasurement(w http.ResponseWriter, r *http.Request) {
@@ -934,7 +934,7 @@ func (rr *RapporteRoutes) HandleGetMeasurement(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleUpdateMeasurement(w http.ResponseWriter, r *http.Request) {
@@ -972,7 +972,7 @@ func (rr *RapporteRoutes) HandleUpdateMeasurement(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleDeleteMeasurement(w http.ResponseWriter, r *http.Request) {
@@ -1038,7 +1038,7 @@ func (rr *RapporteRoutes) HandleAddMeasurementPosition(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (rr *RapporteRoutes) HandleDeleteMeasurementPosition(w http.ResponseWriter, r *http.Request) {
@@ -1117,7 +1117,7 @@ func (rr *RapporteRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -1148,7 +1148,7 @@ func (rr *RapporteRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (rr *RapporteRoutes) HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
@@ -1176,7 +1176,7 @@ func (rr *RapporteRoutes) HandleGetTemplate(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -1214,7 +1214,7 @@ func (rr *RapporteRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {

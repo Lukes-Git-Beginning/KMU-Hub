@@ -74,7 +74,7 @@ func (c *CRMRoutes) HandleCreateActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetActivity(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +101,7 @@ func (c *CRMRoutes) HandleGetActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListActivities(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +161,7 @@ func (c *CRMRoutes) HandleListActivities(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateActivityRequest struct {
@@ -227,7 +227,7 @@ func (c *CRMRoutes) HandleUpdateActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeleteActivity(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +281,7 @@ func (c *CRMRoutes) HandleCompleteActivity(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type modifyActivityTagsRequest struct {
@@ -348,7 +348,7 @@ func (c *CRMRoutes) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -388,7 +388,7 @@ func (c *CRMRoutes) HandleCreateSavedFilter(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetSavedFilter(w http.ResponseWriter, r *http.Request) {
@@ -409,7 +409,7 @@ func (c *CRMRoutes) HandleGetSavedFilter(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListSavedFilters(w http.ResponseWriter, r *http.Request) {
@@ -431,7 +431,7 @@ func (c *CRMRoutes) HandleListSavedFilters(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateSavedFilterRequest struct {
@@ -474,7 +474,7 @@ func (c *CRMRoutes) HandleUpdateSavedFilter(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeleteSavedFilter(w http.ResponseWriter, r *http.Request) {
@@ -532,7 +532,7 @@ func (c *CRMRoutes) HandleGetPipelineReport(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleGetConversionReport(w http.ResponseWriter, r *http.Request) {
@@ -559,7 +559,7 @@ func (c *CRMRoutes) HandleGetConversionReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleGetActivityReport(w http.ResponseWriter, r *http.Request) {
@@ -592,7 +592,7 @@ func (c *CRMRoutes) HandleGetActivityReport(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -644,7 +644,7 @@ func (c *CRMRoutes) HandleCreateCustomField(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetCustomField(w http.ResponseWriter, r *http.Request) {
@@ -665,7 +665,7 @@ func (c *CRMRoutes) HandleGetCustomField(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListCustomFields(w http.ResponseWriter, r *http.Request) {
@@ -688,7 +688,7 @@ func (c *CRMRoutes) HandleListCustomFields(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateCustomFieldRequest struct {
@@ -739,7 +739,7 @@ func (c *CRMRoutes) HandleUpdateCustomField(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeleteCustomField(w http.ResponseWriter, r *http.Request) {
@@ -795,7 +795,7 @@ func (c *CRMRoutes) HandleCreateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetTag(w http.ResponseWriter, r *http.Request) {
@@ -816,7 +816,7 @@ func (c *CRMRoutes) HandleGetTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListTags(w http.ResponseWriter, r *http.Request) {
@@ -839,7 +839,7 @@ func (c *CRMRoutes) HandleListTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateTagRequest struct {
@@ -878,7 +878,7 @@ func (c *CRMRoutes) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeleteTag(w http.ResponseWriter, r *http.Request) {

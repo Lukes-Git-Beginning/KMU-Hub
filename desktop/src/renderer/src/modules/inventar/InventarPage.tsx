@@ -111,8 +111,12 @@ const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD']
 const UNIT_OPTIONS = ['Stück', 'kg', 'Meter', 'Liter', 'Packung', 'Rolle']
 
 function getStockStatus(item: InventarItem): 'ok' | 'warning' | 'critical' {
-  if (item.quantity <= item.min_quantity) return 'critical'
-  if (item.quantity < item.min_quantity * 2) return 'warning'
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce before comparing
+  // to avoid lexicographic string comparison (e.g. "9" <= "10" would be false).
+  const quantity = Number(item.quantity)
+  const minQuantity = Number(item.min_quantity)
+  if (quantity <= minQuantity) return 'critical'
+  if (quantity < minQuantity * 2) return 'warning'
   return 'ok'
 }
 
@@ -231,7 +235,7 @@ function ArtikelDialog({
     name: initial?.name ?? '',
     sku: initial?.sku ?? '',
     category: initial?.category ?? '',
-    minStock: initial?.min_quantity ?? 0,
+    minStock: Number(initial?.min_quantity ?? 0),
     unit: initial?.unit ?? 'Stück',
     currency: initial?.currency ?? 'EUR',
     batchNumber: initial?.batch_number ?? '',
@@ -632,10 +636,11 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
   const bookMutation = useBookInventurDifferences()
 
   const totalItems = session.counts.length
-  const itemsWithDiff = session.counts.filter((c) => c.counted !== null && c.counted !== c.expected).length
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce before comparing/subtracting.
+  const itemsWithDiff = session.counts.filter((c) => c.counted !== null && Number(c.counted) !== Number(c.expected)).length
   const totalDiff = session.counts.reduce((sum, c) => {
     if (c.counted === null) return sum
-    return sum + (c.counted - c.expected)
+    return sum + (Number(c.counted) - Number(c.expected))
   }, 0)
 
   return (
@@ -678,7 +683,7 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
               </thead>
               <tbody>
                 {session.counts.map((count: InventurCount) => {
-                  const diff = count.counted !== null ? count.counted - count.expected : null
+                  const diff = count.counted !== null ? Number(count.counted) - Number(count.expected) : null
                   const diffColor = diff === null
                     ? 'text-muted-foreground'
                     : diff === 0
@@ -815,7 +820,7 @@ export default function InventarPage() {
     )
   }, [locations, search])
 
-  const lowStockCount = items.filter((i) => i.quantity <= i.min_quantity).length
+  const lowStockCount = items.filter((i) => Number(i.quantity) <= Number(i.min_quantity)).length
   const warningCount = items.filter((i) => getStockStatus(i) === 'warning').length
 
   // Items at a specific location (detail panel)
@@ -1201,7 +1206,7 @@ export default function InventarPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                          {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
+                          {Number(mov.quantity) > 0 ? `+${mov.quantity}` : mov.quantity}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {mov.location_from && mov.location_to
@@ -1299,7 +1304,7 @@ export default function InventarPage() {
         {selectedItem && (
           <div className="space-y-5">
             {/* Nachbestell-Banner (critical stock) */}
-            {selectedItem.quantity <= selectedItem.min_quantity && (
+            {Number(selectedItem.quantity) <= Number(selectedItem.min_quantity) && (
               <div className="rounded-lg border border-error/30 bg-error-light p-3">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-error mt-0.5 shrink-0" />
@@ -1371,7 +1376,7 @@ export default function InventarPage() {
                     Min: {selectedItem.min_quantity} {selectedItem.unit}
                   </span>
                 </div>
-                <StockBar current={selectedItem.quantity} min={selectedItem.min_quantity} />
+                <StockBar current={Number(selectedItem.quantity)} min={Number(selectedItem.min_quantity)} />
               </div>
             </div>
 
@@ -1478,7 +1483,7 @@ export default function InventarPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground">
                               {movementTypeKeys[mov.movement_type] ? t(movementTypeKeys[mov.movement_type]) : mov.movement_type}
-                              {mov.quantity > 0 ? ` +${mov.quantity}` : ` ${mov.quantity}`}
+                              {Number(mov.quantity) > 0 ? ` +${mov.quantity}` : ` ${mov.quantity}`}
                             </p>
                             <p className="text-[10px] text-muted-foreground truncate">
                               {mov.reference ?? '—'} · {mov.performed_by ?? '—'}

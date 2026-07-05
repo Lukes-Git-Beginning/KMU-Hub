@@ -18,8 +18,10 @@ export interface InventarItem {
   name: string
   sku: string
   barcode: string | null
-  quantity: number
-  min_quantity: number
+  // protojson serializes int64 as a JSON string (proto3 spec); encoding/json
+  // emitted a number. Accept both and coerce (Number(...)) at the call site.
+  quantity: number | string
+  min_quantity: number | string
   unit: string
   location: string | null
   created_at: string
@@ -49,7 +51,8 @@ export interface InventarMovement {
   tenant_id: string
   item_id: string
   movement_type: MovementType
-  quantity: number
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce at the call site.
+  quantity: number | string
   performed_by: string | null
   reason: string
   created_at: string
@@ -63,8 +66,9 @@ export interface StockWarning {
   id: string
   tenant_id: string
   item_id: string
-  threshold: number
-  current_quantity: number
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce at the call site.
+  threshold: number | string
+  current_quantity: number | string
   status: WarningStatus
   created_at: string
   acknowledged_at: string | null
@@ -73,7 +77,8 @@ export interface StockWarning {
 
 export interface StockReport {
   total_items: number
-  total_quantity: number
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce at the call site.
+  total_quantity: number | string
   low_stock_count: number
   active_warnings: number
 }
@@ -192,8 +197,9 @@ export interface InventurCount {
   tenant_id: string
   session_id: string
   item_id: string
-  expected: number
-  counted: number | null
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce at the call site.
+  expected: number | string
+  counted: number | string | null
   counted_at: string | null
 }
 

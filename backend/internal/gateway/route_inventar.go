@@ -222,7 +222,7 @@ func (ir *InventarRoutes) HandleListItems(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +258,7 @@ func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (ir *InventarRoutes) HandleGetItem(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +286,7 @@ func (ir *InventarRoutes) HandleGetItem(w http.ResponseWriter, r *http.Request) 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +329,7 @@ func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleDeleteItem(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +399,7 @@ func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Request) {
@@ -465,7 +465,7 @@ func (ir *InventarRoutes) HandleListMovements(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.Request) {
@@ -497,7 +497,7 @@ func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Request) {
@@ -536,7 +536,7 @@ func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 // ============================================================================
@@ -572,7 +572,7 @@ func (ir *InventarRoutes) HandleListWarnings(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Request) {
@@ -602,7 +602,7 @@ func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Request) {
@@ -636,7 +636,7 @@ func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *http.Request) {
@@ -674,7 +674,7 @@ func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -700,7 +700,7 @@ func (ir *InventarRoutes) HandleGetStockReport(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleExportInventory(w http.ResponseWriter, r *http.Request) {
@@ -810,7 +810,7 @@ func (ir *InventarRoutes) HandleListLocations(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleCreateLocation(w http.ResponseWriter, r *http.Request) {
@@ -840,7 +840,7 @@ func (ir *InventarRoutes) HandleCreateLocation(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (ir *InventarRoutes) HandleGetLocation(w http.ResponseWriter, r *http.Request) {
@@ -868,7 +868,7 @@ func (ir *InventarRoutes) HandleGetLocation(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleUpdateLocation(w http.ResponseWriter, r *http.Request) {
@@ -904,7 +904,7 @@ func (ir *InventarRoutes) HandleUpdateLocation(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleDeleteLocation(w http.ResponseWriter, r *http.Request) {
@@ -961,7 +961,7 @@ func (ir *InventarRoutes) HandleListInventurSessions(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleCreateInventurSession(w http.ResponseWriter, r *http.Request) {
@@ -1001,7 +1001,7 @@ func (ir *InventarRoutes) HandleCreateInventurSession(w http.ResponseWriter, r *
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (ir *InventarRoutes) HandleGetInventurSession(w http.ResponseWriter, r *http.Request) {
@@ -1029,7 +1029,7 @@ func (ir *InventarRoutes) HandleGetInventurSession(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleUpdateInventurSessionStatus(w http.ResponseWriter, r *http.Request) {
@@ -1063,7 +1063,7 @@ func (ir *InventarRoutes) HandleUpdateInventurSessionStatus(w http.ResponseWrite
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleDeleteInventurSession(w http.ResponseWriter, r *http.Request) {
@@ -1126,7 +1126,7 @@ func (ir *InventarRoutes) HandleUpsertInventurCount(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r *http.Request) {
@@ -1160,7 +1160,7 @@ func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1192,7 +1192,7 @@ func (ir *InventarRoutes) HandleListItemAttachments(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ir *InventarRoutes) HandleCreateItemAttachment(w http.ResponseWriter, r *http.Request) {
@@ -1228,7 +1228,7 @@ func (ir *InventarRoutes) HandleCreateItemAttachment(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (ir *InventarRoutes) HandleDeleteItemAttachment(w http.ResponseWriter, r *http.Request) {

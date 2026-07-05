@@ -65,7 +65,7 @@ func (c *CRMRoutes) HandleCreateCompany(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetCompany(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +86,7 @@ func (c *CRMRoutes) HandleGetCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListCompanies(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +117,7 @@ func (c *CRMRoutes) HandleListCompanies(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateCompanyRequest struct {
@@ -187,7 +187,7 @@ func (c *CRMRoutes) HandleUpdateCompany(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeleteCompany(w http.ResponseWriter, r *http.Request) {
@@ -235,5 +235,5 @@ func (c *CRMRoutes) HandleGetCompanyContacts(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

@@ -12,6 +12,14 @@ import (
 	pluginv1 "github.com/kmuhub/kmuhub/proto/plugin/v1"
 )
 
+// NOTE on response.Proto/ProtoList: unlike rapporte.pb.go and dialer.pb.go, plugin.pb.go is
+// NOT actually protoc-gen-go output despite its "DO NOT EDIT" header — it has zero protoimpl/
+// ProtoReflect() wiring (verified: `grep -c ProtoReflect plugin.pb.go` = 0), so no pluginv1
+// type satisfies proto.Message. response.Proto/ProtoList (which require proto.Message) do not
+// compile against it. This file stays on response.JSON; the {seconds,nanos} Timestamp bug
+// (e.g. PluginManifestMsg.CreatedAt) persists here until plugin.pb.go is regenerated for real
+// or given a hand-written ProtoReflect() implementation — both out of scope for a route-file-only change.
+
 // PluginRoutes handles HTTP routes for the Plugin service
 type PluginRoutes struct {
 	registry *ServiceRegistry

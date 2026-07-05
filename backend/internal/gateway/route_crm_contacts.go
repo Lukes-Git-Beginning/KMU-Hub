@@ -72,7 +72,7 @@ func (c *CRMRoutes) HandleCreateContact(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (c *CRMRoutes) HandleGetContact(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +93,7 @@ func (c *CRMRoutes) HandleGetContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleListContacts(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +135,7 @@ func (c *CRMRoutes) HandleListContacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateContactRequest struct {
@@ -201,7 +201,7 @@ func (c *CRMRoutes) HandleUpdateContact(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleDeleteContact(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +255,7 @@ func (c *CRMRoutes) HandleAddContactTags(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleRemoveContactTags(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +284,7 @@ func (c *CRMRoutes) HandleRemoveContactTags(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -344,7 +344,7 @@ func (c *CRMRoutes) HandleImportContactsCSV(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.Request) {
@@ -391,7 +391,7 @@ func (c *CRMRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (c *CRMRoutes) HandlePreviewImportCSV(w http.ResponseWriter, r *http.Request) {
@@ -427,7 +427,7 @@ func (c *CRMRoutes) HandlePreviewImportCSV(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type exportContactsCSVRequest struct {
@@ -537,5 +537,5 @@ func (c *CRMRoutes) HandleUpdateContactVisibility(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

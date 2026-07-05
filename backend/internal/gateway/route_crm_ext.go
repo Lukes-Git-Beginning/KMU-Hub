@@ -82,7 +82,7 @@ func (c *CRMExtRoutes) HandleMergeContacts(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Contact)
+	response.Proto(w, http.StatusOK, resp.Contact)
 }
 
 // ============================================================================
@@ -136,7 +136,7 @@ func (c *CRMExtRoutes) HandleMergeCompanies(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Company)
+	response.Proto(w, http.StatusOK, resp.Company)
 }
 
 // ============================================================================
@@ -176,7 +176,7 @@ func (c *CRMExtRoutes) HandleContactTimeline(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -198,7 +198,7 @@ func (c *CRMExtRoutes) HandleGetConsents(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Summary)
+	response.Proto(w, http.StatusOK, resp.Summary)
 }
 
 type grantConsentRequest struct {
@@ -239,7 +239,7 @@ func (c *CRMExtRoutes) HandleGrantConsent(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Record)
+	response.Proto(w, http.StatusCreated, resp.Record)
 }
 
 type revokeConsentRequest struct {
@@ -275,7 +275,7 @@ func (c *CRMExtRoutes) HandleRevokeConsent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Record)
+	response.Proto(w, http.StatusOK, resp.Record)
 }
 
 func (c *CRMExtRoutes) HandleGetConsentHistory(w http.ResponseWriter, r *http.Request) {
@@ -332,7 +332,7 @@ func (c *CRMExtRoutes) HandleRequestDeletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.DeletionRequest)
+	response.Proto(w, http.StatusCreated, resp.DeletionRequest)
 }
 
 func (c *CRMExtRoutes) HandleProcessDeletion(w http.ResponseWriter, r *http.Request) {
