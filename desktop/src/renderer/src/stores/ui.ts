@@ -8,8 +8,6 @@
  *       deskTheme/deskDecorations/headerWidgets are UI-state only (not user preferences
  *       the backend needs to know about). Migrate to PUT /api/v1/settings/appearance/user
  *       if cross-device sync of UI layout is needed (Phase D or admin-dashboard feature).
- * lean: setLocale in this store is orphaned (LanguageSwitcher was migrated to useLocaleStore).
- *       Remove setLocale/locale from UIState when next UIState refactor happens.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -49,7 +47,6 @@ interface UIState {
   sidebarCollapsed: boolean
   sidebarWidth: number
   sidebarMobileOpen: boolean
-  locale: string
   theme: 'light' | 'dark' | 'auto'
   uiLook: 'solid' | 'glass' | 'crystal'
 
@@ -98,7 +95,6 @@ interface UIState {
   setSidebarWidth: (width: number) => void
   setSidebarMobileOpen: (open: boolean) => void
   toggleSidebarMobile: () => void
-  setLocale: (locale: string) => void
   setTheme: (theme: 'light' | 'dark' | 'auto') => void
   setUILook: (look: 'solid' | 'glass' | 'crystal') => void
   setColorTheme: (theme: ColorTheme) => void
@@ -128,7 +124,6 @@ export const useUIStore = create<UIState>()(
       sidebarCollapsed: false,
       sidebarWidth: 256,
       sidebarMobileOpen: false,
-      locale: 'de',
       theme: 'light',
       uiLook: 'solid',
 
@@ -212,9 +207,6 @@ export const useUIStore = create<UIState>()(
 
       toggleSidebarMobile: () =>
         set((state) => ({ sidebarMobileOpen: !state.sidebarMobileOpen })),
-
-      setLocale: (locale: string) =>
-        set({ locale }),
 
       setTheme: (theme: 'light' | 'dark' | 'auto') =>
         set({ theme }),
