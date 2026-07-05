@@ -318,7 +318,7 @@ func main() {
 		bexioSvc = bexio.NewService(
 			bexioClient, bexioRepo, bexioConfigRepo, vaultSvc, bexioConfig,
 			bexioContactSvc,
-			invoiceSvc, invoiceSvc, quoteRepo,
+			invoiceSvc, invoiceSvc, invoiceSvc, quoteRepo,
 		)
 
 		bexioGRPC := server.NewBexioGRPCServer(bexioSvc)

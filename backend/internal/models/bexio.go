@@ -16,8 +16,11 @@ type BexioSyncConfig struct {
 	QuotePushEnabled         bool       `json:"quote_push_enabled"`
 	PaymentPollEnabled       bool       `json:"payment_poll_enabled"`
 	PaymentPollIntervalMin   int        `json:"payment_poll_interval_minutes"`
+	InvoicePullEnabled       bool       `json:"invoice_pull_enabled"`
+	InvoicePullIntervalMin   int        `json:"invoice_pull_interval_minutes"`
 	LastContactSyncAt        *time.Time `json:"last_contact_sync_at,omitempty"`
 	LastPaymentPollAt        *time.Time `json:"last_payment_poll_at,omitempty"`
+	LastInvoicePullAt        *time.Time `json:"last_invoice_pull_at,omitempty"`
 	CreatedAt                time.Time  `json:"created_at"`
 	UpdatedAt                time.Time  `json:"updated_at"`
 }
@@ -77,8 +80,10 @@ type BexioSyncStatus struct {
 	InvoicePushEnabled     bool       `json:"invoice_push_enabled"`
 	QuotePushEnabled       bool       `json:"quote_push_enabled"`
 	PaymentPollEnabled     bool       `json:"payment_poll_enabled"`
+	InvoicePullEnabled     bool       `json:"invoice_pull_enabled"`
 	LastContactSyncAt      *time.Time `json:"last_contact_sync_at,omitempty"`
 	LastPaymentPollAt      *time.Time `json:"last_payment_poll_at,omitempty"`
+	LastInvoicePullAt      *time.Time `json:"last_invoice_pull_at,omitempty"`
 	TotalContactsMapped    int        `json:"total_contacts_mapped"`
 	TotalInvoicesMapped    int        `json:"total_invoices_mapped"`
 	TotalQuotesMapped      int        `json:"total_quotes_mapped"`

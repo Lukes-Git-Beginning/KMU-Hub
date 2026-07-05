@@ -20,6 +20,7 @@ type Service struct {
 	invoicePusher *InvoicePusher
 	quotePusher   *QuotePusher
 	paymentPoller *PaymentPoller
+	invoicePuller *InvoicePuller
 	fieldMapper   *FieldMapper
 	scheduler     *Scheduler
 	configRepo    IntegrationConfigRepo
@@ -36,6 +37,7 @@ func NewService(
 	contacts ContactService,
 	invoices InvoiceReader,
 	invoiceUpdater InvoiceStatusUpdater,
+	invoiceImporter InvoiceImporter,
 	quotes QuoteReader,
 ) *Service {
 	fieldMapper := NewFieldMapper()
@@ -49,6 +51,7 @@ func NewService(
 		invoicePusher: NewInvoicePusher(client, repo, fieldMapper, invoices, contacts),
 		quotePusher:   NewQuotePusher(client, repo, fieldMapper, quotes, contacts),
 		paymentPoller: NewPaymentPoller(client, repo, invoiceUpdater),
+		invoicePuller: NewInvoicePuller(client, repo, fieldMapper, invoiceImporter),
 		emitter:       noopEmitter{},
 	}
 
@@ -202,6 +205,49 @@ func (s *Service) PollPayments(ctx context.Context, tenantID uuid.UUID) (*SyncRe
 	return result, nil
 }
 
+// PullInvoices resolves the active config and pulls Bexio invoices (manual / gRPC
+// trigger path, which runs under an authenticated context where RLS scopes the config
+// lookup correctly).
+func (s *Service) PullInvoices(ctx context.Context, tenantID uuid.UUID) (*SyncResult, error) {
+	configID, err := s.getConfigID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.PullInvoicesWithConfig(ctx, configID, tenantID)
+}
+
+// PullInvoicesWithConfig pulls invoices for an explicit config ID.
+//
+// G8: the scheduler runs under system context (database.WithSystemContext) where RLS
+// is bypassed, and getConfigID -> GetByPlatform has no tenant filter in SQL. Re-resolving
+// the config there could select the wrong tenant's config when more than one Bexio
+// integration is active. The scheduler therefore passes its own ts.configID here.
+func (s *Service) PullInvoicesWithConfig(ctx context.Context, configID, tenantID uuid.UUID) (*SyncResult, error) {
+	_ = s.emitter.Emit(ctx, EventPayload{
+		Type:     EventSyncStarted,
+		TenantID: tenantID.String(),
+		Data:     map[string]any{"sync_type": "invoice_pull"},
+	})
+
+	result, err := s.invoicePuller.PullInvoices(ctx, configID, tenantID)
+	if err != nil {
+		_ = s.emitter.Emit(ctx, EventPayload{
+			Type:     EventSyncFailed,
+			TenantID: tenantID.String(),
+			Data:     map[string]any{"sync_type": "invoice_pull", "error": err.Error()},
+		})
+		return nil, err
+	}
+
+	_ = s.emitter.Emit(ctx, EventPayload{
+		Type:     EventSyncCompleted,
+		TenantID: tenantID.String(),
+		Data:     map[string]any{"sync_type": "invoice_pull", "result": result},
+	})
+
+	return result, nil
+}
+
 // TriggerSync triggers all sync types immediately.
 func (s *Service) TriggerSync(ctx context.Context, tenantID uuid.UUID) error {
 	if _, err := s.SyncContacts(ctx, tenantID); err != nil {
@@ -236,8 +282,10 @@ func (s *Service) GetSyncStatus(ctx context.Context) (*models.BexioSyncStatus, e
 		InvoicePushEnabled:  syncConfig.InvoicePushEnabled,
 		QuotePushEnabled:    syncConfig.QuotePushEnabled,
 		PaymentPollEnabled:  syncConfig.PaymentPollEnabled,
+		InvoicePullEnabled:  syncConfig.InvoicePullEnabled,
 		LastContactSyncAt:   syncConfig.LastContactSyncAt,
 		LastPaymentPollAt:   syncConfig.LastPaymentPollAt,
+		LastInvoicePullAt:   syncConfig.LastInvoicePullAt,
 		TotalContactsMapped: len(contactMappings),
 		TotalInvoicesMapped: len(invoiceMappings),
 		TotalQuotesMapped:   len(quoteMappings),
@@ -307,13 +355,19 @@ func (s *Service) UpdateSyncConfig(ctx context.Context, update *models.BexioSync
 	existing.InvoicePushEnabled = update.InvoicePushEnabled
 	existing.QuotePushEnabled = update.QuotePushEnabled
 	existing.PaymentPollEnabled = update.PaymentPollEnabled
+	existing.InvoicePullEnabled = update.InvoicePullEnabled
 	if update.ContactSyncIntervalMin > 0 {
 		existing.ContactSyncIntervalMin = update.ContactSyncIntervalMin
 	}
 	if update.PaymentPollIntervalMin > 0 {
 		existing.PaymentPollIntervalMin = update.PaymentPollIntervalMin
 	}
+	if update.InvoicePullIntervalMin > 0 {
+		existing.InvoicePullIntervalMin = update.InvoicePullIntervalMin
+	}
 
+	// Delta-forward cursor init is enforced in InvoicePuller.PullInvoices (nil cursor
+	// -> seed now, import nothing), so toggling the flag here needs no cursor write.
 	return s.repo.UpsertSyncConfig(ctx, existing)
 }
 

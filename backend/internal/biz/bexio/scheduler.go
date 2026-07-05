@@ -152,13 +152,26 @@ func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler,
 		}
 	}()
 
+	// lean: syncConfig is a snapshot taken once in AddTenant. Enabling/disabling a sync
+	// or changing an interval at runtime takes effect for these tickers only after the
+	// tenant scheduler is restarted (Disconnect/reconnect or biz restart). The manual
+	// gRPC trigger path is unaffected and applies immediately. Reload the config per tick
+	// (or restart the tenant on UpdateSyncConfig) if live toggles become a requirement.
 	contactInterval := time.Duration(syncConfig.ContactSyncIntervalMin) * time.Minute
 	paymentInterval := time.Duration(syncConfig.PaymentPollIntervalMin) * time.Minute
+	invoicePullInterval := time.Duration(syncConfig.InvoicePullIntervalMin) * time.Minute
+	if invoicePullInterval <= 0 {
+		// time.NewTicker panics on a non-positive interval; the column defaults to 15
+		// but guard defensively against a zero from an older row.
+		invoicePullInterval = 15 * time.Minute
+	}
 
 	contactTicker := time.NewTicker(contactInterval)
 	paymentTicker := time.NewTicker(paymentInterval)
+	invoicePullTicker := time.NewTicker(invoicePullInterval)
 	defer contactTicker.Stop()
 	defer paymentTicker.Stop()
+	defer invoicePullTicker.Stop()
 
 	for {
 		select {
@@ -167,6 +180,11 @@ func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler,
 
 		case <-contactTicker.C:
 			if syncConfig.ContactSyncEnabled {
+				// lean: SyncContacts re-resolves the config via getConfigID under system
+				// context (RLS off), which can pick the wrong tenant's config when >1
+				// Bexio integration is active (same latent G8 bug the invoice pull avoids).
+				// Harmless while data is single-tenant; pass ts.configID here too before
+				// multi-tenant activation.
 				if _, err := s.service.SyncContacts(ctx, ts.tenantID); err != nil {
 					slog.Error("bexio scheduled contact sync failed",
 						"tenant_id", ts.tenantID,
@@ -177,8 +195,22 @@ func (s *Scheduler) runTenantScheduler(ctx context.Context, ts *tenantScheduler,
 
 		case <-paymentTicker.C:
 			if syncConfig.PaymentPollEnabled {
+				// lean: same latent G8 config-resolution bug as the contact tick above;
+				// pass ts.configID before multi-tenant activation.
 				if _, err := s.service.PollPayments(ctx, ts.tenantID); err != nil {
 					slog.Error("bexio scheduled payment poll failed",
+						"tenant_id", ts.tenantID,
+						"error", err,
+					)
+				}
+			}
+
+		case <-invoicePullTicker.C:
+			if syncConfig.InvoicePullEnabled {
+				// G8-correct: pass the tenant's own configID explicitly instead of
+				// re-resolving it under system context.
+				if _, err := s.service.PullInvoicesWithConfig(ctx, ts.configID, ts.tenantID); err != nil {
+					slog.Error("bexio scheduled invoice pull failed",
 						"tenant_id", ts.tenantID,
 						"error", err,
 					)

@@ -30,7 +30,8 @@ func (r *PostgresRepository) GetSyncConfig(ctx context.Context, configID uuid.UU
 		`SELECT id, config_id, contact_sync_enabled, contact_sync_interval_minutes,
 			invoice_push_enabled, quote_push_enabled,
 			payment_poll_enabled, payment_poll_interval_minutes,
-			last_contact_sync_at, last_payment_poll_at,
+			invoice_pull_enabled, invoice_pull_interval_minutes,
+			last_contact_sync_at, last_payment_poll_at, last_invoice_pull_at,
 			created_at, updated_at
 		FROM bexio_sync_configs
 		WHERE config_id = $1`,
@@ -51,9 +52,10 @@ func (r *PostgresRepository) UpsertSyncConfig(ctx context.Context, config *model
 			id, config_id, contact_sync_enabled, contact_sync_interval_minutes,
 			invoice_push_enabled, quote_push_enabled,
 			payment_poll_enabled, payment_poll_interval_minutes,
-			last_contact_sync_at, last_payment_poll_at,
+			invoice_pull_enabled, invoice_pull_interval_minutes,
+			last_contact_sync_at, last_payment_poll_at, last_invoice_pull_at,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (config_id) DO UPDATE SET
 			contact_sync_enabled = EXCLUDED.contact_sync_enabled,
 			contact_sync_interval_minutes = EXCLUDED.contact_sync_interval_minutes,
@@ -61,11 +63,14 @@ func (r *PostgresRepository) UpsertSyncConfig(ctx context.Context, config *model
 			quote_push_enabled = EXCLUDED.quote_push_enabled,
 			payment_poll_enabled = EXCLUDED.payment_poll_enabled,
 			payment_poll_interval_minutes = EXCLUDED.payment_poll_interval_minutes,
+			invoice_pull_enabled = EXCLUDED.invoice_pull_enabled,
+			invoice_pull_interval_minutes = EXCLUDED.invoice_pull_interval_minutes,
 			updated_at = EXCLUDED.updated_at`,
 		config.ID, config.ConfigID, config.ContactSyncEnabled, config.ContactSyncIntervalMin,
 		config.InvoicePushEnabled, config.QuotePushEnabled,
 		config.PaymentPollEnabled, config.PaymentPollIntervalMin,
-		config.LastContactSyncAt, config.LastPaymentPollAt,
+		config.InvoicePullEnabled, config.InvoicePullIntervalMin,
+		config.LastContactSyncAt, config.LastPaymentPollAt, config.LastInvoicePullAt,
 		config.CreatedAt, config.UpdatedAt,
 	)
 	return err
@@ -78,6 +83,8 @@ func (r *PostgresRepository) UpdateLastSyncTime(ctx context.Context, configID uu
 		column = "last_contact_sync_at"
 	case "payment_poll":
 		column = "last_payment_poll_at"
+	case "invoice_pull":
+		column = "last_invoice_pull_at"
 	default:
 		return fmt.Errorf("bexio: unknown sync type %q for last sync time update", syncType)
 	}
@@ -95,7 +102,8 @@ func (r *PostgresRepository) scanSyncConfig(row pgx.Row) (*models.BexioSyncConfi
 		&sc.ID, &sc.ConfigID, &sc.ContactSyncEnabled, &sc.ContactSyncIntervalMin,
 		&sc.InvoicePushEnabled, &sc.QuotePushEnabled,
 		&sc.PaymentPollEnabled, &sc.PaymentPollIntervalMin,
-		&sc.LastContactSyncAt, &sc.LastPaymentPollAt,
+		&sc.InvoicePullEnabled, &sc.InvoicePullIntervalMin,
+		&sc.LastContactSyncAt, &sc.LastPaymentPollAt, &sc.LastInvoicePullAt,
 		&sc.CreatedAt, &sc.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
