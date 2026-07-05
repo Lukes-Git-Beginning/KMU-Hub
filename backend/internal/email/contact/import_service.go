@@ -68,8 +68,8 @@ type ImportPreview struct {
 // Supports German (DACH) and English column names.
 var knownMappings = map[string]string{
 	"email": "email", "e-mail": "email", "mail": "email",
-	"vorname": "first_name", "first name": "first_name", "firstname": "first_name",
-	"nachname": "last_name", "last name": "last_name", "lastname": "last_name", "name": "last_name",
+	"vorname": "first_name", "first name": "first_name", "firstname": "first_name", "first_name": "first_name",
+	"nachname": "last_name", "last name": "last_name", "lastname": "last_name", "name": "last_name", "last_name": "last_name",
 	"firma": "company", "company": "company", "unternehmen": "company", "organisation": "company",
 	"telefon": "phone", "phone": "phone", "tel": "phone", "mobil": "phone",
 	"position": "position", "titel": "position", "title": "position", "job title": "position",

@@ -34,7 +34,12 @@ export async function importContactsCSV(
 ): Promise<ImportResult> {
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('field_mapping', JSON.stringify(fieldMapping))
+  // The gateway parses the column mapping from individual `map_<csvColumn>=<crmField>`
+  // form fields, not a single JSON blob (see route_crm_contacts.go:
+  // HandleImportContactsCSV). fieldMapping is keyed by CSV column -> CRM field.
+  for (const [csvColumn, crmField] of Object.entries(fieldMapping)) {
+    formData.append(`map_${csvColumn}`, crmField)
+  }
   formData.append('visibility', visibility)
   formData.append('merge_by_email', String(mergeByEmail))
   return authenticatedRequest<ImportResult>({
