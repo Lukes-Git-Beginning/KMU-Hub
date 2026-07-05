@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -26,6 +28,12 @@ type Service struct {
 	repo       Repository
 	configRepo ConfigRepository
 	invReader  InvoiceReader
+
+	// noticeMailer and companySettingsRepo are optional (wired via
+	// SetNoticeMailer). When unset, Send/SendDunningNotice fall back to the
+	// pre-email behavior: status flips to sent, no PDF/email attempted.
+	noticeMailer        NoticeSender
+	companySettingsRepo CompanySettingsRepo
 }
 
 // NewService creates a new dunning service.
@@ -39,6 +47,29 @@ func NewService(
 		configRepo: configRepo,
 		invReader:  invReader,
 	}
+}
+
+// CompanySettingsRepo provides access to per-tenant company settings needed to
+// render the dunning PDF attachment. Signature matches invoice.CompanySettingsRepo
+// so the same Postgres repo (quote.NewPostgresCompanySettingsRepo, already wired
+// in cmd/biz/main.go) satisfies both without a shared package dependency.
+type CompanySettingsRepo interface {
+	GetByTenantID(ctx context.Context, tenantID uuid.UUID) (*models.CompanySettings, error)
+}
+
+// NoticeSender delivers the dunning notice email with the generated PDF
+// attached. The concrete implementation (cmd/biz/mailer.go) wraps a dedicated
+// system SMTP account.
+type NoticeSender interface {
+	SendDunningNotice(ctx context.Context, toEmail, toName string, pdfBytes []byte, filename, subject string, level int) error
+}
+
+// SetNoticeMailer wires the email + PDF dependencies for Send/SendDunningNotice
+// (called from cmd/biz/main.go). Optional: if never called, sendAndNotify keeps
+// the pre-email status-only behavior — safe for dev/CI and existing tests.
+func (s *Service) SetNoticeMailer(mailer NoticeSender, settingsRepo CompanySettingsRepo) {
+	s.noticeMailer = mailer
+	s.companySettingsRepo = settingsRepo
 }
 
 // GetConfig returns the dunning configuration for a tenant.
@@ -249,28 +280,110 @@ func (s *Service) DetectAndCreateDunnings(ctx context.Context, tenantID uuid.UUI
 	return created, nil
 }
 
-// Send transitions a draft dunning record to sent and sets the sent_at timestamp.
+// Send transitions a draft dunning record to sent, emailing the PDF notice if
+// a NoticeSender is configured (see SetNoticeMailer), and sets the sent_at
+// timestamp. This is the entrypoint the "Mahnung senden" UI button calls.
 func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) error {
+	_, err := s.sendAndNotify(ctx, tenantID, id, userID)
+	return err
+}
+
+// sendAndNotify is the shared implementation behind Send and SendDunningNotice
+// (Fix #2 / Sprint 3 email integration) — both entrypoints must go through the
+// same status-flip + email path, otherwise only one of them would actually
+// deliver the dunning PDF.
+//
+// Fail-open vs fail-closed:
+//   - noticeMailer == nil (SetNoticeMailer never called — dev/CI/tests without
+//     mail wiring): behaves exactly like the pre-email code — status flips to
+//     sent, no email attempted, only logged.
+//   - noticeMailer configured but the send itself fails: fail-closed — the
+//     error is returned and the record stays in draft. GoBD requires "sent" to
+//     mean the notice was actually delivered, so flipping status on a failed
+//     send would misrepresent the audit trail.
+func (s *Service) sendAndNotify(ctx context.Context, tenantID, id, userID uuid.UUID) (*models.DunningRecord, error) {
 	record, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if record.Status != models.DunningStatusDraft {
-		return ErrDunningNotDraft
+		return nil, ErrDunningNotDraft
+	}
+
+	if s.noticeMailer != nil {
+		if sendErr := s.emailNotice(ctx, tenantID, record); sendErr != nil {
+			return nil, fmt.Errorf("send dunning notice: %w", sendErr)
+		}
+	} else {
+		slog.Warn("notice mailer not configured, dunning notice email not sent",
+			"dunning_id", id,
+			"tenant_id", tenantID,
+		)
 	}
 
 	now := time.Now()
 	if updateErr := s.repo.UpdateStatus(ctx, tenantID, id, models.DunningStatusSent, &now); updateErr != nil {
-		return updateErr
+		return nil, fmt.Errorf("mark dunning sent: %w", updateErr)
 	}
 
-	slog.Info("dunning record sent",
+	record.Status = models.DunningStatusSent
+	record.SentAt = &now
+
+	slog.Info("dunning notice sent",
 		"dunning_id", id,
 		"invoice_id", record.InvoiceID,
 		"tenant_id", tenantID,
 		"level", record.Level,
+		"sent_by", userID,
 	)
+
+	return record, nil
+}
+
+// dunningDocPrefix maps a dunning level to its German document/filename prefix,
+// matching the convention already used for manual PDF downloads
+// (BizGRPCServer.GenerateDunningPDF).
+func dunningDocPrefix(level int) string {
+	switch level {
+	case 1:
+		return "Zahlungserinnerung"
+	case 2:
+		return "1_Mahnung"
+	default:
+		return "2_Mahnung"
+	}
+}
+
+// emailNotice loads the linked invoice + company settings, renders the dunning
+// PDF, and dispatches it via the configured NoticeSender. Any failure here is
+// fail-closed by the caller (sendAndNotify) — draft status is preserved.
+func (s *Service) emailNotice(ctx context.Context, tenantID uuid.UUID, record *models.DunningRecord) error {
+	invoice, err := s.invReader.GetByID(ctx, tenantID, record.InvoiceID)
+	if err != nil {
+		return fmt.Errorf("load linked invoice: %w", err)
+	}
+
+	settings, err := s.companySettingsRepo.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		return fmt.Errorf("load company settings: %w", err)
+	}
+	if settings == nil {
+		return fmt.Errorf("no company settings configured for tenant %s", tenantID)
+	}
+
+	pdfBytes, err := pdf.NewGenerator(*settings).GenerateDunningPDF(*record, *invoice, record.Level)
+	if err != nil {
+		return fmt.Errorf("generate dunning pdf: %w", err)
+	}
+
+	docPrefix := dunningDocPrefix(record.Level)
+	filename := fmt.Sprintf("%s_%s.pdf", docPrefix, invoice.InvoiceNumber)
+	subject := fmt.Sprintf("%s zu Rechnung %s", strings.ReplaceAll(docPrefix, "_", ". "), invoice.InvoiceNumber)
+
+	if err := s.noticeMailer.SendDunningNotice(ctx, invoice.CustomerEmail, invoice.CustomerName, pdfBytes, filename, subject, record.Level); err != nil {
+		return fmt.Errorf("deliver email: %w", err)
+	}
 	return nil
 }
 

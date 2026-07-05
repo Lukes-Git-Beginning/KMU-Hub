@@ -202,6 +202,57 @@ func (m *MockInvoiceReader) GetOverdue(_ context.Context, _ uuid.UUID) ([]*model
 }
 
 // ---------------------------------------------------------------------------
+// Mock CompanySettingsRepo + NoticeSender (Fix #2: dunning notice email)
+// ---------------------------------------------------------------------------
+
+// MockDunningCompanySettingsRepo implements CompanySettingsRepo for testing.
+type MockDunningCompanySettingsRepo struct {
+	settings *models.CompanySettings
+	err      error
+}
+
+func (m *MockDunningCompanySettingsRepo) GetByTenantID(_ context.Context, _ uuid.UUID) (*models.CompanySettings, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	if m.settings != nil {
+		return m.settings, nil
+	}
+	return &models.CompanySettings{}, nil
+}
+
+// sentNoticeCall records one SendDunningNotice invocation on MockNoticeSender.
+type sentNoticeCall struct {
+	ToEmail  string
+	ToName   string
+	PDFBytes []byte
+	Filename string
+	Subject  string
+	Level    int
+}
+
+// MockNoticeSender implements NoticeSender for testing.
+type MockNoticeSender struct {
+	err   error
+	calls []sentNoticeCall
+}
+
+func (m *MockNoticeSender) SendDunningNotice(_ context.Context, toEmail, toName string, pdfBytes []byte, filename, subject string, level int) error {
+	m.calls = append(m.calls, sentNoticeCall{
+		ToEmail:  toEmail,
+		ToName:   toName,
+		PDFBytes: pdfBytes,
+		Filename: filename,
+		Subject:  subject,
+		Level:    level,
+	})
+	if m.err != nil {
+		return m.err
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -713,6 +764,137 @@ func TestSend_UpdateError(t *testing.T) {
 	err := svc.Send(context.Background(), tenantID, recordID, uuid.New())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "update failed")
+}
+
+// ---------------------------------------------------------------------------
+// Send + NoticeSender Tests (Fix #2: dunning notice email with PDF attachment)
+// ---------------------------------------------------------------------------
+
+func TestSend_WithNoticeMailer_Success(t *testing.T) {
+	tenantID := uuid.New()
+	userID := uuid.New()
+	recordID := uuid.New()
+	invoiceID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:        recordID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Level:     2,
+		Status:    models.DunningStatusDraft,
+		Fee:       decimal.NewFromInt(5),
+	})
+
+	invReader := NewMockInvoiceReader()
+	invReader.invoices[invoiceID] = &models.Invoice{
+		ID:            invoiceID,
+		TenantID:      tenantID,
+		InvoiceNumber: "RE-2026-0099",
+		CustomerName:  "Kunde GmbH",
+		CustomerEmail: "kunde@example.com",
+		DueDate:       time.Now().AddDate(0, 0, -20),
+		GrossTotal:    decimal.NewFromInt(500),
+	}
+
+	svc := NewService(repo, &MockConfigRepository{}, invReader)
+	mailer := &MockNoticeSender{}
+	svc.SetNoticeMailer(mailer, &MockDunningCompanySettingsRepo{})
+
+	err := svc.Send(context.Background(), tenantID, recordID, userID)
+	require.NoError(t, err)
+
+	// Status must flip to sent only after a successful send.
+	require.Len(t, repo.updatedCalls, 1)
+	assert.Equal(t, models.DunningStatusSent, repo.updatedCalls[0].Status)
+	assert.NotNil(t, repo.updatedCalls[0].SentAt)
+
+	// The PDF must have been generated and handed to the mailer.
+	require.Len(t, mailer.calls, 1)
+	call := mailer.calls[0]
+	assert.Equal(t, "kunde@example.com", call.ToEmail)
+	assert.Equal(t, "Kunde GmbH", call.ToName)
+	assert.NotEmpty(t, call.PDFBytes, "PDF bytes must be attached")
+	assert.Equal(t, "1_Mahnung_RE-2026-0099.pdf", call.Filename)
+	assert.Equal(t, 2, call.Level)
+}
+
+func TestSend_WithNoticeMailer_SendFails_StaysDraft(t *testing.T) {
+	tenantID := uuid.New()
+	recordID := uuid.New()
+	invoiceID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:        recordID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Level:     1,
+		Status:    models.DunningStatusDraft,
+	})
+
+	invReader := NewMockInvoiceReader()
+	invReader.invoices[invoiceID] = &models.Invoice{
+		ID:            invoiceID,
+		TenantID:      tenantID,
+		InvoiceNumber: "RE-2026-0100",
+		CustomerName:  "Kunde GmbH",
+		CustomerEmail: "kunde@example.com",
+	}
+
+	svc := NewService(repo, &MockConfigRepository{}, invReader)
+	mailer := &MockNoticeSender{err: errors.New("smtp refused")}
+	svc.SetNoticeMailer(mailer, &MockDunningCompanySettingsRepo{})
+
+	err := svc.Send(context.Background(), tenantID, recordID, uuid.New())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "smtp refused")
+
+	// Fail-closed: UpdateStatus must never have been called, and the record
+	// must still read as draft (GoBD: "sent" means actually delivered).
+	assert.Empty(t, repo.updatedCalls, "UpdateStatus must not be called when the notice send fails")
+	record, getErr := repo.GetByID(context.Background(), tenantID, recordID)
+	require.NoError(t, getErr)
+	assert.Equal(t, models.DunningStatusDraft, record.Status)
+}
+
+func TestSendDunningNotice_WithNoticeMailer_Success(t *testing.T) {
+	// Confirms SendDunningNotice (service_gobd.go) shares the same
+	// sendAndNotify path as Send — the real "Mahnung senden" button and the
+	// GoBD notice endpoint must not diverge in email delivery behavior.
+	tenantID := uuid.New()
+	recordID := uuid.New()
+	invoiceID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:        recordID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Level:     1,
+		Status:    models.DunningStatusDraft,
+	})
+
+	invReader := NewMockInvoiceReader()
+	invReader.invoices[invoiceID] = &models.Invoice{
+		ID:            invoiceID,
+		TenantID:      tenantID,
+		InvoiceNumber: "RE-2026-0101",
+		CustomerName:  "Andere Kunde AG",
+		CustomerEmail: "andere@example.com",
+	}
+
+	svc := NewService(repo, &MockConfigRepository{}, invReader)
+	mailer := &MockNoticeSender{}
+	svc.SetNoticeMailer(mailer, &MockDunningCompanySettingsRepo{})
+
+	result, err := svc.SendDunningNotice(context.Background(), tenantID, recordID, uuid.New())
+	require.NoError(t, err)
+	assert.Equal(t, models.DunningStatusSent, result.Status)
+
+	require.Len(t, mailer.calls, 1)
+	assert.Equal(t, "andere@example.com", mailer.calls[0].ToEmail)
+	assert.NotEmpty(t, mailer.calls[0].PDFBytes)
 }
 
 // ---------------------------------------------------------------------------

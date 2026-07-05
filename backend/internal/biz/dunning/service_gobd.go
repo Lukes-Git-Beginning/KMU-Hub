@@ -70,39 +70,12 @@ func (s *Service) UpdateDunningStatus(ctx context.Context, tenantID, id uuid.UUI
 // SendDunningNotice
 // ============================================================================
 
-// SendDunningNotice transitions a draft dunning record to sent and sets sent_at.
-// Email delivery is a Sprint 3 concern; this Sprint 2 implementation marks the
-// record as sent and logs the intent.
-//
-// TODO Sprint 3: integrate email.Sender to deliver the dunning PDF via SMTP/SES.
+// SendDunningNotice transitions a draft dunning record to sent, emailing the
+// PDF notice if a NoticeSender is configured (see SetNoticeMailer), and sets
+// sent_at. Shares its implementation with Send (see sendAndNotify in
+// service.go) — both entrypoints must deliver the email identically.
 func (s *Service) SendDunningNotice(ctx context.Context, tenantID, id, userID uuid.UUID) (*models.DunningRecord, error) {
-	record, err := s.repo.GetByID(ctx, tenantID, id)
-	if err != nil {
-		return nil, err
-	}
-
-	if record.Status != models.DunningStatusDraft {
-		return nil, ErrDunningNotDraft
-	}
-
-	now := time.Now()
-	if updateErr := s.repo.UpdateStatus(ctx, tenantID, id, models.DunningStatusSent, &now); updateErr != nil {
-		return nil, fmt.Errorf("mark dunning sent: %w", updateErr)
-	}
-
-	record.Status = models.DunningStatusSent
-	record.SentAt = &now
-
-	slog.Info("dunning notice sent",
-		"dunning_id", id,
-		"invoice_id", record.InvoiceID,
-		"tenant_id", tenantID,
-		"level", record.Level,
-		"sent_by", userID,
-		"sprint3_todo", "email delivery pending",
-	)
-
-	return record, nil
+	return s.sendAndNotify(ctx, tenantID, id, userID)
 }
 
 // ============================================================================

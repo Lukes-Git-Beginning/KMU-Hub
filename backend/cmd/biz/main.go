@@ -158,6 +158,19 @@ func main() {
 	invoiceSvc.SetStornoCreator(creditNoteSvc)
 	paymentSvc := payment.NewService(paymentRepo, invoiceRepo, invoiceRepo, pool)
 	dunningSvc := dunning.NewService(dunningRepo, dunningConfigRepo, invoiceRepo)
+	// Wire the dunning notice mailer (Fix #2): SYSTEM_SMTP_* is optional here —
+	// an empty host makes systemMailer log-only (dev/CI), matching the
+	// pre-email fallback in dunning.Service.sendAndNotify. Adding a hard
+	// config.RequireSystemSMTP assertion is a deliberate follow-up, not done
+	// here, so this wiring can't crash-loop biz in production before the
+	// compose/env passthrough for SYSTEM_SMTP_* is confirmed for this service.
+	dunningSvc.SetNoticeMailer(&systemMailer{
+		host:     cfg.SystemSMTPHost,
+		port:     cfg.SystemSMTPPort,
+		username: cfg.SystemSMTPUser,
+		password: cfg.SystemSMTPPassword,
+		from:     cfg.SystemSMTPFrom,
+	}, companySettingsRepo)
 	dashboardSvc := dashboard.NewService(dashboardRepo)
 
 	// PDF generator with company settings defaults
