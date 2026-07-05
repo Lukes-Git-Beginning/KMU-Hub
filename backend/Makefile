@@ -126,7 +126,10 @@ proto-dialer:
 proto-biz:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
-		proto/biz/v1/biz.proto
+		proto/biz/v1/biz.proto \
+		proto/biz/v1/bexio.proto
+	# lexware.proto / datev_upload.proto were generated with a different
+	# protoc-gen-go setup; regenerate them deliberately, not as part of this target.
 
 proto-wiki:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \

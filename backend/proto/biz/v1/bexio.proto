@@ -75,7 +75,7 @@ message GetBexioConnectionStatusResponse {
 
 message TriggerBexioSyncRequest {
   string tenant_id = 1;
-  string sync_type = 2; // Optional: "contacts", "payments", or empty for all
+  string sync_type = 2; // Optional: "contacts", "payments", "invoices", or empty for all
 }
 
 message TriggerBexioSyncResponse {
@@ -99,6 +99,8 @@ message GetBexioSyncStatusResponse {
   int32 total_quotes_mapped = 9;
   string last_sync_error = 10;
   google.protobuf.Timestamp last_sync_error_at = 11;
+  bool invoice_pull_enabled = 12;
+  google.protobuf.Timestamp last_invoice_pull_at = 13;
 }
 
 message UpdateBexioSyncConfigRequest {
@@ -109,6 +111,8 @@ message UpdateBexioSyncConfigRequest {
   bool quote_push_enabled = 5;
   bool payment_poll_enabled = 6;
   int32 payment_poll_interval_minutes = 7;
+  bool invoice_pull_enabled = 8;
+  int32 invoice_pull_interval_minutes = 9;
 }
 
 message UpdateBexioSyncConfigResponse {

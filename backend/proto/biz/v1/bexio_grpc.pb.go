@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: backend/proto/biz/v1/bexio.proto
+// source: proto/biz/v1/bexio.proto
 
 package bizv1
 
@@ -544,5 +544,5 @@ var BexioIntegrationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "backend/proto/biz/v1/bexio.proto",
+	Metadata: "proto/biz/v1/bexio.proto",
 }

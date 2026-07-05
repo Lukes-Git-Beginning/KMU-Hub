@@ -300,6 +300,7 @@ func (br *BexioRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Reques
 		"invoice_push_enabled":  resp.GetInvoicePushEnabled(),
 		"quote_push_enabled":    resp.GetQuotePushEnabled(),
 		"payment_poll_enabled":  resp.GetPaymentPollEnabled(),
+		"invoice_pull_enabled":  resp.GetInvoicePullEnabled(),
 		"total_contacts_mapped": resp.GetTotalContactsMapped(),
 		"total_invoices_mapped": resp.GetTotalInvoicesMapped(),
 		"total_quotes_mapped":   resp.GetTotalQuotesMapped(),
@@ -309,6 +310,9 @@ func (br *BexioRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Reques
 	}
 	if resp.GetLastPaymentPollAt() != nil {
 		result["last_payment_poll_at"] = resp.GetLastPaymentPollAt().AsTime()
+	}
+	if resp.GetLastInvoicePullAt() != nil {
+		result["last_invoice_pull_at"] = resp.GetLastInvoicePullAt().AsTime()
 	}
 	if resp.GetLastSyncError() != "" {
 		result["last_sync_error"] = resp.GetLastSyncError()
@@ -341,6 +345,8 @@ func (br *BexioRoutes) HandleUpdateSyncConfig(w http.ResponseWriter, r *http.Req
 		QuotePushEnabled          bool `json:"quote_push_enabled"`
 		PaymentPollEnabled        bool `json:"payment_poll_enabled"`
 		PaymentPollIntervalMinutes int32 `json:"payment_poll_interval_minutes"`
+		InvoicePullEnabled        bool `json:"invoice_pull_enabled"`
+		InvoicePullIntervalMinutes int32 `json:"invoice_pull_interval_minutes"`
 	}
 	body, ok := decodeAndValidate[updateSyncConfigRequest](w, r)
 	if !ok {
@@ -355,6 +361,8 @@ func (br *BexioRoutes) HandleUpdateSyncConfig(w http.ResponseWriter, r *http.Req
 		QuotePushEnabled:           body.QuotePushEnabled,
 		PaymentPollEnabled:         body.PaymentPollEnabled,
 		PaymentPollIntervalMinutes: body.PaymentPollIntervalMinutes,
+		InvoicePullEnabled:         body.InvoicePullEnabled,
+		InvoicePullIntervalMinutes: body.InvoicePullIntervalMinutes,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

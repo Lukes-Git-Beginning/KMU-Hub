@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.4
-// source: backend/proto/biz/v1/bexio.proto
+// source: proto/biz/v1/bexio.proto
 
 package bizv1
 
@@ -32,7 +32,7 @@ type GetBexioAuthURLRequest struct {
 
 func (x *GetBexioAuthURLRequest) Reset() {
 	*x = GetBexioAuthURLRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[0]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *GetBexioAuthURLRequest) String() string {
 func (*GetBexioAuthURLRequest) ProtoMessage() {}
 
 func (x *GetBexioAuthURLRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[0]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *GetBexioAuthURLRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioAuthURLRequest.ProtoReflect.Descriptor instead.
 func (*GetBexioAuthURLRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{0}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetBexioAuthURLRequest) GetTenantId() string {
@@ -83,7 +83,7 @@ type GetBexioAuthURLResponse struct {
 
 func (x *GetBexioAuthURLResponse) Reset() {
 	*x = GetBexioAuthURLResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[1]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -95,7 +95,7 @@ func (x *GetBexioAuthURLResponse) String() string {
 func (*GetBexioAuthURLResponse) ProtoMessage() {}
 
 func (x *GetBexioAuthURLResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[1]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -108,7 +108,7 @@ func (x *GetBexioAuthURLResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioAuthURLResponse.ProtoReflect.Descriptor instead.
 func (*GetBexioAuthURLResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{1}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetBexioAuthURLResponse) GetAuthorizationUrl() string {
@@ -128,7 +128,7 @@ type HandleBexioOAuthCallbackRequest struct {
 
 func (x *HandleBexioOAuthCallbackRequest) Reset() {
 	*x = HandleBexioOAuthCallbackRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[2]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -140,7 +140,7 @@ func (x *HandleBexioOAuthCallbackRequest) String() string {
 func (*HandleBexioOAuthCallbackRequest) ProtoMessage() {}
 
 func (x *HandleBexioOAuthCallbackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[2]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -153,7 +153,7 @@ func (x *HandleBexioOAuthCallbackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandleBexioOAuthCallbackRequest.ProtoReflect.Descriptor instead.
 func (*HandleBexioOAuthCallbackRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{2}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *HandleBexioOAuthCallbackRequest) GetTenantId() string {
@@ -180,7 +180,7 @@ type HandleBexioOAuthCallbackResponse struct {
 
 func (x *HandleBexioOAuthCallbackResponse) Reset() {
 	*x = HandleBexioOAuthCallbackResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[3]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -192,7 +192,7 @@ func (x *HandleBexioOAuthCallbackResponse) String() string {
 func (*HandleBexioOAuthCallbackResponse) ProtoMessage() {}
 
 func (x *HandleBexioOAuthCallbackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[3]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -205,7 +205,7 @@ func (x *HandleBexioOAuthCallbackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandleBexioOAuthCallbackResponse.ProtoReflect.Descriptor instead.
 func (*HandleBexioOAuthCallbackResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{3}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HandleBexioOAuthCallbackResponse) GetSuccess() bool {
@@ -231,7 +231,7 @@ type DisconnectBexioRequest struct {
 
 func (x *DisconnectBexioRequest) Reset() {
 	*x = DisconnectBexioRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[4]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -243,7 +243,7 @@ func (x *DisconnectBexioRequest) String() string {
 func (*DisconnectBexioRequest) ProtoMessage() {}
 
 func (x *DisconnectBexioRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[4]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -256,7 +256,7 @@ func (x *DisconnectBexioRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisconnectBexioRequest.ProtoReflect.Descriptor instead.
 func (*DisconnectBexioRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{4}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DisconnectBexioRequest) GetTenantId() string {
@@ -275,7 +275,7 @@ type DisconnectBexioResponse struct {
 
 func (x *DisconnectBexioResponse) Reset() {
 	*x = DisconnectBexioResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[5]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -287,7 +287,7 @@ func (x *DisconnectBexioResponse) String() string {
 func (*DisconnectBexioResponse) ProtoMessage() {}
 
 func (x *DisconnectBexioResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[5]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -300,7 +300,7 @@ func (x *DisconnectBexioResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisconnectBexioResponse.ProtoReflect.Descriptor instead.
 func (*DisconnectBexioResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{5}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DisconnectBexioResponse) GetSuccess() bool {
@@ -319,7 +319,7 @@ type GetBexioConnectionStatusRequest struct {
 
 func (x *GetBexioConnectionStatusRequest) Reset() {
 	*x = GetBexioConnectionStatusRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[6]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -331,7 +331,7 @@ func (x *GetBexioConnectionStatusRequest) String() string {
 func (*GetBexioConnectionStatusRequest) ProtoMessage() {}
 
 func (x *GetBexioConnectionStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[6]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -344,7 +344,7 @@ func (x *GetBexioConnectionStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioConnectionStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetBexioConnectionStatusRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{6}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetBexioConnectionStatusRequest) GetTenantId() string {
@@ -365,7 +365,7 @@ type GetBexioConnectionStatusResponse struct {
 
 func (x *GetBexioConnectionStatusResponse) Reset() {
 	*x = GetBexioConnectionStatusResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[7]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -377,7 +377,7 @@ func (x *GetBexioConnectionStatusResponse) String() string {
 func (*GetBexioConnectionStatusResponse) ProtoMessage() {}
 
 func (x *GetBexioConnectionStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[7]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -390,7 +390,7 @@ func (x *GetBexioConnectionStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioConnectionStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetBexioConnectionStatusResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{7}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetBexioConnectionStatusResponse) GetConnected() bool {
@@ -417,14 +417,14 @@ func (x *GetBexioConnectionStatusResponse) GetConnectedAt() *timestamppb.Timesta
 type TriggerBexioSyncRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	SyncType      string                 `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"` // Optional: "contacts", "payments", or empty for all
+	SyncType      string                 `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"` // Optional: "contacts", "payments", "invoices", or empty for all
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TriggerBexioSyncRequest) Reset() {
 	*x = TriggerBexioSyncRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[8]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -436,7 +436,7 @@ func (x *TriggerBexioSyncRequest) String() string {
 func (*TriggerBexioSyncRequest) ProtoMessage() {}
 
 func (x *TriggerBexioSyncRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[8]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -449,7 +449,7 @@ func (x *TriggerBexioSyncRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerBexioSyncRequest.ProtoReflect.Descriptor instead.
 func (*TriggerBexioSyncRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{8}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TriggerBexioSyncRequest) GetTenantId() string {
@@ -476,7 +476,7 @@ type TriggerBexioSyncResponse struct {
 
 func (x *TriggerBexioSyncResponse) Reset() {
 	*x = TriggerBexioSyncResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[9]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -488,7 +488,7 @@ func (x *TriggerBexioSyncResponse) String() string {
 func (*TriggerBexioSyncResponse) ProtoMessage() {}
 
 func (x *TriggerBexioSyncResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[9]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -501,7 +501,7 @@ func (x *TriggerBexioSyncResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerBexioSyncResponse.ProtoReflect.Descriptor instead.
 func (*TriggerBexioSyncResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{9}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TriggerBexioSyncResponse) GetSyncId() string {
@@ -527,7 +527,7 @@ type GetBexioSyncStatusRequest struct {
 
 func (x *GetBexioSyncStatusRequest) Reset() {
 	*x = GetBexioSyncStatusRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[10]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -539,7 +539,7 @@ func (x *GetBexioSyncStatusRequest) String() string {
 func (*GetBexioSyncStatusRequest) ProtoMessage() {}
 
 func (x *GetBexioSyncStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[10]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -552,7 +552,7 @@ func (x *GetBexioSyncStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioSyncStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetBexioSyncStatusRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{10}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetBexioSyncStatusRequest) GetTenantId() string {
@@ -575,13 +575,15 @@ type GetBexioSyncStatusResponse struct {
 	TotalQuotesMapped   int32                  `protobuf:"varint,9,opt,name=total_quotes_mapped,json=totalQuotesMapped,proto3" json:"total_quotes_mapped,omitempty"`
 	LastSyncError       string                 `protobuf:"bytes,10,opt,name=last_sync_error,json=lastSyncError,proto3" json:"last_sync_error,omitempty"`
 	LastSyncErrorAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_sync_error_at,json=lastSyncErrorAt,proto3" json:"last_sync_error_at,omitempty"`
+	InvoicePullEnabled  bool                   `protobuf:"varint,12,opt,name=invoice_pull_enabled,json=invoicePullEnabled,proto3" json:"invoice_pull_enabled,omitempty"`
+	LastInvoicePullAt   *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=last_invoice_pull_at,json=lastInvoicePullAt,proto3" json:"last_invoice_pull_at,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GetBexioSyncStatusResponse) Reset() {
 	*x = GetBexioSyncStatusResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[11]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -593,7 +595,7 @@ func (x *GetBexioSyncStatusResponse) String() string {
 func (*GetBexioSyncStatusResponse) ProtoMessage() {}
 
 func (x *GetBexioSyncStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[11]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -606,7 +608,7 @@ func (x *GetBexioSyncStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioSyncStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetBexioSyncStatusResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{11}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetBexioSyncStatusResponse) GetContactSyncEnabled() bool {
@@ -686,6 +688,20 @@ func (x *GetBexioSyncStatusResponse) GetLastSyncErrorAt() *timestamppb.Timestamp
 	return nil
 }
 
+func (x *GetBexioSyncStatusResponse) GetInvoicePullEnabled() bool {
+	if x != nil {
+		return x.InvoicePullEnabled
+	}
+	return false
+}
+
+func (x *GetBexioSyncStatusResponse) GetLastInvoicePullAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastInvoicePullAt
+	}
+	return nil
+}
+
 type UpdateBexioSyncConfigRequest struct {
 	state                      protoimpl.MessageState `protogen:"open.v1"`
 	TenantId                   string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -695,13 +711,15 @@ type UpdateBexioSyncConfigRequest struct {
 	QuotePushEnabled           bool                   `protobuf:"varint,5,opt,name=quote_push_enabled,json=quotePushEnabled,proto3" json:"quote_push_enabled,omitempty"`
 	PaymentPollEnabled         bool                   `protobuf:"varint,6,opt,name=payment_poll_enabled,json=paymentPollEnabled,proto3" json:"payment_poll_enabled,omitempty"`
 	PaymentPollIntervalMinutes int32                  `protobuf:"varint,7,opt,name=payment_poll_interval_minutes,json=paymentPollIntervalMinutes,proto3" json:"payment_poll_interval_minutes,omitempty"`
+	InvoicePullEnabled         bool                   `protobuf:"varint,8,opt,name=invoice_pull_enabled,json=invoicePullEnabled,proto3" json:"invoice_pull_enabled,omitempty"`
+	InvoicePullIntervalMinutes int32                  `protobuf:"varint,9,opt,name=invoice_pull_interval_minutes,json=invoicePullIntervalMinutes,proto3" json:"invoice_pull_interval_minutes,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *UpdateBexioSyncConfigRequest) Reset() {
 	*x = UpdateBexioSyncConfigRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[12]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -713,7 +731,7 @@ func (x *UpdateBexioSyncConfigRequest) String() string {
 func (*UpdateBexioSyncConfigRequest) ProtoMessage() {}
 
 func (x *UpdateBexioSyncConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[12]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -726,7 +744,7 @@ func (x *UpdateBexioSyncConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBexioSyncConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBexioSyncConfigRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{12}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateBexioSyncConfigRequest) GetTenantId() string {
@@ -778,6 +796,20 @@ func (x *UpdateBexioSyncConfigRequest) GetPaymentPollIntervalMinutes() int32 {
 	return 0
 }
 
+func (x *UpdateBexioSyncConfigRequest) GetInvoicePullEnabled() bool {
+	if x != nil {
+		return x.InvoicePullEnabled
+	}
+	return false
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetInvoicePullIntervalMinutes() int32 {
+	if x != nil {
+		return x.InvoicePullIntervalMinutes
+	}
+	return 0
+}
+
 type UpdateBexioSyncConfigResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
@@ -787,7 +819,7 @@ type UpdateBexioSyncConfigResponse struct {
 
 func (x *UpdateBexioSyncConfigResponse) Reset() {
 	*x = UpdateBexioSyncConfigResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[13]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -799,7 +831,7 @@ func (x *UpdateBexioSyncConfigResponse) String() string {
 func (*UpdateBexioSyncConfigResponse) ProtoMessage() {}
 
 func (x *UpdateBexioSyncConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[13]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -812,7 +844,7 @@ func (x *UpdateBexioSyncConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBexioSyncConfigResponse.ProtoReflect.Descriptor instead.
 func (*UpdateBexioSyncConfigResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{13}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateBexioSyncConfigResponse) GetSuccess() bool {
@@ -832,7 +864,7 @@ type ListBexioSyncLogsRequest struct {
 
 func (x *ListBexioSyncLogsRequest) Reset() {
 	*x = ListBexioSyncLogsRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[14]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -844,7 +876,7 @@ func (x *ListBexioSyncLogsRequest) String() string {
 func (*ListBexioSyncLogsRequest) ProtoMessage() {}
 
 func (x *ListBexioSyncLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[14]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -857,7 +889,7 @@ func (x *ListBexioSyncLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBexioSyncLogsRequest.ProtoReflect.Descriptor instead.
 func (*ListBexioSyncLogsRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{14}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListBexioSyncLogsRequest) GetTenantId() string {
@@ -883,7 +915,7 @@ type ListBexioSyncLogsResponse struct {
 
 func (x *ListBexioSyncLogsResponse) Reset() {
 	*x = ListBexioSyncLogsResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[15]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -895,7 +927,7 @@ func (x *ListBexioSyncLogsResponse) String() string {
 func (*ListBexioSyncLogsResponse) ProtoMessage() {}
 
 func (x *ListBexioSyncLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[15]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -908,7 +940,7 @@ func (x *ListBexioSyncLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBexioSyncLogsResponse.ProtoReflect.Descriptor instead.
 func (*ListBexioSyncLogsResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{15}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListBexioSyncLogsResponse) GetEntries() []*BexioSyncLogEntry {
@@ -936,7 +968,7 @@ type BexioSyncLogEntry struct {
 
 func (x *BexioSyncLogEntry) Reset() {
 	*x = BexioSyncLogEntry{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[16]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -948,7 +980,7 @@ func (x *BexioSyncLogEntry) String() string {
 func (*BexioSyncLogEntry) ProtoMessage() {}
 
 func (x *BexioSyncLogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[16]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +993,7 @@ func (x *BexioSyncLogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BexioSyncLogEntry.ProtoReflect.Descriptor instead.
 func (*BexioSyncLogEntry) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{16}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *BexioSyncLogEntry) GetId() string {
@@ -1044,7 +1076,7 @@ type GetBexioFieldMappingsRequest struct {
 
 func (x *GetBexioFieldMappingsRequest) Reset() {
 	*x = GetBexioFieldMappingsRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[17]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1056,7 +1088,7 @@ func (x *GetBexioFieldMappingsRequest) String() string {
 func (*GetBexioFieldMappingsRequest) ProtoMessage() {}
 
 func (x *GetBexioFieldMappingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[17]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1069,7 +1101,7 @@ func (x *GetBexioFieldMappingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioFieldMappingsRequest.ProtoReflect.Descriptor instead.
 func (*GetBexioFieldMappingsRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{17}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetBexioFieldMappingsRequest) GetTenantId() string {
@@ -1095,7 +1127,7 @@ type GetBexioFieldMappingsResponse struct {
 
 func (x *GetBexioFieldMappingsResponse) Reset() {
 	*x = GetBexioFieldMappingsResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[18]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1107,7 +1139,7 @@ func (x *GetBexioFieldMappingsResponse) String() string {
 func (*GetBexioFieldMappingsResponse) ProtoMessage() {}
 
 func (x *GetBexioFieldMappingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[18]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1120,7 +1152,7 @@ func (x *GetBexioFieldMappingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBexioFieldMappingsResponse.ProtoReflect.Descriptor instead.
 func (*GetBexioFieldMappingsResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{18}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetBexioFieldMappingsResponse) GetMappings() []*BexioFieldMappingEntry {
@@ -1142,7 +1174,7 @@ type BexioFieldMappingEntry struct {
 
 func (x *BexioFieldMappingEntry) Reset() {
 	*x = BexioFieldMappingEntry{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[19]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1154,7 +1186,7 @@ func (x *BexioFieldMappingEntry) String() string {
 func (*BexioFieldMappingEntry) ProtoMessage() {}
 
 func (x *BexioFieldMappingEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[19]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1167,7 +1199,7 @@ func (x *BexioFieldMappingEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BexioFieldMappingEntry.ProtoReflect.Descriptor instead.
 func (*BexioFieldMappingEntry) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{19}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *BexioFieldMappingEntry) GetKmuhubField() string {
@@ -1209,7 +1241,7 @@ type UpdateBexioFieldMappingsRequest struct {
 
 func (x *UpdateBexioFieldMappingsRequest) Reset() {
 	*x = UpdateBexioFieldMappingsRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[20]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1221,7 +1253,7 @@ func (x *UpdateBexioFieldMappingsRequest) String() string {
 func (*UpdateBexioFieldMappingsRequest) ProtoMessage() {}
 
 func (x *UpdateBexioFieldMappingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[20]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1234,7 +1266,7 @@ func (x *UpdateBexioFieldMappingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBexioFieldMappingsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBexioFieldMappingsRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{20}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateBexioFieldMappingsRequest) GetTenantId() string {
@@ -1267,7 +1299,7 @@ type UpdateBexioFieldMappingsResponse struct {
 
 func (x *UpdateBexioFieldMappingsResponse) Reset() {
 	*x = UpdateBexioFieldMappingsResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[21]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1279,7 +1311,7 @@ func (x *UpdateBexioFieldMappingsResponse) String() string {
 func (*UpdateBexioFieldMappingsResponse) ProtoMessage() {}
 
 func (x *UpdateBexioFieldMappingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[21]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1292,7 +1324,7 @@ func (x *UpdateBexioFieldMappingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBexioFieldMappingsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateBexioFieldMappingsResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{21}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateBexioFieldMappingsResponse) GetSuccess() bool {
@@ -1312,7 +1344,7 @@ type PushInvoiceToBexioRequest struct {
 
 func (x *PushInvoiceToBexioRequest) Reset() {
 	*x = PushInvoiceToBexioRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[22]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1324,7 +1356,7 @@ func (x *PushInvoiceToBexioRequest) String() string {
 func (*PushInvoiceToBexioRequest) ProtoMessage() {}
 
 func (x *PushInvoiceToBexioRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[22]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1337,7 +1369,7 @@ func (x *PushInvoiceToBexioRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushInvoiceToBexioRequest.ProtoReflect.Descriptor instead.
 func (*PushInvoiceToBexioRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{22}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PushInvoiceToBexioRequest) GetTenantId() string {
@@ -1365,7 +1397,7 @@ type PushInvoiceToBexioResponse struct {
 
 func (x *PushInvoiceToBexioResponse) Reset() {
 	*x = PushInvoiceToBexioResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[23]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1377,7 +1409,7 @@ func (x *PushInvoiceToBexioResponse) String() string {
 func (*PushInvoiceToBexioResponse) ProtoMessage() {}
 
 func (x *PushInvoiceToBexioResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[23]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1390,7 +1422,7 @@ func (x *PushInvoiceToBexioResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushInvoiceToBexioResponse.ProtoReflect.Descriptor instead.
 func (*PushInvoiceToBexioResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{23}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PushInvoiceToBexioResponse) GetSuccess() bool {
@@ -1424,7 +1456,7 @@ type PushQuoteToBexioRequest struct {
 
 func (x *PushQuoteToBexioRequest) Reset() {
 	*x = PushQuoteToBexioRequest{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[24]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1436,7 +1468,7 @@ func (x *PushQuoteToBexioRequest) String() string {
 func (*PushQuoteToBexioRequest) ProtoMessage() {}
 
 func (x *PushQuoteToBexioRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[24]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1449,7 +1481,7 @@ func (x *PushQuoteToBexioRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushQuoteToBexioRequest.ProtoReflect.Descriptor instead.
 func (*PushQuoteToBexioRequest) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{24}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *PushQuoteToBexioRequest) GetTenantId() string {
@@ -1477,7 +1509,7 @@ type PushQuoteToBexioResponse struct {
 
 func (x *PushQuoteToBexioResponse) Reset() {
 	*x = PushQuoteToBexioResponse{}
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[25]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1489,7 +1521,7 @@ func (x *PushQuoteToBexioResponse) String() string {
 func (*PushQuoteToBexioResponse) ProtoMessage() {}
 
 func (x *PushQuoteToBexioResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[25]
+	mi := &file_proto_biz_v1_bexio_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1502,7 +1534,7 @@ func (x *PushQuoteToBexioResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushQuoteToBexioResponse.ProtoReflect.Descriptor instead.
 func (*PushQuoteToBexioResponse) Descriptor() ([]byte, []int) {
-	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{25}
+	return file_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PushQuoteToBexioResponse) GetSuccess() bool {
@@ -1526,11 +1558,11 @@ func (x *PushQuoteToBexioResponse) GetErrorMessage() string {
 	return ""
 }
 
-var File_backend_proto_biz_v1_bexio_proto protoreflect.FileDescriptor
+var File_proto_biz_v1_bexio_proto protoreflect.FileDescriptor
 
-const file_backend_proto_biz_v1_bexio_proto_rawDesc = "" +
+const file_proto_biz_v1_bexio_proto_rawDesc = "" +
 	"\n" +
-	" backend/proto/biz/v1/bexio.proto\x12\x06biz.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"X\n" +
+	"\x18proto/biz/v1/bexio.proto\x12\x06biz.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"X\n" +
 	"\x16GetBexioAuthURLRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
 	"\fredirect_url\x18\x02 \x01(\tR\vredirectUrl\"F\n" +
@@ -1559,7 +1591,7 @@ const file_backend_proto_biz_v1_bexio_proto_rawDesc = "" +
 	"\async_id\x18\x01 \x01(\tR\x06syncId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\"8\n" +
 	"\x19GetBexioSyncStatusRequest\x12\x1b\n" +
-	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\x83\x05\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\x82\x06\n" +
 	"\x1aGetBexioSyncStatusResponse\x120\n" +
 	"\x14contact_sync_enabled\x18\x01 \x01(\bR\x12contactSyncEnabled\x120\n" +
 	"\x14invoice_push_enabled\x18\x02 \x01(\bR\x12invoicePushEnabled\x12,\n" +
@@ -1572,7 +1604,9 @@ const file_backend_proto_biz_v1_bexio_proto_rawDesc = "" +
 	"\x13total_quotes_mapped\x18\t \x01(\x05R\x11totalQuotesMapped\x12&\n" +
 	"\x0flast_sync_error\x18\n" +
 	" \x01(\tR\rlastSyncError\x12G\n" +
-	"\x12last_sync_error_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x0flastSyncErrorAt\"\x85\x03\n" +
+	"\x12last_sync_error_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x0flastSyncErrorAt\x120\n" +
+	"\x14invoice_pull_enabled\x18\f \x01(\bR\x12invoicePullEnabled\x12K\n" +
+	"\x14last_invoice_pull_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\x11lastInvoicePullAt\"\xfa\x03\n" +
 	"\x1cUpdateBexioSyncConfigRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x120\n" +
 	"\x14contact_sync_enabled\x18\x02 \x01(\bR\x12contactSyncEnabled\x12A\n" +
@@ -1580,7 +1614,9 @@ const file_backend_proto_biz_v1_bexio_proto_rawDesc = "" +
 	"\x14invoice_push_enabled\x18\x04 \x01(\bR\x12invoicePushEnabled\x12,\n" +
 	"\x12quote_push_enabled\x18\x05 \x01(\bR\x10quotePushEnabled\x120\n" +
 	"\x14payment_poll_enabled\x18\x06 \x01(\bR\x12paymentPollEnabled\x12A\n" +
-	"\x1dpayment_poll_interval_minutes\x18\a \x01(\x05R\x1apaymentPollIntervalMinutes\"9\n" +
+	"\x1dpayment_poll_interval_minutes\x18\a \x01(\x05R\x1apaymentPollIntervalMinutes\x120\n" +
+	"\x14invoice_pull_enabled\x18\b \x01(\bR\x12invoicePullEnabled\x12A\n" +
+	"\x1dinvoice_pull_interval_minutes\x18\t \x01(\x05R\x1ainvoicePullIntervalMinutes\"9\n" +
 	"\x1dUpdateBexioSyncConfigResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"M\n" +
 	"\x18ListBexioSyncLogsRequest\x12\x1b\n" +
@@ -1650,19 +1686,19 @@ const file_backend_proto_biz_v1_bexio_proto_rawDesc = "" +
 	"\x10PushQuoteToBexio\x12\x1f.biz.v1.PushQuoteToBexioRequest\x1a .biz.v1.PushQuoteToBexioResponseB-Z+github.com/kmuhub/kmuhub/proto/biz/v1;bizv1b\x06proto3"
 
 var (
-	file_backend_proto_biz_v1_bexio_proto_rawDescOnce sync.Once
-	file_backend_proto_biz_v1_bexio_proto_rawDescData []byte
+	file_proto_biz_v1_bexio_proto_rawDescOnce sync.Once
+	file_proto_biz_v1_bexio_proto_rawDescData []byte
 )
 
-func file_backend_proto_biz_v1_bexio_proto_rawDescGZIP() []byte {
-	file_backend_proto_biz_v1_bexio_proto_rawDescOnce.Do(func() {
-		file_backend_proto_biz_v1_bexio_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_backend_proto_biz_v1_bexio_proto_rawDesc), len(file_backend_proto_biz_v1_bexio_proto_rawDesc)))
+func file_proto_biz_v1_bexio_proto_rawDescGZIP() []byte {
+	file_proto_biz_v1_bexio_proto_rawDescOnce.Do(func() {
+		file_proto_biz_v1_bexio_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_biz_v1_bexio_proto_rawDesc), len(file_proto_biz_v1_bexio_proto_rawDesc)))
 	})
-	return file_backend_proto_biz_v1_bexio_proto_rawDescData
+	return file_proto_biz_v1_bexio_proto_rawDescData
 }
 
-var file_backend_proto_biz_v1_bexio_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
-var file_backend_proto_biz_v1_bexio_proto_goTypes = []any{
+var file_proto_biz_v1_bexio_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_proto_biz_v1_bexio_proto_goTypes = []any{
 	(*GetBexioAuthURLRequest)(nil),           // 0: biz.v1.GetBexioAuthURLRequest
 	(*GetBexioAuthURLResponse)(nil),          // 1: biz.v1.GetBexioAuthURLResponse
 	(*HandleBexioOAuthCallbackRequest)(nil),  // 2: biz.v1.HandleBexioOAuthCallbackRequest
@@ -1691,67 +1727,68 @@ var file_backend_proto_biz_v1_bexio_proto_goTypes = []any{
 	(*PushQuoteToBexioResponse)(nil),         // 25: biz.v1.PushQuoteToBexioResponse
 	(*timestamppb.Timestamp)(nil),            // 26: google.protobuf.Timestamp
 }
-var file_backend_proto_biz_v1_bexio_proto_depIdxs = []int32{
+var file_proto_biz_v1_bexio_proto_depIdxs = []int32{
 	26, // 0: biz.v1.GetBexioConnectionStatusResponse.connected_at:type_name -> google.protobuf.Timestamp
 	26, // 1: biz.v1.GetBexioSyncStatusResponse.last_contact_sync_at:type_name -> google.protobuf.Timestamp
 	26, // 2: biz.v1.GetBexioSyncStatusResponse.last_payment_poll_at:type_name -> google.protobuf.Timestamp
 	26, // 3: biz.v1.GetBexioSyncStatusResponse.last_sync_error_at:type_name -> google.protobuf.Timestamp
-	16, // 4: biz.v1.ListBexioSyncLogsResponse.entries:type_name -> biz.v1.BexioSyncLogEntry
-	26, // 5: biz.v1.BexioSyncLogEntry.started_at:type_name -> google.protobuf.Timestamp
-	26, // 6: biz.v1.BexioSyncLogEntry.completed_at:type_name -> google.protobuf.Timestamp
-	19, // 7: biz.v1.GetBexioFieldMappingsResponse.mappings:type_name -> biz.v1.BexioFieldMappingEntry
-	19, // 8: biz.v1.UpdateBexioFieldMappingsRequest.mappings:type_name -> biz.v1.BexioFieldMappingEntry
-	0,  // 9: biz.v1.BexioIntegrationService.GetBexioAuthURL:input_type -> biz.v1.GetBexioAuthURLRequest
-	2,  // 10: biz.v1.BexioIntegrationService.HandleBexioOAuthCallback:input_type -> biz.v1.HandleBexioOAuthCallbackRequest
-	4,  // 11: biz.v1.BexioIntegrationService.DisconnectBexio:input_type -> biz.v1.DisconnectBexioRequest
-	6,  // 12: biz.v1.BexioIntegrationService.GetBexioConnectionStatus:input_type -> biz.v1.GetBexioConnectionStatusRequest
-	8,  // 13: biz.v1.BexioIntegrationService.TriggerBexioSync:input_type -> biz.v1.TriggerBexioSyncRequest
-	10, // 14: biz.v1.BexioIntegrationService.GetBexioSyncStatus:input_type -> biz.v1.GetBexioSyncStatusRequest
-	12, // 15: biz.v1.BexioIntegrationService.UpdateBexioSyncConfig:input_type -> biz.v1.UpdateBexioSyncConfigRequest
-	14, // 16: biz.v1.BexioIntegrationService.ListBexioSyncLogs:input_type -> biz.v1.ListBexioSyncLogsRequest
-	17, // 17: biz.v1.BexioIntegrationService.GetBexioFieldMappings:input_type -> biz.v1.GetBexioFieldMappingsRequest
-	20, // 18: biz.v1.BexioIntegrationService.UpdateBexioFieldMappings:input_type -> biz.v1.UpdateBexioFieldMappingsRequest
-	22, // 19: biz.v1.BexioIntegrationService.PushInvoiceToBexio:input_type -> biz.v1.PushInvoiceToBexioRequest
-	24, // 20: biz.v1.BexioIntegrationService.PushQuoteToBexio:input_type -> biz.v1.PushQuoteToBexioRequest
-	1,  // 21: biz.v1.BexioIntegrationService.GetBexioAuthURL:output_type -> biz.v1.GetBexioAuthURLResponse
-	3,  // 22: biz.v1.BexioIntegrationService.HandleBexioOAuthCallback:output_type -> biz.v1.HandleBexioOAuthCallbackResponse
-	5,  // 23: biz.v1.BexioIntegrationService.DisconnectBexio:output_type -> biz.v1.DisconnectBexioResponse
-	7,  // 24: biz.v1.BexioIntegrationService.GetBexioConnectionStatus:output_type -> biz.v1.GetBexioConnectionStatusResponse
-	9,  // 25: biz.v1.BexioIntegrationService.TriggerBexioSync:output_type -> biz.v1.TriggerBexioSyncResponse
-	11, // 26: biz.v1.BexioIntegrationService.GetBexioSyncStatus:output_type -> biz.v1.GetBexioSyncStatusResponse
-	13, // 27: biz.v1.BexioIntegrationService.UpdateBexioSyncConfig:output_type -> biz.v1.UpdateBexioSyncConfigResponse
-	15, // 28: biz.v1.BexioIntegrationService.ListBexioSyncLogs:output_type -> biz.v1.ListBexioSyncLogsResponse
-	18, // 29: biz.v1.BexioIntegrationService.GetBexioFieldMappings:output_type -> biz.v1.GetBexioFieldMappingsResponse
-	21, // 30: biz.v1.BexioIntegrationService.UpdateBexioFieldMappings:output_type -> biz.v1.UpdateBexioFieldMappingsResponse
-	23, // 31: biz.v1.BexioIntegrationService.PushInvoiceToBexio:output_type -> biz.v1.PushInvoiceToBexioResponse
-	25, // 32: biz.v1.BexioIntegrationService.PushQuoteToBexio:output_type -> biz.v1.PushQuoteToBexioResponse
-	21, // [21:33] is the sub-list for method output_type
-	9,  // [9:21] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	26, // 4: biz.v1.GetBexioSyncStatusResponse.last_invoice_pull_at:type_name -> google.protobuf.Timestamp
+	16, // 5: biz.v1.ListBexioSyncLogsResponse.entries:type_name -> biz.v1.BexioSyncLogEntry
+	26, // 6: biz.v1.BexioSyncLogEntry.started_at:type_name -> google.protobuf.Timestamp
+	26, // 7: biz.v1.BexioSyncLogEntry.completed_at:type_name -> google.protobuf.Timestamp
+	19, // 8: biz.v1.GetBexioFieldMappingsResponse.mappings:type_name -> biz.v1.BexioFieldMappingEntry
+	19, // 9: biz.v1.UpdateBexioFieldMappingsRequest.mappings:type_name -> biz.v1.BexioFieldMappingEntry
+	0,  // 10: biz.v1.BexioIntegrationService.GetBexioAuthURL:input_type -> biz.v1.GetBexioAuthURLRequest
+	2,  // 11: biz.v1.BexioIntegrationService.HandleBexioOAuthCallback:input_type -> biz.v1.HandleBexioOAuthCallbackRequest
+	4,  // 12: biz.v1.BexioIntegrationService.DisconnectBexio:input_type -> biz.v1.DisconnectBexioRequest
+	6,  // 13: biz.v1.BexioIntegrationService.GetBexioConnectionStatus:input_type -> biz.v1.GetBexioConnectionStatusRequest
+	8,  // 14: biz.v1.BexioIntegrationService.TriggerBexioSync:input_type -> biz.v1.TriggerBexioSyncRequest
+	10, // 15: biz.v1.BexioIntegrationService.GetBexioSyncStatus:input_type -> biz.v1.GetBexioSyncStatusRequest
+	12, // 16: biz.v1.BexioIntegrationService.UpdateBexioSyncConfig:input_type -> biz.v1.UpdateBexioSyncConfigRequest
+	14, // 17: biz.v1.BexioIntegrationService.ListBexioSyncLogs:input_type -> biz.v1.ListBexioSyncLogsRequest
+	17, // 18: biz.v1.BexioIntegrationService.GetBexioFieldMappings:input_type -> biz.v1.GetBexioFieldMappingsRequest
+	20, // 19: biz.v1.BexioIntegrationService.UpdateBexioFieldMappings:input_type -> biz.v1.UpdateBexioFieldMappingsRequest
+	22, // 20: biz.v1.BexioIntegrationService.PushInvoiceToBexio:input_type -> biz.v1.PushInvoiceToBexioRequest
+	24, // 21: biz.v1.BexioIntegrationService.PushQuoteToBexio:input_type -> biz.v1.PushQuoteToBexioRequest
+	1,  // 22: biz.v1.BexioIntegrationService.GetBexioAuthURL:output_type -> biz.v1.GetBexioAuthURLResponse
+	3,  // 23: biz.v1.BexioIntegrationService.HandleBexioOAuthCallback:output_type -> biz.v1.HandleBexioOAuthCallbackResponse
+	5,  // 24: biz.v1.BexioIntegrationService.DisconnectBexio:output_type -> biz.v1.DisconnectBexioResponse
+	7,  // 25: biz.v1.BexioIntegrationService.GetBexioConnectionStatus:output_type -> biz.v1.GetBexioConnectionStatusResponse
+	9,  // 26: biz.v1.BexioIntegrationService.TriggerBexioSync:output_type -> biz.v1.TriggerBexioSyncResponse
+	11, // 27: biz.v1.BexioIntegrationService.GetBexioSyncStatus:output_type -> biz.v1.GetBexioSyncStatusResponse
+	13, // 28: biz.v1.BexioIntegrationService.UpdateBexioSyncConfig:output_type -> biz.v1.UpdateBexioSyncConfigResponse
+	15, // 29: biz.v1.BexioIntegrationService.ListBexioSyncLogs:output_type -> biz.v1.ListBexioSyncLogsResponse
+	18, // 30: biz.v1.BexioIntegrationService.GetBexioFieldMappings:output_type -> biz.v1.GetBexioFieldMappingsResponse
+	21, // 31: biz.v1.BexioIntegrationService.UpdateBexioFieldMappings:output_type -> biz.v1.UpdateBexioFieldMappingsResponse
+	23, // 32: biz.v1.BexioIntegrationService.PushInvoiceToBexio:output_type -> biz.v1.PushInvoiceToBexioResponse
+	25, // 33: biz.v1.BexioIntegrationService.PushQuoteToBexio:output_type -> biz.v1.PushQuoteToBexioResponse
+	22, // [22:34] is the sub-list for method output_type
+	10, // [10:22] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
-func init() { file_backend_proto_biz_v1_bexio_proto_init() }
-func file_backend_proto_biz_v1_bexio_proto_init() {
-	if File_backend_proto_biz_v1_bexio_proto != nil {
+func init() { file_proto_biz_v1_bexio_proto_init() }
+func file_proto_biz_v1_bexio_proto_init() {
+	if File_proto_biz_v1_bexio_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_backend_proto_biz_v1_bexio_proto_rawDesc), len(file_backend_proto_biz_v1_bexio_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_biz_v1_bexio_proto_rawDesc), len(file_proto_biz_v1_bexio_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_backend_proto_biz_v1_bexio_proto_goTypes,
-		DependencyIndexes: file_backend_proto_biz_v1_bexio_proto_depIdxs,
-		MessageInfos:      file_backend_proto_biz_v1_bexio_proto_msgTypes,
+		GoTypes:           file_proto_biz_v1_bexio_proto_goTypes,
+		DependencyIndexes: file_proto_biz_v1_bexio_proto_depIdxs,
+		MessageInfos:      file_proto_biz_v1_bexio_proto_msgTypes,
 	}.Build()
-	File_backend_proto_biz_v1_bexio_proto = out.File
-	file_backend_proto_biz_v1_bexio_proto_goTypes = nil
-	file_backend_proto_biz_v1_bexio_proto_depIdxs = nil
+	File_proto_biz_v1_bexio_proto = out.File
+	file_proto_biz_v1_bexio_proto_goTypes = nil
+	file_proto_biz_v1_bexio_proto_depIdxs = nil
 }

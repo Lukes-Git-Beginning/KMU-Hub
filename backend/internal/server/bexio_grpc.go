@@ -113,6 +113,10 @@ func (s *BexioGRPCServer) TriggerBexioSync(ctx context.Context, req *bizv1.Trigg
 		if _, err := s.bexioService.PollPayments(ctx, tenantID); err != nil {
 			return nil, mapBexioError(err)
 		}
+	case "invoices":
+		if _, err := s.bexioService.PullInvoices(ctx, tenantID); err != nil {
+			return nil, mapBexioError(err)
+		}
 	default:
 		if err := s.bexioService.TriggerSync(ctx, tenantID); err != nil {
 			return nil, mapBexioError(err)
@@ -152,6 +156,8 @@ func (s *BexioGRPCServer) UpdateBexioSyncConfig(ctx context.Context, req *bizv1.
 		QuotePushEnabled:       req.GetQuotePushEnabled(),
 		PaymentPollEnabled:     req.GetPaymentPollEnabled(),
 		PaymentPollIntervalMin: int(req.GetPaymentPollIntervalMinutes()),
+		InvoicePullEnabled:     req.GetInvoicePullEnabled(),
+		InvoicePullIntervalMin: int(req.GetInvoicePullIntervalMinutes()),
 	}
 
 	if err := s.bexioService.UpdateSyncConfig(ctx, update); err != nil {
@@ -322,6 +328,7 @@ func syncStatusToProto(s *models.BexioSyncStatus) *bizv1.GetBexioSyncStatusRespo
 		InvoicePushEnabled:  s.InvoicePushEnabled,
 		QuotePushEnabled:    s.QuotePushEnabled,
 		PaymentPollEnabled:  s.PaymentPollEnabled,
+		InvoicePullEnabled:  s.InvoicePullEnabled,
 		TotalContactsMapped: int32(s.TotalContactsMapped),
 		TotalInvoicesMapped: int32(s.TotalInvoicesMapped),
 		TotalQuotesMapped:   int32(s.TotalQuotesMapped),
@@ -332,6 +339,9 @@ func syncStatusToProto(s *models.BexioSyncStatus) *bizv1.GetBexioSyncStatusRespo
 	}
 	if s.LastPaymentPollAt != nil {
 		resp.LastPaymentPollAt = timestamppb.New(*s.LastPaymentPollAt)
+	}
+	if s.LastInvoicePullAt != nil {
+		resp.LastInvoicePullAt = timestamppb.New(*s.LastInvoicePullAt)
 	}
 	if s.LastSyncError != nil {
 		resp.LastSyncError = *s.LastSyncError
