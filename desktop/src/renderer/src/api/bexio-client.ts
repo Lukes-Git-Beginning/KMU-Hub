@@ -8,6 +8,7 @@
 import type {
   BexioConnectionStatus,
   BexioSyncStatus,
+  BexioSyncConfig,
   BexioSyncLogEntry,
   BexioFieldMappingEntry,
   BexioEntityType,
@@ -29,7 +30,7 @@ function request<T>(opts: { method: string; path: string; body?: unknown }): Pro
 export function getAuthorizationURL() {
   return request<{ authorization_url: string }>({
     method: 'GET',
-    path: '/api/v1/integrations/bexio/auth-url',
+    path: '/api/v1/integrations/bexio/oauth/authorize',
   })
 }
 
@@ -54,7 +55,7 @@ export function getConnectionStatus() {
 export function triggerSync(syncType?: string) {
   return request<{ sync_id: string }>({
     method: 'POST',
-    path: '/api/v1/integrations/bexio/sync',
+    path: '/api/v1/integrations/bexio/sync/trigger',
     body: syncType ? { sync_type: syncType } : undefined,
   })
 }
@@ -68,9 +69,17 @@ export function getSyncStatus() {
 
 export function listSyncLogs(limit?: number) {
   const params = limit ? `?limit=${limit}` : ''
-  return request<{ logs: BexioSyncLogEntry[] }>({
+  return request<BexioSyncLogEntry[]>({
     method: 'GET',
     path: `/api/v1/integrations/bexio/sync/logs${params}`,
+  })
+}
+
+export function updateSyncConfig(config: BexioSyncConfig) {
+  return request<void>({
+    method: 'PUT',
+    path: '/api/v1/integrations/bexio/sync/config',
+    body: config,
   })
 }
 

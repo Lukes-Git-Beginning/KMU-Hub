@@ -112,6 +112,10 @@ export interface Invoice {
   notes?: string
   created_at: string
   updated_at: string
+  /** Provenance: 'cosmi' (own GoBD number space) or 'bexio' (read-only mirror). */
+  source?: 'cosmi' | 'bexio'
+  external_id?: string
+  external_number?: string
 }
 
 export interface CreditNote {

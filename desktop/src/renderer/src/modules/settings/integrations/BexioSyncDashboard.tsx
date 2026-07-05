@@ -36,10 +36,7 @@ import {
   useBexioSyncLogs,
   useBexioTriggerSync,
 } from '@/api/hooks/useBexio'
-import type {
-  BexioEntitySyncStatus,
-  BexioSyncLogEntry,
-} from '@/api/bexio-types'
+import type { BexioSyncLogEntry } from '@/api/bexio-types'
 import { BexioFieldMappingEditor } from './BexioFieldMappingEditor'
 import { formatDate } from '@/lib/format'
 
@@ -71,23 +68,13 @@ export function BexioSyncDashboard({
     return () => clearInterval(interval)
   }, [isSyncing, refetchStatus])
 
-   
-  useEffect(() => {
-    if (!syncStatus) return
-    const anyRunning =
-      syncStatus.contact_sync?.status === 'running' ||
-      syncStatus.invoice_sync?.status === 'running' ||
-      syncStatus.quote_sync?.status === 'running' ||
-      syncStatus.payment_poll?.status === 'running'
-    if (!anyRunning && isSyncing) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
-      setIsSyncing(false)
-    }
-  }, [syncStatus, isSyncing])
-
   const handleSync = async () => {
     setIsSyncing(true)
-    await triggerSync.mutateAsync()
+    try {
+      await triggerSync.mutateAsync()
+    } finally {
+      setIsSyncing(false)
+    }
   }
 
   const handleDisconnect = async () => {
@@ -140,22 +127,28 @@ export function BexioSyncDashboard({
           <SyncStatusCard
             icon={<Users className="h-4 w-4" />}
             name={t('settings.integrations.bexio.sync.entityContacts')}
-            status={syncStatus?.contact_sync}
+            enabled={syncStatus?.contact_sync_enabled}
+            lastSyncAt={syncStatus?.last_contact_sync_at}
+            mappedCount={syncStatus?.total_contacts_mapped}
           />
           <SyncStatusCard
             icon={<FileText className="h-4 w-4" />}
             name={t('settings.integrations.bexio.sync.entityInvoices')}
-            status={syncStatus?.invoice_sync}
+            enabled={syncStatus?.invoice_pull_enabled}
+            lastSyncAt={syncStatus?.last_invoice_pull_at}
+            mappedCount={syncStatus?.total_invoices_mapped}
           />
           <SyncStatusCard
             icon={<Receipt className="h-4 w-4" />}
             name={t('settings.integrations.bexio.sync.entityQuotes')}
-            status={syncStatus?.quote_sync}
+            enabled={syncStatus?.quote_push_enabled}
+            mappedCount={syncStatus?.total_quotes_mapped}
           />
           <SyncStatusCard
             icon={<CreditCard className="h-4 w-4" />}
             name={t('settings.integrations.bexio.sync.entityPayments')}
-            status={syncStatus?.payment_poll}
+            enabled={syncStatus?.payment_poll_enabled}
+            lastSyncAt={syncStatus?.last_payment_poll_at}
           />
         </div>
 
@@ -241,6 +234,7 @@ function useSyncTypeLabels(): Record<string, string> {
     contact_full: t('settings.integrations.bexio.sync.syncTypeLabels.contactFull'),
     contact_delta: t('settings.integrations.bexio.sync.syncTypeLabels.contactDelta'),
     invoice_push: t('settings.integrations.bexio.sync.syncTypeLabels.invoicePush'),
+    invoice_pull: t('settings.integrations.bexio.sync.syncTypeLabels.invoicePull'),
     quote_push: t('settings.integrations.bexio.sync.syncTypeLabels.quotePush'),
     payment_poll: t('settings.integrations.bexio.sync.syncTypeLabels.paymentPoll'),
   }
@@ -249,21 +243,17 @@ function useSyncTypeLabels(): Record<string, string> {
 function SyncStatusCard({
   icon,
   name,
-  status,
+  enabled,
+  lastSyncAt,
+  mappedCount,
 }: {
   icon: React.ReactNode
   name: string
-  status?: BexioEntitySyncStatus
+  enabled?: boolean
+  lastSyncAt?: string
+  mappedCount?: number
 }) {
   const { t } = useTranslation()
-  const statusColor =
-    status?.status === 'running'
-      ? 'text-info'
-      : status?.status === 'completed'
-        ? 'text-success'
-        : status?.status === 'failed'
-          ? 'text-destructive'
-          : 'text-muted-foreground'
 
   return (
     <div className="rounded-md border border-border p-3 space-y-1">
@@ -272,37 +262,21 @@ function SyncStatusCard({
           <span className="text-muted-foreground">{icon}</span>
           <span className="text-sm font-medium">{name}</span>
         </div>
-        {status?.status === 'running' ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-info" />
-        ) : (
-          <span className={`text-xs ${statusColor}`}>
-            {status?.status === 'completed'
-              ? t('settings.integrations.bexio.sync.statusOk')
-              : status?.status === 'failed'
-                ? t('settings.integrations.bexio.sync.statusError')
-                : status?.status === 'running'
-                  ? t('settings.integrations.bexio.sync.statusRunning')
-                  : t('settings.integrations.bexio.sync.statusWaiting')}
-          </span>
-        )}
+        <span className={`text-xs ${enabled ? 'text-success' : 'text-muted-foreground'}`}>
+          {enabled
+            ? t('settings.integrations.bexio.sync.statusEnabled')
+            : t('settings.integrations.bexio.sync.statusDisabled')}
+        </span>
       </div>
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          {t('settings.integrations.bexio.sync.itemsSynced', {
-            count: status?.items_synced ?? 0,
-          })}
-          {(status?.items_failed ?? 0) > 0 && (
-            <span className="text-destructive ml-1">
-              ({t('settings.integrations.bexio.sync.itemsFailed', {
-                count: status!.items_failed,
-              })})
-            </span>
-          )}
+          {mappedCount !== undefined &&
+            t('settings.integrations.bexio.sync.itemsMapped', { count: mappedCount })}
         </span>
-        {status?.last_sync_at && (
+        {lastSyncAt && (
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatRelativeTime(status.last_sync_at, t)}
+            {formatRelativeTime(lastSyncAt, t)}
           </span>
         )}
       </div>

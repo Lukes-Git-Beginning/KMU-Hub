@@ -21,17 +21,19 @@ export interface BexioConnectionStatus {
 // ---------------------------------------------------------------------------
 
 export interface BexioSyncStatus {
-  contact_sync: BexioEntitySyncStatus
-  invoice_sync: BexioEntitySyncStatus
-  quote_sync: BexioEntitySyncStatus
-  payment_poll: BexioEntitySyncStatus
-}
-
-export interface BexioEntitySyncStatus {
-  last_sync_at?: string
-  items_synced: number
-  items_failed: number
-  status: 'idle' | 'running' | 'completed' | 'failed'
+  contact_sync_enabled: boolean
+  invoice_push_enabled: boolean
+  quote_push_enabled: boolean
+  payment_poll_enabled: boolean
+  invoice_pull_enabled: boolean
+  total_contacts_mapped: number
+  total_invoices_mapped: number
+  total_quotes_mapped: number
+  last_contact_sync_at?: string
+  last_payment_poll_at?: string
+  last_invoice_pull_at?: string
+  last_sync_error?: string
+  last_sync_error_at?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -44,6 +46,7 @@ export interface BexioSyncLogEntry {
     | 'contact_full'
     | 'contact_delta'
     | 'invoice_push'
+    | 'invoice_pull'
     | 'quote_push'
     | 'payment_poll'
   status: 'running' | 'completed' | 'failed' | 'partial'
@@ -80,6 +83,8 @@ export interface BexioSyncConfig {
   quote_push_enabled: boolean
   payment_poll_enabled: boolean
   payment_poll_interval_minutes: number
+  invoice_pull_enabled: boolean
+  invoice_pull_interval_minutes: number
 }
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,7 @@ import {
   useBexioConnectionStatus,
   useBexioTriggerSync,
   useBexioSyncStatus,
+  useBexioUpdateSyncConfig,
 } from '@/api/hooks/useBexio'
 import type { BexioSyncConfig } from '@/api/bexio-types'
 import { BexioFieldMappingEditor } from './BexioFieldMappingEditor'
@@ -63,6 +64,8 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
     quote_push_enabled: true,
     payment_poll_enabled: true,
     payment_poll_interval_minutes: 5,
+    invoice_pull_enabled: false,
+    invoice_pull_interval_minutes: 15,
   })
   const [syncTriggered, setSyncTriggered] = useState(false)
 
@@ -71,6 +74,7 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
     useBexioConnectionStatus()
   const triggerSync = useBexioTriggerSync()
   const { data: syncStatus } = useBexioSyncStatus(syncTriggered)
+  const updateConfig = useBexioUpdateSyncConfig()
 
   // Poll connection status while on step 1 waiting for OAuth
   const [polling, setPolling] = useState(false)
@@ -114,7 +118,12 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
     await triggerSync.mutateAsync()
   }
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    try {
+      await updateConfig.mutateAsync(syncConfig)
+    } catch {
+      // Error handled by hook toast
+    }
     onClose()
     // Reset wizard state
     setStep(1)
@@ -423,6 +432,44 @@ function StepSyncConfig({
             </select>
           </div>
         )}
+
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="text-sm font-medium">
+              {t('settings.integrations.bexio.setup.invoicePullLabel')}
+            </Label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {t('settings.integrations.bexio.setup.invoicePullHelp')}
+            </p>
+          </div>
+          <Switch
+            checked={config.invoice_pull_enabled}
+            onCheckedChange={(v) => update({ invoice_pull_enabled: v })}
+          />
+        </div>
+
+        {config.invoice_pull_enabled && (
+          <div className="ml-4 flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">
+              {t('settings.integrations.bexio.setup.intervalLabel')}
+            </Label>
+            <select
+              className="text-xs rounded-md border border-border bg-background px-2 py-1"
+              value={config.invoice_pull_interval_minutes}
+              onChange={(e) =>
+                update({
+                  invoice_pull_interval_minutes: Number(e.target.value),
+                })
+              }
+            >
+              {POLL_INTERVAL_OPTIONS.map((v) => (
+                <option key={v} value={v}>
+                  {t('settings.integrations.bexio.setup.minutesOption', { count: v })}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -452,9 +499,6 @@ function StepInitialSync({
   syncStatus?: import('@/api/bexio-types').BexioSyncStatus
 }) {
   const { t } = useTranslation()
-  const isRunning =
-    syncStatus?.contact_sync?.status === 'running' ||
-    syncStatus?.invoice_sync?.status === 'running'
 
   return (
     <div className="space-y-4">
@@ -478,7 +522,7 @@ function StepInitialSync({
         </Button>
       ) : (
         <div className="space-y-2">
-          {isRunning ? (
+          {isSyncing ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {t('settings.integrations.bexio.setup.syncRunning')}
@@ -490,27 +534,18 @@ function StepInitialSync({
                   {t('settings.integrations.bexio.setup.syncResult')}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {t(
-                    syncStatus.contact_sync.items_failed > 0
-                      ? 'settings.integrations.bexio.setup.syncResultContactsFailed'
-                      : 'settings.integrations.bexio.setup.syncResultContacts',
-                    {
-                      synced: syncStatus.contact_sync.items_synced,
-                      failed: syncStatus.contact_sync.items_failed,
-                    },
-                  )}
+                  {t('settings.integrations.bexio.setup.syncResultContacts', {
+                    synced: syncStatus.total_contacts_mapped,
+                  })}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {t(
-                    syncStatus.invoice_sync.items_failed > 0
-                      ? 'settings.integrations.bexio.setup.syncResultInvoicesFailed'
-                      : 'settings.integrations.bexio.setup.syncResultInvoices',
-                    {
-                      synced: syncStatus.invoice_sync.items_synced,
-                      failed: syncStatus.invoice_sync.items_failed,
-                    },
-                  )}
+                  {t('settings.integrations.bexio.setup.syncResultInvoices', {
+                    synced: syncStatus.total_invoices_mapped,
+                  })}
                 </p>
+                {syncStatus.last_sync_error && (
+                  <p className="text-xs text-destructive">{syncStatus.last_sync_error}</p>
+                )}
               </div>
             )
           )}

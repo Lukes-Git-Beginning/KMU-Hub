@@ -138,6 +138,7 @@ export function InvoiceDetailPanel({
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0)
   const remaining = Math.max(0, grossTotal - totalPaid)
   const isImmutable = invoice.status !== 'draft'
+  const isExternal = invoice.source === 'bexio'
   const linkedCreditNotes = (creditNotesData?.credit_notes ?? []).filter(
     (cn) => cn.original_invoice_id === invoice.id || cn.invoice_number === invoice.invoice_number,
   )
@@ -209,9 +210,16 @@ export function InvoiceDetailPanel({
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-base font-medium text-foreground font-mono">
-              {invoice.invoice_number}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-medium text-foreground font-mono">
+                {invoice.invoice_number}
+              </h3>
+              {isExternal && (
+                <span className="inline-flex items-center rounded bg-secondary px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+                  {t('finanzen.invoiceDetail.externalReadonlyBadge')}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {invoice.customer.name}
             </p>
@@ -246,6 +254,16 @@ export function InvoiceDetailPanel({
                 {t('finanzen.invoiceDetail.fromRecurring')}
               </span>
             )}
+          </div>
+        )}
+
+        {/* External read-only notice (Bexio invoice-pull mirror) */}
+        {isExternal && (
+          <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
+            <Info className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              {t('finanzen.invoiceDetail.externalReadonlyBanner')}
+            </span>
           </div>
         )}
 
@@ -550,7 +568,7 @@ export function InvoiceDetailPanel({
             <Download className="mr-1.5 h-3.5 w-3.5" />
             PDF
           </Button>
-          {invoice.status === 'draft' && (
+          {!isExternal && invoice.status === 'draft' && (
             <>
               <Button variant="outline" size="sm" onClick={onEdit}>
                 {t('common.edit')}
@@ -565,7 +583,7 @@ export function InvoiceDetailPanel({
               </Button>
             </>
           )}
-          {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+          {!isExternal && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
             <>
               <Button size="sm" onClick={onRecordPayment}>
                 <CreditCard className="mr-1.5 h-3.5 w-3.5" />

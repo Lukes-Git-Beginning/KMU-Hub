@@ -12,6 +12,7 @@ import * as bexioClient from '../bexio-client'
 import type {
   BexioFieldMappingEntry,
   BexioEntityType,
+  BexioSyncConfig,
 } from '../bexio-types'
 
 // ---------------------------------------------------------------------------
@@ -83,7 +84,6 @@ export function useBexioSyncLogs(limit = 20) {
   return useQuery({
     queryKey: bexioKeys.syncLogs(limit),
     queryFn: () => bexioClient.listSyncLogs(limit),
-    select: (data) => data.logs,
     staleTime: 15 * 1000,
   })
 }
@@ -102,6 +102,20 @@ export function useBexioTriggerSync() {
     },
     onError: () => {
       toast.error(i18next.t('api.bexio.error.syncStart'))
+    },
+  })
+}
+
+export function useBexioUpdateSyncConfig() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (config: BexioSyncConfig) => bexioClient.updateSyncConfig(config),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: bexioKeys.syncStatus() })
+      toast.success(i18next.t('api.bexio.configSaved'))
+    },
+    onError: () => {
+      toast.error(i18next.t('api.bexio.error.configSave'))
     },
   })
 }
