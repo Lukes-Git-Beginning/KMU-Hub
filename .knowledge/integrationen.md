@@ -1,6 +1,6 @@
 ---
 tags: [integrationen, bexio, lexware, livekit, plugin, wasm, brevo, smtp]
-updated: 2026-06-22
+updated: 2026-07-05
 ---
 # Externe Integrationen
 
@@ -21,8 +21,21 @@ Quelle: `.planning/bexio-scope-check.md`. Stand: G1–G5 + G10 zu, Integration t
 - **G3** `resolveContactBexioIDByEmail` (`contact_resolve.go`): echter CustomerEmail→Contact→Mapping-Lookup statt blind `mappings[0]`; bei 0/≥2 Mappings ohne CRM expliziter Error statt Raten — verhinderte falsche Rechnungs-/Angebots-Empfänger
 - **G10** Sync-Kern getestet (Coverage 28%→42%): ContactSyncer/Invoice-/Quote-Push/PaymentPoller/TokenManager inkl. Idempotenz-Beweisen
 - **Offen (minor):** G4 RevokeTokens-Vault-Orphan, G6 kein HTTP-Config-Endpoint, G7 org_name nie befüllt, G8 Scheduler single-tenant, G9 kein Feature-Flag-Registry-Eintrag/First-Full-Sync
-- **Offene PRODUKT-Entscheidung (G12):** Invoice-Pull Bexio→Cosmi bidirektional oder nur Push+PaymentPoller? Mit Darien vor Bexio-Welle-7 klären
+- **G12 ENTSCHIEDEN (2026-07-05):** Invoice-Pull = **Read-only Spiegel** (NICHT voll bidirektional), Delta-forward (keine Historie). Details unten unter „Welle 3b". Darien-GoBD-Gegenzeichnung noch offen.
 - **Follow-up:** `*Client` ist konkreter Typ → API-Fehler-Tests laufen über echten Retry-Backoff (bexio-Package-Test ~28s); ein Client-Interface würde Mocking erlauben
+
+### Welle 3b — Invoice-Pull Bexio→Cosmi (Read-only Spiegel, ab 2026-07-05)
+Produktentscheidung (mit User; Darien-GoBD-Gegenzeichnung offen): aus Bexio importierte Rechnungen sind in Cosmi **unveränderliche Spiegel** (`source='bexio'`), **kein** Rück-Sync; Delta-forward (Cursor = Verbindungszeitpunkt, keine Historie). Grund: GoBD-sauber — Bexio bleibt Buch-der-Wahrheit für seine Rechnungen, kein Zwei-Bücher-Problem, kein Nummernkreis-Konflikt (importierte Rechnungen laufen **nie** durch `Send()`/`NextNumberInTx`; sonst verfälscht `GapsDetected` in `service_gobd.go`).
+- **Polling, kein Webhook:** Bexio hat keine Webhook-API (Code-Grep leer). Pull folgt dem `ListContacts(updatedSince)`-Delta-Muster (`updated_from` auf `kb_invoice`), NICHT dem Payment-Poll-Vollscan.
+- **Loop-Prevention über `source`-Flag:** der Pull überschreibt nie eine `source='cosmi'`-Rechnung (Skip bei Mapping auf Cosmi-origin). LWW via Timestamp in `bexio_entity_mappings` (`sync_direction='inbound'`, im Schema bereits vorhanden).
+- **G6/G9 aus der Härtungs-Liste sind VERALTET:** `PUT /sync/config` existiert (`route_bexio.go`, G6 falsch); `integrations.bexio`-Flag existiert (`featureflag/registry.go:97`, G9 falsch). **G8 real & offen:** Scheduler löst Config via `Service.getConfigID(ctx)` ohne tenantID unter System-Context (RLS-Bypass) auf → bei >1 Bexio-Tenant falsche Config; der Pull-Loop MUSS `configID` explizit durchreichen (Fix in Phase 2).
+
+**Stand Phase 0+1 (✅ gepusht + CD-deployt, Prod-Kopf 243):**
+- Migration **000243**: `finance_invoices` +`source`('cosmi'-Default)/`external_id`/`external_number` + Partial-Unique-Dedup-Index `(tenant_id,source,external_id) WHERE external_id IS NOT NULL`; `bexio_sync_configs` +`invoice_pull_enabled`/`_interval_minutes`/`last_invoice_pull_at`; `bexio_sync_log`-CHECK +`invoice_pull`.
+- `bexio.Client.ListInvoices(updatedSince)` (`invoices.go`) + Reverse-Mapper `FieldMapper.MapInvoiceToKMUHub` (`field_mapper.go`) → `models.ImportedInvoiceInput` (DTO in `models`, damit `invoice`-Paket es ohne bexio-Import konsumiert). Tax-Rate + Währungs-Reverse `lean:`-markiert.
+- `invoice.Service.UpsertImported` — GoBD-konformer Importpfad: umgeht `Create`/`Send`/`NextNumberInTx`, idempotenter Upsert per `(tenant_id,source,external_id)` (ON CONFLICT), Line-Items verbatim (kein Recalc). Read-only-Guard `ErrExternalReadOnly` auf Update/Send/MarkPaid/Cancel/LockInvoice. GoBD-Journal (`CountByFiscalYear`=Gap-Detection, `ListForGoBDExport`, `ListForDATEVExport`, `GetOverdue`) filtert `source='cosmi'`. Repo-Reads über geteilte `invoiceColumns`-Konstante (Scan-Reihenfolge fix). Integrationstest gegen echtes PG16 (Upsert-Roundtrip + Line-Replace + Provenance).
+
+**Offen Phase 2+ (neues Fenster, Worktree-Subagenten-Orchestrierung):** `invoice_pull.go`-Puller (Vorbild `ContactSyncer.syncInbound`), `InvoiceImporter`-Wiring in `cmd/biz/main.go`, Scheduler-3.-Ticker + **G8-Fix**, Cursor-Init bei Toggle-On; Proto-Regen `bexio.proto` (⚠ `make proto-biz` deckt bexio.proto NICHT ab → voller `protoc`-Befehl) + FE-Toggle (`BexioSetupWizard` `StepSyncConfig`) + Dashboard-Karte + Read-only-Badge; FE/BE-Pfad-Drift `bexio-client.ts` (`/auth-url` vs `/oauth/authorize`) mit-fixen. Plan: `~/.claude/plans/wir-machen-uns-an-floating-galaxy.md`.
 
 ## Lexware (API Key)
 - Contact-Sync (Cosmi → Lexware)
