@@ -28,6 +28,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/crm/search"
 	"github.com/kmuhub/kmuhub/internal/crm/tag"
 	"github.com/kmuhub/kmuhub/internal/database"
+	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -112,6 +113,13 @@ func main() {
 	advisoryRepo := advisoryprotocol.NewPostgresRepository(pool)
 	advisoryService := advisoryprotocol.NewService(advisoryRepo)
 	crmGRPC.SetAdvisoryProtocolService(advisoryService)
+
+	// Contact import/export/visibility (nil ContactProvider is safe here: the singleton only
+	// gates "configured" checks + PreviewCSV; real RPCs build a tenant-scoped adapter per request).
+	importService := emailcontact.NewImportService(nil, slog.Default())
+	exportService := emailcontact.NewExportService(nil, slog.Default())
+	visibilityService := emailcontact.NewVisibilityService(contactService, slog.Default())
+	crmGRPC.SetImportExportServices(importService, exportService, visibilityService)
 
 	crmv1.RegisterCRMServiceServer(grpcServer, crmGRPC)
 

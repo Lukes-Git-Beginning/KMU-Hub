@@ -20,7 +20,7 @@ export async function previewImportCSV(file: File): Promise<ImportPreview> {
   formData.append('file', file)
   return authenticatedRequest<ImportPreview>({
     method: 'POST',
-    path: '/api/v1/crm/contacts/import/preview',
+    path: '/api/v1/contacts/import/preview',
     body: formData,
   })
 }
@@ -39,7 +39,7 @@ export async function importContactsCSV(
   formData.append('merge_by_email', String(mergeByEmail))
   return authenticatedRequest<ImportResult>({
     method: 'POST',
-    path: '/api/v1/crm/contacts/import/csv',
+    path: '/api/v1/contacts/import/csv',
     body: formData,
   })
 }
@@ -56,7 +56,7 @@ export async function importContactsVCard(
   formData.append('merge_by_email', String(mergeByEmail))
   return authenticatedRequest<ImportResult>({
     method: 'POST',
-    path: '/api/v1/crm/contacts/import/vcard',
+    path: '/api/v1/contacts/import/vcard',
     body: formData,
   })
 }
@@ -72,7 +72,7 @@ export async function exportContactsCSV(
 ): Promise<Blob> {
   const response = await authenticatedBlobRequest({
     method: 'POST',
-    path: '/api/v1/crm/contacts/export/csv',
+    path: '/api/v1/contacts/export/csv',
     body: { contact_ids: contactIds, fields },
   })
 
@@ -91,7 +91,7 @@ export async function exportContactsCSV(
 export async function exportContactsVCard(contactIds: string[]): Promise<Blob> {
   const response = await authenticatedBlobRequest({
     method: 'POST',
-    path: '/api/v1/crm/contacts/export/vcard',
+    path: '/api/v1/contacts/export/vcard',
     body: { contact_ids: contactIds },
   })
 
@@ -117,7 +117,7 @@ export async function updateContactVisibility(
 ): Promise<void> {
   await authenticatedRequest<void>({
     method: 'PUT',
-    path: `/api/v1/crm/contacts/${contactId}/visibility`,
+    path: `/api/v1/contacts/${contactId}/visibility`,
     body: { visibility },
   })
 }
