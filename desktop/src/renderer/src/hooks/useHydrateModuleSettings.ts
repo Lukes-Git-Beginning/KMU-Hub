@@ -7,6 +7,12 @@ import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { useZeiterfassungPrefsStore } from '@/stores/zeiterfassungPrefs'
 import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
+import { useWorkPrefsStore } from '@/stores/workPrefs'
+import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
+import { useFinanceTenantStore } from '@/stores/financeTenant'
+import { useWikiSettingsStore } from '@/stores/wikiSettings'
+import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
+import { useZeiterfassungSettingsStore } from '@/stores/zeiterfassungSettings'
 
 /**
  * Central settings hydrator (X-4 settings rollout).
@@ -18,10 +24,16 @@ import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
  * stores render their localStorage values immediately and patch in the server
  * value when it arrives.
  *
+ * Both user-scope (per-user prefs) and tenant-scope (module-lead settings) stores
+ * are hydrated here: the tenant GET is a read any authenticated user may do (they
+ * need the tenant defaults); only the write-through is role-gated server-side.
+ *
  * To add a new backend-persisted preference store: convert it to the reference
- * pattern (stores/crmPrefs.ts) and register its initFromServer below.
+ * pattern (stores/crmPrefs.ts for user scope, stores/financeTenant.ts for tenant
+ * scope) and register its initFromServer below.
  */
 const HYDRATORS: Array<() => Promise<void>> = [
+  // user scope (per-user preferences)
   () => useCrmPrefsStore.getState().initFromServer(),
   () => useFinancePrefsStore.getState().initFromServer(),
   () => useTeamPrefsStore.getState().initFromServer(),
@@ -30,6 +42,13 @@ const HYDRATORS: Array<() => Promise<void>> = [
   () => useZeiterfassungPrefsStore.getState().initFromServer(),
   () => useWikiPrefsStore.getState().initFromServer(),
   () => useDokumentePrefsStore.getState().initFromServer(),
+  () => useWorkPrefsStore.getState().initFromServer(),
+  () => useVertraegePrefsStore.getState().initFromServer(),
+  // tenant scope (module-lead / admin settings — read for all, write role-gated)
+  () => useFinanceTenantStore.getState().initFromServer(),
+  () => useWikiSettingsStore.getState().initFromServer(),
+  () => useDashboardSettingsStore.getState().initFromServer(),
+  () => useZeiterfassungSettingsStore.getState().initFromServer(),
 ]
 
 export function useHydrateModuleSettings(): void {
