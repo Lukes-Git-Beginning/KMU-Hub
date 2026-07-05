@@ -1,4 +1,21 @@
-# RESUME — nächster Einstieg (Stand 2026-06-28, Session-Ende #5)
+# RESUME — nächster Einstieg (Stand 2026-07-05, Session-Ende #6)
+
+> **★★★★★ SESSION-ENDE 2026-07-05 #6 — main `b5e3ec55` (alles gepusht, CI+CD grün, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Diese Session (#6): Lukes 07-05-Quick-Win-Welle verifiziert + X-4-Settings-Rest fertig gebaut.**
+> 1. **CRM Kontakt-CSV-Import echt-verifiziert — 2 mock-verdeckte Bugs gefunden+gefixt (`ea1748a5`):** (a) **Wire-Contract-Mismatch** — FE sendete Field-Mapping als JSON-Feld `field_mapping`, Gateway erwartet `map_<spalte>=<feld>`-Formularfelder → **jede** Zeile geskippt (`imported_count:0`). FE sendet jetzt `map_*`. (b) **Auto-Detection** `knownMappings` kannte `first_name`/`last_name` (Unterstrich) nicht → Export→Import-Round-Trip erkannte Namen nicht; ergänzt. Live end-to-end (Preview/Import/Export CSV+vCard/Visibility gegen echtes crm) verifiziert. **GAP→Luke:** company beim Import ignoriert + Export leer (Round-Trip).
+> 2. **Video Incoming-Call/Decline (`44b23e77`) — Code-Review sauber, kein Bug.** Backend-Round-Trip komplett (`videoWSAdapter.NotifyCallDeclined`→EndCall+BroadcastCallEnded). Nicht live-2-Client getestet. **→Luke:** `caller_name`-Lookup im `call.incoming`-Broadcast (FE fällt auf ID zurück).
+> 3. **Dunning-Mahnung E-Mail+PDF (`273f1b6b`) — live verifiziert** (create→send→PDF gegen biz/minio, SMTP graceful suppressed, Log bestätigt). **→Luke (Prod-Risiko):** Mail-Send ist **fatal** bei konfiguriertem Mailer + braucht Company-Settings → Tenant ohne Settings bekäme 500. Non-fatal machen erwägen.
+> 4. **X-4 Settings-Rest FERTIG (`b5e3ec55`):** 6 Stores backend-persistiert nach crmPrefs-Muster + im zentralen `useHydrateModuleSettings` registriert. **user:** workPrefs, vertraegePrefs. **tenant** (read alle, write role-gated): financeTenant, wikiSettings, dashboardSettings, zeiterfassungSettings. Runtime-verifiziert (`scripts/qa-x4-rest-hydrator.mjs`: alle 6 hydratisieren Server-Werte nach localStorage-Default-Seed+Login). **→ X-4 self-doable KOMPLETT.** Offen X-4 = nur Welle-2-Reste: gemischte Store-Splits (dialer/automatisierung/berichte/mail/formulare-Prefs) + groß (payrollSettings/workSettings, Backend teils fehlt).
+>
+> **★ PUSH-MODE (Darien 07-05):** pro verifiziertem Modul auf main → **Auto-Deploy live**. Vor jedem Push CI-grün (eslint geänderte Dateien + scoped tsc + qa). backend-gaps.md 07-05-Block gepflegt.
+> **★ DOCKER-REALITÄT:** postgres ist jetzt **custom-Image** (pgvector+pg_cron, `deploy/docker/postgres/Dockerfile`, Migr. 242) → muss **gebaut** werden (`--no-build` schlägt fehl mit „No such image"). Diese Session neu gebaut (waren stale nach Lukes Pull): postgres, crm, gateway, biz, migrate. Stack healthy: postgres/redis/auth/crm/gateway/minio/biz/work. Bringup: `--no-deps --no-build` (OOM!), Login `demo@local.test`/`Demo1234!`. PUT-Settings brauchen Idempotency-Key (setzt `authenticatedRequest` autom.).
+> **★ NÄCHSTE UNIT (Vorschlag):** Welle 2 — **admin Demo-Tiefe** + **settings-Lücken (P2)** + **gemischte X-4 Store-Splits** + **Demo-Tiefe-Phasen** (notifications/formulare/dialer/video) · ODER **Welle 3 Onboarding/Info-Center** (reines FE, `§1.2`). Luke-gebunden bleibt: security-DSGVO-Echt-Schaltung, mails-IMAP, admin-Backend (Invite/RBAC/License/S3).
+>
+> ---
+> _(Historie #5 folgt)_
+
+# RESUME — Historie (Stand 2026-06-28, Session-Ende #5)
 
 > **★★★★ SESSION-ENDE 2026-06-28 #5 — main `31330bb2` (alles gepusht, CI grün, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >

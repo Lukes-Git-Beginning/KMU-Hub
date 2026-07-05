@@ -237,7 +237,8 @@ finanzen P3–P5 (DATEV/E-Rechnung/Banking — eher seriell, ein Modul) · die �
 | 📦 **eigener Block → an Luke delegiert** | **security/DSGVO** (Backend verifiziert echt ~25 Endpoints; FE S-1…S-5 mock-fertig. Echt-Schaltung = eigener Batch wegen Umfang [10 Tabs] + heikle Lösch-/Vault-Pfade → Luke. Paket: `.planning/security-echtschaltung-luke.md`) |
 | 🔒 **echt-Schaltung wartet auf Luke-Backend** | **mails** (IMAP/SMTP) |
 | ✅ **FE-mock-first gebaut, Echt-Schaltung wartet auf Luke** | **admin** (A-1…A-5 — Benutzer/RBAC/Lizenz/Branding; Auth-Invite/RBAC-Persist Backend offen) |
-| 🔧 **self-doable Rest** | **X-4 Settings-Rest** (tenant-Settings 4 + workPrefs/vertraegePrefs; 8 personal-Prefs + Hydrator ✅ 28.06.) · team/profil (Teil-Schaltung, gemischt) |
+| ✅ **X-4 Settings self-doable KOMPLETT (07-05, `b5e3ec55`)** | 8 personal-Prefs + Hydrator (28.06.) **+ 6 Rest-Stores (07-05):** user workPrefs/vertraegePrefs · tenant financeTenant/wikiSettings/dashboardSettings/zeiterfassungSettings. Runtime-verifiziert. Offen X-4 = nur Welle 2: gemischte Store-Splits (dialer/automatisierung/berichte/mail/formulare) + workSettings/payrollSettings (Backend teils fehlt) |
+| 🔧 **self-doable Rest** | team/profil (Teil-Schaltung, gemischt) · Welle-2-Demo-Tiefe (notifications/formulare/dialer/video) |
 | ⬜ **noch bauen** (Wellen 2–5) | formulare/video (Demo-Tiefe) · settings (Lücken) · Onboarding/Info-Center · Branchen ×7 (Tiefe) · finanzen P3–5 |
 
 **Review-Abnahme (Welle 6):** aufgeteilt — jeder klickt das Modul durch, macht Screenshots + Notizen, passt an (tote Buttons, Detail-Views, leere Zustände, Raw-Keys, Umlaute, Style), bis es **abgenommen** ist. Haken in §2/§3.
