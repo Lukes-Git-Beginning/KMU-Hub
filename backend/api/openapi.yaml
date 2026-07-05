@@ -23696,7 +23696,7 @@ paths:
               properties:
                 sync_type:
                   type: string
-                  description: "\"contacts\", \"payments\", or omitted/empty for all"
+                  description: "\"contacts\", \"payments\", \"invoices\", or omitted/empty for all"
       responses:
         "202":
           description: Sync accepted
@@ -23734,11 +23734,13 @@ paths:
                   invoice_push_enabled: { type: boolean }
                   quote_push_enabled: { type: boolean }
                   payment_poll_enabled: { type: boolean }
+                  invoice_pull_enabled: { type: boolean, description: "Read-only invoice mirror (Bexio -> Cosmi) enabled" }
                   total_contacts_mapped: { type: integer, format: int32 }
                   total_invoices_mapped: { type: integer, format: int32 }
                   total_quotes_mapped: { type: integer, format: int32 }
                   last_contact_sync_at: { type: string, format: date-time, description: "Present only once a contact sync has run" }
                   last_payment_poll_at: { type: string, format: date-time, description: "Present only once a payment poll has run" }
+                  last_invoice_pull_at: { type: string, format: date-time, description: "Present only once an invoice pull has run" }
                   last_sync_error: { type: string, description: "Present only when the last sync attempt failed" }
                   last_sync_error_at: { type: string, format: date-time, description: "Present only when the last sync attempt failed" }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -23764,6 +23766,8 @@ paths:
                 quote_push_enabled: { type: boolean }
                 payment_poll_enabled: { type: boolean }
                 payment_poll_interval_minutes: { type: integer, format: int32 }
+                invoice_pull_enabled: { type: boolean }
+                invoice_pull_interval_minutes: { type: integer, format: int32 }
       responses:
         "200":
           description: Sync config updated
