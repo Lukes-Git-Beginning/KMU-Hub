@@ -31,6 +31,20 @@ type querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
+// invoiceColumns is the shared finance_invoices projection for all read queries, kept
+// in one place so it never drifts from the scanInvoice/scanInvoiceFromRows order. Ends
+// with the provenance columns from Migration 000243 (source/external_id/external_number).
+const invoiceColumns = "id, tenant_id, invoice_number, status, " +
+	"customer_name, customer_address, customer_email, customer_ust_id_nr, " +
+	"company_snapshot, tax_mode, tax_breakdown, " +
+	"subtotal, total_tax, gross_total, " +
+	"invoice_date, delivery_date, due_date, payment_terms, " +
+	"snapshot_data, source_quote_id, notes, " +
+	"zugferd_profile, time_tracking_source, locked_at, locked_by, " +
+	"contact_id, " +
+	"created_by, created_at, updated_at, currency, " +
+	"source, external_id, external_number"
+
 func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -81,19 +95,81 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 	return tx.Commit(ctx)
 }
 
+// UpsertImported inserts or updates a read-only imported invoice keyed by
+// (tenant_id, source, external_id). It never touches finance_number_sequences — the
+// invoice keeps its external number. Line items are replaced (delete + re-insert),
+// mirroring UpdateInTx. inv.ID is overwritten with the canonical row id so the line
+// insert targets the right invoice on conflict.
+func (r *PostgresRepository) UpsertImported(ctx context.Context, inv *models.Invoice) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var rowID uuid.UUID
+	err = tx.QueryRow(ctx,
+		`INSERT INTO finance_invoices (
+			id, tenant_id, invoice_number, status,
+			customer_name, customer_address, customer_email,
+			tax_mode, subtotal, total_tax, gross_total,
+			invoice_date, due_date, payment_terms, notes,
+			contact_id, created_by, created_at, updated_at, currency,
+			source, external_id, external_number
+		) VALUES (
+			$1, $2, $3, $4,
+			$5, $6, $7,
+			$8, $9, $10, $11,
+			$12, $13, $14, $15,
+			$16, $17, $18, $19, $20,
+			$21, $22, $23
+		)
+		ON CONFLICT (tenant_id, source, external_id) WHERE external_id IS NOT NULL
+		DO UPDATE SET
+			invoice_number = EXCLUDED.invoice_number,
+			status = EXCLUDED.status,
+			customer_name = EXCLUDED.customer_name,
+			customer_address = EXCLUDED.customer_address,
+			customer_email = EXCLUDED.customer_email,
+			subtotal = EXCLUDED.subtotal,
+			total_tax = EXCLUDED.total_tax,
+			gross_total = EXCLUDED.gross_total,
+			invoice_date = EXCLUDED.invoice_date,
+			due_date = EXCLUDED.due_date,
+			contact_id = EXCLUDED.contact_id,
+			currency = EXCLUDED.currency,
+			external_number = EXCLUDED.external_number,
+			updated_at = EXCLUDED.updated_at
+		RETURNING id`,
+		inv.ID, inv.TenantID, inv.InvoiceNumber, inv.Status,
+		inv.CustomerName, inv.CustomerAddress, inv.CustomerEmail,
+		inv.TaxMode, inv.Subtotal, inv.TotalTax, inv.GrossTotal,
+		inv.InvoiceDate, inv.DueDate, inv.PaymentTerms, inv.Notes,
+		inv.ContactID, inv.CreatedBy, inv.CreatedAt, inv.UpdatedAt, inv.Currency,
+		inv.Source, inv.ExternalID, inv.ExternalNumber,
+	).Scan(&rowID)
+	if err != nil {
+		return fmt.Errorf("upsert imported invoice: %w", err)
+	}
+	inv.ID = rowID
+
+	// Replace line items for the canonical row (delete + re-insert, like UpdateInTx).
+	if _, err = tx.Exec(ctx,
+		`DELETE FROM finance_invoice_lines WHERE invoice_id = $1 AND tenant_id = $2`,
+		inv.ID, inv.TenantID,
+	); err != nil {
+		return fmt.Errorf("delete imported invoice lines: %w", err)
+	}
+	if err = r.insertInvoiceLines(ctx, tx, inv); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, invoice_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			invoice_date, delivery_date, due_date, payment_terms,
-			snapshot_data, source_quote_id, notes,
-			zugferd_profile, time_tracking_source, locked_at, locked_by,
-			contact_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_invoices
-		WHERE tenant_id = $1 AND id = $2`,
+		"SELECT "+invoiceColumns+" FROM finance_invoices WHERE tenant_id = $1 AND id = $2",
 		tenantID, id,
 	)
 	inv, err := r.scanInvoice(row)
@@ -174,20 +250,10 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 	}
 
 	// Query with pagination
-	query := fmt.Sprintf(`
-		SELECT id, tenant_id, invoice_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			invoice_date, delivery_date, due_date, payment_terms,
-			snapshot_data, source_quote_id, notes,
-			zugferd_profile, time_tracking_source, locked_at, locked_by,
-			contact_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_invoices %s
-		ORDER BY created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, argNum, argNum+1)
+	query := fmt.Sprintf(
+		"SELECT %s FROM finance_invoices %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d",
+		invoiceColumns, whereClause, argNum, argNum+1,
+	)
 
 	args = append(args, limit, filter.Offset)
 
@@ -324,18 +390,9 @@ func (r *PostgresRepository) SetLock(ctx context.Context, tenantID, id uuid.UUID
 // GetOverdue returns all sent invoices past their due date for a tenant.
 func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]*models.Invoice, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, invoice_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			invoice_date, delivery_date, due_date, payment_terms,
-			snapshot_data, source_quote_id, notes,
-			zugferd_profile, time_tracking_source, locked_at, locked_by,
-			contact_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_invoices
-		WHERE tenant_id = $1 AND status = 'sent' AND due_date < NOW()
-		ORDER BY due_date ASC`,
+		"SELECT "+invoiceColumns+" FROM finance_invoices "+
+			"WHERE tenant_id = $1 AND status = 'sent' AND due_date < NOW() AND source = 'cosmi' "+
+			"ORDER BY due_date ASC",
 		tenantID,
 	)
 	if err != nil {
@@ -380,17 +437,7 @@ func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID)
 
 func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, invoice_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			invoice_date, delivery_date, due_date, payment_terms,
-			snapshot_data, source_quote_id, notes,
-			zugferd_profile, time_tracking_source, locked_at, locked_by,
-			contact_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_invoices
-		WHERE tenant_id = $1 AND source_quote_id = $2`,
+		"SELECT "+invoiceColumns+" FROM finance_invoices WHERE tenant_id = $1 AND source_quote_id = $2",
 		tenantID, quoteID,
 	)
 	inv, err := r.scanInvoice(row)
@@ -460,6 +507,7 @@ func (r *PostgresRepository) CountByFiscalYear(ctx context.Context, tenantID uui
 		WHERE tenant_id = $1
 		  AND status != 'draft'
 		  AND invoice_number != ''
+		  AND source = 'cosmi'
 		  AND EXTRACT(YEAR FROM invoice_date) = $2`,
 		tenantID, year,
 	).Scan(&count)
@@ -517,22 +565,10 @@ func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID
 // ordered by invoice_number for gap-free journal verification.
 func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, invoice_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			invoice_date, delivery_date, due_date, payment_terms,
-			snapshot_data, source_quote_id, notes,
-			zugferd_profile, time_tracking_source, locked_at, locked_by,
-			contact_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_invoices
-		WHERE tenant_id = $1
-		  AND status != 'draft'
-		  AND invoice_number != ''
-		  AND invoice_date >= $2
-		  AND invoice_date <= $3
-		ORDER BY invoice_number ASC`,
+		"SELECT "+invoiceColumns+" FROM finance_invoices "+
+			"WHERE tenant_id = $1 AND status != 'draft' AND invoice_number != '' "+
+			"AND source = 'cosmi' AND invoice_date >= $2 AND invoice_date <= $3 "+
+			"ORDER BY invoice_number ASC",
 		tenantID, fromDate, toDate,
 	)
 	if err != nil {
@@ -588,22 +624,13 @@ func (r *PostgresRepository) ListForDATEVExport(ctx context.Context, tenantID uu
 	}
 	args = append(args, limit)
 
-	query := fmt.Sprintf(`SELECT id, tenant_id, invoice_number, status,
-			customer_name, customer_address, customer_email, customer_ust_id_nr,
-			company_snapshot, tax_mode, tax_breakdown,
-			subtotal, total_tax, gross_total,
-			invoice_date, delivery_date, due_date, payment_terms,
-			snapshot_data, source_quote_id, notes,
-			zugferd_profile, time_tracking_source, locked_at, locked_by,
-			contact_id,
-			created_by, created_at, updated_at, currency
-		FROM finance_invoices
-		WHERE tenant_id = $1
-		  AND status IN ('sent', 'paid', 'overdue')
-		  AND invoice_date >= $2
-		  AND invoice_date <= $3%s
-		ORDER BY invoice_date ASC, id ASC
-		LIMIT $%d`, cursorClause, len(args))
+	query := fmt.Sprintf(
+		"SELECT %s FROM finance_invoices "+
+			"WHERE tenant_id = $1 AND status IN ('sent', 'paid', 'overdue') AND source = 'cosmi' "+
+			"AND invoice_date >= $2 AND invoice_date <= $3%s "+
+			"ORDER BY invoice_date ASC, id ASC LIMIT $%d",
+		invoiceColumns, cursorClause, len(args),
+	)
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -667,6 +694,7 @@ func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {
 		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.ContactID,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt, &inv.Currency,
+		&inv.Source, &inv.ExternalID, &inv.ExternalNumber,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInvoiceNotFound
@@ -694,6 +722,7 @@ func (r *PostgresRepository) scanInvoiceFromRows(rows pgx.Rows) (*models.Invoice
 		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.ContactID,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt, &inv.Currency,
+		&inv.Source, &inv.ExternalID, &inv.ExternalNumber,
 	)
 	if err != nil {
 		return nil, err

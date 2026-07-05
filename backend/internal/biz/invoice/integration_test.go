@@ -124,6 +124,93 @@ func countLineRows(t *testing.T, superPool *pgxpool.Pool, invoiceID uuid.UUID) i
 // Tests
 // ============================================================================
 
+// TestUpsertImportedRoundtrip verifies the read-only Bexio import path against real
+// Postgres: insert with provenance, read-back, and an idempotent update on re-pull
+// (same external_id → one row, replaced lines, no RE-number sequence involved).
+func TestUpsertImportedRoundtrip(t *testing.T) {
+	appPool, superURL := pgtc.StartPostgres(t)
+	superPool := pgtc.SuperPool(t, superURL)
+	t.Cleanup(superPool.Close)
+	tenantID := uuid.New()
+	ctx := pgtc.TenantCtx(context.Background(), tenantID)
+	seedTenant(t, appPool, ctx, tenantID)
+
+	repo := NewPostgresRepository(appPool)
+	const extID, extNum = "bx-4711", "2026-042"
+
+	build := func(gross float64, lines []models.LineItem) *models.Invoice {
+		raw, _ := json.Marshal(lines)
+		now := time.Now().UTC().Truncate(time.Second)
+		eid, enum := extID, extNum
+		return &models.Invoice{
+			ID: uuid.New(), TenantID: tenantID, InvoiceNumber: extNum,
+			Status: models.InvoiceStatusSent, Source: models.InvoiceSourceBexio,
+			ExternalID: &eid, ExternalNumber: &enum, CustomerName: "Bexio Kunde AG",
+			TaxMode: models.TaxModeStandard, LineItems: raw,
+			Subtotal: decimal.NewFromFloat(gross), TotalTax: decimal.NewFromFloat(0),
+			GrossTotal: decimal.NewFromFloat(gross), Currency: "CHF",
+			InvoiceDate: now, DueDate: now.Add(30 * 24 * time.Hour),
+			CreatedBy: uuid.Nil, CreatedAt: now, UpdatedAt: now,
+		}
+	}
+
+	// First pull → insert; id is preserved.
+	inv1 := build(100.0, twoLines())
+	firstID := inv1.ID
+	if err := repo.UpsertImported(ctx, inv1); err != nil {
+		t.Fatalf("UpsertImported (insert): %v", err)
+	}
+	if inv1.ID != firstID {
+		t.Fatalf("insert must keep id: got %s want %s", inv1.ID, firstID)
+	}
+
+	got, err := repo.GetByID(ctx, tenantID, firstID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.Source != models.InvoiceSourceBexio {
+		t.Fatalf("source: got %q want bexio", got.Source)
+	}
+	if got.ExternalID == nil || *got.ExternalID != extID || got.ExternalNumber == nil || *got.ExternalNumber != extNum {
+		t.Fatalf("provenance mismatch: id=%v num=%v", got.ExternalID, got.ExternalNumber)
+	}
+	if n := countLineRows(t, superPool, firstID); n != 2 {
+		t.Fatalf("line rows after insert: got %d want 2", n)
+	}
+
+	// Second pull (same external_id) → idempotent update: one row, replaced lines,
+	// canonical id resolved.
+	inv2 := build(150.0, threeLines())
+	if err := repo.UpsertImported(ctx, inv2); err != nil {
+		t.Fatalf("UpsertImported (update): %v", err)
+	}
+	if inv2.ID != firstID {
+		t.Fatalf("update must resolve to canonical id: got %s want %s", inv2.ID, firstID)
+	}
+
+	var rowCount int
+	if err := superPool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM finance_invoices WHERE tenant_id = $1 AND source = 'bexio' AND external_id = $2",
+		tenantID, extID,
+	).Scan(&rowCount); err != nil {
+		t.Fatalf("count imported rows: %v", err)
+	}
+	if rowCount != 1 {
+		t.Fatalf("expected 1 imported row after re-pull, got %d", rowCount)
+	}
+
+	got2, err := repo.GetByID(ctx, tenantID, firstID)
+	if err != nil {
+		t.Fatalf("GetByID after update: %v", err)
+	}
+	if !got2.GrossTotal.Equal(decimal.NewFromFloat(150.0)) {
+		t.Fatalf("gross_total not updated: got %s want 150", got2.GrossTotal)
+	}
+	if n := countLineRows(t, superPool, firstID); n != 3 {
+		t.Fatalf("line rows after update: got %d want 3 (replaced)", n)
+	}
+}
+
 // TestInvoiceLinesRelationalRoundtrip creates an invoice with 2 line items,
 // reads it back, and asserts position ordering and exact decimal equality.
 func TestInvoiceLinesRelationalRoundtrip(t *testing.T) {

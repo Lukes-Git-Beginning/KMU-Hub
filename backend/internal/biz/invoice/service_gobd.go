@@ -83,6 +83,11 @@ func (s *Service) LockInvoice(ctx context.Context, tenantID, id, lockedBy uuid.U
 		return LockInvoiceResult{}, err
 	}
 
+	// Imported (source='bexio') invoices are read-only mirrors of the external book.
+	if inv.Source == models.InvoiceSourceBexio {
+		return LockInvoiceResult{}, ErrExternalReadOnly
+	}
+
 	// Only immutable (post-send) invoices can be locked
 	if inv.Status == "draft" {
 		return LockInvoiceResult{}, fmt.Errorf("only sent/paid/overdue invoices can be locked (GoBD: lock applies to completed documents)")

@@ -161,6 +161,25 @@ func (m *MockRepository) SetLock(_ context.Context, _, id uuid.UUID, lockedAt ti
 	return nil
 }
 
+// UpsertImported stores an imported invoice, idempotent per (tenant_id, source,
+// external_id): a repeat import reuses the existing row's id (mirrors the real
+// ON CONFLICT behaviour).
+func (m *MockRepository) UpsertImported(_ context.Context, invoice *models.Invoice) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+	for _, existing := range m.invoices {
+		if existing.TenantID == invoice.TenantID && existing.Source == invoice.Source &&
+			existing.ExternalID != nil && invoice.ExternalID != nil &&
+			*existing.ExternalID == *invoice.ExternalID {
+			invoice.ID = existing.ID
+			break
+		}
+	}
+	m.invoices[invoice.ID] = invoice
+	return nil
+}
+
 // InvoiceNumberExists returns false for all numbers (no duplicates in test data by default).
 func (m *MockRepository) InvoiceNumberExists(_ context.Context, _ uuid.UUID, number string) (bool, error) {
 	for _, inv := range m.invoices {
@@ -176,7 +195,7 @@ func (m *MockRepository) CountByFiscalYear(_ context.Context, tenantID uuid.UUID
 	count := 0
 	for _, inv := range m.invoices {
 		if inv.TenantID == tenantID && inv.Status != "draft" && inv.InvoiceNumber != "" &&
-			inv.InvoiceDate.Year() == year {
+			inv.Source != models.InvoiceSourceBexio && inv.InvoiceDate.Year() == year {
 			count++
 		}
 	}

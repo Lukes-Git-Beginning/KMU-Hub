@@ -227,6 +227,13 @@ type Invoice struct {
 	// ContactID links this invoice to a CRM contact for Contact-360 view (Migration 000141).
 	// Populated via backfill (source_quote_id→deal→contact) and on manual creation.
 	ContactID         *uuid.UUID      `json:"contact_id,omitempty"`
+	// Source is the invoice provenance (Migration 000243): InvoiceSourceCosmi for
+	// Cosmi-issued invoices (own GoBD RE-YYYY-NNNN number space) or InvoiceSourceBexio
+	// for read-only mirrors pulled from Bexio. ExternalID/ExternalNumber carry the
+	// source-system identity and are NULL for Cosmi invoices.
+	Source            string          `json:"source"`
+	ExternalID        *string         `json:"external_id,omitempty"`
+	ExternalNumber    *string         `json:"external_number,omitempty"`
 	CreatedBy         uuid.UUID       `json:"created_by"`
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`

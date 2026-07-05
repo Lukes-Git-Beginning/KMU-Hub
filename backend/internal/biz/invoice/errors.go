@@ -21,4 +21,8 @@ var (
 	// cancelled because no StornoCreator is wired — the invoice is never silently
 	// flipped to cancelled without issuing the reversing credit note (GoBD §146).
 	ErrStornoUnavailable = errors.New("cannot cancel an issued invoice: storno credit note path not configured")
+	// ErrExternalReadOnly is returned when a mutating operation targets an invoice
+	// imported read-only from an external accounting system (source='bexio'). Such
+	// invoices mirror the external book of record and are never edited in Cosmi.
+	ErrExternalReadOnly = errors.New("invoice is imported read-only from an external system")
 )

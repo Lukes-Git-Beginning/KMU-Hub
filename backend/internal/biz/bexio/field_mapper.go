@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -245,51 +244,21 @@ func (fm *FieldMapper) MapInvoiceToBexio(invoice *models.Invoice, contactBexioID
 	return bi, nil
 }
 
-// ImportedInvoiceInput holds a Bexio invoice mapped for the read-only import path in
-// the finance service (source='bexio'). It carries only what a Bexio-origin invoice
-// provides; the finance service assigns no RE-number and never runs it through
-// Send()/NextNumberInTx, so the GoBD gap-free sequence stays untouched.
-type ImportedInvoiceInput struct {
-	ExternalID      string    // Bexio kb_invoice.id
-	ExternalNumber  string    // Bexio document_nr (shown as invoice_number)
-	Status          string    // mapped Cosmi status (draft/sent/paid/cancelled)
-	ContactID       uuid.UUID // resolved Cosmi contact; uuid.Nil when unresolved
-	CustomerName    string    // filled by the puller from the resolved contact
-	CustomerEmail   *string   // filled by the puller from the resolved contact
-	CustomerAddress *string   // filled by the puller from the resolved contact
-	InvoiceDate     time.Time
-	DueDate         *time.Time
-	Currency        string
-	Subtotal        decimal.Decimal
-	TotalTax        decimal.Decimal
-	GrossTotal      decimal.Decimal
-	Lines           []ImportedInvoiceLine
-	BexioUpdatedAt  *time.Time // for last-write-wins in bexio_entity_mappings
-}
-
-// ImportedInvoiceLine is a single Bexio position mapped to the Cosmi line shape.
-type ImportedInvoiceLine struct {
-	Position    int
-	Description string
-	Quantity    decimal.Decimal
-	UnitPrice   decimal.Decimal
-	TaxRate     decimal.Decimal
-	LineTotal   decimal.Decimal
-}
-
 // MapInvoiceToKMUHub maps a Bexio invoice to the read-only import shape (reverse of
-// MapInvoiceToBexio). Contact resolution (Bexio contact_id -> Cosmi contact UUID)
-// happens in the puller via the contact entity-mapping; pass uuid.Nil when unresolved.
-func (fm *FieldMapper) MapInvoiceToKMUHub(bi *BexioInvoice, contactID uuid.UUID, _ []models.BexioFieldMappingEntry, cache *LookupCache) (*ImportedInvoiceInput, error) {
-	in := &ImportedInvoiceInput{
-		ExternalID:     strconv.Itoa(bi.ID),
-		Status:         mapBexioInvoiceStatus(bi.KBItemStatusID),
-		ContactID:      contactID,
-		Currency:       resolveKMUHubCurrency(cache, bi.CurrencyID),
-		Subtotal:       parseBexioDecimal(bi.TotalNet),
-		TotalTax:       parseBexioDecimal(bi.TotalTaxes),
-		GrossTotal:     firstNonZeroDecimal(parseBexioDecimal(bi.TotalGross), parseBexioDecimal(bi.Total)),
-		BexioUpdatedAt: parseBexioTime(bi.UpdatedAt),
+// MapInvoiceToBexio). The result type lives in models so the finance service can
+// consume it without importing this integration package. Contact resolution (Bexio
+// contact_id -> Cosmi contact UUID) happens in the puller via the contact
+// entity-mapping; pass uuid.Nil when unresolved.
+func (fm *FieldMapper) MapInvoiceToKMUHub(bi *BexioInvoice, contactID uuid.UUID, _ []models.BexioFieldMappingEntry, cache *LookupCache) (*models.ImportedInvoiceInput, error) {
+	in := &models.ImportedInvoiceInput{
+		ExternalID:        strconv.Itoa(bi.ID),
+		Status:            mapBexioInvoiceStatus(bi.KBItemStatusID),
+		ContactID:         contactID,
+		Currency:          resolveKMUHubCurrency(cache, bi.CurrencyID),
+		Subtotal:          parseBexioDecimal(bi.TotalNet),
+		TotalTax:          parseBexioDecimal(bi.TotalTaxes),
+		GrossTotal:        firstNonZeroDecimal(parseBexioDecimal(bi.TotalGross), parseBexioDecimal(bi.Total)),
+		ExternalUpdatedAt: parseBexioTime(bi.UpdatedAt),
 	}
 	if bi.DocumentNr != nil {
 		in.ExternalNumber = *bi.DocumentNr
@@ -326,8 +295,8 @@ func mapBexioInvoiceStatus(bexioStatusID int) string {
 // lean: tax_rate is not resolved — a Bexio position's tax_id is a tenant-specific tax
 // record, not a rate; defaults to 0. Add a Bexio tax lookup (like LookupCache) when
 // imported invoices must carry real VAT rates for reporting.
-func mapBexioPositionsToLines(positions []BexioInvoicePosition) []ImportedInvoiceLine {
-	lines := make([]ImportedInvoiceLine, 0, len(positions))
+func mapBexioPositionsToLines(positions []BexioInvoicePosition) []models.ImportedInvoiceLine {
+	lines := make([]models.ImportedInvoiceLine, 0, len(positions))
 	for i, p := range positions {
 		qty := parseBexioDecimalStr(p.Amount)
 		unit := parseBexioDecimalStr(p.UnitPrice)
@@ -337,7 +306,7 @@ func mapBexioPositionsToLines(positions []BexioInvoicePosition) []ImportedInvoic
 				total = t
 			}
 		}
-		lines = append(lines, ImportedInvoiceLine{
+		lines = append(lines, models.ImportedInvoiceLine{
 			Position:    i + 1,
 			Description: p.Text,
 			Quantity:    qty,

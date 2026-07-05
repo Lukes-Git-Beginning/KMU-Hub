@@ -241,6 +241,95 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 	return inv, nil
 }
 
+// UpsertImported creates or updates a read-only invoice mirror pulled from an external
+// accounting system (source='bexio'). It deliberately bypasses Create/Send and the
+// RE-YYYY-NNNN sequence: the invoice keeps its external number, so the GoBD gap-free
+// journal (source='cosmi') is never touched. Idempotent per (tenant_id, source,
+// external_id). Imported invoices are immutable in Cosmi afterwards (ErrExternalReadOnly).
+func (s *Service) UpsertImported(ctx context.Context, tenantID uuid.UUID, in models.ImportedInvoiceInput) (*models.Invoice, error) {
+	if in.ExternalID == "" {
+		return nil, fmt.Errorf("import invoice: external id required")
+	}
+	// The external document number becomes invoice_number, which is unique per tenant.
+	// Requiring it also keeps number-less external drafts out of the mirror — only
+	// issued external invoices are mirrored.
+	if in.ExternalNumber == "" {
+		return nil, fmt.Errorf("import invoice %s: external number required", in.ExternalID)
+	}
+
+	status := in.Status
+	if status == "" {
+		status = models.InvoiceStatusSent
+	}
+
+	invoiceDate := in.InvoiceDate
+	if invoiceDate.IsZero() {
+		invoiceDate = time.Now()
+	}
+	dueDate := invoiceDate
+	if in.DueDate != nil {
+		dueDate = *in.DueDate
+	}
+
+	currency := in.Currency
+	if currency == "" {
+		currency = models.DefaultCurrency
+	}
+
+	lineItemsJSON, err := marshalLineItems(toLineItems(in.Lines))
+	if err != nil {
+		return nil, err
+	}
+
+	var contactID *uuid.UUID
+	if in.ContactID != uuid.Nil {
+		cid := in.ContactID
+		contactID = &cid
+	}
+
+	externalID := in.ExternalID
+	externalNumber := in.ExternalNumber
+	now := time.Now()
+	inv := &models.Invoice{
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		InvoiceNumber:   in.ExternalNumber,
+		Status:          status,
+		Source:          models.InvoiceSourceBexio,
+		ExternalID:      &externalID,
+		ExternalNumber:  &externalNumber,
+		CustomerName:    in.CustomerName,
+		CustomerAddress: in.CustomerAddress,
+		CustomerEmail:   in.CustomerEmail,
+		TaxMode:         models.TaxModeStandard,
+		LineItems:       lineItemsJSON,
+		Subtotal:        in.Subtotal,
+		TotalTax:        in.TotalTax,
+		GrossTotal:      in.GrossTotal,
+		Currency:        currency,
+		InvoiceDate:     invoiceDate,
+		DueDate:         dueDate,
+		ContactID:       contactID,
+		CreatedBy:       uuid.Nil, // system/sync import (created_by is NOT NULL, no FK)
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	if upsertErr := s.repo.UpsertImported(ctx, inv); upsertErr != nil {
+		return nil, upsertErr
+	}
+
+	slog.Info("bexio invoice imported (read-only mirror)",
+		"invoice_id", inv.ID,
+		"tenant_id", tenantID,
+		"external_id", in.ExternalID,
+		"external_number", in.ExternalNumber,
+		"status", inv.Status,
+	)
+
+	return inv, nil
+}
+
 // GetByID retrieves an invoice by ID.
 func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error) {
 	return s.repo.GetByID(ctx, tenantID, id)
@@ -283,6 +372,11 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	inv, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
+	}
+
+	// Imported (source='bexio') invoices are read-only mirrors of the external book.
+	if inv.Source == models.InvoiceSourceBexio {
+		return nil, ErrExternalReadOnly
 	}
 
 	// GoBD enforcement: only draft invoices can be modified
@@ -408,6 +502,11 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 		return err
 	}
 
+	// Imported (source='bexio') invoices are read-only mirrors of the external book.
+	if inv.Source == models.InvoiceSourceBexio {
+		return ErrExternalReadOnly
+	}
+
 	if inv.Status != models.InvoiceStatusDraft {
 		return ErrInvoiceNotDraft
 	}
@@ -511,6 +610,11 @@ func (s *Service) MarkPaid(ctx context.Context, tenantID, id uuid.UUID) error {
 		return err
 	}
 
+	// Imported (source='bexio') invoices are read-only mirrors of the external book.
+	if inv.Source == models.InvoiceSourceBexio {
+		return ErrExternalReadOnly
+	}
+
 	switch inv.Status {
 	case models.InvoiceStatusSent, models.InvoiceStatusOverdue:
 		// Valid transitions
@@ -547,6 +651,11 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id, userID uuid.UUID) er
 	inv, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
+	}
+
+	// Imported (source='bexio') invoices are read-only mirrors of the external book.
+	if inv.Source == models.InvoiceSourceBexio {
+		return ErrExternalReadOnly
 	}
 
 	switch inv.Status {
@@ -704,6 +813,24 @@ func parseTaxMode(mode string) tax.TaxMode {
 	default:
 		return tax.ModeStandard
 	}
+}
+
+// toLineItems converts imported invoice lines to model line items for storage.
+// The line total is taken verbatim from the source system (no recalculation): imported
+// invoices are read-only mirrors, not Cosmi-computed documents.
+func toLineItems(lines []models.ImportedInvoiceLine) []models.LineItem {
+	items := make([]models.LineItem, len(lines))
+	for i, l := range lines {
+		items[i] = models.LineItem{
+			Position:    l.Position,
+			Description: l.Description,
+			Quantity:    l.Quantity,
+			UnitPrice:   l.UnitPrice,
+			TaxRate:     l.TaxRate,
+			LineTotal:   l.LineTotal,
+		}
+	}
+	return items
 }
 
 // toTaxLineItems converts model line items to tax calculation line items.

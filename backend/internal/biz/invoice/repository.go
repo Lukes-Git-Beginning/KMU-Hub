@@ -45,6 +45,12 @@ type Repository interface {
 	// SetLock sets locked_at and locked_by on a single invoice without triggering
 	// a full Update (ADR-0007 / Migration 000132 — replaces snapshot_data lock hack).
 	SetLock(ctx context.Context, tenantID, id uuid.UUID, lockedAt time.Time, lockedBy uuid.UUID) error
+	// UpsertImported inserts or updates a read-only invoice imported from an external
+	// accounting system, keyed by (tenant_id, source, external_id). It bypasses the
+	// gap-free RE-number sequence entirely — imported invoices keep their external
+	// number. On conflict it updates the mirror in place; inv.ID is set to the
+	// canonical row id (the existing row's id on update).
+	UpsertImported(ctx context.Context, invoice *models.Invoice) error
 
 	// GoBD-completion methods (Sprint 2 / Wave 1.B)
 
