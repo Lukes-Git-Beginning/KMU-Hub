@@ -44,7 +44,6 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
     return [...new Set(employees.map((e) => e.department).filter(Boolean))] as string[]
   }, [employeesData])
 
-  // TODO: phone, mobile, skills, notes, location are not in EmployeeProfile — form fields kept for UI but not sent to API
   const [department, setDepartment] = useState('')
   const [contractType, setContractType] = useState<ContractType>('full_time')
   const [positionTitle, setPositionTitle] = useState('')

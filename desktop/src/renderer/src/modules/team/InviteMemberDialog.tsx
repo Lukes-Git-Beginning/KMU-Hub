@@ -53,8 +53,6 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
   const [department, setDepartment] = useState('')
   const [contractType, setContractType] = useState<ContractType>('full_time')
   const [workload, setWorkload] = useState(100)
-  // TODO: location is not in EmployeeProfile — kept for UI but not sent to API
-  const [location, setLocation] = useState('Berlin')
   const [welcomeMessage, setWelcomeMessage] = useState('')
 
   const reset = () => {
@@ -66,7 +64,6 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
     setDepartment('')
     setContractType('full_time')
     setWorkload(100)
-    setLocation('Berlin')
     setWelcomeMessage('')
   }
 
@@ -202,16 +199,6 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
                 onChange={(e) => setWorkload(Number(e.target.value))}
               />
             </div>
-          </div>
-
-          {/* Location */}
-          <div className="space-y-1.5">
-            <Label>{t('team.member.location')}</Label>
-            <Input
-              placeholder="Berlin"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
           </div>
 
           {/* Welcome message */}
