@@ -15,8 +15,10 @@ import { useNavigate } from 'react-router-dom'
 
 import { useVideoStore } from '@/stores/video'
 import { useJoinCall } from '@/api/hooks/useVideo'
+import { wsManager } from '@/api/websocket'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib'
+import { useIncomingCallListener } from './useIncomingCallListener'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,6 +54,11 @@ export function IncomingCallOverlay({ className }: IncomingCallOverlayProps) {
   const navigate = useNavigate()
   const joinCall = useJoinCall()
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Wires 'call.incoming' / 'call.ended' WS events into the video store.
+  // This component is always mounted globally (AppShell), so this is
+  // effectively the app-wide listener registration point.
+  useIncomingCallListener()
 
   const incomingCall = useVideoStore((s) => s.incomingCall)
   const setIncomingCall = useVideoStore((s) => s.setIncomingCall)
@@ -139,9 +146,10 @@ export function IncomingCallOverlay({ className }: IncomingCallOverlayProps) {
 
   // Decline call
   const handleDecline = useCallback(() => {
-    // TODO: Send 'call.declined' via WebSocket when WS handler is wired
+    if (!incomingCall) return
+    wsManager.send({ type: 'call.declined', message_id: incomingCall.callId })
     setIncomingCall(null)
-  }, [setIncomingCall])
+  }, [incomingCall, setIncomingCall])
 
   // Don't render if no incoming call
   if (!incomingCall) return null

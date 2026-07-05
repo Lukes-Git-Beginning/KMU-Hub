@@ -353,6 +353,9 @@ func main() {
 		// Wire hub into video routes so recording.started events can be pushed
 		// in real-time to meeting participants.
 		videoRoutes.SetWSHub(wsHub)
+		// Wire the Video service into the hub so call.accepted/call.declined
+		// WebSocket signals are forwarded to the Video gRPC service.
+		wsHub.SetVideoService(&videoWSAdapter{registry: registry, hub: wsHub})
 
 		r.Get("/api/v1/ws", wsHub.HandleWebSocket)
 

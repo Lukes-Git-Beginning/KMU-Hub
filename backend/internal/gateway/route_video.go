@@ -24,11 +24,15 @@ import (
 const liveKitEgressStatusComplete int32 = 3
 
 // recordingBroadcaster is the minimal interface VideoRoutes needs to push
-// real-time recording events to connected clients via the WebSocket hub.
-// Using an interface avoids a direct import of the server package (circular
-// import risk) and makes the handler testable without a real WS hub.
+// real-time recording and call-signaling events to connected clients via the
+// WebSocket hub. Using an interface avoids a direct import of the server
+// package (circular import risk) and makes the handler testable without a
+// real WS hub.
 type recordingBroadcaster interface {
 	BroadcastRecordingStarted(ctx context.Context, meetingID, recordingID, initiatedBy string)
+	// BroadcastCallIncoming pushes an incoming-call notification to a single
+	// target user so their client can show the call overlay in real time.
+	BroadcastCallIncoming(ctx context.Context, targetUserID string, callData map[string]interface{})
 }
 
 // VideoRoutes handles HTTP routes for the Video service.
@@ -326,8 +330,10 @@ func (vr *VideoRoutes) HandleCreateCall(w http.ResponseWriter, r *http.Request) 
 	}
 
 	callType := videov1.CallType_CALL_TYPE_ONE_TO_ONE
+	callTypeStr := "one_to_one"
 	if req.CallType == "group" {
 		callType = videov1.CallType_CALL_TYPE_GROUP
+		callTypeStr = "group"
 	}
 
 	grpcReq := &videov1.CreateCallRequest{
@@ -341,6 +347,20 @@ func (vr *VideoRoutes) HandleCreateCall(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		respondGRPCError(w, err)
 		return
+	}
+
+	// Push call.incoming WS events so invited participants see the call
+	// overlay in real time instead of relying on polling. Best-effort: hub
+	// may be nil (dev without WS) or the broadcast may fail; neither case
+	// should block the HTTP response.
+	if vr.wsHub != nil {
+		for _, participantID := range req.ParticipantIDs {
+			go vr.wsHub.BroadcastCallIncoming(context.Background(), participantID, map[string]interface{}{
+				"call_id":   resp.GetId(),
+				"call_type": callTypeStr,
+				"caller_id": userID,
+			})
+		}
 	}
 
 	response.Proto(w, http.StatusCreated, resp)

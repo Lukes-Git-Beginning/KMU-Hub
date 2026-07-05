@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/chat/guest"
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/server"
+	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 )
 
 // =========================================================================
@@ -153,4 +155,65 @@ func (a *caldavUserPrefAdapter) ListCalDAVUsers(ctx context.Context) ([]gateway.
 
 func (a *caldavUserPrefAdapter) RevokeAllUserPasswords(ctx context.Context, userID uuid.UUID) (int64, error) {
 	return a.repo.RevokeAllUserPasswords(ctx, userID)
+}
+
+// =========================================================================
+// videoWSAdapter adapts the Video gRPC service (+ WebSocket hub) to
+// server.WSVideoService
+// =========================================================================
+
+// videoWSAdapter forwards WebSocket call-signaling events (accept/decline)
+// to the Video gRPC service and, for declines, notifies the call initiator
+// via the WebSocket hub. Video runs behind the "work" gRPC connection, same
+// as gateway.VideoRoutes.
+type videoWSAdapter struct {
+	registry *gateway.ServiceRegistry
+	hub      *server.WebSocketHub
+}
+
+// getClient lazily obtains a gRPC client for the Video service.
+func (a *videoWSAdapter) getClient() (videov1.VideoServiceClient, error) {
+	conn, err := a.registry.GetConnection("work")
+	if err != nil {
+		return nil, err
+	}
+	return videov1.NewVideoServiceClient(conn), nil
+}
+
+// NotifyCallAccepted acknowledges an accept signal. The actual join (LiveKit
+// token issuance) happens via the existing REST endpoint
+// (POST /api/v1/video/calls/{id}/join), so no further gRPC action is needed
+// here — this is a logging no-op that satisfies server.WSVideoService.
+func (a *videoWSAdapter) NotifyCallAccepted(ctx context.Context, callID, userID string) error {
+	slog.Info("call accept acknowledged via websocket adapter", "call_id", callID, "user_id", userID)
+	return nil
+}
+
+// NotifyCallDeclined ends the call (there is no dedicated DECLINED CallStatus
+// enum; ENDED is reused) and notifies the initiator via the WebSocket hub so
+// their client can dismiss the "ringing" UI in real time.
+func (a *videoWSAdapter) NotifyCallDeclined(ctx context.Context, callID, userID string) error {
+	client, err := a.getClient()
+	if err != nil {
+		return err
+	}
+
+	session, err := client.GetCall(ctx, &videov1.GetCallRequest{CallId: callID})
+	if err != nil {
+		return err
+	}
+
+	if _, err := client.EndCall(ctx, &videov1.EndCallRequest{CallId: callID, UserId: userID}); err != nil {
+		return err
+	}
+
+	if a.hub != nil {
+		a.hub.BroadcastCallEnded(ctx, session.GetInitiatorId(), map[string]interface{}{
+			"call_id":     callID,
+			"reason":      "declined",
+			"declined_by": userID,
+		})
+	}
+
+	return nil
 }
