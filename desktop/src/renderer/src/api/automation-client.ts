@@ -200,6 +200,16 @@ export function dryRunAutomation(data: {
 // Stats
 // ---------------------------------------------------------------------------
 
-export function getAutomationStats(): Promise<AutomationStats> {
-  return autoGet<AutomationStats>('/stats')
+/**
+ * The backend does not send `success_rate` (not on `GetAutomationStatsResponse`) —
+ * derive it here from successful_executions / total_executions, 0-guarded.
+ */
+export async function getAutomationStats(): Promise<AutomationStats> {
+  const raw = await autoGet<Omit<AutomationStats, 'success_rate'>>('/stats')
+  const totalExecutions = raw.total_executions ?? 0
+  const successful = raw.successful_executions ?? 0
+  return {
+    ...raw,
+    success_rate: totalExecutions > 0 ? successful / totalExecutions : 0,
+  }
 }

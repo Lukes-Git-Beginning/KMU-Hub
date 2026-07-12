@@ -157,13 +157,20 @@ export interface ActionConfig {
 // Statistics
 // ---------------------------------------------------------------------------
 
+/**
+ * Wire shape matches `GetAutomationStatsResponse` (backend/proto/automation/v1/automation.proto)
+ * exactly — protojson with EmitUnpopulated:false, so zero-value fields are omitted (read via `?? 0`).
+ * `success_rate` does not exist on the backend message; it is computed client-side in
+ * automation-client.ts from successful_executions / total_executions.
+ */
 export interface AutomationStats {
-  total: number
-  active: number
-  inactive: number
+  total_automations: number
+  active_automations: number
   total_executions: number
-  successful: number
-  failed: number
+  successful_executions: number
+  failed_executions: number
+  skipped_executions: number
+  average_duration_ms: number
   success_rate: number
 }
 
@@ -173,12 +180,12 @@ export interface AutomationStats {
 
 export interface AutomationListResponse {
   automations: Automation[]
-  total: number
+  total_count: number
 }
 
 export interface ExecutionListResponse {
   executions: AutomationExecution[]
-  total: number
+  total_count: number
 }
 
 export interface TemplateListResponse {

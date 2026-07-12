@@ -173,14 +173,14 @@ export const produktionHandlers = [
   http.get(`${BASE}/orders/:orderId`, ({ params }) => {
     const order = seedOrders.find((o) => o.id === params['orderId'])
     if (!order) return new HttpResponse(null, { status: 404 })
-    return HttpResponse.json(order)
+    return HttpResponse.json({ order })
   }),
 
   http.post(`${BASE}/orders`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
     const now = new Date().toISOString()
     return HttpResponse.json(
-      { id: `order-${Date.now()}`, tenant_id: 'tenant-demo', status: 'planned', priority: 3, actual_start: null, actual_end: null, notes: '', bom_id: undefined, created_by: null, created_at: now, updated_at: now, ...body },
+      { order: { id: `order-${Date.now()}`, tenant_id: 'tenant-demo', status: 'planned', priority: 3, actual_start: null, actual_end: null, notes: '', bom_id: undefined, created_by: null, created_at: now, updated_at: now, ...body } },
       { status: 201 },
     )
   }),
@@ -188,24 +188,24 @@ export const produktionHandlers = [
   http.patch(`${BASE}/orders/:orderId`, async ({ params, request }) => {
     const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json({ ...order, ...body, updated_at: new Date().toISOString() })
+    return HttpResponse.json({ order: { ...order, ...body, updated_at: new Date().toISOString() } })
   }),
 
   http.delete(`${BASE}/orders/:orderId`, () => new HttpResponse(null, { status: 204 })),
 
   http.post(`${BASE}/orders/:orderId/start`, ({ params }) => {
     const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
-    return HttpResponse.json({ ...order, status: 'in_progress', actual_start: new Date().toISOString() })
+    return HttpResponse.json({ order: { ...order, status: 'in_progress', actual_start: new Date().toISOString() } })
   }),
 
   http.post(`${BASE}/orders/:orderId/complete`, ({ params }) => {
     const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
-    return HttpResponse.json({ ...order, status: 'completed', actual_end: new Date().toISOString() })
+    return HttpResponse.json({ order: { ...order, status: 'completed', actual_end: new Date().toISOString() } })
   }),
 
   http.post(`${BASE}/orders/:orderId/cancel`, ({ params }) => {
     const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
-    return HttpResponse.json({ ...order, status: 'cancelled' })
+    return HttpResponse.json({ order: { ...order, status: 'cancelled' } })
   }),
 
   // ---- Machine booking handlers (Fall-A) ----

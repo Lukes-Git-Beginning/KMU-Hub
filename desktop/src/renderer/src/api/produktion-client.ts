@@ -55,6 +55,13 @@ function request<T>(opts: RequestOptions): Promise<T> {
   return authenticatedRequest<T>(opts)
 }
 
+// The gateway wraps single-order responses in the proto OrderResponse envelope
+// ({ order: {...} }, snake_case via protojson). Tolerate a bare object too, so
+// an older/flat mock doesn't hard-fail.
+function unwrapOrder(value: { order?: ProductionOrder } | ProductionOrder): ProductionOrder {
+  return (value as { order?: ProductionOrder }).order ?? (value as ProductionOrder)
+}
+
 // ---------------------------------------------------------------------------
 // Base path
 // ---------------------------------------------------------------------------
@@ -73,32 +80,58 @@ export function listOrders(params?: ListOrdersParams) {
   })
 }
 
-export function getOrder(id: string) {
-  return request<ProductionOrder>({ method: 'GET', path: `${BASE}/orders/${id}` })
+export async function getOrder(id: string) {
+  const raw = await request<{ order?: ProductionOrder } | ProductionOrder>({
+    method: 'GET',
+    path: `${BASE}/orders/${id}`,
+  })
+  return unwrapOrder(raw)
 }
 
-export function createOrder(body: CreateOrderInput) {
-  return request<ProductionOrder>({ method: 'POST', path: `${BASE}/orders`, body })
+export async function createOrder(body: CreateOrderInput) {
+  const raw = await request<{ order?: ProductionOrder } | ProductionOrder>({
+    method: 'POST',
+    path: `${BASE}/orders`,
+    body,
+  })
+  return unwrapOrder(raw)
 }
 
-export function updateOrder(id: string, body: UpdateOrderInput) {
-  return request<ProductionOrder>({ method: 'PATCH', path: `${BASE}/orders/${id}`, body })
+export async function updateOrder(id: string, body: UpdateOrderInput) {
+  const raw = await request<{ order?: ProductionOrder } | ProductionOrder>({
+    method: 'PATCH',
+    path: `${BASE}/orders/${id}`,
+    body,
+  })
+  return unwrapOrder(raw)
 }
 
 export function deleteOrder(id: string) {
   return request<void>({ method: 'DELETE', path: `${BASE}/orders/${id}` })
 }
 
-export function startOrder(id: string) {
-  return request<ProductionOrder>({ method: 'POST', path: `${BASE}/orders/${id}/start` })
+export async function startOrder(id: string) {
+  const raw = await request<{ order?: ProductionOrder } | ProductionOrder>({
+    method: 'POST',
+    path: `${BASE}/orders/${id}/start`,
+  })
+  return unwrapOrder(raw)
 }
 
-export function completeOrder(id: string) {
-  return request<ProductionOrder>({ method: 'POST', path: `${BASE}/orders/${id}/complete` })
+export async function completeOrder(id: string) {
+  const raw = await request<{ order?: ProductionOrder } | ProductionOrder>({
+    method: 'POST',
+    path: `${BASE}/orders/${id}/complete`,
+  })
+  return unwrapOrder(raw)
 }
 
-export function cancelOrder(id: string) {
-  return request<ProductionOrder>({ method: 'POST', path: `${BASE}/orders/${id}/cancel` })
+export async function cancelOrder(id: string) {
+  const raw = await request<{ order?: ProductionOrder } | ProductionOrder>({
+    method: 'POST',
+    path: `${BASE}/orders/${id}/cancel`,
+  })
+  return unwrapOrder(raw)
 }
 
 // ---------------------------------------------------------------------------

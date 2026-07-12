@@ -264,26 +264,29 @@ export const automationHandlers = [
     if (isActive !== null) filtered = filtered.filter((a) => a.is_active === (isActive === 'true'))
     if (scope) filtered = filtered.filter((a) => a.scope === scope)
     if (triggerType) filtered = filtered.filter((a) => a.trigger_type === triggerType)
-    return HttpResponse.json({ automations: filtered, total: filtered.length })
+    return HttpResponse.json({ automations: filtered, total_count: filtered.length })
   }),
 
-  // Stats
+  // Stats — matches GetAutomationStatsResponse (backend/proto/automation/v1/automation.proto)
+  // exactly; no `success_rate`/`inactive`/`total` fields on the wire, those are FE-derived.
   http.get(`${API}/api/v1/automations/stats`, () => {
-    const total = automations.length
-    const active = automations.filter((a) => a.is_active).length
+    const totalAutomations = automations.length
+    const activeAutomations = automations.filter((a) => a.is_active).length
     const totalExecutions = executions.length
-    const successful = executions.filter((e) => e.status === 'completed').length
-    const failed = executions.filter((e) => e.status === 'failed').length
-    // success_rate is a fraction (0–1); the StatsBar renders it as `rate * 100`%.
-    const rate = totalExecutions > 0 ? successful / totalExecutions : 0
+    const successfulExecutions = executions.filter((e) => e.status === 'completed').length
+    const failedExecutions = executions.filter((e) => e.status === 'failed').length
+    const skippedExecutions = executions.filter((e) => e.status === 'skipped').length
+    const averageDurationMs = totalExecutions > 0
+      ? executions.reduce((sum, e) => sum + e.duration_ms, 0) / totalExecutions
+      : 0
     return HttpResponse.json({
-      total,
-      active,
-      inactive: total - active,
+      total_automations: totalAutomations,
+      active_automations: activeAutomations,
       total_executions: totalExecutions,
-      successful,
-      failed,
-      success_rate: rate,
+      successful_executions: successfulExecutions,
+      failed_executions: failedExecutions,
+      skipped_executions: skippedExecutions,
+      average_duration_ms: averageDurationMs,
     })
   }),
 
@@ -309,7 +312,7 @@ export const automationHandlers = [
     const status = new URL(request.url).searchParams.get('status')
     let list = [...executions].sort((a, b) => b.started_at.localeCompare(a.started_at))
     if (status) list = list.filter((e) => e.status === status)
-    return HttpResponse.json({ executions: list, total: list.length })
+    return HttpResponse.json({ executions: list, total_count: list.length })
   }),
 
   // Single execution (literal `/executions/:id` before `/:id/...`)
@@ -381,7 +384,7 @@ export const automationHandlers = [
     const status = new URL(request.url).searchParams.get('status')
     let list = executions.filter((e) => e.automation_id === params.id)
     if (status) list = list.filter((e) => e.status === status)
-    return HttpResponse.json({ executions: list, total: list.length })
+    return HttpResponse.json({ executions: list, total_count: list.length })
   }),
 
   // Detail (raw object) — keep AFTER the literal sub-paths

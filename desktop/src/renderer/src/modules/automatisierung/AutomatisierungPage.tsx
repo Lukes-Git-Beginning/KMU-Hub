@@ -52,7 +52,7 @@ function StatsBar() {
         <Zap className="h-4 w-4 text-primary" />
         <span className="text-sm text-muted-foreground">{t('automatisierung.stats.active')}</span>
         <span className="text-sm font-semibold text-foreground">
-          {stats?.active ?? 0}
+          {stats?.active_automations ?? 0}
         </span>
       </div>
       <div className="flex items-center gap-2">
