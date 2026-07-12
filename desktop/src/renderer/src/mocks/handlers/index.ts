@@ -18,6 +18,7 @@ import { inboxHandlers } from './inbox'
 import { videoHandlers } from './video'
 import { dashboardHandlers } from './dashboard'
 import { settingsHandlers } from './settings'
+import { integrationHandlers } from './integration'
 import { hrHandlers } from './hr'
 import { dialerHandlers } from './dialer'
 import { berichteHandlers } from './berichte'
@@ -51,6 +52,7 @@ export const handlers = [
   ...videoHandlers,
   ...dashboardHandlers,
   ...settingsHandlers,
+  ...integrationHandlers,
   ...hrHandlers,
   ...dialerHandlers,
   ...berichteHandlers,

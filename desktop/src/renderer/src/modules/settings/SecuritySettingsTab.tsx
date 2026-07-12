@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useSetup2FA, useDisable2FA, useRegenerateRecoveryCodes } from '@/api/hooks/use2FA'
+import { useSetup2FA } from '@/api/hooks/use2FA'
 import { useMySessions, useTerminateSession } from '@/api/hooks/useSessions'
 import { useValidatePassword } from '@/api/hooks/useSecurity'
 import TwoFactorSetupWizard from '@/modules/security/TwoFactorSetupWizard'
@@ -71,8 +71,6 @@ export function SecuritySettingsTab() {
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
   const _setup2FA = useSetup2FA()
-  const disable2FA = useDisable2FA()
-  const regenerateCodes = useRegenerateRecoveryCodes()
 
   // Sessions
   const { data: sessions } = useMySessions()
@@ -105,21 +103,6 @@ export function SecuritySettingsTab() {
     setNewPw('')
     setConfirmPw('')
   }, [currentPw, newPw, confirmPw])
-
-  const handleDisable2FA = useCallback(() => {
-    disable2FA.mutate(undefined, {
-      onSuccess: () => {
-        setTwoFactorEnabled(false)
-        toast.success(t('security.2fa.disable'))
-      },
-    })
-  }, [disable2FA])
-
-  const handleRegenerateCodes = useCallback(() => {
-    regenerateCodes.mutate(undefined, {
-      onSuccess: () => toast.success(t('security.2fa.regenerateCodes')),
-    })
-  }, [regenerateCodes])
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-6 space-y-8">
@@ -165,16 +148,14 @@ export function SecuritySettingsTab() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleRegenerateCodes}
-                    disabled={regenerateCodes.isPending}
+                    onClick={() => setShow2FASetup(true)}
                   >
                     {t('security.2fa.regenerateCodes')}
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={handleDisable2FA}
-                    disabled={disable2FA.isPending}
+                    onClick={() => setShow2FASetup(true)}
                   >
                     {t('security.2fa.disable')}
                   </Button>

@@ -28,6 +28,11 @@ export interface LeaveRequest {
   employeeName?: string
   leaveTypeId: string
   leaveType?: LeaveType
+  // Denormalized display fields the backend sends flat on LeaveRequest
+  // (proto leave_type_name / leave_type_color) rather than nested under
+  // `leaveType`. Consumed directly by SelfServiceView.
+  leaveTypeName?: string
+  leaveTypeColor?: string
   startDate: string
   endDate: string
   isHalfDayStart: boolean

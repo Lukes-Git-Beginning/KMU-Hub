@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { daysAgo, today } from '../data/date-helpers'
+import { daysAgo, daysFromNow, today } from '../data/date-helpers'
 import { CURRENT_USER } from '../data/shared-ids'
 
 const API = API_BASE_URL
@@ -205,6 +205,16 @@ const hrDocumentCategories = [
 const HR_DOC_BY_CAT: Record<string, string> = Object.fromEntries(
   hrDocumentCategories.map((c) => [c.id, c.name]),
 )
+
+// Leave-type id → [name, color], mirrors the seed rows returned by
+// GET /leave/types — used to denormalise leave_type_name/leave_type_color
+// onto a freshly created leave request the way the real backend does.
+const LEAVE_TYPE_DISPLAY: Record<string, [name: string, color: string]> = {
+  'lt-001': ['Urlaub', '#3d8abf'],
+  'lt-002': ['Krankheit', '#bf3d3d'],
+  'lt-003': ['Sonderurlaub', '#7c5a8a'],
+  'lt-004': ['Unbezahlter Urlaub', '#999999'],
+}
 
 let hrEmployeeDocs = [
   { id: 'hrdoc-001', employeeId: CURRENT_USER.id, categoryId: 'hrcat-contract',    categoryName: 'Arbeitsvertrag',      fileId: 'file-hrdoc-001', fileName: 'Arbeitsvertrag_Stefan_Vogel.pdf',     fileSize: '248 KB', uploadedBy: 'usr-hr', uploaderName: 'Personalabteilung', notes: 'Unbefristet, Eintritt 03/2021', createdAt: daysAgo(1180) },
@@ -514,37 +524,141 @@ export const hrHandlers = [
   }),
 
   // ── Leave ──────────────────────────────────────────────────────────────
+  // Real gateway wire shape (protojson, UseProtoNames:true + UseEnumNumbers:
+  // true + EmitUnpopulated:false): snake_case, status/half-day-period as
+  // integers, decimal amounts as strings. response.Proto() → flat body,
+  // response.ProtoList() → bare array. See hrLeaveApi in hr-client.ts for the
+  // matching FE-side adapters (adaptLeaveRequest/adaptLeaveBalance/adaptLeaveType).
 
   http.get(`${API}/api/v1/hr/leave/balance`, () => {
     return HttpResponse.json({
-      balance: {
-        total_days: 30,
-        used_days: 8,
-        remaining_days: 22,
-        pending_days: 2,
-      },
+      id: 'lb-001',
+      tenant_id: 'tenant-001',
+      employee_id: CURRENT_USER.id,
+      year: 2026,
+      entitlement: '30',
+      carried_over: '5',
+      used: '8',
+      remaining: '22',
+      carryover_expires_at: '2026-03-31',
+      carryover_notified: false,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
     })
   }),
 
   http.get(`${API}/api/v1/hr/leave/types`, () => {
-    return HttpResponse.json({
-      types: [
-        { id: 'lt-001', name: 'Urlaub', color: '#22c55e', paid: true },
-        { id: 'lt-002', name: 'Krankheit', color: '#ef4444', paid: true },
-        { id: 'lt-003', name: 'Sonderurlaub', color: '#3b82f6', paid: true },
-        { id: 'lt-004', name: 'Unbezahlter Urlaub', color: '#a855f7', paid: false },
-      ],
-    })
+    return HttpResponse.json([
+      { id: 'lt-001', tenant_id: 'tenant-001', name: 'Urlaub', key: 'urlaub', color: '#3d8abf', deducts_from_balance: true, requires_approval: true, requires_au_document: false, is_system: true, sort_order: 1, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'lt-002', tenant_id: 'tenant-001', name: 'Krankheit', key: 'krank', color: '#bf3d3d', deducts_from_balance: false, requires_approval: false, requires_au_document: true, is_system: true, sort_order: 2, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'lt-003', tenant_id: 'tenant-001', name: 'Sonderurlaub', key: 'sonderurlaub', color: '#7c5a8a', deducts_from_balance: false, requires_approval: true, requires_au_document: false, is_system: true, sort_order: 3, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'lt-004', tenant_id: 'tenant-001', name: 'Unbezahlter Urlaub', key: 'unbezahlter_urlaub', color: '#999999', deducts_from_balance: false, requires_approval: true, requires_au_document: false, is_system: true, sort_order: 4, created_at: '2026-01-01T00:00:00Z' },
+    ])
   }),
 
   http.get(`${API}/api/v1/hr/leave/requests`, () => {
-    return HttpResponse.json({ requests: [], total: 0 })
+    return HttpResponse.json({
+      leave_requests: [
+        {
+          id: 'lr-001',
+          tenant_id: 'tenant-001',
+          employee_id: CURRENT_USER.id,
+          leave_type_id: 'lt-001',
+          start_date: daysAgo(18),
+          end_date: daysAgo(14),
+          is_half_day_start: false,
+          is_half_day_end: false,
+          total_days: '5',
+          reason: 'Familienurlaub',
+          status: 2, // LEAVE_APPROVED
+          approved_by: 'usr-hr',
+          approval_comment: 'Genehmigt',
+          approved_at: daysAgoAt(20, 9, 15),
+          au_document_required: false,
+          created_at: daysAgoAt(21, 8, 0),
+          updated_at: daysAgoAt(20, 9, 15),
+          employee_name: CURRENT_USER.name,
+          leave_type_name: 'Urlaub',
+          leave_type_color: '#3d8abf',
+        },
+        {
+          id: 'lr-002',
+          tenant_id: 'tenant-001',
+          employee_id: CURRENT_USER.id,
+          leave_type_id: 'lt-002',
+          start_date: daysAgo(6),
+          end_date: daysAgo(5),
+          is_half_day_start: false,
+          is_half_day_end: false,
+          total_days: '2',
+          reason: 'Grippaler Infekt',
+          status: 2, // LEAVE_APPROVED
+          approved_by: 'usr-hr',
+          approval_comment: '',
+          approved_at: daysAgoAt(6, 8, 30),
+          au_document_required: false,
+          created_at: daysAgoAt(6, 8, 0),
+          updated_at: daysAgoAt(6, 8, 30),
+          employee_name: CURRENT_USER.name,
+          leave_type_name: 'Krankheit',
+          leave_type_color: '#bf3d3d',
+        },
+        {
+          id: 'lr-003',
+          tenant_id: 'tenant-001',
+          employee_id: CURRENT_USER.id,
+          leave_type_id: 'lt-001',
+          start_date: daysFromNow(14),
+          end_date: daysFromNow(18),
+          is_half_day_start: false,
+          is_half_day_end: false,
+          total_days: '5',
+          reason: 'Sommerurlaub',
+          status: 1, // LEAVE_PENDING
+          approval_comment: '',
+          au_document_required: false,
+          created_at: daysAgoAt(1, 10, 0),
+          updated_at: daysAgoAt(1, 10, 0),
+          employee_name: CURRENT_USER.name,
+          leave_type_name: 'Urlaub',
+          leave_type_color: '#3d8abf',
+        },
+      ],
+      total: 3,
+    })
   }),
 
   http.post(`${API}/api/v1/hr/leave/requests`, async ({ request }) => {
-    const body = (await request.json()) as Record<string, unknown>
+    const body = (await request.json()) as {
+      leave_type_id?: string
+      start_date?: string
+      end_date?: string
+      is_half_day_start?: boolean
+      half_day_period_start?: string
+      is_half_day_end?: boolean
+      half_day_period_end?: string
+      reason?: string
+    }
+    const [leaveTypeName, leaveTypeColor] = LEAVE_TYPE_DISPLAY[body.leave_type_id ?? ''] ?? ['Urlaub', '#3d8abf']
     return HttpResponse.json({
-      request: { id: `lr-${Date.now()}`, ...body, status: 'pending' },
+      id: `lr-${Date.now()}`,
+      tenant_id: 'tenant-001',
+      employee_id: CURRENT_USER.id,
+      leave_type_id: body.leave_type_id ?? '',
+      start_date: body.start_date ?? today(),
+      end_date: body.end_date ?? today(),
+      is_half_day_start: body.is_half_day_start ?? false,
+      is_half_day_end: body.is_half_day_end ?? false,
+      total_days: '1',
+      reason: body.reason ?? '',
+      status: 1, // LEAVE_PENDING
+      approval_comment: '',
+      au_document_required: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      employee_name: CURRENT_USER.name,
+      leave_type_name: leaveTypeName,
+      leave_type_color: leaveTypeColor,
     }, { status: 201 })
   }),
 

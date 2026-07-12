@@ -187,12 +187,14 @@ const dsarSubjects = [
 ]
 
 // ---------------------------------------------------------------------------
-// 2FA policies
+// 2FA policies — field shape matches TwoFactorPolicy in security-types.ts
+// (role_name, enforced, grace_period_days); BE wraps as { policies: [...] }.
 // ---------------------------------------------------------------------------
 
 const twofaPolicies = [
-  { id: '2fa-001', name: 'Admin-Accounts', enforce: true, methods: ['totp', 'webauthn'], roles: ['admin'], created_at: daysAgo(60) },
-  { id: '2fa-002', name: 'Alle Mitarbeiter', enforce: false, methods: ['totp'], roles: ['admin', 'manager', 'member'], created_at: daysAgo(30) },
+  { role_name: 'admin', enforced: true, grace_period_days: 0 },
+  { role_name: 'manager', enforced: false, grace_period_days: 14 },
+  { role_name: 'member', enforced: false, grace_period_days: 14 },
 ]
 
 // ---------------------------------------------------------------------------
@@ -250,9 +252,14 @@ export const securityHandlers = [
     return HttpResponse.json({ sessions })
   }),
 
-  // All sessions (admin view)
-  http.get(`${API}/api/v1/auth/sessions/all`, () => {
-    return HttpResponse.json({ sessions: allSessions, total: allSessions.length })
+  // All sessions (admin view) — BE requires user_id, lists sessions for one user
+  http.get(`${API}/api/v1/auth/sessions/all`, ({ request }) => {
+    const userId = new URL(request.url).searchParams.get('user_id')
+    if (!userId) {
+      return HttpResponse.json({ error: 'user_id query parameter is required' }, { status: 400 })
+    }
+    const filtered = allSessions.filter((s) => s.user_id === userId)
+    return HttpResponse.json({ sessions: filtered, total: filtered.length })
   }),
 
   // DSAR (Art. 15) cross-module search
@@ -268,7 +275,7 @@ export const securityHandlers = [
   }),
 
   // 2FA policies
-  http.get(`${API}/api/v1/auth/2fa/policies`, () => {
+  http.get(`${API}/api/v1/auth/2fa/policy`, () => {
     return HttpResponse.json({ policies: twofaPolicies })
   }),
 
@@ -350,7 +357,7 @@ export const securityHandlers = [
 
   // Verify audit chain integrity
   http.post(`${API}/api/v1/security/audit/verify`, () => {
-    return HttpResponse.json({ valid: true, entries_checked: auditLogs.length })
+    return HttpResponse.json({ valid: true, entries_checked: auditLogs.length, first_invalid_sequence: 0 })
   }),
 
   // Terminate a single session

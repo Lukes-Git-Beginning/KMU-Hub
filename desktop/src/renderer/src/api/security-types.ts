@@ -16,7 +16,7 @@ export interface TwoFactorSetup {
 }
 
 export interface RecoveryCodes {
-  codes: string[]
+  recovery_codes: string[]
 }
 
 export interface TwoFactorPolicy {
@@ -81,7 +81,8 @@ export interface AuditListResponse {
 
 export interface AuditChainResult {
   valid: boolean
-  broken_at_sequence?: number
+  /** BE wire: int64 → protojson serializes as string; MSW mocks still send number. */
+  first_invalid_sequence?: number | string
 }
 
 // ---------------------------------------------------------------------------

@@ -7,7 +7,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listMySessions,
-  listAllSessions,
   terminateSession,
   terminateAllSessions,
 } from '../security-client'
@@ -24,13 +23,10 @@ export function useMySessions() {
   })
 }
 
-/** Admin: list all active sessions across users. */
-export function useAllSessions(offset = 0, limit = 50) {
-  return useQuery({
-    queryKey: ['sessions', 'all', offset, limit],
-    queryFn: () => listAllSessions({ offset, limit }),
-  })
-}
+// lean: Admin-Cross-User-Sessions-Ansicht (useAllSessions) entfernt — BE `/sessions/all?user_id=X`
+// listet nur die Sessions EINES Users, kein globales Aggregat, und es gibt keinen User-Picker.
+// Wieder einbauen, sobald ein Admin-User-Picker existiert oder ein Cross-User-Aggregat-Endpoint
+// bereitsteht. Client-Fn `listAllSessions(userId)` bleibt in security-client.ts vorbereitet.
 
 // ---------------------------------------------------------------------------
 // Mutations

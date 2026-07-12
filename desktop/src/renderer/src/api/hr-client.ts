@@ -6,6 +6,7 @@
  */
 import type {
   LeaveRequest,
+  LeaveRequestStatus,
   LeaveType,
   LeaveBalance,
   WorkTimeEntry,
@@ -223,25 +224,155 @@ function qs(params: Record<string, unknown>): string {
 }
 
 // ---------------------------------------------------------------------------
-// Leave
+// Leave — wire adapters
+//
+// The gateway serialises Leave* proto messages via protojson with
+// UseProtoNames:true (snake_case), UseEnumNumbers:true (status / half-day
+// period as integers), EmitUnpopulated:false (zero values omitted). Decimal
+// amounts (total_days, entitlement, carried_over, used, remaining) are proto
+// strings, not numbers. response.Proto(msg) is a flat object, response.
+// ProtoList(msgs) is a bare JSON array, ad-hoc map envelopes wrap in
+// {leave_requests:[...], total} / {leave_request:{...}, au_document_required}.
+// These adapters normalise all of that to the camelCase FE types.
 // ---------------------------------------------------------------------------
 
+const PROTO_INT_TO_LEAVE_STATUS: Record<number, LeaveRequestStatus> = {
+  1: 'pending',
+  2: 'approved',
+  3: 'rejected',
+  4: 'cancelled',
+}
+
+function normaliseLeaveStatus(raw: unknown): LeaveRequestStatus {
+  if (typeof raw === 'number') return PROTO_INT_TO_LEAVE_STATUS[raw] ?? 'pending'
+  if (raw === 'pending' || raw === 'approved' || raw === 'rejected' || raw === 'cancelled') return raw
+  return 'pending'
+}
+
+const PROTO_INT_TO_HALF_DAY_PERIOD: Record<number, 'morning' | 'afternoon'> = {
+  1: 'morning',
+  2: 'afternoon',
+}
+
+function normaliseHalfDayPeriod(raw: unknown): 'morning' | 'afternoon' | undefined {
+  if (typeof raw === 'number') return PROTO_INT_TO_HALF_DAY_PERIOD[raw]
+  if (raw === 'morning' || raw === 'afternoon') return raw
+  return undefined
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptLeaveRequest(raw: Record<string, any>): LeaveRequest {
+  return {
+    id:                 (raw.id                                            ?? '') as string,
+    employeeId:         (raw.employee_id         ?? raw.employeeId         ?? '') as string,
+    employeeName:       (raw.employee_name       ?? raw.employeeName       ?? undefined) as string | undefined,
+    leaveTypeId:        (raw.leave_type_id       ?? raw.leaveTypeId        ?? '') as string,
+    leaveTypeName:      (raw.leave_type_name     ?? raw.leaveTypeName      ?? undefined) as string | undefined,
+    leaveTypeColor:     (raw.leave_type_color    ?? raw.leaveTypeColor     ?? undefined) as string | undefined,
+    startDate:          (raw.start_date          ?? raw.startDate          ?? '') as string,
+    endDate:            (raw.end_date            ?? raw.endDate            ?? '') as string,
+    isHalfDayStart:     (raw.is_half_day_start   ?? raw.isHalfDayStart     ?? false) as boolean,
+    halfDayPeriodStart: normaliseHalfDayPeriod(raw.half_day_period_start ?? raw.halfDayPeriodStart),
+    isHalfDayEnd:       (raw.is_half_day_end     ?? raw.isHalfDayEnd       ?? false) as boolean,
+    halfDayPeriodEnd:   normaliseHalfDayPeriod(raw.half_day_period_end ?? raw.halfDayPeriodEnd),
+    totalDays:          Number(raw.total_days ?? raw.totalDays ?? 0),
+    reason:             (raw.reason                                        ?? undefined) as string | undefined,
+    status:             normaliseLeaveStatus(raw.status),
+    approvedBy:         (raw.approved_by         ?? raw.approvedBy         ?? undefined) as string | undefined,
+    approvalComment:    (raw.approval_comment    ?? raw.approvalComment    ?? undefined) as string | undefined,
+    approvedAt:         (raw.approved_at         ?? raw.approvedAt         ?? undefined) as string | undefined,
+    auDocumentRequired: (raw.au_document_required ?? raw.auDocumentRequired ?? false) as boolean,
+    auDocumentFileId:   (raw.au_document_file_id ?? raw.auDocumentFileId   ?? undefined) as string | undefined,
+    createdAt:          (raw.created_at          ?? raw.createdAt          ?? '') as string,
+    updatedAt:          (raw.updated_at          ?? raw.updatedAt          ?? '') as string,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptLeaveBalance(raw: Record<string, any>): LeaveBalance {
+  const totalEntitlement = Number(raw.entitlement ?? raw.totalEntitlement ?? 0)
+  // Backend gap: pro-rata entitlement is not modelled server-side — fall back
+  // to the full entitlement (no consumer computes a distinct value today).
+  const proRataEntitlement = Number(raw.proRataEntitlement ?? totalEntitlement)
+  const carryoverDeadline = (raw.carryover_expires_at ?? raw.carryoverDeadline ?? '') as string
+  return {
+    totalEntitlement,
+    proRataEntitlement,
+    carriedOver:      Number(raw.carried_over ?? raw.carriedOver ?? 0),
+    used:              Number(raw.used ?? 0),
+    remaining:         Number(raw.remaining ?? 0),
+    carryoverDeadline,
+    // Backend gap: no expiry flag on the wire — derive it from the deadline.
+    carryoverExpired:  carryoverDeadline ? new Date(carryoverDeadline) < new Date() : false,
+    year:              Number(raw.year ?? new Date().getFullYear()),
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptLeaveType(raw: Record<string, any>): LeaveType {
+  return {
+    id:                 (raw.id                                              ?? '') as string,
+    name:               (raw.name                                            ?? '') as string,
+    key:                (raw.key                                             ?? '') as string,
+    color:              (raw.color                                           ?? '#6b7280') as string,
+    deductsFromBalance: (raw.deducts_from_balance ?? raw.deductsFromBalance   ?? false) as boolean,
+    requiresApproval:   (raw.requires_approval    ?? raw.requiresApproval     ?? false) as boolean,
+    requiresAuDocument: (raw.requires_au_document ?? raw.requiresAuDocument   ?? false) as boolean,
+    isSystem:           (raw.is_system            ?? raw.isSystem            ?? false) as boolean,
+  }
+}
+
+/**
+ * Converts a CreateLeaveRequestInput to the snake_case body
+ * createLeaveRequestHTTPReq expects. half_day_period_* stay the FE's
+ * 'morning'/'afternoon' strings — the gateway itself maps them to the Proto
+ * enum, unlike every other field on the wire.
+ */
+function toSnakeCaseLeaveRequestBody(data: CreateLeaveRequestInput): Record<string, unknown> {
+  return {
+    leave_type_id:          data.leaveTypeId,
+    start_date:              data.startDate,
+    end_date:                data.endDate,
+    is_half_day_start:       data.isHalfDayStart ?? false,
+    half_day_period_start:   data.halfDayPeriodStart,
+    is_half_day_end:         data.isHalfDayEnd ?? false,
+    half_day_period_end:     data.halfDayPeriodEnd,
+    reason:                  data.reason,
+  }
+}
+
+/** Converts a RecordSickLeaveInput to the snake_case body recordSickLeaveHTTPReq
+ *  expects. Note: the backend field is `notes`, not `reason`. */
+function toSnakeCaseSickLeaveBody(data: RecordSickLeaveInput): Record<string, unknown> {
+  return {
+    start_date: data.startDate,
+    end_date:   data.endDate,
+    notes:      data.reason,
+  }
+}
+
 export const hrLeaveApi = {
-  createRequest(data: CreateLeaveRequestInput) {
-    return request<{ request: LeaveRequest }>('/api/v1/hr/leave/requests', {
+  async createRequest(data: CreateLeaveRequestInput): Promise<{ request: LeaveRequest }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/leave/requests', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toSnakeCaseLeaveRequestBody(data)),
     })
+    return { request: adaptLeaveRequest(raw) }
   },
 
-  listRequests(params: Record<string, unknown> = {}) {
-    return request<{ requests: LeaveRequest[]; total: number }>(
-      `/api/v1/hr/leave/requests${qs(params)}`,
-    )
+  async listRequests(params: Record<string, unknown> = {}): Promise<{ requests: LeaveRequest[]; total: number }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/leave/requests${qs(params)}`)
+    const list = (raw.leave_requests ?? raw.requests ?? []) as Record<string, unknown>[]
+    const requests = list.map((r) => adaptLeaveRequest(r as Record<string, any>))
+    return { requests, total: (raw.total ?? requests.length) as number }
   },
 
-  getRequest(id: string) {
-    return request<{ request: LeaveRequest }>(`/api/v1/hr/leave/requests/${id}`)
+  async getRequest(id: string): Promise<{ request: LeaveRequest }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/leave/requests/${id}`)
+    return { request: adaptLeaveRequest(raw) }
   },
 
   approveRequest(id: string, data?: ApproveRejectInput) {
@@ -265,25 +396,32 @@ export const hrLeaveApi = {
     )
   },
 
-  getBalance() {
-    return request<{ balance: LeaveBalance }>('/api/v1/hr/leave/balance')
+  async getBalance(): Promise<{ balance: LeaveBalance }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/leave/balance')
+    return { balance: adaptLeaveBalance(raw) }
   },
 
-  getEmployeeBalance(userId: string) {
-    return request<{ balance: LeaveBalance }>(
-      `/api/v1/hr/leave/balance/${userId}`,
-    )
+  async getEmployeeBalance(userId: string): Promise<{ balance: LeaveBalance }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>(`/api/v1/hr/leave/balance/${userId}`)
+    return { balance: adaptLeaveBalance(raw) }
   },
 
-  listTypes() {
-    return request<{ types: LeaveType[] }>('/api/v1/hr/leave/types')
+  async listTypes(): Promise<{ types: LeaveType[] }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/leave/types')
+    const list = (Array.isArray(raw) ? raw : (raw.types ?? [])) as Record<string, unknown>[]
+    return { types: list.map((t) => adaptLeaveType(t as Record<string, any>)) }
   },
 
-  recordSickLeave(data: RecordSickLeaveInput) {
-    return request<{ request: LeaveRequest }>('/api/v1/hr/leave/sick', {
+  async recordSickLeave(data: RecordSickLeaveInput): Promise<{ request: LeaveRequest }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<any>('/api/v1/hr/leave/sick', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toSnakeCaseSickLeaveBody(data)),
     })
+    return { request: adaptLeaveRequest((raw.leave_request ?? raw) as Record<string, any>) }
   },
 }
 

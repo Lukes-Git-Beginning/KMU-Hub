@@ -93,22 +93,25 @@ export const validate2FALogin = (pendingToken: string, code: string) =>
 export const disable2FA = (code: string) =>
   post<void>('/api/v1/auth/2fa/disable', { code })
 
-export const regenerateRecoveryCodes = () =>
-  post<RecoveryCodes>('/api/v1/auth/2fa/recovery-codes/regenerate')
+// BE requires the current TOTP/recovery code to confirm regeneration (route_auth.go regenerateCodesRequest).
+export const regenerateRecoveryCodes = (code: string) =>
+  post<RecoveryCodes>('/api/v1/auth/2fa/regenerate-codes', { code })
 
+// BE route has no path param — user_id travels in the body (route_auth.go adminReset2FARequest).
 export const adminReset2FA = (userId: string, reason: string) =>
-  post<void>(`/api/v1/auth/2fa/admin-reset/${userId}`, { reason })
+  post<void>('/api/v1/auth/2fa/admin-reset', { user_id: userId, reason })
 
 // BE wraps lists in an object (encoding/json over protobuf): `{ policies: [...] }`.
 export const getTwoFactorPolicies = () =>
-  get<{ policies: TwoFactorPolicy[] }>('/api/v1/auth/2fa/policies').then((r) => r.policies ?? [])
+  get<{ policies: TwoFactorPolicy[] }>('/api/v1/auth/2fa/policy').then((r) => r.policies ?? [])
 
 export const updateTwoFactorPolicy = (
   roleName: string,
   enforced: boolean,
   gracePeriodDays: number,
 ) =>
-  put<TwoFactorPolicy>(`/api/v1/auth/2fa/policies/${roleName}`, {
+  put<TwoFactorPolicy>('/api/v1/auth/2fa/policy', {
+    role_name: roleName,
     enforced,
     grace_period_days: gracePeriodDays,
   })
@@ -120,8 +123,12 @@ export const updateTwoFactorPolicy = (
 export const listMySessions = () =>
   get<{ sessions: UserSession[] }>('/api/v1/auth/sessions').then((r) => r.sessions ?? [])
 
-export const listAllSessions = (params?: { offset?: number; limit?: number }) =>
-  get<{ sessions: UserSession[]; total: number }>('/api/v1/auth/sessions/all', params as RequestOptions['params'])
+// BE requires user_id as a query param — it lists sessions for one user, not a
+// cross-user aggregate (route_auth.go HandleListAllSessions 400s without it).
+// lean: aktuell ungenutzt — die Admin-"Alle Sessions"-Ansicht wurde entfernt (kein User-Picker,
+// kein Cross-User-Aggregat im BE). Reaktivieren, sobald eine der beiden Voraussetzungen existiert.
+export const listAllSessions = (userId: string) =>
+  get<{ sessions: UserSession[]; total: number }>('/api/v1/auth/sessions/all', { user_id: userId })
 
 export const terminateSession = (sessionId: string) =>
   del<void>(`/api/v1/auth/sessions/${sessionId}`)

@@ -72,6 +72,7 @@ export default function TwoFactorSetupWizard({
   const [totpCode, setTotpCode] = useState('')
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [disableCode, setDisableCode] = useState('')
+  const [regenerateCode, setRegenerateCode] = useState('')
 
   const setupMutation = useSetup2FA()
   const verifyMutation = useVerify2FA()
@@ -85,6 +86,7 @@ export default function TwoFactorSetupWizard({
     setTotpCode('')
     setRecoveryCodes([])
     setDisableCode('')
+    setRegenerateCode('')
   }, [])
 
   const handleClose = useCallback(
@@ -116,7 +118,7 @@ export default function TwoFactorSetupWizard({
     if (totpCode.length < 6) return
     try {
       const result = await verifyMutation.mutateAsync(totpCode)
-      setRecoveryCodes(result.codes)
+      setRecoveryCodes(result.recovery_codes)
       setStep('recovery')
       onStateChange?.()
       toast.success(t('security.2fa.enabled'))
@@ -148,8 +150,9 @@ export default function TwoFactorSetupWizard({
   // Regenerate recovery codes
   const handleRegenerate = useCallback(async () => {
     try {
-      const result = await regenerateMutation.mutateAsync()
-      setRecoveryCodes(result.codes)
+      const result = await regenerateMutation.mutateAsync(regenerateCode)
+      setRecoveryCodes(result.recovery_codes)
+      setRegenerateCode('')
       setStep('recovery')
       toast.success(t('security.2fa.regenerateCodes'))
     } catch (err) {
@@ -157,7 +160,7 @@ export default function TwoFactorSetupWizard({
         err instanceof Error ? err.message : t('common.error'),
       )
     }
-  }, [regenerateMutation, t])
+  }, [regenerateCode, regenerateMutation, t])
 
   // Download recovery codes as .txt
   const handleDownloadCodes = useCallback(() => {
@@ -201,35 +204,45 @@ export default function TwoFactorSetupWizard({
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Regenerate recovery codes */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full">
-                  {t('security.2fa.regenerateCodes')}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="glass-elevated">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
+            {/* Regenerate recovery codes — BE requires the current 2FA code */}
+            <div className="space-y-2">
+              <Input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder={t('security.2fa.enterCode')}
+                value={regenerateCode}
+                onChange={(e) => setRegenerateCode(e.target.value.replace(/\D/g, ''))}
+              />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="w-full" disabled={regenerateCode.length < 6}>
                     {t('security.2fa.regenerateCodes')}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('security.2fa.regenerateWarning')}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>
-                    {t('common.cancel')}
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleRegenerate}
-                    disabled={regenerateMutation.isPending}
-                  >
-                    {t('common.confirm')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="glass-elevated">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t('security.2fa.regenerateCodes')}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('security.2fa.regenerateWarning')}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>
+                      {t('common.cancel')}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleRegenerate}
+                      disabled={regenerateMutation.isPending}
+                    >
+                      {t('common.confirm')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
 
             {/* Disable 2FA */}
             <div className="space-y-2">

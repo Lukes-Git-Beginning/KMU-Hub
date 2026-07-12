@@ -97,7 +97,7 @@ export default function AuditLogPage() {
             toast.success(t('audit.chainValid'))
           } else {
             toast.error(
-              t('audit.chainBroken', { sequence: result.broken_at_sequence ?? 0 }),
+              t('audit.chainBroken', { sequence: Number(result.first_invalid_sequence ?? 0) }),
             )
           }
         },

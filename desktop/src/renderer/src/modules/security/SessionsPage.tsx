@@ -5,7 +5,7 @@
  * and location. Users can terminate individual sessions or all others.
  * Admin view toggles to show all users' sessions.
  */
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
@@ -21,10 +21,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { useAuthStore } from '@/stores/auth'
 import {
   useMySessions,
-  useAllSessions,
   useTerminateSession,
   useTerminateAllSessions,
 } from '@/api/hooks/useSessions'
@@ -162,21 +160,17 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
 
 export default function SessionsPage() {
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.roles.includes('admin') ?? false
-
-  const [showAll, setShowAll] = useState(false)
-
   const mySessionsQuery = useMySessions()
-  const allSessionsQuery = useAllSessions(0, 100)
   const terminateMutation = useTerminateSession()
   const terminateAllMutation = useTerminateAllSessions()
 
-  const sessions: UserSession[] = showAll && isAdmin
-    ? (allSessionsQuery.data?.sessions ?? [])
-    : (mySessionsQuery.data ?? [])
+  // lean: Nur eigene Sessions — Admin-Cross-User-Ansicht (showAll) entfernt, da das BE
+  // `/sessions/all?user_id=X` nur die Sessions eines Users liefert und kein User-Picker
+  // existiert. Wieder aktivieren, sobald ein Admin-User-Picker oder ein Cross-User-Aggregat
+  // im Backend bereitsteht.
+  const sessions: UserSession[] = mySessionsQuery.data ?? []
 
-  const isLoading = showAll ? allSessionsQuery.isLoading : mySessionsQuery.isLoading
+  const isLoading = mySessionsQuery.isLoading
 
   const handleTerminate = useCallback(
     (sessionId: string) => {
@@ -224,25 +218,13 @@ export default function SessionsPage() {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="rounded-full bg-info-light px-2.5 py-0.5 text-xs font-medium text-info">
-                {sessions.length} {showAll ? t('session.scopeAll') : t('session.scopeMine')}
+                {sessions.length} {t('session.scopeMine')}
               </span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className={`rounded-lg px-3 py-2 text-sm transition-colors ${
-                showAll
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-border text-foreground hover:bg-secondary'
-              }`}
-            >
-              {showAll ? t('session.viewMine') : t('session.viewAll')}
-            </button>
-          )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <button

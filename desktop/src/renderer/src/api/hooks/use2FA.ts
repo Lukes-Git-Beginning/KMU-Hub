@@ -68,7 +68,7 @@ export function useDisable2FA() {
 /** Regenerate recovery codes (invalidates existing ones). */
 export function useRegenerateRecoveryCodes() {
   return useMutation({
-    mutationFn: () => regenerateRecoveryCodes(),
+    mutationFn: (code: string) => regenerateRecoveryCodes(code),
   })
 }
 

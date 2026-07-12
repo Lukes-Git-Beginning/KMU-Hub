@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -484,6 +485,7 @@ func (ir *IntegrationRoutes) HandleGetLinkStatus(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
+	platform := chi.URLParam(r, "platform")
 
 	resp, err := client.GetAccountLinkStatus(r.Context(), &notificationv1.GetAccountLinkStatusRequest{
 		UserId: userID,
@@ -493,7 +495,28 @@ func (ir *IntegrationRoutes) HandleGetLinkStatus(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	for _, link := range resp.GetLinks() {
+		if link.GetPlatform() != platform {
+			continue
+		}
+
+		status := map[string]interface{}{
+			"linked":                true,
+			"platform":              platform,
+			"external_display_name": link.GetExternalDisplayName(),
+		}
+		if linkedAt := link.GetLinkedAt(); linkedAt != nil {
+			status["linked_at"] = linkedAt.AsTime().Format(time.RFC3339)
+		}
+
+		response.JSON(w, http.StatusOK, status)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"linked":   false,
+		"platform": platform,
+	})
 }
 
 // ============================================================================
