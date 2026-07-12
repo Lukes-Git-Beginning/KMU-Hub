@@ -7,7 +7,6 @@ import type {
   CreateSubmissionInput,
   CreateWebhookInput,
   DuplicateFormSchemaInput,
-  FieldStat,
   FormField,
   FormSchema,
   FormShareLink,
@@ -31,7 +30,9 @@ const TENANT = 't-demo'
 // the renderer calls it directly via formulare-client.ts. This handler serves a
 // stateful, session-persistent surface so the whole module lives: form list,
 // builder, submissions, status lifecycle, exports and module settings. All
-// shapes mirror formulare-types.ts (camelCase) exactly. State is in-memory and
+// shapes mirror formulare-types.ts (camelCase) exactly — except the stats
+// endpoint, which mirrors the real backend's protojson envelope/snake_case
+// wire shape (see formulare-client.ts:getFormStats). State is in-memory and
 // resets on reload. Backend wiring (real persistence, webhooks delivery) stays
 // 🔒 Luke's lane — tracked in backend-gaps.md.
 // ---------------------------------------------------------------------------
@@ -665,79 +666,6 @@ const EXPORT_CONTENT_TYPES: Record<string, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// FT-3a — per-field analysis computed live from the submission set.
-// ---------------------------------------------------------------------------
-
-function isEmptyAnswer(v: unknown): boolean {
-  return v === undefined || v === null || v === '' || v === false
-}
-
-function computeFieldStats(
-  schema: FormSchema,
-  subs: FormSubmission[],
-): Record<string, FieldStat> {
-  const out: Record<string, FieldStat> = {}
-  for (const field of schema.fields) {
-    if (field.label === '__page_break__') continue
-    const answers = subs.map((s) => s.answers[field.id])
-    const filled = answers.filter((a) => !isEmptyAnswer(a))
-    const stat: FieldStat = {
-      type: field.type,
-      label: field.label,
-      total: subs.length,
-      filled: filled.length,
-      empty: subs.length - filled.length,
-    }
-
-    if (field.type === 'select' || field.type === 'radio') {
-      const dist: Record<string, number> = {}
-      for (const opt of field.options ?? []) dist[opt] = 0
-      for (const a of filled) {
-        const k = String(a)
-        dist[k] = (dist[k] ?? 0) + 1
-      }
-      stat.distribution = dist
-    } else if (field.type === 'checkbox') {
-      const yes = answers.filter((a) => a === true).length
-      stat.distribution = { Ja: yes, Nein: subs.length - yes }
-    } else if (field.type === 'consent') {
-      const yes = answers.filter((a) => a === true).length
-      stat.distribution = { Zugestimmt: yes, Offen: subs.length - yes }
-    } else if (field.type === 'text' || field.type === 'textarea') {
-      const counts: Record<string, number> = {}
-      for (const a of filled) {
-        const k = String(a).trim()
-        if (k) counts[k] = (counts[k] ?? 0) + 1
-      }
-      stat.topValues = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([value, count]) => ({ value, count }))
-    } else if (field.type === 'date') {
-      const byMonth: Record<string, number> = {}
-      for (const a of filled) {
-        const m = String(a).slice(0, 7)
-        if (m) byMonth[m] = (byMonth[m] ?? 0) + 1
-      }
-      stat.byMonth = byMonth
-    } else if (field.type === 'number' || field.type === 'rating') {
-      const nums = filled
-        .map((a) => Number(a))
-        .filter((n) => Number.isFinite(n))
-      stat.numeric = nums.length
-        ? {
-            avg: nums.reduce((s, n) => s + n, 0) / nums.length,
-            min: Math.min(...nums),
-            max: Math.max(...nums),
-          }
-        : null
-    }
-    out[field.id] = stat
-  }
-  return out
-}
-
-// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
@@ -812,7 +740,9 @@ export const formulareHandlers = [
     },
   ),
 
-  // ── Schemas: stats (FT-3a adds per-field analysis computed from submissions) ──
+  // ── Schemas: stats (mirrors the real backend's 4-counter FormStats proto,
+  // envelope + snake_case, so the client's unwrap/mapping is exercised as-is
+  // against the demo backend too — see formulare-client.ts:getFormStats) ──
   http.get(`${API}/api/v1/formulare/schemas/:schemaId/stats`, ({ params }) => {
     const schema = SCHEMAS.find((s) => s.id === params.schemaId)
     if (!schema) return new HttpResponse(null, { status: 404 })
@@ -820,51 +750,14 @@ export const formulareHandlers = [
     const weekAgo = Date.now() - 7 * DAY
     const monthAgo = Date.now() - 30 * DAY
 
-    // FT-3b — conversion from the FD-2 share-link views → submissions.
-    const links = SHARE_LINKS.filter((l) => l.formSchemaId === schema.id)
-    const totalViews = links.reduce((sum, l) => sum + l.views, 0)
-    const linkSubmissions = links.reduce((sum, l) => sum + l.submissions, 0)
-    const conversionRate = totalViews > 0 ? linkSubmissions / totalViews : 0
-
-    // FT-3b — simulated per-page drop-off for multi-page forms (real tracking
-    // would be Luke's lane). Deterministic decreasing sequence.
-    const DROPOFF_SEQ = [100, 74, 61, 52, 45, 40, 36]
-    const pageDropoff =
-      schema.pageCount > 1
-        ? Array.from({ length: schema.pageCount }, (_, i) => ({
-            page: i + 1,
-            percent: DROPOFF_SEQ[i] ?? Math.max(20, 100 - i * 18),
-          }))
-        : undefined
-
-    // FO-8 — submissions over time: daily counts for the last 30 days (oldest
-    // → newest), computed live from the submission set.
-    const TIME_DAYS = 30
-    const submissionsOverTime: { date: string; count: number }[] = []
-    const idxByDate = new Map<string, number>()
-    for (let i = TIME_DAYS - 1; i >= 0; i--) {
-      const key = new Date(Date.now() - i * DAY).toISOString().slice(0, 10)
-      idxByDate.set(key, submissionsOverTime.length)
-      submissionsOverTime.push({ date: key, count: 0 })
-    }
-    for (const s of subs) {
-      const idx = idxByDate.get(s.submittedAt.slice(0, 10))
-      if (idx !== undefined) submissionsOverTime[idx].count++
-    }
-
     return HttpResponse.json({
-      totalSubmissions: subs.length,
-      newSubmissions: subs.filter((s) => s.status === 'new').length,
-      readSubmissions: subs.filter((s) => s.status === 'read').length,
-      archivedSubmissions: subs.filter((s) => s.status === 'archived').length,
-      submissionsThisWeek: subs.filter((s) => new Date(s.submittedAt).getTime() >= weekAgo).length,
-      submissionsThisMonth: subs.filter((s) => new Date(s.submittedAt).getTime() >= monthAgo).length,
-      averageCompletionRate: 0.87,
-      fieldStats: computeFieldStats(schema, subs),
-      totalViews,
-      conversionRate,
-      pageDropoff,
-      submissionsOverTime,
+      stats: {
+        form_schema_id: schema.id,
+        total_count: subs.length,
+        new_count: subs.filter((s) => s.status === 'new').length,
+        last_7d_count: subs.filter((s) => new Date(s.submittedAt).getTime() >= weekAgo).length,
+        last_30d_count: subs.filter((s) => new Date(s.submittedAt).getTime() >= monthAgo).length,
+      },
     })
   }),
 

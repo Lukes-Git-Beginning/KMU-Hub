@@ -189,26 +189,6 @@ export interface WebhookDelivery {
   deliveredAt: string | null
 }
 
-/**
- * Per-field evaluation stats (FT-3a), computed from the live submission set.
- * Only the shape relevant to the field type is populated:
- *  - select/radio/checkbox/consent → `distribution` (option → count)
- *  - text/textarea                 → `topValues` (5 most frequent answers)
- *  - date                          → `byMonth` (YYYY-MM → count)
- *  - number/rating                 → `numeric` (avg/min/max)
- */
-export interface FieldStat {
-  type: FormFieldType
-  label: string
-  total: number
-  filled: number
-  empty: number
-  distribution?: Record<string, number>
-  topValues?: { value: string; count: number }[]
-  byMonth?: Record<string, number>
-  numeric?: { avg: number; min: number; max: number } | null
-}
-
 // ---------------------------------------------------------------------------
 // Request inputs
 // ---------------------------------------------------------------------------

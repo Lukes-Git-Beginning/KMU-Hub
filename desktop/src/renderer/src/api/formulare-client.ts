@@ -13,7 +13,6 @@ import type {
   DuplicateFormSchemaInput,
   ExportFormat,
   ExportedSubmissions,
-  FieldStat,
   FormSchema,
   FormShareLink,
   FormSubmission,
@@ -257,29 +256,40 @@ export function deleteWebhook(id: string) {
 // ---------------------------------------------------------------------------
 
 export interface FormStatsResponse {
-  totalSubmissions: number
-  newSubmissions: number
-  readSubmissions: number
-  archivedSubmissions: number
-  submissionsThisWeek: number
-  submissionsThisMonth: number
-  averageCompletionRate: number
-  /** FT-3a — per-field analysis, keyed by field id. */
-  fieldStats?: Record<string, FieldStat>
-  /** FT-3b — aggregated share-link views → submissions conversion. */
-  totalViews?: number
-  conversionRate?: number
-  /** FT-3b — simulated per-page drop-off (only for multi-page forms). */
-  pageDropoff?: { page: number; percent: number }[]
-  /** FO-8 — daily submission counts for the last 30 days (oldest → newest). */
-  submissionsOverTime?: { date: string; count: number }[]
+  totalCount: number
+  newCount: number
+  last7dCount: number
+  last30dCount: number
 }
 
-export function getFormStats(schemaId: string) {
-  return request<FormStatsResponse>({
+/** Wire shape of the backend's `FormStats` proto (snake_case via protojson). */
+interface FormStatsWire {
+  form_schema_id?: string
+  total_count?: number
+  new_count?: number
+  last_7d_count?: number
+  last_30d_count?: number
+}
+
+// The gateway wraps the stats response in the proto GetFormStatsResponse
+// envelope ({ stats: {...} }, snake_case via protojson). Tolerate a bare
+// object too, so an older/flat mock doesn't hard-fail.
+function unwrapStats(value: { stats?: FormStatsWire } | FormStatsWire): FormStatsWire {
+  return (value as { stats?: FormStatsWire }).stats ?? (value as FormStatsWire)
+}
+
+export async function getFormStats(schemaId: string): Promise<FormStatsResponse> {
+  const raw = await request<{ stats?: FormStatsWire } | FormStatsWire>({
     method: 'GET',
     path: `${BASE}/schemas/${schemaId}/stats`,
   })
+  const stats = unwrapStats(raw)
+  return {
+    totalCount: stats.total_count ?? 0,
+    newCount: stats.new_count ?? 0,
+    last7dCount: stats.last_7d_count ?? 0,
+    last30dCount: stats.last_30d_count ?? 0,
+  }
 }
 
 // ---------------------------------------------------------------------------
