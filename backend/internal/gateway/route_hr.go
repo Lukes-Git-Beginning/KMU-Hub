@@ -1,16 +1,36 @@
 package gateway
 
 import (
+	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	hrv1 "github.com/kmuhub/kmuhub/proto/hr/v1"
 )
+
+// hrMarshalSlice marshals a slice of proto messages via protojson for embedding in an
+// ad-hoc map envelope (e.g. {"leave_requests": [...], "total": N}), mirroring
+// response.ProtoList's per-element encoding without writing directly to the response
+// writer. Reuses cannedResponseMarshaler (defined in route_inbox.go, same gateway
+// package) since its protojson options already match response.Proto/response.ProtoList.
+func hrMarshalSlice[T proto.Message](msgs []T) ([]json.RawMessage, error) {
+	parts := make([]json.RawMessage, 0, len(msgs))
+	for _, m := range msgs {
+		b, err := cannedResponseMarshaler.Marshal(m)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, b)
+	}
+	return parts, nil
+}
 
 // HRRoutes handles HTTP routes for the HR backend service.
 // HR services run on the same gRPC server as Finance (the "biz" binary),
@@ -220,8 +240,15 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	leaveRequestsJSON, err := hrMarshalSlice(resp.LeaveRequests)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"leave_requests": resp.LeaveRequests,
+		"leave_requests": leaveRequestsJSON,
 		"total":          resp.Total,
 	})
 }
@@ -443,8 +470,15 @@ func (h *HRRoutes) HandleRecordSickLeave(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	leaveRequestJSON, err := cannedResponseMarshaler.Marshal(resp.LeaveRequest)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusCreated, map[string]interface{}{
-		"leave_request":        resp.LeaveRequest,
+		"leave_request":        json.RawMessage(leaveRequestJSON),
 		"au_document_required": resp.AuDocumentRequired,
 	})
 }
@@ -502,8 +536,15 @@ func (h *HRRoutes) HandleClockOut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	entryJSON, err := cannedResponseMarshaler.Marshal(resp.Entry)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	result := map[string]interface{}{
-		"entry": resp.Entry,
+		"entry": json.RawMessage(entryJSON),
 	}
 	if resp.Severity != "" {
 		result["severity"] = resp.Severity
@@ -570,10 +611,35 @@ func (h *HRRoutes) HandleGetActiveShift(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Entry and ActiveBreak are optional (nil if no active shift / not on break).
+	// protojson.Marshal(nil-typed-pointer) yields "{}", not "null" — marshal only
+	// when present so the envelope keeps encoding/json's null semantics.
+	entryJSON := json.RawMessage("null")
+	if resp.Entry != nil {
+		b, err := cannedResponseMarshaler.Marshal(resp.Entry)
+		if err != nil {
+			slog.Error("proto json marshal failed", "error", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+		entryJSON = b
+	}
+
+	activeBreakJSON := json.RawMessage("null")
+	if resp.ActiveBreak != nil {
+		b, err := cannedResponseMarshaler.Marshal(resp.ActiveBreak)
+		if err != nil {
+			slog.Error("proto json marshal failed", "error", err)
+			response.Error(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+		activeBreakJSON = b
+	}
+
 	result := map[string]interface{}{
-		"entry":        resp.Entry,
+		"entry":        entryJSON,
 		"is_on_break":  resp.IsOnBreak,
-		"active_break": resp.ActiveBreak,
+		"active_break": activeBreakJSON,
 	}
 
 	response.JSON(w, http.StatusOK, result)
@@ -667,8 +733,15 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	entriesJSON, err := hrMarshalSlice(resp.Entries)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"entries": resp.Entries,
+		"entries": entriesJSON,
 		"total":   resp.Total,
 	})
 }
@@ -869,8 +942,15 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	employeesJSON, err := hrMarshalSlice(resp.Employees)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"employees": resp.Employees,
+		"employees": employeesJSON,
 		"total":     resp.Total,
 	})
 }
@@ -1339,13 +1419,26 @@ func (h *HRRoutes) HandleGetTimeAnalytics(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	dayTrendJSON, err := hrMarshalSlice(resp.DayTrend)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	byProjectJSON, err := hrMarshalSlice(resp.ByProject)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"total_minutes":    resp.TotalMinutes,
-		"target_minutes":   resp.TargetMinutes,
-		"overtime_minutes": resp.OvertimeMinutes,
+		"total_minutes":     resp.TotalMinutes,
+		"target_minutes":    resp.TargetMinutes,
+		"overtime_minutes":  resp.OvertimeMinutes,
 		"avg_daily_minutes": resp.AvgDailyMinutes,
-		"day_trend":        resp.DayTrend,
-		"by_project":       resp.ByProject,
+		"day_trend":         dayTrendJSON,
+		"by_project":        byProjectJSON,
 	})
 }
 
@@ -1371,8 +1464,15 @@ func (h *HRRoutes) HandleGetTeamTime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	teamJSON, err := hrMarshalSlice(resp.Team)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"team": resp.Team,
+		"team": teamJSON,
 	})
 }
 
@@ -1400,8 +1500,15 @@ func (h *HRRoutes) HandleGetMyWeekStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	weekApprovalJSON, err := cannedResponseMarshaler.Marshal(resp.WeekApproval)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"week_approval":  resp.WeekApproval,
+		"week_approval":  json.RawMessage(weekApprovalJSON),
 		"total_minutes":  resp.TotalMinutes,
 		"target_minutes": resp.TargetMinutes,
 	})
@@ -1544,8 +1651,15 @@ func (h *HRRoutes) HandleListTimeCategories(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	categoriesJSON, err := hrMarshalSlice(resp.Categories)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"categories": resp.Categories,
+		"categories": categoriesJSON,
 	})
 }
 
@@ -1672,8 +1786,15 @@ func (h *HRRoutes) HandleListTimeTemplates(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	templatesJSON, err := hrMarshalSlice(resp.Templates)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"templates": resp.Templates,
+		"templates": templatesJSON,
 	})
 }
 
@@ -1758,8 +1879,15 @@ func (h *HRRoutes) HandleListTimeProjects(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	projectsJSON, err := hrMarshalSlice(resp.Projects)
+	if err != nil {
+		slog.Error("proto json marshal failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"projects": resp.Projects,
+		"projects": projectsJSON,
 	})
 }
 

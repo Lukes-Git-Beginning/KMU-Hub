@@ -17,13 +17,17 @@ import (
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
 
-// cannedResponseMarshaler mirrors response.Proto's protojson options for the two
-// canned-response handlers below, which wrap a proto.Message (CannedResponseInfo,
-// with real created_at/updated_at Timestamps) inside an ad-hoc {"canned_response": ...}
-// envelope. response.JSON can't fix nested proto Timestamps on its own, so these two
-// spots marshal via protojson first and embed the result as json.RawMessage.
-// lean: duplicates response.go's unexported protoMarshaler config; fold into an
-// exported response.ProtoEnvelope helper if a third envelope case shows up.
+// cannedResponseMarshaler mirrors response.Proto's protojson options for ad-hoc map
+// envelopes that wrap one or more proto.Message values (with real Timestamp fields)
+// inside a hand-built map[string]interface{}, which response.Proto/response.ProtoList
+// can't serialize directly. response.JSON can't fix nested proto Timestamps on its
+// own, so these spots marshal via protojson first and embed the result as
+// json.RawMessage. Originally scoped to the two canned-response handlers below;
+// route_hr.go's map-envelope handlers (leave requests, work-time entries, employees,
+// etc.) reuse it too since it's a package-level var with identical protojson options.
+// lean: duplicates response.go's unexported protoMarshaler config; the "third envelope
+// case" trigger has now fired (hr added ~12 more call sites) — fold into an exported
+// response.ProtoEnvelope helper next time this pattern spreads to another module.
 var cannedResponseMarshaler = protojson.MarshalOptions{
 	UseProtoNames:  true,
 	UseEnumNumbers: true,
