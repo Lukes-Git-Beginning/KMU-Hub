@@ -143,7 +143,7 @@ func (br *BookingRoutes) HandleListBookingPages(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BookingRoutes) HandleCreateBookingPage(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +185,7 @@ func (br *BookingRoutes) HandleCreateBookingPage(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (br *BookingRoutes) HandleGetBookingPage(w http.ResponseWriter, r *http.Request) {
@@ -203,7 +203,7 @@ func (br *BookingRoutes) HandleGetBookingPage(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BookingRoutes) HandleUpdateBookingPage(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +254,7 @@ func (br *BookingRoutes) HandleUpdateBookingPage(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BookingRoutes) HandleDeleteBookingPage(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +291,7 @@ func (br *BookingRoutes) HandleGetPublicBookingPage(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BookingRoutes) HandleGetAvailability(w http.ResponseWriter, r *http.Request) {
@@ -324,7 +324,7 @@ func (br *BookingRoutes) HandleGetAvailability(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BookingRoutes) HandleCreatePublicBooking(w http.ResponseWriter, r *http.Request) {
@@ -391,5 +391,5 @@ func (br *BookingRoutes) HandleCreatePublicBooking(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
