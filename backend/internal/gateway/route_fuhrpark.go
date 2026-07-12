@@ -318,7 +318,7 @@ func (fr *FuhrparkRoutes) HandleListVehicles(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateVehicle(w http.ResponseWriter, r *http.Request) {
@@ -358,7 +358,7 @@ func (fr *FuhrparkRoutes) HandleCreateVehicle(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleGetVehicle(w http.ResponseWriter, r *http.Request) {
@@ -386,7 +386,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicle(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateVehicle(w http.ResponseWriter, r *http.Request) {
@@ -435,7 +435,7 @@ func (fr *FuhrparkRoutes) HandleUpdateVehicle(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteVehicle(w http.ResponseWriter, r *http.Request) {
@@ -495,7 +495,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicleHistory(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -539,7 +539,7 @@ func (fr *FuhrparkRoutes) HandleScheduleService(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListVehicleServices(w http.ResponseWriter, r *http.Request) {
@@ -568,7 +568,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleServices(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListServices(w http.ResponseWriter, r *http.Request) {
@@ -600,7 +600,7 @@ func (fr *FuhrparkRoutes) HandleListServices(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateService(w http.ResponseWriter, r *http.Request) {
@@ -638,7 +638,7 @@ func (fr *FuhrparkRoutes) HandleUpdateService(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteService(w http.ResponseWriter, r *http.Request) {
@@ -697,7 +697,7 @@ func (fr *FuhrparkRoutes) HandleCompleteService(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *http.Request) {
@@ -721,7 +721,7 @@ func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -761,7 +761,7 @@ func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListVehicleDamages(w http.ResponseWriter, r *http.Request) {
@@ -790,7 +790,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDamages(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListDamages(w http.ResponseWriter, r *http.Request) {
@@ -822,7 +822,7 @@ func (fr *FuhrparkRoutes) HandleListDamages(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateDamage(w http.ResponseWriter, r *http.Request) {
@@ -858,7 +858,7 @@ func (fr *FuhrparkRoutes) HandleUpdateDamage(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleResolveDamage(w http.ResponseWriter, r *http.Request) {
@@ -891,7 +891,7 @@ func (fr *FuhrparkRoutes) HandleResolveDamage(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -916,7 +916,7 @@ func (fr *FuhrparkRoutes) HandleCheckTuevDue(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -948,7 +948,7 @@ func (fr *FuhrparkRoutes) HandleListFuelLogs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	_ = tenantID // carried via JWT in gRPC context
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *http.Request) {
@@ -976,7 +976,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateFuelLog(w http.ResponseWriter, r *http.Request) {
@@ -1015,7 +1015,7 @@ func (fr *FuhrparkRoutes) HandleCreateFuelLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Request) {
@@ -1061,7 +1061,7 @@ func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteFuelLog(w http.ResponseWriter, r *http.Request) {
@@ -1115,7 +1115,7 @@ func (fr *FuhrparkRoutes) HandleListTripLogs(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *http.Request) {
@@ -1143,7 +1143,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Request) {
@@ -1181,7 +1181,7 @@ func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Request) {
@@ -1236,7 +1236,7 @@ func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteTripLog(w http.ResponseWriter, r *http.Request) {
@@ -1291,7 +1291,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDocuments(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateVehicleDocument(w http.ResponseWriter, r *http.Request) {
@@ -1327,7 +1327,7 @@ func (fr *FuhrparkRoutes) HandleCreateVehicleDocument(w http.ResponseWriter, r *
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteVehicleDocument(w http.ResponseWriter, r *http.Request) {
@@ -1397,7 +1397,7 @@ func (fr *FuhrparkRoutes) HandleIngestGpsPositions(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleGetVehicleRoutes(w http.ResponseWriter, r *http.Request) {
@@ -1424,7 +1424,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicleRoutes(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.Request) {
@@ -1453,7 +1453,7 @@ func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleExportVehicleReport(w http.ResponseWriter, r *http.Request) {

@@ -57,7 +57,8 @@ function adaptVehicle(v: ApiVehicle): Vehicle {
     year: v.year,
     type: 'car', // API has no vehicle type classification yet — default to car
     currentDriver: v.assigned_driver_id ?? '',
-    mileage: v.mileage_km,
+    // protojson serializes int64 as a JSON string (proto3 spec); coerce before storing as UI number.
+    mileage: Number(v.mileage_km),
     nextInspection: v.tuev_due_date ?? '2099-01-01',
     insuranceExpiry: '2099-01-01', // not yet in API model
     isActive: v.status === 'active' || v.status === 'in_service',
@@ -77,8 +78,9 @@ function adaptService(s: VehicleService): MaintenanceRecord {
     vehiclePlate: s.vehicle_id, // plate not returned by API at list level — use id as placeholder
     type: typeMap[s.service_type] ?? 'service',
     date: s.scheduled_at,
-    mileage: s.mileage_km ?? 0,
-    cost: (s.cost_cents ?? 0) / 100,
+    // protojson serializes int64 as a JSON string (proto3 spec); coerce before storing as UI number.
+    mileage: Number(s.mileage_km ?? 0),
+    cost: Number(s.cost_cents ?? 0) / 100,
     notes: s.notes ?? s.description ?? '',
   }
 }
@@ -90,8 +92,9 @@ function adaptFuelLog(f: FuelLog): FuelRecord {
     vehiclePlate: f.vehicle_id, // plate not returned at list level — use vehicle_id as placeholder
     date: f.date,
     liters: f.liters,
-    cost: f.cost_cents / 100,
-    mileage: f.mileage_km,
+    // protojson serializes int64 as a JSON string (proto3 spec); coerce before storing as UI number.
+    cost: Number(f.cost_cents) / 100,
+    mileage: Number(f.mileage_km),
   }
 }
 
@@ -104,9 +107,10 @@ function adaptTripLog(t: TripLog): LogbookEntry {
     startLocation: t.start_location,
     endLocation: t.end_location,
     purpose: t.purpose,
-    startKm: t.start_km,
-    endKm: t.end_km,
-    km: t.km,
+    // protojson serializes int64 as a JSON string (proto3 spec); coerce before storing as UI number.
+    startKm: Number(t.start_km),
+    endKm: Number(t.end_km),
+    km: Number(t.km),
     isPrivate: t.is_private,
     driver: t.driver_name,
   }

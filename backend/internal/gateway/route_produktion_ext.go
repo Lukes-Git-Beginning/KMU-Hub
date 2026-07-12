@@ -94,7 +94,7 @@ func (pr *ProduktionRoutes) HandleListBOMs(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleCreateBOM(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +154,7 @@ func (pr *ProduktionRoutes) HandleCreateBOM(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (pr *ProduktionRoutes) HandleGetBOM(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +182,7 @@ func (pr *ProduktionRoutes) HandleGetBOM(w http.ResponseWriter, r *http.Request)
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleUpdateBOM(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +227,7 @@ func (pr *ProduktionRoutes) HandleUpdateBOM(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleDeleteBOM(w http.ResponseWriter, r *http.Request) {
@@ -287,7 +287,7 @@ func (pr *ProduktionRoutes) HandleListWorkSteps(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleCreateWorkStep(w http.ResponseWriter, r *http.Request) {
@@ -332,7 +332,7 @@ func (pr *ProduktionRoutes) HandleCreateWorkStep(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (pr *ProduktionRoutes) HandleUpdateWorkStep(w http.ResponseWriter, r *http.Request) {
@@ -377,7 +377,7 @@ func (pr *ProduktionRoutes) HandleUpdateWorkStep(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleDeleteWorkStep(w http.ResponseWriter, r *http.Request) {
@@ -441,7 +441,7 @@ func (pr *ProduktionRoutes) HandleListMachines(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleCreateMachine(w http.ResponseWriter, r *http.Request) {
@@ -479,7 +479,7 @@ func (pr *ProduktionRoutes) HandleCreateMachine(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (pr *ProduktionRoutes) HandleGetMachine(w http.ResponseWriter, r *http.Request) {
@@ -507,7 +507,7 @@ func (pr *ProduktionRoutes) HandleGetMachine(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleUpdateMachine(w http.ResponseWriter, r *http.Request) {
@@ -550,7 +550,7 @@ func (pr *ProduktionRoutes) HandleUpdateMachine(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleDeleteMachine(w http.ResponseWriter, r *http.Request) {
@@ -614,7 +614,7 @@ func (pr *ProduktionRoutes) HandleListQualityChecks(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleCreateQualityCheck(w http.ResponseWriter, r *http.Request) {
@@ -665,7 +665,7 @@ func (pr *ProduktionRoutes) HandleCreateQualityCheck(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (pr *ProduktionRoutes) HandleGetQualityCheck(w http.ResponseWriter, r *http.Request) {
@@ -693,5 +693,5 @@ func (pr *ProduktionRoutes) HandleGetQualityCheck(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

@@ -181,7 +181,7 @@ func (er *EinkaufRoutes) HandleListCatalogItems(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleGetCatalogItem(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +209,7 @@ func (er *EinkaufRoutes) HandleGetCatalogItem(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleCreateCatalogItem(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +245,7 @@ func (er *EinkaufRoutes) HandleCreateCatalogItem(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (er *EinkaufRoutes) HandleUpdateCatalogItem(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +286,7 @@ func (er *EinkaufRoutes) HandleUpdateCatalogItem(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleDeleteCatalogItem(w http.ResponseWriter, r *http.Request) {
@@ -346,7 +346,7 @@ func (er *EinkaufRoutes) HandleListSupplierRatings(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleCreateSupplierRating(w http.ResponseWriter, r *http.Request) {
@@ -385,7 +385,7 @@ func (er *EinkaufRoutes) HandleCreateSupplierRating(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (er *EinkaufRoutes) HandleDeleteSupplierRating(w http.ResponseWriter, r *http.Request) {
@@ -452,7 +452,7 @@ func (er *EinkaufRoutes) HandleListFrameworkContracts(w http.ResponseWriter, r *
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleGetFrameworkContract(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +480,7 @@ func (er *EinkaufRoutes) HandleGetFrameworkContract(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleCreateFrameworkContract(w http.ResponseWriter, r *http.Request) {
@@ -513,7 +513,7 @@ func (er *EinkaufRoutes) HandleCreateFrameworkContract(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (er *EinkaufRoutes) HandleUpdateFrameworkContract(w http.ResponseWriter, r *http.Request) {
@@ -552,7 +552,7 @@ func (er *EinkaufRoutes) HandleUpdateFrameworkContract(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleDeleteFrameworkContract(w http.ResponseWriter, r *http.Request) {
@@ -621,7 +621,7 @@ func (er *EinkaufRoutes) HandleCreateContractItem(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (er *EinkaufRoutes) HandleUpdateContractItem(w http.ResponseWriter, r *http.Request) {
@@ -663,7 +663,7 @@ func (er *EinkaufRoutes) HandleUpdateContractItem(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleDeleteContractItem(w http.ResponseWriter, r *http.Request) {
@@ -728,7 +728,7 @@ func (er *EinkaufRoutes) HandleListContractCalls(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleCreateContractCall(w http.ResponseWriter, r *http.Request) {
@@ -769,5 +769,5 @@ func (er *EinkaufRoutes) HandleCreateContractCall(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }

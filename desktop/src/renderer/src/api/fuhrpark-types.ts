@@ -34,7 +34,8 @@ export interface Vehicle {
   color: string | null
   fuel_type: FuelType
   status: VehicleStatus
-  mileage_km: number
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce with Number(...) at the call site.
+  mileage_km: number | string
   tuev_due_date: string | null       // ISO date YYYY-MM-DD
   tuev_reminder_sent_at: string | null
   assigned_driver_id: string | null  // UUID stub Sprint 3
@@ -52,9 +53,10 @@ export interface VehicleService {
   description: string | null
   scheduled_at: string               // ISO date YYYY-MM-DD
   completed_at: string | null
-  cost_cents: number | null
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce with Number(...) at the call site.
+  cost_cents: number | string | null
   workshop: string | null
-  mileage_km: number | null
+  mileage_km: number | string | null
   status: ServiceStatus
   notes: string | null
   created_by: string | null
@@ -73,7 +75,8 @@ export interface VehicleDamage {
   resolved_by: string | null
   resolved_at: string | null
   photo_keys: string[]
-  cost_cents: number | null
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce with Number(...) at the call site.
+  cost_cents: number | string | null
   notes: string | null
   created_at: string
   updated_at: string

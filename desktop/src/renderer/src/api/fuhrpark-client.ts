@@ -238,8 +238,9 @@ export interface FuelLog {
   vehicle_id: string
   date: string // ISO "2024-01-15"
   liters: number
-  cost_cents: number
-  mileage_km: number
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce with Number(...) at the call site.
+  cost_cents: number | string
+  mileage_km: number | string
   fuel_type: 'diesel' | 'petrol' | 'electric' | 'hybrid' | 'other'
   notes: string
   created_at: string
@@ -316,9 +317,10 @@ export interface TripLog {
   start_location: string
   end_location: string
   purpose: string
-  start_km: number
-  end_km: number
-  km: number // computed by backend
+  // protojson serializes int64 as a JSON string (proto3 spec); coerce with Number(...) at the call site.
+  start_km: number | string
+  end_km: number | string
+  km: number | string // computed by backend
   is_private: boolean
   driver_name: string
   notes: string

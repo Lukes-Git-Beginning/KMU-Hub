@@ -194,7 +194,7 @@ func (er *EinkaufRoutes) HandleListSuppliers(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleCreateSupplier(w http.ResponseWriter, r *http.Request) {
@@ -232,7 +232,7 @@ func (er *EinkaufRoutes) HandleCreateSupplier(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (er *EinkaufRoutes) HandleGetSupplier(w http.ResponseWriter, r *http.Request) {
@@ -260,7 +260,7 @@ func (er *EinkaufRoutes) HandleGetSupplier(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleUpdateSupplier(w http.ResponseWriter, r *http.Request) {
@@ -302,7 +302,7 @@ func (er *EinkaufRoutes) HandleUpdateSupplier(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleDeleteSupplier(w http.ResponseWriter, r *http.Request) {
@@ -369,7 +369,7 @@ func (er *EinkaufRoutes) HandleListPOs(w http.ResponseWriter, r *http.Request) {
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleCreatePO(w http.ResponseWriter, r *http.Request) {
@@ -405,7 +405,7 @@ func (er *EinkaufRoutes) HandleCreatePO(w http.ResponseWriter, r *http.Request) 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (er *EinkaufRoutes) HandleGetPO(w http.ResponseWriter, r *http.Request) {
@@ -433,7 +433,7 @@ func (er *EinkaufRoutes) HandleGetPO(w http.ResponseWriter, r *http.Request) {
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleUpdatePO(w http.ResponseWriter, r *http.Request) {
@@ -472,7 +472,7 @@ func (er *EinkaufRoutes) HandleUpdatePO(w http.ResponseWriter, r *http.Request) 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleDeletePO(w http.ResponseWriter, r *http.Request) {
@@ -532,7 +532,7 @@ func (er *EinkaufRoutes) HandleSubmitPO(w http.ResponseWriter, r *http.Request) 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleReceiveGoods(w http.ResponseWriter, r *http.Request) {
@@ -560,7 +560,7 @@ func (er *EinkaufRoutes) HandleReceiveGoods(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandlePartialReceive(w http.ResponseWriter, r *http.Request) {
@@ -602,7 +602,7 @@ func (er *EinkaufRoutes) HandlePartialReceive(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleExportPO(w http.ResponseWriter, r *http.Request) {
@@ -680,7 +680,7 @@ func (er *EinkaufRoutes) HandleListPOLines(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleAddPOLine(w http.ResponseWriter, r *http.Request) {
@@ -721,7 +721,7 @@ func (er *EinkaufRoutes) HandleAddPOLine(w http.ResponseWriter, r *http.Request)
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (er *EinkaufRoutes) HandleUpdatePOLine(w http.ResponseWriter, r *http.Request) {
@@ -767,7 +767,7 @@ func (er *EinkaufRoutes) HandleUpdatePOLine(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (er *EinkaufRoutes) HandleDeletePOLine(w http.ResponseWriter, r *http.Request) {
