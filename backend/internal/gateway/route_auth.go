@@ -158,7 +158,7 @@ func (a *AuthRoutes) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 type loginRequest struct {
@@ -187,7 +187,7 @@ func (a *AuthRoutes) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type refreshRequest struct {
@@ -214,7 +214,7 @@ func (a *AuthRoutes) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type logoutRequest struct {
@@ -262,7 +262,7 @@ func (a *AuthRoutes) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (a *AuthRoutes) HandleListUsers(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +281,7 @@ func (a *AuthRoutes) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateUserRequest struct {
@@ -324,7 +324,7 @@ func (a *AuthRoutes) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type assignRoleRequest struct {
@@ -404,7 +404,7 @@ func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // updateProfileRequest is the self-service profile patch. All fields optional;
@@ -440,7 +440,7 @@ func (a *AuthRoutes) HandleUpdateProfile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type changePasswordRequest struct {
@@ -597,7 +597,7 @@ func (a *AuthRoutes) HandleCreateInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (a *AuthRoutes) HandleListInvitations(w http.ResponseWriter, r *http.Request) {
@@ -613,7 +613,7 @@ func (a *AuthRoutes) HandleListInvitations(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type acceptInvitationRequest struct {
@@ -651,7 +651,7 @@ func (a *AuthRoutes) HandleAcceptInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (a *AuthRoutes) HandleCancelInvitation(w http.ResponseWriter, r *http.Request) {
@@ -696,7 +696,7 @@ func (a *AuthRoutes) HandleSetup2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type verify2FARequest struct {
@@ -726,7 +726,7 @@ func (a *AuthRoutes) HandleVerify2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type validate2FALoginRequest struct {
@@ -757,7 +757,7 @@ func (a *AuthRoutes) HandleValidate2FALogin(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type disable2FARequest struct {
@@ -817,7 +817,7 @@ func (a *AuthRoutes) HandleRegenerateRecoveryCodes(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type adminReset2FARequest struct {
@@ -873,7 +873,7 @@ func (a *AuthRoutes) HandleGetTwoFactorPolicy(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type updateTwoFactorPolicyRequest struct {
@@ -911,7 +911,7 @@ func (a *AuthRoutes) HandleUpdateTwoFactorPolicy(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -935,7 +935,7 @@ func (a *AuthRoutes) HandleListSessions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (a *AuthRoutes) HandleListAllSessions(w http.ResponseWriter, r *http.Request) {
@@ -960,7 +960,7 @@ func (a *AuthRoutes) HandleListAllSessions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (a *AuthRoutes) HandleTerminateSession(w http.ResponseWriter, r *http.Request) {
@@ -1010,5 +1010,5 @@ func (a *AuthRoutes) HandleTerminateAllSessions(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

@@ -133,7 +133,7 @@ func (ar *AutomationRoutes) HandleCreateAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (ar *AutomationRoutes) HandleListAutomations(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +175,7 @@ func (ar *AutomationRoutes) HandleListAutomations(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleGetAutomation(w http.ResponseWriter, r *http.Request) {
@@ -198,7 +198,7 @@ func (ar *AutomationRoutes) HandleGetAutomation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleUpdateAutomation(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +272,7 @@ func (ar *AutomationRoutes) HandleUpdateAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleDeleteAutomation(w http.ResponseWriter, r *http.Request) {
@@ -322,7 +322,7 @@ func (ar *AutomationRoutes) HandleEnableAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleDisableAutomation(w http.ResponseWriter, r *http.Request) {
@@ -345,7 +345,7 @@ func (ar *AutomationRoutes) HandleDisableAutomation(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -389,7 +389,7 @@ func (ar *AutomationRoutes) HandleListExecutions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleGetExecution(w http.ResponseWriter, r *http.Request) {
@@ -412,7 +412,7 @@ func (ar *AutomationRoutes) HandleGetExecution(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -432,7 +432,7 @@ func (ar *AutomationRoutes) HandleListTriggers(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleListActions(w http.ResponseWriter, r *http.Request) {
@@ -448,7 +448,7 @@ func (ar *AutomationRoutes) HandleListActions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -473,7 +473,7 @@ func (ar *AutomationRoutes) HandleListTemplates(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type createFromTemplateRequest struct {
@@ -506,7 +506,7 @@ func (ar *AutomationRoutes) HandleCreateFromTemplate(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 // ============================================================================
@@ -548,7 +548,7 @@ func (ar *AutomationRoutes) HandleTestCondition(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 type dryRunRequest struct {
@@ -583,7 +583,7 @@ func (ar *AutomationRoutes) HandleDryRun(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -603,7 +603,7 @@ func (ar *AutomationRoutes) HandleGetStats(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================

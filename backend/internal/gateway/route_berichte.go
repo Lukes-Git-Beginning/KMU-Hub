@@ -181,7 +181,7 @@ func (br *BerichteRoutes) HandleListDefinitions(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.Request) {
@@ -220,7 +220,7 @@ func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Request) {
@@ -248,7 +248,7 @@ func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.Request) {
@@ -292,7 +292,7 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.Request) {
@@ -362,7 +362,7 @@ func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleExportReport runs and streams a report as a binary download (PDF/CSV/XLSX).
@@ -464,7 +464,7 @@ func (br *BerichteRoutes) HandleInvalidateCache(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -504,7 +504,7 @@ func (br *BerichteRoutes) HandleListSchedules(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
@@ -543,7 +543,7 @@ func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
@@ -585,7 +585,7 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
@@ -647,7 +647,7 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -685,5 +685,5 @@ func (br *BerichteRoutes) HandleGetDashboardKPIs(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
