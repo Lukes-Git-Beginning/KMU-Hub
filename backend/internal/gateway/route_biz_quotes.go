@@ -60,7 +60,7 @@ func (b *BizRoutes) HandleCreateQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Quote)
+	response.Proto(w, http.StatusCreated, resp.Quote)
 }
 
 func (b *BizRoutes) HandleListQuotes(w http.ResponseWriter, r *http.Request) {
@@ -91,8 +91,14 @@ func (b *BizRoutes) HandleListQuotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	quotesJSON, err := hrMarshalSlice(resp.Quotes)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"quotes": resp.Quotes,
+		"quotes": quotesJSON,
 		"total":  resp.Total,
 	})
 }
@@ -120,7 +126,7 @@ func (b *BizRoutes) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Quote)
+	response.Proto(w, http.StatusOK, resp.Quote)
 }
 
 type updateQuoteRequest struct {
@@ -168,7 +174,7 @@ func (b *BizRoutes) HandleUpdateQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Quote)
+	response.Proto(w, http.StatusOK, resp.Quote)
 }
 
 func (b *BizRoutes) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
@@ -220,7 +226,7 @@ func (b *BizRoutes) HandleSendQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Quote)
+	response.Proto(w, http.StatusOK, resp.Quote)
 }
 
 func (b *BizRoutes) HandleAcceptQuote(w http.ResponseWriter, r *http.Request) {
@@ -246,7 +252,7 @@ func (b *BizRoutes) HandleAcceptQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Quote)
+	response.Proto(w, http.StatusOK, resp.Quote)
 }
 
 func (b *BizRoutes) HandleRejectQuote(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +278,7 @@ func (b *BizRoutes) HandleRejectQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Quote)
+	response.Proto(w, http.StatusOK, resp.Quote)
 }
 
 type convertQuoteRequest struct {
@@ -314,7 +320,7 @@ func (b *BizRoutes) HandleConvertQuoteToInvoice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Invoice)
+	response.Proto(w, http.StatusCreated, resp.Invoice)
 }
 
 func (b *BizRoutes) HandleGenerateQuotePDF(w http.ResponseWriter, r *http.Request) {
@@ -375,5 +381,5 @@ func (b *BizRoutes) HandleCreateQuoteFromDeal(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.GetQuote())
+	response.Proto(w, http.StatusCreated, resp.GetQuote())
 }

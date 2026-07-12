@@ -197,7 +197,7 @@ func (b *BizRoutes) HandleGetCompanySettings(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Settings)
+	response.Proto(w, http.StatusOK, resp.Settings)
 }
 
 type updateCompanySettingsRequest struct {
@@ -270,7 +270,7 @@ func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Settings)
+	response.Proto(w, http.StatusOK, resp.Settings)
 }
 
 // ============================================================================

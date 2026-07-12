@@ -72,7 +72,7 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Invoice)
+	response.Proto(w, http.StatusCreated, resp.Invoice)
 }
 
 func (b *BizRoutes) HandleListInvoices(w http.ResponseWriter, r *http.Request) {
@@ -115,8 +115,14 @@ func (b *BizRoutes) HandleListInvoices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	invoicesJSON, err := hrMarshalSlice(resp.Invoices)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"invoices": resp.Invoices,
+		"invoices": invoicesJSON,
 		"total":    resp.Total,
 	})
 }
@@ -144,7 +150,7 @@ func (b *BizRoutes) HandleGetInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Invoice)
+	response.Proto(w, http.StatusOK, resp.Invoice)
 }
 
 type updateInvoiceRequest struct {
@@ -198,7 +204,7 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Invoice)
+	response.Proto(w, http.StatusOK, resp.Invoice)
 }
 
 func (b *BizRoutes) HandleSendInvoice(w http.ResponseWriter, r *http.Request) {
@@ -224,7 +230,7 @@ func (b *BizRoutes) HandleSendInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Invoice)
+	response.Proto(w, http.StatusOK, resp.Invoice)
 }
 
 func (b *BizRoutes) HandleMarkInvoicePaid(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +256,7 @@ func (b *BizRoutes) HandleMarkInvoicePaid(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Invoice)
+	response.Proto(w, http.StatusOK, resp.Invoice)
 }
 
 func (b *BizRoutes) HandleCancelInvoice(w http.ResponseWriter, r *http.Request) {
@@ -276,7 +282,7 @@ func (b *BizRoutes) HandleCancelInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Invoice)
+	response.Proto(w, http.StatusOK, resp.Invoice)
 }
 
 func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Request) {

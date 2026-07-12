@@ -88,7 +88,7 @@ func (b *BizRoutes) HandleArchiveDocument(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Document)
+	response.Proto(w, http.StatusCreated, resp.Document)
 }
 
 // HandleArchiveInvoiceDocument handles POST /api/v1/finance/gobd-archive/from-invoice/{invoiceId}
@@ -117,7 +117,7 @@ func (b *BizRoutes) HandleArchiveInvoiceDocument(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Document)
+	response.Proto(w, http.StatusCreated, resp.Document)
 }
 
 // HandleListGobdDocuments handles GET /api/v1/finance/gobd-archive
@@ -149,7 +149,7 @@ func (b *BizRoutes) HandleListGobdDocuments(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGetGobdDocument handles GET /api/v1/finance/gobd-archive/{id}
@@ -175,7 +175,7 @@ func (b *BizRoutes) HandleGetGobdDocument(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleDownloadGobdDocument handles GET /api/v1/finance/gobd-archive/{id}/download
@@ -203,7 +203,7 @@ func (b *BizRoutes) HandleDownloadGobdDocument(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleAddDocumentAnnotation handles POST /api/v1/finance/gobd-archive/{id}/annotations
@@ -241,7 +241,7 @@ func (b *BizRoutes) HandleAddDocumentAnnotation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 // parsePageParam converts a query string to int32, defaulting to 0 (server applies its default).

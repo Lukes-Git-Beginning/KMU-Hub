@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -59,7 +60,7 @@ func (b *BizRoutes) HandleCreateCreditNote(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.CreditNote)
+	response.Proto(w, http.StatusCreated, resp.CreditNote)
 }
 
 func (b *BizRoutes) HandleListCreditNotes(w http.ResponseWriter, r *http.Request) {
@@ -87,8 +88,14 @@ func (b *BizRoutes) HandleListCreditNotes(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	creditNotes, err := hrMarshalSlice(resp.CreditNotes)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]any{
-		"credit_notes": resp.CreditNotes,
+		"credit_notes": creditNotes,
 		"total":        resp.Total,
 	})
 }
@@ -116,7 +123,7 @@ func (b *BizRoutes) HandleGetCreditNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.CreditNote)
+	response.Proto(w, http.StatusOK, resp.CreditNote)
 }
 
 func (b *BizRoutes) HandleSendCreditNote(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +149,7 @@ func (b *BizRoutes) HandleSendCreditNote(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.CreditNote)
+	response.Proto(w, http.StatusOK, resp.CreditNote)
 }
 
 func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.Request) {
@@ -221,7 +228,7 @@ func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Payment)
+	response.Proto(w, http.StatusCreated, resp.Payment)
 }
 
 func (b *BizRoutes) HandleListPayments(w http.ResponseWriter, r *http.Request) {
@@ -250,8 +257,14 @@ func (b *BizRoutes) HandleListPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	payments, err := hrMarshalSlice(resp.Payments)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]any{
-		"payments": resp.Payments,
+		"payments": payments,
 		"total":    resp.Total,
 	})
 }
@@ -312,8 +325,14 @@ func (b *BizRoutes) HandleListDunnings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dunnings, err := hrMarshalSlice(resp.Dunnings)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]any{
-		"dunnings": resp.Dunnings,
+		"dunnings": dunnings,
 		"total":    resp.Total,
 	})
 }
@@ -357,7 +376,7 @@ func (b *BizRoutes) HandleCreateDunning(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Dunning)
+	response.Proto(w, http.StatusCreated, resp.Dunning)
 }
 
 func (b *BizRoutes) HandleSendDunning(w http.ResponseWriter, r *http.Request) {
@@ -383,7 +402,7 @@ func (b *BizRoutes) HandleSendDunning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Dunning)
+	response.Proto(w, http.StatusOK, resp.Dunning)
 }
 
 func (b *BizRoutes) HandleEscalateDunning(w http.ResponseWriter, r *http.Request) {
@@ -420,7 +439,7 @@ func (b *BizRoutes) HandleEscalateDunning(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Dunning)
+	response.Proto(w, http.StatusOK, resp.Dunning)
 }
 
 func (b *BizRoutes) HandleGenerateDunningPDF(w http.ResponseWriter, r *http.Request) {
@@ -470,7 +489,7 @@ func (b *BizRoutes) HandleGetDunningConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Config)
+	response.Proto(w, http.StatusOK, resp.Config)
 }
 
 type updateDunningConfigRequest struct {
@@ -517,7 +536,7 @@ func (b *BizRoutes) HandleUpdateDunningConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Config)
+	response.Proto(w, http.StatusOK, resp.Config)
 }
 
 // ============================================================================
@@ -545,7 +564,7 @@ func (b *BizRoutes) HandleGetFinanceDashboard(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Dashboard)
+	response.Proto(w, http.StatusOK, resp.Dashboard)
 }
 
 // ============================================================================
@@ -631,7 +650,7 @@ func (b *BizRoutes) HandleGetJournalSummary(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleValidateInvoiceNumber checks format validity and uniqueness of an invoice number.
@@ -663,7 +682,7 @@ func (b *BizRoutes) HandleValidateInvoiceNumber(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleLockInvoice administratively locks an invoice (GoBD: immutability after lock).
@@ -693,7 +712,7 @@ func (b *BizRoutes) HandleLockInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGetPaymentStats returns aggregated payment statistics for a date range.
@@ -727,7 +746,7 @@ func (b *BizRoutes) HandleGetPaymentStats(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleUpdateDunningStatus directly sets a dunning record's status (admin override).
@@ -764,7 +783,7 @@ func (b *BizRoutes) HandleUpdateDunningStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.GetDunning())
+	response.Proto(w, http.StatusOK, resp.GetDunning())
 }
 
 // HandleSendDunningNotice marks a dunning as sent.
@@ -792,8 +811,14 @@ func (b *BizRoutes) HandleSendDunningNotice(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	dunning, err := cannedResponseMarshaler.Marshal(resp.GetDunning())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]any{
-		"dunning":      resp.GetDunning(),
+		"dunning":      json.RawMessage(dunning),
 		"email_queued": resp.GetEmailQueued(),
 	})
 }

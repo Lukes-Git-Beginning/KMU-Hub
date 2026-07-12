@@ -81,7 +81,7 @@ func (b *BizRoutes) HandleImportInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp.Invoice)
+	response.Proto(w, http.StatusCreated, resp.Invoice)
 }
 
 // HandleListIncomingInvoices lists incoming invoices with optional filters.
@@ -114,8 +114,14 @@ func (b *BizRoutes) HandleListIncomingInvoices(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	invoicesJSON, err := hrMarshalSlice(resp.Invoices)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"invoices": resp.Invoices,
+		"invoices": invoicesJSON,
 		"total":    resp.Total,
 	})
 }
@@ -144,7 +150,7 @@ func (b *BizRoutes) HandleGetIncomingInvoice(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Invoice)
+	response.Proto(w, http.StatusOK, resp.Invoice)
 }
 
 // updateIncomingInvoiceStatusRequest is the JSON body for status update.
@@ -182,7 +188,7 @@ func (b *BizRoutes) HandleUpdateIncomingInvoiceStatus(w http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp.Invoice)
+	response.Proto(w, http.StatusOK, resp.Invoice)
 }
 
 // isEInvoiceMIME returns true for MIME types supported by the e-invoice import endpoint.
