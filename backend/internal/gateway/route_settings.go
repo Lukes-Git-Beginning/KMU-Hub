@@ -111,7 +111,7 @@ func (sr *SettingsRoutes) HandleListModuleLeads(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGetMyModuleLeads returns the module IDs the caller leads.
@@ -142,7 +142,7 @@ func (sr *SettingsRoutes) HandleGetMyModuleLeads(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGrantModuleLead grants module-lead rights to a user.
@@ -185,7 +185,7 @@ func (sr *SettingsRoutes) HandleGrantModuleLead(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleRevokeModuleLead revokes module-lead rights.
@@ -443,7 +443,7 @@ func (sr *SettingsRoutes) HandleGetResolvedSettings(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGetTenantSettings returns raw tenant-scope settings for a module.
@@ -469,7 +469,7 @@ func (sr *SettingsRoutes) HandleGetTenantSettings(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // putSettingsRequest is the HTTP request body for PUT /settings/{module_id}/tenant|user.
@@ -521,7 +521,7 @@ func (sr *SettingsRoutes) HandlePutTenantSettings(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGetUserSettings returns raw user-scope settings.
@@ -553,7 +553,7 @@ func (sr *SettingsRoutes) HandleGetUserSettings(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandlePutUserSettings updates the caller's user-scope settings (own user only).
@@ -597,7 +597,7 @@ func (sr *SettingsRoutes) HandlePutUserSettings(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================

@@ -48,7 +48,8 @@ export interface UserSession {
 
 export interface AuditEntry {
   id: string
-  sequence_num: number
+  /** BE wire: int64 → protojson serializes as string; MSW mocks still send number. */
+  sequence_num: number | string
   timestamp: string
   user_id: string
   user_name: string

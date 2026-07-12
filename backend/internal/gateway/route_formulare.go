@@ -176,7 +176,7 @@ func (fr *FormulareRoutes) HandleListFormSchemas(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +214,7 @@ func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FormulareRoutes) HandleGetFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +242,7 @@ func (fr *FormulareRoutes) HandleGetFormSchema(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +286,7 @@ func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleDeleteFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -348,7 +348,7 @@ func (fr *FormulareRoutes) HandleDuplicateFormSchema(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 // ============================================================================
@@ -398,7 +398,7 @@ func (fr *FormulareRoutes) HandleCreateSubmission(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FormulareRoutes) HandleListSubmissions(w http.ResponseWriter, r *http.Request) {
@@ -433,7 +433,7 @@ func (fr *FormulareRoutes) HandleListSubmissions(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleGetSubmission(w http.ResponseWriter, r *http.Request) {
@@ -461,7 +461,7 @@ func (fr *FormulareRoutes) HandleGetSubmission(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r *http.Request) {
@@ -505,7 +505,7 @@ func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleExportSubmissions exports submissions for a schema as CSV or XLSX.
@@ -598,7 +598,7 @@ func (fr *FormulareRoutes) HandleListWebhooks(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -637,7 +637,7 @@ func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Request) {
@@ -665,7 +665,7 @@ func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -705,7 +705,7 @@ func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (fr *FormulareRoutes) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
@@ -774,7 +774,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.Response
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleGetFormStats returns aggregated submission statistics for a form schema.
@@ -804,7 +804,7 @@ func (fr *FormulareRoutes) HandleGetFormStats(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // HandleListWebhookDeliveries lists deliveries with optional filters via query params.
@@ -850,5 +850,5 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }

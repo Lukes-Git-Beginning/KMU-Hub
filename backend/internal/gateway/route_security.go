@@ -171,7 +171,7 @@ func (sr *SecurityRoutes) HandleListAuditEntries(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleExportAuditLog(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +213,7 @@ func (sr *SecurityRoutes) HandleVerifyAuditChain(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -233,7 +233,7 @@ func (sr *SecurityRoutes) HandleListVaultSecrets(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleGetVaultSecret(w http.ResponseWriter, r *http.Request) {
@@ -257,7 +257,7 @@ func (sr *SecurityRoutes) HandleGetVaultSecret(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleSetVaultSecret(w http.ResponseWriter, r *http.Request) {
@@ -285,7 +285,7 @@ func (sr *SecurityRoutes) HandleSetVaultSecret(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleDeleteVaultSecret(w http.ResponseWriter, r *http.Request) {
@@ -333,7 +333,7 @@ func (sr *SecurityRoutes) HandleRequestDataExport(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (sr *SecurityRoutes) HandleListDataExports(w http.ResponseWriter, r *http.Request) {
@@ -363,7 +363,7 @@ func (sr *SecurityRoutes) HandleListDataExports(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http.Request) {
@@ -395,7 +395,7 @@ func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Request) {
@@ -427,7 +427,7 @@ func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleGetExportDownload(w http.ResponseWriter, r *http.Request) {
@@ -477,7 +477,7 @@ func (sr *SecurityRoutes) HandlePreviewErasure(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleExecuteErasure(w http.ResponseWriter, r *http.Request) {
@@ -504,7 +504,7 @@ func (sr *SecurityRoutes) HandleExecuteErasure(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // dsarModuleJSON / dsarPersonJSON mirror the exact flat shape the DSAR search
@@ -594,7 +594,7 @@ func (sr *SecurityRoutes) HandleGetPasswordPolicy(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *http.Request) {
@@ -629,7 +629,7 @@ func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleValidatePassword(w http.ResponseWriter, r *http.Request) {
@@ -655,7 +655,7 @@ func (sr *SecurityRoutes) HandleValidatePassword(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -679,7 +679,7 @@ func (sr *SecurityRoutes) HandleListIPRules(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleCreateIPRule(w http.ResponseWriter, r *http.Request) {
@@ -707,7 +707,7 @@ func (sr *SecurityRoutes) HandleCreateIPRule(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (sr *SecurityRoutes) HandleDeleteIPRule(w http.ResponseWriter, r *http.Request) {
@@ -750,7 +750,7 @@ func (sr *SecurityRoutes) HandleListRetentionPolicies(w http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleCreateRetentionPolicy(w http.ResponseWriter, r *http.Request) {
@@ -780,7 +780,7 @@ func (sr *SecurityRoutes) HandleCreateRetentionPolicy(w http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 func (sr *SecurityRoutes) HandleUpdateRetentionPolicy(w http.ResponseWriter, r *http.Request) {
@@ -812,7 +812,7 @@ func (sr *SecurityRoutes) HandleUpdateRetentionPolicy(w http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (sr *SecurityRoutes) HandleDeleteRetentionPolicy(w http.ResponseWriter, r *http.Request) {

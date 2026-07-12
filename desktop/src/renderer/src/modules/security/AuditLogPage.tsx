@@ -83,8 +83,10 @@ export default function AuditLogPage() {
   )
 
   const handleVerifyChain = useCallback(() => {
-    const fromSeq = entries.length > 0 ? entries[entries.length - 1].sequence_num : 0
-    const toSeq = entries.length > 0 ? entries[0].sequence_num : 0
+    // sequence_num is int64 on the wire (protojson → string); coerce to number here
+    // so fromSeq/toSeq stay numeric for the mutation and the `=== 0` guard below.
+    const fromSeq = entries.length > 0 ? Number(entries[entries.length - 1].sequence_num) : 0
+    const toSeq = entries.length > 0 ? Number(entries[0].sequence_num) : 0
     if (fromSeq === 0 && toSeq === 0) return
 
     verifyMutation.mutate(
