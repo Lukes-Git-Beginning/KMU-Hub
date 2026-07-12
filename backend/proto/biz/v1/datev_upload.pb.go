@@ -7,16 +7,57 @@
 package bizv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
-// ============================================================================
-// OAuth Messages
-// ============================================================================
+const (
+	// Verify that this generated code is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	// Verify that runtime/protoimpl is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
 
 type GetDatevAuthURLRequest struct {
-	TenantId    string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	RedirectUrl string `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	RedirectUrl   string                 `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDatevAuthURLRequest) Reset() {
+	*x = GetDatevAuthURLRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDatevAuthURLRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDatevAuthURLRequest) ProtoMessage() {}
+
+func (x *GetDatevAuthURLRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDatevAuthURLRequest.ProtoReflect.Descriptor instead.
+func (*GetDatevAuthURLRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetDatevAuthURLRequest) GetTenantId() string {
@@ -34,7 +75,40 @@ func (x *GetDatevAuthURLRequest) GetRedirectUrl() string {
 }
 
 type GetDatevAuthURLResponse struct {
-	AuthorizationUrl string `protobuf:"bytes,1,opt,name=authorization_url,json=authorizationUrl,proto3" json:"authorization_url,omitempty"`
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	AuthorizationUrl string                 `protobuf:"bytes,1,opt,name=authorization_url,json=authorizationUrl,proto3" json:"authorization_url,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GetDatevAuthURLResponse) Reset() {
+	*x = GetDatevAuthURLResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDatevAuthURLResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDatevAuthURLResponse) ProtoMessage() {}
+
+func (x *GetDatevAuthURLResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDatevAuthURLResponse.ProtoReflect.Descriptor instead.
+func (*GetDatevAuthURLResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetDatevAuthURLResponse) GetAuthorizationUrl() string {
@@ -45,9 +119,42 @@ func (x *GetDatevAuthURLResponse) GetAuthorizationUrl() string {
 }
 
 type HandleDatevOAuthCallbackRequest struct {
-	TenantId    string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Code        string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
-	RedirectUrl string `protobuf:"bytes,3,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	RedirectUrl   string                 `protobuf:"bytes,3,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleDatevOAuthCallbackRequest) Reset() {
+	*x = HandleDatevOAuthCallbackRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleDatevOAuthCallbackRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleDatevOAuthCallbackRequest) ProtoMessage() {}
+
+func (x *HandleDatevOAuthCallbackRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleDatevOAuthCallbackRequest.ProtoReflect.Descriptor instead.
+func (*HandleDatevOAuthCallbackRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *HandleDatevOAuthCallbackRequest) GetTenantId() string {
@@ -72,8 +179,41 @@ func (x *HandleDatevOAuthCallbackRequest) GetRedirectUrl() string {
 }
 
 type HandleDatevOAuthCallbackResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleDatevOAuthCallbackResponse) Reset() {
+	*x = HandleDatevOAuthCallbackResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleDatevOAuthCallbackResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleDatevOAuthCallbackResponse) ProtoMessage() {}
+
+func (x *HandleDatevOAuthCallbackResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleDatevOAuthCallbackResponse.ProtoReflect.Descriptor instead.
+func (*HandleDatevOAuthCallbackResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HandleDatevOAuthCallbackResponse) GetSuccess() bool {
@@ -91,7 +231,40 @@ func (x *HandleDatevOAuthCallbackResponse) GetErrorMessage() string {
 }
 
 type DisconnectDatevRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectDatevRequest) Reset() {
+	*x = DisconnectDatevRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectDatevRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectDatevRequest) ProtoMessage() {}
+
+func (x *DisconnectDatevRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectDatevRequest.ProtoReflect.Descriptor instead.
+func (*DisconnectDatevRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DisconnectDatevRequest) GetTenantId() string {
@@ -102,7 +275,40 @@ func (x *DisconnectDatevRequest) GetTenantId() string {
 }
 
 type DisconnectDatevResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectDatevResponse) Reset() {
+	*x = DisconnectDatevResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectDatevResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectDatevResponse) ProtoMessage() {}
+
+func (x *DisconnectDatevResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectDatevResponse.ProtoReflect.Descriptor instead.
+func (*DisconnectDatevResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DisconnectDatevResponse) GetSuccess() bool {
@@ -113,7 +319,40 @@ func (x *DisconnectDatevResponse) GetSuccess() bool {
 }
 
 type GetDatevConnectionStatusRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDatevConnectionStatusRequest) Reset() {
+	*x = GetDatevConnectionStatusRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDatevConnectionStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDatevConnectionStatusRequest) ProtoMessage() {}
+
+func (x *GetDatevConnectionStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDatevConnectionStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetDatevConnectionStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetDatevConnectionStatusRequest) GetTenantId() string {
@@ -124,7 +363,40 @@ func (x *GetDatevConnectionStatusRequest) GetTenantId() string {
 }
 
 type GetDatevConnectionStatusResponse struct {
-	Connected bool `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Connected     bool                   `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDatevConnectionStatusResponse) Reset() {
+	*x = GetDatevConnectionStatusResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDatevConnectionStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDatevConnectionStatusResponse) ProtoMessage() {}
+
+func (x *GetDatevConnectionStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDatevConnectionStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetDatevConnectionStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetDatevConnectionStatusResponse) GetConnected() bool {
@@ -134,15 +406,44 @@ func (x *GetDatevConnectionStatusResponse) GetConnected() bool {
 	return false
 }
 
-// ============================================================================
-// Upload Messages
-// ============================================================================
-
 type UploadDatevBuchungsstapelRequest struct {
-	TenantId        string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	StartDate       string `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
-	EndDate         string `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`
-	FiscalYearStart string `protobuf:"bytes,4,opt,name=fiscal_year_start,json=fiscalYearStart,proto3" json:"fiscal_year_start,omitempty"`
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TenantId        string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	StartDate       string                 `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
+	EndDate         string                 `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`
+	FiscalYearStart string                 `protobuf:"bytes,4,opt,name=fiscal_year_start,json=fiscalYearStart,proto3" json:"fiscal_year_start,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *UploadDatevBuchungsstapelRequest) Reset() {
+	*x = UploadDatevBuchungsstapelRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadDatevBuchungsstapelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadDatevBuchungsstapelRequest) ProtoMessage() {}
+
+func (x *UploadDatevBuchungsstapelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadDatevBuchungsstapelRequest.ProtoReflect.Descriptor instead.
+func (*UploadDatevBuchungsstapelRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UploadDatevBuchungsstapelRequest) GetTenantId() string {
@@ -174,10 +475,43 @@ func (x *UploadDatevBuchungsstapelRequest) GetFiscalYearStart() string {
 }
 
 type UploadDatevBuchungsstapelResponse struct {
-	Success       bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	DocumentCount int32  `protobuf:"varint,2,opt,name=document_count,json=documentCount,proto3" json:"document_count,omitempty"`
-	FileSize      int32  `protobuf:"varint,3,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
-	ErrorMessage  string `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	DocumentCount int32                  `protobuf:"varint,2,opt,name=document_count,json=documentCount,proto3" json:"document_count,omitempty"`
+	FileSize      int32                  `protobuf:"varint,3,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadDatevBuchungsstapelResponse) Reset() {
+	*x = UploadDatevBuchungsstapelResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadDatevBuchungsstapelResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadDatevBuchungsstapelResponse) ProtoMessage() {}
+
+func (x *UploadDatevBuchungsstapelResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadDatevBuchungsstapelResponse.ProtoReflect.Descriptor instead.
+func (*UploadDatevBuchungsstapelResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UploadDatevBuchungsstapelResponse) GetSuccess() bool {
@@ -209,8 +543,41 @@ func (x *UploadDatevBuchungsstapelResponse) GetErrorMessage() string {
 }
 
 type UploadDatevBelegRequest struct {
-	TenantId  string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	InvoiceId string `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	InvoiceId     string                 `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadDatevBelegRequest) Reset() {
+	*x = UploadDatevBelegRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadDatevBelegRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadDatevBelegRequest) ProtoMessage() {}
+
+func (x *UploadDatevBelegRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadDatevBelegRequest.ProtoReflect.Descriptor instead.
+func (*UploadDatevBelegRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UploadDatevBelegRequest) GetTenantId() string {
@@ -228,8 +595,41 @@ func (x *UploadDatevBelegRequest) GetInvoiceId() string {
 }
 
 type UploadDatevBelegResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadDatevBelegResponse) Reset() {
+	*x = UploadDatevBelegResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadDatevBelegResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadDatevBelegResponse) ProtoMessage() {}
+
+func (x *UploadDatevBelegResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadDatevBelegResponse.ProtoReflect.Descriptor instead.
+func (*UploadDatevBelegResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UploadDatevBelegResponse) GetSuccess() bool {
@@ -246,12 +646,41 @@ func (x *UploadDatevBelegResponse) GetErrorMessage() string {
 	return ""
 }
 
-// ============================================================================
-// Config Messages
-// ============================================================================
-
 type GetDatevUploadConfigRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDatevUploadConfigRequest) Reset() {
+	*x = GetDatevUploadConfigRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDatevUploadConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDatevUploadConfigRequest) ProtoMessage() {}
+
+func (x *GetDatevUploadConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDatevUploadConfigRequest.ProtoReflect.Descriptor instead.
+func (*GetDatevUploadConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetDatevUploadConfigRequest) GetTenantId() string {
@@ -262,9 +691,42 @@ func (x *GetDatevUploadConfigRequest) GetTenantId() string {
 }
 
 type GetDatevUploadConfigResponse struct {
-	ClientNumber      string `protobuf:"bytes,1,opt,name=client_number,json=clientNumber,proto3" json:"client_number,omitempty"`
-	AutoUploadEnabled bool   `protobuf:"varint,2,opt,name=auto_upload_enabled,json=autoUploadEnabled,proto3" json:"auto_upload_enabled,omitempty"`
-	UploadAfterExport bool   `protobuf:"varint,3,opt,name=upload_after_export,json=uploadAfterExport,proto3" json:"upload_after_export,omitempty"`
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ClientNumber      string                 `protobuf:"bytes,1,opt,name=client_number,json=clientNumber,proto3" json:"client_number,omitempty"`
+	AutoUploadEnabled bool                   `protobuf:"varint,2,opt,name=auto_upload_enabled,json=autoUploadEnabled,proto3" json:"auto_upload_enabled,omitempty"`
+	UploadAfterExport bool                   `protobuf:"varint,3,opt,name=upload_after_export,json=uploadAfterExport,proto3" json:"upload_after_export,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetDatevUploadConfigResponse) Reset() {
+	*x = GetDatevUploadConfigResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDatevUploadConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDatevUploadConfigResponse) ProtoMessage() {}
+
+func (x *GetDatevUploadConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDatevUploadConfigResponse.ProtoReflect.Descriptor instead.
+func (*GetDatevUploadConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetDatevUploadConfigResponse) GetClientNumber() string {
@@ -289,10 +751,43 @@ func (x *GetDatevUploadConfigResponse) GetUploadAfterExport() bool {
 }
 
 type UpdateDatevUploadConfigRequest struct {
-	TenantId          string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ClientNumber      string `protobuf:"bytes,2,opt,name=client_number,json=clientNumber,proto3" json:"client_number,omitempty"`
-	AutoUploadEnabled bool   `protobuf:"varint,3,opt,name=auto_upload_enabled,json=autoUploadEnabled,proto3" json:"auto_upload_enabled,omitempty"`
-	UploadAfterExport bool   `protobuf:"varint,4,opt,name=upload_after_export,json=uploadAfterExport,proto3" json:"upload_after_export,omitempty"`
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	TenantId          string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ClientNumber      string                 `protobuf:"bytes,2,opt,name=client_number,json=clientNumber,proto3" json:"client_number,omitempty"`
+	AutoUploadEnabled bool                   `protobuf:"varint,3,opt,name=auto_upload_enabled,json=autoUploadEnabled,proto3" json:"auto_upload_enabled,omitempty"`
+	UploadAfterExport bool                   `protobuf:"varint,4,opt,name=upload_after_export,json=uploadAfterExport,proto3" json:"upload_after_export,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *UpdateDatevUploadConfigRequest) Reset() {
+	*x = UpdateDatevUploadConfigRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDatevUploadConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDatevUploadConfigRequest) ProtoMessage() {}
+
+func (x *UpdateDatevUploadConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDatevUploadConfigRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDatevUploadConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdateDatevUploadConfigRequest) GetTenantId() string {
@@ -324,7 +819,40 @@ func (x *UpdateDatevUploadConfigRequest) GetUploadAfterExport() bool {
 }
 
 type UpdateDatevUploadConfigResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDatevUploadConfigResponse) Reset() {
+	*x = UpdateDatevUploadConfigResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDatevUploadConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDatevUploadConfigResponse) ProtoMessage() {}
+
+func (x *UpdateDatevUploadConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDatevUploadConfigResponse.ProtoReflect.Descriptor instead.
+func (*UpdateDatevUploadConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateDatevUploadConfigResponse) GetSuccess() bool {
@@ -334,13 +862,42 @@ func (x *UpdateDatevUploadConfigResponse) GetSuccess() bool {
 	return false
 }
 
-// ============================================================================
-// Log Messages
-// ============================================================================
-
 type ListDatevUploadLogsRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Limit    int32  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDatevUploadLogsRequest) Reset() {
+	*x = ListDatevUploadLogsRequest{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDatevUploadLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDatevUploadLogsRequest) ProtoMessage() {}
+
+func (x *ListDatevUploadLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDatevUploadLogsRequest.ProtoReflect.Descriptor instead.
+func (*ListDatevUploadLogsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListDatevUploadLogsRequest) GetTenantId() string {
@@ -358,7 +915,40 @@ func (x *ListDatevUploadLogsRequest) GetLimit() int32 {
 }
 
 type ListDatevUploadLogsResponse struct {
-	Entries []*DatevUploadLogEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*DatevUploadLogEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDatevUploadLogsResponse) Reset() {
+	*x = ListDatevUploadLogsResponse{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDatevUploadLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDatevUploadLogsResponse) ProtoMessage() {}
+
+func (x *ListDatevUploadLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDatevUploadLogsResponse.ProtoReflect.Descriptor instead.
+func (*ListDatevUploadLogsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListDatevUploadLogsResponse) GetEntries() []*DatevUploadLogEntry {
@@ -369,6 +959,7 @@ func (x *ListDatevUploadLogsResponse) GetEntries() []*DatevUploadLogEntry {
 }
 
 type DatevUploadLogEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	UploadType    string                 `protobuf:"bytes,2,opt,name=upload_type,json=uploadType,proto3" json:"upload_type,omitempty"`
 	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
@@ -377,6 +968,38 @@ type DatevUploadLogEntry struct {
 	ErrorMessage  string                 `protobuf:"bytes,6,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	CompletedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DatevUploadLogEntry) Reset() {
+	*x = DatevUploadLogEntry{}
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DatevUploadLogEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DatevUploadLogEntry) ProtoMessage() {}
+
+func (x *DatevUploadLogEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_datev_upload_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DatevUploadLogEntry.ProtoReflect.Descriptor instead.
+func (*DatevUploadLogEntry) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_datev_upload_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DatevUploadLogEntry) GetId() string {
@@ -433,4 +1056,175 @@ func (x *DatevUploadLogEntry) GetCompletedAt() *timestamppb.Timestamp {
 		return x.CompletedAt
 	}
 	return nil
+}
+
+var File_proto_biz_v1_datev_upload_proto protoreflect.FileDescriptor
+
+const file_proto_biz_v1_datev_upload_proto_rawDesc = "" +
+	"\n" +
+	"\x1fproto/biz/v1/datev_upload.proto\x12\x06biz.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"X\n" +
+	"\x16GetDatevAuthURLRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
+	"\fredirect_url\x18\x02 \x01(\tR\vredirectUrl\"F\n" +
+	"\x17GetDatevAuthURLResponse\x12+\n" +
+	"\x11authorization_url\x18\x01 \x01(\tR\x10authorizationUrl\"u\n" +
+	"\x1fHandleDatevOAuthCallbackRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x12!\n" +
+	"\fredirect_url\x18\x03 \x01(\tR\vredirectUrl\"a\n" +
+	" HandleDatevOAuthCallbackResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"5\n" +
+	"\x16DisconnectDatevRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"3\n" +
+	"\x17DisconnectDatevResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\">\n" +
+	"\x1fGetDatevConnectionStatusRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"@\n" +
+	" GetDatevConnectionStatusResponse\x12\x1c\n" +
+	"\tconnected\x18\x01 \x01(\bR\tconnected\"\xa5\x01\n" +
+	" UploadDatevBuchungsstapelRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x02 \x01(\tR\tstartDate\x12\x19\n" +
+	"\bend_date\x18\x03 \x01(\tR\aendDate\x12*\n" +
+	"\x11fiscal_year_start\x18\x04 \x01(\tR\x0ffiscalYearStart\"\xa6\x01\n" +
+	"!UploadDatevBuchungsstapelResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12%\n" +
+	"\x0edocument_count\x18\x02 \x01(\x05R\rdocumentCount\x12\x1b\n" +
+	"\tfile_size\x18\x03 \x01(\x05R\bfileSize\x12#\n" +
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage\"U\n" +
+	"\x17UploadDatevBelegRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"invoice_id\x18\x02 \x01(\tR\tinvoiceId\"Y\n" +
+	"\x18UploadDatevBelegResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\":\n" +
+	"\x1bGetDatevUploadConfigRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\xa3\x01\n" +
+	"\x1cGetDatevUploadConfigResponse\x12#\n" +
+	"\rclient_number\x18\x01 \x01(\tR\fclientNumber\x12.\n" +
+	"\x13auto_upload_enabled\x18\x02 \x01(\bR\x11autoUploadEnabled\x12.\n" +
+	"\x13upload_after_export\x18\x03 \x01(\bR\x11uploadAfterExport\"\xc2\x01\n" +
+	"\x1eUpdateDatevUploadConfigRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
+	"\rclient_number\x18\x02 \x01(\tR\fclientNumber\x12.\n" +
+	"\x13auto_upload_enabled\x18\x03 \x01(\bR\x11autoUploadEnabled\x12.\n" +
+	"\x13upload_after_export\x18\x04 \x01(\bR\x11uploadAfterExport\";\n" +
+	"\x1fUpdateDatevUploadConfigResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"O\n" +
+	"\x1aListDatevUploadLogsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"T\n" +
+	"\x1bListDatevUploadLogsResponse\x125\n" +
+	"\aentries\x18\x01 \x03(\v2\x1b.biz.v1.DatevUploadLogEntryR\aentries\"\xc1\x02\n" +
+	"\x13DatevUploadLogEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
+	"\vupload_type\x18\x02 \x01(\tR\n" +
+	"uploadType\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x1b\n" +
+	"\tfile_size\x18\x04 \x01(\x05R\bfileSize\x12%\n" +
+	"\x0edocument_count\x18\x05 \x01(\x05R\rdocumentCount\x12#\n" +
+	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\x129\n" +
+	"\n" +
+	"started_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
+	"\fcompleted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt2\x92\a\n" +
+	"\x12DatevUploadService\x12R\n" +
+	"\x0fGetDatevAuthURL\x12\x1e.biz.v1.GetDatevAuthURLRequest\x1a\x1f.biz.v1.GetDatevAuthURLResponse\x12m\n" +
+	"\x18HandleDatevOAuthCallback\x12'.biz.v1.HandleDatevOAuthCallbackRequest\x1a(.biz.v1.HandleDatevOAuthCallbackResponse\x12R\n" +
+	"\x0fDisconnectDatev\x12\x1e.biz.v1.DisconnectDatevRequest\x1a\x1f.biz.v1.DisconnectDatevResponse\x12m\n" +
+	"\x18GetDatevConnectionStatus\x12'.biz.v1.GetDatevConnectionStatusRequest\x1a(.biz.v1.GetDatevConnectionStatusResponse\x12p\n" +
+	"\x19UploadDatevBuchungsstapel\x12(.biz.v1.UploadDatevBuchungsstapelRequest\x1a).biz.v1.UploadDatevBuchungsstapelResponse\x12U\n" +
+	"\x10UploadDatevBeleg\x12\x1f.biz.v1.UploadDatevBelegRequest\x1a .biz.v1.UploadDatevBelegResponse\x12a\n" +
+	"\x14GetDatevUploadConfig\x12#.biz.v1.GetDatevUploadConfigRequest\x1a$.biz.v1.GetDatevUploadConfigResponse\x12j\n" +
+	"\x17UpdateDatevUploadConfig\x12&.biz.v1.UpdateDatevUploadConfigRequest\x1a'.biz.v1.UpdateDatevUploadConfigResponse\x12^\n" +
+	"\x13ListDatevUploadLogs\x12\".biz.v1.ListDatevUploadLogsRequest\x1a#.biz.v1.ListDatevUploadLogsResponseB-Z+github.com/kmuhub/kmuhub/proto/biz/v1;bizv1b\x06proto3"
+
+var (
+	file_proto_biz_v1_datev_upload_proto_rawDescOnce sync.Once
+	file_proto_biz_v1_datev_upload_proto_rawDescData []byte
+)
+
+func file_proto_biz_v1_datev_upload_proto_rawDescGZIP() []byte {
+	file_proto_biz_v1_datev_upload_proto_rawDescOnce.Do(func() {
+		file_proto_biz_v1_datev_upload_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_biz_v1_datev_upload_proto_rawDesc), len(file_proto_biz_v1_datev_upload_proto_rawDesc)))
+	})
+	return file_proto_biz_v1_datev_upload_proto_rawDescData
+}
+
+var file_proto_biz_v1_datev_upload_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_proto_biz_v1_datev_upload_proto_goTypes = []any{
+	(*GetDatevAuthURLRequest)(nil),            // 0: biz.v1.GetDatevAuthURLRequest
+	(*GetDatevAuthURLResponse)(nil),           // 1: biz.v1.GetDatevAuthURLResponse
+	(*HandleDatevOAuthCallbackRequest)(nil),   // 2: biz.v1.HandleDatevOAuthCallbackRequest
+	(*HandleDatevOAuthCallbackResponse)(nil),  // 3: biz.v1.HandleDatevOAuthCallbackResponse
+	(*DisconnectDatevRequest)(nil),            // 4: biz.v1.DisconnectDatevRequest
+	(*DisconnectDatevResponse)(nil),           // 5: biz.v1.DisconnectDatevResponse
+	(*GetDatevConnectionStatusRequest)(nil),   // 6: biz.v1.GetDatevConnectionStatusRequest
+	(*GetDatevConnectionStatusResponse)(nil),  // 7: biz.v1.GetDatevConnectionStatusResponse
+	(*UploadDatevBuchungsstapelRequest)(nil),  // 8: biz.v1.UploadDatevBuchungsstapelRequest
+	(*UploadDatevBuchungsstapelResponse)(nil), // 9: biz.v1.UploadDatevBuchungsstapelResponse
+	(*UploadDatevBelegRequest)(nil),           // 10: biz.v1.UploadDatevBelegRequest
+	(*UploadDatevBelegResponse)(nil),          // 11: biz.v1.UploadDatevBelegResponse
+	(*GetDatevUploadConfigRequest)(nil),       // 12: biz.v1.GetDatevUploadConfigRequest
+	(*GetDatevUploadConfigResponse)(nil),      // 13: biz.v1.GetDatevUploadConfigResponse
+	(*UpdateDatevUploadConfigRequest)(nil),    // 14: biz.v1.UpdateDatevUploadConfigRequest
+	(*UpdateDatevUploadConfigResponse)(nil),   // 15: biz.v1.UpdateDatevUploadConfigResponse
+	(*ListDatevUploadLogsRequest)(nil),        // 16: biz.v1.ListDatevUploadLogsRequest
+	(*ListDatevUploadLogsResponse)(nil),       // 17: biz.v1.ListDatevUploadLogsResponse
+	(*DatevUploadLogEntry)(nil),               // 18: biz.v1.DatevUploadLogEntry
+	(*timestamppb.Timestamp)(nil),             // 19: google.protobuf.Timestamp
+}
+var file_proto_biz_v1_datev_upload_proto_depIdxs = []int32{
+	18, // 0: biz.v1.ListDatevUploadLogsResponse.entries:type_name -> biz.v1.DatevUploadLogEntry
+	19, // 1: biz.v1.DatevUploadLogEntry.started_at:type_name -> google.protobuf.Timestamp
+	19, // 2: biz.v1.DatevUploadLogEntry.completed_at:type_name -> google.protobuf.Timestamp
+	0,  // 3: biz.v1.DatevUploadService.GetDatevAuthURL:input_type -> biz.v1.GetDatevAuthURLRequest
+	2,  // 4: biz.v1.DatevUploadService.HandleDatevOAuthCallback:input_type -> biz.v1.HandleDatevOAuthCallbackRequest
+	4,  // 5: biz.v1.DatevUploadService.DisconnectDatev:input_type -> biz.v1.DisconnectDatevRequest
+	6,  // 6: biz.v1.DatevUploadService.GetDatevConnectionStatus:input_type -> biz.v1.GetDatevConnectionStatusRequest
+	8,  // 7: biz.v1.DatevUploadService.UploadDatevBuchungsstapel:input_type -> biz.v1.UploadDatevBuchungsstapelRequest
+	10, // 8: biz.v1.DatevUploadService.UploadDatevBeleg:input_type -> biz.v1.UploadDatevBelegRequest
+	12, // 9: biz.v1.DatevUploadService.GetDatevUploadConfig:input_type -> biz.v1.GetDatevUploadConfigRequest
+	14, // 10: biz.v1.DatevUploadService.UpdateDatevUploadConfig:input_type -> biz.v1.UpdateDatevUploadConfigRequest
+	16, // 11: biz.v1.DatevUploadService.ListDatevUploadLogs:input_type -> biz.v1.ListDatevUploadLogsRequest
+	1,  // 12: biz.v1.DatevUploadService.GetDatevAuthURL:output_type -> biz.v1.GetDatevAuthURLResponse
+	3,  // 13: biz.v1.DatevUploadService.HandleDatevOAuthCallback:output_type -> biz.v1.HandleDatevOAuthCallbackResponse
+	5,  // 14: biz.v1.DatevUploadService.DisconnectDatev:output_type -> biz.v1.DisconnectDatevResponse
+	7,  // 15: biz.v1.DatevUploadService.GetDatevConnectionStatus:output_type -> biz.v1.GetDatevConnectionStatusResponse
+	9,  // 16: biz.v1.DatevUploadService.UploadDatevBuchungsstapel:output_type -> biz.v1.UploadDatevBuchungsstapelResponse
+	11, // 17: biz.v1.DatevUploadService.UploadDatevBeleg:output_type -> biz.v1.UploadDatevBelegResponse
+	13, // 18: biz.v1.DatevUploadService.GetDatevUploadConfig:output_type -> biz.v1.GetDatevUploadConfigResponse
+	15, // 19: biz.v1.DatevUploadService.UpdateDatevUploadConfig:output_type -> biz.v1.UpdateDatevUploadConfigResponse
+	17, // 20: biz.v1.DatevUploadService.ListDatevUploadLogs:output_type -> biz.v1.ListDatevUploadLogsResponse
+	12, // [12:21] is the sub-list for method output_type
+	3,  // [3:12] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
+}
+
+func init() { file_proto_biz_v1_datev_upload_proto_init() }
+func file_proto_biz_v1_datev_upload_proto_init() {
+	if File_proto_biz_v1_datev_upload_proto != nil {
+		return
+	}
+	type x struct{}
+	out := protoimpl.TypeBuilder{
+		File: protoimpl.DescBuilder{
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_biz_v1_datev_upload_proto_rawDesc), len(file_proto_biz_v1_datev_upload_proto_rawDesc)),
+			NumEnums:      0,
+			NumMessages:   19,
+			NumExtensions: 0,
+			NumServices:   1,
+		},
+		GoTypes:           file_proto_biz_v1_datev_upload_proto_goTypes,
+		DependencyIndexes: file_proto_biz_v1_datev_upload_proto_depIdxs,
+		MessageInfos:      file_proto_biz_v1_datev_upload_proto_msgTypes,
+	}.Build()
+	File_proto_biz_v1_datev_upload_proto = out.File
+	file_proto_biz_v1_datev_upload_proto_goTypes = nil
+	file_proto_biz_v1_datev_upload_proto_depIdxs = nil
 }

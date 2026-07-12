@@ -15,24 +15,27 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.64.0 or later.
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LexwareIntegrationService_ConnectLexware_FullMethodName              = "/biz.v1.LexwareIntegrationService/ConnectLexware"
-	LexwareIntegrationService_DisconnectLexware_FullMethodName           = "/biz.v1.LexwareIntegrationService/DisconnectLexware"
-	LexwareIntegrationService_GetLexwareConnectionStatus_FullMethodName  = "/biz.v1.LexwareIntegrationService/GetLexwareConnectionStatus"
-	LexwareIntegrationService_TestLexwareConnection_FullMethodName       = "/biz.v1.LexwareIntegrationService/TestLexwareConnection"
-	LexwareIntegrationService_TriggerLexwareSync_FullMethodName          = "/biz.v1.LexwareIntegrationService/TriggerLexwareSync"
-	LexwareIntegrationService_GetLexwareSyncStatus_FullMethodName        = "/biz.v1.LexwareIntegrationService/GetLexwareSyncStatus"
-	LexwareIntegrationService_ListLexwareSyncLogs_FullMethodName         = "/biz.v1.LexwareIntegrationService/ListLexwareSyncLogs"
-	LexwareIntegrationService_GetLexwareFieldMappings_FullMethodName     = "/biz.v1.LexwareIntegrationService/GetLexwareFieldMappings"
-	LexwareIntegrationService_UpdateLexwareFieldMappings_FullMethodName  = "/biz.v1.LexwareIntegrationService/UpdateLexwareFieldMappings"
-	LexwareIntegrationService_PushInvoiceToLexware_FullMethodName        = "/biz.v1.LexwareIntegrationService/PushInvoiceToLexware"
-	LexwareIntegrationService_PushQuoteToLexware_FullMethodName          = "/biz.v1.LexwareIntegrationService/PushQuoteToLexware"
-	LexwareIntegrationService_HandleLexwareWebhookEvent_FullMethodName   = "/biz.v1.LexwareIntegrationService/HandleLexwareWebhookEvent"
+	LexwareIntegrationService_ConnectLexware_FullMethodName             = "/biz.v1.LexwareIntegrationService/ConnectLexware"
+	LexwareIntegrationService_DisconnectLexware_FullMethodName          = "/biz.v1.LexwareIntegrationService/DisconnectLexware"
+	LexwareIntegrationService_GetLexwareConnectionStatus_FullMethodName = "/biz.v1.LexwareIntegrationService/GetLexwareConnectionStatus"
+	LexwareIntegrationService_TestLexwareConnection_FullMethodName      = "/biz.v1.LexwareIntegrationService/TestLexwareConnection"
+	LexwareIntegrationService_TriggerLexwareSync_FullMethodName         = "/biz.v1.LexwareIntegrationService/TriggerLexwareSync"
+	LexwareIntegrationService_GetLexwareSyncStatus_FullMethodName       = "/biz.v1.LexwareIntegrationService/GetLexwareSyncStatus"
+	LexwareIntegrationService_ListLexwareSyncLogs_FullMethodName        = "/biz.v1.LexwareIntegrationService/ListLexwareSyncLogs"
+	LexwareIntegrationService_GetLexwareFieldMappings_FullMethodName    = "/biz.v1.LexwareIntegrationService/GetLexwareFieldMappings"
+	LexwareIntegrationService_UpdateLexwareFieldMappings_FullMethodName = "/biz.v1.LexwareIntegrationService/UpdateLexwareFieldMappings"
+	LexwareIntegrationService_PushInvoiceToLexware_FullMethodName       = "/biz.v1.LexwareIntegrationService/PushInvoiceToLexware"
+	LexwareIntegrationService_PushQuoteToLexware_FullMethodName         = "/biz.v1.LexwareIntegrationService/PushQuoteToLexware"
+	LexwareIntegrationService_HandleLexwareWebhookEvent_FullMethodName  = "/biz.v1.LexwareIntegrationService/HandleLexwareWebhookEvent"
 )
 
-// LexwareIntegrationServiceClient is the client API for LexwareIntegrationService.
+// LexwareIntegrationServiceClient is the client API for LexwareIntegrationService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LexwareIntegrationServiceClient interface {
 	// Connection
 	ConnectLexware(ctx context.Context, in *ConnectLexwareRequest, opts ...grpc.CallOption) (*ConnectLexwareResponse, error)
@@ -62,8 +65,9 @@ func NewLexwareIntegrationServiceClient(cc grpc.ClientConnInterface) LexwareInte
 }
 
 func (c *lexwareIntegrationServiceClient) ConnectLexware(ctx context.Context, in *ConnectLexwareRequest, opts ...grpc.CallOption) (*ConnectLexwareResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ConnectLexwareResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_ConnectLexware_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_ConnectLexware_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +75,9 @@ func (c *lexwareIntegrationServiceClient) ConnectLexware(ctx context.Context, in
 }
 
 func (c *lexwareIntegrationServiceClient) DisconnectLexware(ctx context.Context, in *DisconnectLexwareRequest, opts ...grpc.CallOption) (*DisconnectLexwareResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DisconnectLexwareResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_DisconnectLexware_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_DisconnectLexware_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +85,9 @@ func (c *lexwareIntegrationServiceClient) DisconnectLexware(ctx context.Context,
 }
 
 func (c *lexwareIntegrationServiceClient) GetLexwareConnectionStatus(ctx context.Context, in *GetLexwareConnectionStatusRequest, opts ...grpc.CallOption) (*GetLexwareConnectionStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetLexwareConnectionStatusResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_GetLexwareConnectionStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_GetLexwareConnectionStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +95,9 @@ func (c *lexwareIntegrationServiceClient) GetLexwareConnectionStatus(ctx context
 }
 
 func (c *lexwareIntegrationServiceClient) TestLexwareConnection(ctx context.Context, in *TestLexwareConnectionRequest, opts ...grpc.CallOption) (*TestLexwareConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TestLexwareConnectionResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_TestLexwareConnection_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_TestLexwareConnection_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +105,9 @@ func (c *lexwareIntegrationServiceClient) TestLexwareConnection(ctx context.Cont
 }
 
 func (c *lexwareIntegrationServiceClient) TriggerLexwareSync(ctx context.Context, in *TriggerLexwareSyncRequest, opts ...grpc.CallOption) (*TriggerLexwareSyncResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TriggerLexwareSyncResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_TriggerLexwareSync_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_TriggerLexwareSync_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +115,9 @@ func (c *lexwareIntegrationServiceClient) TriggerLexwareSync(ctx context.Context
 }
 
 func (c *lexwareIntegrationServiceClient) GetLexwareSyncStatus(ctx context.Context, in *GetLexwareSyncStatusRequest, opts ...grpc.CallOption) (*GetLexwareSyncStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetLexwareSyncStatusResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_GetLexwareSyncStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_GetLexwareSyncStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +125,9 @@ func (c *lexwareIntegrationServiceClient) GetLexwareSyncStatus(ctx context.Conte
 }
 
 func (c *lexwareIntegrationServiceClient) ListLexwareSyncLogs(ctx context.Context, in *ListLexwareSyncLogsRequest, opts ...grpc.CallOption) (*ListLexwareSyncLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListLexwareSyncLogsResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_ListLexwareSyncLogs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_ListLexwareSyncLogs_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +135,9 @@ func (c *lexwareIntegrationServiceClient) ListLexwareSyncLogs(ctx context.Contex
 }
 
 func (c *lexwareIntegrationServiceClient) GetLexwareFieldMappings(ctx context.Context, in *GetLexwareFieldMappingsRequest, opts ...grpc.CallOption) (*GetLexwareFieldMappingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetLexwareFieldMappingsResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_GetLexwareFieldMappings_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_GetLexwareFieldMappings_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +145,9 @@ func (c *lexwareIntegrationServiceClient) GetLexwareFieldMappings(ctx context.Co
 }
 
 func (c *lexwareIntegrationServiceClient) UpdateLexwareFieldMappings(ctx context.Context, in *UpdateLexwareFieldMappingsRequest, opts ...grpc.CallOption) (*UpdateLexwareFieldMappingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateLexwareFieldMappingsResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_UpdateLexwareFieldMappings_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_UpdateLexwareFieldMappings_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +155,9 @@ func (c *lexwareIntegrationServiceClient) UpdateLexwareFieldMappings(ctx context
 }
 
 func (c *lexwareIntegrationServiceClient) PushInvoiceToLexware(ctx context.Context, in *PushInvoiceToLexwareRequest, opts ...grpc.CallOption) (*PushInvoiceToLexwareResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PushInvoiceToLexwareResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_PushInvoiceToLexware_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_PushInvoiceToLexware_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +165,9 @@ func (c *lexwareIntegrationServiceClient) PushInvoiceToLexware(ctx context.Conte
 }
 
 func (c *lexwareIntegrationServiceClient) PushQuoteToLexware(ctx context.Context, in *PushQuoteToLexwareRequest, opts ...grpc.CallOption) (*PushQuoteToLexwareResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PushQuoteToLexwareResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_PushQuoteToLexware_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_PushQuoteToLexware_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,80 +175,101 @@ func (c *lexwareIntegrationServiceClient) PushQuoteToLexware(ctx context.Context
 }
 
 func (c *lexwareIntegrationServiceClient) HandleLexwareWebhookEvent(ctx context.Context, in *HandleLexwareWebhookEventRequest, opts ...grpc.CallOption) (*HandleLexwareWebhookEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HandleLexwareWebhookEventResponse)
-	err := c.cc.Invoke(ctx, LexwareIntegrationService_HandleLexwareWebhookEvent_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LexwareIntegrationService_HandleLexwareWebhookEvent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// LexwareIntegrationServiceServer is the server API for LexwareIntegrationService.
+// LexwareIntegrationServiceServer is the server API for LexwareIntegrationService service.
+// All implementations must embed UnimplementedLexwareIntegrationServiceServer
+// for forward compatibility.
 type LexwareIntegrationServiceServer interface {
+	// Connection
 	ConnectLexware(context.Context, *ConnectLexwareRequest) (*ConnectLexwareResponse, error)
 	DisconnectLexware(context.Context, *DisconnectLexwareRequest) (*DisconnectLexwareResponse, error)
 	GetLexwareConnectionStatus(context.Context, *GetLexwareConnectionStatusRequest) (*GetLexwareConnectionStatusResponse, error)
 	TestLexwareConnection(context.Context, *TestLexwareConnectionRequest) (*TestLexwareConnectionResponse, error)
+	// Sync Operations
 	TriggerLexwareSync(context.Context, *TriggerLexwareSyncRequest) (*TriggerLexwareSyncResponse, error)
 	GetLexwareSyncStatus(context.Context, *GetLexwareSyncStatusRequest) (*GetLexwareSyncStatusResponse, error)
 	ListLexwareSyncLogs(context.Context, *ListLexwareSyncLogsRequest) (*ListLexwareSyncLogsResponse, error)
+	// Field Mappings
 	GetLexwareFieldMappings(context.Context, *GetLexwareFieldMappingsRequest) (*GetLexwareFieldMappingsResponse, error)
 	UpdateLexwareFieldMappings(context.Context, *UpdateLexwareFieldMappingsRequest) (*UpdateLexwareFieldMappingsResponse, error)
+	// Manual Push
 	PushInvoiceToLexware(context.Context, *PushInvoiceToLexwareRequest) (*PushInvoiceToLexwareResponse, error)
 	PushQuoteToLexware(context.Context, *PushQuoteToLexwareRequest) (*PushQuoteToLexwareResponse, error)
+	// Webhooks
 	HandleLexwareWebhookEvent(context.Context, *HandleLexwareWebhookEventRequest) (*HandleLexwareWebhookEventResponse, error)
 	mustEmbedUnimplementedLexwareIntegrationServiceServer()
 }
 
-// UnimplementedLexwareIntegrationServiceServer should be embedded to have
+// UnimplementedLexwareIntegrationServiceServer must be embedded to have
 // forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
 type UnimplementedLexwareIntegrationServiceServer struct{}
 
 func (UnimplementedLexwareIntegrationServiceServer) ConnectLexware(context.Context, *ConnectLexwareRequest) (*ConnectLexwareResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ConnectLexware not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ConnectLexware not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) DisconnectLexware(context.Context, *DisconnectLexwareRequest) (*DisconnectLexwareResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DisconnectLexware not implemented")
+	return nil, status.Error(codes.Unimplemented, "method DisconnectLexware not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) GetLexwareConnectionStatus(context.Context, *GetLexwareConnectionStatusRequest) (*GetLexwareConnectionStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLexwareConnectionStatus not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetLexwareConnectionStatus not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) TestLexwareConnection(context.Context, *TestLexwareConnectionRequest) (*TestLexwareConnectionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method TestLexwareConnection not implemented")
+	return nil, status.Error(codes.Unimplemented, "method TestLexwareConnection not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) TriggerLexwareSync(context.Context, *TriggerLexwareSyncRequest) (*TriggerLexwareSyncResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method TriggerLexwareSync not implemented")
+	return nil, status.Error(codes.Unimplemented, "method TriggerLexwareSync not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) GetLexwareSyncStatus(context.Context, *GetLexwareSyncStatusRequest) (*GetLexwareSyncStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLexwareSyncStatus not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetLexwareSyncStatus not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) ListLexwareSyncLogs(context.Context, *ListLexwareSyncLogsRequest) (*ListLexwareSyncLogsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListLexwareSyncLogs not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListLexwareSyncLogs not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) GetLexwareFieldMappings(context.Context, *GetLexwareFieldMappingsRequest) (*GetLexwareFieldMappingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLexwareFieldMappings not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetLexwareFieldMappings not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) UpdateLexwareFieldMappings(context.Context, *UpdateLexwareFieldMappingsRequest) (*UpdateLexwareFieldMappingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateLexwareFieldMappings not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UpdateLexwareFieldMappings not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) PushInvoiceToLexware(context.Context, *PushInvoiceToLexwareRequest) (*PushInvoiceToLexwareResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PushInvoiceToLexware not implemented")
+	return nil, status.Error(codes.Unimplemented, "method PushInvoiceToLexware not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) PushQuoteToLexware(context.Context, *PushQuoteToLexwareRequest) (*PushQuoteToLexwareResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PushQuoteToLexware not implemented")
+	return nil, status.Error(codes.Unimplemented, "method PushQuoteToLexware not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) HandleLexwareWebhookEvent(context.Context, *HandleLexwareWebhookEventRequest) (*HandleLexwareWebhookEventResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method HandleLexwareWebhookEvent not implemented")
+	return nil, status.Error(codes.Unimplemented, "method HandleLexwareWebhookEvent not implemented")
 }
 func (UnimplementedLexwareIntegrationServiceServer) mustEmbedUnimplementedLexwareIntegrationServiceServer() {
 }
+func (UnimplementedLexwareIntegrationServiceServer) testEmbeddedByValue() {}
 
 // UnsafeLexwareIntegrationServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LexwareIntegrationServiceServer will
+// result in compilation errors.
 type UnsafeLexwareIntegrationServiceServer interface {
 	mustEmbedUnimplementedLexwareIntegrationServiceServer()
 }
 
 func RegisterLexwareIntegrationServiceServer(s grpc.ServiceRegistrar, srv LexwareIntegrationServiceServer) {
+	// If the following call panics, it indicates UnimplementedLexwareIntegrationServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
 	s.RegisterService(&LexwareIntegrationService_ServiceDesc, srv)
 }
 
@@ -246,10 +281,14 @@ func _LexwareIntegrationService_ConnectLexware_Handler(srv interface{}, ctx cont
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).ConnectLexware(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_ConnectLexware_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_ConnectLexware_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).ConnectLexware(ctx, req.(*ConnectLexwareRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_DisconnectLexware_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -260,10 +299,14 @@ func _LexwareIntegrationService_DisconnectLexware_Handler(srv interface{}, ctx c
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).DisconnectLexware(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_DisconnectLexware_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_DisconnectLexware_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).DisconnectLexware(ctx, req.(*DisconnectLexwareRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_GetLexwareConnectionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -274,10 +317,14 @@ func _LexwareIntegrationService_GetLexwareConnectionStatus_Handler(srv interface
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).GetLexwareConnectionStatus(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_GetLexwareConnectionStatus_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_GetLexwareConnectionStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).GetLexwareConnectionStatus(ctx, req.(*GetLexwareConnectionStatusRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_TestLexwareConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -288,10 +335,14 @@ func _LexwareIntegrationService_TestLexwareConnection_Handler(srv interface{}, c
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).TestLexwareConnection(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_TestLexwareConnection_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_TestLexwareConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).TestLexwareConnection(ctx, req.(*TestLexwareConnectionRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_TriggerLexwareSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -302,10 +353,14 @@ func _LexwareIntegrationService_TriggerLexwareSync_Handler(srv interface{}, ctx 
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).TriggerLexwareSync(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_TriggerLexwareSync_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_TriggerLexwareSync_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).TriggerLexwareSync(ctx, req.(*TriggerLexwareSyncRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_GetLexwareSyncStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -316,10 +371,14 @@ func _LexwareIntegrationService_GetLexwareSyncStatus_Handler(srv interface{}, ct
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).GetLexwareSyncStatus(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_GetLexwareSyncStatus_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_GetLexwareSyncStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).GetLexwareSyncStatus(ctx, req.(*GetLexwareSyncStatusRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_ListLexwareSyncLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -330,10 +389,14 @@ func _LexwareIntegrationService_ListLexwareSyncLogs_Handler(srv interface{}, ctx
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).ListLexwareSyncLogs(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_ListLexwareSyncLogs_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_ListLexwareSyncLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).ListLexwareSyncLogs(ctx, req.(*ListLexwareSyncLogsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_GetLexwareFieldMappings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -344,10 +407,14 @@ func _LexwareIntegrationService_GetLexwareFieldMappings_Handler(srv interface{},
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).GetLexwareFieldMappings(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_GetLexwareFieldMappings_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_GetLexwareFieldMappings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).GetLexwareFieldMappings(ctx, req.(*GetLexwareFieldMappingsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_UpdateLexwareFieldMappings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -358,10 +425,14 @@ func _LexwareIntegrationService_UpdateLexwareFieldMappings_Handler(srv interface
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).UpdateLexwareFieldMappings(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_UpdateLexwareFieldMappings_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_UpdateLexwareFieldMappings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).UpdateLexwareFieldMappings(ctx, req.(*UpdateLexwareFieldMappingsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_PushInvoiceToLexware_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -372,10 +443,14 @@ func _LexwareIntegrationService_PushInvoiceToLexware_Handler(srv interface{}, ct
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).PushInvoiceToLexware(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_PushInvoiceToLexware_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_PushInvoiceToLexware_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).PushInvoiceToLexware(ctx, req.(*PushInvoiceToLexwareRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_PushQuoteToLexware_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -386,10 +461,14 @@ func _LexwareIntegrationService_PushQuoteToLexware_Handler(srv interface{}, ctx 
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).PushQuoteToLexware(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_PushQuoteToLexware_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_PushQuoteToLexware_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).PushQuoteToLexware(ctx, req.(*PushQuoteToLexwareRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LexwareIntegrationService_HandleLexwareWebhookEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -400,29 +479,71 @@ func _LexwareIntegrationService_HandleLexwareWebhookEvent_Handler(srv interface{
 	if interceptor == nil {
 		return srv.(LexwareIntegrationServiceServer).HandleLexwareWebhookEvent(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: LexwareIntegrationService_HandleLexwareWebhookEvent_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LexwareIntegrationService_HandleLexwareWebhookEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LexwareIntegrationServiceServer).HandleLexwareWebhookEvent(ctx, req.(*HandleLexwareWebhookEventRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 // LexwareIntegrationService_ServiceDesc is the grpc.ServiceDesc for LexwareIntegrationService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
 var LexwareIntegrationService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "biz.v1.LexwareIntegrationService",
 	HandlerType: (*LexwareIntegrationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{MethodName: "ConnectLexware", Handler: _LexwareIntegrationService_ConnectLexware_Handler},
-		{MethodName: "DisconnectLexware", Handler: _LexwareIntegrationService_DisconnectLexware_Handler},
-		{MethodName: "GetLexwareConnectionStatus", Handler: _LexwareIntegrationService_GetLexwareConnectionStatus_Handler},
-		{MethodName: "TestLexwareConnection", Handler: _LexwareIntegrationService_TestLexwareConnection_Handler},
-		{MethodName: "TriggerLexwareSync", Handler: _LexwareIntegrationService_TriggerLexwareSync_Handler},
-		{MethodName: "GetLexwareSyncStatus", Handler: _LexwareIntegrationService_GetLexwareSyncStatus_Handler},
-		{MethodName: "ListLexwareSyncLogs", Handler: _LexwareIntegrationService_ListLexwareSyncLogs_Handler},
-		{MethodName: "GetLexwareFieldMappings", Handler: _LexwareIntegrationService_GetLexwareFieldMappings_Handler},
-		{MethodName: "UpdateLexwareFieldMappings", Handler: _LexwareIntegrationService_UpdateLexwareFieldMappings_Handler},
-		{MethodName: "PushInvoiceToLexware", Handler: _LexwareIntegrationService_PushInvoiceToLexware_Handler},
-		{MethodName: "PushQuoteToLexware", Handler: _LexwareIntegrationService_PushQuoteToLexware_Handler},
-		{MethodName: "HandleLexwareWebhookEvent", Handler: _LexwareIntegrationService_HandleLexwareWebhookEvent_Handler},
+		{
+			MethodName: "ConnectLexware",
+			Handler:    _LexwareIntegrationService_ConnectLexware_Handler,
+		},
+		{
+			MethodName: "DisconnectLexware",
+			Handler:    _LexwareIntegrationService_DisconnectLexware_Handler,
+		},
+		{
+			MethodName: "GetLexwareConnectionStatus",
+			Handler:    _LexwareIntegrationService_GetLexwareConnectionStatus_Handler,
+		},
+		{
+			MethodName: "TestLexwareConnection",
+			Handler:    _LexwareIntegrationService_TestLexwareConnection_Handler,
+		},
+		{
+			MethodName: "TriggerLexwareSync",
+			Handler:    _LexwareIntegrationService_TriggerLexwareSync_Handler,
+		},
+		{
+			MethodName: "GetLexwareSyncStatus",
+			Handler:    _LexwareIntegrationService_GetLexwareSyncStatus_Handler,
+		},
+		{
+			MethodName: "ListLexwareSyncLogs",
+			Handler:    _LexwareIntegrationService_ListLexwareSyncLogs_Handler,
+		},
+		{
+			MethodName: "GetLexwareFieldMappings",
+			Handler:    _LexwareIntegrationService_GetLexwareFieldMappings_Handler,
+		},
+		{
+			MethodName: "UpdateLexwareFieldMappings",
+			Handler:    _LexwareIntegrationService_UpdateLexwareFieldMappings_Handler,
+		},
+		{
+			MethodName: "PushInvoiceToLexware",
+			Handler:    _LexwareIntegrationService_PushInvoiceToLexware_Handler,
+		},
+		{
+			MethodName: "PushQuoteToLexware",
+			Handler:    _LexwareIntegrationService_PushQuoteToLexware_Handler,
+		},
+		{
+			MethodName: "HandleLexwareWebhookEvent",
+			Handler:    _LexwareIntegrationService_HandleLexwareWebhookEvent_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/biz/v1/lexware.proto",

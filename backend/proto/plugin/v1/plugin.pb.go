@@ -7,33 +7,70 @@
 package pluginv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
-// ============================================================================
-// Common Messages
-// ============================================================================
+const (
+	// Verify that this generated code is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	// Verify that runtime/protoimpl is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
 
 type PluginManifestMsg struct {
-	Id                string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Slug              string                   `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
-	Name              string                   `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Description       string                   `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	Version           string                   `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
-	Author            string                   `protobuf:"bytes,6,opt,name=author,proto3" json:"author,omitempty"`
-	SettingsSchema    string                   `protobuf:"bytes,7,opt,name=settings_schema,json=settingsSchema,proto3" json:"settings_schema,omitempty"`
-	Permissions       []string                 `protobuf:"bytes,8,rep,name=permissions,proto3" json:"permissions,omitempty"`
-	HookRegistrations []*HookRegistrationMsg   `protobuf:"bytes,9,rep,name=hook_registrations,json=hookRegistrations,proto3" json:"hook_registrations,omitempty"`
-	WasmBinaryHash    string                   `protobuf:"bytes,10,opt,name=wasm_binary_hash,json=wasmBinaryHash,proto3" json:"wasm_binary_hash,omitempty"`
-	PluginType        string                   `protobuf:"bytes,11,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
-	CreatedAt         *timestamppb.Timestamp   `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt         *timestamppb.Timestamp   `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Slug              string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	Name              string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description       string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Version           string                 `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
+	Author            string                 `protobuf:"bytes,6,opt,name=author,proto3" json:"author,omitempty"`
+	SettingsSchema    string                 `protobuf:"bytes,7,opt,name=settings_schema,json=settingsSchema,proto3" json:"settings_schema,omitempty"` // JSON string
+	Permissions       []string               `protobuf:"bytes,8,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	HookRegistrations []*HookRegistrationMsg `protobuf:"bytes,9,rep,name=hook_registrations,json=hookRegistrations,proto3" json:"hook_registrations,omitempty"`
+	WasmBinaryHash    string                 `protobuf:"bytes,10,opt,name=wasm_binary_hash,json=wasmBinaryHash,proto3" json:"wasm_binary_hash,omitempty"`
+	PluginType        string                 `protobuf:"bytes,11,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
+	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
-func (x *PluginManifestMsg) Reset()         {}
-func (x *PluginManifestMsg) String() string { return "" }
-func (x *PluginManifestMsg) ProtoMessage()  {}
+func (x *PluginManifestMsg) Reset() {
+	*x = PluginManifestMsg{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PluginManifestMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PluginManifestMsg) ProtoMessage() {}
+
+func (x *PluginManifestMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PluginManifestMsg.ProtoReflect.Descriptor instead.
+func (*PluginManifestMsg) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{0}
+}
 
 func (x *PluginManifestMsg) GetId() string {
 	if x != nil {
@@ -127,15 +164,44 @@ func (x *PluginManifestMsg) GetUpdatedAt() *timestamppb.Timestamp {
 }
 
 type HookRegistrationMsg struct {
-	HookType   string `protobuf:"bytes,1,opt,name=hook_type,json=hookType,proto3" json:"hook_type,omitempty"`
-	Module     string `protobuf:"bytes,2,opt,name=module,proto3" json:"module,omitempty"`
-	EntityType string `protobuf:"bytes,3,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	Priority   int32  `protobuf:"varint,4,opt,name=priority,proto3" json:"priority,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	HookType      string                 `protobuf:"bytes,1,opt,name=hook_type,json=hookType,proto3" json:"hook_type,omitempty"`
+	Module        string                 `protobuf:"bytes,2,opt,name=module,proto3" json:"module,omitempty"`
+	EntityType    string                 `protobuf:"bytes,3,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Priority      int32                  `protobuf:"varint,4,opt,name=priority,proto3" json:"priority,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *HookRegistrationMsg) Reset()         {}
-func (x *HookRegistrationMsg) String() string { return "" }
-func (x *HookRegistrationMsg) ProtoMessage()  {}
+func (x *HookRegistrationMsg) Reset() {
+	*x = HookRegistrationMsg{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HookRegistrationMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HookRegistrationMsg) ProtoMessage() {}
+
+func (x *HookRegistrationMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HookRegistrationMsg.ProtoReflect.Descriptor instead.
+func (*HookRegistrationMsg) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{1}
+}
 
 func (x *HookRegistrationMsg) GetHookType() string {
 	if x != nil {
@@ -166,27 +232,57 @@ func (x *HookRegistrationMsg) GetPriority() int32 {
 }
 
 type PluginInstallationMsg struct {
-	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId            string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ManifestId          string                 `protobuf:"bytes,3,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
-	Status              string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
-	Settings            string                 `protobuf:"bytes,5,opt,name=settings,proto3" json:"settings,omitempty"`
-	ErrorMessage        string                 `protobuf:"bytes,6,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	InstalledBy         string                 `protobuf:"bytes,7,opt,name=installed_by,json=installedBy,proto3" json:"installed_by,omitempty"`
-	CreatedAt           *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt           *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	ManifestSlug        string                 `protobuf:"bytes,10,opt,name=manifest_slug,json=manifestSlug,proto3" json:"manifest_slug,omitempty"`
-	ManifestName        string                 `protobuf:"bytes,11,opt,name=manifest_name,json=manifestName,proto3" json:"manifest_name,omitempty"`
-	ManifestVersion     string                 `protobuf:"bytes,12,opt,name=manifest_version,json=manifestVersion,proto3" json:"manifest_version,omitempty"`
-	PluginType          string                 `protobuf:"bytes,13,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
-	RequiredPermissions []string               `protobuf:"bytes,14,rep,name=required_permissions,json=requiredPermissions,proto3" json:"required_permissions,omitempty"`
-	GrantedPermissions  []string               `protobuf:"bytes,15,rep,name=granted_permissions,json=grantedPermissions,proto3" json:"granted_permissions,omitempty"`
-	SettingsSchema      string                 `protobuf:"bytes,16,opt,name=settings_schema,json=settingsSchema,proto3" json:"settings_schema,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId     string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ManifestId   string                 `protobuf:"bytes,3,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	Status       string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Settings     string                 `protobuf:"bytes,5,opt,name=settings,proto3" json:"settings,omitempty"` // JSON string
+	ErrorMessage string                 `protobuf:"bytes,6,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	InstalledBy  string                 `protobuf:"bytes,7,opt,name=installed_by,json=installedBy,proto3" json:"installed_by,omitempty"`
+	CreatedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt    *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Enriched fields
+	ManifestSlug        string   `protobuf:"bytes,10,opt,name=manifest_slug,json=manifestSlug,proto3" json:"manifest_slug,omitempty"`
+	ManifestName        string   `protobuf:"bytes,11,opt,name=manifest_name,json=manifestName,proto3" json:"manifest_name,omitempty"`
+	ManifestVersion     string   `protobuf:"bytes,12,opt,name=manifest_version,json=manifestVersion,proto3" json:"manifest_version,omitempty"`
+	PluginType          string   `protobuf:"bytes,13,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
+	RequiredPermissions []string `protobuf:"bytes,14,rep,name=required_permissions,json=requiredPermissions,proto3" json:"required_permissions,omitempty"`
+	GrantedPermissions  []string `protobuf:"bytes,15,rep,name=granted_permissions,json=grantedPermissions,proto3" json:"granted_permissions,omitempty"`
+	SettingsSchema      string   `protobuf:"bytes,16,opt,name=settings_schema,json=settingsSchema,proto3" json:"settings_schema,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
-func (x *PluginInstallationMsg) Reset()         {}
-func (x *PluginInstallationMsg) String() string { return "" }
-func (x *PluginInstallationMsg) ProtoMessage()  {}
+func (x *PluginInstallationMsg) Reset() {
+	*x = PluginInstallationMsg{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PluginInstallationMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PluginInstallationMsg) ProtoMessage() {}
+
+func (x *PluginInstallationMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PluginInstallationMsg.ProtoReflect.Descriptor instead.
+func (*PluginInstallationMsg) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{2}
+}
 
 func (x *PluginInstallationMsg) GetId() string {
 	if x != nil {
@@ -301,6 +397,7 @@ func (x *PluginInstallationMsg) GetSettingsSchema() string {
 }
 
 type ValidationRuleMsg struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	TenantId       string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	InstallationId string                 `protobuf:"bytes,3,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
@@ -309,17 +406,45 @@ type ValidationRuleMsg struct {
 	EntityType     string                 `protobuf:"bytes,6,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
 	FieldName      string                 `protobuf:"bytes,7,opt,name=field_name,json=fieldName,proto3" json:"field_name,omitempty"`
 	RuleType       string                 `protobuf:"bytes,8,opt,name=rule_type,json=ruleType,proto3" json:"rule_type,omitempty"`
-	RuleConfig     string                 `protobuf:"bytes,9,opt,name=rule_config,json=ruleConfig,proto3" json:"rule_config,omitempty"`
+	RuleConfig     string                 `protobuf:"bytes,9,opt,name=rule_config,json=ruleConfig,proto3" json:"rule_config,omitempty"` // JSON string
 	ErrorMessage   string                 `protobuf:"bytes,10,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	Priority       int32                  `protobuf:"varint,11,opt,name=priority,proto3" json:"priority,omitempty"`
 	Enabled        bool                   `protobuf:"varint,12,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt      *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *ValidationRuleMsg) Reset()         {}
-func (x *ValidationRuleMsg) String() string { return "" }
-func (x *ValidationRuleMsg) ProtoMessage()  {}
+func (x *ValidationRuleMsg) Reset() {
+	*x = ValidationRuleMsg{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidationRuleMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidationRuleMsg) ProtoMessage() {}
+
+func (x *ValidationRuleMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidationRuleMsg.ProtoReflect.Descriptor instead.
+func (*ValidationRuleMsg) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{3}
+}
 
 func (x *ValidationRuleMsg) GetId() string {
 	if x != nil {
@@ -420,23 +545,52 @@ func (x *ValidationRuleMsg) GetUpdatedAt() *timestamppb.Timestamp {
 }
 
 type WorkflowRuleMsg struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	TenantId       string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	InstallationId string                 `protobuf:"bytes,3,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
 	Name           string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	Description    string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	TriggerEvent   string                 `protobuf:"bytes,6,opt,name=trigger_event,json=triggerEvent,proto3" json:"trigger_event,omitempty"`
-	Conditions     string                 `protobuf:"bytes,7,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions        string                 `protobuf:"bytes,8,opt,name=actions,proto3" json:"actions,omitempty"`
+	Conditions     string                 `protobuf:"bytes,7,opt,name=conditions,proto3" json:"conditions,omitempty"` // JSON string
+	Actions        string                 `protobuf:"bytes,8,opt,name=actions,proto3" json:"actions,omitempty"`       // JSON string
 	Priority       int32                  `protobuf:"varint,9,opt,name=priority,proto3" json:"priority,omitempty"`
 	Enabled        bool                   `protobuf:"varint,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt      *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *WorkflowRuleMsg) Reset()         {}
-func (x *WorkflowRuleMsg) String() string { return "" }
-func (x *WorkflowRuleMsg) ProtoMessage()  {}
+func (x *WorkflowRuleMsg) Reset() {
+	*x = WorkflowRuleMsg{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowRuleMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowRuleMsg) ProtoMessage() {}
+
+func (x *WorkflowRuleMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowRuleMsg.ProtoReflect.Descriptor instead.
+func (*WorkflowRuleMsg) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{4}
+}
 
 func (x *WorkflowRuleMsg) GetId() string {
 	if x != nil {
@@ -523,21 +677,50 @@ func (x *WorkflowRuleMsg) GetUpdatedAt() *timestamppb.Timestamp {
 }
 
 type IndustryTemplateMsg struct {
-	Id              string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Slug            string `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
-	Name            string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Description     string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	Industry        string `protobuf:"bytes,5,opt,name=industry,proto3" json:"industry,omitempty"`
-	Icon            string `protobuf:"bytes,6,opt,name=icon,proto3" json:"icon,omitempty"`
-	CustomFields    string `protobuf:"bytes,7,opt,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
-	ValidationRules string `protobuf:"bytes,8,opt,name=validation_rules,json=validationRules,proto3" json:"validation_rules,omitempty"`
-	WorkflowRules   string `protobuf:"bytes,9,opt,name=workflow_rules,json=workflowRules,proto3" json:"workflow_rules,omitempty"`
-	DefaultSettings string `protobuf:"bytes,10,opt,name=default_settings,json=defaultSettings,proto3" json:"default_settings,omitempty"`
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Slug            string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description     string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Industry        string                 `protobuf:"bytes,5,opt,name=industry,proto3" json:"industry,omitempty"`
+	Icon            string                 `protobuf:"bytes,6,opt,name=icon,proto3" json:"icon,omitempty"`
+	CustomFields    string                 `protobuf:"bytes,7,opt,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`           // JSON string
+	ValidationRules string                 `protobuf:"bytes,8,opt,name=validation_rules,json=validationRules,proto3" json:"validation_rules,omitempty"`  // JSON string
+	WorkflowRules   string                 `protobuf:"bytes,9,opt,name=workflow_rules,json=workflowRules,proto3" json:"workflow_rules,omitempty"`        // JSON string
+	DefaultSettings string                 `protobuf:"bytes,10,opt,name=default_settings,json=defaultSettings,proto3" json:"default_settings,omitempty"` // JSON string
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
-func (x *IndustryTemplateMsg) Reset()         {}
-func (x *IndustryTemplateMsg) String() string { return "" }
-func (x *IndustryTemplateMsg) ProtoMessage()  {}
+func (x *IndustryTemplateMsg) Reset() {
+	*x = IndustryTemplateMsg{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IndustryTemplateMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IndustryTemplateMsg) ProtoMessage() {}
+
+func (x *IndustryTemplateMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IndustryTemplateMsg.ProtoReflect.Descriptor instead.
+func (*IndustryTemplateMsg) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{5}
+}
 
 func (x *IndustryTemplateMsg) GetId() string {
 	if x != nil {
@@ -610,6 +793,7 @@ func (x *IndustryTemplateMsg) GetDefaultSettings() string {
 }
 
 type ExecutionLogMsg struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	InstallationId string                 `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
 	HookType       string                 `protobuf:"bytes,3,opt,name=hook_type,json=hookType,proto3" json:"hook_type,omitempty"`
@@ -620,11 +804,39 @@ type ExecutionLogMsg struct {
 	Status         string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
 	ErrorMessage   string                 `protobuf:"bytes,9,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *ExecutionLogMsg) Reset()         {}
-func (x *ExecutionLogMsg) String() string { return "" }
-func (x *ExecutionLogMsg) ProtoMessage()  {}
+func (x *ExecutionLogMsg) Reset() {
+	*x = ExecutionLogMsg{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecutionLogMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecutionLogMsg) ProtoMessage() {}
+
+func (x *ExecutionLogMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecutionLogMsg.ProtoReflect.Descriptor instead.
+func (*ExecutionLogMsg) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{6}
+}
 
 func (x *ExecutionLogMsg) GetId() string {
 	if x != nil {
@@ -696,100 +908,51 @@ func (x *ExecutionLogMsg) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// ============================================================================
-// Hook Execution Results
-// ============================================================================
-
-type HookExecutionResult struct {
-	PluginSlug   string `protobuf:"bytes,1,opt,name=plugin_slug,json=pluginSlug,proto3" json:"plugin_slug,omitempty"`
-	Status       string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
-	DurationMs   int32  `protobuf:"varint,3,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
-	ErrorMessage string `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-}
-
-func (x *HookExecutionResult) Reset()         {}
-func (x *HookExecutionResult) String() string { return "" }
-func (x *HookExecutionResult) ProtoMessage()  {}
-
-func (x *HookExecutionResult) GetPluginSlug() string {
-	if x != nil {
-		return x.PluginSlug
-	}
-	return ""
-}
-
-func (x *HookExecutionResult) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-func (x *HookExecutionResult) GetDurationMs() int32 {
-	if x != nil {
-		return x.DurationMs
-	}
-	return 0
-}
-
-func (x *HookExecutionResult) GetErrorMessage() string {
-	if x != nil {
-		return x.ErrorMessage
-	}
-	return ""
-}
-
-type ValidationError struct {
-	Field   string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
-	Rule    string `protobuf:"bytes,2,opt,name=rule,proto3" json:"rule,omitempty"`
-	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-}
-
-func (x *ValidationError) Reset()         {}
-func (x *ValidationError) String() string { return "" }
-func (x *ValidationError) ProtoMessage()  {}
-
-func (x *ValidationError) GetField() string {
-	if x != nil {
-		return x.Field
-	}
-	return ""
-}
-
-func (x *ValidationError) GetRule() string {
-	if x != nil {
-		return x.Rule
-	}
-	return ""
-}
-
-func (x *ValidationError) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// ============================================================================
-// Manifest CRUD Request/Response
-// ============================================================================
-
 type CreateManifestRequest struct {
-	Slug              string               `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
-	Name              string               `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Description       string               `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Version           string               `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
-	Author            string               `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
-	SettingsSchema    string               `protobuf:"bytes,6,opt,name=settings_schema,json=settingsSchema,proto3" json:"settings_schema,omitempty"`
-	Permissions       []string             `protobuf:"bytes,7,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Slug              string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description       string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Version           string                 `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
+	Author            string                 `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
+	SettingsSchema    string                 `protobuf:"bytes,6,opt,name=settings_schema,json=settingsSchema,proto3" json:"settings_schema,omitempty"`
+	Permissions       []string               `protobuf:"bytes,7,rep,name=permissions,proto3" json:"permissions,omitempty"`
 	HookRegistrations []*HookRegistrationMsg `protobuf:"bytes,8,rep,name=hook_registrations,json=hookRegistrations,proto3" json:"hook_registrations,omitempty"`
-	WasmBinary        []byte               `protobuf:"bytes,9,opt,name=wasm_binary,json=wasmBinary,proto3" json:"wasm_binary,omitempty"`
-	PluginType        string               `protobuf:"bytes,10,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
+	WasmBinary        []byte                 `protobuf:"bytes,9,opt,name=wasm_binary,json=wasmBinary,proto3" json:"wasm_binary,omitempty"`
+	PluginType        string                 `protobuf:"bytes,10,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
-func (x *CreateManifestRequest) Reset()         {}
-func (x *CreateManifestRequest) String() string { return "" }
-func (x *CreateManifestRequest) ProtoMessage()  {}
+func (x *CreateManifestRequest) Reset() {
+	*x = CreateManifestRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateManifestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateManifestRequest) ProtoMessage() {}
+
+func (x *CreateManifestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateManifestRequest.ProtoReflect.Descriptor instead.
+func (*CreateManifestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{7}
+}
 
 func (x *CreateManifestRequest) GetSlug() string {
 	if x != nil {
@@ -862,12 +1025,41 @@ func (x *CreateManifestRequest) GetPluginType() string {
 }
 
 type CreateManifestResponse struct {
-	Manifest *PluginManifestMsg `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Manifest      *PluginManifestMsg     `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateManifestResponse) Reset()         {}
-func (x *CreateManifestResponse) String() string { return "" }
-func (x *CreateManifestResponse) ProtoMessage()  {}
+func (x *CreateManifestResponse) Reset() {
+	*x = CreateManifestResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateManifestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateManifestResponse) ProtoMessage() {}
+
+func (x *CreateManifestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateManifestResponse.ProtoReflect.Descriptor instead.
+func (*CreateManifestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{8}
+}
 
 func (x *CreateManifestResponse) GetManifest() *PluginManifestMsg {
 	if x != nil {
@@ -877,12 +1069,41 @@ func (x *CreateManifestResponse) GetManifest() *PluginManifestMsg {
 }
 
 type GetManifestRequest struct {
-	ManifestId string `protobuf:"bytes,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ManifestId    string                 `protobuf:"bytes,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetManifestRequest) Reset()         {}
-func (x *GetManifestRequest) String() string { return "" }
-func (x *GetManifestRequest) ProtoMessage()  {}
+func (x *GetManifestRequest) Reset() {
+	*x = GetManifestRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetManifestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetManifestRequest) ProtoMessage() {}
+
+func (x *GetManifestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetManifestRequest.ProtoReflect.Descriptor instead.
+func (*GetManifestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{9}
+}
 
 func (x *GetManifestRequest) GetManifestId() string {
 	if x != nil {
@@ -892,12 +1113,41 @@ func (x *GetManifestRequest) GetManifestId() string {
 }
 
 type GetManifestResponse struct {
-	Manifest *PluginManifestMsg `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Manifest      *PluginManifestMsg     `protobuf:"bytes,1,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetManifestResponse) Reset()         {}
-func (x *GetManifestResponse) String() string { return "" }
-func (x *GetManifestResponse) ProtoMessage()  {}
+func (x *GetManifestResponse) Reset() {
+	*x = GetManifestResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetManifestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetManifestResponse) ProtoMessage() {}
+
+func (x *GetManifestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetManifestResponse.ProtoReflect.Descriptor instead.
+func (*GetManifestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{10}
+}
 
 func (x *GetManifestResponse) GetManifest() *PluginManifestMsg {
 	if x != nil {
@@ -907,12 +1157,41 @@ func (x *GetManifestResponse) GetManifest() *PluginManifestMsg {
 }
 
 type ListManifestsRequest struct {
-	PluginType string `protobuf:"bytes,1,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PluginType    string                 `protobuf:"bytes,1,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"` // Optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListManifestsRequest) Reset()         {}
-func (x *ListManifestsRequest) String() string { return "" }
-func (x *ListManifestsRequest) ProtoMessage()  {}
+func (x *ListManifestsRequest) Reset() {
+	*x = ListManifestsRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListManifestsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListManifestsRequest) ProtoMessage() {}
+
+func (x *ListManifestsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListManifestsRequest.ProtoReflect.Descriptor instead.
+func (*ListManifestsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{11}
+}
 
 func (x *ListManifestsRequest) GetPluginType() string {
 	if x != nil {
@@ -922,12 +1201,41 @@ func (x *ListManifestsRequest) GetPluginType() string {
 }
 
 type ListManifestsResponse struct {
-	Manifests []*PluginManifestMsg `protobuf:"bytes,1,rep,name=manifests,proto3" json:"manifests,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Manifests     []*PluginManifestMsg   `protobuf:"bytes,1,rep,name=manifests,proto3" json:"manifests,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListManifestsResponse) Reset()         {}
-func (x *ListManifestsResponse) String() string { return "" }
-func (x *ListManifestsResponse) ProtoMessage()  {}
+func (x *ListManifestsResponse) Reset() {
+	*x = ListManifestsResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListManifestsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListManifestsResponse) ProtoMessage() {}
+
+func (x *ListManifestsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListManifestsResponse.ProtoReflect.Descriptor instead.
+func (*ListManifestsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{12}
+}
 
 func (x *ListManifestsResponse) GetManifests() []*PluginManifestMsg {
 	if x != nil {
@@ -937,12 +1245,41 @@ func (x *ListManifestsResponse) GetManifests() []*PluginManifestMsg {
 }
 
 type DeleteManifestRequest struct {
-	ManifestId string `protobuf:"bytes,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ManifestId    string                 `protobuf:"bytes,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteManifestRequest) Reset()         {}
-func (x *DeleteManifestRequest) String() string { return "" }
-func (x *DeleteManifestRequest) ProtoMessage()  {}
+func (x *DeleteManifestRequest) Reset() {
+	*x = DeleteManifestRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteManifestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteManifestRequest) ProtoMessage() {}
+
+func (x *DeleteManifestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteManifestRequest.ProtoReflect.Descriptor instead.
+func (*DeleteManifestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{13}
+}
 
 func (x *DeleteManifestRequest) GetManifestId() string {
 	if x != nil {
@@ -952,12 +1289,41 @@ func (x *DeleteManifestRequest) GetManifestId() string {
 }
 
 type DeleteManifestResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteManifestResponse) Reset()         {}
-func (x *DeleteManifestResponse) String() string { return "" }
-func (x *DeleteManifestResponse) ProtoMessage()  {}
+func (x *DeleteManifestResponse) Reset() {
+	*x = DeleteManifestResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteManifestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteManifestResponse) ProtoMessage() {}
+
+func (x *DeleteManifestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteManifestResponse.ProtoReflect.Descriptor instead.
+func (*DeleteManifestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{14}
+}
 
 func (x *DeleteManifestResponse) GetSuccess() bool {
 	if x != nil {
@@ -966,19 +1332,44 @@ func (x *DeleteManifestResponse) GetSuccess() bool {
 	return false
 }
 
-// ============================================================================
-// Installation Lifecycle Request/Response
-// ============================================================================
-
 type InstallPluginRequest struct {
-	TenantId    string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ManifestId  string `protobuf:"bytes,2,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
-	InstalledBy string `protobuf:"bytes,3,opt,name=installed_by,json=installedBy,proto3" json:"installed_by,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ManifestId    string                 `protobuf:"bytes,2,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	InstalledBy   string                 `protobuf:"bytes,3,opt,name=installed_by,json=installedBy,proto3" json:"installed_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *InstallPluginRequest) Reset()         {}
-func (x *InstallPluginRequest) String() string { return "" }
-func (x *InstallPluginRequest) ProtoMessage()  {}
+func (x *InstallPluginRequest) Reset() {
+	*x = InstallPluginRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InstallPluginRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstallPluginRequest) ProtoMessage() {}
+
+func (x *InstallPluginRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstallPluginRequest.ProtoReflect.Descriptor instead.
+func (*InstallPluginRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{15}
+}
 
 func (x *InstallPluginRequest) GetTenantId() string {
 	if x != nil {
@@ -1002,12 +1393,41 @@ func (x *InstallPluginRequest) GetInstalledBy() string {
 }
 
 type InstallPluginResponse struct {
-	Installation *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Installation  *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *InstallPluginResponse) Reset()         {}
-func (x *InstallPluginResponse) String() string { return "" }
-func (x *InstallPluginResponse) ProtoMessage()  {}
+func (x *InstallPluginResponse) Reset() {
+	*x = InstallPluginResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InstallPluginResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstallPluginResponse) ProtoMessage() {}
+
+func (x *InstallPluginResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstallPluginResponse.ProtoReflect.Descriptor instead.
+func (*InstallPluginResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{16}
+}
 
 func (x *InstallPluginResponse) GetInstallation() *PluginInstallationMsg {
 	if x != nil {
@@ -1017,12 +1437,41 @@ func (x *InstallPluginResponse) GetInstallation() *PluginInstallationMsg {
 }
 
 type UninstallPluginRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *UninstallPluginRequest) Reset()         {}
-func (x *UninstallPluginRequest) String() string { return "" }
-func (x *UninstallPluginRequest) ProtoMessage()  {}
+func (x *UninstallPluginRequest) Reset() {
+	*x = UninstallPluginRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UninstallPluginRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UninstallPluginRequest) ProtoMessage() {}
+
+func (x *UninstallPluginRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UninstallPluginRequest.ProtoReflect.Descriptor instead.
+func (*UninstallPluginRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{17}
+}
 
 func (x *UninstallPluginRequest) GetInstallationId() string {
 	if x != nil {
@@ -1032,12 +1481,41 @@ func (x *UninstallPluginRequest) GetInstallationId() string {
 }
 
 type UninstallPluginResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UninstallPluginResponse) Reset()         {}
-func (x *UninstallPluginResponse) String() string { return "" }
-func (x *UninstallPluginResponse) ProtoMessage()  {}
+func (x *UninstallPluginResponse) Reset() {
+	*x = UninstallPluginResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UninstallPluginResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UninstallPluginResponse) ProtoMessage() {}
+
+func (x *UninstallPluginResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UninstallPluginResponse.ProtoReflect.Descriptor instead.
+func (*UninstallPluginResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{18}
+}
 
 func (x *UninstallPluginResponse) GetSuccess() bool {
 	if x != nil {
@@ -1047,12 +1525,41 @@ func (x *UninstallPluginResponse) GetSuccess() bool {
 }
 
 type EnablePluginRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *EnablePluginRequest) Reset()         {}
-func (x *EnablePluginRequest) String() string { return "" }
-func (x *EnablePluginRequest) ProtoMessage()  {}
+func (x *EnablePluginRequest) Reset() {
+	*x = EnablePluginRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnablePluginRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnablePluginRequest) ProtoMessage() {}
+
+func (x *EnablePluginRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnablePluginRequest.ProtoReflect.Descriptor instead.
+func (*EnablePluginRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{19}
+}
 
 func (x *EnablePluginRequest) GetInstallationId() string {
 	if x != nil {
@@ -1062,12 +1569,41 @@ func (x *EnablePluginRequest) GetInstallationId() string {
 }
 
 type EnablePluginResponse struct {
-	Installation *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Installation  *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *EnablePluginResponse) Reset()         {}
-func (x *EnablePluginResponse) String() string { return "" }
-func (x *EnablePluginResponse) ProtoMessage()  {}
+func (x *EnablePluginResponse) Reset() {
+	*x = EnablePluginResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnablePluginResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnablePluginResponse) ProtoMessage() {}
+
+func (x *EnablePluginResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnablePluginResponse.ProtoReflect.Descriptor instead.
+func (*EnablePluginResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{20}
+}
 
 func (x *EnablePluginResponse) GetInstallation() *PluginInstallationMsg {
 	if x != nil {
@@ -1077,12 +1613,41 @@ func (x *EnablePluginResponse) GetInstallation() *PluginInstallationMsg {
 }
 
 type DisablePluginRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *DisablePluginRequest) Reset()         {}
-func (x *DisablePluginRequest) String() string { return "" }
-func (x *DisablePluginRequest) ProtoMessage()  {}
+func (x *DisablePluginRequest) Reset() {
+	*x = DisablePluginRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisablePluginRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisablePluginRequest) ProtoMessage() {}
+
+func (x *DisablePluginRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisablePluginRequest.ProtoReflect.Descriptor instead.
+func (*DisablePluginRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{21}
+}
 
 func (x *DisablePluginRequest) GetInstallationId() string {
 	if x != nil {
@@ -1092,12 +1657,41 @@ func (x *DisablePluginRequest) GetInstallationId() string {
 }
 
 type DisablePluginResponse struct {
-	Installation *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Installation  *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DisablePluginResponse) Reset()         {}
-func (x *DisablePluginResponse) String() string { return "" }
-func (x *DisablePluginResponse) ProtoMessage()  {}
+func (x *DisablePluginResponse) Reset() {
+	*x = DisablePluginResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisablePluginResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisablePluginResponse) ProtoMessage() {}
+
+func (x *DisablePluginResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisablePluginResponse.ProtoReflect.Descriptor instead.
+func (*DisablePluginResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{22}
+}
 
 func (x *DisablePluginResponse) GetInstallation() *PluginInstallationMsg {
 	if x != nil {
@@ -1107,12 +1701,41 @@ func (x *DisablePluginResponse) GetInstallation() *PluginInstallationMsg {
 }
 
 type GetInstallationRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *GetInstallationRequest) Reset()         {}
-func (x *GetInstallationRequest) String() string { return "" }
-func (x *GetInstallationRequest) ProtoMessage()  {}
+func (x *GetInstallationRequest) Reset() {
+	*x = GetInstallationRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetInstallationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetInstallationRequest) ProtoMessage() {}
+
+func (x *GetInstallationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetInstallationRequest.ProtoReflect.Descriptor instead.
+func (*GetInstallationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{23}
+}
 
 func (x *GetInstallationRequest) GetInstallationId() string {
 	if x != nil {
@@ -1122,12 +1745,41 @@ func (x *GetInstallationRequest) GetInstallationId() string {
 }
 
 type GetInstallationResponse struct {
-	Installation *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Installation  *PluginInstallationMsg `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetInstallationResponse) Reset()         {}
-func (x *GetInstallationResponse) String() string { return "" }
-func (x *GetInstallationResponse) ProtoMessage()  {}
+func (x *GetInstallationResponse) Reset() {
+	*x = GetInstallationResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetInstallationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetInstallationResponse) ProtoMessage() {}
+
+func (x *GetInstallationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetInstallationResponse.ProtoReflect.Descriptor instead.
+func (*GetInstallationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{24}
+}
 
 func (x *GetInstallationResponse) GetInstallation() *PluginInstallationMsg {
 	if x != nil {
@@ -1137,13 +1789,42 @@ func (x *GetInstallationResponse) GetInstallation() *PluginInstallationMsg {
 }
 
 type ListInstallationsRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Status   string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"` // Optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListInstallationsRequest) Reset()         {}
-func (x *ListInstallationsRequest) String() string { return "" }
-func (x *ListInstallationsRequest) ProtoMessage()  {}
+func (x *ListInstallationsRequest) Reset() {
+	*x = ListInstallationsRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInstallationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInstallationsRequest) ProtoMessage() {}
+
+func (x *ListInstallationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInstallationsRequest.ProtoReflect.Descriptor instead.
+func (*ListInstallationsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{25}
+}
 
 func (x *ListInstallationsRequest) GetTenantId() string {
 	if x != nil {
@@ -1160,12 +1841,41 @@ func (x *ListInstallationsRequest) GetStatus() string {
 }
 
 type ListInstallationsResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
 	Installations []*PluginInstallationMsg `protobuf:"bytes,1,rep,name=installations,proto3" json:"installations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListInstallationsResponse) Reset()         {}
-func (x *ListInstallationsResponse) String() string { return "" }
-func (x *ListInstallationsResponse) ProtoMessage()  {}
+func (x *ListInstallationsResponse) Reset() {
+	*x = ListInstallationsResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInstallationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInstallationsResponse) ProtoMessage() {}
+
+func (x *ListInstallationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInstallationsResponse.ProtoReflect.Descriptor instead.
+func (*ListInstallationsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{26}
+}
 
 func (x *ListInstallationsResponse) GetInstallations() []*PluginInstallationMsg {
 	if x != nil {
@@ -1174,19 +1884,44 @@ func (x *ListInstallationsResponse) GetInstallations() []*PluginInstallationMsg 
 	return nil
 }
 
-// ============================================================================
-// Permission Approval Request/Response
-// ============================================================================
-
 type ApprovePermissionsRequest struct {
-	InstallationId string   `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Permissions    []string `protobuf:"bytes,2,rep,name=permissions,proto3" json:"permissions,omitempty"`
-	GrantedBy      string   `protobuf:"bytes,3,opt,name=granted_by,json=grantedBy,proto3" json:"granted_by,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	Permissions    []string               `protobuf:"bytes,2,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	GrantedBy      string                 `protobuf:"bytes,3,opt,name=granted_by,json=grantedBy,proto3" json:"granted_by,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *ApprovePermissionsRequest) Reset()         {}
-func (x *ApprovePermissionsRequest) String() string { return "" }
-func (x *ApprovePermissionsRequest) ProtoMessage()  {}
+func (x *ApprovePermissionsRequest) Reset() {
+	*x = ApprovePermissionsRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApprovePermissionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApprovePermissionsRequest) ProtoMessage() {}
+
+func (x *ApprovePermissionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApprovePermissionsRequest.ProtoReflect.Descriptor instead.
+func (*ApprovePermissionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{27}
+}
 
 func (x *ApprovePermissionsRequest) GetInstallationId() string {
 	if x != nil {
@@ -1210,12 +1945,41 @@ func (x *ApprovePermissionsRequest) GetGrantedBy() string {
 }
 
 type ApprovePermissionsResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ApprovePermissionsResponse) Reset()         {}
-func (x *ApprovePermissionsResponse) String() string { return "" }
-func (x *ApprovePermissionsResponse) ProtoMessage()  {}
+func (x *ApprovePermissionsResponse) Reset() {
+	*x = ApprovePermissionsResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApprovePermissionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApprovePermissionsResponse) ProtoMessage() {}
+
+func (x *ApprovePermissionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApprovePermissionsResponse.ProtoReflect.Descriptor instead.
+func (*ApprovePermissionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{28}
+}
 
 func (x *ApprovePermissionsResponse) GetSuccess() bool {
 	if x != nil {
@@ -1225,12 +1989,41 @@ func (x *ApprovePermissionsResponse) GetSuccess() bool {
 }
 
 type ListGrantedPermissionsRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *ListGrantedPermissionsRequest) Reset()         {}
-func (x *ListGrantedPermissionsRequest) String() string { return "" }
-func (x *ListGrantedPermissionsRequest) ProtoMessage()  {}
+func (x *ListGrantedPermissionsRequest) Reset() {
+	*x = ListGrantedPermissionsRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGrantedPermissionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGrantedPermissionsRequest) ProtoMessage() {}
+
+func (x *ListGrantedPermissionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGrantedPermissionsRequest.ProtoReflect.Descriptor instead.
+func (*ListGrantedPermissionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{29}
+}
 
 func (x *ListGrantedPermissionsRequest) GetInstallationId() string {
 	if x != nil {
@@ -1240,12 +2033,41 @@ func (x *ListGrantedPermissionsRequest) GetInstallationId() string {
 }
 
 type ListGrantedPermissionsResponse struct {
-	Permissions []string `protobuf:"bytes,1,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Permissions   []string               `protobuf:"bytes,1,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListGrantedPermissionsResponse) Reset()         {}
-func (x *ListGrantedPermissionsResponse) String() string { return "" }
-func (x *ListGrantedPermissionsResponse) ProtoMessage()  {}
+func (x *ListGrantedPermissionsResponse) Reset() {
+	*x = ListGrantedPermissionsResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGrantedPermissionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGrantedPermissionsResponse) ProtoMessage() {}
+
+func (x *ListGrantedPermissionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGrantedPermissionsResponse.ProtoReflect.Descriptor instead.
+func (*ListGrantedPermissionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{30}
+}
 
 func (x *ListGrantedPermissionsResponse) GetPermissions() []string {
 	if x != nil {
@@ -1254,17 +2076,42 @@ func (x *ListGrantedPermissionsResponse) GetPermissions() []string {
 	return nil
 }
 
-// ============================================================================
-// Plugin Settings Request/Response
-// ============================================================================
-
 type GetPluginSettingsRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *GetPluginSettingsRequest) Reset()         {}
-func (x *GetPluginSettingsRequest) String() string { return "" }
-func (x *GetPluginSettingsRequest) ProtoMessage()  {}
+func (x *GetPluginSettingsRequest) Reset() {
+	*x = GetPluginSettingsRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPluginSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPluginSettingsRequest) ProtoMessage() {}
+
+func (x *GetPluginSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPluginSettingsRequest.ProtoReflect.Descriptor instead.
+func (*GetPluginSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{31}
+}
 
 func (x *GetPluginSettingsRequest) GetInstallationId() string {
 	if x != nil {
@@ -1274,12 +2121,41 @@ func (x *GetPluginSettingsRequest) GetInstallationId() string {
 }
 
 type GetPluginSettingsResponse struct {
-	Settings string `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      string                 `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"` // JSON string
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetPluginSettingsResponse) Reset()         {}
-func (x *GetPluginSettingsResponse) String() string { return "" }
-func (x *GetPluginSettingsResponse) ProtoMessage()  {}
+func (x *GetPluginSettingsResponse) Reset() {
+	*x = GetPluginSettingsResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPluginSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPluginSettingsResponse) ProtoMessage() {}
+
+func (x *GetPluginSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPluginSettingsResponse.ProtoReflect.Descriptor instead.
+func (*GetPluginSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{32}
+}
 
 func (x *GetPluginSettingsResponse) GetSettings() string {
 	if x != nil {
@@ -1289,13 +2165,42 @@ func (x *GetPluginSettingsResponse) GetSettings() string {
 }
 
 type UpdatePluginSettingsRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Settings       string `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	Settings       string                 `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"` // JSON string
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *UpdatePluginSettingsRequest) Reset()         {}
-func (x *UpdatePluginSettingsRequest) String() string { return "" }
-func (x *UpdatePluginSettingsRequest) ProtoMessage()  {}
+func (x *UpdatePluginSettingsRequest) Reset() {
+	*x = UpdatePluginSettingsRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdatePluginSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdatePluginSettingsRequest) ProtoMessage() {}
+
+func (x *UpdatePluginSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdatePluginSettingsRequest.ProtoReflect.Descriptor instead.
+func (*UpdatePluginSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{33}
+}
 
 func (x *UpdatePluginSettingsRequest) GetInstallationId() string {
 	if x != nil {
@@ -1312,12 +2217,41 @@ func (x *UpdatePluginSettingsRequest) GetSettings() string {
 }
 
 type UpdatePluginSettingsResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpdatePluginSettingsResponse) Reset()         {}
-func (x *UpdatePluginSettingsResponse) String() string { return "" }
-func (x *UpdatePluginSettingsResponse) ProtoMessage()  {}
+func (x *UpdatePluginSettingsResponse) Reset() {
+	*x = UpdatePluginSettingsResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdatePluginSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdatePluginSettingsResponse) ProtoMessage() {}
+
+func (x *UpdatePluginSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdatePluginSettingsResponse.ProtoReflect.Descriptor instead.
+func (*UpdatePluginSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{34}
+}
 
 func (x *UpdatePluginSettingsResponse) GetSuccess() bool {
 	if x != nil {
@@ -1327,12 +2261,41 @@ func (x *UpdatePluginSettingsResponse) GetSuccess() bool {
 }
 
 type GetPluginSettingsSchemaRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *GetPluginSettingsSchemaRequest) Reset()         {}
-func (x *GetPluginSettingsSchemaRequest) String() string { return "" }
-func (x *GetPluginSettingsSchemaRequest) ProtoMessage()  {}
+func (x *GetPluginSettingsSchemaRequest) Reset() {
+	*x = GetPluginSettingsSchemaRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPluginSettingsSchemaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPluginSettingsSchemaRequest) ProtoMessage() {}
+
+func (x *GetPluginSettingsSchemaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPluginSettingsSchemaRequest.ProtoReflect.Descriptor instead.
+func (*GetPluginSettingsSchemaRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{35}
+}
 
 func (x *GetPluginSettingsSchemaRequest) GetInstallationId() string {
 	if x != nil {
@@ -1342,12 +2305,41 @@ func (x *GetPluginSettingsSchemaRequest) GetInstallationId() string {
 }
 
 type GetPluginSettingsSchemaResponse struct {
-	Schema string `protobuf:"bytes,1,opt,name=schema,proto3" json:"schema,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Schema        string                 `protobuf:"bytes,1,opt,name=schema,proto3" json:"schema,omitempty"` // JSON Schema string
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetPluginSettingsSchemaResponse) Reset()         {}
-func (x *GetPluginSettingsSchemaResponse) String() string { return "" }
-func (x *GetPluginSettingsSchemaResponse) ProtoMessage()  {}
+func (x *GetPluginSettingsSchemaResponse) Reset() {
+	*x = GetPluginSettingsSchemaResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPluginSettingsSchemaResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPluginSettingsSchemaResponse) ProtoMessage() {}
+
+func (x *GetPluginSettingsSchemaResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPluginSettingsSchemaResponse.ProtoReflect.Descriptor instead.
+func (*GetPluginSettingsSchemaResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{36}
+}
 
 func (x *GetPluginSettingsSchemaResponse) GetSchema() string {
 	if x != nil {
@@ -1356,26 +2348,51 @@ func (x *GetPluginSettingsSchemaResponse) GetSchema() string {
 	return ""
 }
 
-// ============================================================================
-// Validation Rules CRUD Request/Response
-// ============================================================================
-
 type CreateValidationRuleRequest struct {
-	TenantId       string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	InstallationId string `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Name           string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Description    string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	EntityType     string `protobuf:"bytes,5,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	FieldName      string `protobuf:"bytes,6,opt,name=field_name,json=fieldName,proto3" json:"field_name,omitempty"`
-	RuleType       string `protobuf:"bytes,7,opt,name=rule_type,json=ruleType,proto3" json:"rule_type,omitempty"`
-	RuleConfig     string `protobuf:"bytes,8,opt,name=rule_config,json=ruleConfig,proto3" json:"rule_config,omitempty"`
-	ErrorMessage   string `protobuf:"bytes,9,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	Priority       int32  `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	InstallationId string                 `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"` // Optional
+	Name           string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description    string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	EntityType     string                 `protobuf:"bytes,5,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	FieldName      string                 `protobuf:"bytes,6,opt,name=field_name,json=fieldName,proto3" json:"field_name,omitempty"`
+	RuleType       string                 `protobuf:"bytes,7,opt,name=rule_type,json=ruleType,proto3" json:"rule_type,omitempty"`
+	RuleConfig     string                 `protobuf:"bytes,8,opt,name=rule_config,json=ruleConfig,proto3" json:"rule_config,omitempty"` // JSON string
+	ErrorMessage   string                 `protobuf:"bytes,9,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	Priority       int32                  `protobuf:"varint,10,opt,name=priority,proto3" json:"priority,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *CreateValidationRuleRequest) Reset()         {}
-func (x *CreateValidationRuleRequest) String() string { return "" }
-func (x *CreateValidationRuleRequest) ProtoMessage()  {}
+func (x *CreateValidationRuleRequest) Reset() {
+	*x = CreateValidationRuleRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateValidationRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateValidationRuleRequest) ProtoMessage() {}
+
+func (x *CreateValidationRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateValidationRuleRequest.ProtoReflect.Descriptor instead.
+func (*CreateValidationRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{37}
+}
 
 func (x *CreateValidationRuleRequest) GetTenantId() string {
 	if x != nil {
@@ -1448,12 +2465,41 @@ func (x *CreateValidationRuleRequest) GetPriority() int32 {
 }
 
 type CreateValidationRuleResponse struct {
-	Rule *ValidationRuleMsg `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *ValidationRuleMsg     `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateValidationRuleResponse) Reset()         {}
-func (x *CreateValidationRuleResponse) String() string { return "" }
-func (x *CreateValidationRuleResponse) ProtoMessage()  {}
+func (x *CreateValidationRuleResponse) Reset() {
+	*x = CreateValidationRuleResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateValidationRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateValidationRuleResponse) ProtoMessage() {}
+
+func (x *CreateValidationRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateValidationRuleResponse.ProtoReflect.Descriptor instead.
+func (*CreateValidationRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{38}
+}
 
 func (x *CreateValidationRuleResponse) GetRule() *ValidationRuleMsg {
 	if x != nil {
@@ -1463,13 +2509,42 @@ func (x *CreateValidationRuleResponse) GetRule() *ValidationRuleMsg {
 }
 
 type ListValidationRulesRequest struct {
-	TenantId   string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	EntityType string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"` // Optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListValidationRulesRequest) Reset()         {}
-func (x *ListValidationRulesRequest) String() string { return "" }
-func (x *ListValidationRulesRequest) ProtoMessage()  {}
+func (x *ListValidationRulesRequest) Reset() {
+	*x = ListValidationRulesRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListValidationRulesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListValidationRulesRequest) ProtoMessage() {}
+
+func (x *ListValidationRulesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListValidationRulesRequest.ProtoReflect.Descriptor instead.
+func (*ListValidationRulesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{39}
+}
 
 func (x *ListValidationRulesRequest) GetTenantId() string {
 	if x != nil {
@@ -1486,12 +2561,41 @@ func (x *ListValidationRulesRequest) GetEntityType() string {
 }
 
 type ListValidationRulesResponse struct {
-	Rules []*ValidationRuleMsg `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rules         []*ValidationRuleMsg   `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListValidationRulesResponse) Reset()         {}
-func (x *ListValidationRulesResponse) String() string { return "" }
-func (x *ListValidationRulesResponse) ProtoMessage()  {}
+func (x *ListValidationRulesResponse) Reset() {
+	*x = ListValidationRulesResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListValidationRulesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListValidationRulesResponse) ProtoMessage() {}
+
+func (x *ListValidationRulesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListValidationRulesResponse.ProtoReflect.Descriptor instead.
+func (*ListValidationRulesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{40}
+}
 
 func (x *ListValidationRulesResponse) GetRules() []*ValidationRuleMsg {
 	if x != nil {
@@ -1501,18 +2605,47 @@ func (x *ListValidationRulesResponse) GetRules() []*ValidationRuleMsg {
 }
 
 type UpdateValidationRuleRequest struct {
-	RuleId       string `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
-	Name         string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Description  string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	RuleConfig   string `protobuf:"bytes,4,opt,name=rule_config,json=ruleConfig,proto3" json:"rule_config,omitempty"`
-	ErrorMessage string `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	Priority     int32  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
-	Enabled      bool   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	RuleConfig    string                 `protobuf:"bytes,4,opt,name=rule_config,json=ruleConfig,proto3" json:"rule_config,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	Priority      int32                  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	Enabled       bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpdateValidationRuleRequest) Reset()         {}
-func (x *UpdateValidationRuleRequest) String() string { return "" }
-func (x *UpdateValidationRuleRequest) ProtoMessage()  {}
+func (x *UpdateValidationRuleRequest) Reset() {
+	*x = UpdateValidationRuleRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateValidationRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateValidationRuleRequest) ProtoMessage() {}
+
+func (x *UpdateValidationRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateValidationRuleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateValidationRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{41}
+}
 
 func (x *UpdateValidationRuleRequest) GetRuleId() string {
 	if x != nil {
@@ -1564,12 +2697,41 @@ func (x *UpdateValidationRuleRequest) GetEnabled() bool {
 }
 
 type UpdateValidationRuleResponse struct {
-	Rule *ValidationRuleMsg `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *ValidationRuleMsg     `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpdateValidationRuleResponse) Reset()         {}
-func (x *UpdateValidationRuleResponse) String() string { return "" }
-func (x *UpdateValidationRuleResponse) ProtoMessage()  {}
+func (x *UpdateValidationRuleResponse) Reset() {
+	*x = UpdateValidationRuleResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateValidationRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateValidationRuleResponse) ProtoMessage() {}
+
+func (x *UpdateValidationRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateValidationRuleResponse.ProtoReflect.Descriptor instead.
+func (*UpdateValidationRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{42}
+}
 
 func (x *UpdateValidationRuleResponse) GetRule() *ValidationRuleMsg {
 	if x != nil {
@@ -1579,12 +2741,41 @@ func (x *UpdateValidationRuleResponse) GetRule() *ValidationRuleMsg {
 }
 
 type DeleteValidationRuleRequest struct {
-	RuleId string `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteValidationRuleRequest) Reset()         {}
-func (x *DeleteValidationRuleRequest) String() string { return "" }
-func (x *DeleteValidationRuleRequest) ProtoMessage()  {}
+func (x *DeleteValidationRuleRequest) Reset() {
+	*x = DeleteValidationRuleRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteValidationRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteValidationRuleRequest) ProtoMessage() {}
+
+func (x *DeleteValidationRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteValidationRuleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteValidationRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{43}
+}
 
 func (x *DeleteValidationRuleRequest) GetRuleId() string {
 	if x != nil {
@@ -1594,12 +2785,41 @@ func (x *DeleteValidationRuleRequest) GetRuleId() string {
 }
 
 type DeleteValidationRuleResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteValidationRuleResponse) Reset()         {}
-func (x *DeleteValidationRuleResponse) String() string { return "" }
-func (x *DeleteValidationRuleResponse) ProtoMessage()  {}
+func (x *DeleteValidationRuleResponse) Reset() {
+	*x = DeleteValidationRuleResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteValidationRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteValidationRuleResponse) ProtoMessage() {}
+
+func (x *DeleteValidationRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteValidationRuleResponse.ProtoReflect.Descriptor instead.
+func (*DeleteValidationRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{44}
+}
 
 func (x *DeleteValidationRuleResponse) GetSuccess() bool {
 	if x != nil {
@@ -1608,24 +2828,49 @@ func (x *DeleteValidationRuleResponse) GetSuccess() bool {
 	return false
 }
 
-// ============================================================================
-// Workflow Rules CRUD Request/Response
-// ============================================================================
-
 type CreateWorkflowRuleRequest struct {
-	TenantId       string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	InstallationId string `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Name           string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Description    string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	TriggerEvent   string `protobuf:"bytes,5,opt,name=trigger_event,json=triggerEvent,proto3" json:"trigger_event,omitempty"`
-	Conditions     string `protobuf:"bytes,6,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions        string `protobuf:"bytes,7,opt,name=actions,proto3" json:"actions,omitempty"`
-	Priority       int32  `protobuf:"varint,8,opt,name=priority,proto3" json:"priority,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	InstallationId string                 `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"` // Optional
+	Name           string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description    string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	TriggerEvent   string                 `protobuf:"bytes,5,opt,name=trigger_event,json=triggerEvent,proto3" json:"trigger_event,omitempty"`
+	Conditions     string                 `protobuf:"bytes,6,opt,name=conditions,proto3" json:"conditions,omitempty"` // JSON string
+	Actions        string                 `protobuf:"bytes,7,opt,name=actions,proto3" json:"actions,omitempty"`       // JSON string
+	Priority       int32                  `protobuf:"varint,8,opt,name=priority,proto3" json:"priority,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *CreateWorkflowRuleRequest) Reset()         {}
-func (x *CreateWorkflowRuleRequest) String() string { return "" }
-func (x *CreateWorkflowRuleRequest) ProtoMessage()  {}
+func (x *CreateWorkflowRuleRequest) Reset() {
+	*x = CreateWorkflowRuleRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWorkflowRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWorkflowRuleRequest) ProtoMessage() {}
+
+func (x *CreateWorkflowRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWorkflowRuleRequest.ProtoReflect.Descriptor instead.
+func (*CreateWorkflowRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{45}
+}
 
 func (x *CreateWorkflowRuleRequest) GetTenantId() string {
 	if x != nil {
@@ -1684,12 +2929,41 @@ func (x *CreateWorkflowRuleRequest) GetPriority() int32 {
 }
 
 type CreateWorkflowRuleResponse struct {
-	Rule *WorkflowRuleMsg `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *WorkflowRuleMsg       `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateWorkflowRuleResponse) Reset()         {}
-func (x *CreateWorkflowRuleResponse) String() string { return "" }
-func (x *CreateWorkflowRuleResponse) ProtoMessage()  {}
+func (x *CreateWorkflowRuleResponse) Reset() {
+	*x = CreateWorkflowRuleResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWorkflowRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWorkflowRuleResponse) ProtoMessage() {}
+
+func (x *CreateWorkflowRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWorkflowRuleResponse.ProtoReflect.Descriptor instead.
+func (*CreateWorkflowRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{46}
+}
 
 func (x *CreateWorkflowRuleResponse) GetRule() *WorkflowRuleMsg {
 	if x != nil {
@@ -1699,13 +2973,42 @@ func (x *CreateWorkflowRuleResponse) GetRule() *WorkflowRuleMsg {
 }
 
 type ListWorkflowRulesRequest struct {
-	TenantId     string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	TriggerEvent string `protobuf:"bytes,2,opt,name=trigger_event,json=triggerEvent,proto3" json:"trigger_event,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	TriggerEvent  string                 `protobuf:"bytes,2,opt,name=trigger_event,json=triggerEvent,proto3" json:"trigger_event,omitempty"` // Optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListWorkflowRulesRequest) Reset()         {}
-func (x *ListWorkflowRulesRequest) String() string { return "" }
-func (x *ListWorkflowRulesRequest) ProtoMessage()  {}
+func (x *ListWorkflowRulesRequest) Reset() {
+	*x = ListWorkflowRulesRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowRulesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowRulesRequest) ProtoMessage() {}
+
+func (x *ListWorkflowRulesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowRulesRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkflowRulesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{47}
+}
 
 func (x *ListWorkflowRulesRequest) GetTenantId() string {
 	if x != nil {
@@ -1722,12 +3025,41 @@ func (x *ListWorkflowRulesRequest) GetTriggerEvent() string {
 }
 
 type ListWorkflowRulesResponse struct {
-	Rules []*WorkflowRuleMsg `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rules         []*WorkflowRuleMsg     `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListWorkflowRulesResponse) Reset()         {}
-func (x *ListWorkflowRulesResponse) String() string { return "" }
-func (x *ListWorkflowRulesResponse) ProtoMessage()  {}
+func (x *ListWorkflowRulesResponse) Reset() {
+	*x = ListWorkflowRulesResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowRulesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowRulesResponse) ProtoMessage() {}
+
+func (x *ListWorkflowRulesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowRulesResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkflowRulesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{48}
+}
 
 func (x *ListWorkflowRulesResponse) GetRules() []*WorkflowRuleMsg {
 	if x != nil {
@@ -1737,18 +3069,47 @@ func (x *ListWorkflowRulesResponse) GetRules() []*WorkflowRuleMsg {
 }
 
 type UpdateWorkflowRuleRequest struct {
-	RuleId      string `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
-	Name        string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Conditions  string `protobuf:"bytes,4,opt,name=conditions,proto3" json:"conditions,omitempty"`
-	Actions     string `protobuf:"bytes,5,opt,name=actions,proto3" json:"actions,omitempty"`
-	Priority    int32  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
-	Enabled     bool   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Conditions    string                 `protobuf:"bytes,4,opt,name=conditions,proto3" json:"conditions,omitempty"`
+	Actions       string                 `protobuf:"bytes,5,opt,name=actions,proto3" json:"actions,omitempty"`
+	Priority      int32                  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	Enabled       bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpdateWorkflowRuleRequest) Reset()         {}
-func (x *UpdateWorkflowRuleRequest) String() string { return "" }
-func (x *UpdateWorkflowRuleRequest) ProtoMessage()  {}
+func (x *UpdateWorkflowRuleRequest) Reset() {
+	*x = UpdateWorkflowRuleRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWorkflowRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWorkflowRuleRequest) ProtoMessage() {}
+
+func (x *UpdateWorkflowRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWorkflowRuleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateWorkflowRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{49}
+}
 
 func (x *UpdateWorkflowRuleRequest) GetRuleId() string {
 	if x != nil {
@@ -1800,12 +3161,41 @@ func (x *UpdateWorkflowRuleRequest) GetEnabled() bool {
 }
 
 type UpdateWorkflowRuleResponse struct {
-	Rule *WorkflowRuleMsg `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *WorkflowRuleMsg       `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpdateWorkflowRuleResponse) Reset()         {}
-func (x *UpdateWorkflowRuleResponse) String() string { return "" }
-func (x *UpdateWorkflowRuleResponse) ProtoMessage()  {}
+func (x *UpdateWorkflowRuleResponse) Reset() {
+	*x = UpdateWorkflowRuleResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWorkflowRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWorkflowRuleResponse) ProtoMessage() {}
+
+func (x *UpdateWorkflowRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWorkflowRuleResponse.ProtoReflect.Descriptor instead.
+func (*UpdateWorkflowRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{50}
+}
 
 func (x *UpdateWorkflowRuleResponse) GetRule() *WorkflowRuleMsg {
 	if x != nil {
@@ -1815,12 +3205,41 @@ func (x *UpdateWorkflowRuleResponse) GetRule() *WorkflowRuleMsg {
 }
 
 type DeleteWorkflowRuleRequest struct {
-	RuleId string `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteWorkflowRuleRequest) Reset()         {}
-func (x *DeleteWorkflowRuleRequest) String() string { return "" }
-func (x *DeleteWorkflowRuleRequest) ProtoMessage()  {}
+func (x *DeleteWorkflowRuleRequest) Reset() {
+	*x = DeleteWorkflowRuleRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteWorkflowRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteWorkflowRuleRequest) ProtoMessage() {}
+
+func (x *DeleteWorkflowRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteWorkflowRuleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteWorkflowRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{51}
+}
 
 func (x *DeleteWorkflowRuleRequest) GetRuleId() string {
 	if x != nil {
@@ -1830,12 +3249,41 @@ func (x *DeleteWorkflowRuleRequest) GetRuleId() string {
 }
 
 type DeleteWorkflowRuleResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteWorkflowRuleResponse) Reset()         {}
-func (x *DeleteWorkflowRuleResponse) String() string { return "" }
-func (x *DeleteWorkflowRuleResponse) ProtoMessage()  {}
+func (x *DeleteWorkflowRuleResponse) Reset() {
+	*x = DeleteWorkflowRuleResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteWorkflowRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteWorkflowRuleResponse) ProtoMessage() {}
+
+func (x *DeleteWorkflowRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteWorkflowRuleResponse.ProtoReflect.Descriptor instead.
+func (*DeleteWorkflowRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{52}
+}
 
 func (x *DeleteWorkflowRuleResponse) GetSuccess() bool {
 	if x != nil {
@@ -1844,17 +3292,42 @@ func (x *DeleteWorkflowRuleResponse) GetSuccess() bool {
 	return false
 }
 
-// ============================================================================
-// Industry Templates Request/Response
-// ============================================================================
-
 type ListIndustryTemplatesRequest struct {
-	Industry string `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Industry      string                 `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"` // Optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListIndustryTemplatesRequest) Reset()         {}
-func (x *ListIndustryTemplatesRequest) String() string { return "" }
-func (x *ListIndustryTemplatesRequest) ProtoMessage()  {}
+func (x *ListIndustryTemplatesRequest) Reset() {
+	*x = ListIndustryTemplatesRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListIndustryTemplatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListIndustryTemplatesRequest) ProtoMessage() {}
+
+func (x *ListIndustryTemplatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListIndustryTemplatesRequest.ProtoReflect.Descriptor instead.
+func (*ListIndustryTemplatesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{53}
+}
 
 func (x *ListIndustryTemplatesRequest) GetIndustry() string {
 	if x != nil {
@@ -1864,12 +3337,41 @@ func (x *ListIndustryTemplatesRequest) GetIndustry() string {
 }
 
 type ListIndustryTemplatesResponse struct {
-	Templates []*IndustryTemplateMsg `protobuf:"bytes,1,rep,name=templates,proto3" json:"templates,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Templates     []*IndustryTemplateMsg `protobuf:"bytes,1,rep,name=templates,proto3" json:"templates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListIndustryTemplatesResponse) Reset()         {}
-func (x *ListIndustryTemplatesResponse) String() string { return "" }
-func (x *ListIndustryTemplatesResponse) ProtoMessage()  {}
+func (x *ListIndustryTemplatesResponse) Reset() {
+	*x = ListIndustryTemplatesResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListIndustryTemplatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListIndustryTemplatesResponse) ProtoMessage() {}
+
+func (x *ListIndustryTemplatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListIndustryTemplatesResponse.ProtoReflect.Descriptor instead.
+func (*ListIndustryTemplatesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{54}
+}
 
 func (x *ListIndustryTemplatesResponse) GetTemplates() []*IndustryTemplateMsg {
 	if x != nil {
@@ -1879,14 +3381,43 @@ func (x *ListIndustryTemplatesResponse) GetTemplates() []*IndustryTemplateMsg {
 }
 
 type ApplyIndustryTemplateRequest struct {
-	TenantId   string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	TemplateId string `protobuf:"bytes,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
-	AppliedBy  string `protobuf:"bytes,3,opt,name=applied_by,json=appliedBy,proto3" json:"applied_by,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	TemplateId    string                 `protobuf:"bytes,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	AppliedBy     string                 `protobuf:"bytes,3,opt,name=applied_by,json=appliedBy,proto3" json:"applied_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ApplyIndustryTemplateRequest) Reset()         {}
-func (x *ApplyIndustryTemplateRequest) String() string { return "" }
-func (x *ApplyIndustryTemplateRequest) ProtoMessage()  {}
+func (x *ApplyIndustryTemplateRequest) Reset() {
+	*x = ApplyIndustryTemplateRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyIndustryTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyIndustryTemplateRequest) ProtoMessage() {}
+
+func (x *ApplyIndustryTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyIndustryTemplateRequest.ProtoReflect.Descriptor instead.
+func (*ApplyIndustryTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{55}
+}
 
 func (x *ApplyIndustryTemplateRequest) GetTenantId() string {
 	if x != nil {
@@ -1910,13 +3441,42 @@ func (x *ApplyIndustryTemplateRequest) GetAppliedBy() string {
 }
 
 type ApplyIndustryTemplateResponse struct {
-	Success        bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	InstallationId string `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Success        bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	InstallationId string                 `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"` // If template creates a plugin installation
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *ApplyIndustryTemplateResponse) Reset()         {}
-func (x *ApplyIndustryTemplateResponse) String() string { return "" }
-func (x *ApplyIndustryTemplateResponse) ProtoMessage()  {}
+func (x *ApplyIndustryTemplateResponse) Reset() {
+	*x = ApplyIndustryTemplateResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyIndustryTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyIndustryTemplateResponse) ProtoMessage() {}
+
+func (x *ApplyIndustryTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyIndustryTemplateResponse.ProtoReflect.Descriptor instead.
+func (*ApplyIndustryTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{56}
+}
 
 func (x *ApplyIndustryTemplateResponse) GetSuccess() bool {
 	if x != nil {
@@ -1932,19 +3492,44 @@ func (x *ApplyIndustryTemplateResponse) GetInstallationId() string {
 	return ""
 }
 
-// ============================================================================
-// Execution Logs Request/Response
-// ============================================================================
-
 type ListExecutionLogsRequest struct {
-	TenantId       string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	InstallationId string `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Limit          int32  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	InstallationId string                 `protobuf:"bytes,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"` // Optional filter
+	Limit          int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *ListExecutionLogsRequest) Reset()         {}
-func (x *ListExecutionLogsRequest) String() string { return "" }
-func (x *ListExecutionLogsRequest) ProtoMessage()  {}
+func (x *ListExecutionLogsRequest) Reset() {
+	*x = ListExecutionLogsRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListExecutionLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListExecutionLogsRequest) ProtoMessage() {}
+
+func (x *ListExecutionLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListExecutionLogsRequest.ProtoReflect.Descriptor instead.
+func (*ListExecutionLogsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{57}
+}
 
 func (x *ListExecutionLogsRequest) GetTenantId() string {
 	if x != nil {
@@ -1968,12 +3553,41 @@ func (x *ListExecutionLogsRequest) GetLimit() int32 {
 }
 
 type ListExecutionLogsResponse struct {
-	Logs []*ExecutionLogMsg `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Logs          []*ExecutionLogMsg     `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListExecutionLogsResponse) Reset()         {}
-func (x *ListExecutionLogsResponse) String() string { return "" }
-func (x *ListExecutionLogsResponse) ProtoMessage()  {}
+func (x *ListExecutionLogsResponse) Reset() {
+	*x = ListExecutionLogsResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListExecutionLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListExecutionLogsResponse) ProtoMessage() {}
+
+func (x *ListExecutionLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListExecutionLogsResponse.ProtoReflect.Descriptor instead.
+func (*ListExecutionLogsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{58}
+}
 
 func (x *ListExecutionLogsResponse) GetLogs() []*ExecutionLogMsg {
 	if x != nil {
@@ -1982,18 +3596,43 @@ func (x *ListExecutionLogsResponse) GetLogs() []*ExecutionLogMsg {
 	return nil
 }
 
-// ============================================================================
-// KV Store Request/Response
-// ============================================================================
-
 type KVGetRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Key            string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	Key            string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *KVGetRequest) Reset()         {}
-func (x *KVGetRequest) String() string { return "" }
-func (x *KVGetRequest) ProtoMessage()  {}
+func (x *KVGetRequest) Reset() {
+	*x = KVGetRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVGetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVGetRequest) ProtoMessage() {}
+
+func (x *KVGetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVGetRequest.ProtoReflect.Descriptor instead.
+func (*KVGetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{59}
+}
 
 func (x *KVGetRequest) GetInstallationId() string {
 	if x != nil {
@@ -2010,13 +3649,42 @@ func (x *KVGetRequest) GetKey() string {
 }
 
 type KVGetResponse struct {
-	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	Found bool   `protobuf:"varint,2,opt,name=found,proto3" json:"found,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         string                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"` // JSON string
+	Found         bool                   `protobuf:"varint,2,opt,name=found,proto3" json:"found,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KVGetResponse) Reset()         {}
-func (x *KVGetResponse) String() string { return "" }
-func (x *KVGetResponse) ProtoMessage()  {}
+func (x *KVGetResponse) Reset() {
+	*x = KVGetResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVGetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVGetResponse) ProtoMessage() {}
+
+func (x *KVGetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVGetResponse.ProtoReflect.Descriptor instead.
+func (*KVGetResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{60}
+}
 
 func (x *KVGetResponse) GetValue() string {
 	if x != nil {
@@ -2033,14 +3701,43 @@ func (x *KVGetResponse) GetFound() bool {
 }
 
 type KVSetRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Key            string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value          string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	Key            string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	Value          string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"` // JSON string
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *KVSetRequest) Reset()         {}
-func (x *KVSetRequest) String() string { return "" }
-func (x *KVSetRequest) ProtoMessage()  {}
+func (x *KVSetRequest) Reset() {
+	*x = KVSetRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVSetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVSetRequest) ProtoMessage() {}
+
+func (x *KVSetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVSetRequest.ProtoReflect.Descriptor instead.
+func (*KVSetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{61}
+}
 
 func (x *KVSetRequest) GetInstallationId() string {
 	if x != nil {
@@ -2064,12 +3761,41 @@ func (x *KVSetRequest) GetValue() string {
 }
 
 type KVSetResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KVSetResponse) Reset()         {}
-func (x *KVSetResponse) String() string { return "" }
-func (x *KVSetResponse) ProtoMessage()  {}
+func (x *KVSetResponse) Reset() {
+	*x = KVSetResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVSetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVSetResponse) ProtoMessage() {}
+
+func (x *KVSetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVSetResponse.ProtoReflect.Descriptor instead.
+func (*KVSetResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{62}
+}
 
 func (x *KVSetResponse) GetSuccess() bool {
 	if x != nil {
@@ -2079,13 +3805,42 @@ func (x *KVSetResponse) GetSuccess() bool {
 }
 
 type KVDeleteRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	Key            string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	Key            string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *KVDeleteRequest) Reset()         {}
-func (x *KVDeleteRequest) String() string { return "" }
-func (x *KVDeleteRequest) ProtoMessage()  {}
+func (x *KVDeleteRequest) Reset() {
+	*x = KVDeleteRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVDeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVDeleteRequest) ProtoMessage() {}
+
+func (x *KVDeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVDeleteRequest.ProtoReflect.Descriptor instead.
+func (*KVDeleteRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{63}
+}
 
 func (x *KVDeleteRequest) GetInstallationId() string {
 	if x != nil {
@@ -2102,12 +3857,41 @@ func (x *KVDeleteRequest) GetKey() string {
 }
 
 type KVDeleteResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KVDeleteResponse) Reset()         {}
-func (x *KVDeleteResponse) String() string { return "" }
-func (x *KVDeleteResponse) ProtoMessage()  {}
+func (x *KVDeleteResponse) Reset() {
+	*x = KVDeleteResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVDeleteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVDeleteResponse) ProtoMessage() {}
+
+func (x *KVDeleteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVDeleteResponse.ProtoReflect.Descriptor instead.
+func (*KVDeleteResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{64}
+}
 
 func (x *KVDeleteResponse) GetSuccess() bool {
 	if x != nil {
@@ -2117,13 +3901,42 @@ func (x *KVDeleteResponse) GetSuccess() bool {
 }
 
 type KVListRequest struct {
-	InstallationId string `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
-	KeyPrefix      string `protobuf:"bytes,2,opt,name=key_prefix,json=keyPrefix,proto3" json:"key_prefix,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	InstallationId string                 `protobuf:"bytes,1,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	KeyPrefix      string                 `protobuf:"bytes,2,opt,name=key_prefix,json=keyPrefix,proto3" json:"key_prefix,omitempty"` // Optional prefix filter
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *KVListRequest) Reset()         {}
-func (x *KVListRequest) String() string { return "" }
-func (x *KVListRequest) ProtoMessage()  {}
+func (x *KVListRequest) Reset() {
+	*x = KVListRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVListRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVListRequest) ProtoMessage() {}
+
+func (x *KVListRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVListRequest.ProtoReflect.Descriptor instead.
+func (*KVListRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{65}
+}
 
 func (x *KVListRequest) GetInstallationId() string {
 	if x != nil {
@@ -2140,12 +3953,41 @@ func (x *KVListRequest) GetKeyPrefix() string {
 }
 
 type KVListResponse struct {
-	Entries map[string]string `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       map[string]string      `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // key -> JSON value
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KVListResponse) Reset()         {}
-func (x *KVListResponse) String() string { return "" }
-func (x *KVListResponse) ProtoMessage()  {}
+func (x *KVListResponse) Reset() {
+	*x = KVListResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KVListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KVListResponse) ProtoMessage() {}
+
+func (x *KVListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KVListResponse.ProtoReflect.Descriptor instead.
+func (*KVListResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{66}
+}
 
 func (x *KVListResponse) GetEntries() map[string]string {
 	if x != nil {
@@ -2154,22 +3996,47 @@ func (x *KVListResponse) GetEntries() map[string]string {
 	return nil
 }
 
-// ============================================================================
-// Hook Execution Request/Response
-// ============================================================================
-
 type ExecuteHooksRequest struct {
-	TenantId   string           `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	HookType   string           `protobuf:"bytes,2,opt,name=hook_type,json=hookType,proto3" json:"hook_type,omitempty"`
-	Module     string           `protobuf:"bytes,3,opt,name=module,proto3" json:"module,omitempty"`
-	EntityType string           `protobuf:"bytes,4,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string           `protobuf:"bytes,5,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	EntityData *structpb.Struct `protobuf:"bytes,6,opt,name=entity_data,json=entityData,proto3" json:"entity_data,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	HookType      string                 `protobuf:"bytes,2,opt,name=hook_type,json=hookType,proto3" json:"hook_type,omitempty"`       // e.g., "before_create", "after_update"
+	Module        string                 `protobuf:"bytes,3,opt,name=module,proto3" json:"module,omitempty"`                           // e.g., "crm", "work", "biz"
+	EntityType    string                 `protobuf:"bytes,4,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"` // e.g., "contact", "task", "invoice"
+	EntityId      string                 `protobuf:"bytes,5,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityData    *structpb.Struct       `protobuf:"bytes,6,opt,name=entity_data,json=entityData,proto3" json:"entity_data,omitempty"` // The entity data as JSON
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ExecuteHooksRequest) Reset()         {}
-func (x *ExecuteHooksRequest) String() string { return "" }
-func (x *ExecuteHooksRequest) ProtoMessage()  {}
+func (x *ExecuteHooksRequest) Reset() {
+	*x = ExecuteHooksRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecuteHooksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteHooksRequest) ProtoMessage() {}
+
+func (x *ExecuteHooksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecuteHooksRequest.ProtoReflect.Descriptor instead.
+func (*ExecuteHooksRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{67}
+}
 
 func (x *ExecuteHooksRequest) GetTenantId() string {
 	if x != nil {
@@ -2214,14 +4081,43 @@ func (x *ExecuteHooksRequest) GetEntityData() *structpb.Struct {
 }
 
 type ExecuteHooksResponse struct {
-	Modified     bool                   `protobuf:"varint,1,opt,name=modified,proto3" json:"modified,omitempty"`
-	ModifiedData *structpb.Struct       `protobuf:"bytes,2,opt,name=modified_data,json=modifiedData,proto3" json:"modified_data,omitempty"`
-	Results      []*HookExecutionResult `protobuf:"bytes,3,rep,name=results,proto3" json:"results,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Modified      bool                   `protobuf:"varint,1,opt,name=modified,proto3" json:"modified,omitempty"`
+	ModifiedData  *structpb.Struct       `protobuf:"bytes,2,opt,name=modified_data,json=modifiedData,proto3" json:"modified_data,omitempty"` // Modified entity data (for before_* hooks)
+	Results       []*HookExecutionResult `protobuf:"bytes,3,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ExecuteHooksResponse) Reset()         {}
-func (x *ExecuteHooksResponse) String() string { return "" }
-func (x *ExecuteHooksResponse) ProtoMessage()  {}
+func (x *ExecuteHooksResponse) Reset() {
+	*x = ExecuteHooksResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecuteHooksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteHooksResponse) ProtoMessage() {}
+
+func (x *ExecuteHooksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecuteHooksResponse.ProtoReflect.Descriptor instead.
+func (*ExecuteHooksResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{68}
+}
 
 func (x *ExecuteHooksResponse) GetModified() bool {
 	if x != nil {
@@ -2244,15 +4140,112 @@ func (x *ExecuteHooksResponse) GetResults() []*HookExecutionResult {
 	return nil
 }
 
-type ValidateEntityRequest struct {
-	TenantId   string           `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	EntityType string           `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityData *structpb.Struct `protobuf:"bytes,3,opt,name=entity_data,json=entityData,proto3" json:"entity_data,omitempty"`
+type HookExecutionResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PluginSlug    string                 `protobuf:"bytes,1,opt,name=plugin_slug,json=pluginSlug,proto3" json:"plugin_slug,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	DurationMs    int32                  `protobuf:"varint,3,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ValidateEntityRequest) Reset()         {}
-func (x *ValidateEntityRequest) String() string { return "" }
-func (x *ValidateEntityRequest) ProtoMessage()  {}
+func (x *HookExecutionResult) Reset() {
+	*x = HookExecutionResult{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HookExecutionResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HookExecutionResult) ProtoMessage() {}
+
+func (x *HookExecutionResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HookExecutionResult.ProtoReflect.Descriptor instead.
+func (*HookExecutionResult) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *HookExecutionResult) GetPluginSlug() string {
+	if x != nil {
+		return x.PluginSlug
+	}
+	return ""
+}
+
+func (x *HookExecutionResult) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *HookExecutionResult) GetDurationMs() int32 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+func (x *HookExecutionResult) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+type ValidateEntityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	EntityData    *structpb.Struct       `protobuf:"bytes,3,opt,name=entity_data,json=entityData,proto3" json:"entity_data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateEntityRequest) Reset() {
+	*x = ValidateEntityRequest{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateEntityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateEntityRequest) ProtoMessage() {}
+
+func (x *ValidateEntityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateEntityRequest.ProtoReflect.Descriptor instead.
+func (*ValidateEntityRequest) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{70}
+}
 
 func (x *ValidateEntityRequest) GetTenantId() string {
 	if x != nil {
@@ -2276,13 +4269,42 @@ func (x *ValidateEntityRequest) GetEntityData() *structpb.Struct {
 }
 
 type ValidateEntityResponse struct {
-	Valid  bool              `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
-	Errors []*ValidationError `protobuf:"bytes,2,rep,name=errors,proto3" json:"errors,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Valid         bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
+	Errors        []*ValidationError     `protobuf:"bytes,2,rep,name=errors,proto3" json:"errors,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ValidateEntityResponse) Reset()         {}
-func (x *ValidateEntityResponse) String() string { return "" }
-func (x *ValidateEntityResponse) ProtoMessage()  {}
+func (x *ValidateEntityResponse) Reset() {
+	*x = ValidateEntityResponse{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateEntityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateEntityResponse) ProtoMessage() {}
+
+func (x *ValidateEntityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateEntityResponse.ProtoReflect.Descriptor instead.
+func (*ValidateEntityResponse) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{71}
+}
 
 func (x *ValidateEntityResponse) GetValid() bool {
 	if x != nil {
@@ -2296,4 +4318,668 @@ func (x *ValidateEntityResponse) GetErrors() []*ValidationError {
 		return x.Errors
 	}
 	return nil
+}
+
+type ValidationError struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Field         string                 `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
+	Rule          string                 `protobuf:"bytes,2,opt,name=rule,proto3" json:"rule,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidationError) Reset() {
+	*x = ValidationError{}
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidationError) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidationError) ProtoMessage() {}
+
+func (x *ValidationError) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_plugin_v1_plugin_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidationError.ProtoReflect.Descriptor instead.
+func (*ValidationError) Descriptor() ([]byte, []int) {
+	return file_proto_plugin_v1_plugin_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *ValidationError) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *ValidationError) GetRule() string {
+	if x != nil {
+		return x.Rule
+	}
+	return ""
+}
+
+func (x *ValidationError) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+var File_proto_plugin_v1_plugin_proto protoreflect.FileDescriptor
+
+const file_proto_plugin_v1_plugin_proto_rawDesc = "" +
+	"\n" +
+	"\x1cproto/plugin/v1/plugin.proto\x12\tplugin.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xfa\x03\n" +
+	"\x11PluginManifestMsg\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\tR\aversion\x12\x16\n" +
+	"\x06author\x18\x06 \x01(\tR\x06author\x12'\n" +
+	"\x0fsettings_schema\x18\a \x01(\tR\x0esettingsSchema\x12 \n" +
+	"\vpermissions\x18\b \x03(\tR\vpermissions\x12M\n" +
+	"\x12hook_registrations\x18\t \x03(\v2\x1e.plugin.v1.HookRegistrationMsgR\x11hookRegistrations\x12(\n" +
+	"\x10wasm_binary_hash\x18\n" +
+	" \x01(\tR\x0ewasmBinaryHash\x12\x1f\n" +
+	"\vplugin_type\x18\v \x01(\tR\n" +
+	"pluginType\x129\n" +
+	"\n" +
+	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x87\x01\n" +
+	"\x13HookRegistrationMsg\x12\x1b\n" +
+	"\thook_type\x18\x01 \x01(\tR\bhookType\x12\x16\n" +
+	"\x06module\x18\x02 \x01(\tR\x06module\x12\x1f\n" +
+	"\ventity_type\x18\x03 \x01(\tR\n" +
+	"entityType\x12\x1a\n" +
+	"\bpriority\x18\x04 \x01(\x05R\bpriority\"\xfa\x04\n" +
+	"\x15PluginInstallationMsg\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vmanifest_id\x18\x03 \x01(\tR\n" +
+	"manifestId\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1a\n" +
+	"\bsettings\x18\x05 \x01(\tR\bsettings\x12#\n" +
+	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\x12!\n" +
+	"\finstalled_by\x18\a \x01(\tR\vinstalledBy\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12#\n" +
+	"\rmanifest_slug\x18\n" +
+	" \x01(\tR\fmanifestSlug\x12#\n" +
+	"\rmanifest_name\x18\v \x01(\tR\fmanifestName\x12)\n" +
+	"\x10manifest_version\x18\f \x01(\tR\x0fmanifestVersion\x12\x1f\n" +
+	"\vplugin_type\x18\r \x01(\tR\n" +
+	"pluginType\x121\n" +
+	"\x14required_permissions\x18\x0e \x03(\tR\x13requiredPermissions\x12/\n" +
+	"\x13granted_permissions\x18\x0f \x03(\tR\x12grantedPermissions\x12'\n" +
+	"\x0fsettings_schema\x18\x10 \x01(\tR\x0esettingsSchema\"\xee\x03\n" +
+	"\x11ValidationRuleMsg\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12'\n" +
+	"\x0finstallation_id\x18\x03 \x01(\tR\x0einstallationId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x1f\n" +
+	"\ventity_type\x18\x06 \x01(\tR\n" +
+	"entityType\x12\x1d\n" +
+	"\n" +
+	"field_name\x18\a \x01(\tR\tfieldName\x12\x1b\n" +
+	"\trule_type\x18\b \x01(\tR\bruleType\x12\x1f\n" +
+	"\vrule_config\x18\t \x01(\tR\n" +
+	"ruleConfig\x12#\n" +
+	"\rerror_message\x18\n" +
+	" \x01(\tR\ferrorMessage\x12\x1a\n" +
+	"\bpriority\x18\v \x01(\x05R\bpriority\x12\x18\n" +
+	"\aenabled\x18\f \x01(\bR\aenabled\x129\n" +
+	"\n" +
+	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa8\x03\n" +
+	"\x0fWorkflowRuleMsg\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12'\n" +
+	"\x0finstallation_id\x18\x03 \x01(\tR\x0einstallationId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12#\n" +
+	"\rtrigger_event\x18\x06 \x01(\tR\ftriggerEvent\x12\x1e\n" +
+	"\n" +
+	"conditions\x18\a \x01(\tR\n" +
+	"conditions\x12\x18\n" +
+	"\aactions\x18\b \x01(\tR\aactions\x12\x1a\n" +
+	"\bpriority\x18\t \x01(\x05R\bpriority\x12\x18\n" +
+	"\aenabled\x18\n" +
+	" \x01(\bR\aenabled\x129\n" +
+	"\n" +
+	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xc1\x02\n" +
+	"\x13IndustryTemplateMsg\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1a\n" +
+	"\bindustry\x18\x05 \x01(\tR\bindustry\x12\x12\n" +
+	"\x04icon\x18\x06 \x01(\tR\x04icon\x12#\n" +
+	"\rcustom_fields\x18\a \x01(\tR\fcustomFields\x12)\n" +
+	"\x10validation_rules\x18\b \x01(\tR\x0fvalidationRules\x12%\n" +
+	"\x0eworkflow_rules\x18\t \x01(\tR\rworkflowRules\x12)\n" +
+	"\x10default_settings\x18\n" +
+	" \x01(\tR\x0fdefaultSettings\"\xd6\x02\n" +
+	"\x0fExecutionLogMsg\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
+	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x1b\n" +
+	"\thook_type\x18\x03 \x01(\tR\bhookType\x12\x16\n" +
+	"\x06module\x18\x04 \x01(\tR\x06module\x12\x1f\n" +
+	"\ventity_type\x18\x05 \x01(\tR\n" +
+	"entityType\x12\x1b\n" +
+	"\tentity_id\x18\x06 \x01(\tR\bentityId\x12\x1f\n" +
+	"\vduration_ms\x18\a \x01(\x05R\n" +
+	"durationMs\x12\x16\n" +
+	"\x06status\x18\b \x01(\tR\x06status\x12#\n" +
+	"\rerror_message\x18\t \x01(\tR\ferrorMessage\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xef\x02\n" +
+	"\x15CreateManifestRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\x12\x16\n" +
+	"\x06author\x18\x05 \x01(\tR\x06author\x12'\n" +
+	"\x0fsettings_schema\x18\x06 \x01(\tR\x0esettingsSchema\x12 \n" +
+	"\vpermissions\x18\a \x03(\tR\vpermissions\x12M\n" +
+	"\x12hook_registrations\x18\b \x03(\v2\x1e.plugin.v1.HookRegistrationMsgR\x11hookRegistrations\x12\x1f\n" +
+	"\vwasm_binary\x18\t \x01(\fR\n" +
+	"wasmBinary\x12\x1f\n" +
+	"\vplugin_type\x18\n" +
+	" \x01(\tR\n" +
+	"pluginType\"R\n" +
+	"\x16CreateManifestResponse\x128\n" +
+	"\bmanifest\x18\x01 \x01(\v2\x1c.plugin.v1.PluginManifestMsgR\bmanifest\"5\n" +
+	"\x12GetManifestRequest\x12\x1f\n" +
+	"\vmanifest_id\x18\x01 \x01(\tR\n" +
+	"manifestId\"O\n" +
+	"\x13GetManifestResponse\x128\n" +
+	"\bmanifest\x18\x01 \x01(\v2\x1c.plugin.v1.PluginManifestMsgR\bmanifest\"7\n" +
+	"\x14ListManifestsRequest\x12\x1f\n" +
+	"\vplugin_type\x18\x01 \x01(\tR\n" +
+	"pluginType\"S\n" +
+	"\x15ListManifestsResponse\x12:\n" +
+	"\tmanifests\x18\x01 \x03(\v2\x1c.plugin.v1.PluginManifestMsgR\tmanifests\"8\n" +
+	"\x15DeleteManifestRequest\x12\x1f\n" +
+	"\vmanifest_id\x18\x01 \x01(\tR\n" +
+	"manifestId\"2\n" +
+	"\x16DeleteManifestResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"w\n" +
+	"\x14InstallPluginRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vmanifest_id\x18\x02 \x01(\tR\n" +
+	"manifestId\x12!\n" +
+	"\finstalled_by\x18\x03 \x01(\tR\vinstalledBy\"]\n" +
+	"\x15InstallPluginResponse\x12D\n" +
+	"\finstallation\x18\x01 \x01(\v2 .plugin.v1.PluginInstallationMsgR\finstallation\"A\n" +
+	"\x16UninstallPluginRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\"3\n" +
+	"\x17UninstallPluginResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\">\n" +
+	"\x13EnablePluginRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\"\\\n" +
+	"\x14EnablePluginResponse\x12D\n" +
+	"\finstallation\x18\x01 \x01(\v2 .plugin.v1.PluginInstallationMsgR\finstallation\"?\n" +
+	"\x14DisablePluginRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\"]\n" +
+	"\x15DisablePluginResponse\x12D\n" +
+	"\finstallation\x18\x01 \x01(\v2 .plugin.v1.PluginInstallationMsgR\finstallation\"A\n" +
+	"\x16GetInstallationRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\"_\n" +
+	"\x17GetInstallationResponse\x12D\n" +
+	"\finstallation\x18\x01 \x01(\v2 .plugin.v1.PluginInstallationMsgR\finstallation\"O\n" +
+	"\x18ListInstallationsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\"c\n" +
+	"\x19ListInstallationsResponse\x12F\n" +
+	"\rinstallations\x18\x01 \x03(\v2 .plugin.v1.PluginInstallationMsgR\rinstallations\"\x85\x01\n" +
+	"\x19ApprovePermissionsRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12 \n" +
+	"\vpermissions\x18\x02 \x03(\tR\vpermissions\x12\x1d\n" +
+	"\n" +
+	"granted_by\x18\x03 \x01(\tR\tgrantedBy\"6\n" +
+	"\x1aApprovePermissionsResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"H\n" +
+	"\x1dListGrantedPermissionsRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\"B\n" +
+	"\x1eListGrantedPermissionsResponse\x12 \n" +
+	"\vpermissions\x18\x01 \x03(\tR\vpermissions\"C\n" +
+	"\x18GetPluginSettingsRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\"7\n" +
+	"\x19GetPluginSettingsResponse\x12\x1a\n" +
+	"\bsettings\x18\x01 \x01(\tR\bsettings\"b\n" +
+	"\x1bUpdatePluginSettingsRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x1a\n" +
+	"\bsettings\x18\x02 \x01(\tR\bsettings\"8\n" +
+	"\x1cUpdatePluginSettingsResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"I\n" +
+	"\x1eGetPluginSettingsSchemaRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\"9\n" +
+	"\x1fGetPluginSettingsSchemaResponse\x12\x16\n" +
+	"\x06schema\x18\x01 \x01(\tR\x06schema\"\xd8\x02\n" +
+	"\x1bCreateValidationRuleRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12'\n" +
+	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1f\n" +
+	"\ventity_type\x18\x05 \x01(\tR\n" +
+	"entityType\x12\x1d\n" +
+	"\n" +
+	"field_name\x18\x06 \x01(\tR\tfieldName\x12\x1b\n" +
+	"\trule_type\x18\a \x01(\tR\bruleType\x12\x1f\n" +
+	"\vrule_config\x18\b \x01(\tR\n" +
+	"ruleConfig\x12#\n" +
+	"\rerror_message\x18\t \x01(\tR\ferrorMessage\x12\x1a\n" +
+	"\bpriority\x18\n" +
+	" \x01(\x05R\bpriority\"P\n" +
+	"\x1cCreateValidationRuleResponse\x120\n" +
+	"\x04rule\x18\x01 \x01(\v2\x1c.plugin.v1.ValidationRuleMsgR\x04rule\"Z\n" +
+	"\x1aListValidationRulesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\"Q\n" +
+	"\x1bListValidationRulesResponse\x122\n" +
+	"\x05rules\x18\x01 \x03(\v2\x1c.plugin.v1.ValidationRuleMsgR\x05rules\"\xe8\x01\n" +
+	"\x1bUpdateValidationRuleRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1f\n" +
+	"\vrule_config\x18\x04 \x01(\tR\n" +
+	"ruleConfig\x12#\n" +
+	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage\x12\x1a\n" +
+	"\bpriority\x18\x06 \x01(\x05R\bpriority\x12\x18\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\"P\n" +
+	"\x1cUpdateValidationRuleResponse\x120\n" +
+	"\x04rule\x18\x01 \x01(\v2\x1c.plugin.v1.ValidationRuleMsgR\x04rule\"6\n" +
+	"\x1bDeleteValidationRuleRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\"8\n" +
+	"\x1cDeleteValidationRuleResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x92\x02\n" +
+	"\x19CreateWorkflowRuleRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12'\n" +
+	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12#\n" +
+	"\rtrigger_event\x18\x05 \x01(\tR\ftriggerEvent\x12\x1e\n" +
+	"\n" +
+	"conditions\x18\x06 \x01(\tR\n" +
+	"conditions\x12\x18\n" +
+	"\aactions\x18\a \x01(\tR\aactions\x12\x1a\n" +
+	"\bpriority\x18\b \x01(\x05R\bpriority\"L\n" +
+	"\x1aCreateWorkflowRuleResponse\x12.\n" +
+	"\x04rule\x18\x01 \x01(\v2\x1a.plugin.v1.WorkflowRuleMsgR\x04rule\"\\\n" +
+	"\x18ListWorkflowRulesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
+	"\rtrigger_event\x18\x02 \x01(\tR\ftriggerEvent\"M\n" +
+	"\x19ListWorkflowRulesResponse\x120\n" +
+	"\x05rules\x18\x01 \x03(\v2\x1a.plugin.v1.WorkflowRuleMsgR\x05rules\"\xda\x01\n" +
+	"\x19UpdateWorkflowRuleRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1e\n" +
+	"\n" +
+	"conditions\x18\x04 \x01(\tR\n" +
+	"conditions\x12\x18\n" +
+	"\aactions\x18\x05 \x01(\tR\aactions\x12\x1a\n" +
+	"\bpriority\x18\x06 \x01(\x05R\bpriority\x12\x18\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\"L\n" +
+	"\x1aUpdateWorkflowRuleResponse\x12.\n" +
+	"\x04rule\x18\x01 \x01(\v2\x1a.plugin.v1.WorkflowRuleMsgR\x04rule\"4\n" +
+	"\x19DeleteWorkflowRuleRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\"6\n" +
+	"\x1aDeleteWorkflowRuleResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\":\n" +
+	"\x1cListIndustryTemplatesRequest\x12\x1a\n" +
+	"\bindustry\x18\x01 \x01(\tR\bindustry\"]\n" +
+	"\x1dListIndustryTemplatesResponse\x12<\n" +
+	"\ttemplates\x18\x01 \x03(\v2\x1e.plugin.v1.IndustryTemplateMsgR\ttemplates\"{\n" +
+	"\x1cApplyIndustryTemplateRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vtemplate_id\x18\x02 \x01(\tR\n" +
+	"templateId\x12\x1d\n" +
+	"\n" +
+	"applied_by\x18\x03 \x01(\tR\tappliedBy\"b\n" +
+	"\x1dApplyIndustryTemplateResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12'\n" +
+	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\"v\n" +
+	"\x18ListExecutionLogsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12'\n" +
+	"\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"K\n" +
+	"\x19ListExecutionLogsResponse\x12.\n" +
+	"\x04logs\x18\x01 \x03(\v2\x1a.plugin.v1.ExecutionLogMsgR\x04logs\"I\n" +
+	"\fKVGetRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\";\n" +
+	"\rKVGetResponse\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n" +
+	"\x05found\x18\x02 \x01(\bR\x05found\"_\n" +
+	"\fKVSetRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\")\n" +
+	"\rKVSetResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"L\n" +
+	"\x0fKVDeleteRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\",\n" +
+	"\x10KVDeleteResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"W\n" +
+	"\rKVListRequest\x12'\n" +
+	"\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x1d\n" +
+	"\n" +
+	"key_prefix\x18\x02 \x01(\tR\tkeyPrefix\"\x8e\x01\n" +
+	"\x0eKVListResponse\x12@\n" +
+	"\aentries\x18\x01 \x03(\v2&.plugin.v1.KVListResponse.EntriesEntryR\aentries\x1a:\n" +
+	"\fEntriesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdf\x01\n" +
+	"\x13ExecuteHooksRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\thook_type\x18\x02 \x01(\tR\bhookType\x12\x16\n" +
+	"\x06module\x18\x03 \x01(\tR\x06module\x12\x1f\n" +
+	"\ventity_type\x18\x04 \x01(\tR\n" +
+	"entityType\x12\x1b\n" +
+	"\tentity_id\x18\x05 \x01(\tR\bentityId\x128\n" +
+	"\ventity_data\x18\x06 \x01(\v2\x17.google.protobuf.StructR\n" +
+	"entityData\"\xaa\x01\n" +
+	"\x14ExecuteHooksResponse\x12\x1a\n" +
+	"\bmodified\x18\x01 \x01(\bR\bmodified\x12<\n" +
+	"\rmodified_data\x18\x02 \x01(\v2\x17.google.protobuf.StructR\fmodifiedData\x128\n" +
+	"\aresults\x18\x03 \x03(\v2\x1e.plugin.v1.HookExecutionResultR\aresults\"\x94\x01\n" +
+	"\x13HookExecutionResult\x12\x1f\n" +
+	"\vplugin_slug\x18\x01 \x01(\tR\n" +
+	"pluginSlug\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1f\n" +
+	"\vduration_ms\x18\x03 \x01(\x05R\n" +
+	"durationMs\x12#\n" +
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage\"\x8f\x01\n" +
+	"\x15ValidateEntityRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\x128\n" +
+	"\ventity_data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\n" +
+	"entityData\"b\n" +
+	"\x16ValidateEntityResponse\x12\x14\n" +
+	"\x05valid\x18\x01 \x01(\bR\x05valid\x122\n" +
+	"\x06errors\x18\x02 \x03(\v2\x1a.plugin.v1.ValidationErrorR\x06errors\"U\n" +
+	"\x0fValidationError\x12\x14\n" +
+	"\x05field\x18\x01 \x01(\tR\x05field\x12\x12\n" +
+	"\x04rule\x18\x02 \x01(\tR\x04rule\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage2\xff\x16\n" +
+	"\rPluginService\x12U\n" +
+	"\x0eCreateManifest\x12 .plugin.v1.CreateManifestRequest\x1a!.plugin.v1.CreateManifestResponse\x12L\n" +
+	"\vGetManifest\x12\x1d.plugin.v1.GetManifestRequest\x1a\x1e.plugin.v1.GetManifestResponse\x12R\n" +
+	"\rListManifests\x12\x1f.plugin.v1.ListManifestsRequest\x1a .plugin.v1.ListManifestsResponse\x12U\n" +
+	"\x0eDeleteManifest\x12 .plugin.v1.DeleteManifestRequest\x1a!.plugin.v1.DeleteManifestResponse\x12R\n" +
+	"\rInstallPlugin\x12\x1f.plugin.v1.InstallPluginRequest\x1a .plugin.v1.InstallPluginResponse\x12X\n" +
+	"\x0fUninstallPlugin\x12!.plugin.v1.UninstallPluginRequest\x1a\".plugin.v1.UninstallPluginResponse\x12O\n" +
+	"\fEnablePlugin\x12\x1e.plugin.v1.EnablePluginRequest\x1a\x1f.plugin.v1.EnablePluginResponse\x12R\n" +
+	"\rDisablePlugin\x12\x1f.plugin.v1.DisablePluginRequest\x1a .plugin.v1.DisablePluginResponse\x12X\n" +
+	"\x0fGetInstallation\x12!.plugin.v1.GetInstallationRequest\x1a\".plugin.v1.GetInstallationResponse\x12^\n" +
+	"\x11ListInstallations\x12#.plugin.v1.ListInstallationsRequest\x1a$.plugin.v1.ListInstallationsResponse\x12a\n" +
+	"\x12ApprovePermissions\x12$.plugin.v1.ApprovePermissionsRequest\x1a%.plugin.v1.ApprovePermissionsResponse\x12m\n" +
+	"\x16ListGrantedPermissions\x12(.plugin.v1.ListGrantedPermissionsRequest\x1a).plugin.v1.ListGrantedPermissionsResponse\x12^\n" +
+	"\x11GetPluginSettings\x12#.plugin.v1.GetPluginSettingsRequest\x1a$.plugin.v1.GetPluginSettingsResponse\x12g\n" +
+	"\x14UpdatePluginSettings\x12&.plugin.v1.UpdatePluginSettingsRequest\x1a'.plugin.v1.UpdatePluginSettingsResponse\x12p\n" +
+	"\x17GetPluginSettingsSchema\x12).plugin.v1.GetPluginSettingsSchemaRequest\x1a*.plugin.v1.GetPluginSettingsSchemaResponse\x12g\n" +
+	"\x14CreateValidationRule\x12&.plugin.v1.CreateValidationRuleRequest\x1a'.plugin.v1.CreateValidationRuleResponse\x12d\n" +
+	"\x13ListValidationRules\x12%.plugin.v1.ListValidationRulesRequest\x1a&.plugin.v1.ListValidationRulesResponse\x12g\n" +
+	"\x14UpdateValidationRule\x12&.plugin.v1.UpdateValidationRuleRequest\x1a'.plugin.v1.UpdateValidationRuleResponse\x12g\n" +
+	"\x14DeleteValidationRule\x12&.plugin.v1.DeleteValidationRuleRequest\x1a'.plugin.v1.DeleteValidationRuleResponse\x12a\n" +
+	"\x12CreateWorkflowRule\x12$.plugin.v1.CreateWorkflowRuleRequest\x1a%.plugin.v1.CreateWorkflowRuleResponse\x12^\n" +
+	"\x11ListWorkflowRules\x12#.plugin.v1.ListWorkflowRulesRequest\x1a$.plugin.v1.ListWorkflowRulesResponse\x12a\n" +
+	"\x12UpdateWorkflowRule\x12$.plugin.v1.UpdateWorkflowRuleRequest\x1a%.plugin.v1.UpdateWorkflowRuleResponse\x12a\n" +
+	"\x12DeleteWorkflowRule\x12$.plugin.v1.DeleteWorkflowRuleRequest\x1a%.plugin.v1.DeleteWorkflowRuleResponse\x12j\n" +
+	"\x15ListIndustryTemplates\x12'.plugin.v1.ListIndustryTemplatesRequest\x1a(.plugin.v1.ListIndustryTemplatesResponse\x12j\n" +
+	"\x15ApplyIndustryTemplate\x12'.plugin.v1.ApplyIndustryTemplateRequest\x1a(.plugin.v1.ApplyIndustryTemplateResponse\x12^\n" +
+	"\x11ListExecutionLogs\x12#.plugin.v1.ListExecutionLogsRequest\x1a$.plugin.v1.ListExecutionLogsResponse\x12:\n" +
+	"\x05KVGet\x12\x17.plugin.v1.KVGetRequest\x1a\x18.plugin.v1.KVGetResponse\x12:\n" +
+	"\x05KVSet\x12\x17.plugin.v1.KVSetRequest\x1a\x18.plugin.v1.KVSetResponse\x12C\n" +
+	"\bKVDelete\x12\x1a.plugin.v1.KVDeleteRequest\x1a\x1b.plugin.v1.KVDeleteResponse\x12=\n" +
+	"\x06KVList\x12\x18.plugin.v1.KVListRequest\x1a\x19.plugin.v1.KVListResponse\x12O\n" +
+	"\fExecuteHooks\x12\x1e.plugin.v1.ExecuteHooksRequest\x1a\x1f.plugin.v1.ExecuteHooksResponse\x12U\n" +
+	"\x0eValidateEntity\x12 .plugin.v1.ValidateEntityRequest\x1a!.plugin.v1.ValidateEntityResponseB3Z1github.com/kmuhub/kmuhub/proto/plugin/v1;pluginv1b\x06proto3"
+
+var (
+	file_proto_plugin_v1_plugin_proto_rawDescOnce sync.Once
+	file_proto_plugin_v1_plugin_proto_rawDescData []byte
+)
+
+func file_proto_plugin_v1_plugin_proto_rawDescGZIP() []byte {
+	file_proto_plugin_v1_plugin_proto_rawDescOnce.Do(func() {
+		file_proto_plugin_v1_plugin_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_plugin_v1_plugin_proto_rawDesc), len(file_proto_plugin_v1_plugin_proto_rawDesc)))
+	})
+	return file_proto_plugin_v1_plugin_proto_rawDescData
+}
+
+var file_proto_plugin_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
+var file_proto_plugin_v1_plugin_proto_goTypes = []any{
+	(*PluginManifestMsg)(nil),               // 0: plugin.v1.PluginManifestMsg
+	(*HookRegistrationMsg)(nil),             // 1: plugin.v1.HookRegistrationMsg
+	(*PluginInstallationMsg)(nil),           // 2: plugin.v1.PluginInstallationMsg
+	(*ValidationRuleMsg)(nil),               // 3: plugin.v1.ValidationRuleMsg
+	(*WorkflowRuleMsg)(nil),                 // 4: plugin.v1.WorkflowRuleMsg
+	(*IndustryTemplateMsg)(nil),             // 5: plugin.v1.IndustryTemplateMsg
+	(*ExecutionLogMsg)(nil),                 // 6: plugin.v1.ExecutionLogMsg
+	(*CreateManifestRequest)(nil),           // 7: plugin.v1.CreateManifestRequest
+	(*CreateManifestResponse)(nil),          // 8: plugin.v1.CreateManifestResponse
+	(*GetManifestRequest)(nil),              // 9: plugin.v1.GetManifestRequest
+	(*GetManifestResponse)(nil),             // 10: plugin.v1.GetManifestResponse
+	(*ListManifestsRequest)(nil),            // 11: plugin.v1.ListManifestsRequest
+	(*ListManifestsResponse)(nil),           // 12: plugin.v1.ListManifestsResponse
+	(*DeleteManifestRequest)(nil),           // 13: plugin.v1.DeleteManifestRequest
+	(*DeleteManifestResponse)(nil),          // 14: plugin.v1.DeleteManifestResponse
+	(*InstallPluginRequest)(nil),            // 15: plugin.v1.InstallPluginRequest
+	(*InstallPluginResponse)(nil),           // 16: plugin.v1.InstallPluginResponse
+	(*UninstallPluginRequest)(nil),          // 17: plugin.v1.UninstallPluginRequest
+	(*UninstallPluginResponse)(nil),         // 18: plugin.v1.UninstallPluginResponse
+	(*EnablePluginRequest)(nil),             // 19: plugin.v1.EnablePluginRequest
+	(*EnablePluginResponse)(nil),            // 20: plugin.v1.EnablePluginResponse
+	(*DisablePluginRequest)(nil),            // 21: plugin.v1.DisablePluginRequest
+	(*DisablePluginResponse)(nil),           // 22: plugin.v1.DisablePluginResponse
+	(*GetInstallationRequest)(nil),          // 23: plugin.v1.GetInstallationRequest
+	(*GetInstallationResponse)(nil),         // 24: plugin.v1.GetInstallationResponse
+	(*ListInstallationsRequest)(nil),        // 25: plugin.v1.ListInstallationsRequest
+	(*ListInstallationsResponse)(nil),       // 26: plugin.v1.ListInstallationsResponse
+	(*ApprovePermissionsRequest)(nil),       // 27: plugin.v1.ApprovePermissionsRequest
+	(*ApprovePermissionsResponse)(nil),      // 28: plugin.v1.ApprovePermissionsResponse
+	(*ListGrantedPermissionsRequest)(nil),   // 29: plugin.v1.ListGrantedPermissionsRequest
+	(*ListGrantedPermissionsResponse)(nil),  // 30: plugin.v1.ListGrantedPermissionsResponse
+	(*GetPluginSettingsRequest)(nil),        // 31: plugin.v1.GetPluginSettingsRequest
+	(*GetPluginSettingsResponse)(nil),       // 32: plugin.v1.GetPluginSettingsResponse
+	(*UpdatePluginSettingsRequest)(nil),     // 33: plugin.v1.UpdatePluginSettingsRequest
+	(*UpdatePluginSettingsResponse)(nil),    // 34: plugin.v1.UpdatePluginSettingsResponse
+	(*GetPluginSettingsSchemaRequest)(nil),  // 35: plugin.v1.GetPluginSettingsSchemaRequest
+	(*GetPluginSettingsSchemaResponse)(nil), // 36: plugin.v1.GetPluginSettingsSchemaResponse
+	(*CreateValidationRuleRequest)(nil),     // 37: plugin.v1.CreateValidationRuleRequest
+	(*CreateValidationRuleResponse)(nil),    // 38: plugin.v1.CreateValidationRuleResponse
+	(*ListValidationRulesRequest)(nil),      // 39: plugin.v1.ListValidationRulesRequest
+	(*ListValidationRulesResponse)(nil),     // 40: plugin.v1.ListValidationRulesResponse
+	(*UpdateValidationRuleRequest)(nil),     // 41: plugin.v1.UpdateValidationRuleRequest
+	(*UpdateValidationRuleResponse)(nil),    // 42: plugin.v1.UpdateValidationRuleResponse
+	(*DeleteValidationRuleRequest)(nil),     // 43: plugin.v1.DeleteValidationRuleRequest
+	(*DeleteValidationRuleResponse)(nil),    // 44: plugin.v1.DeleteValidationRuleResponse
+	(*CreateWorkflowRuleRequest)(nil),       // 45: plugin.v1.CreateWorkflowRuleRequest
+	(*CreateWorkflowRuleResponse)(nil),      // 46: plugin.v1.CreateWorkflowRuleResponse
+	(*ListWorkflowRulesRequest)(nil),        // 47: plugin.v1.ListWorkflowRulesRequest
+	(*ListWorkflowRulesResponse)(nil),       // 48: plugin.v1.ListWorkflowRulesResponse
+	(*UpdateWorkflowRuleRequest)(nil),       // 49: plugin.v1.UpdateWorkflowRuleRequest
+	(*UpdateWorkflowRuleResponse)(nil),      // 50: plugin.v1.UpdateWorkflowRuleResponse
+	(*DeleteWorkflowRuleRequest)(nil),       // 51: plugin.v1.DeleteWorkflowRuleRequest
+	(*DeleteWorkflowRuleResponse)(nil),      // 52: plugin.v1.DeleteWorkflowRuleResponse
+	(*ListIndustryTemplatesRequest)(nil),    // 53: plugin.v1.ListIndustryTemplatesRequest
+	(*ListIndustryTemplatesResponse)(nil),   // 54: plugin.v1.ListIndustryTemplatesResponse
+	(*ApplyIndustryTemplateRequest)(nil),    // 55: plugin.v1.ApplyIndustryTemplateRequest
+	(*ApplyIndustryTemplateResponse)(nil),   // 56: plugin.v1.ApplyIndustryTemplateResponse
+	(*ListExecutionLogsRequest)(nil),        // 57: plugin.v1.ListExecutionLogsRequest
+	(*ListExecutionLogsResponse)(nil),       // 58: plugin.v1.ListExecutionLogsResponse
+	(*KVGetRequest)(nil),                    // 59: plugin.v1.KVGetRequest
+	(*KVGetResponse)(nil),                   // 60: plugin.v1.KVGetResponse
+	(*KVSetRequest)(nil),                    // 61: plugin.v1.KVSetRequest
+	(*KVSetResponse)(nil),                   // 62: plugin.v1.KVSetResponse
+	(*KVDeleteRequest)(nil),                 // 63: plugin.v1.KVDeleteRequest
+	(*KVDeleteResponse)(nil),                // 64: plugin.v1.KVDeleteResponse
+	(*KVListRequest)(nil),                   // 65: plugin.v1.KVListRequest
+	(*KVListResponse)(nil),                  // 66: plugin.v1.KVListResponse
+	(*ExecuteHooksRequest)(nil),             // 67: plugin.v1.ExecuteHooksRequest
+	(*ExecuteHooksResponse)(nil),            // 68: plugin.v1.ExecuteHooksResponse
+	(*HookExecutionResult)(nil),             // 69: plugin.v1.HookExecutionResult
+	(*ValidateEntityRequest)(nil),           // 70: plugin.v1.ValidateEntityRequest
+	(*ValidateEntityResponse)(nil),          // 71: plugin.v1.ValidateEntityResponse
+	(*ValidationError)(nil),                 // 72: plugin.v1.ValidationError
+	nil,                                     // 73: plugin.v1.KVListResponse.EntriesEntry
+	(*timestamppb.Timestamp)(nil),           // 74: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                 // 75: google.protobuf.Struct
+}
+var file_proto_plugin_v1_plugin_proto_depIdxs = []int32{
+	1,  // 0: plugin.v1.PluginManifestMsg.hook_registrations:type_name -> plugin.v1.HookRegistrationMsg
+	74, // 1: plugin.v1.PluginManifestMsg.created_at:type_name -> google.protobuf.Timestamp
+	74, // 2: plugin.v1.PluginManifestMsg.updated_at:type_name -> google.protobuf.Timestamp
+	74, // 3: plugin.v1.PluginInstallationMsg.created_at:type_name -> google.protobuf.Timestamp
+	74, // 4: plugin.v1.PluginInstallationMsg.updated_at:type_name -> google.protobuf.Timestamp
+	74, // 5: plugin.v1.ValidationRuleMsg.created_at:type_name -> google.protobuf.Timestamp
+	74, // 6: plugin.v1.ValidationRuleMsg.updated_at:type_name -> google.protobuf.Timestamp
+	74, // 7: plugin.v1.WorkflowRuleMsg.created_at:type_name -> google.protobuf.Timestamp
+	74, // 8: plugin.v1.WorkflowRuleMsg.updated_at:type_name -> google.protobuf.Timestamp
+	74, // 9: plugin.v1.ExecutionLogMsg.created_at:type_name -> google.protobuf.Timestamp
+	1,  // 10: plugin.v1.CreateManifestRequest.hook_registrations:type_name -> plugin.v1.HookRegistrationMsg
+	0,  // 11: plugin.v1.CreateManifestResponse.manifest:type_name -> plugin.v1.PluginManifestMsg
+	0,  // 12: plugin.v1.GetManifestResponse.manifest:type_name -> plugin.v1.PluginManifestMsg
+	0,  // 13: plugin.v1.ListManifestsResponse.manifests:type_name -> plugin.v1.PluginManifestMsg
+	2,  // 14: plugin.v1.InstallPluginResponse.installation:type_name -> plugin.v1.PluginInstallationMsg
+	2,  // 15: plugin.v1.EnablePluginResponse.installation:type_name -> plugin.v1.PluginInstallationMsg
+	2,  // 16: plugin.v1.DisablePluginResponse.installation:type_name -> plugin.v1.PluginInstallationMsg
+	2,  // 17: plugin.v1.GetInstallationResponse.installation:type_name -> plugin.v1.PluginInstallationMsg
+	2,  // 18: plugin.v1.ListInstallationsResponse.installations:type_name -> plugin.v1.PluginInstallationMsg
+	3,  // 19: plugin.v1.CreateValidationRuleResponse.rule:type_name -> plugin.v1.ValidationRuleMsg
+	3,  // 20: plugin.v1.ListValidationRulesResponse.rules:type_name -> plugin.v1.ValidationRuleMsg
+	3,  // 21: plugin.v1.UpdateValidationRuleResponse.rule:type_name -> plugin.v1.ValidationRuleMsg
+	4,  // 22: plugin.v1.CreateWorkflowRuleResponse.rule:type_name -> plugin.v1.WorkflowRuleMsg
+	4,  // 23: plugin.v1.ListWorkflowRulesResponse.rules:type_name -> plugin.v1.WorkflowRuleMsg
+	4,  // 24: plugin.v1.UpdateWorkflowRuleResponse.rule:type_name -> plugin.v1.WorkflowRuleMsg
+	5,  // 25: plugin.v1.ListIndustryTemplatesResponse.templates:type_name -> plugin.v1.IndustryTemplateMsg
+	6,  // 26: plugin.v1.ListExecutionLogsResponse.logs:type_name -> plugin.v1.ExecutionLogMsg
+	73, // 27: plugin.v1.KVListResponse.entries:type_name -> plugin.v1.KVListResponse.EntriesEntry
+	75, // 28: plugin.v1.ExecuteHooksRequest.entity_data:type_name -> google.protobuf.Struct
+	75, // 29: plugin.v1.ExecuteHooksResponse.modified_data:type_name -> google.protobuf.Struct
+	69, // 30: plugin.v1.ExecuteHooksResponse.results:type_name -> plugin.v1.HookExecutionResult
+	75, // 31: plugin.v1.ValidateEntityRequest.entity_data:type_name -> google.protobuf.Struct
+	72, // 32: plugin.v1.ValidateEntityResponse.errors:type_name -> plugin.v1.ValidationError
+	7,  // 33: plugin.v1.PluginService.CreateManifest:input_type -> plugin.v1.CreateManifestRequest
+	9,  // 34: plugin.v1.PluginService.GetManifest:input_type -> plugin.v1.GetManifestRequest
+	11, // 35: plugin.v1.PluginService.ListManifests:input_type -> plugin.v1.ListManifestsRequest
+	13, // 36: plugin.v1.PluginService.DeleteManifest:input_type -> plugin.v1.DeleteManifestRequest
+	15, // 37: plugin.v1.PluginService.InstallPlugin:input_type -> plugin.v1.InstallPluginRequest
+	17, // 38: plugin.v1.PluginService.UninstallPlugin:input_type -> plugin.v1.UninstallPluginRequest
+	19, // 39: plugin.v1.PluginService.EnablePlugin:input_type -> plugin.v1.EnablePluginRequest
+	21, // 40: plugin.v1.PluginService.DisablePlugin:input_type -> plugin.v1.DisablePluginRequest
+	23, // 41: plugin.v1.PluginService.GetInstallation:input_type -> plugin.v1.GetInstallationRequest
+	25, // 42: plugin.v1.PluginService.ListInstallations:input_type -> plugin.v1.ListInstallationsRequest
+	27, // 43: plugin.v1.PluginService.ApprovePermissions:input_type -> plugin.v1.ApprovePermissionsRequest
+	29, // 44: plugin.v1.PluginService.ListGrantedPermissions:input_type -> plugin.v1.ListGrantedPermissionsRequest
+	31, // 45: plugin.v1.PluginService.GetPluginSettings:input_type -> plugin.v1.GetPluginSettingsRequest
+	33, // 46: plugin.v1.PluginService.UpdatePluginSettings:input_type -> plugin.v1.UpdatePluginSettingsRequest
+	35, // 47: plugin.v1.PluginService.GetPluginSettingsSchema:input_type -> plugin.v1.GetPluginSettingsSchemaRequest
+	37, // 48: plugin.v1.PluginService.CreateValidationRule:input_type -> plugin.v1.CreateValidationRuleRequest
+	39, // 49: plugin.v1.PluginService.ListValidationRules:input_type -> plugin.v1.ListValidationRulesRequest
+	41, // 50: plugin.v1.PluginService.UpdateValidationRule:input_type -> plugin.v1.UpdateValidationRuleRequest
+	43, // 51: plugin.v1.PluginService.DeleteValidationRule:input_type -> plugin.v1.DeleteValidationRuleRequest
+	45, // 52: plugin.v1.PluginService.CreateWorkflowRule:input_type -> plugin.v1.CreateWorkflowRuleRequest
+	47, // 53: plugin.v1.PluginService.ListWorkflowRules:input_type -> plugin.v1.ListWorkflowRulesRequest
+	49, // 54: plugin.v1.PluginService.UpdateWorkflowRule:input_type -> plugin.v1.UpdateWorkflowRuleRequest
+	51, // 55: plugin.v1.PluginService.DeleteWorkflowRule:input_type -> plugin.v1.DeleteWorkflowRuleRequest
+	53, // 56: plugin.v1.PluginService.ListIndustryTemplates:input_type -> plugin.v1.ListIndustryTemplatesRequest
+	55, // 57: plugin.v1.PluginService.ApplyIndustryTemplate:input_type -> plugin.v1.ApplyIndustryTemplateRequest
+	57, // 58: plugin.v1.PluginService.ListExecutionLogs:input_type -> plugin.v1.ListExecutionLogsRequest
+	59, // 59: plugin.v1.PluginService.KVGet:input_type -> plugin.v1.KVGetRequest
+	61, // 60: plugin.v1.PluginService.KVSet:input_type -> plugin.v1.KVSetRequest
+	63, // 61: plugin.v1.PluginService.KVDelete:input_type -> plugin.v1.KVDeleteRequest
+	65, // 62: plugin.v1.PluginService.KVList:input_type -> plugin.v1.KVListRequest
+	67, // 63: plugin.v1.PluginService.ExecuteHooks:input_type -> plugin.v1.ExecuteHooksRequest
+	70, // 64: plugin.v1.PluginService.ValidateEntity:input_type -> plugin.v1.ValidateEntityRequest
+	8,  // 65: plugin.v1.PluginService.CreateManifest:output_type -> plugin.v1.CreateManifestResponse
+	10, // 66: plugin.v1.PluginService.GetManifest:output_type -> plugin.v1.GetManifestResponse
+	12, // 67: plugin.v1.PluginService.ListManifests:output_type -> plugin.v1.ListManifestsResponse
+	14, // 68: plugin.v1.PluginService.DeleteManifest:output_type -> plugin.v1.DeleteManifestResponse
+	16, // 69: plugin.v1.PluginService.InstallPlugin:output_type -> plugin.v1.InstallPluginResponse
+	18, // 70: plugin.v1.PluginService.UninstallPlugin:output_type -> plugin.v1.UninstallPluginResponse
+	20, // 71: plugin.v1.PluginService.EnablePlugin:output_type -> plugin.v1.EnablePluginResponse
+	22, // 72: plugin.v1.PluginService.DisablePlugin:output_type -> plugin.v1.DisablePluginResponse
+	24, // 73: plugin.v1.PluginService.GetInstallation:output_type -> plugin.v1.GetInstallationResponse
+	26, // 74: plugin.v1.PluginService.ListInstallations:output_type -> plugin.v1.ListInstallationsResponse
+	28, // 75: plugin.v1.PluginService.ApprovePermissions:output_type -> plugin.v1.ApprovePermissionsResponse
+	30, // 76: plugin.v1.PluginService.ListGrantedPermissions:output_type -> plugin.v1.ListGrantedPermissionsResponse
+	32, // 77: plugin.v1.PluginService.GetPluginSettings:output_type -> plugin.v1.GetPluginSettingsResponse
+	34, // 78: plugin.v1.PluginService.UpdatePluginSettings:output_type -> plugin.v1.UpdatePluginSettingsResponse
+	36, // 79: plugin.v1.PluginService.GetPluginSettingsSchema:output_type -> plugin.v1.GetPluginSettingsSchemaResponse
+	38, // 80: plugin.v1.PluginService.CreateValidationRule:output_type -> plugin.v1.CreateValidationRuleResponse
+	40, // 81: plugin.v1.PluginService.ListValidationRules:output_type -> plugin.v1.ListValidationRulesResponse
+	42, // 82: plugin.v1.PluginService.UpdateValidationRule:output_type -> plugin.v1.UpdateValidationRuleResponse
+	44, // 83: plugin.v1.PluginService.DeleteValidationRule:output_type -> plugin.v1.DeleteValidationRuleResponse
+	46, // 84: plugin.v1.PluginService.CreateWorkflowRule:output_type -> plugin.v1.CreateWorkflowRuleResponse
+	48, // 85: plugin.v1.PluginService.ListWorkflowRules:output_type -> plugin.v1.ListWorkflowRulesResponse
+	50, // 86: plugin.v1.PluginService.UpdateWorkflowRule:output_type -> plugin.v1.UpdateWorkflowRuleResponse
+	52, // 87: plugin.v1.PluginService.DeleteWorkflowRule:output_type -> plugin.v1.DeleteWorkflowRuleResponse
+	54, // 88: plugin.v1.PluginService.ListIndustryTemplates:output_type -> plugin.v1.ListIndustryTemplatesResponse
+	56, // 89: plugin.v1.PluginService.ApplyIndustryTemplate:output_type -> plugin.v1.ApplyIndustryTemplateResponse
+	58, // 90: plugin.v1.PluginService.ListExecutionLogs:output_type -> plugin.v1.ListExecutionLogsResponse
+	60, // 91: plugin.v1.PluginService.KVGet:output_type -> plugin.v1.KVGetResponse
+	62, // 92: plugin.v1.PluginService.KVSet:output_type -> plugin.v1.KVSetResponse
+	64, // 93: plugin.v1.PluginService.KVDelete:output_type -> plugin.v1.KVDeleteResponse
+	66, // 94: plugin.v1.PluginService.KVList:output_type -> plugin.v1.KVListResponse
+	68, // 95: plugin.v1.PluginService.ExecuteHooks:output_type -> plugin.v1.ExecuteHooksResponse
+	71, // 96: plugin.v1.PluginService.ValidateEntity:output_type -> plugin.v1.ValidateEntityResponse
+	65, // [65:97] is the sub-list for method output_type
+	33, // [33:65] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
+}
+
+func init() { file_proto_plugin_v1_plugin_proto_init() }
+func file_proto_plugin_v1_plugin_proto_init() {
+	if File_proto_plugin_v1_plugin_proto != nil {
+		return
+	}
+	type x struct{}
+	out := protoimpl.TypeBuilder{
+		File: protoimpl.DescBuilder{
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_plugin_v1_plugin_proto_rawDesc), len(file_proto_plugin_v1_plugin_proto_rawDesc)),
+			NumEnums:      0,
+			NumMessages:   74,
+			NumExtensions: 0,
+			NumServices:   1,
+		},
+		GoTypes:           file_proto_plugin_v1_plugin_proto_goTypes,
+		DependencyIndexes: file_proto_plugin_v1_plugin_proto_depIdxs,
+		MessageInfos:      file_proto_plugin_v1_plugin_proto_msgTypes,
+	}.Build()
+	File_proto_plugin_v1_plugin_proto = out.File
+	file_proto_plugin_v1_plugin_proto_goTypes = nil
+	file_proto_plugin_v1_plugin_proto_depIdxs = nil
 }

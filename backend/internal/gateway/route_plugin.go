@@ -12,13 +12,10 @@ import (
 	pluginv1 "github.com/kmuhub/kmuhub/proto/plugin/v1"
 )
 
-// NOTE on response.Proto/ProtoList: unlike rapporte.pb.go and dialer.pb.go, plugin.pb.go is
-// NOT actually protoc-gen-go output despite its "DO NOT EDIT" header — it has zero protoimpl/
-// ProtoReflect() wiring (verified: `grep -c ProtoReflect plugin.pb.go` = 0), so no pluginv1
-// type satisfies proto.Message. response.Proto/ProtoList (which require proto.Message) do not
-// compile against it. This file stays on response.JSON; the {seconds,nanos} Timestamp bug
-// (e.g. PluginManifestMsg.CreatedAt) persists here until plugin.pb.go is regenerated for real
-// or given a hand-written ProtoReflect() implementation — both out of scope for a route-file-only change.
+// plugin.pb.go was regenerated via protoc (real protoc-gen-go output with ProtoReflect wiring),
+// so pluginv1 types now satisfy proto.Message. Handlers returning a proto.Message (or a slice
+// thereof) use response.Proto / response.ProtoList so google.protobuf.Timestamp fields serialize
+// as RFC3339 strings instead of {seconds,nanos}. R3-P0-1.
 
 // PluginRoutes handles HTTP routes for the Plugin service
 type PluginRoutes struct {
@@ -126,7 +123,7 @@ func (pr *PluginRoutes) HandleListManifests(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetManifests())
+	response.ProtoList(w, http.StatusOK, resp.GetManifests())
 }
 
 func (pr *PluginRoutes) HandleCreateManifest(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +145,7 @@ func (pr *PluginRoutes) HandleCreateManifest(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp.GetManifest())
+	response.Proto(w, http.StatusCreated, resp.GetManifest())
 }
 
 func (pr *PluginRoutes) HandleGetManifest(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +162,7 @@ func (pr *PluginRoutes) HandleGetManifest(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetManifest())
+	response.Proto(w, http.StatusOK, resp.GetManifest())
 }
 
 func (pr *PluginRoutes) HandleDeleteManifest(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +207,7 @@ func (pr *PluginRoutes) HandleListInstallations(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetInstallations())
+	response.ProtoList(w, http.StatusOK, resp.GetInstallations())
 }
 
 func (pr *PluginRoutes) HandleInstallPlugin(w http.ResponseWriter, r *http.Request) {
@@ -232,7 +229,7 @@ func (pr *PluginRoutes) HandleInstallPlugin(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp.GetInstallation())
+	response.Proto(w, http.StatusCreated, resp.GetInstallation())
 }
 
 func (pr *PluginRoutes) HandleGetInstallation(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +246,7 @@ func (pr *PluginRoutes) HandleGetInstallation(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetInstallation())
+	response.Proto(w, http.StatusOK, resp.GetInstallation())
 }
 
 func (pr *PluginRoutes) HandleEnablePlugin(w http.ResponseWriter, r *http.Request) {
@@ -266,7 +263,7 @@ func (pr *PluginRoutes) HandleEnablePlugin(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetInstallation())
+	response.Proto(w, http.StatusOK, resp.GetInstallation())
 }
 
 func (pr *PluginRoutes) HandleDisablePlugin(w http.ResponseWriter, r *http.Request) {
@@ -283,7 +280,7 @@ func (pr *PluginRoutes) HandleDisablePlugin(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetInstallation())
+	response.Proto(w, http.StatusOK, resp.GetInstallation())
 }
 
 func (pr *PluginRoutes) HandleUninstallPlugin(w http.ResponseWriter, r *http.Request) {
@@ -444,7 +441,7 @@ func (pr *PluginRoutes) HandleListValidationRules(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetRules())
+	response.ProtoList(w, http.StatusOK, resp.GetRules())
 }
 
 func (pr *PluginRoutes) HandleCreateValidationRule(w http.ResponseWriter, r *http.Request) {
@@ -466,7 +463,7 @@ func (pr *PluginRoutes) HandleCreateValidationRule(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp.GetRule())
+	response.Proto(w, http.StatusCreated, resp.GetRule())
 }
 
 func (pr *PluginRoutes) HandleUpdateValidationRule(w http.ResponseWriter, r *http.Request) {
@@ -489,7 +486,7 @@ func (pr *PluginRoutes) HandleUpdateValidationRule(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetRule())
+	response.Proto(w, http.StatusOK, resp.GetRule())
 }
 
 func (pr *PluginRoutes) HandleDeleteValidationRule(w http.ResponseWriter, r *http.Request) {
@@ -534,7 +531,7 @@ func (pr *PluginRoutes) HandleListWorkflowRules(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetRules())
+	response.ProtoList(w, http.StatusOK, resp.GetRules())
 }
 
 func (pr *PluginRoutes) HandleCreateWorkflowRule(w http.ResponseWriter, r *http.Request) {
@@ -556,7 +553,7 @@ func (pr *PluginRoutes) HandleCreateWorkflowRule(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, resp.GetRule())
+	response.Proto(w, http.StatusCreated, resp.GetRule())
 }
 
 func (pr *PluginRoutes) HandleUpdateWorkflowRule(w http.ResponseWriter, r *http.Request) {
@@ -579,7 +576,7 @@ func (pr *PluginRoutes) HandleUpdateWorkflowRule(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetRule())
+	response.Proto(w, http.StatusOK, resp.GetRule())
 }
 
 func (pr *PluginRoutes) HandleDeleteWorkflowRule(w http.ResponseWriter, r *http.Request) {
@@ -617,7 +614,7 @@ func (pr *PluginRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetTemplates())
+	response.ProtoList(w, http.StatusOK, resp.GetTemplates())
 }
 
 type applyTemplateHTTPReq struct {
@@ -651,7 +648,7 @@ func (pr *PluginRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp)
+	response.Proto(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -687,7 +684,7 @@ func (pr *PluginRoutes) HandleListExecutionLogs(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.JSON(w, http.StatusOK, resp.GetLogs())
+	response.ProtoList(w, http.StatusOK, resp.GetLogs())
 }
 
 func parseIntParam(s string) (int, error) {

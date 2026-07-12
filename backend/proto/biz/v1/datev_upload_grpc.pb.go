@@ -15,21 +15,24 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.64.0 or later.
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DatevUploadService_GetDatevAuthURL_FullMethodName            = "/biz.v1.DatevUploadService/GetDatevAuthURL"
-	DatevUploadService_HandleDatevOAuthCallback_FullMethodName   = "/biz.v1.DatevUploadService/HandleDatevOAuthCallback"
-	DatevUploadService_DisconnectDatev_FullMethodName            = "/biz.v1.DatevUploadService/DisconnectDatev"
-	DatevUploadService_GetDatevConnectionStatus_FullMethodName   = "/biz.v1.DatevUploadService/GetDatevConnectionStatus"
-	DatevUploadService_UploadDatevBuchungsstapel_FullMethodName  = "/biz.v1.DatevUploadService/UploadDatevBuchungsstapel"
-	DatevUploadService_UploadDatevBeleg_FullMethodName           = "/biz.v1.DatevUploadService/UploadDatevBeleg"
-	DatevUploadService_GetDatevUploadConfig_FullMethodName       = "/biz.v1.DatevUploadService/GetDatevUploadConfig"
-	DatevUploadService_UpdateDatevUploadConfig_FullMethodName    = "/biz.v1.DatevUploadService/UpdateDatevUploadConfig"
-	DatevUploadService_ListDatevUploadLogs_FullMethodName        = "/biz.v1.DatevUploadService/ListDatevUploadLogs"
+	DatevUploadService_GetDatevAuthURL_FullMethodName           = "/biz.v1.DatevUploadService/GetDatevAuthURL"
+	DatevUploadService_HandleDatevOAuthCallback_FullMethodName  = "/biz.v1.DatevUploadService/HandleDatevOAuthCallback"
+	DatevUploadService_DisconnectDatev_FullMethodName           = "/biz.v1.DatevUploadService/DisconnectDatev"
+	DatevUploadService_GetDatevConnectionStatus_FullMethodName  = "/biz.v1.DatevUploadService/GetDatevConnectionStatus"
+	DatevUploadService_UploadDatevBuchungsstapel_FullMethodName = "/biz.v1.DatevUploadService/UploadDatevBuchungsstapel"
+	DatevUploadService_UploadDatevBeleg_FullMethodName          = "/biz.v1.DatevUploadService/UploadDatevBeleg"
+	DatevUploadService_GetDatevUploadConfig_FullMethodName      = "/biz.v1.DatevUploadService/GetDatevUploadConfig"
+	DatevUploadService_UpdateDatevUploadConfig_FullMethodName   = "/biz.v1.DatevUploadService/UpdateDatevUploadConfig"
+	DatevUploadService_ListDatevUploadLogs_FullMethodName       = "/biz.v1.DatevUploadService/ListDatevUploadLogs"
 )
 
-// DatevUploadServiceClient is the client API for DatevUploadService.
+// DatevUploadServiceClient is the client API for DatevUploadService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DatevUploadServiceClient interface {
 	// OAuth
 	GetDatevAuthURL(ctx context.Context, in *GetDatevAuthURLRequest, opts ...grpc.CallOption) (*GetDatevAuthURLResponse, error)
@@ -55,8 +58,9 @@ func NewDatevUploadServiceClient(cc grpc.ClientConnInterface) DatevUploadService
 }
 
 func (c *datevUploadServiceClient) GetDatevAuthURL(ctx context.Context, in *GetDatevAuthURLRequest, opts ...grpc.CallOption) (*GetDatevAuthURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetDatevAuthURLResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_GetDatevAuthURL_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_GetDatevAuthURL_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +68,9 @@ func (c *datevUploadServiceClient) GetDatevAuthURL(ctx context.Context, in *GetD
 }
 
 func (c *datevUploadServiceClient) HandleDatevOAuthCallback(ctx context.Context, in *HandleDatevOAuthCallbackRequest, opts ...grpc.CallOption) (*HandleDatevOAuthCallbackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HandleDatevOAuthCallbackResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_HandleDatevOAuthCallback_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_HandleDatevOAuthCallback_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +78,9 @@ func (c *datevUploadServiceClient) HandleDatevOAuthCallback(ctx context.Context,
 }
 
 func (c *datevUploadServiceClient) DisconnectDatev(ctx context.Context, in *DisconnectDatevRequest, opts ...grpc.CallOption) (*DisconnectDatevResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DisconnectDatevResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_DisconnectDatev_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_DisconnectDatev_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -82,8 +88,9 @@ func (c *datevUploadServiceClient) DisconnectDatev(ctx context.Context, in *Disc
 }
 
 func (c *datevUploadServiceClient) GetDatevConnectionStatus(ctx context.Context, in *GetDatevConnectionStatusRequest, opts ...grpc.CallOption) (*GetDatevConnectionStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetDatevConnectionStatusResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_GetDatevConnectionStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_GetDatevConnectionStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +98,9 @@ func (c *datevUploadServiceClient) GetDatevConnectionStatus(ctx context.Context,
 }
 
 func (c *datevUploadServiceClient) UploadDatevBuchungsstapel(ctx context.Context, in *UploadDatevBuchungsstapelRequest, opts ...grpc.CallOption) (*UploadDatevBuchungsstapelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UploadDatevBuchungsstapelResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_UploadDatevBuchungsstapel_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_UploadDatevBuchungsstapel_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +108,9 @@ func (c *datevUploadServiceClient) UploadDatevBuchungsstapel(ctx context.Context
 }
 
 func (c *datevUploadServiceClient) UploadDatevBeleg(ctx context.Context, in *UploadDatevBelegRequest, opts ...grpc.CallOption) (*UploadDatevBelegResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UploadDatevBelegResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_UploadDatevBeleg_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_UploadDatevBeleg_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +118,9 @@ func (c *datevUploadServiceClient) UploadDatevBeleg(ctx context.Context, in *Upl
 }
 
 func (c *datevUploadServiceClient) GetDatevUploadConfig(ctx context.Context, in *GetDatevUploadConfigRequest, opts ...grpc.CallOption) (*GetDatevUploadConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetDatevUploadConfigResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_GetDatevUploadConfig_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_GetDatevUploadConfig_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +128,9 @@ func (c *datevUploadServiceClient) GetDatevUploadConfig(ctx context.Context, in 
 }
 
 func (c *datevUploadServiceClient) UpdateDatevUploadConfig(ctx context.Context, in *UpdateDatevUploadConfigRequest, opts ...grpc.CallOption) (*UpdateDatevUploadConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateDatevUploadConfigResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_UpdateDatevUploadConfig_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_UpdateDatevUploadConfig_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,68 +138,87 @@ func (c *datevUploadServiceClient) UpdateDatevUploadConfig(ctx context.Context, 
 }
 
 func (c *datevUploadServiceClient) ListDatevUploadLogs(ctx context.Context, in *ListDatevUploadLogsRequest, opts ...grpc.CallOption) (*ListDatevUploadLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListDatevUploadLogsResponse)
-	err := c.cc.Invoke(ctx, DatevUploadService_ListDatevUploadLogs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DatevUploadService_ListDatevUploadLogs_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// DatevUploadServiceServer is the server API for DatevUploadService.
+// DatevUploadServiceServer is the server API for DatevUploadService service.
+// All implementations must embed UnimplementedDatevUploadServiceServer
+// for forward compatibility.
 type DatevUploadServiceServer interface {
+	// OAuth
 	GetDatevAuthURL(context.Context, *GetDatevAuthURLRequest) (*GetDatevAuthURLResponse, error)
 	HandleDatevOAuthCallback(context.Context, *HandleDatevOAuthCallbackRequest) (*HandleDatevOAuthCallbackResponse, error)
 	DisconnectDatev(context.Context, *DisconnectDatevRequest) (*DisconnectDatevResponse, error)
 	GetDatevConnectionStatus(context.Context, *GetDatevConnectionStatusRequest) (*GetDatevConnectionStatusResponse, error)
+	// Upload Operations
 	UploadDatevBuchungsstapel(context.Context, *UploadDatevBuchungsstapelRequest) (*UploadDatevBuchungsstapelResponse, error)
 	UploadDatevBeleg(context.Context, *UploadDatevBelegRequest) (*UploadDatevBelegResponse, error)
+	// Config
 	GetDatevUploadConfig(context.Context, *GetDatevUploadConfigRequest) (*GetDatevUploadConfigResponse, error)
 	UpdateDatevUploadConfig(context.Context, *UpdateDatevUploadConfigRequest) (*UpdateDatevUploadConfigResponse, error)
+	// Logs
 	ListDatevUploadLogs(context.Context, *ListDatevUploadLogsRequest) (*ListDatevUploadLogsResponse, error)
 	mustEmbedUnimplementedDatevUploadServiceServer()
 }
 
-// UnimplementedDatevUploadServiceServer should be embedded to have
+// UnimplementedDatevUploadServiceServer must be embedded to have
 // forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
 type UnimplementedDatevUploadServiceServer struct{}
 
 func (UnimplementedDatevUploadServiceServer) GetDatevAuthURL(context.Context, *GetDatevAuthURLRequest) (*GetDatevAuthURLResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDatevAuthURL not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetDatevAuthURL not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) HandleDatevOAuthCallback(context.Context, *HandleDatevOAuthCallbackRequest) (*HandleDatevOAuthCallbackResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method HandleDatevOAuthCallback not implemented")
+	return nil, status.Error(codes.Unimplemented, "method HandleDatevOAuthCallback not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) DisconnectDatev(context.Context, *DisconnectDatevRequest) (*DisconnectDatevResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DisconnectDatev not implemented")
+	return nil, status.Error(codes.Unimplemented, "method DisconnectDatev not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) GetDatevConnectionStatus(context.Context, *GetDatevConnectionStatusRequest) (*GetDatevConnectionStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDatevConnectionStatus not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetDatevConnectionStatus not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) UploadDatevBuchungsstapel(context.Context, *UploadDatevBuchungsstapelRequest) (*UploadDatevBuchungsstapelResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UploadDatevBuchungsstapel not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UploadDatevBuchungsstapel not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) UploadDatevBeleg(context.Context, *UploadDatevBelegRequest) (*UploadDatevBelegResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UploadDatevBeleg not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UploadDatevBeleg not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) GetDatevUploadConfig(context.Context, *GetDatevUploadConfigRequest) (*GetDatevUploadConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDatevUploadConfig not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetDatevUploadConfig not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) UpdateDatevUploadConfig(context.Context, *UpdateDatevUploadConfigRequest) (*UpdateDatevUploadConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateDatevUploadConfig not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UpdateDatevUploadConfig not implemented")
 }
 func (UnimplementedDatevUploadServiceServer) ListDatevUploadLogs(context.Context, *ListDatevUploadLogsRequest) (*ListDatevUploadLogsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListDatevUploadLogs not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListDatevUploadLogs not implemented")
 }
-func (UnimplementedDatevUploadServiceServer) mustEmbedUnimplementedDatevUploadServiceServer() {
-}
+func (UnimplementedDatevUploadServiceServer) mustEmbedUnimplementedDatevUploadServiceServer() {}
+func (UnimplementedDatevUploadServiceServer) testEmbeddedByValue()                            {}
 
 // UnsafeDatevUploadServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DatevUploadServiceServer will
+// result in compilation errors.
 type UnsafeDatevUploadServiceServer interface {
 	mustEmbedUnimplementedDatevUploadServiceServer()
 }
 
 func RegisterDatevUploadServiceServer(s grpc.ServiceRegistrar, srv DatevUploadServiceServer) {
+	// If the following call panics, it indicates UnimplementedDatevUploadServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
 	s.RegisterService(&DatevUploadService_ServiceDesc, srv)
 }
 
@@ -200,10 +230,14 @@ func _DatevUploadService_GetDatevAuthURL_Handler(srv interface{}, ctx context.Co
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).GetDatevAuthURL(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_GetDatevAuthURL_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_GetDatevAuthURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).GetDatevAuthURL(ctx, req.(*GetDatevAuthURLRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_HandleDatevOAuthCallback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -214,10 +248,14 @@ func _DatevUploadService_HandleDatevOAuthCallback_Handler(srv interface{}, ctx c
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).HandleDatevOAuthCallback(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_HandleDatevOAuthCallback_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_HandleDatevOAuthCallback_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).HandleDatevOAuthCallback(ctx, req.(*HandleDatevOAuthCallbackRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_DisconnectDatev_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -228,10 +266,14 @@ func _DatevUploadService_DisconnectDatev_Handler(srv interface{}, ctx context.Co
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).DisconnectDatev(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_DisconnectDatev_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_DisconnectDatev_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).DisconnectDatev(ctx, req.(*DisconnectDatevRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_GetDatevConnectionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -242,10 +284,14 @@ func _DatevUploadService_GetDatevConnectionStatus_Handler(srv interface{}, ctx c
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).GetDatevConnectionStatus(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_GetDatevConnectionStatus_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_GetDatevConnectionStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).GetDatevConnectionStatus(ctx, req.(*GetDatevConnectionStatusRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_UploadDatevBuchungsstapel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -256,10 +302,14 @@ func _DatevUploadService_UploadDatevBuchungsstapel_Handler(srv interface{}, ctx 
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).UploadDatevBuchungsstapel(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_UploadDatevBuchungsstapel_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_UploadDatevBuchungsstapel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).UploadDatevBuchungsstapel(ctx, req.(*UploadDatevBuchungsstapelRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_UploadDatevBeleg_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -270,10 +320,14 @@ func _DatevUploadService_UploadDatevBeleg_Handler(srv interface{}, ctx context.C
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).UploadDatevBeleg(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_UploadDatevBeleg_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_UploadDatevBeleg_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).UploadDatevBeleg(ctx, req.(*UploadDatevBelegRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_GetDatevUploadConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -284,10 +338,14 @@ func _DatevUploadService_GetDatevUploadConfig_Handler(srv interface{}, ctx conte
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).GetDatevUploadConfig(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_GetDatevUploadConfig_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_GetDatevUploadConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).GetDatevUploadConfig(ctx, req.(*GetDatevUploadConfigRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_UpdateDatevUploadConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -298,10 +356,14 @@ func _DatevUploadService_UpdateDatevUploadConfig_Handler(srv interface{}, ctx co
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).UpdateDatevUploadConfig(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_UpdateDatevUploadConfig_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_UpdateDatevUploadConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).UpdateDatevUploadConfig(ctx, req.(*UpdateDatevUploadConfigRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DatevUploadService_ListDatevUploadLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -312,26 +374,59 @@ func _DatevUploadService_ListDatevUploadLogs_Handler(srv interface{}, ctx contex
 	if interceptor == nil {
 		return srv.(DatevUploadServiceServer).ListDatevUploadLogs(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: DatevUploadService_ListDatevUploadLogs_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DatevUploadService_ListDatevUploadLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatevUploadServiceServer).ListDatevUploadLogs(ctx, req.(*ListDatevUploadLogsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 // DatevUploadService_ServiceDesc is the grpc.ServiceDesc for DatevUploadService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
 var DatevUploadService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "biz.v1.DatevUploadService",
 	HandlerType: (*DatevUploadServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{MethodName: "GetDatevAuthURL", Handler: _DatevUploadService_GetDatevAuthURL_Handler},
-		{MethodName: "HandleDatevOAuthCallback", Handler: _DatevUploadService_HandleDatevOAuthCallback_Handler},
-		{MethodName: "DisconnectDatev", Handler: _DatevUploadService_DisconnectDatev_Handler},
-		{MethodName: "GetDatevConnectionStatus", Handler: _DatevUploadService_GetDatevConnectionStatus_Handler},
-		{MethodName: "UploadDatevBuchungsstapel", Handler: _DatevUploadService_UploadDatevBuchungsstapel_Handler},
-		{MethodName: "UploadDatevBeleg", Handler: _DatevUploadService_UploadDatevBeleg_Handler},
-		{MethodName: "GetDatevUploadConfig", Handler: _DatevUploadService_GetDatevUploadConfig_Handler},
-		{MethodName: "UpdateDatevUploadConfig", Handler: _DatevUploadService_UpdateDatevUploadConfig_Handler},
-		{MethodName: "ListDatevUploadLogs", Handler: _DatevUploadService_ListDatevUploadLogs_Handler},
+		{
+			MethodName: "GetDatevAuthURL",
+			Handler:    _DatevUploadService_GetDatevAuthURL_Handler,
+		},
+		{
+			MethodName: "HandleDatevOAuthCallback",
+			Handler:    _DatevUploadService_HandleDatevOAuthCallback_Handler,
+		},
+		{
+			MethodName: "DisconnectDatev",
+			Handler:    _DatevUploadService_DisconnectDatev_Handler,
+		},
+		{
+			MethodName: "GetDatevConnectionStatus",
+			Handler:    _DatevUploadService_GetDatevConnectionStatus_Handler,
+		},
+		{
+			MethodName: "UploadDatevBuchungsstapel",
+			Handler:    _DatevUploadService_UploadDatevBuchungsstapel_Handler,
+		},
+		{
+			MethodName: "UploadDatevBeleg",
+			Handler:    _DatevUploadService_UploadDatevBeleg_Handler,
+		},
+		{
+			MethodName: "GetDatevUploadConfig",
+			Handler:    _DatevUploadService_GetDatevUploadConfig_Handler,
+		},
+		{
+			MethodName: "UpdateDatevUploadConfig",
+			Handler:    _DatevUploadService_UpdateDatevUploadConfig_Handler,
+		},
+		{
+			MethodName: "ListDatevUploadLogs",
+			Handler:    _DatevUploadService_ListDatevUploadLogs_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/biz/v1/datev_upload.proto",

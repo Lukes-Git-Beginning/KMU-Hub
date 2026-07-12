@@ -7,16 +7,57 @@
 package bizv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
-// ============================================================================
-// Connection Messages
-// ============================================================================
+const (
+	// Verify that this generated code is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	// Verify that runtime/protoimpl is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
 
 type ConnectLexwareRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ApiKey   string `protobuf:"bytes,2,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ApiKey        string                 `protobuf:"bytes,2,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConnectLexwareRequest) Reset() {
+	*x = ConnectLexwareRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConnectLexwareRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConnectLexwareRequest) ProtoMessage() {}
+
+func (x *ConnectLexwareRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConnectLexwareRequest.ProtoReflect.Descriptor instead.
+func (*ConnectLexwareRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ConnectLexwareRequest) GetTenantId() string {
@@ -34,8 +75,41 @@ func (x *ConnectLexwareRequest) GetApiKey() string {
 }
 
 type ConnectLexwareResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConnectLexwareResponse) Reset() {
+	*x = ConnectLexwareResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConnectLexwareResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConnectLexwareResponse) ProtoMessage() {}
+
+func (x *ConnectLexwareResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConnectLexwareResponse.ProtoReflect.Descriptor instead.
+func (*ConnectLexwareResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ConnectLexwareResponse) GetSuccess() bool {
@@ -53,7 +127,40 @@ func (x *ConnectLexwareResponse) GetErrorMessage() string {
 }
 
 type DisconnectLexwareRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectLexwareRequest) Reset() {
+	*x = DisconnectLexwareRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectLexwareRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectLexwareRequest) ProtoMessage() {}
+
+func (x *DisconnectLexwareRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectLexwareRequest.ProtoReflect.Descriptor instead.
+func (*DisconnectLexwareRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DisconnectLexwareRequest) GetTenantId() string {
@@ -64,7 +171,40 @@ func (x *DisconnectLexwareRequest) GetTenantId() string {
 }
 
 type DisconnectLexwareResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectLexwareResponse) Reset() {
+	*x = DisconnectLexwareResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectLexwareResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectLexwareResponse) ProtoMessage() {}
+
+func (x *DisconnectLexwareResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectLexwareResponse.ProtoReflect.Descriptor instead.
+func (*DisconnectLexwareResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DisconnectLexwareResponse) GetSuccess() bool {
@@ -75,7 +215,40 @@ func (x *DisconnectLexwareResponse) GetSuccess() bool {
 }
 
 type GetLexwareConnectionStatusRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLexwareConnectionStatusRequest) Reset() {
+	*x = GetLexwareConnectionStatusRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLexwareConnectionStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLexwareConnectionStatusRequest) ProtoMessage() {}
+
+func (x *GetLexwareConnectionStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLexwareConnectionStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetLexwareConnectionStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetLexwareConnectionStatusRequest) GetTenantId() string {
@@ -86,8 +259,41 @@ func (x *GetLexwareConnectionStatusRequest) GetTenantId() string {
 }
 
 type GetLexwareConnectionStatusResponse struct {
-	Connected   bool                   `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
-	ConnectedAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=connected_at,json=connectedAt,proto3" json:"connected_at,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Connected     bool                   `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
+	ConnectedAt   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=connected_at,json=connectedAt,proto3" json:"connected_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLexwareConnectionStatusResponse) Reset() {
+	*x = GetLexwareConnectionStatusResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLexwareConnectionStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLexwareConnectionStatusResponse) ProtoMessage() {}
+
+func (x *GetLexwareConnectionStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLexwareConnectionStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetLexwareConnectionStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetLexwareConnectionStatusResponse) GetConnected() bool {
@@ -105,7 +311,40 @@ func (x *GetLexwareConnectionStatusResponse) GetConnectedAt() *timestamppb.Times
 }
 
 type TestLexwareConnectionRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestLexwareConnectionRequest) Reset() {
+	*x = TestLexwareConnectionRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestLexwareConnectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestLexwareConnectionRequest) ProtoMessage() {}
+
+func (x *TestLexwareConnectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestLexwareConnectionRequest.ProtoReflect.Descriptor instead.
+func (*TestLexwareConnectionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TestLexwareConnectionRequest) GetTenantId() string {
@@ -116,8 +355,41 @@ func (x *TestLexwareConnectionRequest) GetTenantId() string {
 }
 
 type TestLexwareConnectionResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestLexwareConnectionResponse) Reset() {
+	*x = TestLexwareConnectionResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestLexwareConnectionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestLexwareConnectionResponse) ProtoMessage() {}
+
+func (x *TestLexwareConnectionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestLexwareConnectionResponse.ProtoReflect.Descriptor instead.
+func (*TestLexwareConnectionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TestLexwareConnectionResponse) GetSuccess() bool {
@@ -134,13 +406,42 @@ func (x *TestLexwareConnectionResponse) GetErrorMessage() string {
 	return ""
 }
 
-// ============================================================================
-// Sync Messages
-// ============================================================================
-
 type TriggerLexwareSyncRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	SyncType string `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SyncType      string                 `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"` // Optional: "contacts" or empty for all
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TriggerLexwareSyncRequest) Reset() {
+	*x = TriggerLexwareSyncRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerLexwareSyncRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerLexwareSyncRequest) ProtoMessage() {}
+
+func (x *TriggerLexwareSyncRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerLexwareSyncRequest.ProtoReflect.Descriptor instead.
+func (*TriggerLexwareSyncRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TriggerLexwareSyncRequest) GetTenantId() string {
@@ -158,8 +459,41 @@ func (x *TriggerLexwareSyncRequest) GetSyncType() string {
 }
 
 type TriggerLexwareSyncResponse struct {
-	SyncId string `protobuf:"bytes,1,opt,name=sync_id,json=syncId,proto3" json:"sync_id,omitempty"`
-	Status string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SyncId        string                 `protobuf:"bytes,1,opt,name=sync_id,json=syncId,proto3" json:"sync_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TriggerLexwareSyncResponse) Reset() {
+	*x = TriggerLexwareSyncResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerLexwareSyncResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerLexwareSyncResponse) ProtoMessage() {}
+
+func (x *TriggerLexwareSyncResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerLexwareSyncResponse.ProtoReflect.Descriptor instead.
+func (*TriggerLexwareSyncResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TriggerLexwareSyncResponse) GetSyncId() string {
@@ -177,7 +511,40 @@ func (x *TriggerLexwareSyncResponse) GetStatus() string {
 }
 
 type GetLexwareSyncStatusRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLexwareSyncStatusRequest) Reset() {
+	*x = GetLexwareSyncStatusRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLexwareSyncStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLexwareSyncStatusRequest) ProtoMessage() {}
+
+func (x *GetLexwareSyncStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLexwareSyncStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetLexwareSyncStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetLexwareSyncStatusRequest) GetTenantId() string {
@@ -188,6 +555,7 @@ func (x *GetLexwareSyncStatusRequest) GetTenantId() string {
 }
 
 type GetLexwareSyncStatusResponse struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
 	ContactSyncEnabled  bool                   `protobuf:"varint,1,opt,name=contact_sync_enabled,json=contactSyncEnabled,proto3" json:"contact_sync_enabled,omitempty"`
 	InvoicePushEnabled  bool                   `protobuf:"varint,2,opt,name=invoice_push_enabled,json=invoicePushEnabled,proto3" json:"invoice_push_enabled,omitempty"`
 	QuotePushEnabled    bool                   `protobuf:"varint,3,opt,name=quote_push_enabled,json=quotePushEnabled,proto3" json:"quote_push_enabled,omitempty"`
@@ -198,6 +566,38 @@ type GetLexwareSyncStatusResponse struct {
 	TotalQuotesMapped   int32                  `protobuf:"varint,8,opt,name=total_quotes_mapped,json=totalQuotesMapped,proto3" json:"total_quotes_mapped,omitempty"`
 	LastSyncError       string                 `protobuf:"bytes,9,opt,name=last_sync_error,json=lastSyncError,proto3" json:"last_sync_error,omitempty"`
 	LastSyncErrorAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=last_sync_error_at,json=lastSyncErrorAt,proto3" json:"last_sync_error_at,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *GetLexwareSyncStatusResponse) Reset() {
+	*x = GetLexwareSyncStatusResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLexwareSyncStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLexwareSyncStatusResponse) ProtoMessage() {}
+
+func (x *GetLexwareSyncStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLexwareSyncStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetLexwareSyncStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetLexwareSyncStatusResponse) GetContactSyncEnabled() bool {
@@ -271,8 +671,41 @@ func (x *GetLexwareSyncStatusResponse) GetLastSyncErrorAt() *timestamppb.Timesta
 }
 
 type ListLexwareSyncLogsRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Limit    int32  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLexwareSyncLogsRequest) Reset() {
+	*x = ListLexwareSyncLogsRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLexwareSyncLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLexwareSyncLogsRequest) ProtoMessage() {}
+
+func (x *ListLexwareSyncLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLexwareSyncLogsRequest.ProtoReflect.Descriptor instead.
+func (*ListLexwareSyncLogsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListLexwareSyncLogsRequest) GetTenantId() string {
@@ -290,7 +723,40 @@ func (x *ListLexwareSyncLogsRequest) GetLimit() int32 {
 }
 
 type ListLexwareSyncLogsResponse struct {
-	Entries []*LexwareSyncLogEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*LexwareSyncLogEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLexwareSyncLogsResponse) Reset() {
+	*x = ListLexwareSyncLogsResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLexwareSyncLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLexwareSyncLogsResponse) ProtoMessage() {}
+
+func (x *ListLexwareSyncLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLexwareSyncLogsResponse.ProtoReflect.Descriptor instead.
+func (*ListLexwareSyncLogsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListLexwareSyncLogsResponse) GetEntries() []*LexwareSyncLogEntry {
@@ -301,6 +767,7 @@ func (x *ListLexwareSyncLogsResponse) GetEntries() []*LexwareSyncLogEntry {
 }
 
 type LexwareSyncLogEntry struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	SyncType       string                 `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"`
 	Status         string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
@@ -311,6 +778,38 @@ type LexwareSyncLogEntry struct {
 	ErrorMessage   string                 `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	StartedAt      *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	CompletedAt    *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *LexwareSyncLogEntry) Reset() {
+	*x = LexwareSyncLogEntry{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LexwareSyncLogEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LexwareSyncLogEntry) ProtoMessage() {}
+
+func (x *LexwareSyncLogEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LexwareSyncLogEntry.ProtoReflect.Descriptor instead.
+func (*LexwareSyncLogEntry) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *LexwareSyncLogEntry) GetId() string {
@@ -383,13 +882,42 @@ func (x *LexwareSyncLogEntry) GetCompletedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// ============================================================================
-// Field Mapping Messages
-// ============================================================================
-
 type GetLexwareFieldMappingsRequest struct {
-	TenantId   string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	EntityType string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLexwareFieldMappingsRequest) Reset() {
+	*x = GetLexwareFieldMappingsRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLexwareFieldMappingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLexwareFieldMappingsRequest) ProtoMessage() {}
+
+func (x *GetLexwareFieldMappingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLexwareFieldMappingsRequest.ProtoReflect.Descriptor instead.
+func (*GetLexwareFieldMappingsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetLexwareFieldMappingsRequest) GetTenantId() string {
@@ -407,7 +935,40 @@ func (x *GetLexwareFieldMappingsRequest) GetEntityType() string {
 }
 
 type GetLexwareFieldMappingsResponse struct {
-	Mappings []*LexwareFieldMappingEntry `protobuf:"bytes,1,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	Mappings      []*LexwareFieldMappingEntry `protobuf:"bytes,1,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLexwareFieldMappingsResponse) Reset() {
+	*x = GetLexwareFieldMappingsResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLexwareFieldMappingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLexwareFieldMappingsResponse) ProtoMessage() {}
+
+func (x *GetLexwareFieldMappingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLexwareFieldMappingsResponse.ProtoReflect.Descriptor instead.
+func (*GetLexwareFieldMappingsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetLexwareFieldMappingsResponse) GetMappings() []*LexwareFieldMappingEntry {
@@ -418,10 +979,43 @@ func (x *GetLexwareFieldMappingsResponse) GetMappings() []*LexwareFieldMappingEn
 }
 
 type LexwareFieldMappingEntry struct {
-	KmuhubField  string `protobuf:"bytes,1,opt,name=kmuhub_field,json=kmuhubField,proto3" json:"kmuhub_field,omitempty"`
-	LexwareField string `protobuf:"bytes,2,opt,name=lexware_field,json=lexwareField,proto3" json:"lexware_field,omitempty"`
-	Direction    string `protobuf:"bytes,3,opt,name=direction,proto3" json:"direction,omitempty"`
-	Required     bool   `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KmuhubField   string                 `protobuf:"bytes,1,opt,name=kmuhub_field,json=kmuhubField,proto3" json:"kmuhub_field,omitempty"`
+	LexwareField  string                 `protobuf:"bytes,2,opt,name=lexware_field,json=lexwareField,proto3" json:"lexware_field,omitempty"`
+	Direction     string                 `protobuf:"bytes,3,opt,name=direction,proto3" json:"direction,omitempty"`
+	Required      bool                   `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LexwareFieldMappingEntry) Reset() {
+	*x = LexwareFieldMappingEntry{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LexwareFieldMappingEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LexwareFieldMappingEntry) ProtoMessage() {}
+
+func (x *LexwareFieldMappingEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LexwareFieldMappingEntry.ProtoReflect.Descriptor instead.
+func (*LexwareFieldMappingEntry) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *LexwareFieldMappingEntry) GetKmuhubField() string {
@@ -453,9 +1047,42 @@ func (x *LexwareFieldMappingEntry) GetRequired() bool {
 }
 
 type UpdateLexwareFieldMappingsRequest struct {
-	TenantId   string                      `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	EntityType string                      `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	Mappings   []*LexwareFieldMappingEntry `protobuf:"bytes,3,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	TenantId      string                      `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	EntityType    string                      `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Mappings      []*LexwareFieldMappingEntry `protobuf:"bytes,3,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateLexwareFieldMappingsRequest) Reset() {
+	*x = UpdateLexwareFieldMappingsRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateLexwareFieldMappingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateLexwareFieldMappingsRequest) ProtoMessage() {}
+
+func (x *UpdateLexwareFieldMappingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateLexwareFieldMappingsRequest.ProtoReflect.Descriptor instead.
+func (*UpdateLexwareFieldMappingsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UpdateLexwareFieldMappingsRequest) GetTenantId() string {
@@ -480,7 +1107,40 @@ func (x *UpdateLexwareFieldMappingsRequest) GetMappings() []*LexwareFieldMapping
 }
 
 type UpdateLexwareFieldMappingsResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateLexwareFieldMappingsResponse) Reset() {
+	*x = UpdateLexwareFieldMappingsResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateLexwareFieldMappingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateLexwareFieldMappingsResponse) ProtoMessage() {}
+
+func (x *UpdateLexwareFieldMappingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateLexwareFieldMappingsResponse.ProtoReflect.Descriptor instead.
+func (*UpdateLexwareFieldMappingsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpdateLexwareFieldMappingsResponse) GetSuccess() bool {
@@ -490,13 +1150,42 @@ func (x *UpdateLexwareFieldMappingsResponse) GetSuccess() bool {
 	return false
 }
 
-// ============================================================================
-// Push Messages
-// ============================================================================
-
 type PushInvoiceToLexwareRequest struct {
-	TenantId  string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	InvoiceId string `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	InvoiceId     string                 `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushInvoiceToLexwareRequest) Reset() {
+	*x = PushInvoiceToLexwareRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushInvoiceToLexwareRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushInvoiceToLexwareRequest) ProtoMessage() {}
+
+func (x *PushInvoiceToLexwareRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushInvoiceToLexwareRequest.ProtoReflect.Descriptor instead.
+func (*PushInvoiceToLexwareRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *PushInvoiceToLexwareRequest) GetTenantId() string {
@@ -514,9 +1203,42 @@ func (x *PushInvoiceToLexwareRequest) GetInvoiceId() string {
 }
 
 type PushInvoiceToLexwareResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	LexwareId    string `protobuf:"bytes,2,opt,name=lexware_id,json=lexwareId,proto3" json:"lexware_id,omitempty"`
-	ErrorMessage string `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	LexwareId     string                 `protobuf:"bytes,2,opt,name=lexware_id,json=lexwareId,proto3" json:"lexware_id,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushInvoiceToLexwareResponse) Reset() {
+	*x = PushInvoiceToLexwareResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushInvoiceToLexwareResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushInvoiceToLexwareResponse) ProtoMessage() {}
+
+func (x *PushInvoiceToLexwareResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushInvoiceToLexwareResponse.ProtoReflect.Descriptor instead.
+func (*PushInvoiceToLexwareResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PushInvoiceToLexwareResponse) GetSuccess() bool {
@@ -541,8 +1263,41 @@ func (x *PushInvoiceToLexwareResponse) GetErrorMessage() string {
 }
 
 type PushQuoteToLexwareRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	QuoteId  string `protobuf:"bytes,2,opt,name=quote_id,json=quoteId,proto3" json:"quote_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	QuoteId       string                 `protobuf:"bytes,2,opt,name=quote_id,json=quoteId,proto3" json:"quote_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushQuoteToLexwareRequest) Reset() {
+	*x = PushQuoteToLexwareRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushQuoteToLexwareRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushQuoteToLexwareRequest) ProtoMessage() {}
+
+func (x *PushQuoteToLexwareRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushQuoteToLexwareRequest.ProtoReflect.Descriptor instead.
+func (*PushQuoteToLexwareRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PushQuoteToLexwareRequest) GetTenantId() string {
@@ -560,9 +1315,42 @@ func (x *PushQuoteToLexwareRequest) GetQuoteId() string {
 }
 
 type PushQuoteToLexwareResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	LexwareId    string `protobuf:"bytes,2,opt,name=lexware_id,json=lexwareId,proto3" json:"lexware_id,omitempty"`
-	ErrorMessage string `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	LexwareId     string                 `protobuf:"bytes,2,opt,name=lexware_id,json=lexwareId,proto3" json:"lexware_id,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushQuoteToLexwareResponse) Reset() {
+	*x = PushQuoteToLexwareResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushQuoteToLexwareResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushQuoteToLexwareResponse) ProtoMessage() {}
+
+func (x *PushQuoteToLexwareResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushQuoteToLexwareResponse.ProtoReflect.Descriptor instead.
+func (*PushQuoteToLexwareResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PushQuoteToLexwareResponse) GetSuccess() bool {
@@ -586,14 +1374,43 @@ func (x *PushQuoteToLexwareResponse) GetErrorMessage() string {
 	return ""
 }
 
-// ============================================================================
-// Webhook Messages
-// ============================================================================
-
 type HandleLexwareWebhookEventRequest struct {
-	EventType      string `protobuf:"bytes,1,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
-	ResourceId     string `protobuf:"bytes,2,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`
-	OrganizationId string `protobuf:"bytes,3,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	EventType      string                 `protobuf:"bytes,1,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	ResourceId     string                 `protobuf:"bytes,2,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`
+	OrganizationId string                 `protobuf:"bytes,3,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *HandleLexwareWebhookEventRequest) Reset() {
+	*x = HandleLexwareWebhookEventRequest{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleLexwareWebhookEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleLexwareWebhookEventRequest) ProtoMessage() {}
+
+func (x *HandleLexwareWebhookEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleLexwareWebhookEventRequest.ProtoReflect.Descriptor instead.
+func (*HandleLexwareWebhookEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *HandleLexwareWebhookEventRequest) GetEventType() string {
@@ -618,7 +1435,40 @@ func (x *HandleLexwareWebhookEventRequest) GetOrganizationId() string {
 }
 
 type HandleLexwareWebhookEventResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleLexwareWebhookEventResponse) Reset() {
+	*x = HandleLexwareWebhookEventResponse{}
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleLexwareWebhookEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleLexwareWebhookEventResponse) ProtoMessage() {}
+
+func (x *HandleLexwareWebhookEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_biz_v1_lexware_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleLexwareWebhookEventResponse.ProtoReflect.Descriptor instead.
+func (*HandleLexwareWebhookEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_biz_v1_lexware_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *HandleLexwareWebhookEventResponse) GetSuccess() bool {
@@ -626,4 +1476,230 @@ func (x *HandleLexwareWebhookEventResponse) GetSuccess() bool {
 		return x.Success
 	}
 	return false
+}
+
+var File_proto_biz_v1_lexware_proto protoreflect.FileDescriptor
+
+const file_proto_biz_v1_lexware_proto_rawDesc = "" +
+	"\n" +
+	"\x1aproto/biz/v1/lexware.proto\x12\x06biz.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"M\n" +
+	"\x15ConnectLexwareRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aapi_key\x18\x02 \x01(\tR\x06apiKey\"W\n" +
+	"\x16ConnectLexwareResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"7\n" +
+	"\x18DisconnectLexwareRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"5\n" +
+	"\x19DisconnectLexwareResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"@\n" +
+	"!GetLexwareConnectionStatusRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\x81\x01\n" +
+	"\"GetLexwareConnectionStatusResponse\x12\x1c\n" +
+	"\tconnected\x18\x01 \x01(\bR\tconnected\x12=\n" +
+	"\fconnected_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vconnectedAt\";\n" +
+	"\x1cTestLexwareConnectionRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"^\n" +
+	"\x1dTestLexwareConnectionResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"U\n" +
+	"\x19TriggerLexwareSyncRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\tsync_type\x18\x02 \x01(\tR\bsyncType\"M\n" +
+	"\x1aTriggerLexwareSyncResponse\x12\x17\n" +
+	"\async_id\x18\x01 \x01(\tR\x06syncId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\":\n" +
+	"\x1bGetLexwareSyncStatusRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\xaf\x04\n" +
+	"\x1cGetLexwareSyncStatusResponse\x120\n" +
+	"\x14contact_sync_enabled\x18\x01 \x01(\bR\x12contactSyncEnabled\x120\n" +
+	"\x14invoice_push_enabled\x18\x02 \x01(\bR\x12invoicePushEnabled\x12,\n" +
+	"\x12quote_push_enabled\x18\x03 \x01(\bR\x10quotePushEnabled\x12'\n" +
+	"\x0fwebhook_enabled\x18\x04 \x01(\bR\x0ewebhookEnabled\x12K\n" +
+	"\x14last_contact_sync_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastContactSyncAt\x122\n" +
+	"\x15total_contacts_mapped\x18\x06 \x01(\x05R\x13totalContactsMapped\x122\n" +
+	"\x15total_invoices_mapped\x18\a \x01(\x05R\x13totalInvoicesMapped\x12.\n" +
+	"\x13total_quotes_mapped\x18\b \x01(\x05R\x11totalQuotesMapped\x12&\n" +
+	"\x0flast_sync_error\x18\t \x01(\tR\rlastSyncError\x12G\n" +
+	"\x12last_sync_error_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\x0flastSyncErrorAt\"O\n" +
+	"\x1aListLexwareSyncLogsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"T\n" +
+	"\x1bListLexwareSyncLogsResponse\x125\n" +
+	"\aentries\x18\x01 \x03(\v2\x1b.biz.v1.LexwareSyncLogEntryR\aentries\"\x8f\x03\n" +
+	"\x13LexwareSyncLogEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tsync_type\x18\x02 \x01(\tR\bsyncType\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12'\n" +
+	"\x0fitems_processed\x18\x04 \x01(\x05R\x0eitemsProcessed\x12#\n" +
+	"\ritems_created\x18\x05 \x01(\x05R\fitemsCreated\x12#\n" +
+	"\ritems_updated\x18\x06 \x01(\x05R\fitemsUpdated\x12!\n" +
+	"\fitems_failed\x18\a \x01(\x05R\vitemsFailed\x12#\n" +
+	"\rerror_message\x18\b \x01(\tR\ferrorMessage\x129\n" +
+	"\n" +
+	"started_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
+	"\fcompleted_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\"^\n" +
+	"\x1eGetLexwareFieldMappingsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\"_\n" +
+	"\x1fGetLexwareFieldMappingsResponse\x12<\n" +
+	"\bmappings\x18\x01 \x03(\v2 .biz.v1.LexwareFieldMappingEntryR\bmappings\"\x9c\x01\n" +
+	"\x18LexwareFieldMappingEntry\x12!\n" +
+	"\fkmuhub_field\x18\x01 \x01(\tR\vkmuhubField\x12#\n" +
+	"\rlexware_field\x18\x02 \x01(\tR\flexwareField\x12\x1c\n" +
+	"\tdirection\x18\x03 \x01(\tR\tdirection\x12\x1a\n" +
+	"\brequired\x18\x04 \x01(\bR\brequired\"\x9f\x01\n" +
+	"!UpdateLexwareFieldMappingsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\x12<\n" +
+	"\bmappings\x18\x03 \x03(\v2 .biz.v1.LexwareFieldMappingEntryR\bmappings\">\n" +
+	"\"UpdateLexwareFieldMappingsResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"Y\n" +
+	"\x1bPushInvoiceToLexwareRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"invoice_id\x18\x02 \x01(\tR\tinvoiceId\"|\n" +
+	"\x1cPushInvoiceToLexwareResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1d\n" +
+	"\n" +
+	"lexware_id\x18\x02 \x01(\tR\tlexwareId\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\"S\n" +
+	"\x19PushQuoteToLexwareRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bquote_id\x18\x02 \x01(\tR\aquoteId\"z\n" +
+	"\x1aPushQuoteToLexwareResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1d\n" +
+	"\n" +
+	"lexware_id\x18\x02 \x01(\tR\tlexwareId\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\"\x8b\x01\n" +
+	" HandleLexwareWebhookEventRequest\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x01 \x01(\tR\teventType\x12\x1f\n" +
+	"\vresource_id\x18\x02 \x01(\tR\n" +
+	"resourceId\x12'\n" +
+	"\x0forganization_id\x18\x03 \x01(\tR\x0eorganizationId\"=\n" +
+	"!HandleLexwareWebhookEventResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\xd4\t\n" +
+	"\x19LexwareIntegrationService\x12O\n" +
+	"\x0eConnectLexware\x12\x1d.biz.v1.ConnectLexwareRequest\x1a\x1e.biz.v1.ConnectLexwareResponse\x12X\n" +
+	"\x11DisconnectLexware\x12 .biz.v1.DisconnectLexwareRequest\x1a!.biz.v1.DisconnectLexwareResponse\x12s\n" +
+	"\x1aGetLexwareConnectionStatus\x12).biz.v1.GetLexwareConnectionStatusRequest\x1a*.biz.v1.GetLexwareConnectionStatusResponse\x12d\n" +
+	"\x15TestLexwareConnection\x12$.biz.v1.TestLexwareConnectionRequest\x1a%.biz.v1.TestLexwareConnectionResponse\x12[\n" +
+	"\x12TriggerLexwareSync\x12!.biz.v1.TriggerLexwareSyncRequest\x1a\".biz.v1.TriggerLexwareSyncResponse\x12a\n" +
+	"\x14GetLexwareSyncStatus\x12#.biz.v1.GetLexwareSyncStatusRequest\x1a$.biz.v1.GetLexwareSyncStatusResponse\x12^\n" +
+	"\x13ListLexwareSyncLogs\x12\".biz.v1.ListLexwareSyncLogsRequest\x1a#.biz.v1.ListLexwareSyncLogsResponse\x12j\n" +
+	"\x17GetLexwareFieldMappings\x12&.biz.v1.GetLexwareFieldMappingsRequest\x1a'.biz.v1.GetLexwareFieldMappingsResponse\x12s\n" +
+	"\x1aUpdateLexwareFieldMappings\x12).biz.v1.UpdateLexwareFieldMappingsRequest\x1a*.biz.v1.UpdateLexwareFieldMappingsResponse\x12a\n" +
+	"\x14PushInvoiceToLexware\x12#.biz.v1.PushInvoiceToLexwareRequest\x1a$.biz.v1.PushInvoiceToLexwareResponse\x12[\n" +
+	"\x12PushQuoteToLexware\x12!.biz.v1.PushQuoteToLexwareRequest\x1a\".biz.v1.PushQuoteToLexwareResponse\x12p\n" +
+	"\x19HandleLexwareWebhookEvent\x12(.biz.v1.HandleLexwareWebhookEventRequest\x1a).biz.v1.HandleLexwareWebhookEventResponseB-Z+github.com/kmuhub/kmuhub/proto/biz/v1;bizv1b\x06proto3"
+
+var (
+	file_proto_biz_v1_lexware_proto_rawDescOnce sync.Once
+	file_proto_biz_v1_lexware_proto_rawDescData []byte
+)
+
+func file_proto_biz_v1_lexware_proto_rawDescGZIP() []byte {
+	file_proto_biz_v1_lexware_proto_rawDescOnce.Do(func() {
+		file_proto_biz_v1_lexware_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_biz_v1_lexware_proto_rawDesc), len(file_proto_biz_v1_lexware_proto_rawDesc)))
+	})
+	return file_proto_biz_v1_lexware_proto_rawDescData
+}
+
+var file_proto_biz_v1_lexware_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_proto_biz_v1_lexware_proto_goTypes = []any{
+	(*ConnectLexwareRequest)(nil),              // 0: biz.v1.ConnectLexwareRequest
+	(*ConnectLexwareResponse)(nil),             // 1: biz.v1.ConnectLexwareResponse
+	(*DisconnectLexwareRequest)(nil),           // 2: biz.v1.DisconnectLexwareRequest
+	(*DisconnectLexwareResponse)(nil),          // 3: biz.v1.DisconnectLexwareResponse
+	(*GetLexwareConnectionStatusRequest)(nil),  // 4: biz.v1.GetLexwareConnectionStatusRequest
+	(*GetLexwareConnectionStatusResponse)(nil), // 5: biz.v1.GetLexwareConnectionStatusResponse
+	(*TestLexwareConnectionRequest)(nil),       // 6: biz.v1.TestLexwareConnectionRequest
+	(*TestLexwareConnectionResponse)(nil),      // 7: biz.v1.TestLexwareConnectionResponse
+	(*TriggerLexwareSyncRequest)(nil),          // 8: biz.v1.TriggerLexwareSyncRequest
+	(*TriggerLexwareSyncResponse)(nil),         // 9: biz.v1.TriggerLexwareSyncResponse
+	(*GetLexwareSyncStatusRequest)(nil),        // 10: biz.v1.GetLexwareSyncStatusRequest
+	(*GetLexwareSyncStatusResponse)(nil),       // 11: biz.v1.GetLexwareSyncStatusResponse
+	(*ListLexwareSyncLogsRequest)(nil),         // 12: biz.v1.ListLexwareSyncLogsRequest
+	(*ListLexwareSyncLogsResponse)(nil),        // 13: biz.v1.ListLexwareSyncLogsResponse
+	(*LexwareSyncLogEntry)(nil),                // 14: biz.v1.LexwareSyncLogEntry
+	(*GetLexwareFieldMappingsRequest)(nil),     // 15: biz.v1.GetLexwareFieldMappingsRequest
+	(*GetLexwareFieldMappingsResponse)(nil),    // 16: biz.v1.GetLexwareFieldMappingsResponse
+	(*LexwareFieldMappingEntry)(nil),           // 17: biz.v1.LexwareFieldMappingEntry
+	(*UpdateLexwareFieldMappingsRequest)(nil),  // 18: biz.v1.UpdateLexwareFieldMappingsRequest
+	(*UpdateLexwareFieldMappingsResponse)(nil), // 19: biz.v1.UpdateLexwareFieldMappingsResponse
+	(*PushInvoiceToLexwareRequest)(nil),        // 20: biz.v1.PushInvoiceToLexwareRequest
+	(*PushInvoiceToLexwareResponse)(nil),       // 21: biz.v1.PushInvoiceToLexwareResponse
+	(*PushQuoteToLexwareRequest)(nil),          // 22: biz.v1.PushQuoteToLexwareRequest
+	(*PushQuoteToLexwareResponse)(nil),         // 23: biz.v1.PushQuoteToLexwareResponse
+	(*HandleLexwareWebhookEventRequest)(nil),   // 24: biz.v1.HandleLexwareWebhookEventRequest
+	(*HandleLexwareWebhookEventResponse)(nil),  // 25: biz.v1.HandleLexwareWebhookEventResponse
+	(*timestamppb.Timestamp)(nil),              // 26: google.protobuf.Timestamp
+}
+var file_proto_biz_v1_lexware_proto_depIdxs = []int32{
+	26, // 0: biz.v1.GetLexwareConnectionStatusResponse.connected_at:type_name -> google.protobuf.Timestamp
+	26, // 1: biz.v1.GetLexwareSyncStatusResponse.last_contact_sync_at:type_name -> google.protobuf.Timestamp
+	26, // 2: biz.v1.GetLexwareSyncStatusResponse.last_sync_error_at:type_name -> google.protobuf.Timestamp
+	14, // 3: biz.v1.ListLexwareSyncLogsResponse.entries:type_name -> biz.v1.LexwareSyncLogEntry
+	26, // 4: biz.v1.LexwareSyncLogEntry.started_at:type_name -> google.protobuf.Timestamp
+	26, // 5: biz.v1.LexwareSyncLogEntry.completed_at:type_name -> google.protobuf.Timestamp
+	17, // 6: biz.v1.GetLexwareFieldMappingsResponse.mappings:type_name -> biz.v1.LexwareFieldMappingEntry
+	17, // 7: biz.v1.UpdateLexwareFieldMappingsRequest.mappings:type_name -> biz.v1.LexwareFieldMappingEntry
+	0,  // 8: biz.v1.LexwareIntegrationService.ConnectLexware:input_type -> biz.v1.ConnectLexwareRequest
+	2,  // 9: biz.v1.LexwareIntegrationService.DisconnectLexware:input_type -> biz.v1.DisconnectLexwareRequest
+	4,  // 10: biz.v1.LexwareIntegrationService.GetLexwareConnectionStatus:input_type -> biz.v1.GetLexwareConnectionStatusRequest
+	6,  // 11: biz.v1.LexwareIntegrationService.TestLexwareConnection:input_type -> biz.v1.TestLexwareConnectionRequest
+	8,  // 12: biz.v1.LexwareIntegrationService.TriggerLexwareSync:input_type -> biz.v1.TriggerLexwareSyncRequest
+	10, // 13: biz.v1.LexwareIntegrationService.GetLexwareSyncStatus:input_type -> biz.v1.GetLexwareSyncStatusRequest
+	12, // 14: biz.v1.LexwareIntegrationService.ListLexwareSyncLogs:input_type -> biz.v1.ListLexwareSyncLogsRequest
+	15, // 15: biz.v1.LexwareIntegrationService.GetLexwareFieldMappings:input_type -> biz.v1.GetLexwareFieldMappingsRequest
+	18, // 16: biz.v1.LexwareIntegrationService.UpdateLexwareFieldMappings:input_type -> biz.v1.UpdateLexwareFieldMappingsRequest
+	20, // 17: biz.v1.LexwareIntegrationService.PushInvoiceToLexware:input_type -> biz.v1.PushInvoiceToLexwareRequest
+	22, // 18: biz.v1.LexwareIntegrationService.PushQuoteToLexware:input_type -> biz.v1.PushQuoteToLexwareRequest
+	24, // 19: biz.v1.LexwareIntegrationService.HandleLexwareWebhookEvent:input_type -> biz.v1.HandleLexwareWebhookEventRequest
+	1,  // 20: biz.v1.LexwareIntegrationService.ConnectLexware:output_type -> biz.v1.ConnectLexwareResponse
+	3,  // 21: biz.v1.LexwareIntegrationService.DisconnectLexware:output_type -> biz.v1.DisconnectLexwareResponse
+	5,  // 22: biz.v1.LexwareIntegrationService.GetLexwareConnectionStatus:output_type -> biz.v1.GetLexwareConnectionStatusResponse
+	7,  // 23: biz.v1.LexwareIntegrationService.TestLexwareConnection:output_type -> biz.v1.TestLexwareConnectionResponse
+	9,  // 24: biz.v1.LexwareIntegrationService.TriggerLexwareSync:output_type -> biz.v1.TriggerLexwareSyncResponse
+	11, // 25: biz.v1.LexwareIntegrationService.GetLexwareSyncStatus:output_type -> biz.v1.GetLexwareSyncStatusResponse
+	13, // 26: biz.v1.LexwareIntegrationService.ListLexwareSyncLogs:output_type -> biz.v1.ListLexwareSyncLogsResponse
+	16, // 27: biz.v1.LexwareIntegrationService.GetLexwareFieldMappings:output_type -> biz.v1.GetLexwareFieldMappingsResponse
+	19, // 28: biz.v1.LexwareIntegrationService.UpdateLexwareFieldMappings:output_type -> biz.v1.UpdateLexwareFieldMappingsResponse
+	21, // 29: biz.v1.LexwareIntegrationService.PushInvoiceToLexware:output_type -> biz.v1.PushInvoiceToLexwareResponse
+	23, // 30: biz.v1.LexwareIntegrationService.PushQuoteToLexware:output_type -> biz.v1.PushQuoteToLexwareResponse
+	25, // 31: biz.v1.LexwareIntegrationService.HandleLexwareWebhookEvent:output_type -> biz.v1.HandleLexwareWebhookEventResponse
+	20, // [20:32] is the sub-list for method output_type
+	8,  // [8:20] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
+}
+
+func init() { file_proto_biz_v1_lexware_proto_init() }
+func file_proto_biz_v1_lexware_proto_init() {
+	if File_proto_biz_v1_lexware_proto != nil {
+		return
+	}
+	type x struct{}
+	out := protoimpl.TypeBuilder{
+		File: protoimpl.DescBuilder{
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_biz_v1_lexware_proto_rawDesc), len(file_proto_biz_v1_lexware_proto_rawDesc)),
+			NumEnums:      0,
+			NumMessages:   26,
+			NumExtensions: 0,
+			NumServices:   1,
+		},
+		GoTypes:           file_proto_biz_v1_lexware_proto_goTypes,
+		DependencyIndexes: file_proto_biz_v1_lexware_proto_depIdxs,
+		MessageInfos:      file_proto_biz_v1_lexware_proto_msgTypes,
+	}.Build()
+	File_proto_biz_v1_lexware_proto = out.File
+	file_proto_biz_v1_lexware_proto_goTypes = nil
+	file_proto_biz_v1_lexware_proto_depIdxs = nil
 }

@@ -15,6 +15,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.64.0 or later.
 const _ = grpc.SupportPackageIsVersion9
 
 const (
@@ -52,7 +53,9 @@ const (
 	PluginService_ValidateEntity_FullMethodName          = "/plugin.v1.PluginService/ValidateEntity"
 )
 
-// PluginServiceClient is the client API for PluginService.
+// PluginServiceClient is the client API for PluginService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PluginServiceClient interface {
 	// Manifest CRUD
 	CreateManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*CreateManifestResponse, error)
@@ -93,7 +96,7 @@ type PluginServiceClient interface {
 	KVSet(ctx context.Context, in *KVSetRequest, opts ...grpc.CallOption) (*KVSetResponse, error)
 	KVDelete(ctx context.Context, in *KVDeleteRequest, opts ...grpc.CallOption) (*KVDeleteResponse, error)
 	KVList(ctx context.Context, in *KVListRequest, opts ...grpc.CallOption) (*KVListResponse, error)
-	// Hook Execution
+	// Hook Execution (called by other services)
 	ExecuteHooks(ctx context.Context, in *ExecuteHooksRequest, opts ...grpc.CallOption) (*ExecuteHooksResponse, error)
 	ValidateEntity(ctx context.Context, in *ValidateEntityRequest, opts ...grpc.CallOption) (*ValidateEntityResponse, error)
 }
@@ -107,8 +110,9 @@ func NewPluginServiceClient(cc grpc.ClientConnInterface) PluginServiceClient {
 }
 
 func (c *pluginServiceClient) CreateManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*CreateManifestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateManifestResponse)
-	err := c.cc.Invoke(ctx, PluginService_CreateManifest_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_CreateManifest_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +120,9 @@ func (c *pluginServiceClient) CreateManifest(ctx context.Context, in *CreateMani
 }
 
 func (c *pluginServiceClient) GetManifest(ctx context.Context, in *GetManifestRequest, opts ...grpc.CallOption) (*GetManifestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetManifestResponse)
-	err := c.cc.Invoke(ctx, PluginService_GetManifest_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_GetManifest_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +130,9 @@ func (c *pluginServiceClient) GetManifest(ctx context.Context, in *GetManifestRe
 }
 
 func (c *pluginServiceClient) ListManifests(ctx context.Context, in *ListManifestsRequest, opts ...grpc.CallOption) (*ListManifestsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListManifestsResponse)
-	err := c.cc.Invoke(ctx, PluginService_ListManifests_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ListManifests_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +140,9 @@ func (c *pluginServiceClient) ListManifests(ctx context.Context, in *ListManifes
 }
 
 func (c *pluginServiceClient) DeleteManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*DeleteManifestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteManifestResponse)
-	err := c.cc.Invoke(ctx, PluginService_DeleteManifest_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_DeleteManifest_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +150,9 @@ func (c *pluginServiceClient) DeleteManifest(ctx context.Context, in *DeleteMani
 }
 
 func (c *pluginServiceClient) InstallPlugin(ctx context.Context, in *InstallPluginRequest, opts ...grpc.CallOption) (*InstallPluginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(InstallPluginResponse)
-	err := c.cc.Invoke(ctx, PluginService_InstallPlugin_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_InstallPlugin_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +160,9 @@ func (c *pluginServiceClient) InstallPlugin(ctx context.Context, in *InstallPlug
 }
 
 func (c *pluginServiceClient) UninstallPlugin(ctx context.Context, in *UninstallPluginRequest, opts ...grpc.CallOption) (*UninstallPluginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UninstallPluginResponse)
-	err := c.cc.Invoke(ctx, PluginService_UninstallPlugin_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_UninstallPlugin_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +170,9 @@ func (c *pluginServiceClient) UninstallPlugin(ctx context.Context, in *Uninstall
 }
 
 func (c *pluginServiceClient) EnablePlugin(ctx context.Context, in *EnablePluginRequest, opts ...grpc.CallOption) (*EnablePluginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(EnablePluginResponse)
-	err := c.cc.Invoke(ctx, PluginService_EnablePlugin_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_EnablePlugin_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,8 +180,9 @@ func (c *pluginServiceClient) EnablePlugin(ctx context.Context, in *EnablePlugin
 }
 
 func (c *pluginServiceClient) DisablePlugin(ctx context.Context, in *DisablePluginRequest, opts ...grpc.CallOption) (*DisablePluginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DisablePluginResponse)
-	err := c.cc.Invoke(ctx, PluginService_DisablePlugin_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_DisablePlugin_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +190,9 @@ func (c *pluginServiceClient) DisablePlugin(ctx context.Context, in *DisablePlug
 }
 
 func (c *pluginServiceClient) GetInstallation(ctx context.Context, in *GetInstallationRequest, opts ...grpc.CallOption) (*GetInstallationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetInstallationResponse)
-	err := c.cc.Invoke(ctx, PluginService_GetInstallation_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_GetInstallation_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +200,9 @@ func (c *pluginServiceClient) GetInstallation(ctx context.Context, in *GetInstal
 }
 
 func (c *pluginServiceClient) ListInstallations(ctx context.Context, in *ListInstallationsRequest, opts ...grpc.CallOption) (*ListInstallationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListInstallationsResponse)
-	err := c.cc.Invoke(ctx, PluginService_ListInstallations_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ListInstallations_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +210,9 @@ func (c *pluginServiceClient) ListInstallations(ctx context.Context, in *ListIns
 }
 
 func (c *pluginServiceClient) ApprovePermissions(ctx context.Context, in *ApprovePermissionsRequest, opts ...grpc.CallOption) (*ApprovePermissionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ApprovePermissionsResponse)
-	err := c.cc.Invoke(ctx, PluginService_ApprovePermissions_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ApprovePermissions_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -206,8 +220,9 @@ func (c *pluginServiceClient) ApprovePermissions(ctx context.Context, in *Approv
 }
 
 func (c *pluginServiceClient) ListGrantedPermissions(ctx context.Context, in *ListGrantedPermissionsRequest, opts ...grpc.CallOption) (*ListGrantedPermissionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListGrantedPermissionsResponse)
-	err := c.cc.Invoke(ctx, PluginService_ListGrantedPermissions_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ListGrantedPermissions_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +230,9 @@ func (c *pluginServiceClient) ListGrantedPermissions(ctx context.Context, in *Li
 }
 
 func (c *pluginServiceClient) GetPluginSettings(ctx context.Context, in *GetPluginSettingsRequest, opts ...grpc.CallOption) (*GetPluginSettingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetPluginSettingsResponse)
-	err := c.cc.Invoke(ctx, PluginService_GetPluginSettings_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_GetPluginSettings_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +240,9 @@ func (c *pluginServiceClient) GetPluginSettings(ctx context.Context, in *GetPlug
 }
 
 func (c *pluginServiceClient) UpdatePluginSettings(ctx context.Context, in *UpdatePluginSettingsRequest, opts ...grpc.CallOption) (*UpdatePluginSettingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdatePluginSettingsResponse)
-	err := c.cc.Invoke(ctx, PluginService_UpdatePluginSettings_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_UpdatePluginSettings_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -233,8 +250,9 @@ func (c *pluginServiceClient) UpdatePluginSettings(ctx context.Context, in *Upda
 }
 
 func (c *pluginServiceClient) GetPluginSettingsSchema(ctx context.Context, in *GetPluginSettingsSchemaRequest, opts ...grpc.CallOption) (*GetPluginSettingsSchemaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetPluginSettingsSchemaResponse)
-	err := c.cc.Invoke(ctx, PluginService_GetPluginSettingsSchema_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_GetPluginSettingsSchema_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -242,8 +260,9 @@ func (c *pluginServiceClient) GetPluginSettingsSchema(ctx context.Context, in *G
 }
 
 func (c *pluginServiceClient) CreateValidationRule(ctx context.Context, in *CreateValidationRuleRequest, opts ...grpc.CallOption) (*CreateValidationRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateValidationRuleResponse)
-	err := c.cc.Invoke(ctx, PluginService_CreateValidationRule_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_CreateValidationRule_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -251,8 +270,9 @@ func (c *pluginServiceClient) CreateValidationRule(ctx context.Context, in *Crea
 }
 
 func (c *pluginServiceClient) ListValidationRules(ctx context.Context, in *ListValidationRulesRequest, opts ...grpc.CallOption) (*ListValidationRulesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListValidationRulesResponse)
-	err := c.cc.Invoke(ctx, PluginService_ListValidationRules_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ListValidationRules_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +280,9 @@ func (c *pluginServiceClient) ListValidationRules(ctx context.Context, in *ListV
 }
 
 func (c *pluginServiceClient) UpdateValidationRule(ctx context.Context, in *UpdateValidationRuleRequest, opts ...grpc.CallOption) (*UpdateValidationRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateValidationRuleResponse)
-	err := c.cc.Invoke(ctx, PluginService_UpdateValidationRule_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_UpdateValidationRule_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -269,8 +290,9 @@ func (c *pluginServiceClient) UpdateValidationRule(ctx context.Context, in *Upda
 }
 
 func (c *pluginServiceClient) DeleteValidationRule(ctx context.Context, in *DeleteValidationRuleRequest, opts ...grpc.CallOption) (*DeleteValidationRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteValidationRuleResponse)
-	err := c.cc.Invoke(ctx, PluginService_DeleteValidationRule_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_DeleteValidationRule_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +300,9 @@ func (c *pluginServiceClient) DeleteValidationRule(ctx context.Context, in *Dele
 }
 
 func (c *pluginServiceClient) CreateWorkflowRule(ctx context.Context, in *CreateWorkflowRuleRequest, opts ...grpc.CallOption) (*CreateWorkflowRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateWorkflowRuleResponse)
-	err := c.cc.Invoke(ctx, PluginService_CreateWorkflowRule_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_CreateWorkflowRule_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -287,8 +310,9 @@ func (c *pluginServiceClient) CreateWorkflowRule(ctx context.Context, in *Create
 }
 
 func (c *pluginServiceClient) ListWorkflowRules(ctx context.Context, in *ListWorkflowRulesRequest, opts ...grpc.CallOption) (*ListWorkflowRulesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListWorkflowRulesResponse)
-	err := c.cc.Invoke(ctx, PluginService_ListWorkflowRules_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ListWorkflowRules_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -296,8 +320,9 @@ func (c *pluginServiceClient) ListWorkflowRules(ctx context.Context, in *ListWor
 }
 
 func (c *pluginServiceClient) UpdateWorkflowRule(ctx context.Context, in *UpdateWorkflowRuleRequest, opts ...grpc.CallOption) (*UpdateWorkflowRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateWorkflowRuleResponse)
-	err := c.cc.Invoke(ctx, PluginService_UpdateWorkflowRule_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_UpdateWorkflowRule_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -305,8 +330,9 @@ func (c *pluginServiceClient) UpdateWorkflowRule(ctx context.Context, in *Update
 }
 
 func (c *pluginServiceClient) DeleteWorkflowRule(ctx context.Context, in *DeleteWorkflowRuleRequest, opts ...grpc.CallOption) (*DeleteWorkflowRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteWorkflowRuleResponse)
-	err := c.cc.Invoke(ctx, PluginService_DeleteWorkflowRule_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_DeleteWorkflowRule_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -314,8 +340,9 @@ func (c *pluginServiceClient) DeleteWorkflowRule(ctx context.Context, in *Delete
 }
 
 func (c *pluginServiceClient) ListIndustryTemplates(ctx context.Context, in *ListIndustryTemplatesRequest, opts ...grpc.CallOption) (*ListIndustryTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListIndustryTemplatesResponse)
-	err := c.cc.Invoke(ctx, PluginService_ListIndustryTemplates_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ListIndustryTemplates_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -323,8 +350,9 @@ func (c *pluginServiceClient) ListIndustryTemplates(ctx context.Context, in *Lis
 }
 
 func (c *pluginServiceClient) ApplyIndustryTemplate(ctx context.Context, in *ApplyIndustryTemplateRequest, opts ...grpc.CallOption) (*ApplyIndustryTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ApplyIndustryTemplateResponse)
-	err := c.cc.Invoke(ctx, PluginService_ApplyIndustryTemplate_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ApplyIndustryTemplate_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -332,8 +360,9 @@ func (c *pluginServiceClient) ApplyIndustryTemplate(ctx context.Context, in *App
 }
 
 func (c *pluginServiceClient) ListExecutionLogs(ctx context.Context, in *ListExecutionLogsRequest, opts ...grpc.CallOption) (*ListExecutionLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListExecutionLogsResponse)
-	err := c.cc.Invoke(ctx, PluginService_ListExecutionLogs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ListExecutionLogs_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -341,8 +370,9 @@ func (c *pluginServiceClient) ListExecutionLogs(ctx context.Context, in *ListExe
 }
 
 func (c *pluginServiceClient) KVGet(ctx context.Context, in *KVGetRequest, opts ...grpc.CallOption) (*KVGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(KVGetResponse)
-	err := c.cc.Invoke(ctx, PluginService_KVGet_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_KVGet_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -350,8 +380,9 @@ func (c *pluginServiceClient) KVGet(ctx context.Context, in *KVGetRequest, opts 
 }
 
 func (c *pluginServiceClient) KVSet(ctx context.Context, in *KVSetRequest, opts ...grpc.CallOption) (*KVSetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(KVSetResponse)
-	err := c.cc.Invoke(ctx, PluginService_KVSet_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_KVSet_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -359,8 +390,9 @@ func (c *pluginServiceClient) KVSet(ctx context.Context, in *KVSetRequest, opts 
 }
 
 func (c *pluginServiceClient) KVDelete(ctx context.Context, in *KVDeleteRequest, opts ...grpc.CallOption) (*KVDeleteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(KVDeleteResponse)
-	err := c.cc.Invoke(ctx, PluginService_KVDelete_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_KVDelete_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -368,8 +400,9 @@ func (c *pluginServiceClient) KVDelete(ctx context.Context, in *KVDeleteRequest,
 }
 
 func (c *pluginServiceClient) KVList(ctx context.Context, in *KVListRequest, opts ...grpc.CallOption) (*KVListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(KVListResponse)
-	err := c.cc.Invoke(ctx, PluginService_KVList_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_KVList_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -377,8 +410,9 @@ func (c *pluginServiceClient) KVList(ctx context.Context, in *KVListRequest, opt
 }
 
 func (c *pluginServiceClient) ExecuteHooks(ctx context.Context, in *ExecuteHooksRequest, opts ...grpc.CallOption) (*ExecuteHooksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ExecuteHooksResponse)
-	err := c.cc.Invoke(ctx, PluginService_ExecuteHooks_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ExecuteHooks_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -386,15 +420,18 @@ func (c *pluginServiceClient) ExecuteHooks(ctx context.Context, in *ExecuteHooks
 }
 
 func (c *pluginServiceClient) ValidateEntity(ctx context.Context, in *ValidateEntityRequest, opts ...grpc.CallOption) (*ValidateEntityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ValidateEntityResponse)
-	err := c.cc.Invoke(ctx, PluginService_ValidateEntity_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, PluginService_ValidateEntity_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// PluginServiceServer is the server API for PluginService.
+// PluginServiceServer is the server API for PluginService service.
+// All implementations must embed UnimplementedPluginServiceServer
+// for forward compatibility.
 type PluginServiceServer interface {
 	// Manifest CRUD
 	CreateManifest(context.Context, *CreateManifestRequest) (*CreateManifestResponse, error)
@@ -435,120 +472,133 @@ type PluginServiceServer interface {
 	KVSet(context.Context, *KVSetRequest) (*KVSetResponse, error)
 	KVDelete(context.Context, *KVDeleteRequest) (*KVDeleteResponse, error)
 	KVList(context.Context, *KVListRequest) (*KVListResponse, error)
-	// Hook Execution
+	// Hook Execution (called by other services)
 	ExecuteHooks(context.Context, *ExecuteHooksRequest) (*ExecuteHooksResponse, error)
 	ValidateEntity(context.Context, *ValidateEntityRequest) (*ValidateEntityResponse, error)
 	mustEmbedUnimplementedPluginServiceServer()
 }
 
-// UnimplementedPluginServiceServer should be embedded to have
+// UnimplementedPluginServiceServer must be embedded to have
 // forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
 type UnimplementedPluginServiceServer struct{}
 
 func (UnimplementedPluginServiceServer) CreateManifest(context.Context, *CreateManifestRequest) (*CreateManifestResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateManifest not implemented")
+	return nil, status.Error(codes.Unimplemented, "method CreateManifest not implemented")
 }
 func (UnimplementedPluginServiceServer) GetManifest(context.Context, *GetManifestRequest) (*GetManifestResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetManifest not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetManifest not implemented")
 }
 func (UnimplementedPluginServiceServer) ListManifests(context.Context, *ListManifestsRequest) (*ListManifestsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListManifests not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListManifests not implemented")
 }
 func (UnimplementedPluginServiceServer) DeleteManifest(context.Context, *DeleteManifestRequest) (*DeleteManifestResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteManifest not implemented")
+	return nil, status.Error(codes.Unimplemented, "method DeleteManifest not implemented")
 }
 func (UnimplementedPluginServiceServer) InstallPlugin(context.Context, *InstallPluginRequest) (*InstallPluginResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InstallPlugin not implemented")
+	return nil, status.Error(codes.Unimplemented, "method InstallPlugin not implemented")
 }
 func (UnimplementedPluginServiceServer) UninstallPlugin(context.Context, *UninstallPluginRequest) (*UninstallPluginResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UninstallPlugin not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UninstallPlugin not implemented")
 }
 func (UnimplementedPluginServiceServer) EnablePlugin(context.Context, *EnablePluginRequest) (*EnablePluginResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method EnablePlugin not implemented")
+	return nil, status.Error(codes.Unimplemented, "method EnablePlugin not implemented")
 }
 func (UnimplementedPluginServiceServer) DisablePlugin(context.Context, *DisablePluginRequest) (*DisablePluginResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DisablePlugin not implemented")
+	return nil, status.Error(codes.Unimplemented, "method DisablePlugin not implemented")
 }
 func (UnimplementedPluginServiceServer) GetInstallation(context.Context, *GetInstallationRequest) (*GetInstallationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetInstallation not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetInstallation not implemented")
 }
 func (UnimplementedPluginServiceServer) ListInstallations(context.Context, *ListInstallationsRequest) (*ListInstallationsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListInstallations not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListInstallations not implemented")
 }
 func (UnimplementedPluginServiceServer) ApprovePermissions(context.Context, *ApprovePermissionsRequest) (*ApprovePermissionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ApprovePermissions not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ApprovePermissions not implemented")
 }
 func (UnimplementedPluginServiceServer) ListGrantedPermissions(context.Context, *ListGrantedPermissionsRequest) (*ListGrantedPermissionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListGrantedPermissions not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListGrantedPermissions not implemented")
 }
 func (UnimplementedPluginServiceServer) GetPluginSettings(context.Context, *GetPluginSettingsRequest) (*GetPluginSettingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPluginSettings not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetPluginSettings not implemented")
 }
 func (UnimplementedPluginServiceServer) UpdatePluginSettings(context.Context, *UpdatePluginSettingsRequest) (*UpdatePluginSettingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdatePluginSettings not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UpdatePluginSettings not implemented")
 }
 func (UnimplementedPluginServiceServer) GetPluginSettingsSchema(context.Context, *GetPluginSettingsSchemaRequest) (*GetPluginSettingsSchemaResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPluginSettingsSchema not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetPluginSettingsSchema not implemented")
 }
 func (UnimplementedPluginServiceServer) CreateValidationRule(context.Context, *CreateValidationRuleRequest) (*CreateValidationRuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateValidationRule not implemented")
+	return nil, status.Error(codes.Unimplemented, "method CreateValidationRule not implemented")
 }
 func (UnimplementedPluginServiceServer) ListValidationRules(context.Context, *ListValidationRulesRequest) (*ListValidationRulesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListValidationRules not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListValidationRules not implemented")
 }
 func (UnimplementedPluginServiceServer) UpdateValidationRule(context.Context, *UpdateValidationRuleRequest) (*UpdateValidationRuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateValidationRule not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UpdateValidationRule not implemented")
 }
 func (UnimplementedPluginServiceServer) DeleteValidationRule(context.Context, *DeleteValidationRuleRequest) (*DeleteValidationRuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteValidationRule not implemented")
+	return nil, status.Error(codes.Unimplemented, "method DeleteValidationRule not implemented")
 }
 func (UnimplementedPluginServiceServer) CreateWorkflowRule(context.Context, *CreateWorkflowRuleRequest) (*CreateWorkflowRuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateWorkflowRule not implemented")
+	return nil, status.Error(codes.Unimplemented, "method CreateWorkflowRule not implemented")
 }
 func (UnimplementedPluginServiceServer) ListWorkflowRules(context.Context, *ListWorkflowRulesRequest) (*ListWorkflowRulesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListWorkflowRules not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListWorkflowRules not implemented")
 }
 func (UnimplementedPluginServiceServer) UpdateWorkflowRule(context.Context, *UpdateWorkflowRuleRequest) (*UpdateWorkflowRuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateWorkflowRule not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UpdateWorkflowRule not implemented")
 }
 func (UnimplementedPluginServiceServer) DeleteWorkflowRule(context.Context, *DeleteWorkflowRuleRequest) (*DeleteWorkflowRuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteWorkflowRule not implemented")
+	return nil, status.Error(codes.Unimplemented, "method DeleteWorkflowRule not implemented")
 }
 func (UnimplementedPluginServiceServer) ListIndustryTemplates(context.Context, *ListIndustryTemplatesRequest) (*ListIndustryTemplatesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListIndustryTemplates not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListIndustryTemplates not implemented")
 }
 func (UnimplementedPluginServiceServer) ApplyIndustryTemplate(context.Context, *ApplyIndustryTemplateRequest) (*ApplyIndustryTemplateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ApplyIndustryTemplate not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ApplyIndustryTemplate not implemented")
 }
 func (UnimplementedPluginServiceServer) ListExecutionLogs(context.Context, *ListExecutionLogsRequest) (*ListExecutionLogsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListExecutionLogs not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListExecutionLogs not implemented")
 }
 func (UnimplementedPluginServiceServer) KVGet(context.Context, *KVGetRequest) (*KVGetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method KVGet not implemented")
+	return nil, status.Error(codes.Unimplemented, "method KVGet not implemented")
 }
 func (UnimplementedPluginServiceServer) KVSet(context.Context, *KVSetRequest) (*KVSetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method KVSet not implemented")
+	return nil, status.Error(codes.Unimplemented, "method KVSet not implemented")
 }
 func (UnimplementedPluginServiceServer) KVDelete(context.Context, *KVDeleteRequest) (*KVDeleteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method KVDelete not implemented")
+	return nil, status.Error(codes.Unimplemented, "method KVDelete not implemented")
 }
 func (UnimplementedPluginServiceServer) KVList(context.Context, *KVListRequest) (*KVListResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method KVList not implemented")
+	return nil, status.Error(codes.Unimplemented, "method KVList not implemented")
 }
 func (UnimplementedPluginServiceServer) ExecuteHooks(context.Context, *ExecuteHooksRequest) (*ExecuteHooksResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExecuteHooks not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ExecuteHooks not implemented")
 }
 func (UnimplementedPluginServiceServer) ValidateEntity(context.Context, *ValidateEntityRequest) (*ValidateEntityResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ValidateEntity not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ValidateEntity not implemented")
 }
 func (UnimplementedPluginServiceServer) mustEmbedUnimplementedPluginServiceServer() {}
+func (UnimplementedPluginServiceServer) testEmbeddedByValue()                       {}
 
 // UnsafePluginServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PluginServiceServer will
+// result in compilation errors.
 type UnsafePluginServiceServer interface {
 	mustEmbedUnimplementedPluginServiceServer()
 }
 
 func RegisterPluginServiceServer(s grpc.ServiceRegistrar, srv PluginServiceServer) {
+	// If the following call panics, it indicates UnimplementedPluginServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
 	s.RegisterService(&PluginService_ServiceDesc, srv)
 }
 
@@ -560,10 +610,14 @@ func _PluginService_CreateManifest_Handler(srv interface{}, ctx context.Context,
 	if interceptor == nil {
 		return srv.(PluginServiceServer).CreateManifest(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_CreateManifest_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_CreateManifest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).CreateManifest(ctx, req.(*CreateManifestRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_GetManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -574,10 +628,14 @@ func _PluginService_GetManifest_Handler(srv interface{}, ctx context.Context, de
 	if interceptor == nil {
 		return srv.(PluginServiceServer).GetManifest(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_GetManifest_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_GetManifest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).GetManifest(ctx, req.(*GetManifestRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ListManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -588,10 +646,14 @@ func _PluginService_ListManifests_Handler(srv interface{}, ctx context.Context, 
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ListManifests(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ListManifests_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ListManifests_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ListManifests(ctx, req.(*ListManifestsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_DeleteManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -602,10 +664,14 @@ func _PluginService_DeleteManifest_Handler(srv interface{}, ctx context.Context,
 	if interceptor == nil {
 		return srv.(PluginServiceServer).DeleteManifest(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_DeleteManifest_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_DeleteManifest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).DeleteManifest(ctx, req.(*DeleteManifestRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_InstallPlugin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -616,10 +682,14 @@ func _PluginService_InstallPlugin_Handler(srv interface{}, ctx context.Context, 
 	if interceptor == nil {
 		return srv.(PluginServiceServer).InstallPlugin(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_InstallPlugin_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_InstallPlugin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).InstallPlugin(ctx, req.(*InstallPluginRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_UninstallPlugin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -630,10 +700,14 @@ func _PluginService_UninstallPlugin_Handler(srv interface{}, ctx context.Context
 	if interceptor == nil {
 		return srv.(PluginServiceServer).UninstallPlugin(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_UninstallPlugin_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_UninstallPlugin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).UninstallPlugin(ctx, req.(*UninstallPluginRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_EnablePlugin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -644,10 +718,14 @@ func _PluginService_EnablePlugin_Handler(srv interface{}, ctx context.Context, d
 	if interceptor == nil {
 		return srv.(PluginServiceServer).EnablePlugin(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_EnablePlugin_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_EnablePlugin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).EnablePlugin(ctx, req.(*EnablePluginRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_DisablePlugin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -658,10 +736,14 @@ func _PluginService_DisablePlugin_Handler(srv interface{}, ctx context.Context, 
 	if interceptor == nil {
 		return srv.(PluginServiceServer).DisablePlugin(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_DisablePlugin_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_DisablePlugin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).DisablePlugin(ctx, req.(*DisablePluginRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_GetInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -672,10 +754,14 @@ func _PluginService_GetInstallation_Handler(srv interface{}, ctx context.Context
 	if interceptor == nil {
 		return srv.(PluginServiceServer).GetInstallation(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_GetInstallation_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_GetInstallation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).GetInstallation(ctx, req.(*GetInstallationRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ListInstallations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -686,10 +772,14 @@ func _PluginService_ListInstallations_Handler(srv interface{}, ctx context.Conte
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ListInstallations(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ListInstallations_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ListInstallations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ListInstallations(ctx, req.(*ListInstallationsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ApprovePermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -700,10 +790,14 @@ func _PluginService_ApprovePermissions_Handler(srv interface{}, ctx context.Cont
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ApprovePermissions(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ApprovePermissions_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ApprovePermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ApprovePermissions(ctx, req.(*ApprovePermissionsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ListGrantedPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -714,10 +808,14 @@ func _PluginService_ListGrantedPermissions_Handler(srv interface{}, ctx context.
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ListGrantedPermissions(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ListGrantedPermissions_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ListGrantedPermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ListGrantedPermissions(ctx, req.(*ListGrantedPermissionsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_GetPluginSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -728,10 +826,14 @@ func _PluginService_GetPluginSettings_Handler(srv interface{}, ctx context.Conte
 	if interceptor == nil {
 		return srv.(PluginServiceServer).GetPluginSettings(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_GetPluginSettings_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_GetPluginSettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).GetPluginSettings(ctx, req.(*GetPluginSettingsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_UpdatePluginSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -742,10 +844,14 @@ func _PluginService_UpdatePluginSettings_Handler(srv interface{}, ctx context.Co
 	if interceptor == nil {
 		return srv.(PluginServiceServer).UpdatePluginSettings(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_UpdatePluginSettings_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_UpdatePluginSettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).UpdatePluginSettings(ctx, req.(*UpdatePluginSettingsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_GetPluginSettingsSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -756,10 +862,14 @@ func _PluginService_GetPluginSettingsSchema_Handler(srv interface{}, ctx context
 	if interceptor == nil {
 		return srv.(PluginServiceServer).GetPluginSettingsSchema(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_GetPluginSettingsSchema_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_GetPluginSettingsSchema_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).GetPluginSettingsSchema(ctx, req.(*GetPluginSettingsSchemaRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_CreateValidationRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -770,10 +880,14 @@ func _PluginService_CreateValidationRule_Handler(srv interface{}, ctx context.Co
 	if interceptor == nil {
 		return srv.(PluginServiceServer).CreateValidationRule(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_CreateValidationRule_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_CreateValidationRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).CreateValidationRule(ctx, req.(*CreateValidationRuleRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ListValidationRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -784,10 +898,14 @@ func _PluginService_ListValidationRules_Handler(srv interface{}, ctx context.Con
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ListValidationRules(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ListValidationRules_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ListValidationRules_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ListValidationRules(ctx, req.(*ListValidationRulesRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_UpdateValidationRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -798,10 +916,14 @@ func _PluginService_UpdateValidationRule_Handler(srv interface{}, ctx context.Co
 	if interceptor == nil {
 		return srv.(PluginServiceServer).UpdateValidationRule(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_UpdateValidationRule_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_UpdateValidationRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).UpdateValidationRule(ctx, req.(*UpdateValidationRuleRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_DeleteValidationRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -812,10 +934,14 @@ func _PluginService_DeleteValidationRule_Handler(srv interface{}, ctx context.Co
 	if interceptor == nil {
 		return srv.(PluginServiceServer).DeleteValidationRule(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_DeleteValidationRule_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_DeleteValidationRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).DeleteValidationRule(ctx, req.(*DeleteValidationRuleRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_CreateWorkflowRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -826,10 +952,14 @@ func _PluginService_CreateWorkflowRule_Handler(srv interface{}, ctx context.Cont
 	if interceptor == nil {
 		return srv.(PluginServiceServer).CreateWorkflowRule(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_CreateWorkflowRule_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_CreateWorkflowRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).CreateWorkflowRule(ctx, req.(*CreateWorkflowRuleRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ListWorkflowRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -840,10 +970,14 @@ func _PluginService_ListWorkflowRules_Handler(srv interface{}, ctx context.Conte
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ListWorkflowRules(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ListWorkflowRules_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ListWorkflowRules_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ListWorkflowRules(ctx, req.(*ListWorkflowRulesRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_UpdateWorkflowRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -854,10 +988,14 @@ func _PluginService_UpdateWorkflowRule_Handler(srv interface{}, ctx context.Cont
 	if interceptor == nil {
 		return srv.(PluginServiceServer).UpdateWorkflowRule(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_UpdateWorkflowRule_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_UpdateWorkflowRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).UpdateWorkflowRule(ctx, req.(*UpdateWorkflowRuleRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_DeleteWorkflowRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -868,10 +1006,14 @@ func _PluginService_DeleteWorkflowRule_Handler(srv interface{}, ctx context.Cont
 	if interceptor == nil {
 		return srv.(PluginServiceServer).DeleteWorkflowRule(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_DeleteWorkflowRule_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_DeleteWorkflowRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).DeleteWorkflowRule(ctx, req.(*DeleteWorkflowRuleRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ListIndustryTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -882,10 +1024,14 @@ func _PluginService_ListIndustryTemplates_Handler(srv interface{}, ctx context.C
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ListIndustryTemplates(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ListIndustryTemplates_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ListIndustryTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ListIndustryTemplates(ctx, req.(*ListIndustryTemplatesRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ApplyIndustryTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -896,10 +1042,14 @@ func _PluginService_ApplyIndustryTemplate_Handler(srv interface{}, ctx context.C
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ApplyIndustryTemplate(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ApplyIndustryTemplate_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ApplyIndustryTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ApplyIndustryTemplate(ctx, req.(*ApplyIndustryTemplateRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ListExecutionLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -910,10 +1060,14 @@ func _PluginService_ListExecutionLogs_Handler(srv interface{}, ctx context.Conte
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ListExecutionLogs(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ListExecutionLogs_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ListExecutionLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ListExecutionLogs(ctx, req.(*ListExecutionLogsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_KVGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -924,10 +1078,14 @@ func _PluginService_KVGet_Handler(srv interface{}, ctx context.Context, dec func
 	if interceptor == nil {
 		return srv.(PluginServiceServer).KVGet(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_KVGet_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_KVGet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).KVGet(ctx, req.(*KVGetRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_KVSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -938,10 +1096,14 @@ func _PluginService_KVSet_Handler(srv interface{}, ctx context.Context, dec func
 	if interceptor == nil {
 		return srv.(PluginServiceServer).KVSet(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_KVSet_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_KVSet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).KVSet(ctx, req.(*KVSetRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_KVDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -952,10 +1114,14 @@ func _PluginService_KVDelete_Handler(srv interface{}, ctx context.Context, dec f
 	if interceptor == nil {
 		return srv.(PluginServiceServer).KVDelete(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_KVDelete_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_KVDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).KVDelete(ctx, req.(*KVDeleteRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_KVList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -966,10 +1132,14 @@ func _PluginService_KVList_Handler(srv interface{}, ctx context.Context, dec fun
 	if interceptor == nil {
 		return srv.(PluginServiceServer).KVList(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_KVList_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_KVList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).KVList(ctx, req.(*KVListRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ExecuteHooks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -980,10 +1150,14 @@ func _PluginService_ExecuteHooks_Handler(srv interface{}, ctx context.Context, d
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ExecuteHooks(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ExecuteHooks_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ExecuteHooks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ExecuteHooks(ctx, req.(*ExecuteHooksRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginService_ValidateEntity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -994,49 +1168,151 @@ func _PluginService_ValidateEntity_Handler(srv interface{}, ctx context.Context,
 	if interceptor == nil {
 		return srv.(PluginServiceServer).ValidateEntity(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: PluginService_ValidateEntity_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_ValidateEntity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PluginServiceServer).ValidateEntity(ctx, req.(*ValidateEntityRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 // PluginService_ServiceDesc is the grpc.ServiceDesc for PluginService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
 var PluginService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "plugin.v1.PluginService",
 	HandlerType: (*PluginServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{MethodName: "CreateManifest", Handler: _PluginService_CreateManifest_Handler},
-		{MethodName: "GetManifest", Handler: _PluginService_GetManifest_Handler},
-		{MethodName: "ListManifests", Handler: _PluginService_ListManifests_Handler},
-		{MethodName: "DeleteManifest", Handler: _PluginService_DeleteManifest_Handler},
-		{MethodName: "InstallPlugin", Handler: _PluginService_InstallPlugin_Handler},
-		{MethodName: "UninstallPlugin", Handler: _PluginService_UninstallPlugin_Handler},
-		{MethodName: "EnablePlugin", Handler: _PluginService_EnablePlugin_Handler},
-		{MethodName: "DisablePlugin", Handler: _PluginService_DisablePlugin_Handler},
-		{MethodName: "GetInstallation", Handler: _PluginService_GetInstallation_Handler},
-		{MethodName: "ListInstallations", Handler: _PluginService_ListInstallations_Handler},
-		{MethodName: "ApprovePermissions", Handler: _PluginService_ApprovePermissions_Handler},
-		{MethodName: "ListGrantedPermissions", Handler: _PluginService_ListGrantedPermissions_Handler},
-		{MethodName: "GetPluginSettings", Handler: _PluginService_GetPluginSettings_Handler},
-		{MethodName: "UpdatePluginSettings", Handler: _PluginService_UpdatePluginSettings_Handler},
-		{MethodName: "GetPluginSettingsSchema", Handler: _PluginService_GetPluginSettingsSchema_Handler},
-		{MethodName: "CreateValidationRule", Handler: _PluginService_CreateValidationRule_Handler},
-		{MethodName: "ListValidationRules", Handler: _PluginService_ListValidationRules_Handler},
-		{MethodName: "UpdateValidationRule", Handler: _PluginService_UpdateValidationRule_Handler},
-		{MethodName: "DeleteValidationRule", Handler: _PluginService_DeleteValidationRule_Handler},
-		{MethodName: "CreateWorkflowRule", Handler: _PluginService_CreateWorkflowRule_Handler},
-		{MethodName: "ListWorkflowRules", Handler: _PluginService_ListWorkflowRules_Handler},
-		{MethodName: "UpdateWorkflowRule", Handler: _PluginService_UpdateWorkflowRule_Handler},
-		{MethodName: "DeleteWorkflowRule", Handler: _PluginService_DeleteWorkflowRule_Handler},
-		{MethodName: "ListIndustryTemplates", Handler: _PluginService_ListIndustryTemplates_Handler},
-		{MethodName: "ApplyIndustryTemplate", Handler: _PluginService_ApplyIndustryTemplate_Handler},
-		{MethodName: "ListExecutionLogs", Handler: _PluginService_ListExecutionLogs_Handler},
-		{MethodName: "KVGet", Handler: _PluginService_KVGet_Handler},
-		{MethodName: "KVSet", Handler: _PluginService_KVSet_Handler},
-		{MethodName: "KVDelete", Handler: _PluginService_KVDelete_Handler},
-		{MethodName: "KVList", Handler: _PluginService_KVList_Handler},
-		{MethodName: "ExecuteHooks", Handler: _PluginService_ExecuteHooks_Handler},
-		{MethodName: "ValidateEntity", Handler: _PluginService_ValidateEntity_Handler},
+		{
+			MethodName: "CreateManifest",
+			Handler:    _PluginService_CreateManifest_Handler,
+		},
+		{
+			MethodName: "GetManifest",
+			Handler:    _PluginService_GetManifest_Handler,
+		},
+		{
+			MethodName: "ListManifests",
+			Handler:    _PluginService_ListManifests_Handler,
+		},
+		{
+			MethodName: "DeleteManifest",
+			Handler:    _PluginService_DeleteManifest_Handler,
+		},
+		{
+			MethodName: "InstallPlugin",
+			Handler:    _PluginService_InstallPlugin_Handler,
+		},
+		{
+			MethodName: "UninstallPlugin",
+			Handler:    _PluginService_UninstallPlugin_Handler,
+		},
+		{
+			MethodName: "EnablePlugin",
+			Handler:    _PluginService_EnablePlugin_Handler,
+		},
+		{
+			MethodName: "DisablePlugin",
+			Handler:    _PluginService_DisablePlugin_Handler,
+		},
+		{
+			MethodName: "GetInstallation",
+			Handler:    _PluginService_GetInstallation_Handler,
+		},
+		{
+			MethodName: "ListInstallations",
+			Handler:    _PluginService_ListInstallations_Handler,
+		},
+		{
+			MethodName: "ApprovePermissions",
+			Handler:    _PluginService_ApprovePermissions_Handler,
+		},
+		{
+			MethodName: "ListGrantedPermissions",
+			Handler:    _PluginService_ListGrantedPermissions_Handler,
+		},
+		{
+			MethodName: "GetPluginSettings",
+			Handler:    _PluginService_GetPluginSettings_Handler,
+		},
+		{
+			MethodName: "UpdatePluginSettings",
+			Handler:    _PluginService_UpdatePluginSettings_Handler,
+		},
+		{
+			MethodName: "GetPluginSettingsSchema",
+			Handler:    _PluginService_GetPluginSettingsSchema_Handler,
+		},
+		{
+			MethodName: "CreateValidationRule",
+			Handler:    _PluginService_CreateValidationRule_Handler,
+		},
+		{
+			MethodName: "ListValidationRules",
+			Handler:    _PluginService_ListValidationRules_Handler,
+		},
+		{
+			MethodName: "UpdateValidationRule",
+			Handler:    _PluginService_UpdateValidationRule_Handler,
+		},
+		{
+			MethodName: "DeleteValidationRule",
+			Handler:    _PluginService_DeleteValidationRule_Handler,
+		},
+		{
+			MethodName: "CreateWorkflowRule",
+			Handler:    _PluginService_CreateWorkflowRule_Handler,
+		},
+		{
+			MethodName: "ListWorkflowRules",
+			Handler:    _PluginService_ListWorkflowRules_Handler,
+		},
+		{
+			MethodName: "UpdateWorkflowRule",
+			Handler:    _PluginService_UpdateWorkflowRule_Handler,
+		},
+		{
+			MethodName: "DeleteWorkflowRule",
+			Handler:    _PluginService_DeleteWorkflowRule_Handler,
+		},
+		{
+			MethodName: "ListIndustryTemplates",
+			Handler:    _PluginService_ListIndustryTemplates_Handler,
+		},
+		{
+			MethodName: "ApplyIndustryTemplate",
+			Handler:    _PluginService_ApplyIndustryTemplate_Handler,
+		},
+		{
+			MethodName: "ListExecutionLogs",
+			Handler:    _PluginService_ListExecutionLogs_Handler,
+		},
+		{
+			MethodName: "KVGet",
+			Handler:    _PluginService_KVGet_Handler,
+		},
+		{
+			MethodName: "KVSet",
+			Handler:    _PluginService_KVSet_Handler,
+		},
+		{
+			MethodName: "KVDelete",
+			Handler:    _PluginService_KVDelete_Handler,
+		},
+		{
+			MethodName: "KVList",
+			Handler:    _PluginService_KVList_Handler,
+		},
+		{
+			MethodName: "ExecuteHooks",
+			Handler:    _PluginService_ExecuteHooks_Handler,
+		},
+		{
+			MethodName: "ValidateEntity",
+			Handler:    _PluginService_ValidateEntity_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/plugin/v1/plugin.proto",
