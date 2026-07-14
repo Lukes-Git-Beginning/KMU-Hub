@@ -1,48 +1,68 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { loadModuleSettings, saveModuleSettings } from '@/api/settings-persist'
 
 /**
- * Dialer settings store (D-5). Holds both the personal comfort prefs (wrap-up
- * time, auto-advance) and the tenant-wide defaults (max concurrent calls,
- * recording-consent default, default outcome). In demo mode everything persists
- * locally; in production the tenant block would resolve server-side and only a
- * Modul-Leiter could change it (gated by ModuleSettingsShell).
+ * Personal Dialer preferences — per-user comfort settings for the call workspace
+ * (personal/user scope, see ModuleSettingsShell). The tenant-wide defaults
+ * (max concurrent, recording-consent, default outcome) live in stores/dialerTenant.ts.
+ *
+ * Server sync (settings foundation, Migr. 138, GET/PUT /settings/dialer/user):
+ *   - `initFromServer()` hydrates once per session (via useHydrateModuleSettings);
+ *     falls back to local defaults.
+ *   - Each setter writes through to the user-scope endpoint. localStorage stays as
+ *     the optimistic cache so the UI is instant and survives offline.
  */
+const MODULE_ID = 'dialer'
+
+const WRAP_UP_OPTIONS = [15, 30, 45, 60]
+
 interface DialerPrefsState {
-  // ── Personal ──
   /** Seconds the wrap-up timer counts before auto-advance kicks in. */
   defaultWrapUpSeconds: number
   /** After completing wrap-up, load the next queued contact automatically. */
   autoAdvance: boolean
-
-  // ── Tenant ──
-  /** Max simultaneous live calls allowed per agent. */
-  maxConcurrentCalls: number
-  /** Whether the recording-consent toggle defaults to on for new calls. */
-  recordingConsentDefault: boolean
-  /** Outcome pre-selected in wrap-up (null = none). */
-  defaultOutcomeId: string | null
-
+  /** Whether the store has hydrated from the backend at least once this session. */
+  serverInitialized: boolean
   setDefaultWrapUpSeconds: (s: number) => void
   setAutoAdvance: (v: boolean) => void
-  setMaxConcurrentCalls: (n: number) => void
-  setRecordingConsentDefault: (v: boolean) => void
-  setDefaultOutcomeId: (id: string | null) => void
+  /** Hydrate from GET /settings/dialer/user (once per session). */
+  initFromServer: () => Promise<void>
+}
+
+/** The user-persisted keys, extracted as the PUT payload. */
+function userPayload(s: DialerPrefsState): Record<string, unknown> {
+  return {
+    defaultWrapUpSeconds: s.defaultWrapUpSeconds,
+    autoAdvance: s.autoAdvance,
+  }
 }
 
 export const useDialerPrefsStore = create<DialerPrefsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       defaultWrapUpSeconds: 30,
       autoAdvance: false,
-      maxConcurrentCalls: 1,
-      recordingConsentDefault: true,
-      defaultOutcomeId: null,
-      setDefaultWrapUpSeconds: (defaultWrapUpSeconds) => set({ defaultWrapUpSeconds }),
-      setAutoAdvance: (autoAdvance) => set({ autoAdvance }),
-      setMaxConcurrentCalls: (maxConcurrentCalls) => set({ maxConcurrentCalls }),
-      setRecordingConsentDefault: (recordingConsentDefault) => set({ recordingConsentDefault }),
-      setDefaultOutcomeId: (defaultOutcomeId) => set({ defaultOutcomeId }),
+      serverInitialized: false,
+      setDefaultWrapUpSeconds: (defaultWrapUpSeconds) => {
+        set({ defaultWrapUpSeconds })
+        void saveModuleSettings(MODULE_ID, 'user', userPayload(get()))
+      },
+      setAutoAdvance: (autoAdvance) => {
+        set({ autoAdvance })
+        void saveModuleSettings(MODULE_ID, 'user', userPayload(get()))
+      },
+      initFromServer: async () => {
+        if (get().serverInitialized) return
+        const map = await loadModuleSettings(MODULE_ID, 'user')
+        set((s) => ({
+          defaultWrapUpSeconds: WRAP_UP_OPTIONS.includes(map.defaultWrapUpSeconds as number)
+            ? (map.defaultWrapUpSeconds as number)
+            : s.defaultWrapUpSeconds,
+          autoAdvance: typeof map.autoAdvance === 'boolean' ? map.autoAdvance : s.autoAdvance,
+          serverInitialized: true,
+        }))
+      },
     }),
     { name: 'cosmi-dialer-prefs' },
   ),

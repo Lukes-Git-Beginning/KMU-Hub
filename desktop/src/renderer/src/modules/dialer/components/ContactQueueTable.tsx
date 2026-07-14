@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '@/lib/format'
 import { SkipForward, RotateCcw, Phone, Clock, Building2 } from 'lucide-react'
@@ -11,9 +11,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ItemActions } from '@/components/shared'
+import { EmptyState, ItemActions, SortMenu, type SortDirection } from '@/components/shared'
 import type { CampaignContact } from '@/api/dialer-client'
 import ContactDetailModal from './ContactDetailModal'
+
+type SortField = 'position' | 'name' | 'status' | 'calls'
 
 export const contactStatusConfig: Record<
   number,
@@ -30,6 +32,8 @@ interface ContactQueueTableProps {
   contacts: CampaignContact[]
   isLoading?: boolean
   campaignStatus: number
+  /** Whether a status filter is active (drives the filter-aware empty state). */
+  isFiltered?: boolean
   onSkip?: (contactId: string) => void
   onRequeue?: (contactId: string) => void
 }
@@ -38,15 +42,41 @@ export default function ContactQueueTable({
   contacts,
   isLoading,
   campaignStatus,
+  isFiltered,
   onSkip,
   onRequeue,
 }: ContactQueueTableProps) {
   const { t } = useTranslation()
   const [detailContact, setDetailContact] = useState<CampaignContact | null>(null)
+  const [sortField, setSortField] = useState<SortField>('position')
+  const [sortDir, setSortDir] = useState<SortDirection>('asc')
+
+  const sortOptions = [
+    { value: 'position', label: t('dialer.campaign.contacts.sortPosition') },
+    { value: 'name', label: t('dialer.campaign.contacts.name') },
+    { value: 'status', label: t('common.status') },
+    { value: 'calls', label: t('dialer.campaign.contacts.sortCalls') },
+  ]
+
+  const sortedContacts = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...contacts].sort((a, b) => {
+      switch (sortField) {
+        case 'name':
+          return a.contact_name.localeCompare(b.contact_name) * dir
+        case 'status':
+          return (a.status - b.status) * dir
+        case 'calls':
+          return (a.call_count - b.call_count) * dir
+        default:
+          return (a.position - b.position) * dir
+      }
+    })
+  }, [contacts, sortField, sortDir])
 
   if (isLoading) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 p-4">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-12 w-full" />
         ))}
@@ -56,17 +86,31 @@ export default function ContactQueueTable({
 
   if (contacts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Phone className="h-10 w-10 text-muted-foreground/40 mb-3" />
-        <p className="text-sm font-medium text-muted-foreground">
-          {t('dialer.campaigns.empty.title')}
-        </p>
-      </div>
+      <EmptyState
+        icon={Phone}
+        title={
+          isFiltered
+            ? t('dialer.campaign.contacts.emptyFiltered')
+            : t('dialer.campaign.contacts.emptyTitle')
+        }
+        description={isFiltered ? undefined : t('dialer.campaign.contacts.emptyDescription')}
+      />
     )
   }
 
   return (
     <>
+    <div className="flex items-center justify-end border-b border-border px-3 py-2">
+      <SortMenu
+        options={sortOptions}
+        field={sortField}
+        direction={sortDir}
+        onChange={(f, d) => {
+          setSortField(f as SortField)
+          setSortDir(d)
+        }}
+      />
+    </div>
     <Table>
       <TableHeader>
         <TableRow>
@@ -86,7 +130,7 @@ export default function ContactQueueTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {contacts.map((contact) => {
+        {sortedContacts.map((contact) => {
           const statusCfg = contactStatusConfig[contact.status] ?? contactStatusConfig[1]
           const actions = []
 

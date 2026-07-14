@@ -24,9 +24,9 @@ interface CampaignFormDialogProps {
 }
 
 const modes = [
-  { value: 1, icon: Eye, labelKey: 'dialer.campaign.mode.preview', color: 'var(--info)' },
-  { value: 2, icon: Zap, labelKey: 'dialer.campaign.mode.power', color: 'var(--warning)', disabled: true },
-  { value: 3, icon: Brain, labelKey: 'dialer.campaign.mode.predictive', color: 'var(--accent-1)', disabled: true },
+  { value: 1, icon: Eye, labelKey: 'dialer.campaign.mode.preview', descKey: 'dialer.campaign.mode.previewDesc', color: 'var(--info)' },
+  { value: 2, icon: Zap, labelKey: 'dialer.campaign.mode.power', descKey: 'dialer.campaign.mode.powerDesc', color: 'var(--warning)', disabled: true },
+  { value: 3, icon: Brain, labelKey: 'dialer.campaign.mode.predictive', descKey: 'dialer.campaign.mode.predictiveDesc', color: 'var(--accent-1)', disabled: true },
 ]
 
 export default function CampaignFormDialog({
@@ -136,6 +136,9 @@ export default function CampaignFormDialog({
                 )
               })}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {t(modes.find((m) => m.value === mode)?.descKey ?? 'dialer.campaign.mode.previewDesc')}
+            </p>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

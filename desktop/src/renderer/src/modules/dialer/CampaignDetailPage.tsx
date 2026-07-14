@@ -233,6 +233,7 @@ export default function CampaignDetailPage() {
                 contacts={contacts}
                 isLoading={contactsLoading}
                 campaignStatus={campaign.status}
+                isFiltered={contactStatusFilter !== undefined}
                 onSkip={(contactId) =>
                   skipMutation.mutate(
                     { campaignId: campaign.id, contactId },

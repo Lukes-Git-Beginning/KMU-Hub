@@ -9,10 +9,12 @@ import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
 import { useWorkPrefsStore } from '@/stores/workPrefs'
 import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
+import { useDialerPrefsStore } from '@/stores/dialerPrefs'
 import { useFinanceTenantStore } from '@/stores/financeTenant'
 import { useWikiSettingsStore } from '@/stores/wikiSettings'
 import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
 import { useZeiterfassungSettingsStore } from '@/stores/zeiterfassungSettings'
+import { useDialerTenantStore } from '@/stores/dialerTenant'
 
 /**
  * Central settings hydrator (X-4 settings rollout).
@@ -44,11 +46,13 @@ const HYDRATORS: Array<() => Promise<void>> = [
   () => useDokumentePrefsStore.getState().initFromServer(),
   () => useWorkPrefsStore.getState().initFromServer(),
   () => useVertraegePrefsStore.getState().initFromServer(),
+  () => useDialerPrefsStore.getState().initFromServer(),
   // tenant scope (module-lead / admin settings — read for all, write role-gated)
   () => useFinanceTenantStore.getState().initFromServer(),
   () => useWikiSettingsStore.getState().initFromServer(),
   () => useDashboardSettingsStore.getState().initFromServer(),
   () => useZeiterfassungSettingsStore.getState().initFromServer(),
+  () => useDialerTenantStore.getState().initFromServer(),
 ]
 
 export function useHydrateModuleSettings(): void {

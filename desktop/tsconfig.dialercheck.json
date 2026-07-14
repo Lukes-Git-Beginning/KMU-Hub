@@ -10,6 +10,8 @@
     "src/renderer/src/api/dialer-client.ts",
     "src/renderer/src/api/hooks/useDialer.ts",
     "src/renderer/src/stores/dialer.ts",
-    "src/renderer/src/stores/dialerPrefs.ts"
+    "src/renderer/src/stores/dialerPrefs.ts",
+    "src/renderer/src/stores/dialerTenant.ts",
+    "src/renderer/src/hooks/useHydrateModuleSettings.ts"
   ]
 }

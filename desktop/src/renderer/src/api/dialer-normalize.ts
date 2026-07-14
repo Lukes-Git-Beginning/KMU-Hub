@@ -83,7 +83,7 @@ function normalizeContactCall(c: Partial<ContactCallEntry>): ContactCallEntry {
 export function normalizeSupervisorOverview(
   raw: Partial<SupervisorOverview> | null | undefined,
 ): SupervisorOverview {
-  const t = raw?.totals ?? {}
+  const t: Partial<SupervisorOverview['totals']> = raw?.totals ?? {}
   return {
     agents: Array.isArray(raw?.agents) ? raw!.agents.map(normalizeAgent) : [],
     recent_calls: Array.isArray(raw?.recent_calls)

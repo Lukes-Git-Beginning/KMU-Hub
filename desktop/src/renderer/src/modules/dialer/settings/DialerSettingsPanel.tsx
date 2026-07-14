@@ -3,6 +3,7 @@ import { Headset, Users, ChevronDown } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
 import { Switch } from '@/components/ui/switch'
 import { useDialerPrefsStore } from '@/stores/dialerPrefs'
+import { useDialerTenantStore } from '@/stores/dialerTenant'
 import { useOutcomes } from '@/api/hooks/useDialer'
 
 const WRAP_UP_OPTIONS = [15, 30, 45, 60]
@@ -104,12 +105,12 @@ function DialerTenantSettings() {
   const { data: outcomesData } = useOutcomes()
   const outcomes = outcomesData?.outcomes ?? []
 
-  const maxConcurrentCalls = useDialerPrefsStore((s) => s.maxConcurrentCalls)
-  const recordingConsentDefault = useDialerPrefsStore((s) => s.recordingConsentDefault)
-  const defaultOutcomeId = useDialerPrefsStore((s) => s.defaultOutcomeId)
-  const setMaxConcurrentCalls = useDialerPrefsStore((s) => s.setMaxConcurrentCalls)
-  const setRecordingConsentDefault = useDialerPrefsStore((s) => s.setRecordingConsentDefault)
-  const setDefaultOutcomeId = useDialerPrefsStore((s) => s.setDefaultOutcomeId)
+  const maxConcurrentCalls = useDialerTenantStore((s) => s.maxConcurrentCalls)
+  const recordingConsentDefault = useDialerTenantStore((s) => s.recordingConsentDefault)
+  const defaultOutcomeId = useDialerTenantStore((s) => s.defaultOutcomeId)
+  const setMaxConcurrentCalls = useDialerTenantStore((s) => s.setMaxConcurrentCalls)
+  const setRecordingConsentDefault = useDialerTenantStore((s) => s.setRecordingConsentDefault)
+  const setDefaultOutcomeId = useDialerTenantStore((s) => s.setDefaultOutcomeId)
 
   return (
     <div className="space-y-5">

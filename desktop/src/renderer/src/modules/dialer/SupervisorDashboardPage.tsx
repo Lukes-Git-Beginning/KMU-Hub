@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Headset, Users, PhoneCall, CalendarCheck, Phone } from 'lucide-react'
+import { Headset, Users, PhoneCall, CalendarCheck, Phone, ChevronRight } from 'lucide-react'
 import { PageHeader, StatCard, EmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +10,7 @@ import { cn } from '@/lib/cn'
 import { formatRelativeTime } from '@/lib/format'
 import { useSupervisorOverview } from '@/api/hooks/useDialer'
 import { agentStatusConfig, type AgentStatus } from './components/workspace/AgentStatusPill'
+import AgentDetailModal from './components/AgentDetailModal'
 import type { SupervisorAgent, RecentCallEntry } from '@/api/dialer-client'
 
 function formatDuration(totalSeconds: number): string {
@@ -30,6 +32,7 @@ export default function SupervisorDashboardPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { data, isLoading } = useSupervisorOverview()
+  const [selectedAgent, setSelectedAgent] = useState<SupervisorAgent | null>(null)
 
   if (isLoading) {
     return (
@@ -113,7 +116,13 @@ export default function SupervisorDashboardPage() {
                 {t('dialer.supervisor.noAgents')}
               </p>
             ) : (
-              agents.map((agent) => <AgentRow key={agent.user_id} agent={agent} />)
+              agents.map((agent) => (
+                <AgentRow
+                  key={agent.user_id}
+                  agent={agent}
+                  onOpen={() => setSelectedAgent(agent)}
+                />
+              ))
             )}
           </CardContent>
         </Card>
@@ -138,16 +147,37 @@ export default function SupervisorDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AgentDetailModal
+        agent={selectedAgent}
+        recentCalls={recent_calls}
+        open={selectedAgent !== null}
+        onClose={() => setSelectedAgent(null)}
+      />
     </div>
   )
 }
 
-function AgentRow({ agent }: { agent: SupervisorAgent }) {
+function AgentRow({ agent, onOpen }: { agent: SupervisorAgent; onOpen: () => void }) {
   const { t } = useTranslation()
   const cfg = agentStatusConfig[(agent.status as AgentStatus)] ?? agentStatusConfig[5]
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      aria-label={t('dialer.supervisor.agentDetail.ariaOpen', {
+        name: `${agent.first_name} ${agent.last_name}`,
+      })}
+      className="group flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold text-foreground">
         {initials(`${agent.first_name} ${agent.last_name}`)}
       </span>
@@ -177,6 +207,7 @@ function AgentRow({ agent }: { agent: SupervisorAgent }) {
         />
         {t(cfg.key)}
       </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
     </div>
   )
 }

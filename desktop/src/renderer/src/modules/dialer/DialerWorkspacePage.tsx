@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PhoneCall, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useDialerStore } from '@/stores/dialer'
@@ -338,6 +340,7 @@ function IdlePhase({
   isLoading: boolean
 }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [showCampaignPicker, setShowCampaignPicker] = useState(false)
 
   return (
@@ -376,13 +379,28 @@ function IdlePhase({
                 </button>
               </CardContent>
             </Card>
+          ) : campaigns.length === 0 ? (
+            <Card className="animate-fade-up border-dashed">
+              <CardContent className="p-2">
+                <EmptyState
+                  icon={PhoneCall}
+                  title={t('dialer.workspace.idle.emptyTitle')}
+                  description={t('dialer.workspace.idle.emptyDescription')}
+                  action={{
+                    label: t('dialer.workspace.idle.goToCampaigns'),
+                    onClick: () => navigate('/dialer/campaigns'),
+                  }}
+                />
+              </CardContent>
+            </Card>
           ) : (
             <Card className="animate-fade-up border-dashed">
-              <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-                <PhoneCall className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {t('dialer.workspace.idle.noActiveCampaign')}
-                </p>
+              <CardContent className="p-2">
+                <EmptyState
+                  icon={PhoneCall}
+                  title={t('dialer.workspace.idle.chooseCampaign')}
+                  description={t('dialer.workspace.idle.chooseCampaignHint')}
+                />
               </CardContent>
             </Card>
           )}
