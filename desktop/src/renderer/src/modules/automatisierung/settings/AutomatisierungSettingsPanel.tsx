@@ -6,6 +6,7 @@ import {
   useAutomatisierungPrefsStore,
   type AutomatisierungStartTab,
 } from '@/stores/automatisierungPrefs'
+import { useAutomatisierungTenantStore } from '@/stores/automatisierungTenant'
 
 // ─── Persönlich ──────────────────────────────────────────────────
 
@@ -42,8 +43,8 @@ function PersonalPrefs() {
 
 function RetentionPrefs() {
   const { t } = useTranslation()
-  const days = useAutomatisierungPrefsStore((s) => s.logRetentionDays)
-  const setDays = useAutomatisierungPrefsStore((s) => s.setLogRetentionDays)
+  const days = useAutomatisierungTenantStore((s) => s.logRetentionDays)
+  const setDays = useAutomatisierungTenantStore((s) => s.setLogRetentionDays)
 
   return (
     <div className="space-y-1.5">
@@ -69,8 +70,8 @@ function RetentionPrefs() {
 
 function FailureNotifyPrefs() {
   const { t } = useTranslation()
-  const on = useAutomatisierungPrefsStore((s) => s.notifyOnFailure)
-  const setOn = useAutomatisierungPrefsStore((s) => s.setNotifyOnFailure)
+  const on = useAutomatisierungTenantStore((s) => s.notifyOnFailure)
+  const setOn = useAutomatisierungTenantStore((s) => s.setNotifyOnFailure)
 
   return (
     <div className="flex items-center justify-between gap-4">

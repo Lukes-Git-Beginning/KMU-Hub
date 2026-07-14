@@ -6,6 +6,7 @@ import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/sh
 import { Switch } from '@/components/ui/switch'
 import { useSettingsStore } from '@/stores/settings'
 import { useMailPrefsStore } from '@/stores/mailPrefs'
+import { useMailTenantStore } from '@/stores/mailTenant'
 import { useEmailAccounts } from '@/api/hooks/useEmail'
 
 const inputCls =
@@ -108,10 +109,10 @@ function PersonalSection() {
 function TenantSection() {
   const { t } = useTranslation()
   const { mail, updateMail } = useSettingsStore()
-  const showRetentionBadges = useMailPrefsStore((s) => s.showRetentionBadges)
-  const setShowRetentionBadges = useMailPrefsStore((s) => s.setShowRetentionBadges)
-  const loadExternalImages = useMailPrefsStore((s) => s.loadExternalImages)
-  const setLoadExternalImages = useMailPrefsStore((s) => s.setLoadExternalImages)
+  const showRetentionBadges = useMailTenantStore((s) => s.showRetentionBadges)
+  const setShowRetentionBadges = useMailTenantStore((s) => s.setShowRetentionBadges)
+  const loadExternalImages = useMailTenantStore((s) => s.loadExternalImages)
+  const setLoadExternalImages = useMailTenantStore((s) => s.setLoadExternalImages)
 
   return (
     <div className="space-y-5">

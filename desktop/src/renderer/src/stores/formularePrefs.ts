@@ -1,73 +1,82 @@
+/**
+ * Formulare — personal preferences (user scope, see ModuleSettingsShell): default
+ * tab, preferred export format and the forms-tab grid/list toggle. The tenant-wide
+ * DSGVO defaults (consent text, privacy link, submission notification, retention)
+ * live in stores/formulareTenant.ts.
+ *
+ * Server sync (settings foundation, Migr. 138, GET/PUT /settings/formulare/user):
+ * initFromServer() hydrates once per session (via useHydrateModuleSettings);
+ * each setter writes through. localStorage stays the optimistic cache.
+ */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { loadModuleSettings, saveModuleSettings } from '@/api/settings-persist'
 import type { ExportFormat } from '@/api/formulare-types'
 
-/**
- * Formulare settings.
- * - personal: default tab when the module opens + preferred export format
- *   (both apply for real in FormularePage / the ExportMenu).
- * - tenant (demo, persisted locally — no real backend): the default DSGVO
- *   consent text + privacy link used when a consent field is added, plus a
- *   submission-notification toggle and a retention period.
- */
+const MODULE_ID = 'formulare'
+
 export type FormulareTab = 'formulare' | 'eingänge' | 'vorlagen'
 export type FormulareView = 'grid' | 'list'
+const TABS: FormulareTab[] = ['formulare', 'eingänge', 'vorlagen']
+const VIEWS: FormulareView[] = ['grid', 'list']
 
 interface FormularePrefsState {
-  // personal
   defaultTab: FormulareTab
   defaultExportFormat: ExportFormat
   /** FT-5 — persists the FT-4 forms-tab grid/list toggle. */
   defaultFormView: FormulareView
-  // tenant
-  defaultConsentText: string
-  defaultPrivacyUrl: string
-  notifyOnSubmission: boolean
-  /** FT-5 — recipient for the submission notification (when enabled). */
-  notifyEmail: string
-  /** FT-5 — default thank-you message proposed for new forms. */
-  defaultThankYouMessage: string
-  retentionDays: number
-
+  /** Whether the store has hydrated from the backend at least once this session. */
+  serverInitialized: boolean
   setDefaultTab: (t: FormulareTab) => void
   setDefaultExportFormat: (f: ExportFormat) => void
   setDefaultFormView: (v: FormulareView) => void
-  setDefaultConsentText: (s: string) => void
-  setDefaultPrivacyUrl: (s: string) => void
-  setNotifyOnSubmission: (b: boolean) => void
-  setNotifyEmail: (s: string) => void
-  setDefaultThankYouMessage: (s: string) => void
-  setRetentionDays: (n: number) => void
+  initFromServer: () => Promise<void>
 }
 
-export const DEFAULT_CONSENT_TEXT =
-  'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.'
-export const DEFAULT_PRIVACY_URL = 'https://www.zentria.tech/datenschutz'
+function userPayload(s: FormularePrefsState): Record<string, unknown> {
+  return {
+    defaultTab: s.defaultTab,
+    defaultExportFormat: s.defaultExportFormat,
+    defaultFormView: s.defaultFormView,
+  }
+}
 
 export const useFormularePrefsStore = create<FormularePrefsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       defaultTab: 'formulare',
       defaultExportFormat: 'csv',
       defaultFormView: 'grid',
-      defaultConsentText: DEFAULT_CONSENT_TEXT,
-      defaultPrivacyUrl: DEFAULT_PRIVACY_URL,
-      notifyOnSubmission: true,
-      notifyEmail: '',
-      defaultThankYouMessage: '',
-      retentionDays: 365,
-
-      setDefaultTab: (defaultTab) => set({ defaultTab }),
-      setDefaultExportFormat: (defaultExportFormat) => set({ defaultExportFormat }),
-      setDefaultFormView: (defaultFormView) => set({ defaultFormView }),
-      setDefaultConsentText: (defaultConsentText) => set({ defaultConsentText }),
-      setDefaultPrivacyUrl: (defaultPrivacyUrl) => set({ defaultPrivacyUrl }),
-      setNotifyOnSubmission: (notifyOnSubmission) => set({ notifyOnSubmission }),
-      setNotifyEmail: (notifyEmail) => set({ notifyEmail }),
-      setDefaultThankYouMessage: (defaultThankYouMessage) =>
-        set({ defaultThankYouMessage }),
-      setRetentionDays: (retentionDays) =>
-        set({ retentionDays: Math.max(0, Math.round(retentionDays)) }),
+      serverInitialized: false,
+      setDefaultTab: (defaultTab) => {
+        set({ defaultTab })
+        void saveModuleSettings(MODULE_ID, 'user', userPayload(get()))
+      },
+      setDefaultExportFormat: (defaultExportFormat) => {
+        set({ defaultExportFormat })
+        void saveModuleSettings(MODULE_ID, 'user', userPayload(get()))
+      },
+      setDefaultFormView: (defaultFormView) => {
+        set({ defaultFormView })
+        void saveModuleSettings(MODULE_ID, 'user', userPayload(get()))
+      },
+      initFromServer: async () => {
+        if (get().serverInitialized) return
+        const map = await loadModuleSettings(MODULE_ID, 'user')
+        set((s) => ({
+          defaultTab: TABS.includes(map.defaultTab as FormulareTab)
+            ? (map.defaultTab as FormulareTab)
+            : s.defaultTab,
+          defaultExportFormat:
+            typeof map.defaultExportFormat === 'string'
+              ? (map.defaultExportFormat as ExportFormat)
+              : s.defaultExportFormat,
+          defaultFormView: VIEWS.includes(map.defaultFormView as FormulareView)
+            ? (map.defaultFormView as FormulareView)
+            : s.defaultFormView,
+          serverInitialized: true,
+        }))
+      },
     }),
     { name: 'cosmi-formulare-prefs' },
   ),

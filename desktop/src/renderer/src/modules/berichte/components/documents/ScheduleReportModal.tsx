@@ -18,6 +18,7 @@ import {
   useUpdateSchedule,
 } from '@/api/hooks/useBerichte'
 import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
+import { useBerichteTenantStore } from '@/stores/berichteTenant'
 import { CURRENT_USER } from '@/mocks/data/shared-ids'
 import { EMPLOYEES } from '@/mocks/mock-db'
 import { formatDateTime } from '@/lib/format'
@@ -79,7 +80,7 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
   const updateMutation = useUpdateSchedule()
   const runNowMutation = useRunScheduleNow()
   const defaultFormat = useBerichtePrefsStore((s) => s.defaultFormat)
-  const allowedFormats = useBerichtePrefsStore((s) => s.allowedFormats)
+  const allowedFormats = useBerichteTenantStore((s) => s.allowedFormats)
 
   // Only formats permitted by the tenant settings are offered (fall back to all
   // if an admin disabled every format).

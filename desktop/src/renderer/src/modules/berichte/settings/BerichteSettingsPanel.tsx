@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown, Info, Plus, Send, SlidersHorizontal, X } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
 import { useBerichtePrefsStore, type BerichtePeriod } from '@/stores/berichtePrefs'
+import { useBerichteTenantStore } from '@/stores/berichteTenant'
 import type { ReportFormat } from '@/api/berichte-types'
 import { PALETTE_OPTIONS } from '../components/charts/palettes'
 
@@ -109,11 +110,11 @@ function PersonalPrefs() {
 
 function TenantPrefs() {
   const { t } = useTranslation()
-  const allowedFormats = useBerichtePrefsStore((s) => s.allowedFormats)
-  const scheduleDomains = useBerichtePrefsStore((s) => s.scheduleDomains)
-  const toggleAllowedFormat = useBerichtePrefsStore((s) => s.toggleAllowedFormat)
-  const addScheduleDomain = useBerichtePrefsStore((s) => s.addScheduleDomain)
-  const removeScheduleDomain = useBerichtePrefsStore((s) => s.removeScheduleDomain)
+  const allowedFormats = useBerichteTenantStore((s) => s.allowedFormats)
+  const scheduleDomains = useBerichteTenantStore((s) => s.scheduleDomains)
+  const toggleAllowedFormat = useBerichteTenantStore((s) => s.toggleAllowedFormat)
+  const addScheduleDomain = useBerichteTenantStore((s) => s.addScheduleDomain)
+  const removeScheduleDomain = useBerichteTenantStore((s) => s.removeScheduleDomain)
   const [domainInput, setDomainInput] = useState('')
 
   const submitDomain = () => {

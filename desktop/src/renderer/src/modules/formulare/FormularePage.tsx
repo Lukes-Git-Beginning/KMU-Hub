@@ -77,11 +77,12 @@ import {
   type FormFieldType,
   type FieldPatternType,
 } from '@/stores/formulare'
+import { useFormularePrefsStore } from '@/stores/formularePrefs'
 import {
-  useFormularePrefsStore,
+  useFormulareTenantStore,
   DEFAULT_CONSENT_TEXT,
   DEFAULT_PRIVACY_URL,
-} from '@/stores/formularePrefs'
+} from '@/stores/formulareTenant'
 import {
   useFormSchemas,
   useCreateFormSchema,
@@ -501,12 +502,12 @@ export default function FormularePage() {
   // Module preferences (personal + tenant) — see formularePrefs store.
   const prefsDefaultTab = useFormularePrefsStore((s) => s.defaultTab)
   const prefsExportFormat = useFormularePrefsStore((s) => s.defaultExportFormat)
-  const prefsConsentText = useFormularePrefsStore((s) => s.defaultConsentText)
-  const prefsPrivacyUrl = useFormularePrefsStore((s) => s.defaultPrivacyUrl)
-  const prefsThankYouMessage = useFormularePrefsStore((s) => s.defaultThankYouMessage)
+  const prefsConsentText = useFormulareTenantStore((s) => s.defaultConsentText)
+  const prefsPrivacyUrl = useFormulareTenantStore((s) => s.defaultPrivacyUrl)
+  const prefsThankYouMessage = useFormulareTenantStore((s) => s.defaultThankYouMessage)
   // FO-4 — tenant notification default, used to seed new forms' recipient list.
-  const prefsNotifyOnSubmission = useFormularePrefsStore((s) => s.notifyOnSubmission)
-  const prefsNotifyEmail = useFormularePrefsStore((s) => s.notifyEmail)
+  const prefsNotifyOnSubmission = useFormulareTenantStore((s) => s.notifyOnSubmission)
+  const prefsNotifyEmail = useFormulareTenantStore((s) => s.notifyEmail)
   // FT-5 — the grid/list toggle reads + writes the persisted personal default.
   const formView = useFormularePrefsStore((s) => s.defaultFormView)
   const setFormView = useFormularePrefsStore((s) => s.setDefaultFormView)

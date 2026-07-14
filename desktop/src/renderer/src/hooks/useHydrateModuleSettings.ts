@@ -10,11 +10,19 @@ import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
 import { useWorkPrefsStore } from '@/stores/workPrefs'
 import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
 import { useDialerPrefsStore } from '@/stores/dialerPrefs'
+import { useAutomatisierungPrefsStore } from '@/stores/automatisierungPrefs'
+import { useMailPrefsStore } from '@/stores/mailPrefs'
+import { useFormularePrefsStore } from '@/stores/formularePrefs'
+import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 import { useFinanceTenantStore } from '@/stores/financeTenant'
 import { useWikiSettingsStore } from '@/stores/wikiSettings'
 import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
 import { useZeiterfassungSettingsStore } from '@/stores/zeiterfassungSettings'
 import { useDialerTenantStore } from '@/stores/dialerTenant'
+import { useAutomatisierungTenantStore } from '@/stores/automatisierungTenant'
+import { useMailTenantStore } from '@/stores/mailTenant'
+import { useFormulareTenantStore } from '@/stores/formulareTenant'
+import { useBerichteTenantStore } from '@/stores/berichteTenant'
 
 /**
  * Central settings hydrator (X-4 settings rollout).
@@ -47,12 +55,20 @@ const HYDRATORS: Array<() => Promise<void>> = [
   () => useWorkPrefsStore.getState().initFromServer(),
   () => useVertraegePrefsStore.getState().initFromServer(),
   () => useDialerPrefsStore.getState().initFromServer(),
+  () => useAutomatisierungPrefsStore.getState().initFromServer(),
+  () => useMailPrefsStore.getState().initFromServer(),
+  () => useFormularePrefsStore.getState().initFromServer(),
+  () => useBerichtePrefsStore.getState().initFromServer(),
   // tenant scope (module-lead / admin settings — read for all, write role-gated)
   () => useFinanceTenantStore.getState().initFromServer(),
   () => useWikiSettingsStore.getState().initFromServer(),
   () => useDashboardSettingsStore.getState().initFromServer(),
   () => useZeiterfassungSettingsStore.getState().initFromServer(),
   () => useDialerTenantStore.getState().initFromServer(),
+  () => useAutomatisierungTenantStore.getState().initFromServer(),
+  () => useMailTenantStore.getState().initFromServer(),
+  () => useFormulareTenantStore.getState().initFromServer(),
+  () => useBerichteTenantStore.getState().initFromServer(),
 ]
 
 export function useHydrateModuleSettings(): void {

@@ -1,35 +1,52 @@
 /**
- * Automatisierung preferences (persisted, mock-first).
+ * Automatisierung — personal preferences (user scope, see ModuleSettingsShell).
+ * The tenant-wide defaults (log retention, failure notifications) live in
+ * stores/automatisierungTenant.ts.
  *
- * personal: which tab opens by default (wired into AutomatisierungPage).
- * tenant: execution-log retention + failure-notification default — demo-stateful,
- * gated to a Modul-Leiter / admin by ModuleSettingsShell.
+ * Server sync (settings foundation, Migr. 138, GET/PUT /settings/automatisierung/user):
+ * initFromServer() hydrates once per session (via useHydrateModuleSettings);
+ * each setter writes through. localStorage stays the optimistic cache.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { loadModuleSettings, saveModuleSettings } from '@/api/settings-persist'
+
+const MODULE_ID = 'automatisierung'
 
 export type AutomatisierungStartTab = 'automations' | 'templates' | 'log'
+const START_TABS: AutomatisierungStartTab[] = ['automations', 'templates', 'log']
 
 interface AutomatisierungPrefsState {
-  // personal
   startTab: AutomatisierungStartTab
+  /** Whether the store has hydrated from the backend at least once this session. */
+  serverInitialized: boolean
   setStartTab: (tab: AutomatisierungStartTab) => void
-  // tenant
-  logRetentionDays: number
-  setLogRetentionDays: (days: number) => void
-  notifyOnFailure: boolean
-  setNotifyOnFailure: (on: boolean) => void
+  initFromServer: () => Promise<void>
+}
+
+function userPayload(s: AutomatisierungPrefsState): Record<string, unknown> {
+  return { startTab: s.startTab }
 }
 
 export const useAutomatisierungPrefsStore = create<AutomatisierungPrefsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       startTab: 'automations',
-      setStartTab: (startTab) => set({ startTab }),
-      logRetentionDays: 90,
-      setLogRetentionDays: (logRetentionDays) => set({ logRetentionDays }),
-      notifyOnFailure: true,
-      setNotifyOnFailure: (notifyOnFailure) => set({ notifyOnFailure }),
+      serverInitialized: false,
+      setStartTab: (startTab) => {
+        set({ startTab })
+        void saveModuleSettings(MODULE_ID, 'user', userPayload(get()))
+      },
+      initFromServer: async () => {
+        if (get().serverInitialized) return
+        const map = await loadModuleSettings(MODULE_ID, 'user')
+        set((s) => ({
+          startTab: START_TABS.includes(map.startTab as AutomatisierungStartTab)
+            ? (map.startTab as AutomatisierungStartTab)
+            : s.startTab,
+          serverInitialized: true,
+        }))
+      },
     }),
     { name: 'cosmi-automatisierung-prefs' },
   ),

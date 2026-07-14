@@ -6,6 +6,7 @@ import {
   type FormulareTab,
   type FormulareView,
 } from '@/stores/formularePrefs'
+import { useFormulareTenantStore } from '@/stores/formulareTenant'
 import type { ExportFormat } from '@/api/formulare-types'
 
 const TABS: FormulareTab[] = ['formulare', 'eingänge', 'vorlagen']
@@ -113,20 +114,20 @@ function PersonalPrefs() {
 
 function TenantPrefs() {
   const { t } = useTranslation()
-  const defaultConsentText = useFormularePrefsStore((s) => s.defaultConsentText)
-  const defaultPrivacyUrl = useFormularePrefsStore((s) => s.defaultPrivacyUrl)
-  const notifyOnSubmission = useFormularePrefsStore((s) => s.notifyOnSubmission)
-  const notifyEmail = useFormularePrefsStore((s) => s.notifyEmail)
-  const defaultThankYouMessage = useFormularePrefsStore((s) => s.defaultThankYouMessage)
-  const retentionDays = useFormularePrefsStore((s) => s.retentionDays)
-  const setDefaultConsentText = useFormularePrefsStore((s) => s.setDefaultConsentText)
-  const setDefaultPrivacyUrl = useFormularePrefsStore((s) => s.setDefaultPrivacyUrl)
-  const setNotifyOnSubmission = useFormularePrefsStore((s) => s.setNotifyOnSubmission)
-  const setNotifyEmail = useFormularePrefsStore((s) => s.setNotifyEmail)
-  const setDefaultThankYouMessage = useFormularePrefsStore(
+  const defaultConsentText = useFormulareTenantStore((s) => s.defaultConsentText)
+  const defaultPrivacyUrl = useFormulareTenantStore((s) => s.defaultPrivacyUrl)
+  const notifyOnSubmission = useFormulareTenantStore((s) => s.notifyOnSubmission)
+  const notifyEmail = useFormulareTenantStore((s) => s.notifyEmail)
+  const defaultThankYouMessage = useFormulareTenantStore((s) => s.defaultThankYouMessage)
+  const retentionDays = useFormulareTenantStore((s) => s.retentionDays)
+  const setDefaultConsentText = useFormulareTenantStore((s) => s.setDefaultConsentText)
+  const setDefaultPrivacyUrl = useFormulareTenantStore((s) => s.setDefaultPrivacyUrl)
+  const setNotifyOnSubmission = useFormulareTenantStore((s) => s.setNotifyOnSubmission)
+  const setNotifyEmail = useFormulareTenantStore((s) => s.setNotifyEmail)
+  const setDefaultThankYouMessage = useFormulareTenantStore(
     (s) => s.setDefaultThankYouMessage,
   )
-  const setRetentionDays = useFormularePrefsStore((s) => s.setRetentionDays)
+  const setRetentionDays = useFormulareTenantStore((s) => s.setRetentionDays)
 
   return (
     <div className="space-y-5">
