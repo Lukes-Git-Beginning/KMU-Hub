@@ -10,6 +10,7 @@ import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
 import { useWorkPrefsStore } from '@/stores/workPrefs'
 import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
 import { useDialerPrefsStore } from '@/stores/dialerPrefs'
+import { useVideoPrefsStore } from '@/stores/videoPrefs'
 import { useAutomatisierungPrefsStore } from '@/stores/automatisierungPrefs'
 import { useMailPrefsStore } from '@/stores/mailPrefs'
 import { useFormularePrefsStore } from '@/stores/formularePrefs'
@@ -19,6 +20,7 @@ import { useWikiSettingsStore } from '@/stores/wikiSettings'
 import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
 import { useZeiterfassungSettingsStore } from '@/stores/zeiterfassungSettings'
 import { useDialerTenantStore } from '@/stores/dialerTenant'
+import { useVideoTenantStore } from '@/stores/videoTenant'
 import { useAutomatisierungTenantStore } from '@/stores/automatisierungTenant'
 import { useMailTenantStore } from '@/stores/mailTenant'
 import { useFormulareTenantStore } from '@/stores/formulareTenant'
@@ -55,6 +57,7 @@ const HYDRATORS: Array<() => Promise<void>> = [
   () => useWorkPrefsStore.getState().initFromServer(),
   () => useVertraegePrefsStore.getState().initFromServer(),
   () => useDialerPrefsStore.getState().initFromServer(),
+  () => useVideoPrefsStore.getState().initFromServer(),
   () => useAutomatisierungPrefsStore.getState().initFromServer(),
   () => useMailPrefsStore.getState().initFromServer(),
   () => useFormularePrefsStore.getState().initFromServer(),
@@ -65,6 +68,7 @@ const HYDRATORS: Array<() => Promise<void>> = [
   () => useDashboardSettingsStore.getState().initFromServer(),
   () => useZeiterfassungSettingsStore.getState().initFromServer(),
   () => useDialerTenantStore.getState().initFromServer(),
+  () => useVideoTenantStore.getState().initFromServer(),
   () => useAutomatisierungTenantStore.getState().initFromServer(),
   () => useMailTenantStore.getState().initFromServer(),
   () => useFormulareTenantStore.getState().initFromServer(),

@@ -23,6 +23,7 @@ import {
   FileInput,
   BookOpen,
   PhoneCall,
+  Video,
   ShieldCheck,
   Palette,
   type LucideIcon,
@@ -51,6 +52,7 @@ import { NotificationsSettingsPanel } from './panels/NotificationsSettingsPanel'
 import { FormulareSettingsPanel } from '@/modules/formulare/settings/FormulareSettingsPanel'
 import { WikiSettingsPanel } from '@/modules/wiki/settings/WikiSettingsPanel'
 import { DialerSettingsPanel } from '@/modules/dialer/settings/DialerSettingsPanel'
+import { VideoSettingsPanel } from '@/modules/video/settings/VideoSettingsPanel'
 import { SecuritySettingsPanel } from './panels/SecuritySettingsPanel'
 // admin-batch (parallel/admin): tenant branding surfaced in the settings overlay
 import BrandingAdminHubTab from '@/modules/admin/branding/BrandingAdminHubTab'
@@ -82,6 +84,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   // ── MODULE ──
   { id: 'crm', group: 'module', labelKey: 'moduleSettings.entries.crm', icon: Contact, navMatch: ['/kontakte', '/crm'], component: CrmSettingsPanel },
   { id: 'dialer', group: 'module', labelKey: 'moduleSettings.entries.dialer', icon: PhoneCall, navMatch: ['/dialer'], component: DialerSettingsPanel },
+  { id: 'video', group: 'module', labelKey: 'moduleSettings.entries.video', icon: Video, navMatch: ['/video'], component: VideoSettingsPanel },
   { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsPanel },
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailsSettingsPanel },

@@ -5,6 +5,7 @@
  * Integrates with meetings store for live meetings and call history data.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -13,7 +14,6 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   PhoneMissed,
-  VideoOff,
   Settings,
   Clock,
   Users,
@@ -30,6 +30,8 @@ import { backendMeetingToUI } from '../meetings/mappers'
 import { MeetingFormDialog } from '../meetings/MeetingFormDialog'
 import { PageHeader } from '@/components/shared'
 import { formatDate } from '@/lib/format'
+import { CallHistoryDetailModal } from './CallHistoryDetailModal'
+import { CameraPreview, VideoDevicePrefsControls } from './VideoDeviceSettings'
 
 type VideoTab = 'active' | 'history' | 'settings'
 
@@ -77,9 +79,11 @@ function directionIcon(direction: CallHistoryEntry['direction']) {
 function ActiveCallCard({
   meeting,
   onJoin,
+  onDetails,
 }: {
   meeting: { id: string; title: string; participants: { id: string; name: string; initials: string }[]; room: string; startTime: string; duration: number; color: string }
   onJoin: () => void
+  onDetails: () => void
 }) {
   const { t } = useTranslation()
 
@@ -128,7 +132,7 @@ function ActiveCallCard({
         >
           {t('video.call.beitreten')}
         </button>
-        <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
+        <button onClick={onDetails} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
           {t('video.call.details')}
         </button>
       </div>
@@ -140,10 +144,29 @@ function ActiveCallCard({
 // Call History Row
 // ---------------------------------------------------------------------------
 
-function CallHistoryRow({ entry, onCall }: { entry: CallHistoryEntry; onCall: (entry: CallHistoryEntry) => void }) {
+function CallHistoryRow({
+  entry,
+  onOpenDetail,
+  onCall,
+}: {
+  entry: CallHistoryEntry
+  onOpenDetail: (entry: CallHistoryEntry) => void
+  onCall: (entry: CallHistoryEntry) => void
+}) {
   const { t } = useTranslation()
   return (
-    <div className="flex items-center gap-4 rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors group">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenDetail(entry)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpenDetail(entry)
+        }
+      }}
+      className="flex items-center gap-4 rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+    >
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
         {entry.contactInitials}
       </div>
@@ -176,10 +199,10 @@ function CallHistoryRow({ entry, onCall }: { entry: CallHistoryEntry; onCall: (e
       <div className="text-xs text-muted-foreground">{formatRelativeDate(entry.date, t)}</div>
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => onCall(entry)} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.videoanruf')} aria-label={t('video.history.videoanruf')}>
+        <button onClick={(e) => { e.stopPropagation(); onCall(entry) }} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.videoanruf')} aria-label={t('video.history.videoanruf')}>
           <Video className="h-4 w-4" />
         </button>
-        <button onClick={() => onCall(entry)} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.audioanruf')} aria-label={t('video.history.audioanruf')}>
+        <button onClick={(e) => { e.stopPropagation(); onCall(entry) }} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.audioanruf')} aria-label={t('video.history.audioanruf')}>
           <Phone className="h-4 w-4" />
         </button>
       </div>
@@ -192,92 +215,9 @@ function CallHistoryRow({ entry, onCall }: { entry: CallHistoryEntry; onCall: (e
 // ---------------------------------------------------------------------------
 
 function SettingsTab() {
-  const { t } = useTranslation()
-  const [audioInput, setAudioInput] = useState('default')
-  const [audioOutput, setAudioOutput] = useState('default')
-  const [videoInput, setVideoInput] = useState('default')
-  const [background, setBackground] = useState('none')
-
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div>
-        <h3 className="text-sm font-medium text-foreground mb-3">{t('video.settings.audio')}</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">{t('video.settings.mikrofon')}</label>
-            <select
-              value={audioInput}
-              onChange={(e) => setAudioInput(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-            >
-              <option value="default">{t('video.settings.audio.default')}</option>
-              <option value="headset">{t('video.settings.audio.headset')}</option>
-              <option value="webcam">{t('video.settings.audio.webcam')}</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">{t('video.settings.lautsprecher')}</label>
-            <select
-              value={audioOutput}
-              onChange={(e) => setAudioOutput(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-            >
-              <option value="default">{t('video.settings.output.default')}</option>
-              <option value="headset">{t('video.settings.output.headset')}</option>
-              <option value="speaker">{t('video.settings.output.speaker')}</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-medium text-foreground mb-3">{t('video.settings.video')}</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">{t('video.settings.kamera')}</label>
-            <select
-              value={videoInput}
-              onChange={(e) => setVideoInput(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-            >
-              <option value="default">{t('video.settings.video.default')}</option>
-              <option value="hd">{t('video.settings.video.hd')}</option>
-              <option value="external">{t('video.settings.video.external')}</option>
-            </select>
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/30 aspect-video flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <VideoOff className="mx-auto h-8 w-8 mb-2 opacity-50" />
-              <p className="text-xs">{t('video.settings.kameraVorschau')}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-medium text-foreground mb-3">{t('video.settings.hintergrund')}</h3>
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { id: 'none', labelKey: 'video.settings.bg.none' },
-            { id: 'blur', labelKey: 'video.settings.bg.blur' },
-            { id: 'office', labelKey: 'video.settings.bg.office' },
-            { id: 'nature', labelKey: 'video.settings.bg.nature' },
-          ].map((bg) => (
-            <button
-              key={bg.id}
-              onClick={() => setBackground(bg.id)}
-              className={`rounded-lg border p-3 text-xs text-center transition-colors ${
-                background === bg.id
-                  ? 'border-primary bg-primary/10 text-primary font-medium'
-                  : 'border-border text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              {t(bg.labelKey)}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="mx-auto max-w-xl">
+      <VideoDevicePrefsControls preview={<CameraPreview />} />
     </div>
   )
 }
@@ -288,10 +228,12 @@ function SettingsTab() {
 
 export default function VideoPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<VideoTab>('active')
   const [historySearch, setHistorySearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [presetTitle, setPresetTitle] = useState('')
+  const [selectedCall, setSelectedCall] = useState<CallHistoryEntry | null>(null)
   const { meetings: localMeetings, callHistory, addMeeting } = useMeetingsStore()
 
   // Real meetings from the backend, merged with local mock meetings (R3-E4).
@@ -425,7 +367,12 @@ export default function VideoPage() {
             {liveMeetings.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {liveMeetings.map((m) => (
-                  <ActiveCallCard key={m.id} meeting={m} onJoin={() => handleJoin(m.id)} />
+                  <ActiveCallCard
+                    key={m.id}
+                    meeting={m}
+                    onJoin={() => handleJoin(m.id)}
+                    onDetails={() => navigate('/meetings')}
+                  />
                 ))}
               </div>
             ) : (
@@ -438,11 +385,11 @@ export default function VideoPage() {
                   {t('video.active.empty.hint')}
                 </p>
                 <div className="mt-4 flex gap-2">
-                  <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                  <button onClick={() => openNewMeeting()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
                     <Plus className="h-4 w-4" />
                     {t('video.active.neuesMeeting')}
                   </button>
-                  <button className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                  <button onClick={() => navigate('/meetings')} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
                     <ExternalLink className="h-4 w-4" />
                     {t('video.active.meetingBeitreten')}
                   </button>
@@ -506,7 +453,12 @@ export default function VideoPage() {
                     <h3 className="text-xs font-medium text-muted-foreground mb-1 px-3">{dateLabel}</h3>
                     <div className="space-y-0.5">
                       {entries.map((entry) => (
-                        <CallHistoryRow key={entry.id} entry={entry} onCall={(e) => openNewMeeting(e.contactName)} />
+                        <CallHistoryRow
+                          key={entry.id}
+                          entry={entry}
+                          onOpenDetail={setSelectedCall}
+                          onCall={(e) => openNewMeeting(e.contactName)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -547,6 +499,13 @@ export default function VideoPage() {
           addMeeting(data)
           toast.success(t('meetings.toast.created'))
         }}
+      />
+
+      <CallHistoryDetailModal
+        entry={selectedCall}
+        open={selectedCall !== null}
+        onClose={() => setSelectedCall(null)}
+        onCallBack={openNewMeeting}
       />
     </div>
   )

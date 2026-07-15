@@ -78,17 +78,89 @@ export interface CallHistoryEntry {
   date: string
   startTime: string
   duration: number // minutes, 0 for missed
+  /** Optional enrichment for the call-history detail view (all nullable). */
+  contactCompany?: string
+  contactPhone?: string
+  /** Short subject/topic of the call. */
+  topic?: string
+  /** Free-text note captured after the call. */
+  notes?: string
+  /** Whether a recording exists for this call. */
+  hasRecording?: boolean
+  /** Playback length of the recording in seconds. */
+  recordingDuration?: number
+  /** Additional participants for group calls (1:1 calls leave this empty). */
+  participants?: MeetingParticipant[]
 }
 
 const mockCallHistory: CallHistoryEntry[] = [
-  { id: 'ch1', contactName: 'Anna Müller', contactInitials: 'AM', type: 'video', direction: 'outgoing', date: '2026-02-22', startTime: '09:15', duration: 23 },
-  { id: 'ch2', contactName: 'Weber GmbH', contactInitials: 'WG', type: 'audio', direction: 'incoming', date: '2026-02-22', startTime: '08:42', duration: 8 },
-  { id: 'ch3', contactName: 'Peter Koch', contactInitials: 'PK', type: 'video', direction: 'missed', date: '2026-02-21', startTime: '17:30', duration: 0 },
-  { id: 'ch4', contactName: 'Sarah Klein', contactInitials: 'SK', type: 'video', direction: 'incoming', date: '2026-02-21', startTime: '14:00', duration: 45 },
-  { id: 'ch5', contactName: 'Lisa Schmidt', contactInitials: 'LS', type: 'audio', direction: 'outgoing', date: '2026-02-21', startTime: '11:20', duration: 12 },
-  { id: 'ch6', contactName: 'Thomas Weber', contactInitials: 'TW', type: 'video', direction: 'outgoing', date: '2026-02-20', startTime: '16:00', duration: 31 },
-  { id: 'ch7', contactName: 'Jonas Diaz', contactInitials: 'JD', type: 'audio', direction: 'missed', date: '2026-02-20', startTime: '10:05', duration: 0 },
-  { id: 'ch8', contactName: 'Meier AG', contactInitials: 'MA', type: 'video', direction: 'incoming', date: '2026-02-19', startTime: '13:30', duration: 58 },
+  {
+    id: 'ch1', contactName: 'Anna Müller', contactInitials: 'AM', type: 'video', direction: 'outgoing',
+    date: '2026-02-22', startTime: '09:15', duration: 23,
+    contactCompany: 'Müller Consulting', contactPhone: '+49 151 23456789',
+    topic: 'Angebotsbesprechung Website-Relaunch',
+    notes: 'Kundin möchte zusätzlich ein SEO-Paket. Angebot bis Freitag nachreichen, Follow-up nächste Woche.',
+    hasRecording: true, recordingDuration: 1380,
+  },
+  {
+    id: 'ch2', contactName: 'Weber GmbH', contactInitials: 'WG', type: 'audio', direction: 'incoming',
+    date: '2026-02-22', startTime: '08:42', duration: 8,
+    contactCompany: 'Weber GmbH', contactPhone: '+49 30 9876543',
+    topic: 'Rückfrage zur Rechnung 2026-0042',
+    notes: 'Zahlungsziel einvernehmlich auf 30 Tage verlängert.',
+  },
+  {
+    id: 'ch3', contactName: 'Peter Koch', contactInitials: 'PK', type: 'video', direction: 'missed',
+    date: '2026-02-21', startTime: '17:30', duration: 0,
+    contactPhone: '+49 160 1112223',
+    topic: 'Verpasster Videoanruf',
+  },
+  {
+    id: 'ch4', contactName: 'Sarah Klein', contactInitials: 'SK', type: 'video', direction: 'incoming',
+    date: '2026-02-21', startTime: '14:00', duration: 45,
+    contactCompany: 'Zentria UG', contactPhone: '+49 172 4455667',
+    topic: 'Design Review Mobile App',
+    notes: 'Onboarding-Flow abgenommen. Dashboard-Layout wird bis nächste Woche überarbeitet.',
+    hasRecording: true, recordingDuration: 2700,
+    participants: [
+      { id: 'p3', name: 'Sarah Klein', initials: 'SK' },
+      { id: 'p4', name: 'Lisa Schmidt', initials: 'LS' },
+      { id: 'p2', name: 'Michael Berg', initials: 'MB' },
+    ],
+  },
+  {
+    id: 'ch5', contactName: 'Lisa Schmidt', contactInitials: 'LS', type: 'audio', direction: 'outgoing',
+    date: '2026-02-21', startTime: '11:20', duration: 12,
+    contactPhone: '+49 151 7788990',
+    topic: 'Abstimmung Icon-Set',
+  },
+  {
+    id: 'ch6', contactName: 'Thomas Weber', contactInitials: 'TW', type: 'video', direction: 'outgoing',
+    date: '2026-02-20', startTime: '16:00', duration: 31,
+    contactCompany: 'Weber GmbH', contactPhone: '+49 30 9876540',
+    topic: 'Budget-Planung Q2',
+    notes: 'Rahmenbudget bestätigt. Detailplanung folgt im nächsten Termin.',
+    hasRecording: true, recordingDuration: 1860,
+  },
+  {
+    id: 'ch7', contactName: 'Jonas Diaz', contactInitials: 'JD', type: 'audio', direction: 'missed',
+    date: '2026-02-20', startTime: '10:05', duration: 0,
+    contactPhone: '+49 176 3322110',
+    topic: 'Verpasster Anruf',
+  },
+  {
+    id: 'ch8', contactName: 'Meier AG', contactInitials: 'MA', type: 'video', direction: 'incoming',
+    date: '2026-02-19', startTime: '13:30', duration: 58,
+    contactCompany: 'Meier AG', contactPhone: '+49 89 5566778',
+    topic: 'Kundenpräsentation CRM-Integration',
+    notes: 'Live-Demo lief sehr gut. Vertragsverlängerung um 12 Monate in Aussicht — Angebot vorbereiten.',
+    hasRecording: true, recordingDuration: 3480,
+    participants: [
+      { id: 'p1', name: 'Anna Müller', initials: 'AM' },
+      { id: 'p5', name: 'Peter Koch', initials: 'PK' },
+      { id: 'p2', name: 'Michael Berg', initials: 'MB' },
+    ],
+  },
 ]
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,8 @@
     "src/renderer/src/modules/video/**/*.tsx",
     "src/renderer/src/modules/meetings/**/*.ts",
     "src/renderer/src/modules/meetings/**/*.tsx",
-    "src/renderer/src/stores/meetings.ts"
+    "src/renderer/src/stores/meetings.ts",
+    "src/renderer/src/stores/videoPrefs.ts",
+    "src/renderer/src/stores/videoTenant.ts"
   ]
 }
