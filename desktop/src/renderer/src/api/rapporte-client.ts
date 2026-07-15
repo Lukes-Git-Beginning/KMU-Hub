@@ -163,10 +163,5 @@ export function listPendingApprovals(params?: ListPendingApprovalsParams) {
   })
 }
 
-// ---------------------------------------------------------------------------
-// Export
-// ---------------------------------------------------------------------------
-
-export function getExportPDFUrl(reportId: string) {
-  return `${API_BASE_URL}${BASE}/reports/${reportId}/export/pdf`
-}
+// NOTE: the former getExportPDFUrl() helper was dead code referencing a missing
+// API_BASE_URL — the report PDF is generated client-side (modules/rapporte/rapporte-export.ts).

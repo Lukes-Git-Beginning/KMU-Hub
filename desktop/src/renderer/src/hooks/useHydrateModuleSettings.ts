@@ -17,6 +17,7 @@ import { useFormularePrefsStore } from '@/stores/formularePrefs'
 import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 import { useInventarPrefsStore } from '@/stores/inventarPrefs'
 import { useVermietungViewPrefsStore } from '@/stores/vermietungViewPrefs'
+import { useRapportePrefsStore } from '@/stores/rapportePrefs'
 import { useFinanceTenantStore } from '@/stores/financeTenant'
 import { useWikiSettingsStore } from '@/stores/wikiSettings'
 import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
@@ -29,6 +30,7 @@ import { useFormulareTenantStore } from '@/stores/formulareTenant'
 import { useBerichteTenantStore } from '@/stores/berichteTenant'
 import { useInventarTenantStore } from '@/stores/inventarTenant'
 import { useVermietungTenantStore } from '@/stores/vermietungTenant'
+import { useRapporteTenantStore } from '@/stores/rapporteTenant'
 
 /**
  * Central settings hydrator (X-4 settings rollout).
@@ -68,6 +70,7 @@ const HYDRATORS: Array<() => Promise<void>> = [
   () => useBerichtePrefsStore.getState().initFromServer(),
   () => useInventarPrefsStore.getState().initFromServer(),
   () => useVermietungViewPrefsStore.getState().initFromServer(),
+  () => useRapportePrefsStore.getState().initFromServer(),
   // tenant scope (module-lead / admin settings — read for all, write role-gated)
   () => useFinanceTenantStore.getState().initFromServer(),
   () => useWikiSettingsStore.getState().initFromServer(),
@@ -81,6 +84,7 @@ const HYDRATORS: Array<() => Promise<void>> = [
   () => useBerichteTenantStore.getState().initFromServer(),
   () => useInventarTenantStore.getState().initFromServer(),
   () => useVermietungTenantStore.getState().initFromServer(),
+  () => useRapporteTenantStore.getState().initFromServer(),
 ]
 
 export function useHydrateModuleSettings(): void {

@@ -4,31 +4,23 @@ import {
   Search,
   Plus,
   ClipboardList,
-  Sun,
-  Cloud,
-  CloudRain,
-  Snowflake,
   Clock,
   Users,
   Camera,
   AlertTriangle,
   Trash2,
   Ruler,
-  Pencil,
   FileText,
   ChevronDown,
   ChevronRight,
   Thermometer,
-  HardHat,
-  Package,
-  FileDown,
   CheckCircle2,
   XCircle,
   Send,
-  ShieldCheck,
   Wind,
   Droplets,
   ClipboardCheck,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -51,7 +43,7 @@ import {
 import { adaptWorkReport } from '@/api/rapporte-adapter'
 import SignatureCanvas from './SignatureCanvas'
 import SketchCanvas from './SketchCanvas'
-import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
+import { EmptyState, PageHeader, SortMenu, type SortDirection, type SortFieldOption } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -68,6 +60,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { formatCurrency } from '@/lib/format'
+import { useRapportePrefsStore } from '@/stores/rapportePrefs'
+import { useRapporteTenantStore } from '@/stores/rapporteTenant'
+import { ReportDetailModal } from './ReportDetailModal'
+import {
+  weatherIcons,
+  weatherLabelKeys,
+  projectColors,
+  approvalBadgeStyles,
+  approvalLabelKeys,
+  calcNetHours,
+  calcNetMinutes,
+  formatDate,
+} from './rapporte-shared'
+import { buildReportsCsv, downloadBlob, csvDateStamp } from './rapporte-export'
 
 type TabKey = 'tagesberichte' | 'aufmass' | 'vorlagen'
 type DateFilter = 'week' | 'month' | 'all'
@@ -76,57 +83,8 @@ type DateFilter = 'week' | 'month' | 'all'
 // Helpers
 // ---------------------------------------------------------------------------
 
-const weatherIcons: Record<WeatherType, typeof Sun> = {
-  sunny: Sun,
-  cloudy: Cloud,
-  rainy: CloudRain,
-  snowy: Snowflake,
-}
-
-const weatherLabelKeys: Record<WeatherType, string> = {
-  sunny: 'rapporte.weather.sunny',
-  cloudy: 'rapporte.weather.cloudy',
-  rainy: 'rapporte.weather.rainy',
-  snowy: 'rapporte.weather.snowy',
-}
-
-const projectColors: Record<string, string> = {
-  'prj-1': 'bg-info-light text-info',
-  'prj-2': 'bg-warning-light text-warning',
-  'prj-3': 'bg-success-light text-success',
-  'prj-4': 'bg-error-light text-error',
-  'prj-5': 'bg-primary-light text-primary',
-  'prj-6': 'bg-info-light text-info',
-  'prj-7': 'bg-warning-light text-warning',
-  'prj-8': 'bg-error-light text-error',
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
-
 function formatDateShort(dateStr: string): string {
-  return formatDate(dateStr + 'T00:00:00')
-}
-
-function calcNetHours(start: string, end: string, breakMin: number): string {
-  const [sh, sm] = start.split(':').map(Number)
-  const [eh, em] = end.split(':').map(Number)
-  const totalMin = (eh * 60 + em) - (sh * 60 + sm) - breakMin
-  const h = Math.floor(totalMin / 60)
-  const m = totalMin % 60
-  return `${h}h ${m > 0 ? m + 'min' : ''}`
-}
-
-function calcNetMinutes(start: string, end: string, breakMin: number): number {
-  const [sh, sm] = start.split(':').map(Number)
-  const [eh, em] = end.split(':').map(Number)
-  return (eh * 60 + em) - (sh * 60 + sm) - breakMin
+  return formatDate(dateStr)
 }
 
 function isThisWeek(dateStr: string): boolean {
@@ -152,21 +110,6 @@ const weatherMockData: Record<WeatherType, { temp: number; wind: number; humidit
   cloudy: { temp: 12, wind: 15, humidity: 65 },
   rainy: { temp: 8, wind: 25, humidity: 85 },
   snowy: { temp: -2, wind: 10, humidity: 75 },
-}
-
-// Approval status styling (9.10)
-const approvalBadgeStyles: Record<FieldReport['approvalStatus'], string> = {
-  draft: 'bg-secondary text-muted-foreground',
-  submitted: 'bg-info-light text-info',
-  approved: 'bg-success-light text-success',
-  rejected: 'bg-error-light text-error',
-}
-
-const approvalLabelKeys: Record<FieldReport['approvalStatus'], string> = {
-  draft: 'rapporte.approval.draft',
-  submitted: 'rapporte.approval.submitted',
-  approved: 'rapporte.approval.approved',
-  rejected: 'rapporte.approval.rejected',
 }
 
 // ============================================================
@@ -206,7 +149,11 @@ export default function RapportePage() {
   const [tab, setTab] = useState<TabKey>('tagesberichte')
   const [search, setSearch] = useState('')
   const [projectFilter, setProjectFilter] = useState<string>('all')
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  // Personal pref (settings panel) seeds the initial date filter.
+  const [dateFilter, setDateFilter] = useState<DateFilter>(() => useRapportePrefsStore.getState().defaultDateFilter)
+  const [sortField, setSortField] = useState('date')
+  const [sortDir, setSortDir] = useState<SortDirection>('desc')
+  const statsCurrency = useRapporteTenantStore((s) => s.currency)
 
   // Detail panel
   const [selectedReport, setSelectedReport] = useState<FieldReport | null>(null)
@@ -230,7 +177,19 @@ export default function RapportePage() {
   }, [reports])
 
   const filteredReports = useMemo(() => {
-    let list = reports
+    const dir = sortDir === 'asc' ? 1 : -1
+    let list = [...reports].sort((a, b) => {
+      switch (sortField) {
+        case 'project':
+          return a.projectName.localeCompare(b.projectName) * dir
+        case 'author':
+          return a.author.localeCompare(b.author) * dir
+        case 'status':
+          return a.approvalStatus.localeCompare(b.approvalStatus) * dir
+        default:
+          return a.date.localeCompare(b.date) * dir
+      }
+    })
     if (projectFilter !== 'all') {
       list = list.filter((r) => r.projectId === projectFilter)
     }
@@ -249,7 +208,7 @@ export default function RapportePage() {
       )
     }
     return list
-  }, [reports, projectFilter, dateFilter, search])
+  }, [reports, projectFilter, dateFilter, search, sortField, sortDir])
 
   // Stats — prefer server stats when available, fall back to client-computed values
   const reportsThisWeek = reports.filter((r) => isThisWeek(r.date)).length
@@ -317,6 +276,21 @@ export default function RapportePage() {
     setExpandedMeasurement(expandedMeasurement === id ? null : id)
   }
 
+  const handleExportReports = () => {
+    downloadBlob(
+      new Blob(['﻿' + buildReportsCsv(filteredReports)], { type: 'text/csv;charset=utf-8' }),
+      `rapporte-${csvDateStamp()}.csv`,
+    )
+    toast.success(t('rapporte.export.success', { count: filteredReports.length }))
+  }
+
+  const sortOptions: SortFieldOption[] = [
+    { value: 'date', label: t('rapporte.sort.date') },
+    { value: 'project', label: t('rapporte.sort.project') },
+    { value: 'author', label: t('rapporte.sort.author') },
+    { value: 'status', label: t('rapporte.sort.status') },
+  ]
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -383,7 +357,7 @@ export default function RapportePage() {
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('rapporte.stats.materialCost')}</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">
-            CHF {materialCostMock.toLocaleString('de-DE')}
+            {formatCurrency(materialCostMock, statsCurrency)}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
@@ -458,6 +432,21 @@ export default function RapportePage() {
                 </button>
               ))}
             </div>
+            <SortMenu
+              options={sortOptions}
+              field={sortField}
+              direction={sortDir}
+              onChange={(field, direction) => { setSortField(field); setSortDir(direction) }}
+              triggerClassName="py-2"
+            />
+            <button
+              onClick={handleExportReports}
+              disabled={filteredReports.length === 0}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('rapporte.export.button')}</span>
+            </button>
           </div>
 
           {/* Report cards */}
@@ -475,8 +464,17 @@ export default function RapportePage() {
                 return (
                   <div
                     key={report.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${report.projectName} ${formatDate(report.date)}`}
                     onClick={() => setSelectedReport(report)}
-                    className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedReport(report)
+                      }
+                    }}
+                    className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3">
@@ -727,21 +725,20 @@ export default function RapportePage() {
       )}
 
       {/* ============================== */}
-      {/* Report Detail Panel            */}
+      {/* Report Detail Modal            */}
       {/* ============================== */}
-      {selectedReport && (
-        <ReportDetailPanel
-          report={selectedReport}
-          onClose={() => setSelectedReport(null)}
-          onDelete={handleDeleteReport}
-          onUpdate={handleUpdateReport}
-        />
-      )}
+      <ReportDetailModal
+        report={selectedReport}
+        onClose={() => setSelectedReport(null)}
+        onDelete={handleDeleteReport}
+        onUpdate={handleUpdateReport}
+      />
 
       {/* ============================== */}
       {/* Neuer Tagesbericht Dialog      */}
       {/* ============================== */}
       <NewReportDialog
+        key={showNewReport ? (templatePrefill?.id ?? 'new') : 'closed'}
         open={showNewReport}
         onOpenChange={setShowNewReport}
         projects={uniqueProjects}
@@ -757,336 +754,6 @@ export default function RapportePage() {
         projects={uniqueProjects}
       />
     </div>
-  )
-}
-
-// ============================================================
-// Report Detail Panel
-// ============================================================
-
-function ReportDetailPanel({
-  report,
-  onClose,
-  onDelete,
-  onUpdate,
-}: {
-  report: FieldReport
-  onClose: () => void
-  onDelete: (id: string) => void
-  onUpdate: (id: string, updates: Partial<FieldReport>) => void
-}) {
-  const { t } = useTranslation()
-  const WeatherIcon = weatherIcons[report.weather]
-  const netHours = calcNetHours(report.workStart, report.workEnd, report.breakMinutes)
-  const [showSignaturePad, setShowSignaturePad] = useState(false)
-
-  return (
-    <DetailPanel
-      open={true}
-      title={formatDate(report.date)}
-      subtitle={report.projectName}
-      onClose={onClose}
-      width="w-[480px]"
-      footer={
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onDelete(report.id)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {t('common.delete')}
-          </button>
-          <button
-            onClick={() => toast.success(t('rapporte.detail.pdfExportToast'), { description: t('rapporte.detail.pdfExportDescription') })}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            {t('rapporte.detail.pdfExport')}
-          </button>
-        </div>
-      }
-    >
-      <div className="space-y-5">
-        {/* Header info */}
-        <div className="flex items-start justify-between">
-          <div>
-            <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium mb-1 ${projectColors[report.projectId] ?? 'bg-secondary text-muted-foreground'}`}>
-              {report.projectName}
-            </span>
-            <p className="text-xs text-muted-foreground">{t('rapporte.detail.author', { name: report.author })}</p>
-          </div>
-          {report.signatureStatus === 'pending' && (
-            <span className="flex items-center gap-1 rounded-full bg-warning-light text-warning px-2 py-0.5 text-[10px] font-medium">
-              <AlertTriangle className="h-3 w-3" />
-              {t('rapporte.detail.pending')}
-            </span>
-          )}
-          {report.signatureStatus === 'signed' && (
-            <span className="flex items-center gap-1 rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">
-              {t('rapporte.detail.signed')}
-            </span>
-          )}
-        </div>
-
-        {/* Weather block */}
-        <div className="rounded-lg border border-border p-3 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-            <WeatherIcon className="h-5 w-5 text-foreground" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">{t(weatherLabelKeys[report.weather])}</p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Thermometer className="h-3 w-3" />
-              {report.temperature}°C
-            </p>
-          </div>
-        </div>
-
-        {/* Work time block */}
-        <div className="grid grid-cols-4 gap-2">
-          <div className="rounded-lg border border-border bg-secondary/30 p-2.5 text-center">
-            <p className="text-[10px] text-muted-foreground mb-0.5">{t('rapporte.detail.start')}</p>
-            <p className="text-sm font-medium text-foreground">{report.workStart}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-secondary/30 p-2.5 text-center">
-            <p className="text-[10px] text-muted-foreground mb-0.5">{t('rapporte.detail.end')}</p>
-            <p className="text-sm font-medium text-foreground">{report.workEnd}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-secondary/30 p-2.5 text-center">
-            <p className="text-[10px] text-muted-foreground mb-0.5">{t('rapporte.detail.break')}</p>
-            <p className="text-sm font-medium text-foreground">{report.breakMinutes} min</p>
-          </div>
-          <div className="rounded-lg border border-border bg-primary-light p-2.5 text-center">
-            <p className="text-[10px] text-primary mb-0.5">{t('rapporte.detail.net')}</p>
-            <p className="text-sm font-semibold text-primary">{netHours}</p>
-          </div>
-        </div>
-
-        {/* Workers table */}
-        <section>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-            <HardHat className="h-3 w-3" />
-            {t('rapporte.detail.workersTitle', { count: report.workers.length })}
-          </h4>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-secondary/30">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('rapporte.detail.tableName')}</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('rapporte.detail.tableRole')}</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">{t('rapporte.detail.tableHours')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.workers.map((w, i) => (
-                  <tr key={i} className="border-t border-border-muted">
-                    <td className="px-3 py-2 text-foreground">{w.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{w.role}</td>
-                    <td className="px-3 py-2 text-foreground text-right tabular-nums">{w.hours}h</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Activities */}
-        <section>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            {t('rapporte.detail.activitiesTitle', { count: report.activities.length })}
-          </h4>
-          <div className="space-y-1.5">
-            {report.activities.map((a, i) => (
-              <div key={i} className="flex items-start gap-2 rounded-md border border-border-muted px-3 py-2">
-                <div className="flex-1">
-                  <p className="text-xs text-foreground">{a.description}</p>
-                </div>
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground shrink-0">
-                  {a.category}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Materials table */}
-        {report.materials.length > 0 && (
-          <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-              <Package className="h-3 w-3" />
-              {t('rapporte.detail.materialTitle', { count: report.materials.length })}
-            </h4>
-            <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-secondary/30">
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('rapporte.detail.tableArticle')}</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">{t('rapporte.detail.tableQuantity')}</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground pl-3">{t('rapporte.detail.tableUnit')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.materials.map((m, i) => (
-                    <tr key={i} className="border-t border-border-muted">
-                      <td className="px-3 py-2 text-foreground">{m.article}</td>
-                      <td className="px-3 py-2 text-muted-foreground text-right tabular-nums">{m.quantity}</td>
-                      <td className="px-3 py-2 text-muted-foreground pl-3">{m.unit}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {/* Photos (improved 9.7) */}
-        {report.photos.length > 0 && (
-          <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-              <Camera className="h-3 w-3" />
-              {t('rapporte.detail.photosTitle', { count: report.photos.length })}
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {report.photos.map((photo, idx) => (
-                <div key={photo.id} className="rounded-lg border border-border bg-secondary/30 overflow-hidden">
-                  <div className="relative aspect-[4/3] bg-secondary flex items-center justify-center">
-                    <Camera className="h-8 w-8 text-muted-foreground opacity-20" />
-                    <div className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full bg-foreground/70 text-[10px] font-bold text-background">
-                      {idx + 1}
-                    </div>
-                  </div>
-                  <div className="px-2 py-1.5">
-                    <p className="text-[10px] text-muted-foreground line-clamp-2">{photo.caption || t('rapporte.detail.noCaption')}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Signature section (9.6) */}
-        <section>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            {t('rapporte.detail.signatureTitle')}
-          </h4>
-          {report.signatureDataUrl ? (
-            <div className="rounded-lg border border-border bg-white p-3">
-              <img
-                src={report.signatureDataUrl}
-                alt={t('rapporte.detail.signatureAlt')}
-                loading="lazy"
-                decoding="async"
-                className="max-h-24 mx-auto"
-              />
-              <p className="text-[10px] text-success text-center mt-1 flex items-center justify-center gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                {t('rapporte.detail.signatureSigned')}
-              </p>
-            </div>
-          ) : showSignaturePad ? (
-            <div className="rounded-lg border border-border p-3 space-y-2">
-              <SignatureCanvas
-                onSave={(dataUrl) => {
-                  onUpdate(report.id, {
-                    signatureDataUrl: dataUrl,
-                    signatureStatus: 'signed',
-                  })
-                  setShowSignaturePad(false)
-                  toast.success(t('rapporte.detail.signatureSaved'))
-                }}
-                onCancel={() => setShowSignaturePad(false)}
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowSignaturePad(true)}
-              className="w-full rounded-lg border-2 border-dashed border-border p-4 flex items-center justify-center gap-2 text-muted-foreground hover:bg-secondary/50 hover:border-primary/30 transition-colors"
-            >
-              <Pencil className="h-4 w-4" />
-              <span className="text-xs font-medium">{t('rapporte.detail.signatureCapture')}</span>
-            </button>
-          )}
-        </section>
-
-        {/* Approval workflow (9.10) */}
-        <section>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-            <ShieldCheck className="h-3 w-3" />
-            {t('rapporte.detail.approvalTitle')}
-          </h4>
-          {report.approvalStatus === 'draft' && (
-            <button
-              onClick={() => {
-                onUpdate(report.id, { approvalStatus: 'submitted' })
-                toast.success(t('rapporte.detail.submitted'))
-              }}
-              className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary-light px-3 py-2.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {t('rapporte.detail.submitApproval')}
-            </button>
-          )}
-          {report.approvalStatus === 'submitted' && (
-            <div className="rounded-lg border border-info bg-info-light p-3 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-info shrink-0" />
-              <div>
-                <p className="text-xs font-medium text-info">{t('rapporte.detail.waitingApproval')}</p>
-                <p className="text-[10px] text-info/70 mt-0.5">{t('rapporte.detail.waitingDescription')}</p>
-              </div>
-            </div>
-          )}
-          {report.approvalStatus === 'approved' && (
-            <div className="rounded-lg border border-success bg-success-light p-3 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-              <div>
-                <p className="text-xs font-medium text-success">{t('rapporte.detail.approved')}</p>
-                {report.approvedBy && (
-                  <p className="text-[10px] text-success/70 mt-0.5">{t('rapporte.detail.approvedBy', { name: report.approvedBy })}</p>
-                )}
-              </div>
-            </div>
-          )}
-          {report.approvalStatus === 'rejected' && (
-            <div className="space-y-2">
-              <div className="rounded-lg border border-error bg-error-light p-3 flex items-start gap-2">
-                <XCircle className="h-4 w-4 text-error shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-medium text-error">{t('rapporte.detail.rejected')}</p>
-                  {report.approvalComment && (
-                    <p className="text-[10px] text-error/80 mt-0.5">{t('rapporte.detail.rejectedReason', { reason: report.approvalComment })}</p>
-                  )}
-                  {report.approvedBy && (
-                    <p className="text-[10px] text-error/60 mt-0.5">{t('rapporte.detail.rejectedBy', { name: report.approvedBy })}</p>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  onUpdate(report.id, { approvalStatus: 'submitted', approvalComment: undefined })
-                  toast.success(t('rapporte.detail.resubmitted'))
-                }}
-                className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-              >
-                <Send className="h-3.5 w-3.5" />
-                {t('rapporte.detail.resubmit')}
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Notes */}
-        {report.notes && (
-          <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              {t('rapporte.detail.notesTitle')}
-            </h4>
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-xs text-foreground leading-relaxed">{report.notes}</p>
-            </div>
-          </section>
-        )}
-      </div>
-    </DetailPanel>
   )
 }
 
@@ -1111,9 +778,10 @@ function NewReportDialog({
   const [projectId, setProjectId] = useState('')
   const [weather, setWeather] = useState<WeatherType>('sunny')
   const [temperature, setTemperature] = useState('10')
-  const [workStart, setWorkStart] = useState('07:00')
-  const [workEnd, setWorkEnd] = useState('17:00')
-  const [breakMin, setBreakMin] = useState('60')
+  // Personal default shift (settings panel) seeds new reports.
+  const [workStart, setWorkStart] = useState(() => useRapportePrefsStore.getState().defaultWorkStart)
+  const [workEnd, setWorkEnd] = useState(() => useRapportePrefsStore.getState().defaultWorkEnd)
+  const [breakMin, setBreakMin] = useState(() => String(useRapportePrefsStore.getState().defaultBreakMinutes))
   const [workers, setWorkers] = useState<ReportWorker[]>([
     { name: '', role: '', hours: 8 },
   ])
@@ -1171,13 +839,14 @@ function NewReportDialog({
   }
 
   const resetForm = () => {
+    const prefs = useRapportePrefsStore.getState()
     setDate(new Date().toISOString().split('T')[0])
     setProjectId('')
     setWeather('sunny')
     setTemperature('10')
-    setWorkStart('07:00')
-    setWorkEnd('17:00')
-    setBreakMin('60')
+    setWorkStart(prefs.defaultWorkStart)
+    setWorkEnd(prefs.defaultWorkEnd)
+    setBreakMin(String(prefs.defaultBreakMinutes))
     setWorkers([{ name: '', role: '', hours: 8 }])
     setActivities([{ description: '', category: '' }])
     setMaterials([{ article: '', quantity: 0, unit: 'Stk' }])
@@ -1578,7 +1247,6 @@ function NewReportDialog({
                     setSignatureDataUrl(dataUrl)
                     toast.success(t('rapporte.dialog.signatureCapturedToast'))
                   }}
-                  onCancel={() => {}}
                 />
               </div>
             )}
