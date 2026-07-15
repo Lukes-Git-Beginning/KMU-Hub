@@ -1,4 +1,20 @@
-# RESUME — nächster Einstieg (Stand 2026-07-15, Session #9)
+# RESUME — nächster Einstieg (Stand 2026-07-15, Session #10)
+
+> **★★★★★ SESSION #10 (2026-07-15) — main `aafe636a` (alles gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Branchen-Block gestartet — 2 von 7 Modulen komplett auf Standard (je Marktrecherche via Web-Agent + Screenshot-QA ALL PASS + Bilder angesehen + 1 Commit + Push):**
+> 1. **inventar PILOT** (`1d1fac6c`) — (a) Artikel-Detail `DetailPanel`→`shared/DetailModal` (eigene `ItemDetailModal.tsx`, Zeilen role=button+Tastatur), (b) **Lagerort-Karten klickbar** → `LocationDetailModal` (Kennzahlen + klickbare Artikel-Liste + Bestandsliste-CSV) mit **onBack-Kette** ins Artikel-Modal, (c) **„Neue Inventur" echt**: Hook/Client/stateful-MSW existierten ALLE schon (Button war nie verdrahtet!) → `NewInventurDialog` (Stichtag/Lagerort-Scope=Teilinventur/nur-mit-Bestand, myfactory-Muster) **+ fehlende Ist-Zählung nachgebaut**: editierbare Ist-Inputs, Lifecycle open→counting→review (Zoho-Muster), Zählliste-CSV je Session, (d) Settings-Panel (`inventarPrefs`: Standard-Tab/Dichte/Warnungen wirksam · `inventarTenant`: Standard-Einheit/Mindestbestand-Default/Barcode-Format/**Negativbestand-Sperre** — greift im BewegungDialog), (e) SortMenu + Artikel/Bewegungen-CSV; Bewegungen-Tab hat jetzt **eigenen Artikel-Selector** (hing vorher am offenen Slide-over = im Modal-Paradigma kaputt), (f) ArtikelDialog stale-state via Remount-key gefixt, Nachbestellen/Zur-Bestellung → navigate('/einkauf'). QA `scripts/qa-inventar-tiefe.mjs`, tsconfig `inventarcheck`.
+> 2. **vermietung** (`aafe636a`) — (a) Objekt-Detail → `ObjectDetailModal` + **neue `RentalDetailModal`**: Meta/Preis+Kaution (Kaution-erhalten via updateRental)/Notizen/**Zustandsprotokoll-Liste** (inspections-API) + **Lifecycle-Aktionen „Ausgeben"/„Zurücknehmen"** (`useStartRental`/`useEndRental` existierten ungenutzt!) + **Überfällig-Badge** (Booqable late-order), (b) Reservierungs-Zeilen + **belegte Kalender-Slots** öffnen das Rental-Modal (statt Info-Toast), Objekt-Modal→Rental mit Back-Kette, (c) **toten Konfliktcheck aktiviert** (`void hasConflict` in ReservationDialog!) inkl. tenant-`bufferDays` (Booqable-Puffer), Save-Block bei Konflikt, (d) Settings-Panel (`vermietungViewPrefs`: Standard-Tab/KPI-Leiste · `vermietungTenant`: Standardwährung/Vorbereitungszeit/Kautions-Pflicht — alle wirksam), (e) SortMenu + Objekt/Reservierungs-CSV, Dialog-Remount-keys, kaputtes totes `getExportUrl` in vermietung-client entfernt + 2 Baseline-Casts gefixt. ⚠ `stores/vermietungPrefs.ts` = DATEN-Store (objectPrefs/rentalPrefs-Mock-Zusatzfelder), NICHT der Settings-Store — deshalb heißt der neue `vermietungViewPrefs`. QA `scripts/qa-vermietung-tiefe.mjs`, tsconfig `vermietungcheck`.
+>
+> **★ MARKTRECHERCHE-ABLAGE:** je Modul ein Web-Research-Agent VOR dem Bauen (inventar: weclapp/Zoho/myfactory-Inventur-Workflows+Settings · vermietung: Rentman/Booqable/easyJob-Lifecycle+Puffer+Kaution). Ergebnisse flossen direkt in Feature-Auswahl ein (Ist-Zählung, Teilinventur, Negativbestand, Ausgeben/Zurücknehmen, Überfällig, bufferDays). Muster beibehalten für die restlichen 5.
+> **★ GATES wie Pilot-Spec:** scoped tsc grün für ALLE geänderten Dateien (Baseline-Fehler nur in unberührten Dateien) · eslint --quiet grün · i18n ×4 (ICU-Plural in en/fr/it wo Formen differieren) · Screenshot-QA ALL PASS + Bilder angesehen · PUSH-MODE pro Modul.
+> **★ VERBLEIBEN: Branchen ×5** — **rapporte** (klein: PDF-Export-Stub `RapportePage.tsx:800` → echter Download, Detail→Modal, Settings-Panel, SortMenu) → dann **schichten/fuhrpark/einkauf** (mittel) → **produktion** (groß, Statuswechsel-Endpoint mit Luke klären). Muster: `.planning/branchen-block/README.md` + die 2 fertigen Module als Referenz. **Frisches Terminal, erst `git pull`.**
+> **★ WEITER OFFEN:** 3 Bexio-Review-Punkte (#8, `.planning/bexio-review-paket.md`) · Onboarding/Info-Center O-0 (NACH Branchen).
+>
+> ---
+> _(Historie #9 folgt)_
+
+# RESUME — Historie (Stand 2026-07-15, Session #9)
 
 > **★★★★★ SESSION #9 (2026-07-15) — main `ec95077b` (alles gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >
