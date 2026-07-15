@@ -74,7 +74,7 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('settings.integrations.lexware.setup.title')}</DialogTitle>
           <DialogDescription>

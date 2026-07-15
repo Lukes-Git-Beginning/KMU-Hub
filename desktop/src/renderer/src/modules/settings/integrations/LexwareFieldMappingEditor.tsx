@@ -150,7 +150,7 @@ export function LexwareFieldMappingEditor({
       {/* Mapping table */}
       <div className="space-y-2">
         {/* Header */}
-        <div className="grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 text-xs text-muted-foreground px-1">
+        <div className="grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 text-xs text-muted-foreground px-1">
           <span>{t('settings.integrations.lexware.fieldMapping.colCosmi')}</span>
           <span className="w-[120px]">{t('settings.integrations.lexware.fieldMapping.colDirection')}</span>
           <span>Lexware</span>
@@ -161,7 +161,7 @@ export function LexwareFieldMappingEditor({
         {mappings.map((mapping, index) => (
           <div
             key={index}
-            className={`grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 items-center ${
+            className={`grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 items-center ${
               duplicateLexwareFields.includes(mapping.lexware_field) &&
               mapping.lexware_field
                 ? 'rounded-md ring-1 ring-destructive/50 p-1'
