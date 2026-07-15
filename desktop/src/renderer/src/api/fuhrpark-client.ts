@@ -30,6 +30,28 @@ import type {
 } from './fuhrpark-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
+// Re-export the wire types — useFuhrpark.ts and FuhrparkPage import them from
+// this module (they were only imported here before, which tsc rejects).
+export type {
+  Vehicle,
+  VehicleService,
+  VehicleDamage,
+  CreateVehicleInput,
+  UpdateVehicleInput,
+  ListVehiclesParams,
+  ScheduleServiceInput,
+  UpdateServiceInput,
+  CompleteServiceInput,
+  ListServicesParams,
+  ReportDamageInput,
+  UpdateDamageInput,
+  ResolveDamageInput,
+  ListDamagesParams,
+  ListVehicleHistoryParams,
+  CheckTuevDueParams,
+  ListUpcomingServicesParams,
+} from './fuhrpark-types'
+
 // ---------------------------------------------------------------------------
 // Request helper
 // ---------------------------------------------------------------------------
@@ -224,9 +246,9 @@ export function checkTuevDue(params?: CheckTuevDueParams) {
   })
 }
 
-export function getExportUrl(format: 'csv' = 'csv') {
-  return `${BASE}/export?format=${format}`
-}
+// NOTE: the former getExportUrl() helper was dead code referencing a missing
+// backend endpoint (and lacked API_BASE_URL) — exports are built client-side
+// in modules/fuhrpark/fuhrpark-export.ts.
 
 // ---------------------------------------------------------------------------
 // Fuel Logs

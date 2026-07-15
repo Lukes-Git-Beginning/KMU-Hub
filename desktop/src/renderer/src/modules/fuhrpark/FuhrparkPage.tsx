@@ -21,10 +21,12 @@ import {
   CircleDollarSign,
   Camera,
   Truck,
+  FileDown,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
+import { DetailModal, EmptyState, PageHeader, SortMenu, type SortDirection } from '@/components/shared'
 import { formatAmount, formatDate, formatTime } from '@/lib/format'
 import type { Vehicle, MaintenanceRecord, FuelRecord, LogbookEntry, VehicleDocument, DamageReport, VehicleRoute } from '@/stores/fuhrpark'
 import {
@@ -43,6 +45,16 @@ import {
 } from '@/api/hooks/useFuhrpark'
 import type { Vehicle as ApiVehicle, VehicleService, VehicleDamage, FuelLog, TripLog } from '@/api/fuhrpark-client'
 import SchadensmeldungDialog from './SchadensmeldungDialog'
+import { useFuhrparkPrefsStore } from '@/stores/fuhrparkPrefs'
+import { useFuhrparkTenantStore } from '@/stores/fuhrparkTenant'
+import { MaintenanceDetailModal, FuelDetailModal, TripDetailModal } from './FuhrparkDetailModals'
+import {
+  buildLogbookCsv,
+  buildLogbookPdf,
+  buildVehiclesCsv,
+  csvDateStamp,
+  downloadBlob,
+} from './fuhrpark-export'
 
 // ---------------------------------------------------------------------------
 // API → Store type adapters (keep UI types stable, map API snake_case fields)
@@ -147,7 +159,7 @@ function adaptDamage(d: VehicleDamage): DamageReport {
 // ---------------------------------------------------------------------------
 
 type TabKey = 'fahrzeuge' | 'wartung' | 'tankprotokoll' | 'tracking' | 'fahrtenbuch'
-type DialogKey = 'addVehicle' | 'addMaintenance' | 'addFuel' | 'addDamage' | null
+type DialogKey = 'addVehicle' | 'addMaintenance' | 'addFuel' | 'addDamage' | 'addTrip' | null
 
 const vehicleTypeLabels: Record<string, string> = {
   car: 'fuhrpark.vehicleType.car',
@@ -217,12 +229,14 @@ const damageStatusColors: Record<string, string> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getDateStatus(dateStr: string): 'overdue' | 'soon' | 'ok' {
+// Lead days come from the tenant settings (default 30) — market standard
+// (Vimcar/Fleetster) makes the reminder window company-configurable.
+function getDateStatus(dateStr: string, leadDays = 30): 'overdue' | 'soon' | 'ok' {
   const date = new Date(dateStr)
   const now = new Date()
   const diffDays = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays < 0) return 'overdue'
-  if (diffDays <= 30) return 'soon'
+  if (diffDays <= leadDays) return 'soon'
   return 'ok'
 }
 
@@ -243,6 +257,12 @@ function statusTextColor(status: 'overdue' | 'soon' | 'ok'): string {
 
 function formatKm(val: number): string {
   return val.toLocaleString('de-DE')
+}
+
+// '2099-01-01' is the adapter placeholder for dates the API does not carry yet
+// (insuranceExpiry, missing tuev_due_date) — render a dash instead of a fake date.
+function formatDueDate(dateStr: string): string {
+  return dateStr.startsWith('2099') ? '—' : formatDate(dateStr)
 }
 
 function generateId(prefix: string): string {
@@ -753,6 +773,234 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
 }
 
 // ---------------------------------------------------------------------------
+// Dialog: Fahrt eintragen (Fahrtenbuch) — wires the previously unused
+// createTripLog mutation; fields follow the finanzamts-konform market layout
+// (Vimcar/Fleetster): route, km readings, category, purpose, driver.
+// ---------------------------------------------------------------------------
+
+interface AddTripDialogProps {
+  vehicles: Vehicle[]
+  defaultCategory: 'business' | 'private'
+  privateTripsEnabled: boolean
+  onClose: () => void
+  onSave: (trip: {
+    vehicleId: string
+    date: string
+    startLocation: string
+    endLocation: string
+    purpose: string
+    startKm: number
+    endKm: number
+    isPrivate: boolean
+    driver: string
+  }) => void
+}
+
+function AddTripDialog({ vehicles, defaultCategory, privateTripsEnabled, onClose, onSave }: AddTripDialogProps) {
+  const { t } = useTranslation()
+  const [vehicleId, setVehicleId] = useState(vehicles[0]?.id || '')
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [startLocation, setStartLocation] = useState('')
+  const [endLocation, setEndLocation] = useState('')
+  const [purpose, setPurpose] = useState('')
+  const [startKm, setStartKm] = useState(0)
+  const [endKm, setEndKm] = useState(0)
+  const [isPrivate, setIsPrivate] = useState(privateTripsEnabled && defaultCategory === 'private')
+  const [driver, setDriver] = useState('')
+
+  const km = Math.max(0, endKm - startKm)
+  // Finanzamt: purpose is mandatory for business trips, end km must exceed start km
+  const canSave =
+    !!vehicleId && startLocation.trim() && endLocation.trim() && endKm > startKm && (isPrivate || purpose.trim())
+
+  const handleSave = () => {
+    if (!canSave) return
+    onSave({
+      vehicleId,
+      date,
+      startLocation: startLocation.trim(),
+      endLocation: endLocation.trim(),
+      purpose: purpose.trim(),
+      startKm,
+      endKm,
+      isPrivate,
+      driver: driver.trim(),
+    })
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-lg glass-elevated">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="text-base font-semibold text-foreground">{t('fuhrpark.addTrip.title')}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 px-6 pt-5">
+          {/* Row: Fahrzeug + Datum */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.vehicle')}</label>
+              <select
+                value={vehicleId}
+                onChange={(e) => setVehicleId(e.target.value)}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              >
+                {vehicles.filter((v) => v.isActive).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.licensePlate} - {v.make} {v.model}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.date')}</label>
+              <input
+                type="date"
+                value={date}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+          </div>
+
+          {/* Row: Start + Ziel */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.start')}</label>
+              <input
+                type="text"
+                value={startLocation}
+                onChange={(e) => setStartLocation(e.target.value)}
+                placeholder={t('fuhrpark.addTrip.startPlaceholder')}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.end')}</label>
+              <input
+                type="text"
+                value={endLocation}
+                onChange={(e) => setEndLocation(e.target.value)}
+                placeholder={t('fuhrpark.addTrip.endPlaceholder')}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+          </div>
+
+          {/* Row: km-Stände + berechnete km */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.startKm')}</label>
+              <input
+                type="number"
+                value={startKm}
+                onChange={(e) => setStartKm(Number(e.target.value))}
+                min={0}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.endKm')}</label>
+              <input
+                type="number"
+                value={endKm}
+                onChange={(e) => setEndKm(Number(e.target.value))}
+                min={0}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.km')}</label>
+              <div className="rounded-lg border border-border-muted bg-secondary/40 px-3 py-2 text-sm text-foreground tabular-nums">
+                {km.toLocaleString('de-DE')} km
+              </div>
+            </div>
+          </div>
+          {endKm > 0 && endKm <= startKm && (
+            <p className="text-xs text-error">{t('fuhrpark.addTrip.kmError')}</p>
+          )}
+
+          {/* Kategorie */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.category')}</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsPrivate(false)}
+                className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                  !isPrivate
+                    ? 'border-primary bg-primary/10 text-primary font-medium'
+                    : 'border-border text-muted-foreground hover:bg-secondary'
+                }`}
+              >
+                {t('fuhrpark.logbook.business')}
+              </button>
+              {privateTripsEnabled && (
+                <button
+                  onClick={() => setIsPrivate(true)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                    isPrivate
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-border text-muted-foreground hover:bg-secondary'
+                  }`}
+                >
+                  {t('fuhrpark.logbook.private')}
+                </button>
+              )}
+            </div>
+            {!privateTripsEnabled && (
+              <p className="text-xs text-muted-foreground">{t('fuhrpark.addTrip.privateDisabledHint')}</p>
+            )}
+          </div>
+
+          {/* Zweck (Pflicht bei Geschäftsfahrt) */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              {isPrivate ? t('fuhrpark.addTrip.purposeOptional') : t('fuhrpark.addTrip.purpose')}
+            </label>
+            <input
+              type="text"
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              placeholder={t('fuhrpark.addTrip.purposePlaceholder')}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+          </div>
+
+          {/* Fahrer */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addTrip.driver')}</label>
+            <input
+              type="text"
+              value={driver}
+              onChange={(e) => setDriver(e.target.value)}
+              placeholder={t('fuhrpark.addTrip.driverPlaceholder')}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!canSave}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {t('common.save')}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Vehicle Detail Panel Content
 // ---------------------------------------------------------------------------
 
@@ -763,6 +1011,8 @@ interface VehicleDetailContentProps {
   logbookEntries: LogbookEntry[]
   vehicleDocuments: VehicleDocument[]
   damageReports: DamageReport[]
+  currency: string
+  reminderLeadDays: number
   onAddMaintenance: () => void
   onAddFuel: () => void
   onAddDamage: () => void
@@ -775,13 +1025,15 @@ function VehicleDetailContent({
   logbookEntries,
   vehicleDocuments,
   damageReports,
+  currency,
+  reminderLeadDays,
   onAddMaintenance,
   onAddFuel,
   onAddDamage,
 }: VehicleDetailContentProps) {
   const { t } = useTranslation()
-  const inspectionStatus = getDateStatus(vehicle.nextInspection)
-  const insuranceStatus = getDateStatus(vehicle.insuranceExpiry)
+  const inspectionStatus = getDateStatus(vehicle.nextInspection, reminderLeadDays)
+  const insuranceStatus = getDateStatus(vehicle.insuranceExpiry, reminderLeadDays)
 
   const vehicleMaintenance = maintenanceRecords
     .filter((r) => r.vehicleId === vehicle.id)
@@ -851,7 +1103,7 @@ function VehicleDetailContent({
           <p className="text-xs text-muted-foreground">{t('fuhrpark.detail.modelYear', { year: vehicle.year })}</p>
         </div>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${vehicleTypeColors[vehicle.type] ?? 'bg-secondary text-muted-foreground'}`}>
-          {vehicleTypeLabels[vehicle.type] ?? vehicle.type}
+          {vehicleTypeLabels[vehicle.type] ? t(vehicleTypeLabels[vehicle.type]) : vehicle.type}
         </span>
       </div>
 
@@ -886,14 +1138,14 @@ function VehicleDetailContent({
           {tcoCats.map((cat) => (
             <div key={cat.label} className="rounded-md border border-border-muted bg-secondary/30 px-3 py-2">
               <p className="text-[10px] text-muted-foreground">{cat.label}</p>
-              <p className="text-xs font-semibold text-foreground">EUR {formatAmount(cat.value)}</p>
+              <p className="text-xs font-semibold text-foreground">{currency} {formatAmount(cat.value)}</p>
             </div>
           ))}
         </div>
         <div className="rounded-md bg-secondary/50 px-3 py-2">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] text-muted-foreground">{t('fuhrpark.detail.costDistribution')}</span>
-            <span className="text-xs font-semibold text-foreground">EUR {formatAmount(tcoTotal)}</span>
+            <span className="text-xs font-semibold text-foreground">{currency} {formatAmount(tcoTotal)}</span>
           </div>
           <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
             {tcoCats.map((cat) => {
@@ -930,7 +1182,7 @@ function VehicleDetailContent({
             </div>
             <span className={`text-xs ${statusTextColor(inspectionStatus)}`}>
               {inspectionStatus === 'overdue' && <AlertTriangle className="inline h-3 w-3 mr-1" />}
-              {formatDate(vehicle.nextInspection)}
+              {formatDueDate(vehicle.nextInspection)}
             </span>
           </div>
           <div className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
@@ -940,7 +1192,7 @@ function VehicleDetailContent({
             </div>
             <span className={`text-xs ${statusTextColor(insuranceStatus)}`}>
               {insuranceStatus === 'overdue' && <AlertTriangle className="inline h-3 w-3 mr-1" />}
-              {formatDate(vehicle.insuranceExpiry)}
+              {formatDueDate(vehicle.insuranceExpiry)}
             </span>
           </div>
         </div>
@@ -964,7 +1216,7 @@ function VehicleDetailContent({
                   <span className="text-xs text-muted-foreground truncate">{r.notes || '—'}</span>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className="text-xs font-medium text-foreground">CHF {formatAmount(r.cost)}</p>
+                  <p className="text-xs font-medium text-foreground">{currency} {formatAmount(r.cost)}</p>
                   <p className="text-[10px] text-muted-foreground">{formatDate(r.date)}</p>
                 </div>
               </div>
@@ -989,7 +1241,7 @@ function VehicleDetailContent({
                   <span className="text-xs text-muted-foreground">{r.liters.toLocaleString('de-DE', { minimumFractionDigits: 1 })} L</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-foreground">CHF {formatAmount(r.cost)}</p>
+                  <p className="text-xs font-medium text-foreground">{currency} {formatAmount(r.cost)}</p>
                   <p className="text-[10px] text-muted-foreground">{formatDate(r.date)}</p>
                 </div>
               </div>
@@ -1039,7 +1291,7 @@ function VehicleDetailContent({
         ) : (
           <div className="space-y-1.5">
             {vehicleDocs.map((doc) => {
-              const expiryStatus = doc.expiryDate ? getDateStatus(doc.expiryDate) : null
+              const expiryStatus = doc.expiryDate ? getDateStatus(doc.expiryDate, reminderLeadDays) : null
               return (
                 <div key={doc.id} className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -1142,6 +1394,15 @@ function VehicleDetailContent({
 export default function FuhrparkPage() {
   const { t } = useTranslation()
 
+  // ── Module settings (personal prefs + tenant policy) ──
+  const defaultTab = useFuhrparkPrefsStore((s) => s.defaultTab)
+  const showTireReminder = useFuhrparkPrefsStore((s) => s.showTireReminder)
+  const defaultTripCategory = useFuhrparkPrefsStore((s) => s.defaultTripCategory)
+  const reminderLeadDays = useFuhrparkTenantStore((s) => s.reminderLeadDays)
+  const currency = useFuhrparkTenantStore((s) => s.currency)
+  const defaultFuelType = useFuhrparkTenantStore((s) => s.defaultFuelType)
+  const privateTripsEnabled = useFuhrparkTenantStore((s) => s.privateTripsEnabled)
+
   // ---------------------------------------------------------------------------
   // Selected vehicle state (needed before hook calls so useVehicleDocuments can use it)
   // ---------------------------------------------------------------------------
@@ -1203,9 +1464,9 @@ export default function FuhrparkPage() {
   const scheduleServiceMutation = useScheduleService()
   const createFuelLogMutation = useCreateFuelLog()
   const reportDamageMutation = useReportDamage()
-  useCreateTripLog() // mutation prepared; AddTripDialog not yet implemented
+  const createTripLogMutation = useCreateTripLog()
 
-  const [tab, setTab] = useState<TabKey>('fahrzeuge')
+  const [tab, setTab] = useState<TabKey>(defaultTab)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'car' | 'van' | 'truck'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -1213,10 +1474,28 @@ export default function FuhrparkPage() {
   const [dialogPreselectedVehicleId, setDialogPreselectedVehicleId] = useState<string | undefined>()
   const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null)
   const [trackingRefreshing, setTrackingRefreshing] = useState(false)
+  // Row-level detail modals (Wartung / Tanken / Fahrtenbuch)
+  const [maintenanceDetail, setMaintenanceDetail] = useState<MaintenanceRecord | null>(null)
+  const [fuelDetail, setFuelDetail] = useState<FuelRecord | null>(null)
+  const [tripDetail, setTripDetail] = useState<LogbookEntry | null>(null)
+  // Vehicle list sorting (field + direction, shared SortMenu)
+  const [sortField, setSortField] = useState('plate')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
-  // Filtered vehicles with search + type + status filters
+  // License plate lookup — the list adapters only carry vehicle_id as the
+  // plate placeholder, so tables/modals/exports resolve the real plate here.
+  const plateByVehicleId = useMemo(
+    () => new Map(vehicles.map((v) => [v.id, v.licensePlate])),
+    [vehicles],
+  )
+  const plateFor = useCallback(
+    (vehicleId: string, fallback: string) => plateByVehicleId.get(vehicleId) ?? fallback,
+    [plateByVehicleId],
+  )
+
+  // Filtered vehicles with search + type + status filters, sorted via SortMenu
   const filteredVehicles = useMemo(() => {
-    return vehicles.filter((v) => {
+    const filtered = vehicles.filter((v) => {
       // Type filter
       if (typeFilter !== 'all' && v.type !== typeFilter) return false
       // Status filter
@@ -1232,7 +1511,14 @@ export default function FuhrparkPage() {
         v.currentDriver.toLowerCase().includes(q)
       )
     })
-  }, [vehicles, search, typeFilter, statusFilter])
+    const dir = sortDirection === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      if (sortField === 'make') return dir * `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`, 'de')
+      if (sortField === 'mileage') return dir * (a.mileage - b.mileage)
+      if (sortField === 'inspection') return dir * a.nextInspection.localeCompare(b.nextInspection)
+      return dir * a.licensePlate.localeCompare(b.licensePlate, 'de')
+    })
+  }, [vehicles, search, typeFilter, statusFilter, sortField, sortDirection])
 
   // Filtered maintenance with search
   const filteredMaintenance = useMemo(() => {
@@ -1303,11 +1589,11 @@ export default function FuhrparkPage() {
     [fuelRecords, currentMonth, currentYear]
   )
 
-  // Counts for tab badges
+  // Counts for tab badges (reminder window from tenant settings)
   const activeVehicleCount = vehicles.filter((v) => v.isActive).length
   const urgentCount = vehicles.filter((v) => {
-    const i = getDateStatus(v.nextInspection)
-    const ins = getDateStatus(v.insuranceExpiry)
+    const i = getDateStatus(v.nextInspection, reminderLeadDays)
+    const ins = getDateStatus(v.insuranceExpiry, reminderLeadDays)
     return i === 'overdue' || i === 'soon' || ins === 'overdue' || ins === 'soon'
   }).length
 
@@ -1349,7 +1635,7 @@ export default function FuhrparkPage() {
           make: vehicle.make,
           model: vehicle.model,
           year: vehicle.year,
-          fuel_type: 'diesel',
+          fuel_type: defaultFuelType,
           mileage_km: vehicle.mileage,
           tuev_due_date: vehicle.nextInspection !== '2099-01-01' ? vehicle.nextInspection : undefined,
         },
@@ -1361,7 +1647,7 @@ export default function FuhrparkPage() {
         }
       )
     },
-    [createVehicleMutation, t]
+    [createVehicleMutation, defaultFuelType, t]
   )
 
   const handleSaveMaintenance = useCallback(
@@ -1397,7 +1683,7 @@ export default function FuhrparkPage() {
             liters: record.liters,
             cost_cents: Math.round(record.cost * 100),
             mileage_km: record.mileage,
-            fuel_type: 'diesel',
+            fuel_type: defaultFuelType,
           },
         },
         {
@@ -1408,8 +1694,89 @@ export default function FuhrparkPage() {
         }
       )
     },
-    [createFuelLogMutation, t]
+    [createFuelLogMutation, defaultFuelType, t]
   )
+
+  // Save a manual trip-log entry (wires the previously unused createTripLog)
+  const handleSaveTrip = useCallback(
+    (trip: {
+      vehicleId: string
+      date: string
+      startLocation: string
+      endLocation: string
+      purpose: string
+      startKm: number
+      endKm: number
+      isPrivate: boolean
+      driver: string
+    }) => {
+      createTripLogMutation.mutate(
+        {
+          vehicleId: trip.vehicleId,
+          data: {
+            vehicle_id: trip.vehicleId,
+            date: trip.date,
+            start_location: trip.startLocation,
+            end_location: trip.endLocation,
+            purpose: trip.purpose,
+            start_km: trip.startKm,
+            end_km: trip.endKm,
+            is_private: trip.isPrivate,
+            driver_name: trip.driver,
+          },
+        },
+        {
+          onSuccess: () => {
+            setDialog(null)
+            toast.success(t('fuhrpark.toast.tripAdded', { km: trip.endKm - trip.startKm }))
+          },
+        }
+      )
+    },
+    [createTripLogMutation, t]
+  )
+
+  // Exports — real downloads (the old getExportUrl pointed at a dead endpoint)
+  const handleVehiclesCsvExport = useCallback(() => {
+    const typeLabels: Record<string, string> = {
+      car: t('fuhrpark.vehicleType.car'),
+      van: t('fuhrpark.vehicleType.van'),
+      truck: t('fuhrpark.vehicleType.truck'),
+    }
+    const csv = buildVehiclesCsv(filteredVehicles, typeLabels)
+    downloadBlob(
+      new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }),
+      `fahrzeuge-${csvDateStamp()}.csv`,
+    )
+    toast.success(t('fuhrpark.export.vehiclesCsvToast', { count: filteredVehicles.length }))
+  }, [filteredVehicles, t])
+
+  const handleLogbookCsvExport = useCallback(() => {
+    const csv = buildLogbookCsv(filteredLogbook, plateByVehicleId, {
+      business: t('fuhrpark.logbook.business'),
+      privateTrip: t('fuhrpark.logbook.private'),
+    })
+    downloadBlob(
+      new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }),
+      `fahrtenbuch-${csvDateStamp()}.csv`,
+    )
+    toast.success(t('fuhrpark.export.logbookCsvToast', { count: filteredLogbook.length }))
+  }, [filteredLogbook, plateByVehicleId, t])
+
+  const handleLogbookPdfExport = useCallback(() => {
+    const blob = buildLogbookPdf(filteredLogbook, plateByVehicleId, {
+      title: t('fuhrpark.export.logbookPdfTitle'),
+      period: t('fuhrpark.export.period'),
+      businessKm: t('fuhrpark.logbook.businessKm'),
+      privateKm: t('fuhrpark.logbook.privateKm'),
+      totalKm: t('fuhrpark.export.totalKm'),
+      business: t('fuhrpark.logbook.business'),
+      privateTrip: t('fuhrpark.logbook.private'),
+      noEntries: t('fuhrpark.empty.noLogbook.title'),
+    })
+    downloadBlob(blob, `fahrtenbuch-${csvDateStamp()}.pdf`)
+    toast.success(t('fuhrpark.export.logbookPdfToast'))
+  }, [filteredLogbook, plateByVehicleId, t])
 
   // Tracking stats
   const trackingDrivingCount = vehicleRoutes.filter((r) => r.status === 'driving').length
@@ -1478,14 +1845,39 @@ export default function FuhrparkPage() {
                 {t('fuhrpark.action.addFuel')}
               </button>
             )}
-            {tab === 'fahrtenbuch' && (
+            {tab === 'fahrzeuge' && (
               <button
-                onClick={() => toast.info(t('fuhrpark.toast.tripComingSoon'))}
+                onClick={handleVehiclesCsvExport}
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                <BookOpen className="h-4 w-4" />
-                {t('fuhrpark.action.addTrip')}
+                <FileSpreadsheet className="h-4 w-4" />
+                {t('fuhrpark.action.exportVehicles')}
               </button>
+            )}
+            {tab === 'fahrtenbuch' && (
+              <>
+                <button
+                  onClick={handleLogbookCsvExport}
+                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  {t('fuhrpark.action.exportCsv')}
+                </button>
+                <button
+                  onClick={handleLogbookPdfExport}
+                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <FileDown className="h-4 w-4" />
+                  {t('fuhrpark.action.exportPdf')}
+                </button>
+                <button
+                  onClick={() => setDialog('addTrip')}
+                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  {t('fuhrpark.action.addTrip')}
+                </button>
+              </>
             )}
             {tab === 'tracking' && (
               <button
@@ -1569,6 +1961,18 @@ export default function FuhrparkPage() {
               <option value="active">{t('fuhrpark.filter.active')}</option>
               <option value="inactive">{t('fuhrpark.filter.inactive')}</option>
             </select>
+
+            <SortMenu
+              options={[
+                { value: 'plate', label: t('fuhrpark.sort.plate') },
+                { value: 'make', label: t('fuhrpark.sort.make') },
+                { value: 'mileage', label: t('fuhrpark.sort.mileage') },
+                { value: 'inspection', label: t('fuhrpark.sort.inspection') },
+              ]}
+              field={sortField}
+              direction={sortDirection}
+              onChange={(f, d) => { setSortField(f); setSortDirection(d) }}
+            />
           </>
         )}
       </div>
@@ -1586,16 +1990,18 @@ export default function FuhrparkPage() {
           )}
           {!vehiclesLoading && !vehiclesError && (
           <>
-          {/* Wave 9: Reifenwechsel-Erinnerung Banner */}
-          <div className="mb-4 flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-light px-4 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20">
-              <RefreshCw className="h-4 w-4 text-warning" />
+          {/* Wave 9: Reifenwechsel-Erinnerung Banner (toggleable via personal prefs) */}
+          {showTireReminder && (
+            <div className="mb-4 flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-light px-4 py-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20">
+                <RefreshCw className="h-4 w-4 text-warning" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">{t('fuhrpark.tireReminder.title')}</p>
+                <p className="text-xs text-muted-foreground">{t('fuhrpark.tireReminder.description', { count: vehicles.filter((v) => v.isActive).length })}</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">{t('fuhrpark.tireReminder.title')}</p>
-              <p className="text-xs text-muted-foreground">{t('fuhrpark.tireReminder.description', { count: vehicles.filter((v) => v.isActive).length })}</p>
-            </div>
-          </div>
+          )}
 
           {filteredVehicles.length === 0 ? (
             <EmptyState
@@ -1609,8 +2015,8 @@ export default function FuhrparkPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredVehicles.map((vehicle) => {
-                const inspectionStatus = getDateStatus(vehicle.nextInspection)
-                const insuranceStatus = getDateStatus(vehicle.insuranceExpiry)
+                const inspectionStatus = getDateStatus(vehicle.nextInspection, reminderLeadDays)
+                const insuranceStatus = getDateStatus(vehicle.insuranceExpiry, reminderLeadDays)
 
                 return (
                   <button
@@ -1655,13 +2061,13 @@ export default function FuhrparkPage() {
                       <div className="flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${statusDotColor(inspectionStatus)}`} />
                         <span className={`text-[11px] ${statusTextColor(inspectionStatus) || 'text-muted-foreground'}`}>
-                          {t('fuhrpark.vehicle.inspection')} {formatDate(vehicle.nextInspection)}
+                          {t('fuhrpark.vehicle.inspection')} {formatDueDate(vehicle.nextInspection)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${statusDotColor(insuranceStatus)}`} />
                         <span className={`text-[11px] ${statusTextColor(insuranceStatus) || 'text-muted-foreground'}`}>
-                          {t('fuhrpark.vehicle.insurance')} {formatDate(vehicle.insuranceExpiry)}
+                          {t('fuhrpark.vehicle.insurance')} {formatDueDate(vehicle.insuranceExpiry)}
                         </span>
                       </div>
                     </div>
@@ -1700,7 +2106,7 @@ export default function FuhrparkPage() {
                     </span>
                   </div>
                   <p className="text-lg font-semibold text-foreground">{count}</p>
-                  <p className="text-[11px] text-muted-foreground">CHF {formatAmount(totalCost)}</p>
+                  <p className="text-[11px] text-muted-foreground">{currency} {formatAmount(totalCost)}</p>
                 </div>
               )
             })}
@@ -1725,7 +2131,7 @@ export default function FuhrparkPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.vehicle')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.type')}</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.mileage')}</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.costChf')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.cost', { currency })}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.notes')}</th>
                     </tr>
                   </thead>
@@ -1733,13 +2139,18 @@ export default function FuhrparkPage() {
                     {filteredMaintenance.map((record) => (
                       <tr
                         key={record.id}
-                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${plateFor(record.vehicleId, record.vehiclePlate)} — ${formatDate(record.date)}`}
+                        onClick={() => setMaintenanceDetail(record)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMaintenanceDetail(record) } }}
+                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-secondary/50"
                       >
                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDate(record.date)}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs font-medium text-foreground whitespace-nowrap">
-                          {record.vehiclePlate}
+                          {plateFor(record.vehicleId, record.vehiclePlate)}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${maintenanceTypeColors[record.type] ?? 'bg-secondary text-muted-foreground'}`}>
@@ -1786,7 +2197,7 @@ export default function FuhrparkPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('fuhrpark.fuel.costThisMonth')}</p>
-                  <p className="text-xl font-semibold text-foreground">CHF {formatAmount(monthlyFuelCost)}</p>
+                  <p className="text-xl font-semibold text-foreground">{currency} {formatAmount(monthlyFuelCost)}</p>
                 </div>
               </div>
             </div>
@@ -1840,8 +2251,8 @@ export default function FuhrparkPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.date')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.vehicle')}</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.liters')}</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.costChf')}</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.chfPerLiter')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.cost', { currency })}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.pricePerLiter', { currency })}</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.mileage')}</th>
                     </tr>
                   </thead>
@@ -1849,13 +2260,18 @@ export default function FuhrparkPage() {
                     {filteredFuel.map((record) => (
                       <tr
                         key={record.id}
-                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${plateFor(record.vehicleId, record.vehiclePlate)} — ${formatDate(record.date)}`}
+                        onClick={() => setFuelDetail(record)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFuelDetail(record) } }}
+                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-secondary/50"
                       >
                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDate(record.date)}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs font-medium text-foreground whitespace-nowrap">
-                          {record.vehiclePlate}
+                          {plateFor(record.vehicleId, record.vehiclePlate)}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground text-right tabular-nums">
                           {record.liters.toLocaleString('de-DE', { minimumFractionDigits: 1 })}
@@ -1955,13 +2371,18 @@ export default function FuhrparkPage() {
                     {filteredLogbook.map((entry) => (
                       <tr
                         key={entry.id}
-                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${entry.startLocation} → ${entry.endLocation}, ${formatDate(entry.date)}`}
+                        onClick={() => setTripDetail(entry)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTripDetail(entry) } }}
+                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-secondary/50"
                       >
                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDate(entry.date)}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs font-medium text-foreground whitespace-nowrap">
-                          {entry.vehiclePlate}
+                          {plateFor(entry.vehicleId, entry.vehiclePlate)}
                         </td>
                         <td className="px-4 py-3 text-xs text-foreground max-w-[240px]">
                           <span className="truncate block">{entry.startLocation} → {entry.endLocation}</span>
@@ -2210,21 +2631,20 @@ export default function FuhrparkPage() {
       )}
 
       {/* ================================================================= */}
-      {/* Detail Panel (vehicle)                                             */}
+      {/* Detail Modal (vehicle) — Cosmi window standard (was a slide-over)  */}
       {/* ================================================================= */}
-      <DetailPanel
+      <DetailModal
         open={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         title={t('fuhrpark.detail.title')}
         subtitle={selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : undefined}
         badge={
           selectedVehicle ? (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${vehicleTypeColors[selectedVehicle.type] ?? 'bg-secondary text-muted-foreground'}`}>
+            <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${vehicleTypeColors[selectedVehicle.type] ?? 'bg-secondary text-muted-foreground'}`}>
               {vehicleTypeLabels[selectedVehicle.type] ? t(vehicleTypeLabels[selectedVehicle.type]) : selectedVehicle.type}
             </span>
           ) : undefined
         }
-        width="w-[400px]"
       >
         {selectedVehicle && (
           <VehicleDetailContent
@@ -2234,12 +2654,41 @@ export default function FuhrparkPage() {
             logbookEntries={logbookEntries}
             vehicleDocuments={vehicleDocuments}
             damageReports={damageReports}
+            currency={currency}
+            reminderLeadDays={reminderLeadDays}
             onAddMaintenance={() => openAddMaintenanceFromPanel(selectedVehicle.id)}
             onAddFuel={() => openAddFuelFromPanel(selectedVehicle.id)}
             onAddDamage={() => openAddDamageFromPanel(selectedVehicle.id)}
           />
         )}
-      </DetailPanel>
+      </DetailModal>
+
+      {/* Row-level detail modals (Wartung / Tanken / Fahrtenbuch) */}
+      <MaintenanceDetailModal
+        record={maintenanceDetail}
+        onClose={() => setMaintenanceDetail(null)}
+        plate={maintenanceDetail ? plateFor(maintenanceDetail.vehicleId, maintenanceDetail.vehiclePlate) : ''}
+        typeLabel={
+          maintenanceDetail && maintenanceTypeLabels[maintenanceDetail.type]
+            ? t(maintenanceTypeLabels[maintenanceDetail.type])
+            : (maintenanceDetail?.type ?? '')
+        }
+        typeColor={maintenanceDetail ? (maintenanceTypeColors[maintenanceDetail.type] ?? 'bg-secondary text-muted-foreground') : ''}
+        currency={currency}
+      />
+      <FuelDetailModal
+        record={fuelDetail}
+        onClose={() => setFuelDetail(null)}
+        plate={fuelDetail ? plateFor(fuelDetail.vehicleId, fuelDetail.vehiclePlate) : ''}
+        currency={currency}
+      />
+      <TripDetailModal
+        entry={tripDetail}
+        onClose={() => setTripDetail(null)}
+        plate={tripDetail ? plateFor(tripDetail.vehicleId, tripDetail.vehiclePlate) : ''}
+        businessLabel={t('fuhrpark.logbook.business')}
+        privateLabel={t('fuhrpark.logbook.private')}
+      />
 
       {/* ================================================================= */}
       {/* Dialogs                                                            */}
@@ -2264,6 +2713,15 @@ export default function FuhrparkPage() {
           preselectedVehicleId={dialogPreselectedVehicleId}
           onClose={() => setDialog(null)}
           onSave={handleSaveFuel}
+        />
+      )}
+      {dialog === 'addTrip' && (
+        <AddTripDialog
+          vehicles={vehicles}
+          defaultCategory={defaultTripCategory}
+          privateTripsEnabled={privateTripsEnabled}
+          onClose={() => setDialog(null)}
+          onSave={handleSaveTrip}
         />
       )}
       {dialog === 'addDamage' && (

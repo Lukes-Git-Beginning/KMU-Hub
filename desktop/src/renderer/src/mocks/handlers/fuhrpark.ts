@@ -16,11 +16,15 @@ const MOCK_VEHICLES_API = [
   { id: 'v-6', tenant_id: 't-1', license_plate: 'M-KL 2345', make: 'Ford', model: 'Transit', year: 2020, fuel_type: 'diesel', status: 'active', assigned_driver_id: null, mileage_km: 98000, tuev_due_date: '2025-04-12', created_at: '2023-01-01T00:00:00Z', updated_at: '2024-01-08T00:00:00Z' },
 ]
 
+// Wire-Shape wie fuhrpark-types.ts VehicleService: scheduled_at + service_type-Enums
+// (der alte Seed nutzte scheduled_date + deutschen Freitext → Datum "—", alles als "Service" gemappt).
 const MOCK_SERVICES_API = [
-  { id: 's-1', tenant_id: 't-1', vehicle_id: 'v-1', service_type: 'Ölwechsel', scheduled_date: '2024-02-15', status: 'scheduled', mileage_km: 130000, cost_cents: 18000, notes: '', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 's-2', tenant_id: 't-1', vehicle_id: 'v-2', service_type: 'TÜV-Hauptuntersuchung', scheduled_date: '2024-03-10', status: 'scheduled', mileage_km: 90000, cost_cents: 12000, notes: '', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 's-3', tenant_id: 't-1', vehicle_id: 'v-1', service_type: 'Inspektion', scheduled_date: '2023-12-01', status: 'completed', mileage_km: 120000, cost_cents: 45000, notes: 'Alles OK', created_at: '2023-11-01T00:00:00Z', updated_at: '2023-12-01T00:00:00Z' },
-  { id: 's-4', tenant_id: 't-1', vehicle_id: 'v-5', service_type: 'TÜV-Hauptuntersuchung', scheduled_date: '2024-02-28', status: 'scheduled', mileage_km: 158000, cost_cents: 12000, notes: '', created_at: '2024-01-10T00:00:00Z', updated_at: '2024-01-10T00:00:00Z' },
+  { id: 's-1', tenant_id: 't-1', vehicle_id: 'v-1', service_type: 'oil_change', scheduled_at: '2024-02-15', status: 'scheduled', mileage_km: 130000, cost_cents: 18000, notes: 'Ölwechsel mit Filter', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 's-2', tenant_id: 't-1', vehicle_id: 'v-2', service_type: 'inspection', scheduled_at: '2024-03-10', status: 'scheduled', mileage_km: 90000, cost_cents: 12000, notes: 'TÜV-Hauptuntersuchung', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 's-3', tenant_id: 't-1', vehicle_id: 'v-1', service_type: 'inspection', scheduled_at: '2023-12-01', status: 'completed', mileage_km: 120000, cost_cents: 45000, notes: 'Alles OK', created_at: '2023-11-01T00:00:00Z', updated_at: '2023-12-01T00:00:00Z' },
+  { id: 's-4', tenant_id: 't-1', vehicle_id: 'v-5', service_type: 'inspection', scheduled_at: '2024-02-28', status: 'scheduled', mileage_km: 158000, cost_cents: 12000, notes: 'TÜV-Hauptuntersuchung', created_at: '2024-01-10T00:00:00Z', updated_at: '2024-01-10T00:00:00Z' },
+  { id: 's-5', tenant_id: 't-1', vehicle_id: 'v-3', service_type: 'repair', scheduled_at: '2024-01-20', status: 'completed', mileage_km: 199500, cost_cents: 62000, notes: 'Bremsbeläge vorne erneuert', created_at: '2024-01-18T00:00:00Z', updated_at: '2024-01-20T00:00:00Z' },
+  { id: 's-6', tenant_id: 't-1', vehicle_id: 'v-2', service_type: 'tire_change', scheduled_at: '2024-04-05', status: 'scheduled', mileage_km: 91000, cost_cents: 9500, notes: 'Sommerreifen aufziehen', created_at: '2024-01-12T00:00:00Z', updated_at: '2024-01-12T00:00:00Z' },
 ]
 
 const MOCK_DAMAGES_API = [
@@ -165,6 +169,15 @@ export const fuhrparkHandlers = [
     }
     services = [...services, service as typeof MOCK_SERVICES_API[0]]
     return HttpResponse.json({ service }, { status: 201 })
+  }),
+
+  // Top-level list — was missing entirely, which left the Wartung tab
+  // permanently empty in demo mode (useServicesList hits GET /services).
+  http.get(`${API}/api/v1/fuhrpark/services`, ({ request }) => {
+    const url = new URL(request.url)
+    const vehicleId = url.searchParams.get('vehicle_id')
+    const result = vehicleId ? services.filter(s => s.vehicle_id === vehicleId) : services
+    return HttpResponse.json({ services: result, total: result.length })
   }),
 
   http.get(`${API}/api/v1/fuhrpark/services/upcoming`, () => {
@@ -314,6 +327,9 @@ export const fuhrparkHandlers = [
       tenant_id: 't-1',
       vehicle_id: String(params.id),
       ...body,
+      // the real backend computes km from the odometer readings — mirror that
+      // here, otherwise the fresh row renders "NaN km"
+      km: Number(body.end_km ?? 0) - Number(body.start_km ?? 0),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
