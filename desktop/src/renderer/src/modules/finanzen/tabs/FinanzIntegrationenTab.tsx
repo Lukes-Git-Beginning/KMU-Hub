@@ -17,8 +17,10 @@ import {
 } from '@/modules/settings/integrations/integration-registry'
 import { IntegrationCard } from '@/modules/settings/integrations/IntegrationCard'
 import { DATEVConfigPanel } from '@/modules/settings/integrations/DATEVConfigPanel'
-import { BexioConfigPanel } from '@/modules/settings/integrations/BexioConfigPanel'
+import { BexioSetupWizard } from '@/modules/settings/integrations/BexioSetupWizard'
+import { BexioSyncDashboard } from '@/modules/settings/integrations/BexioSyncDashboard'
 import { GenericIntegrationPanel } from '@/modules/settings/integrations/GenericIntegrationPanel'
+import { useBexioConnectionStatus } from '@/api/hooks/useBexio'
 
 // Nur Buchhaltungs-Integrationen aus dem Registry
 const BUCHHALTUNGS_INTEGRATIONS = INTEGRATION_REGISTRY.filter(
@@ -30,7 +32,19 @@ export function FinanzIntegrationenTab({ embedded = false }: { embedded?: boolea
   const [activeIntegrationId, setActiveIntegrationId] = useState<string | null>(null)
   const integrationStore = useIntegrationStore()
 
+  // Bexio uses the real backend flow (setup wizard + sync dashboard) instead of
+  // the drill-down panel: card → wizard when disconnected, dashboard when connected.
+  const { data: bexioConnection } = useBexioConnectionStatus()
+  const [bexioWizardOpen, setBexioWizardOpen] = useState(false)
+  const [bexioDashboardOpen, setBexioDashboardOpen] = useState(false)
+
+  const openBexio = () => {
+    if (bexioConnection?.connected) setBexioDashboardOpen(true)
+    else setBexioWizardOpen(true)
+  }
+
   const getCardStatus = (def: IntegrationDefinition) => {
+    if (def.id === 'bexio') return bexioConnection?.connected ? 'connected' : 'disconnected'
     return integrationStore.getStatus(def.id)
   }
 
@@ -46,9 +60,6 @@ export function FinanzIntegrationenTab({ embedded = false }: { embedded?: boolea
 
     if (def.id === 'datev-rechnungswesen') {
       return <DATEVConfigPanel onBack={handleBack} />
-    }
-    if (def.id === 'bexio') {
-      return <BexioConfigPanel onBack={handleBack} />
     }
     return <GenericIntegrationPanel definition={def} onBack={handleBack} />
   }
@@ -80,10 +91,22 @@ export function FinanzIntegrationenTab({ embedded = false }: { embedded?: boolea
               key={def.id}
               definition={def}
               status={getCardStatus(def)}
-              onClick={() => setActiveIntegrationId(def.id)}
+              onClick={() => (def.id === 'bexio' ? openBexio() : setActiveIntegrationId(def.id))}
             />
           ))}
         </div>
+      )}
+
+      {/* Bexio setup wizard + sync dashboard (real backend flow) */}
+      <BexioSetupWizard
+        isOpen={bexioWizardOpen}
+        onClose={() => setBexioWizardOpen(false)}
+      />
+      {bexioDashboardOpen && (
+        <BexioSyncDashboard
+          isOpen={bexioDashboardOpen}
+          onClose={() => setBexioDashboardOpen(false)}
+        />
       )}
     </div>
   )

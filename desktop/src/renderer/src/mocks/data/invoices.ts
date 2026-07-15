@@ -325,6 +325,34 @@ export const mockInvoices = {
       created_at: daysAgo(25),
     },
 
+    // --- 1 EXTERNAL (aus Bexio gespiegelt, schreibgeschützt) ---
+    // source: 'bexio' triggert den Read-only-Pfad im InvoiceDetailPanel
+    // (Badge + Info-Banner + ausgeblendete Mutations-Aktionen). Bexio besitzt
+    // den Zahlstatus, daher 'paid'. CHF + Schweizer MwSt (8.1 %).
+    {
+      id: 'inv-bexio-001',
+      number: '2026-0042',
+      invoice_number: '2026-0042',
+      status: 'paid' as const,
+      source: 'bexio' as const,
+      customer: { id: IDS.companies.helvetiaSoftware, name: 'Helvetia Software AG' },
+      customer_name: 'Helvetia Software AG',
+      customer_id: IDS.companies.helvetiaSoftware,
+      issue_date: daysAgo(3),
+      due_date: daysFromNow(27),
+      total_net: 4800.0,
+      total_gross: 5188.8,
+      tax_rate: 8.1,
+      currency: 'CHF',
+      exchange_rate: '1.06',
+      items: [
+        { description: 'Beratungshonorar Q2', quantity: 1, unit_price: 3600.0, total: 3600.0 },
+        { description: 'Lizenzgebühr Buchhaltung', quantity: 1, unit_price: 1200.0, total: 1200.0 },
+      ],
+      notes: 'Aus Bexio importiert — in Cosmi schreibgeschützt.',
+      created_at: daysAgo(3),
+    },
+
     // --- Recurring-generated (link back to rec-00x profiles) ---
     ...recurringGeneratedInvoices,
   ],

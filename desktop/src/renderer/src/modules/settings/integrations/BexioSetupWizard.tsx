@@ -115,7 +115,7 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
 
   const handleTriggerSync = async () => {
     setSyncTriggered(true)
-    await triggerSync.mutateAsync()
+    await triggerSync.mutateAsync(undefined)
   }
 
   const handleFinish = async () => {

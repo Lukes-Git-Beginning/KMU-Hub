@@ -71,7 +71,7 @@ export function BexioSyncDashboard({
   const handleSync = async () => {
     setIsSyncing(true)
     try {
-      await triggerSync.mutateAsync()
+      await triggerSync.mutateAsync(undefined)
     } finally {
       setIsSyncing(false)
     }

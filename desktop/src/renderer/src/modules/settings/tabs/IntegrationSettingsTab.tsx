@@ -44,7 +44,9 @@ import {
 import { IntegrationCard } from '../integrations/IntegrationCard'
 import { GenericIntegrationPanel } from '../integrations/GenericIntegrationPanel'
 import { DATEVConfigPanel } from '../integrations/DATEVConfigPanel'
-import { BexioConfigPanel } from '../integrations/BexioConfigPanel'
+import { BexioSetupWizard } from '../integrations/BexioSetupWizard'
+import { BexioSyncDashboard } from '../integrations/BexioSyncDashboard'
+import { useBexioConnectionStatus } from '@/api/hooks/useBexio'
 import { useIntegrationStore } from '@/stores/integrations'
 
 // ---------------------------------------------------------------------------
@@ -68,6 +70,17 @@ const MODULE_OPTIONS = [
 export function IntegrationSettingsTab() {
   const { t } = useTranslation()
   const [activeIntegrationId, setActiveIntegrationId] = useState<string | null>(null)
+
+  // Bexio uses the real backend flow (setup wizard + sync dashboard) instead of
+  // the drill-down panel: card → wizard when disconnected, dashboard when connected.
+  const { data: bexioConnection } = useBexioConnectionStatus()
+  const [bexioWizardOpen, setBexioWizardOpen] = useState(false)
+  const [bexioDashboardOpen, setBexioDashboardOpen] = useState(false)
+
+  const openBexio = () => {
+    if (bexioConnection?.connected) setBexioDashboardOpen(true)
+    else setBexioWizardOpen(true)
+  }
 
   // Existing API hooks
   const { data: apiConfigs } = useIntegrationConfigs()
@@ -109,8 +122,11 @@ export function IntegrationSettingsTab() {
     if (def.id === 'datev-rechnungswesen') {
       return <DATEVConfigPanel onBack={handleBack} />
     }
+    // Bexio is handled via the wizard/dashboard dialogs (see openBexio), so it
+    // never enters the drill-down; guard just in case.
     if (def.id === 'bexio') {
-      return <BexioConfigPanel onBack={handleBack} />
+      setActiveIntegrationId(null)
+      return null
     }
 
     // Generic panel
@@ -139,14 +155,26 @@ export function IntegrationSettingsTab() {
                 <IntegrationCard
                   key={def.id}
                   definition={def}
-                  status={getCardStatus(def)}
-                  onClick={() => setActiveIntegrationId(def.id)}
+                  status={def.id === 'bexio' ? (bexioConnection?.connected ? 'connected' : 'disconnected') : getCardStatus(def)}
+                  onClick={() => (def.id === 'bexio' ? openBexio() : setActiveIntegrationId(def.id))}
                 />
               ))}
             </div>
           </section>
         )
       })}
+
+      {/* Bexio setup wizard + sync dashboard (real backend flow) */}
+      <BexioSetupWizard
+        isOpen={bexioWizardOpen}
+        onClose={() => setBexioWizardOpen(false)}
+      />
+      {bexioDashboardOpen && (
+        <BexioSyncDashboard
+          isOpen={bexioDashboardOpen}
+          onClose={() => setBexioDashboardOpen(false)}
+        />
+      )}
     </div>
   )
 }
