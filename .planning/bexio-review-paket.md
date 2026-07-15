@@ -1,7 +1,25 @@
 # Bexio-Invoice-Pull — Review-Paket (für neues Terminal)
 
 > **Erstellt Session #7 (2026-07-15). Schritt 1 der Darien-Sequenz.** Ziel: Darien reviewt Lukes Subagent-gebautes Bexio-Invoice-Pull-FE hands-on. Dieses Doc hat alles, um das ohne Rückfragen zu ermöglichen.
-> **App-Start:** `cd desktop && npx electron-vite dev --mode demo` (Demo-Modus). CosmiLaunch-Splash läuft kurz, dann drin. **Kein Docker/Backend nötig — außer für die 2 Mocks unten.**
+> **App-Start:** `cd desktop && npx electron-vite dev --mode demo` (Demo-Modus). CosmiLaunch-Splash läuft kurz, dann drin. **Kein Docker/Backend nötig.**
+
+## ✅ UPDATE Session #8 (2026-07-15) — reviewbar gemacht + verdrahtet (Commit `935a92ff`, gepusht+deployed)
+
+**Vorbereitung abgeschlossen. QA `scripts/qa-bexio-review.mjs` = ALL PASS (visuell bestätigt).**
+
+3 Befunde bei der Vorbereitung, alle behoben:
+1. **Der neue Wizard + Sync-Dashboard waren toter Code** — nur `IntegrationsPage` (nirgends geroutet) importierte sie; beide erreichbaren Einstiege rendern den **alten `BexioConfigPanel`** (localStorage-Mock, kein Invoice-Pull). → **Verdrahtet** (Entscheid Darien): Bexio-Karte öffnet jetzt den echten Wizard (disconnected) bzw. das Sync-Dashboard (connected), in `IntegrationSettingsTab` **und** `FinanzIntegrationenTab`. Alter `BexioConfigPanel` gelöscht.
+2. **`Einstellungen (Zahnrad) → Integrationen` gibt es nicht** — der `/settings`-Tab „Integrationen" ist `adminOnly` und wird **immer** ausgeblendet (SettingsPage:110). Der reale Einstieg ist der **Modul-Einstellungen-Overlay** (Button unten links).
+3. **Zwei Demo-Mocks gebaut** (sonst unsichtbar): Read-only-Rechnung `2026-0042` (`source:'bexio'`) + stateful Bexio-Sync-Endpoints (`mocks/handlers/settings.ts`).
+
+### ► REVIEW-PFAD (so kommst du hin)
+- **Wizard + Dashboard:** *unten links „Modul-Einstellungen" → „Buchhaltung" → Section „Integrationen" → Bexio-Karte.* Disconnected → Wizard (4 Schritte); „Mit Bexio verbinden" (Demo-OAuth) → Karte öffnet danach das **Dashboard** (4 Karten + Sync-Verlauf); „Trennen" setzt zurück. *(Alternativ auch „Modul-Einstellungen → Integrationen" unter COSMI, admin-only.)*
+- **Read-only-Rechnung:** *Buchhaltung → Tab „Rechnungen" → Rechnung `2026-0042` (Helvetia Software AG, CHF).* Badge „Bexio" + blauer Banner „…aus Bexio importiert und schreibgeschützt", alle Mutations-Aktionen ausgeblendet.
+
+**Offene Review-Punkte (mir aufgefallen):** (a) Bei der Bexio-Rechnung erscheinen **zwei** Info-Banner (Bexio-Readonly + „bereits versendet") — leicht redundant. (b) Wizard-Schritt 2 „Sync-Optionen" (Invoice-Pull-Toggle) ansehen — ob Default-Zustand + Copy passen. (c) PDF-Download bleibt bei Bexio-Rechnungen sichtbar (bewusst? s. „Gefundene Risiken" unten). (d) Wo soll die Bexio-Integration für Nicht-Admins auffindbar sein — aktuell nur Buchhaltung→Modul-Einstellungen→Integrationen (tenant-Section, für Nicht-Leads read-only/disabled).
+
+---
+_(Original-Paket #7 folgt — Datei-Zeilen weiter gültig, Pfad-Angaben unten durch obigen Review-Pfad ersetzt)_
 
 ## ⚠ KERN-BEFUND: Feature ist im Demo-Modus NICHT demonstrierbar
 
