@@ -66,6 +66,7 @@ import { OnboardingChecklist } from './OnboardingChecklist'
 import { OrgChart } from './OrgChart'
 import { SelfServiceView } from './SelfServiceView'
 import { DetailModal } from '@/components/shared/DetailModal'
+import { SortMenu, type SortDirection } from '@/components/shared/SortMenu'
 import { useTeamPrefsStore } from '@/stores/teamPrefs'
 import {
   Dialog,
@@ -207,6 +208,21 @@ export default function TeamPage() {
     const name = (emp.userName ?? '').toLowerCase()
     return name.includes(q) || (emp.department ?? '').toLowerCase().includes(q) || (emp.positionTitle ?? '').toLowerCase().includes(q)
   })
+
+  // Sort employees (member list can grow large)
+  const [memberSortField, setMemberSortField] = useState<'name' | 'department' | 'status'>('name')
+  const [memberSortDir, setMemberSortDir] = useState<SortDirection>('asc')
+  const sortedEmployees = useMemo(() => {
+    const arr = [...filteredEmployees]
+    arr.sort((a, b) => {
+      let cmp = 0
+      if (memberSortField === 'department') cmp = (a.department ?? '').localeCompare(b.department ?? '')
+      else if (memberSortField === 'status') cmp = (a.status ?? '').localeCompare(b.status ?? '')
+      else cmp = (a.userName ?? '').localeCompare(b.userName ?? '')
+      return memberSortDir === 'asc' ? cmp : -cmp
+    })
+    return arr
+  }, [filteredEmployees, memberSortField, memberSortDir])
 
   // Department counts from API data
   const deptCounts = useMemo(() => {
@@ -361,6 +377,16 @@ export default function TeamPage() {
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
               />
             </div>
+            <SortMenu
+              options={[
+                { value: 'name', label: t('team.sort.name') },
+                { value: 'department', label: t('team.sort.department') },
+                { value: 'status', label: t('team.sort.status') },
+              ]}
+              field={memberSortField}
+              direction={memberSortDir}
+              onChange={(f, d) => { setMemberSortField(f as 'name' | 'department' | 'status'); setMemberSortDir(d) }}
+            />
             <div className="flex gap-1" role="group" aria-label={t('team.page.viewMode', { defaultValue: 'Ansicht' })}>
               <button
                 type="button"
@@ -387,7 +413,7 @@ export default function TeamPage() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : filteredEmployees.length === 0 ? (
+          ) : sortedEmployees.length === 0 ? (
             <EmptyState
               icon={Users}
               title={t('team.page.noMembers')}
@@ -396,7 +422,7 @@ export default function TeamPage() {
             />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredEmployees.map((emp) => {
+              {sortedEmployees.map((emp) => {
                 const name = emp.userName ?? 'Unbekannt'
                 const initials = getInitials(name)
                 return (
@@ -417,7 +443,7 @@ export default function TeamPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredEmployees.map((emp) => {
+              {sortedEmployees.map((emp) => {
                 const name = emp.userName ?? 'Unbekannt'
                 const initials = getInitials(name)
                 return (
@@ -533,7 +559,13 @@ export default function TeamPage() {
             <div>
               <h3 className="text-sm font-medium text-foreground mb-3">{t('team.page.training.catalog')}</h3>
               <div className="space-y-3">
-                {trainings.map((training) => {
+                {trainings.length === 0 ? (
+                  <EmptyState
+                    icon={GraduationCap}
+                    title={t('team.page.training.noTrainings')}
+                    description={t('team.page.training.noTrainingsDesc')}
+                  />
+                ) : trainings.map((training) => {
                   const TypeIcon = trainingTypeIcons[training.type] || GraduationCap
                   return (
                     <div
@@ -580,6 +612,13 @@ export default function TeamPage() {
             <div>
               <h3 className="text-sm font-medium text-foreground mb-3">{t('team.page.training.participationOverview')}</h3>
               <div className="rounded-lg border border-border overflow-hidden">
+                {trainingParticipations.length === 0 ? (
+                  <EmptyState
+                    icon={GraduationCap}
+                    title={t('team.page.training.noParticipations')}
+                    description={t('team.page.training.noParticipationsDesc')}
+                  />
+                ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -625,6 +664,7 @@ export default function TeamPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
             </div>
           </div>
