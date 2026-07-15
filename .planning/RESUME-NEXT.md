@@ -1,4 +1,21 @@
-# RESUME — nächster Einstieg (Stand 2026-07-14, Session-Start #7)
+# RESUME — nächster Einstieg (Stand 2026-07-15, Session-ENDE #7)
+
+> **★★★★★ SESSION-ENDE #7 (2026-07-15) — main `46836248` (alles gepusht, CI grün, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Diese Session #7 gebaut (4 Batches, alle gepusht+deployed):**
+> 1. **dialer Demo-Tiefe** (`d1db43f4`) — AgentDetailModal, Workspace-Idle-EmptyState, dialerPrefs→personal+tenant-Split, CampaignForm-Mode-Erklärung, ContactQueue-SortMenu + filter-aware EmptyState (fixt „Keine Kampagnen"-Fehlbeschriftung).
+> 2. **X-4-Store-Splits KOMPLETT** (`d0d7dfa6`) — automatisierung/mail/formulare/berichte je personal+tenant, backend-persist, im zentralen Hydrator. Consumer außerhalb Panels mitgezogen (FormularePage, ScheduleReportModal). **X-4-Settings-Rollout jetzt vollständig** (~18 Stores swap-ready). ⚠ Modul-IDs brauchen Backend-Registry (Luke).
+> 3. **video-Buttons + Radix-Crash** (`4771f9c3`) — VideoPage Header/CallHistory-Buttons (waren onClick-los) → öffnen `MeetingFormDialog` (Rückruf mit Kontakt-Prefill via neuem `presetTitle`). **Echten Crash gefunden+gefixt:** `MeetingFormDialog` hatte `<SelectItem value="">` (Radix-verboten) → Crash beim Öffnen, betraf **auch MeetingsPage**. Sentinel `"none"`.
+> 4. **work/task-UX-Fixes** (`46836248`, Darien-Live-Review) — (A1) Complete-Kreis in MyTasks 16→24px + Hover-Häkchen · (A2) TaskDetailPage-Zurück-Pfeil `navigate(-1)`→Projekt-Board · (A3) KanbanBoard-Karten-Klick → volle Task-Seite statt Mini-Panel (Panel bleibt für projektlose Standalone-Tasks).
+>
+> **★ QA-DURCHBRUCH:** CosmiLaunch-Splash blockierte Demo-Screenshot-QA (Overlay). Fix: **`sessionStorage['cosmi:launch-played']='1'` im Playwright-`addInitScript`** überspringt ihn → alle Demo-QA-Skripte laufen jetzt sauber. Muster in `scripts/qa-video-actions.mjs`/`qa-tasks-fixes.mjs`. Scoped-tsc-Configs: dialercheck/x4split/videocheck/workqa (KanbanBoard ergänzt).
+> **★ PUSH-MODE aktiv** (Darien): pro verifiziertem Batch auf main → Auto-Deploy. Vor Push: eslint geänderte Dateien + scoped tsc + Screenshot-QA (Bilder angesehen). Full-tsc-Baseline nicht grün (bekannt) — scoped reicht.
+> **★ OFFEN / NÄCHSTE UNIT:** (a) **Bexio-Invoice-Pull-FE reviewen** (Lukes Subagent-Bau, noch nie angesehen — reiner Review) · (b) **admin-Lücken** (Integrations-Tab-Placeholder, License-Detail-Modal) · (c) **video-Rest** (CallHistory-Detail-Modal, Kamera-Vorschau) · (d) **Welle 3 Onboarding/Info-Center** (§1.2, braucht Konzept). **Luke-gebunden:** security-DSGVO-Echt-Schaltung, mails-IMAP, admin-Backend.
+>
+> ---
+> _(Detail-Historie #7 folgt)_
+
+# RESUME — Historie (Stand 2026-07-14, Session-Start #7)
 
 > **★★★★★ WIEDEREINSTIEG NACH PAUSE — main `adfa75ff` (gepullt, sauberer FF von +19). Darien war weg; in der Pause hat FAST NUR LUKE gebaut (23 von 25 Commits seit #6). Kein neuer eigener FE-Bau in der Pause.**
 >
