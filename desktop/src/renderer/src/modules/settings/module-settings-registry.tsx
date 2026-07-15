@@ -26,6 +26,7 @@ import {
   Video,
   ShieldCheck,
   Palette,
+  Warehouse,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -53,6 +54,7 @@ import { FormulareSettingsPanel } from '@/modules/formulare/settings/FormulareSe
 import { WikiSettingsPanel } from '@/modules/wiki/settings/WikiSettingsPanel'
 import { DialerSettingsPanel } from '@/modules/dialer/settings/DialerSettingsPanel'
 import { VideoSettingsPanel } from '@/modules/video/settings/VideoSettingsPanel'
+import { InventarSettingsPanel } from '@/modules/inventar/settings/InventarSettingsPanel'
 import { SecuritySettingsPanel } from './panels/SecuritySettingsPanel'
 // admin-batch (parallel/admin): tenant branding surfaced in the settings overlay
 import BrandingAdminHubTab from '@/modules/admin/branding/BrandingAdminHubTab'
@@ -100,6 +102,8 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'notifications', group: 'module', labelKey: 'moduleSettings.entries.notifications', icon: Bell, navMatch: ['/notifications'], component: NotificationsSettingsPanel },
   { id: 'formulare', group: 'module', labelKey: 'moduleSettings.entries.formulare', icon: FileInput, navMatch: ['/formulare'], component: FormulareSettingsPanel },
   { id: 'wiki', group: 'module', labelKey: 'moduleSettings.entries.wiki', icon: BookOpen, navMatch: ['/wiki'], component: WikiSettingsPanel },
+  // branchen-block: inventar is the pilot — the remaining Branchen modules follow the same pattern
+  { id: 'inventar', group: 'module', labelKey: 'moduleSettings.entries.inventar', icon: Warehouse, navMatch: ['/inventar'], component: InventarSettingsPanel },
   // '/' is exact-match only in the resolver — keep this entry from swallowing other routes.
   { id: 'dashboard', group: 'module', labelKey: 'moduleSettings.entries.dashboard', icon: LayoutDashboard, navMatch: ['/'], component: DashboardSettingsPanel },
 

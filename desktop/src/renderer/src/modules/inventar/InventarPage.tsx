@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -7,8 +7,6 @@ import {
   MapPin,
   ArrowRightLeft,
   Warehouse,
-  Truck,
-  Store,
   Edit,
   Trash2,
   Eye,
@@ -20,12 +18,8 @@ import {
   Filter,
   ScanBarcode,
   ShoppingCart,
-  Hash,
-  Link2,
   ClipboardCheck,
-  AlertTriangle,
-  Paperclip,
-  X,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -48,89 +42,39 @@ import {
   useInventarLocations, useInventurSessions,
   useCreateInventarItem, useUpdateInventarItem, useDeleteInventarItem,
   useAdjustStock, useRecordMovement, useBookInventurDifferences,
-  useItemAttachments, useUploadItemAttachment, useDeleteItemAttachment,
+  useUpsertInventurCount, useUpdateInventurSessionStatus,
 } from '@/api/hooks/useInventar'
-import { useAvatarSrc } from '@/api/hooks/useAvatarSrc'
-import type { InventarItem, InventoryLocation, InventurSession, InventurCount, ItemAttachment } from '@/api/inventar-types'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
+import type { InventarItem, InventoryLocation, InventurSession, InventurCount } from '@/api/inventar-types'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader, SortMenu, type SortDirection, type SortFieldOption } from '@/components/shared'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
+import { useInventarPrefsStore } from '@/stores/inventarPrefs'
+import { useInventarTenantStore, INVENTAR_UNIT_OPTIONS } from '@/stores/inventarTenant'
+import {
+  getStockStatus,
+  getStockStatusDisplay,
+  movementTypeKeys,
+  movementTypeColors,
+  movementTypeIcons,
+  locationTypeKeys,
+  locationTypeIcons,
+  inventurStatusKeys,
+  inventurStatusColors,
+} from './inventar-shared'
+import { ItemDetailModal } from './ItemDetailModal'
+import { LocationDetailModal } from './LocationDetailModal'
+import { NewInventurDialog } from './NewInventurDialog'
+import { buildItemsCsv, buildMovementsCsv, buildInventurCsv, downloadCsv, csvDateStamp } from './inventar-export'
 
 type TabKey = 'artikel' | 'lagerorte' | 'bewegungen' | 'inventur'
 type StatusFilter = 'all' | 'ok' | 'warning' | 'critical'
 type MovementTypeLocal = 'in' | 'out' | 'transfer' | 'adjustment'
 
-const movementTypeKeys: Record<string, string> = {
-  in: 'inventar.movementType.in',
-  out: 'inventar.movementType.out',
-  transfer: 'inventar.movementType.transfer',
-  adjustment: 'inventar.movementType.adjustment',
-}
-
-const movementTypeColors: Record<string, string> = {
-  in: 'bg-success-light text-success',
-  out: 'bg-error-light text-error',
-  transfer: 'bg-info-light text-info',
-  adjustment: 'bg-warning-light text-warning',
-}
-
-const locationTypeKeys: Record<string, string> = {
-  warehouse: 'inventar.locationType.warehouse',
-  store: 'inventar.locationType.store',
-  vehicle: 'inventar.locationType.vehicle',
-}
-
-const locationTypeIcons: Record<string, typeof Warehouse> = {
-  warehouse: Warehouse,
-  store: Store,
-  vehicle: Truck,
-}
-
-const movementTypeIcons: Record<string, typeof ArrowDownToLine> = {
-  in: ArrowDownToLine,
-  out: ArrowUpFromLine,
-  transfer: RefreshCw,
-  adjustment: ClipboardEdit,
-}
-
-const inventurStatusKeys: Record<string, string> = {
-  open: 'inventar.inventurStatus.open',
-  counting: 'inventar.inventurStatus.counting',
-  review: 'inventar.inventurStatus.review',
-  completed: 'inventar.inventurStatus.completed',
-}
-
-const inventurStatusColors: Record<string, string> = {
-  open: 'bg-info-light text-info',
-  counting: 'bg-warning-light text-warning',
-  review: 'bg-[#fff3e0] text-[#e65100] dark:bg-[#e65100]/20 dark:text-[#ffab40]',
-  completed: 'bg-success-light text-success',
-}
-
 const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD']
 
-const UNIT_OPTIONS = ['Stück', 'kg', 'Meter', 'Liter', 'Packung', 'Rolle']
-
-function getStockStatus(item: InventarItem): 'ok' | 'warning' | 'critical' {
-  // protojson serializes int64 as a JSON string (proto3 spec); coerce before comparing
-  // to avoid lexicographic string comparison (e.g. "9" <= "10" would be false).
-  const quantity = Number(item.quantity)
-  const minQuantity = Number(item.min_quantity)
-  if (quantity <= minQuantity) return 'critical'
-  if (quantity < minQuantity * 2) return 'warning'
-  return 'ok'
-}
-
-const stockStatusLabelKeys: Record<string, string> = {
-  critical: 'inventar.status.critical',
-  warning: 'inventar.status.warning',
-  ok: 'inventar.status.ok',
-}
-
-function getStockStatusDisplay(item: InventarItem): { color: string; labelKey: string; dotColor: string } {
-  const status = getStockStatus(item)
-  if (status === 'critical') return { color: 'bg-error', labelKey: stockStatusLabelKeys.critical, dotColor: 'bg-error' }
-  if (status === 'warning') return { color: 'bg-warning', labelKey: stockStatusLabelKeys.warning, dotColor: 'bg-warning' }
-  return { color: 'bg-success', labelKey: stockStatusLabelKeys.ok, dotColor: 'bg-success' }
+const BARCODE_FORMAT_LABEL_KEYS: Record<string, string> = {
+  ean13: 'inventar.settings.tenant.barcode.ean13',
+  code128: 'inventar.settings.tenant.barcode.code128',
+  qr: 'inventar.settings.tenant.barcode.qr',
 }
 
 // ─── Barcode Scanner Dialog ─────────────────────────────────────
@@ -145,6 +89,7 @@ function BarcodeScannerDialog({
 }) {
   const { t } = useTranslation()
   const [barcode, setBarcode] = useState('')
+  const barcodeFormat = useInventarTenantStore((s) => s.barcodeFormat)
 
   const handleSubmit = () => {
     const trimmed = barcode.trim()
@@ -183,7 +128,8 @@ function BarcodeScannerDialog({
             className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
           />
           <p className="text-xs text-muted-foreground">
-            {t('inventar.barcode.hint')}
+            {t('inventar.barcode.hint')}{' '}
+            {t('inventar.barcode.formatHint', { format: t(BARCODE_FORMAT_LABEL_KEYS[barcodeFormat]) })}
           </p>
         </div>
 
@@ -231,12 +177,15 @@ function ArtikelDialog({
   onSuccess?: () => void
 }) {
   const { t } = useTranslation()
+  // Tenant defaults (unit / min stock) seed new items — see inventarTenant store.
+  const defaultUnit = useInventarTenantStore((s) => s.defaultUnit)
+  const defaultMinStock = useInventarTenantStore((s) => s.defaultMinStock)
   const [form, setForm] = useState<ArtikelFormData>({
     name: initial?.name ?? '',
     sku: initial?.sku ?? '',
     category: initial?.category ?? '',
-    minStock: Number(initial?.min_quantity ?? 0),
-    unit: initial?.unit ?? 'Stück',
+    minStock: Number(initial?.min_quantity ?? defaultMinStock),
+    unit: initial?.unit ?? defaultUnit,
     currency: initial?.currency ?? 'EUR',
     batchNumber: initial?.batch_number ?? '',
     serialNumbers: initial?.serial_numbers?.join(', ') ?? '',
@@ -358,7 +307,7 @@ function ArtikelDialog({
                 onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
-                {UNIT_OPTIONS.map((u) => (
+                {INVENTAR_UNIT_OPTIONS.map((u) => (
                   <option key={u} value={u}>{u}</option>
                 ))}
               </select>
@@ -447,6 +396,7 @@ function BewegungDialog({
   const [lagerort, setLagerort] = useState(locations[0]?.name ?? '')
   const [referenz, setReferenz] = useState('')
   const [notizen, setNotizen] = useState('')
+  const allowNegativeStock = useInventarTenantStore((s) => s.allowNegativeStock)
 
   const recordMovementMutation = useRecordMovement()
   const adjustStockMutation = useAdjustStock()
@@ -455,6 +405,11 @@ function BewegungDialog({
     if (!item) return
     if (menge <= 0) {
       toast.error(t('inventar.bewegung.errorMenge'))
+      return
+    }
+    // Tenant setting: block outgoing movements below zero unless allowed.
+    if (!allowNegativeStock && typ === 'out' && menge > Number(item.quantity)) {
+      toast.error(t('inventar.bewegung.errorNegative', { current: item.quantity, unit: item.unit }))
       return
     }
     const label = t(movementTypeKeys[typ])
@@ -597,34 +552,38 @@ function BewegungDialog({
   )
 }
 
-// ─── Stock Bar Visual ─────────────────────────────────────────────
-function StockBar({ current, min }: { current: number; min: number }) {
+// ─── Inventur Count Input ─────────────────────────────────────────
+// Editable "Ist" cell while a session is open/counting. Commits on blur/Enter.
+function CountInput({
+  count,
+  onCommit,
+}: {
+  count: InventurCount
+  onCommit: (counted: number) => void
+}) {
   const { t } = useTranslation()
-  const max = Math.max(min * 3, current * 1.2, 1)
-  const pct = Math.min((current / max) * 100, 100)
-  const minPct = Math.min((min / max) * 100, 100)
-  const status = current <= min ? 'bg-error' : current < min * 2 ? 'bg-warning' : 'bg-success'
+  const [value, setValue] = useState(count.counted === null ? '' : String(count.counted))
+
+  const commit = () => {
+    if (value === '') return
+    const n = Number(value)
+    if (!Number.isFinite(n) || n < 0) return
+    if (count.counted !== null && Number(count.counted) === n) return
+    onCommit(n)
+  }
 
   return (
-    <div className="space-y-1">
-      <div className="relative h-2 w-full rounded-full bg-secondary overflow-hidden">
-        <div
-          className={`absolute inset-y-0 left-0 rounded-full ${status} transition-all`}
-          style={{ width: `${pct}%` }}
-        />
-        {/* Min threshold marker */}
-        <div
-          className="absolute inset-y-0 w-0.5 bg-foreground/30"
-          style={{ left: `${minPct}%` }}
-          title={t('inventar.stockBar.minThreshold', { min })}
-        />
-      </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground">
-        <span>0</span>
-        <span>{t('inventar.detail.stockBarMin', { min, unit: '' }).trim()}</span>
-        <span>{Math.round(max)}</span>
-      </div>
-    </div>
+    <input
+      type="number"
+      min={0}
+      value={value}
+      placeholder={t('inventar.inventur.countPlaceholder')}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+      onClick={(e) => e.stopPropagation()}
+      className="w-20 rounded-md border border-border bg-card px-2 py-1 text-right text-sm text-foreground tabular-nums placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+    />
   )
 }
 
@@ -634,6 +593,8 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
   const [expanded, setExpanded] = useState(false)
 
   const bookMutation = useBookInventurDifferences()
+  const upsertMutation = useUpsertInventurCount()
+  const statusMutation = useUpdateInventurSessionStatus()
 
   const totalItems = session.counts.length
   // protojson serializes int64 as a JSON string (proto3 spec); coerce before comparing/subtracting.
@@ -642,6 +603,42 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
     if (c.counted === null) return sum
     return sum + (Number(c.counted) - Number(c.expected))
   }, 0)
+  const countedItems = session.counts.filter((c) => c.counted !== null).length
+  const uncountedItems = totalItems - countedItems
+  const isCounting = session.status === 'open' || session.status === 'counting'
+
+  const itemsById = useMemo(() => new Map(allItems.map((i) => [i.id, i])), [allItems])
+
+  const handleCommitCount = (count: InventurCount, counted: number) => {
+    upsertMutation.mutate(
+      { sessionId: session.id, item_id: count.item_id, counted },
+      {
+        onError: () => toast.error(t('common.error')),
+      },
+    )
+    // Market lifecycle (Zoho/weclapp): first recorded count moves open → counting.
+    if (session.status === 'open') {
+      statusMutation.mutate({ id: session.id, status: 'counting' })
+    }
+  }
+
+  const handleFinishCounting = () => {
+    statusMutation.mutate(
+      { id: session.id, status: 'review' },
+      {
+        onSuccess: () => toast.success(t('inventar.inventur.finishCountingSuccess', { name: session.name })),
+        onError: () => toast.error(t('common.error')),
+      },
+    )
+  }
+
+  const handleExportList = () => {
+    downloadCsv(
+      buildInventurCsv(session, itemsById),
+      `inventur-zaehlliste-${session.date}-${csvDateStamp()}.csv`,
+    )
+    toast.success(t('inventar.inventur.exportListSuccess', { name: session.name }))
+  }
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -691,14 +688,22 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
                       : diff < 0
                         ? 'text-error'
                         : 'text-info'
-                  const matchedItem = allItems.find(i => i.id === count.item_id)
+                  const matchedItem = itemsById.get(count.item_id)
                   return (
                     <tr key={count.item_id} className="border-b border-border-muted last:border-0">
                       <td className="px-4 py-2 text-foreground">{matchedItem?.name ?? count.item_id}</td>
                       <td className="px-4 py-2 text-muted-foreground font-mono text-xs">{matchedItem?.sku ?? '—'}</td>
                       <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{count.expected}</td>
                       <td className="px-4 py-2 text-right text-foreground tabular-nums">
-                        {count.counted !== null ? count.counted : '—'}
+                        {isCounting ? (
+                          <CountInput
+                            key={`${count.item_id}-${count.counted ?? 'null'}`}
+                            count={count}
+                            onCommit={(counted) => handleCommitCount(count, counted)}
+                          />
+                        ) : (
+                          count.counted !== null ? count.counted : '—'
+                        )}
                       </td>
                       <td className={`px-4 py-2 text-right font-medium tabular-nums ${diffColor}`}>
                         {diff !== null ? (diff > 0 ? `+${diff}` : diff === 0 ? '0' : diff) : '—'}
@@ -727,20 +732,46 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
             </table>
           </div>
 
-          {/* Actions for review status */}
-          {session.status === 'review' && (
-            <div className="flex justify-end p-3 border-t border-border">
+          {/* Card actions */}
+          <div className="flex items-center justify-between gap-3 p-3 border-t border-border">
+            <div className="flex items-center gap-3 min-w-0">
               <button
-                onClick={() => bookMutation.mutate({ sessionId: session.id }, {
-                  onSuccess: () => toast.success(t('inventar.inventur.bookDifferencesSuccess', { name: session.name }))
-                })}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                onClick={handleExportList}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
               >
-                <ClipboardCheck className="h-4 w-4" />
-                {t('inventar.inventur.bookDifferences')}
+                <Download className="h-3.5 w-3.5" />
+                {t('inventar.inventur.exportList')}
               </button>
+              {isCounting && uncountedItems > 0 && (
+                <span className="truncate text-xs text-muted-foreground">
+                  {t('inventar.inventur.uncountedHint', { count: uncountedItems })}
+                </span>
+              )}
             </div>
-          )}
+            <div className="flex items-center gap-2 shrink-0">
+              {isCounting && (
+                <button
+                  onClick={handleFinishCounting}
+                  disabled={countedItems === 0 || statusMutation.isPending}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                  {t('inventar.inventur.finishCounting')}
+                </button>
+              )}
+              {session.status === 'review' && (
+                <button
+                  onClick={() => bookMutation.mutate({ sessionId: session.id }, {
+                    onSuccess: () => toast.success(t('inventar.inventur.bookDifferencesSuccess', { name: session.name }))
+                  })}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                  {t('inventar.inventur.bookDifferences')}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -759,14 +790,25 @@ export default function InventarPage() {
   const locations: InventoryLocation[] = locationsQuery.data?.locations ?? []
   const inventurSessions: InventurSession[] = inventurSessionsQuery.data?.sessions ?? []
 
-  const [tab, setTab] = useState<TabKey>('artikel')
+  // Personal prefs (settings panel): default tab, table density, warning display.
+  const density = useInventarPrefsStore((s) => s.density)
+  const showMinStockWarnings = useInventarPrefsStore((s) => s.showMinStockWarnings)
+
+  const [tab, setTab] = useState<TabKey>(() => useInventarPrefsStore.getState().defaultTab)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [sortField, setSortField] = useState('name')
+  const [sortDir, setSortDir] = useState<SortDirection>('asc')
   const [confirmDelete, setConfirmDelete] = useState<InventarItem | null>(null)
 
-  // Detail panel
+  // Detail modals (item / location) + back-chain (location → item → back)
   const [selectedItem, setSelectedItem] = useState<InventarItem | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<InventoryLocation | null>(null)
+  const [itemBackTarget, setItemBackTarget] = useState<InventoryLocation | null>(null)
+
+  // Movements tab has its own subject (independent of the detail modal).
+  const [movementsItemId, setMovementsItemId] = useState<string>('')
 
   // Dialogs
   const [artikelDialogOpen, setArtikelDialogOpen] = useState(false)
@@ -774,9 +816,10 @@ export default function InventarPage() {
   const [bewegungDialogOpen, setBewegungDialogOpen] = useState(false)
   const [bewegungItem, setBewegungItem] = useState<InventarItem | null>(null)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [inventurDialogOpen, setInventurDialogOpen] = useState(false)
 
-  // selectedItem movements (conditional)
-  const selectedItemMovementsQuery = useInventarMovements(selectedItem?.id ?? '', { page: 1, page_size: 5 })
+  const movementsItem = items.find((i) => i.id === movementsItemId) ?? null
+  const movementsQuery = useInventarMovements(movementsItemId, { page: 1, page_size: 50 })
 
   const deleteItemMutation = useDeleteInventarItem()
 
@@ -786,21 +829,36 @@ export default function InventarPage() {
     return ['all', ...Array.from(cats).sort()]
   }, [items])
 
-  // Filtered items with category + status + search
+  // Filtered + sorted items (category + status + search + SortMenu)
   const filteredItems = useMemo(() => {
-    let result = [...items].sort((a, b) => a.name.localeCompare(b.name))
+    const dir = sortDir === 'asc' ? 1 : -1
+    const result = [...items].sort((a, b) => {
+      switch (sortField) {
+        case 'stock':
+          return (Number(a.quantity) - Number(b.quantity)) * dir
+        case 'category':
+          return (a.category ?? '').localeCompare(b.category ?? '') * dir
+        case 'location':
+          return (a.location ?? '').localeCompare(b.location ?? '') * dir
+        case 'price':
+          return ((a.price ?? 0) - (b.price ?? 0)) * dir
+        default:
+          return a.name.localeCompare(b.name) * dir
+      }
+    })
 
+    let filtered = result
     if (categoryFilter !== 'all') {
-      result = result.filter((i) => i.category === categoryFilter)
+      filtered = filtered.filter((i) => i.category === categoryFilter)
     }
 
     if (statusFilter !== 'all') {
-      result = result.filter((i) => getStockStatus(i) === statusFilter)
+      filtered = filtered.filter((i) => getStockStatus(i) === statusFilter)
     }
 
     if (search) {
       const q = search.toLowerCase()
-      result = result.filter(
+      filtered = filtered.filter(
         (item) =>
           item.name.toLowerCase().includes(q) ||
           item.sku.toLowerCase().includes(q) ||
@@ -809,8 +867,8 @@ export default function InventarPage() {
       )
     }
 
-    return result
-  }, [items, search, categoryFilter, statusFilter])
+    return filtered
+  }, [items, search, categoryFilter, statusFilter, sortField, sortDir])
 
   const filteredLocations = useMemo(() => {
     if (!search) return locations
@@ -823,9 +881,10 @@ export default function InventarPage() {
   const lowStockCount = items.filter((i) => Number(i.quantity) <= Number(i.min_quantity)).length
   const warningCount = items.filter((i) => getStockStatus(i) === 'warning').length
 
-  // Items at a specific location (detail panel)
+  // Items at a specific location (location cards + modal)
   const getLocationItems = useCallback(
-    (locationName: string) => items.filter((i) => i.location === locationName),
+    (location: InventoryLocation) =>
+      items.filter((i) => i.location_id === location.id || i.location === location.name),
     [items],
   )
 
@@ -838,6 +897,13 @@ export default function InventarPage() {
         <Skeleton className="h-64 w-full" />
       </div>
     )
+  }
+
+  const cellPad = density === 'compact' ? 'px-4 py-2' : 'px-4 py-3'
+
+  const openItemDetail = (item: InventarItem) => {
+    setSelectedItem(item)
+    setMovementsItemId(item.id)
   }
 
   const openArtikelDialog = (item?: InventarItem) => {
@@ -853,7 +919,7 @@ export default function InventarPage() {
   const handleBarcodeScan = (barcode: string) => {
     const found = items.find((i) => i.barcode === barcode || i.sku === barcode)
     if (found) {
-      setSelectedItem(found)
+      openItemDetail(found)
       setTab('artikel')
       setShowBarcodeScanner(false)
       toast.success(t('inventar.barcode.found', { name: found.name }))
@@ -862,8 +928,22 @@ export default function InventarPage() {
     }
   }
 
+  const handleExportItems = () => {
+    downloadCsv(buildItemsCsv(filteredItems), `inventar-artikel-${csvDateStamp()}.csv`)
+    toast.success(t('inventar.export.itemsSuccess', { count: filteredItems.length }))
+  }
+
+  const handleExportMovements = () => {
+    if (!movementsItem) return
+    downloadCsv(
+      buildMovementsCsv(movementsQuery.data?.movements ?? [], movementsItem.name),
+      `inventar-bewegungen-${movementsItem.sku}-${csvDateStamp()}.csv`,
+    )
+    toast.success(t('inventar.export.movementsSuccess', { name: movementsItem.name }))
+  }
+
   const getItemActions = (item: InventarItem) => [
-    { label: t('inventar.actions.showDetails'), icon: Eye, onClick: () => setSelectedItem(item) },
+    { label: t('inventar.actions.showDetails'), icon: Eye, onClick: () => openItemDetail(item) },
     { label: t('common.edit'), icon: Edit, onClick: () => openArtikelDialog(item) },
     { label: t('inventar.actions.movement'), icon: ArrowRightLeft, onClick: () => openBewegungDialog(item), separator: true },
     { separator: true as const, label: '', onClick: () => {} },
@@ -879,11 +959,23 @@ export default function InventarPage() {
     })
   }
 
+  const sortOptions: SortFieldOption[] = [
+    { value: 'name', label: t('inventar.sort.name') },
+    { value: 'stock', label: t('inventar.sort.stock') },
+    { value: 'category', label: t('inventar.sort.category') },
+    { value: 'location', label: t('inventar.sort.location') },
+    { value: 'price', label: t('inventar.sort.price') },
+  ]
+
+  const headerWarnings = showMinStockWarnings
+    ? `${lowStockCount > 0 ? ` · ${t('inventar.page.descriptionCritical', { count: lowStockCount })}` : ''}${warningCount > 0 ? ` · ${t('inventar.page.descriptionWarning', { count: warningCount })}` : ''}${lowStockCount === 0 && warningCount === 0 ? ` · ${t('inventar.page.descriptionOk')}` : ''}`
+    : ''
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
         title={t('inventar.page.title')}
-        description={`${t('inventar.page.descriptionBase', { count: items.length })}${lowStockCount > 0 ? ` · ${t('inventar.page.descriptionCritical', { count: lowStockCount })}` : ''}${warningCount > 0 ? ` · ${t('inventar.page.descriptionWarning', { count: warningCount })}` : ''}${lowStockCount === 0 && warningCount === 0 ? ` · ${t('inventar.page.descriptionOk')}` : ''}`}
+        description={`${t('inventar.page.descriptionBase', { count: items.length })}${headerWarnings}`}
         icon={Warehouse}
         moduleId="inventar"
         className="mb-6"
@@ -903,7 +995,7 @@ export default function InventarPage() {
         {([
           { key: 'artikel' as const, label: t('inventar.tab.artikel'), count: items.length },
           { key: 'lagerorte' as const, label: t('inventar.tab.lagerorte'), count: locations.length },
-          { key: 'bewegungen' as const, label: t('inventar.tab.bewegungen'), count: selectedItem ? (selectedItemMovementsQuery.data?.total ?? 0) : 0 },
+          { key: 'bewegungen' as const, label: t('inventar.tab.bewegungen'), count: movementsItemId ? (movementsQuery.data?.total ?? 0) : 0 },
           { key: 'inventur' as const, label: t('inventar.tab.inventur'), count: inventurSessions.length },
         ]).map((tabItem) => (
           <button
@@ -946,7 +1038,7 @@ export default function InventarPage() {
           <span className="hidden sm:inline">{t('inventar.search.barcodeScan')}</span>
         </button>
 
-        {/* Category + Status filters (Artikel tab only) */}
+        {/* Category + Status filters + Sort + Export (Artikel tab only) */}
         {tab === 'artikel' && (
           <>
             <div className="relative">
@@ -987,7 +1079,35 @@ export default function InventarPage() {
                 {t('common.resetFilters')}
               </button>
             )}
+
+            <SortMenu
+              options={sortOptions}
+              field={sortField}
+              direction={sortDir}
+              onChange={(field, direction) => { setSortField(field); setSortDir(direction) }}
+              triggerClassName="py-2"
+            />
+
+            <button
+              onClick={handleExportItems}
+              disabled={filteredItems.length === 0}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('inventar.export.button')}</span>
+            </button>
           </>
+        )}
+
+        {/* Movements export (Bewegungen tab) */}
+        {tab === 'bewegungen' && movementsItem && (movementsQuery.data?.movements?.length ?? 0) > 0 && (
+          <button
+            onClick={handleExportMovements}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">{t('inventar.export.button')}</span>
+          </button>
         )}
       </div>
 
@@ -1029,12 +1149,21 @@ export default function InventarPage() {
                       return (
                         <tr
                           key={item.id}
-                          onClick={() => setSelectedItem(item)}
-                          className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
+                          role="button"
+                          tabIndex={0}
+                          aria-label={item.name}
+                          onClick={() => openItemDetail(item)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              openItemDetail(item)
+                            }
+                          }}
+                          className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:bg-secondary/50 ${
                             isSelected ? 'bg-primary-light/30' : ''
                           }`}
                         >
-                          <td className="px-4 py-3">
+                          <td className={cellPad}>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className={`inline-block h-2.5 w-2.5 rounded-full ${status.dotColor}`} />
@@ -1045,14 +1174,14 @@ export default function InventarPage() {
                               </TooltipContent>
                             </Tooltip>
                           </td>
-                          <td className="px-4 py-3 font-medium text-foreground">{item.name}</td>
-                          <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{item.sku}</td>
-                          <td className="px-4 py-3">
+                          <td className={`${cellPad} font-medium text-foreground`}>{item.name}</td>
+                          <td className={`${cellPad} text-muted-foreground font-mono text-xs`}>{item.sku}</td>
+                          <td className={cellPad}>
                             <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">{item.category ?? ''}</span>
                           </td>
-                          <td className="px-4 py-3 text-right text-foreground tabular-nums">
+                          <td className={`${cellPad} text-right text-foreground tabular-nums`}>
                             <span className="inline-flex items-center gap-1.5">
-                              {isCritical && (
+                              {isCritical && showMinStockWarnings && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <ShoppingCart className="h-3.5 w-3.5 text-error" />
@@ -1065,14 +1194,14 @@ export default function InventarPage() {
                               {item.quantity} {item.unit}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">
+                          <td className={`${cellPad} text-right text-muted-foreground tabular-nums`}>
                             {item.min_quantity}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">{item.location ?? '—'}</td>
-                          <td className="px-4 py-3 text-right text-foreground tabular-nums">
+                          <td className={`${cellPad} text-muted-foreground`}>{item.location ?? '—'}</td>
+                          <td className={`${cellPad} text-right text-foreground tabular-nums`}>
                             {formatCurrency(item.price ?? 0, item.currency ?? 'EUR')}
                           </td>
-                          <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          <td className={`${cellPad} text-right`} onClick={(e) => e.stopPropagation()}>
                             <ItemActions items={getItemActions(item)} />
                           </td>
                         </tr>
@@ -1099,10 +1228,23 @@ export default function InventarPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredLocations.map((loc) => {
                 const Icon = locationTypeIcons[loc.type] || Warehouse
-                const locItems = getLocationItems(loc.name)
+                const locItems = getLocationItems(loc)
                 const criticalInLoc = locItems.filter((i) => getStockStatus(i) === 'critical').length
                 return (
-                  <div key={loc.id} className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)]">
+                  <div
+                    key={loc.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={loc.name}
+                    onClick={() => setSelectedLocation(loc)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedLocation(loc)
+                      }
+                    }}
+                    className="rounded-lg border border-border bg-card p-4 cursor-pointer transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
@@ -1141,7 +1283,7 @@ export default function InventarPage() {
                         <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                           {t(locationTypeKeys[loc.type])}
                         </span>
-                        {criticalInLoc > 0 && (
+                        {criticalInLoc > 0 && showMinStockWarnings && (
                           <span className="rounded-full bg-error-light px-2 py-0.5 text-xs text-error">
                             {t('inventar.lagerort.criticalCount', { count: criticalInLoc })}
                           </span>
@@ -1160,17 +1302,35 @@ export default function InventarPage() {
       {/* ─── BEWEGUNGEN TAB ─────────────────────────────────── */}
       {tab === 'bewegungen' && (
         <>
-          {!selectedItem ? (
+          {/* Artikel-Auswahl — der Tab hat ein eigenes Subjekt, unabhängig vom Detail-Fenster */}
+          <div className="mb-4 flex items-center gap-3">
+            <label className="text-sm text-muted-foreground shrink-0">{t('inventar.bewegungen.subjectLabel')}</label>
+            <div className="relative">
+              <select
+                value={movementsItemId}
+                onChange={(e) => setMovementsItemId(e.target.value)}
+                className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              >
+                <option value="">{t('inventar.bewegungen.subjectPlaceholder')}</option>
+                {items.map((i) => (
+                  <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            </div>
+          </div>
+
+          {!movementsItem ? (
             <EmptyState
               icon={ArrowRightLeft}
               title={t('inventar.empty.bewegungen.title')}
               description={t('inventar.empty.bewegungen.selectItem')}
             />
-          ) : selectedItemMovementsQuery.isLoading ? (
+          ) : movementsQuery.isLoading ? (
             <div className="space-y-2">
               {[1,2,3].map(n => <Skeleton key={n} className="h-12 w-full" />)}
             </div>
-          ) : (selectedItemMovementsQuery.data?.movements ?? []).length === 0 ? (
+          ) : (movementsQuery.data?.movements ?? []).length === 0 ? (
             <EmptyState
               icon={ArrowRightLeft}
               title={t('inventar.empty.bewegungen.title')}
@@ -1190,30 +1350,30 @@ export default function InventarPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(selectedItemMovementsQuery.data?.movements ?? []).map((mov) => {
+                  {(movementsQuery.data?.movements ?? []).map((mov) => {
                     const MIcon = movementTypeIcons[mov.movement_type]
                     return (
                       <tr key={mov.id} className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors">
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                        <td className={`${cellPad} text-muted-foreground whitespace-nowrap`}>
                           {formatDate(mov.created_at)}{' '}
                           <span className="text-xs">{formatDateTime(mov.created_at, { timeStyle: 'short' })}</span>
                         </td>
-                        <td className="px-4 py-3 font-medium text-foreground">{selectedItem.name}</td>
-                        <td className="px-4 py-3">
+                        <td className={`${cellPad} font-medium text-foreground`}>{movementsItem.name}</td>
+                        <td className={cellPad}>
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${movementTypeColors[mov.movement_type] ?? 'bg-secondary text-muted-foreground'}`}>
                             {MIcon && <MIcon className="h-3 w-3" />}
                             {movementTypeKeys[mov.movement_type] ? t(movementTypeKeys[mov.movement_type]) : mov.movement_type}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right text-foreground tabular-nums">
+                        <td className={`${cellPad} text-right text-foreground tabular-nums`}>
                           {Number(mov.quantity) > 0 ? `+${mov.quantity}` : mov.quantity}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td className={`${cellPad} text-muted-foreground`}>
                           {mov.location_from && mov.location_to
                             ? `${mov.location_from} → ${mov.location_to}`
                             : mov.location_from ?? mov.location_to ?? '—'}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{mov.reference ?? '—'}</td>
+                        <td className={`${cellPad} text-muted-foreground font-mono text-xs`}>{mov.reference ?? '—'}</td>
                       </tr>
                     )
                   })}
@@ -1234,7 +1394,7 @@ export default function InventarPage() {
                 : t('inventar.inventur.sessionCount', { count: inventurSessions.length })}
             </p>
             <button
-              onClick={() => toast.success(t('inventar.inventur.newSessionSuccess'))}
+              onClick={() => setInventurDialogOpen(true)}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
@@ -1258,256 +1418,41 @@ export default function InventarPage() {
         </>
       )}
 
-      {/* ─── DETAIL PANEL (slide-over) ──────────────────────── */}
-      <DetailPanel
-        open={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        title={selectedItem?.name}
-        subtitle={selectedItem ? `${selectedItem.sku} · ${selectedItem.category ?? ''}` : undefined}
-        badge={
-          selectedItem ? (
-            <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-              getStockStatus(selectedItem) === 'critical'
-                ? 'bg-error-light text-error'
-                : getStockStatus(selectedItem) === 'warning'
-                  ? 'bg-warning-light text-warning'
-                  : 'bg-success-light text-success'
-            }`}>
-              {t(getStockStatusDisplay(selectedItem).labelKey)}
-            </span>
-          ) : undefined
+      {/* ─── DETAIL MODALS (Cosmi-Fenster) ──────────────────── */}
+      <ItemDetailModal
+        item={selectedItem}
+        locations={locations}
+        onClose={() => {
+          setSelectedItem(null)
+          setItemBackTarget(null)
+        }}
+        onBack={
+          itemBackTarget
+            ? () => {
+                setSelectedItem(null)
+                setSelectedLocation(itemBackTarget)
+                setItemBackTarget(null)
+              }
+            : undefined
         }
-        width="w-[380px]"
-        footer={
-          selectedItem ? (
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  openArtikelDialog(selectedItem)
-                }}
-                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                {t('common.edit')}
-              </button>
-              <button
-                onClick={() => {
-                  openBewegungDialog(selectedItem)
-                }}
-                className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-              >
-                {t('inventar.detail.buttonMovement')}
-              </button>
-            </div>
-          ) : undefined
-        }
-      >
-        {selectedItem && (
-          <div className="space-y-5">
-            {/* Nachbestell-Banner (critical stock) */}
-            {Number(selectedItem.quantity) <= Number(selectedItem.min_quantity) && (
-              <div className="rounded-lg border border-error/30 bg-error-light p-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-error mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-error">
-                      {t('inventar.detail.criticalBanner.title')}
-                    </p>
-                    <p className="text-xs text-error/80 mt-0.5">
-                      {t('inventar.detail.criticalBanner.desc', { current: selectedItem.quantity, min: selectedItem.min_quantity })}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => toast.success(t('inventar.detail.criticalBanner.orderSuccess', { name: selectedItem.name }))}
-                  className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  {t('inventar.detail.criticalBanner.button')}
-                </button>
-              </div>
-            )}
+        onEdit={(item) => openArtikelDialog(item)}
+        onMovement={(item) => openBewegungDialog(item)}
+      />
 
-            {/* Basic info */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.details')}</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldName')}</p>
-                  <p className="text-sm text-foreground font-medium">{selectedItem.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">SKU</p>
-                  <p className="text-sm text-foreground font-mono">{selectedItem.sku}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldCategory')}</p>
-                  <p className="text-sm text-foreground">{selectedItem.category ?? '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldUnit')}</p>
-                  <p className="text-sm text-foreground">{selectedItem.unit}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldPrice')}</p>
-                  <p className="text-sm text-foreground">{formatCurrency(selectedItem.price ?? 0, selectedItem.currency ?? 'EUR')}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldLastMovement')}</p>
-                  <p className="text-sm text-foreground">{formatDate(selectedItem.updated_at)}</p>
-                </div>
-              </div>
-              {selectedItem.barcode && (
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldBarcode')}</p>
-                  <p className="text-sm text-foreground font-mono">{selectedItem.barcode}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Stock visual bar */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.stockBar.title')}</h4>
-              <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                <div className="flex items-baseline justify-between mb-2">
-                  <span className="text-2xl font-semibold text-foreground tabular-nums">
-                    {selectedItem.quantity}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    Min: {selectedItem.min_quantity} {selectedItem.unit}
-                  </span>
-                </div>
-                <StockBar current={Number(selectedItem.quantity)} min={Number(selectedItem.min_quantity)} />
-              </div>
-            </div>
-
-            {/* Chargen & Seriennummern */}
-            {(selectedItem.batch_number || (selectedItem.serial_numbers && selectedItem.serial_numbers.length > 0)) && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.chargenTitle')}</h4>
-                <div className="rounded-lg border border-border p-3 space-y-2">
-                  {selectedItem.batch_number && (
-                    <div className="flex items-center gap-2">
-                      <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">{t('inventar.detail.chargeLabel')}</span>
-                      <span className="text-sm text-foreground font-mono">{selectedItem.batch_number}</span>
-                    </div>
-                  )}
-                  {selectedItem.serial_numbers && selectedItem.serial_numbers.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">{t('inventar.detail.serialLabel')}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedItem.serial_numbers.map((sn) => (
-                          <span
-                            key={sn}
-                            className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs font-mono text-foreground"
-                          >
-                            {sn}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Belegkette / Einkauf-Anbindung */}
-            {selectedItem.linked_purchase_order && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.einkaufTitle')}</h4>
-                <div className="rounded-lg border border-border p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Link2 className="h-4 w-4 text-primary" />
-                    <span className="text-sm text-foreground">
-                      {t('inventar.detail.linkedOrder')} <span className="font-mono font-medium">{selectedItem.linked_purchase_order}</span>
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => toast.info(`Wechsle zu Bestellung ${selectedItem.linked_purchase_order}`)}
-                    className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    {t('inventar.detail.toOrder')}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Lagerorte */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.lagerortTitle')}</h4>
-              <div className="rounded-lg border border-border p-3">
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const loc = locations.find((l) => l.id === selectedItem.location_id)
-                    const LIcon = loc ? locationTypeIcons[loc.type] || Warehouse : Warehouse
-                    return (
-                      <>
-                        <LIcon className="h-4 w-4 text-primary" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">{selectedItem.location ?? '—'}</p>
-                          {loc && <p className="text-xs text-muted-foreground">{loc.address}</p>}
-                        </div>
-                        <span className="text-sm tabular-nums text-foreground font-medium">
-                          {selectedItem.quantity} {selectedItem.unit}
-                        </span>
-                      </>
-                    )
-                  })()}
-                </div>
-              </div>
-            </div>
-
-            {/* Letzte Bewegungen */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.lastMovements')}</h4>
-              {(() => {
-                const itemMovements = selectedItemMovementsQuery.data?.movements?.slice(0, 5) ?? []
-                if (itemMovements.length === 0) {
-                  return (
-                    <p className="text-xs text-muted-foreground py-2">{t('inventar.detail.noMovements')}</p>
-                  )
-                }
-                return (
-                  <div className="space-y-1">
-                    {itemMovements.map((mov) => {
-                      const MIcon = movementTypeIcons[mov.movement_type]
-                      return (
-                        <div key={mov.id} className="flex items-center gap-2 rounded-md border border-border-muted p-2">
-                          <span className={`flex h-6 w-6 items-center justify-center rounded-md ${movementTypeColors[mov.movement_type]}`}>
-                            {MIcon && <MIcon className="h-3 w-3" />}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground">
-                              {movementTypeKeys[mov.movement_type] ? t(movementTypeKeys[mov.movement_type]) : mov.movement_type}
-                              {Number(mov.quantity) > 0 ? ` +${mov.quantity}` : ` ${mov.quantity}`}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                              {mov.reference ?? '—'} · {mov.performed_by ?? '—'}
-                            </p>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {formatDateTime(mov.created_at)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
-
-            {/* Anhänge */}
-            <ItemAttachmentsSection itemId={selectedItem.id} />
-          </div>
-        )}
-      </DetailPanel>
+      <LocationDetailModal
+        location={selectedLocation}
+        items={selectedLocation ? getLocationItems(selectedLocation) : []}
+        onClose={() => setSelectedLocation(null)}
+        onItemClick={(item) => {
+          setItemBackTarget(selectedLocation)
+          setSelectedLocation(null)
+          openItemDetail(item)
+        }}
+      />
 
       {/* ─── DIALOGS ────────────────────────────────────────── */}
       <ArtikelDialog
+        key={artikelDialogOpen ? (editItem?.id ?? 'new') : 'closed'}
         open={artikelDialogOpen}
         onClose={() => {
           setArtikelDialogOpen(false)
@@ -1532,6 +1477,13 @@ export default function InventarPage() {
         onScan={handleBarcodeScan}
       />
 
+      <NewInventurDialog
+        open={inventurDialogOpen}
+        onClose={() => setInventurDialogOpen(false)}
+        items={items}
+        locations={locations}
+      />
+
       {/* Confirm Delete */}
       <ConfirmDialog
         open={!!confirmDelete}
@@ -1542,106 +1494,6 @@ export default function InventarPage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />
-    </div>
-  )
-}
-
-// ─── Item Attachments ─────────────────────────────────────────────
-// Browser-direct upload (scope=inventar) + register against the item.
-
-function ItemAttachmentsSection({ itemId }: { itemId: string }) {
-  const { t } = useTranslation()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const attachmentsQuery = useItemAttachments(itemId)
-  const uploadMut = useUploadItemAttachment()
-  const deleteMut = useDeleteItemAttachment()
-  const attachments = attachmentsQuery.data?.attachments ?? []
-
-  const handleFile = (file: File | undefined) => {
-    if (!file) return
-    uploadMut.mutate(
-      { itemId, file },
-      { onError: () => toast.error(t('inventar.detail.attachmentUploadError')) },
-    )
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {t('inventar.detail.attachments')}
-        </h4>
-        <input
-          ref={fileRef}
-          type="file"
-          className="hidden"
-          onChange={(e) => {
-            handleFile(e.target.files?.[0])
-            e.target.value = ''
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploadMut.isPending}
-          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-        >
-          <Paperclip className="h-3 w-3" />
-          {t('inventar.detail.attachmentAdd')}
-        </button>
-      </div>
-      {attachments.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">{t('inventar.detail.attachmentsEmpty')}</p>
-      ) : (
-        <div className="space-y-1">
-          {attachments.map((att) => (
-            <ItemAttachmentRow
-              key={att.id}
-              attachment={att}
-              onRemove={() => deleteMut.mutate({ id: att.id, itemId })}
-              removeLabel={t('inventar.detail.attachmentRemove')}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ItemAttachmentRow({
-  attachment,
-  onRemove,
-  removeLabel,
-}: {
-  attachment: ItemAttachment
-  onRemove: () => void
-  removeLabel: string
-}) {
-  const src = useAvatarSrc(attachment.object_key)
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-border-muted p-2">
-      <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      {src ? (
-        <a
-          href={src}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 min-w-0 truncate text-xs text-primary hover:underline"
-        >
-          {attachment.name}
-        </a>
-      ) : (
-        <span className="flex-1 min-w-0 truncate text-xs text-foreground">{attachment.name}</span>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={removeLabel}
-        title={removeLabel}
-        className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-error transition-colors"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
     </div>
   )
 }
