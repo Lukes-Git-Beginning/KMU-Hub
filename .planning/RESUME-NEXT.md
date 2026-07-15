@@ -10,7 +10,13 @@
 >
 > **★ QA-DURCHBRUCH:** CosmiLaunch-Splash blockierte Demo-Screenshot-QA (Overlay). Fix: **`sessionStorage['cosmi:launch-played']='1'` im Playwright-`addInitScript`** überspringt ihn → alle Demo-QA-Skripte laufen jetzt sauber. Muster in `scripts/qa-video-actions.mjs`/`qa-tasks-fixes.mjs`. Scoped-tsc-Configs: dialercheck/x4split/videocheck/workqa (KanbanBoard ergänzt).
 > **★ PUSH-MODE aktiv** (Darien): pro verifiziertem Batch auf main → Auto-Deploy. Vor Push: eslint geänderte Dateien + scoped tsc + Screenshot-QA (Bilder angesehen). Full-tsc-Baseline nicht grün (bekannt) — scoped reicht.
-> **★ OFFEN / NÄCHSTE UNIT:** (a) **Bexio-Invoice-Pull-FE reviewen** (Lukes Subagent-Bau, noch nie angesehen — reiner Review) · (b) **admin-Lücken** (Integrations-Tab-Placeholder, License-Detail-Modal) · (c) **video-Rest** (CallHistory-Detail-Modal, Kamera-Vorschau) · (d) **Welle 3 Onboarding/Info-Center** (§1.2, braucht Konzept). **Luke-gebunden:** security-DSGVO-Echt-Schaltung, mails-IMAP, admin-Backend.
+> **★ DARIEN-SEQUENZ (festgelegt 2026-07-15) — genau diese Reihenfolge:**
+> 1. **Bexio-Review** — Darien reviewt die Bexio-Invoice-Pull-Dinger hands-on. **VOLLES PAKET: `.planning/bexio-review-paket.md`** (Checkliste + Datei-Refs). ⚠ **ERST 2 Demo-Mocks bauen** (Bexio-Rechnung im Seed + Sync-Status/Logs-Handler), sonst im Demo-Modus NICHT sichtbar — Details im Paket. Danach App starten + Darien geht die Checkliste durch, dann Fixes.
+> 2. **security Echt-Schaltung** — FE S-1…S-5 gegen echtes Backend (~85 % real), `security-client.ts` Pfade/Wire-Shapes abgleichen, KEIN destruktiver GDPR-Test. Kein Luke nötig.
+> 3. **NEUES TERMINAL: video + notifications parallel** — Darien öffnet ein Sub-Terminal, beide Module gleichzeitig (disjunkt). video: CallHistory-Detail-Modal + Kamera-Vorschau. notifications: Demo-Tiefe + priority-Mismatch-Fix.
+> 4. **NEUES TERMINAL: Welle 3 Onboarding/Info-Center** (§1.2) — O-0 Konzept zuerst (mit Darien abstimmen) → O-1…O-6.
+>
+> **★ PROD-BLOCKER für Luke (P0, separat klären):** X-7 Feature-Flags in `.env.production` (sonst deployt Auto-Deploy helpdesk/wiki/berichte/formulare/vertraege/video unsichtbar) · Prod-Migrationsdrift (Prod 209, lokal 243 → 210–243 nachlaufen) · mails-IMAP · admin-Backend (Invite/RBAC/License/S3) · security-Spec-Lücke (31 Endpoints fehlen in openapi.yaml). **Weitere self-doable Reste** (nach der Sequenz): admin-Demo-Tiefe, Tiefe-Re-Checks T-1…T-4, Branchen×7-Demo-Tiefe.
 >
 > ---
 > _(Detail-Historie #7 folgt)_
