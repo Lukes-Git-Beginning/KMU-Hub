@@ -4,6 +4,14 @@
 > und die heiklen Lösch-/Vault-Pfade brauchen Backend-Verständnis + Verantwortung. Darien hat das
 > Backend read-only verifiziert (s.u.), die eigentliche Echt-Schaltung ist ein eigener Block.
 
+## ✅ UPDATE Session #8 (2026-07-15) — FE-Teil erledigt + verifiziert; nur Backend bleibt bei Luke
+
+Darien-Entscheid: **Backend-Teil (Demo-Seed + Docker-Live-QA + destruktive Erasure/Vault-Pfade) bleibt bei Luke.** Der FE-Teil ist abgehakt:
+- **`security-client.ts` ist echt-schaltungs-bereit** — Lukes Contract-Mismatch-Kampagne (Session #7) hat Pfade/Bodies/Envelope-Unwraps (`?? []`-Null-Guard) sauber gemacht; protojson liefert Timestamps schon als ISO-String → **KEIN Wire-Adapter (wire-time/Enum-Map) mehr nötig** (Aufgabe #2 im Original-Paket damit hinfällig). Client ist modus-agnostisch (kein Demo-Branch), geht im localbackend-Modus direkt ans echte Gateway.
+- **FE visuell verifiziert** (der offene „Electron-QA konnte Luke nicht"-Punkt): geroutete Oberfläche = **`SecurityAdminHubTab`** (Admin-Konsole `/admin/security`, horizontale Sub-Tabs), nicht die alte `SecurityAdminPage` (die ist toter Code, App.tsx:237 dokumentiert). Demo-QA `desktop/scripts/qa-security-demo.mjs` = ALL PASS über alle Sub-Tabs (Audit-Log/Sessions visuell bestätigt: saubere Tabellen, echte Mock-Daten, keine Raw-Keys/Crashes).
+
+**→ Für Luke bleibt genau:** (3) `security-demo.sql` idempotenter Seed (sonst leere Tabs auf Hetzner) + (4) Docker-Live-QA gegen echtes BE + mock-verdeckte Bugs, **nicht-destruktiv** (kein Erasure-execute, kein Vault-Prod-Write — s.u.). Punkte 1+2 (Client/Adapter) sind erledigt.
+
 ## Ziel
 Das security-FE (10 Seiten, `modules/security/`) von **MSW-Mock** auf das **echte Backend**
 umstellen — analog zu kontakte/helpdesk/inbox (Referenz: `.planning/kontakte-mock-exit-DONE.md`).
