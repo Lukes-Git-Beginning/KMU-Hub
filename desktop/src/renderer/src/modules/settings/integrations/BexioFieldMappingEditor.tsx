@@ -147,7 +147,7 @@ export function BexioFieldMappingEditor({
       {/* Mapping table */}
       <div className="space-y-2">
         {/* Header */}
-        <div className="grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 text-xs text-muted-foreground px-1">
+        <div className="grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 text-xs text-muted-foreground px-1">
           <span>Cosmi</span>
           <span className="w-[120px]">{t('settings.integrations.fieldMapping.direction')}</span>
           <span>Bexio</span>
@@ -158,7 +158,7 @@ export function BexioFieldMappingEditor({
         {mappings.map((mapping, index) => (
           <div
             key={index}
-            className={`grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 items-center ${
+            className={`grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 items-center ${
               duplicateBexioFields.includes(mapping.bexio_field) && mapping.bexio_field
                 ? 'rounded-md ring-1 ring-destructive/50 p-1'
                 : ''

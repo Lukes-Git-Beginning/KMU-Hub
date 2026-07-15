@@ -138,7 +138,7 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>{t('settings.integrations.bexio.setup.title')}</DialogTitle>
           <DialogDescription>
@@ -188,8 +188,8 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
           ))}
         </div>
 
-        {/* Step content */}
-        <div className="min-h-[200px]">
+        {/* Step content — scrolls; header + stepper + nav stay pinned */}
+        <div className="min-h-[200px] max-h-[55vh] overflow-y-auto">
           {step === 1 && (
             <StepOAuth
               connected={connectionStatus?.connected ?? false}
