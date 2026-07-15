@@ -22,7 +22,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTasks, useMoveTask } from '@/api/hooks/useTasks'
-import { useWorkStore } from '@/stores/work'
+import { useNavigate } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import KanbanColumn from './KanbanColumn'
 import KanbanCard from './KanbanCard'
@@ -40,7 +40,7 @@ export default function KanbanBoard({
 }: KanbanBoardProps) {
   const queryClient = useQueryClient()
   const moveTask = useMoveTask()
-  const openTaskPanel = useWorkStore((s) => s.openTaskPanel)
+  const navigate = useNavigate()
   const [activeTask, setActiveTask] = useState<TaskData | null>(null)
 
   // Sensors for DnD
@@ -188,8 +188,10 @@ export default function KanbanBoard({
     )
   }
 
+  // Open the full task detail page (same view as My Tasks) instead of the
+  // condensed side panel, so a task looks the same wherever it is opened.
   function handleTaskClick(taskId: string) {
-    openTaskPanel(taskId)
+    navigate(`/work/projects/${projectId}/tasks/${taskId}`)
   }
 
   if (isLoading) {

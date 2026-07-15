@@ -7,7 +7,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   Calendar,
@@ -72,17 +72,15 @@ export default function TaskDetailPage() {
     taskId: string
   }>()
   const navigate = useNavigate()
-  const location = useLocation()
-
   const { data: taskData, isLoading, error, refetch } = useTask(taskId ?? '')
   const task = taskData?.task as TaskWithDerived | undefined
   const effectiveProjectId = projectId ?? task?.project_id ?? ''
 
-  // Go back to wherever we came from (My Tasks, search, project board…). Falls
-  // back to the project board when the page was opened directly (no history).
+  // The back arrow is labelled with the project name, so it always returns to
+  // the project board — not to wherever you came from (e.g. My Tasks).
   function handleBack() {
-    if (location.key && location.key !== 'default') navigate(-1)
-    else navigate(`/work/projects/${effectiveProjectId}`)
+    if (effectiveProjectId) navigate(`/work/projects/${effectiveProjectId}`)
+    else navigate(-1)
   }
 
   const { data: projectData } = useProject(effectiveProjectId)

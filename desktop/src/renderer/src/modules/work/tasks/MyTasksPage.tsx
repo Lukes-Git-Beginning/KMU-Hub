@@ -512,7 +512,12 @@ export default function MyTasksPage() {
                         <button
                           type="button"
                           onClick={() => toggleComplete(task)}
-                          className="shrink-0 text-muted-foreground transition-colors hover:text-success"
+                          className={cn(
+                            'group/check shrink-0 rounded-full p-1.5 transition-colors',
+                            task.completed_at
+                              ? 'text-success hover:bg-success/10'
+                              : 'text-muted-foreground hover:bg-success/10 hover:text-success',
+                          )}
                           aria-label={
                             task.completed_at
                               ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
@@ -525,9 +530,12 @@ export default function MyTasksPage() {
                           }
                         >
                           {task.completed_at ? (
-                            <CheckCircle2 className="h-4 w-4 text-success" />
+                            <CheckCircle2 className="h-6 w-6" />
                           ) : (
-                            <Circle className="h-4 w-4" />
+                            <>
+                              <Circle className="h-6 w-6 group-hover/check:hidden" />
+                              <CheckCircle2 className="hidden h-6 w-6 group-hover/check:block" />
+                            </>
                           )}
                         </button>
 

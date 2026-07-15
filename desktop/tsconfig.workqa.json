@@ -10,6 +10,7 @@
     "src/renderer/src/modules/work/tasks/MyTasksPage.tsx",
     "src/renderer/src/modules/work/tasks/TaskDetailPanel.tsx",
     "src/renderer/src/modules/work/tasks/TaskDetailPage.tsx",
-    "src/renderer/src/modules/work/kanban/KanbanCard.tsx"
+    "src/renderer/src/modules/work/kanban/KanbanCard.tsx",
+    "src/renderer/src/modules/work/kanban/KanbanBoard.tsx"
   ]
 }
