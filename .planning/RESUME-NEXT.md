@@ -1,6 +1,23 @@
-# RESUME — nächster Einstieg (Stand 2026-07-15, Session #10)
+# RESUME — nächster Einstieg (Stand 2026-07-15, Session #11)
 
-> **★★★★★ SESSION #10 (2026-07-15) — main `aafe636a` (alles gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+> **★★★★★ SESSION #11 (2026-07-15) — main `9cb06ab7` (gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Branchen-Block 4/7: schichten komplett auf Standard** (`9cb06ab7`, gleiches Rezept: Marktrecherche-Agent Planday/Deputy/Papershift/Shiftbase → bauen → Gates → ALL PASS + Bilder angesehen):
+> 1. **Grid-Zellen-Klick (belegt) → `ShiftDetailModal`** (war Info-Toast): Meta-Grid (MA/Datum/Zeit/Pause/Netto), Status-Badge draft/published, Zuschlag, ArbZG-Hinweise des MA, **Zuweisung entfernen** + **Tausch-Formular inline** (verdrahtet die ungenutzte `useCreateSwapRequest`!). Zellen `role=button`+Tastatur.
+> 2. **„Vorlage bearbeiten" echt** (`useUpdateTemplate` lag ungenutzt bereit, Seeding-beim-Öffnen statt stale state) + **„Auf Woche anwenden"-Dialog** (aktuelle/nächste KW, verdrahtet ungenutzte `useApplyTemplate`).
+> 3. **PDF-Stub → echter Dienstplan-PDF** (`schichten-export.ts`, WinAnsi-Muster aus rapporte: Kopf KW/Zeitraum/Summen, pro MA die Wochen-Schichten) + **neuer Wochen-CSV** (eine Zeile pro Zuweisung, BOM für Excel).
+> 4. **Settings-Panel** (`schichtenPrefs`: Standard-Tab wirksam + Zuschlag-Badges-Toggle · `schichtenTenant`: **swapEnabled gatet Tausch-Button im Modal**, **maxWeeklyHours speist computeViolations/ArbZG**, **defaultBreakMinutes speist Template-Dialog + Adapter**) + Registry + Hydrator ×2. ⚠ `stores/schichten.ts` = Daten-Store (wie vermietung) → Settings-Stores heißen schichtenPrefs/schichtenTenant.
+> 5. **Alt-Bug gefunden+gefixt (via Screenshot-QA!):** Klick auf belegte Zelle feuerte Drag-Selbst-Drop → sinnloser unassign→assign-API-Roundtrip + „Schicht verschoben"-Toast bei jedem Klick. Guard in `handleDrop` (Quelle==Ziel → no-op).
+> QA `scripts/qa-schichten-tiefe.mjs` (10 Steps ALL PASS), tsconfig `schichtencheck`, SortMenu Name/Rolle/Wochenstunden, i18n ×4 (ICU-Plural arbzgHinweise/applyToastHint).
+> **★ Paritäts-Kandidaten aus schichten-Recherche (NICHT gebaut):** Auto-Scheduling (KI), MA-Verfügbarkeits-Selbstpflege echt (Tab ist noch localStorage-Mock), MA-zu-MA-Tausch-Marktplatz (3-Step + Notifications), Skills-/Qualifikations-Matrix, Rotations-Templates, Wochen-als-Vorlage-Bibliothek, Offene-Schichten-Bewerbungsflow, Schichttyp-Farbe/Pause im Backend-Modell (Adapter-Defaults, color/breakMinutes fehlen im BE).
+> **★ VERBLEIBEN: Branchen ×2 mittel + 1 groß** — **fuhrpark** (⚠ totes `getExportUrl` fuhrpark-client.ts:227) / **einkauf** → **produktion** (groß, Statuswechsel-Endpoint ERST greppen, sonst Luke). Rezept + Stand: `.planning/branchen-block/README.md`.
+>
+> ---
+> _(Historie #10 folgt)_
+
+# RESUME — Historie (Stand 2026-07-15, Session #10)
+
+> **★★★★★ SESSION #10 (2026-07-15) — main `aafe636a` (alles gepusht, Auto-Deploy lief).**
 >
 > **Branchen-Block gestartet — 2 von 7 Modulen komplett auf Standard (je Marktrecherche via Web-Agent + Screenshot-QA ALL PASS + Bilder angesehen + 1 Commit + Push):**
 > 1. **inventar PILOT** (`1d1fac6c`) — (a) Artikel-Detail `DetailPanel`→`shared/DetailModal` (eigene `ItemDetailModal.tsx`, Zeilen role=button+Tastatur), (b) **Lagerort-Karten klickbar** → `LocationDetailModal` (Kennzahlen + klickbare Artikel-Liste + Bestandsliste-CSV) mit **onBack-Kette** ins Artikel-Modal, (c) **„Neue Inventur" echt**: Hook/Client/stateful-MSW existierten ALLE schon (Button war nie verdrahtet!) → `NewInventurDialog` (Stichtag/Lagerort-Scope=Teilinventur/nur-mit-Bestand, myfactory-Muster) **+ fehlende Ist-Zählung nachgebaut**: editierbare Ist-Inputs, Lifecycle open→counting→review (Zoho-Muster), Zählliste-CSV je Session, (d) Settings-Panel (`inventarPrefs`: Standard-Tab/Dichte/Warnungen wirksam · `inventarTenant`: Standard-Einheit/Mindestbestand-Default/Barcode-Format/**Negativbestand-Sperre** — greift im BewegungDialog), (e) SortMenu + Artikel/Bewegungen-CSV; Bewegungen-Tab hat jetzt **eigenen Artikel-Selector** (hing vorher am offenen Slide-over = im Modal-Paradigma kaputt), (f) ArtikelDialog stale-state via Remount-key gefixt, Nachbestellen/Zur-Bestellung → navigate('/einkauf'). QA `scripts/qa-inventar-tiefe.mjs`, tsconfig `inventarcheck`.

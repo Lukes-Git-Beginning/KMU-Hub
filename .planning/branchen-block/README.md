@@ -6,13 +6,14 @@
 
 ---
 
-## ✅ STAND Session #10 (2026-07-15): 3 von 7 fertig — verbleiben schichten, fuhrpark, einkauf, produktion
+## ✅ STAND Session #11 (2026-07-15): 4 von 7 fertig — verbleiben fuhrpark, einkauf, produktion
 
 | Modul | Commit | Referenz-tauglich für |
 |---|---|---|
 | ✅ **inventar** (Pilot) | `1d1fac6c` | Modal-Umbau, Settings-Stores, SortMenu, CSV, Sub-Listen-Back-Kette, Workflow-Vervollständigung (Inventur-Zählung) |
 | ✅ **vermietung** | `aafe636a` | Status-Lifecycle-Aktionen aus ungenutzten Hooks, Kalender-Slot→Modal, Konfliktcheck + tenant-Policy (bufferDays) |
 | ✅ **rapporte** | `23c39644` | **echter PDF-Export ohne Library** (`modules/rapporte/rapporte-export.ts`, WinAnsi-Umlaute), Prefs seeden Dialog-Defaults, tenant-Policy blockt Aktion (Unterschrift-Pflicht) |
+| ✅ **schichten** | `9cb06ab7` | Grid-Zellen-Klick→Modal mit Inline-Aktions-Formular (Tausch), tenant-Policy gatet Modal-Aktion (swapEnabled) + speist Berechnung (maxWeeklyHours→ArbZG) + Dialog-Default (defaultBreakMinutes), Drag&Drop-Selbst-Drop-Guard |
 
 **Erprobtes Rezept pro Modul (aus 3 Durchläufen, je ~1 Commit):**
 1. **Marktrecherche-Agent zuerst** (Web-Research-Sub-Agent, ~3 Min parallel zum Code-Lesen): Detail-Ansicht / Status-Lifecycle / Settings personal-vs-tenant / Exporte / Listen-UX der 3–4 Marktführer. Ergebnis bestimmt Settings-Felder + Workflow-Lücken. Paritäts-Funde (zu groß für Demo-Tiefe) im RESUME-NEXT notieren, nicht bauen.
@@ -47,10 +48,10 @@ Alle Referenzen wurden in Session #9 (video) frisch gebaut — direkt abkupfern:
 
 ## Reihenfolge (Rest)
 
-1. ~~Pilot: inventar~~ ✅ · ~~vermietung~~ ✅ · ~~rapporte~~ ✅ (siehe Stand-Block oben)
-2. Verbleibende 4 nach dem erprobten Rezept, aufsteigend nach Aufwand, gut für 2-Terminal (disjunkte Module, keine Hot-File-Kollision außer i18n-JSONs + `module-settings-registry.tsx` + `useHydrateModuleSettings.ts` → die serialisieren, nicht doppelt gleichzeitig editieren):
-   - **mittel:** schichten, fuhrpark, einkauf
-   - **groß:** produktion (Statuswechsel-Mutation fehlt komplett — ERST API-Schicht greppen [in 3 von 3 Modulen lag der Endpoint ungenutzt bereit], sonst mit Luke abklären; Fallback mock-first + 🔒-Zeile in backend-gaps.md)
+1. ~~Pilot: inventar~~ ✅ · ~~vermietung~~ ✅ · ~~rapporte~~ ✅ · ~~schichten~~ ✅ (siehe Stand-Block oben)
+2. Verbleibende 3 nach dem erprobten Rezept, aufsteigend nach Aufwand, gut für 2-Terminal (disjunkte Module, keine Hot-File-Kollision außer i18n-JSONs + `module-settings-registry.tsx` + `useHydrateModuleSettings.ts` → die serialisieren, nicht doppelt gleichzeitig editieren):
+   - **mittel:** fuhrpark (⚠ totes `getExportUrl` in fuhrpark-client.ts:227), einkauf
+   - **groß:** produktion (Statuswechsel-Mutation fehlt komplett — ERST API-Schicht greppen [in 4 von 4 Modulen lag der Endpoint ungenutzt bereit], sonst mit Luke abklären; Fallback mock-first + 🔒-Zeile in backend-gaps.md)
 
 ---
 
