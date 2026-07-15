@@ -1,4 +1,20 @@
-# RESUME — nächster Einstieg (Stand 2026-07-15, Session-ENDE #7)
+# RESUME — nächster Einstieg (Stand 2026-07-15, Session #8)
+
+> **★★★★★ SESSION #8 (2026-07-15) — main `4ff3a812` (alles gepusht, CI grün, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Diese Session #8 — Darien-Sequenz Schritt 1 (Bexio) + 2 (security) durch:**
+> 1. **Bexio verdrahtet + reviewbar** (`935a92ff`) — **Kern-Befund:** der echte Invoice-Pull-Wizard + Sync-Dashboard (`modules/settings/integrations/BexioSetupWizard`+`BexioSyncDashboard`) waren **toter Code** (nur `IntegrationsPage`, nirgends geroutet); beide erreichbaren Einstiege rendern den alten `BexioConfigPanel` (localStorage-Mock, kein Invoice-Pull). → Wizard/Dashboard in `IntegrationSettingsTab` **+** `FinanzIntegrationenTab` verdrahtet (Karte: disconnected→Wizard, connected→Dashboard), alten `BexioConfigPanel` gelöscht. **2 Demo-Mocks:** Read-only-Rechnung `2026-0042` (`source:'bexio'`, mocks/data/invoices.ts) + stateful Bexio-Sync-Endpoints (mocks/handlers/settings.ts). ⚠ **`Einstellungen→Integrationen` gibt's nicht** (adminOnly immer versteckt, SettingsPage:110) — realer Weg = **Modul-Einstellungen-Overlay → Buchhaltung/cosmi → Integrationen**.
+> 2. **Bexio Schritt-3-Layout-Bug** (`985c24f7`, **Darien-Fund**) — Feld-Zuordnung sprengte den Screen: (a) `grid-cols-[1fr,auto,…]` mit **Kommas** = ungültiges CSS → Grid kollabiert → Dropdowns gestapelt; Fix Underscores. (b) Wizard-Dialog ohne `max-h` → Fix `max-h-[85vh]` + nur Step-Body scrollt (Nav sticky). Screenshot-verifiziert.
+> 3. **Lexware identischer Bug** (`9a4d26db`) — `LexwareFieldMappingEditor` + `LexwareSetupWizard` hatten denselben Komma-Grid+max-h-Bug → mitgefixt. Kein weiterer Komma-Grid im Code.
+> 4. **security FE verifiziert + Backend an Luke** (`4ff3a812`, **Darien-Entscheid**) — `security-client.ts` ist echt-schaltungs-bereit (Lukes Contract-Kampagne: Pfade/Envelopes/protojson-ISO → **kein FE-Adapter nötig**). Geroutete Oberfläche = **`SecurityAdminHubTab`** (`/admin/security`), NICHT die alte `SecurityAdminPage` (toter Code, App.tsx:237). Demo-QA `scripts/qa-security-demo.mjs` = ALL PASS (Audit-Log/Sessions visuell sauber). **Backend-Rest (security-demo.sql + Docker-Live-QA + destruktive Erasure/Vault) bleibt bei Luke** — `.planning/security-echtschaltung-luke.md` #8-Block.
+>
+> **★ OFFENE BEXIO-REVIEW-PUNKTE (Darien mitgeben):** (a) doppelter Info-Banner bei Bexio-Rechnung (Readonly + „bereits versendet"), (b) PDF-Download bei Bexio-Rechnungen sichtbar — gewollt?, (c) Bexio-Auffindbarkeit für Nicht-Admins (nur tenant-Section, für Nicht-Leads disabled). Voll in `.planning/bexio-review-paket.md` #8-Block.
+> **★ NÄCHSTER SCHRITT (Sequenz Schritt 3): video + notifications** (Handoff: neues Terminal). **video:** CallHistory-Zeile klickbar → Detail-Modal (`shared/DetailModal`; `CallHistoryEntry`-Typ in stores/meetings.ts ist dünn → für Tiefe evtl. um Teilnehmer/Notiz/Aufzeichnung erweitern) + Kamera-Vorschau-Placeholder. **notifications:** Demo-Tiefe + priority-Mismatch-Fix. Danach Sequenz-Schritt 4: Welle 3 Onboarding/Info-Center (O-0 Konzept mit Darien).
+>
+> ---
+> _(Detail-Historie #7 folgt)_
+
+# RESUME — Historie (Stand 2026-07-15, Session-ENDE #7)
 
 > **★★★★★ SESSION-ENDE #7 (2026-07-15) — main `46836248` (alles gepusht, CI grün, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >
