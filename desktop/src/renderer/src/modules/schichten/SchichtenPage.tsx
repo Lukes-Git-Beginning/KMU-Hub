@@ -19,9 +19,8 @@ import {
   Check,
   XCircle,
   Sun,
-  Sunset,
-  Moon,
   FileDown,
+  FileSpreadsheet,
   GripVertical,
   ShieldAlert,
   PartyPopper,
@@ -47,6 +46,7 @@ import {
   useCreateTemplate,
   useUpdateTemplate,
   useDeleteTemplate,
+  useApplyTemplate,
   useAssignEmployee,
   useUnassignEmployee,
   useCreateShift,
@@ -60,21 +60,34 @@ import {
 } from '@/api/hooks/useSchichten'
 import { useEmployees } from '@/api/hooks/hr-hooks'
 import type { ShiftTemplate as ApiShiftTemplate } from '@/api/schichten-types'
-import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader, SortMenu, type SortDirection } from '@/components/shared'
+import { useSchichtenPrefsStore } from '@/stores/schichtenPrefs'
+import { useSchichtenTenantStore } from '@/stores/schichtenTenant'
+import { ShiftDetailModal } from './ShiftDetailModal'
+import {
+  buildWeekCsv,
+  buildWeekPlanPdf,
+  csvDateStamp,
+  downloadBlob,
+} from './schichten-export'
+import {
+  WEEKDAYS,
+  SHIFT_STYLE_MAP,
+  SURCHARGE_RULES,
+  isWeekend,
+  isHoliday,
+  computeShiftHours,
+  getSurchargeLabel,
+  getInitials,
+  type ArbZGViolation,
+  type SchichtenEmployee as Employee,
+} from './schichten-shared'
 
 // ============================================================
 // Types
 // ============================================================
 
 type TabKey = 'wochenplan' | 'vorlagen' | 'anfragen' | 'verfügbarkeit'
-
-interface Employee {
-  id: string
-  name: string
-  initials: string
-  availability: 'available' | 'limited' | 'unavailable'
-  role: string
-}
 
 interface AssignDialogState {
   open: boolean
@@ -84,6 +97,7 @@ interface AssignDialogState {
 
 interface TemplateDialogState {
   open: boolean
+  edit: ShiftTemplate | null
 }
 
 interface DragState {
@@ -95,19 +109,9 @@ interface DragState {
   templateName: string
 }
 
-interface ArbZGViolation {
-  employeeId: string
-  employeeName: string
-  type: 'max_hours' | 'rest_period' | 'break_missing' | 'consecutive_days'
-  message: string
-  severity: 'warning' | 'error'
-}
-
 // ============================================================
 // Constants & Mock Data
 // ============================================================
-
-const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 const swapStatusLabelKeys: Record<string, string> = {
   pending: 'schichten.anfragen.status.pending',
@@ -121,36 +125,9 @@ const swapStatusColors: Record<string, string> = {
   rejected: 'bg-error-light text-error',
 }
 
-const SHIFT_STYLE_MAP: Record<string, { bg: string; text: string; border: string; icon: typeof Sun }> = {
-  'tpl-1': { bg: 'bg-info-light', text: 'text-info', border: 'border-info/20', icon: Sun },
-  'tpl-2': { bg: 'bg-warning-light', text: 'text-warning', border: 'border-warning/20', icon: Sunset },
-  'tpl-3': { bg: 'bg-primary-light', text: 'text-primary', border: 'border-primary/20', icon: Moon },
-}
-
-// 7.7: Surcharge rules (Zuschlaege)
-const SURCHARGE_RULES: Record<string, { label: string; rate: string }> = {
-  'tpl-3': { label: 'Nacht', rate: '+25%' },
-}
-
-const WEEKEND_SURCHARGE = { label: 'WE', rate: '+50%' }
-const HOLIDAY_SURCHARGE = { label: 'Feiertag', rate: '+100%' }
-
-// 7.10: German holidays (DE-first, configurable)
-const GERMAN_HOLIDAYS_2026: Record<string, string> = {
-  '2026-01-01': 'Neujahr',
-  '2026-04-03': 'Karfreitag',
-  '2026-04-06': 'Ostermontag',
-  '2026-05-01': 'Tag der Arbeit',
-  '2026-05-14': 'Christi Himmelfahrt',
-  '2026-05-25': 'Pfingstmontag',
-  '2026-10-03': 'Tag der Deutschen Einheit',
-  '2026-12-25': '1. Weihnachtstag',
-  '2026-12-26': '2. Weihnachtstag',
-}
-
 // Adapter: API template (start_hour/minute/duration) → UI template (startTime/endTime/breakMinutes/color)
-// The API does not store color or breakMinutes — we keep static defaults here until backend adds them.
-function adaptApiTemplate(t: ApiShiftTemplate): ShiftTemplate {
+// The API does not store color or breakMinutes — break falls back to the tenant default until backend adds them.
+function adaptApiTemplate(t: ApiShiftTemplate, defaultBreakMinutes: number): ShiftTemplate {
   const endTotalMin = t.start_hour * 60 + t.start_minute + t.duration_minutes
   const endH = Math.floor(endTotalMin / 60) % 24
   const endM = endTotalMin % 60
@@ -161,7 +138,7 @@ function adaptApiTemplate(t: ApiShiftTemplate): ShiftTemplate {
     startTime: `${pad(t.start_hour)}:${pad(t.start_minute)}`,
     endTime: `${pad(endH)}:${pad(endM)}`,
     color: '#3b82f6', // default — backend does not yet expose color
-    breakMinutes: 30,  // default — backend does not yet expose breakMinutes
+    breakMinutes: defaultBreakMinutes, // tenant default — backend does not yet expose breakMinutes
   }
 }
 
@@ -231,37 +208,6 @@ function isToday(dateStr: string): boolean {
   return dateStr === new Date().toISOString().split('T')[0]
 }
 
-function isWeekend(dateStr: string): boolean {
-  const d = new Date(dateStr + 'T00:00:00')
-  const day = d.getDay()
-  return day === 0 || day === 6
-}
-
-function isHoliday(dateStr: string): string | null {
-  return GERMAN_HOLIDAYS_2026[dateStr] ?? null
-}
-
-function computeShiftHours(templateId: string): number {
-  const hours: Record<string, number> = { 'tpl-1': 7.5, 'tpl-2': 7.5, 'tpl-3': 7.25 }
-  return hours[templateId] ?? 8
-}
-
-// 7.7: Compute surcharge for a shift on a given date
-function getSurchargeLabel(templateId: string, dateStr: string): { label: string; rate: string } | null {
-  const holiday = isHoliday(dateStr)
-  if (holiday) return HOLIDAY_SURCHARGE
-  if (isWeekend(dateStr)) return WEEKEND_SURCHARGE
-  return SURCHARGE_RULES[templateId] ?? null
-}
-
-// 7.8+7.9: ArbZG validation
-// Derive initials from a full name ("Thomas Keller" → "TK")
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
 // Match shift RFC3339 start_time to the best template by start_hour, or return null
 function matchTemplateByStartHour(startTime: string, templates: ShiftTemplate[]): ShiftTemplate | null {
   const hour = new Date(startTime).getUTCHours()
@@ -273,20 +219,25 @@ function matchTemplateByStartHour(startTime: string, templates: ShiftTemplate[])
   return match ?? templates[0] ?? null
 }
 
-function computeViolations(employees: Employee[], assignments: ShiftAssignment[], weekDates: string[]): ArbZGViolation[] {
+function computeViolations(
+  employees: Employee[],
+  assignments: ShiftAssignment[],
+  weekDates: string[],
+  maxWeeklyHours: number,
+): ArbZGViolation[] {
   const violations: ArbZGViolation[] = []
 
   for (const emp of employees) {
     const empAssignments = assignments.filter((a) => a.userId === emp.id)
     const weeklyHours = empAssignments.reduce((s, a) => s + computeShiftHours(a.templateId), 0)
 
-    // Max 48h/week (ArbZG §3)
-    if (weeklyHours > 48) {
+    // Weekly ceiling (tenant setting, legal max 48h — ArbZG §3)
+    if (weeklyHours > maxWeeklyHours) {
       violations.push({
         employeeId: emp.id, employeeName: emp.name, type: 'max_hours', severity: 'error',
-        message: `${emp.name}: ${weeklyHours.toFixed(1)}h/Woche überschreitet 48h-Grenze (ArbZG §3)`,
+        message: `${emp.name}: ${weeklyHours.toFixed(1)}h/Woche überschreitet ${maxWeeklyHours}h-Grenze (ArbZG §3)`,
       })
-    } else if (weeklyHours > 40) {
+    } else if (weeklyHours > Math.min(40, maxWeeklyHours)) {
       violations.push({
         employeeId: emp.id, employeeName: emp.name, type: 'max_hours', severity: 'warning',
         message: `${emp.name}: ${weeklyHours.toFixed(1)}h/Woche — über 40h Regelarbeitszeit`,
@@ -362,24 +313,33 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
 export default function SchichtenPage() {
   const { t } = useTranslation()
 
+  // ── Module settings (personal prefs + tenant policy) ──
+  const defaultTab = useSchichtenPrefsStore((s) => s.defaultTab)
+  const showSurcharges = useSchichtenPrefsStore((s) => s.showSurcharges)
+  const swapEnabled = useSchichtenTenantStore((s) => s.swapEnabled)
+  const maxWeeklyHours = useSchichtenTenantStore((s) => s.maxWeeklyHours)
+  const tenantBreakMinutes = useSchichtenTenantStore((s) => s.defaultBreakMinutes)
+
   // ── Queries ──
   const templatesQuery = useTemplatesList()
   const swapRequestsQuery = useSwapRequests()
   // Adapt API template shape (start_hour/minute/duration) to the UI ShiftTemplate type (startTime/endTime/color/breakMinutes)
-  const templates: ShiftTemplate[] = (templatesQuery.data?.templates ?? []).map(adaptApiTemplate)
+  const templates: ShiftTemplate[] = useMemo(
+    () => (templatesQuery.data?.templates ?? []).map((tpl) => adaptApiTemplate(tpl, tenantBreakMinutes)),
+    [templatesQuery.data, tenantBreakMinutes],
+  )
   const swapRequests: SwapRequest[] = swapRequestsQuery.data ?? []
 
   // ── Mutations ──
   const assignEmployeeMutation = useAssignEmployee()
   const unassignMutation = useUnassignEmployee()
   const createTemplateMutation = useCreateTemplate()
-  // _updateTemplateMutation: ready for Edit-Template dialog wiring
-  const _updateTemplateMutation = useUpdateTemplate()
+  const updateTemplateMutation = useUpdateTemplate()
   const deleteTemplateMutation = useDeleteTemplate()
+  const applyTemplateMutation = useApplyTemplate()
   const approveSwapMutation = useApproveSwapRequest()
   const rejectSwapMutation = useRejectSwapRequest()
-  // _createSwapMutation: ready for "Tausch beantragen" dialog wiring
-  const _createSwapMutation = useCreateSwapRequest()
+  const createSwapMutation = useCreateSwapRequest()
   const createShiftMutation = useCreateShift()
   const publishShiftsMutation = usePublishShifts()
 
@@ -401,13 +361,21 @@ export default function SchichtenPage() {
   )
 
   // State
-  const [tab, setTab] = useState<TabKey>('wochenplan')
+  const [tab, setTab] = useState<TabKey>(defaultTab)
   const [search, setSearch] = useState('')
   const [weekOffset, setWeekOffset] = useState(0)
   const [confirmDelete, setConfirmDelete] = useState<ShiftTemplate | null>(null)
   const [assignDialog, setAssignDialog] = useState<AssignDialogState>({ open: false, employeeId: '', date: '' })
-  const [templateDialog, setTemplateDialog] = useState<TemplateDialogState>({ open: false })
+  const [templateDialog, setTemplateDialog] = useState<TemplateDialogState>({ open: false, edit: null })
   const [hoveredCell, setHoveredCell] = useState<string | null>(null)
+  // Detail modal for an occupied grid cell (key: `${employeeId}-${date}`)
+  const [detailKey, setDetailKey] = useState<string | null>(null)
+  // Apply-template dialog (target week for the previously unused apply endpoint)
+  const [applyTarget, setApplyTarget] = useState<ShiftTemplate | null>(null)
+  const [applyWeek, setApplyWeek] = useState<'current' | 'next'>('current')
+  // Week-grid employee sorting (field + direction, shared SortMenu)
+  const [sortField, setSortField] = useState('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   // 7.11: Drag state
   const [dragState, setDragState] = useState<DragState | null>(null)
@@ -503,11 +471,27 @@ export default function SchichtenPage() {
     return map
   }, [shiftsWithAssignments.shifts, templates])
 
+  // Weekly hours per employee (for the hours sort field)
+  const employeeHours = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const a of localAssignments) {
+      map.set(a.userId, (map.get(a.userId) ?? 0) + computeShiftHours(a.templateId))
+    }
+    return map
+  }, [localAssignments])
+
   const filteredEmployees = useMemo(() => {
-    if (!search) return employees
     const q = search.toLowerCase()
-    return employees.filter((e) => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q))
-  }, [search, employees])
+    const filtered = search
+      ? employees.filter((e) => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q))
+      : employees
+    const dir = sortDirection === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      if (sortField === 'role') return dir * a.role.localeCompare(b.role, 'de')
+      if (sortField === 'hours') return dir * ((employeeHours.get(a.id) ?? 0) - (employeeHours.get(b.id) ?? 0))
+      return dir * a.name.localeCompare(b.name, 'de')
+    })
+  }, [search, employees, sortField, sortDirection, employeeHours])
 
   const templateMap = useMemo(() => {
     const map = new Map<string, ShiftTemplate>()
@@ -527,8 +511,11 @@ export default function SchichtenPage() {
     return map
   }, [weekDates])
 
-  // 7.8+7.9: ArbZG violations
-  const violations = useMemo(() => computeViolations(employees, localAssignments, weekDates), [employees, localAssignments, weekDates])
+  // 7.8+7.9: ArbZG violations (weekly ceiling from tenant settings)
+  const violations = useMemo(
+    () => computeViolations(employees, localAssignments, weekDates, maxWeeklyHours),
+    [employees, localAssignments, weekDates, maxWeeklyHours],
+  )
   const violationsByEmployee = useMemo(() => {
     const map = new Map<string, ArbZGViolation[]>()
     for (const v of violations) {
@@ -556,11 +543,8 @@ export default function SchichtenPage() {
     const key = `${employeeId}-${date}`
     const existing = assignmentMap.get(key)
     if (existing) {
-      const tpl = templateMap.get(existing.templateId)
-      const surcharge = getSurchargeLabel(existing.templateId, date)
-      toast.info(`${existing.templateName}: ${tpl?.startTime} – ${tpl?.endTime}${surcharge ? ` (${surcharge.rate} ${surcharge.label})` : ''}`, {
-        description: `${existing.userName} am ${new Date(existing.date + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}`,
-      })
+      // Occupied cell → full detail modal (shared/DetailModal) instead of an info toast
+      setDetailKey(key)
     } else {
       setAssignEmployee(employeeId)
       setAssignTemplate('')
@@ -568,7 +552,59 @@ export default function SchichtenPage() {
       setAssignNotes('')
       setAssignDialog({ open: true, employeeId, date })
     }
-  }, [assignmentMap, templateMap, dragState])
+  }, [assignmentMap, dragState])
+
+  // ── Detail modal derived state ──
+  const detailAssignment = detailKey ? (assignmentMap.get(detailKey) ?? null) : null
+  const detailTemplate = detailAssignment ? (templateMap.get(detailAssignment.templateId) ?? null) : null
+  const detailEmployee = detailAssignment ? employees.find((e) => e.id === detailAssignment.userId) : undefined
+  const detailShiftId = detailAssignment
+    ? shiftsByDateAndTemplate.get(`${detailAssignment.date}-${detailAssignment.templateId}`)
+    : undefined
+  const detailViolations = detailAssignment ? (violationsByEmployee.get(detailAssignment.userId) ?? []) : []
+
+  const handleUnassignFromDetail = () => {
+    if (!detailAssignment || !detailShiftId) return
+    unassignMutation.mutate(
+      { shiftId: detailShiftId, employeeId: detailAssignment.userId },
+      {
+        onSuccess: () => {
+          toast.success(t('schichten.detail.entferntToast'), {
+            description: `${detailAssignment.templateName} · ${detailAssignment.userName}`,
+          })
+          setDetailKey(null)
+        },
+        onError: () => {
+          toast.error(t('schichten.detail.entferntFehler'))
+        },
+      },
+    )
+  }
+
+  const handleCreateSwapFromDetail = (swapWithEmployeeId: string, reason: string) => {
+    if (!detailAssignment || !detailShiftId) return
+    createSwapMutation.mutate(
+      {
+        assignmentId: detailAssignment.id,
+        shiftId: detailShiftId,
+        requestedByEmployeeId: detailAssignment.userId,
+        swapWithEmployeeId,
+        reason: reason || undefined,
+        idempotencyKey: crypto.randomUUID(),
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('schichten.detail.tauschErstelltToast'), {
+            description: t('schichten.detail.tauschErstelltHint'),
+          })
+          setDetailKey(null)
+        },
+        onError: () => {
+          toast.error(t('schichten.detail.tauschFehler'))
+        },
+      },
+    )
+  }
 
   // 7.11: Drag handlers
   const handleDragStart = useCallback((empId: string, date: string, assignment: ShiftAssignment) => {
@@ -592,6 +628,14 @@ export default function SchichtenPage() {
 
   const handleDrop = useCallback((empId: string, date: string) => {
     if (!dragState) return
+    // Dropping on the source cell is a plain click, not a move — without this
+    // guard every click on an occupied cell fired a pointless unassign→assign
+    // API round-trip plus a misleading "moved" toast.
+    if (`${empId}-${date}` === dragState.assignmentKey) {
+      setDragState(null)
+      setDropTarget(null)
+      return
+    }
     const emp = employees.find((e) => e.id === empId)
     // Resolve the real shiftId for the dragged template on the target date
     const shiftId = shiftsByDateAndTemplate.get(`${date}-${dragState.templateId}`)
@@ -700,6 +744,17 @@ export default function SchichtenPage() {
     }
   }
 
+  // Open the template dialog in create or edit mode — seeding the form on open
+  // avoids the stale-state bug when switching between templates.
+  const openTemplateDialog = (edit: ShiftTemplate | null) => {
+    setNewTplName(edit?.name ?? '')
+    setNewTplStart(edit?.startTime ?? '06:00')
+    setNewTplEnd(edit?.endTime ?? '14:00')
+    setNewTplBreak(String(edit?.breakMinutes ?? tenantBreakMinutes))
+    setNewTplColor(edit?.color ?? '#3b82f6')
+    setTemplateDialog({ open: true, edit })
+  }
+
   const handleTemplateSubmit = () => {
     if (!newTplName || !newTplStart || !newTplEnd) {
       toast.error(t('schichten.dialog.template.errorRequired'))
@@ -709,6 +764,35 @@ export default function SchichtenPage() {
     const [endH, endM] = newTplEnd.split(':').map(Number)
     let durationMin = (endH * 60 + endM) - (startH * 60 + startM)
     if (durationMin < 0) durationMin += 24 * 60
+
+    const closeAndReset = () => {
+      setTemplateDialog({ open: false, edit: null })
+      setNewTplName(''); setNewTplStart('06:00'); setNewTplEnd('14:00'); setNewTplBreak('30'); setNewTplColor('#3b82f6')
+    }
+
+    if (templateDialog.edit) {
+      // Edit mode — wires the previously unused updateTemplate mutation
+      updateTemplateMutation.mutate(
+        {
+          id: templateDialog.edit.id,
+          name: newTplName,
+          start_hour: startH,
+          start_minute: startM,
+          duration_minutes: durationMin,
+        },
+        {
+          onSuccess: () => {
+            toast.success(t('schichten.dialog.template.updatedToast', { name: newTplName }))
+            closeAndReset()
+          },
+          onError: () => {
+            toast.error(t('schichten.dialog.template.errorRequired'))
+          },
+        },
+      )
+      return
+    }
+
     createTemplateMutation.mutate(
       {
         name: newTplName,
@@ -722,11 +806,35 @@ export default function SchichtenPage() {
           toast.success(t('schichten.dialog.template.successToast', { name: newTplName }), {
             description: t('schichten.dialog.template.successPause', { start: newTplStart, end: newTplEnd, break: newTplBreak }),
           })
-          setTemplateDialog({ open: false })
-          setNewTplName(''); setNewTplStart('06:00'); setNewTplEnd('14:00'); setNewTplBreak('30'); setNewTplColor('#3b82f6')
+          closeAndReset()
         },
         onError: () => {
           toast.error(t('schichten.dialog.template.errorRequired'))
+        },
+      },
+    )
+  }
+
+  // Apply a template to a week — wires the previously unused applyTemplate endpoint
+  const handleApplyTemplate = () => {
+    if (!applyTarget) return
+    const offset = applyWeek === 'next' ? weekOffset + 1 : weekOffset
+    const targetDates = getWeekDates(offset)
+    applyTemplateMutation.mutate(
+      {
+        id: applyTarget.id,
+        range_start: targetDates[0] + 'T00:00:00Z',
+        range_end: targetDates[6] + 'T23:59:59Z',
+      },
+      {
+        onSuccess: (data) => {
+          toast.success(t('schichten.vorlagen.applyToast', { name: applyTarget.name }), {
+            description: t('schichten.vorlagen.applyToastHint', { count: data.created_count }),
+          })
+          setApplyTarget(null)
+        },
+        onError: () => {
+          toast.error(t('schichten.error.loadFailed'))
         },
       },
     )
@@ -792,11 +900,40 @@ export default function SchichtenPage() {
     )
   }
 
-  // 7.13: PDF export
+  // 7.13: PDF export — real download (market layout: header, per-employee shifts, totals)
   const handlePDFExport = () => {
+    const blob = buildWeekPlanPdf(
+      kw,
+      dateRange,
+      filteredEmployees,
+      localAssignments,
+      templateMap,
+      { occupancyRate, totalHours: totalHoursThisWeek },
+      {
+        title: t('schichten.export.pdfTitle'),
+        employees: t('schichten.wochenplan.mitarbeiter'),
+        hours: t('schichten.kpi.stundenWoche'),
+        occupancy: t('schichten.kpi.besetzungsgrad'),
+        noShifts: t('schichten.export.keineSchichten'),
+        draft: t('schichten.detail.status.entwurf'),
+        published: t('schichten.detail.status.veroeffentlicht'),
+      },
+    )
+    downloadBlob(blob, `dienstplan-kw${kw}-${csvDateStamp()}.pdf`)
     toast.success(t('schichten.toast.pdfExport'), {
       description: t('schichten.toast.pdfGeneriert', { kw }),
     })
+  }
+
+  // CSV export — one row per assignment (market standard)
+  const handleCsvExport = () => {
+    const csv = buildWeekCsv(localAssignments, employees, templateMap)
+    // BOM prefix keeps DACH-Excel from mangling umlauts
+    downloadBlob(
+      new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }),
+      `schichten-kw${kw}-${csvDateStamp()}.csv`,
+    )
+    toast.success(t('schichten.export.csvToast', { kw }))
   }
 
   // 7.12: Toggle availability
@@ -815,7 +952,8 @@ export default function SchichtenPage() {
   }
 
   const getTemplateActions = (template: ShiftTemplate) => [
-    { label: t('schichten.vorlagen.actions.bearbeiten'), onClick: () => toast.info(`Vorlage "${template.name}" bearbeiten`) },
+    { label: t('schichten.vorlagen.actions.bearbeiten'), onClick: () => openTemplateDialog(template) },
+    { label: t('schichten.vorlagen.actions.anwenden'), onClick: () => { setApplyWeek('current'); setApplyTarget(template) } },
     { separator: true as const, label: '', onClick: () => {} },
     { label: t('schichten.vorlagen.actions.loeschen'), variant: 'destructive' as const, onClick: () => setConfirmDelete(template) },
   ]
@@ -834,6 +972,13 @@ export default function SchichtenPage() {
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleCsvExport}
+              className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              {t('schichten.actions.csvExport')}
+            </button>
             <button
               onClick={handlePDFExport}
               className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
@@ -988,14 +1133,26 @@ export default function SchichtenPage() {
                 </button>
               )}
             </div>
-            <div className="relative max-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder={t('schichten.wochenplan.searchPlaceholder')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            <div className="flex items-center gap-2">
+              <div className="relative max-w-[240px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder={t('schichten.wochenplan.searchPlaceholder')}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                />
+              </div>
+              <SortMenu
+                options={[
+                  { value: 'name', label: t('schichten.sort.name') },
+                  { value: 'role', label: t('schichten.sort.rolle') },
+                  { value: 'hours', label: t('schichten.sort.stunden') },
+                ]}
+                field={sortField}
+                direction={sortDirection}
+                onChange={(f, d) => { setSortField(f); setSortDirection(d) }}
               />
             </div>
           </div>
@@ -1109,12 +1266,25 @@ export default function SchichtenPage() {
                       return (
                         <div
                           key={date}
-                          className={`relative flex items-center justify-center px-1 py-2 cursor-pointer transition-colors ${
+                          role="button"
+                          tabIndex={0}
+                          aria-label={
+                            assignment
+                              ? `${assignment.templateName} — ${emp.name}, ${date}`
+                              : t('schichten.wochenplan.zelleFrei', { name: emp.name, date })
+                          }
+                          className={`relative flex items-center justify-center px-1 py-2 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset ${
                             dayIdx < 6 ? 'border-r border-border-muted' : ''
                           } ${holiday ? 'bg-error/[0.03]' : today ? 'bg-primary/[0.02]' : weekend ? 'bg-secondary/10' : ''} ${
                             !assignment && isHovered ? 'bg-secondary/60' : ''
                           } ${isDragSource ? 'opacity-30' : ''} ${isDropTarget ? 'ring-2 ring-primary ring-inset bg-primary/10' : ''}`}
                           onClick={() => handleCellClick(emp.id, date)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              handleCellClick(emp.id, date)
+                            }
+                          }}
                           onMouseEnter={() => { setHoveredCell(key); if (dragState) handleDragOver(emp.id, date) }}
                           onMouseLeave={() => setHoveredCell(null)}
                           onMouseUp={() => { if (dragState) handleDrop(emp.id, date) }}
@@ -1136,8 +1306,8 @@ export default function SchichtenPage() {
                               <div className={`text-[10px] mt-0.5 ${style.text} opacity-75`}>
                                 {template.startTime} – {template.endTime}
                               </div>
-                              {/* 7.7: Surcharge badge */}
-                              {surcharge && (
+                              {/* 7.7: Surcharge badge (toggleable via personal prefs) */}
+                              {showSurcharges && surcharge && (
                                 <div className="mt-0.5 flex items-center gap-0.5">
                                   <Percent className="h-2.5 w-2.5 text-warning" />
                                   <span className="text-[9px] font-medium text-warning">{surcharge.rate} {surcharge.label}</span>
@@ -1228,7 +1398,7 @@ export default function SchichtenPage() {
               />
             </div>
             <button
-              onClick={() => setTemplateDialog({ open: true })}
+              onClick={() => openTemplateDialog(null)}
               className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <Plus className="h-4 w-4" />
@@ -1585,14 +1755,18 @@ export default function SchichtenPage() {
       </Dialog>
 
       {/* ============================================================ */}
-      {/* DIALOG: Vorlage erstellen                                     */}
+      {/* DIALOG: Vorlage erstellen / bearbeiten                        */}
       {/* ============================================================ */}
-      <Dialog open={templateDialog.open} onOpenChange={(o) => { if (!o) setTemplateDialog({ open: false }) }}>
-        <DialogContent className="gap-0 p-0 max-w-md">
+      <Dialog open={templateDialog.open} onOpenChange={(o) => { if (!o) setTemplateDialog({ open: false, edit: null }) }}>
+        <DialogContent className="gap-0 p-0 max-w-md" key={templateDialog.open ? (templateDialog.edit?.id ?? 'new') : 'closed'}>
           <div className="p-6">
             <DialogHeader className="mb-5">
-              <DialogTitle className="text-base font-semibold text-foreground">{t('schichten.dialog.template.title')}</DialogTitle>
-              <DialogDescription className="sr-only">{t('schichten.dialog.template.title')}</DialogDescription>
+              <DialogTitle className="text-base font-semibold text-foreground">
+                {templateDialog.edit ? t('schichten.dialog.template.editTitle') : t('schichten.dialog.template.title')}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {templateDialog.edit ? t('schichten.dialog.template.editTitle') : t('schichten.dialog.template.title')}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -1635,11 +1809,11 @@ export default function SchichtenPage() {
             </div>
 
             <DialogFooter className="mt-6">
-              <button onClick={() => setTemplateDialog({ open: false })} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
+              <button onClick={() => setTemplateDialog({ open: false, edit: null })} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 {t('common.cancel')}
               </button>
               <button onClick={handleTemplateSubmit} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-                {t('schichten.dialog.template.erstellen')}
+                {templateDialog.edit ? t('schichten.dialog.template.speichern') : t('schichten.dialog.template.erstellen')}
               </button>
             </DialogFooter>
           </div>
@@ -1656,6 +1830,77 @@ export default function SchichtenPage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteTemplate(confirmDelete)}
       />
+
+      {/* ============================================================ */}
+      {/* MODAL: Schicht-Detail (belegte Zelle)                         */}
+      {/* ============================================================ */}
+      <ShiftDetailModal
+        open={!!detailAssignment}
+        onClose={() => setDetailKey(null)}
+        assignment={detailAssignment}
+        template={detailTemplate}
+        employeeRole={detailEmployee?.role ?? ''}
+        shiftId={detailShiftId}
+        violations={detailViolations}
+        swapCandidates={swapEnabled ? employees.filter((e) => e.id !== detailAssignment?.userId) : []}
+        swapEnabled={swapEnabled}
+        onUnassign={handleUnassignFromDetail}
+        isUnassigning={unassignMutation.isPending}
+        onCreateSwap={handleCreateSwapFromDetail}
+        isCreatingSwap={createSwapMutation.isPending}
+      />
+
+      {/* ============================================================ */}
+      {/* DIALOG: Vorlage auf Woche anwenden                            */}
+      {/* ============================================================ */}
+      <Dialog open={!!applyTarget} onOpenChange={(o) => { if (!o) setApplyTarget(null) }}>
+        <DialogContent className="gap-0 p-0 max-w-sm">
+          <div className="p-6">
+            <DialogHeader className="mb-5">
+              <DialogTitle className="text-base font-semibold text-foreground">
+                {t('schichten.vorlagen.applyTitle', { name: applyTarget?.name ?? '' })}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                {t('schichten.vorlagen.applyDescription')}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              {([
+                { key: 'current' as const, label: t('schichten.vorlagen.applyCurrentWeek', { kw }) },
+                { key: 'next' as const, label: t('schichten.vorlagen.applyNextWeek', { kw: getKW(getWeekDates(weekOffset + 1)[0]) }) },
+              ]).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => setApplyWeek(opt.key)}
+                  className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    applyWeek === opt.key
+                      ? 'border-primary bg-primary/5 text-foreground'
+                      : 'border-border text-muted-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  {opt.label}
+                  {applyWeek === opt.key && <Check className="ml-auto h-4 w-4 text-primary" />}
+                </button>
+              ))}
+            </div>
+
+            <DialogFooter className="mt-6">
+              <button onClick={() => setApplyTarget(null)} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleApplyTemplate}
+                disabled={applyTemplateMutation.isPending}
+                className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
+              >
+                {t('schichten.vorlagen.applyConfirm')}
+              </button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

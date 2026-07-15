@@ -28,6 +28,7 @@ import {
   Palette,
   Warehouse,
   ClipboardCheck,
+  CalendarClock,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -58,6 +59,7 @@ import { VideoSettingsPanel } from '@/modules/video/settings/VideoSettingsPanel'
 import { InventarSettingsPanel } from '@/modules/inventar/settings/InventarSettingsPanel'
 import { VermietungSettingsPanel } from '@/modules/vermietung/settings/VermietungSettingsPanel'
 import { RapporteSettingsPanel } from '@/modules/rapporte/settings/RapporteSettingsPanel'
+import { SchichtenSettingsPanel } from '@/modules/schichten/settings/SchichtenSettingsPanel'
 import { SecuritySettingsPanel } from './panels/SecuritySettingsPanel'
 // admin-batch (parallel/admin): tenant branding surfaced in the settings overlay
 import BrandingAdminHubTab from '@/modules/admin/branding/BrandingAdminHubTab'
@@ -109,6 +111,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'inventar', group: 'module', labelKey: 'moduleSettings.entries.inventar', icon: Warehouse, navMatch: ['/inventar'], component: InventarSettingsPanel },
   { id: 'vermietung', group: 'module', labelKey: 'moduleSettings.entries.vermietung', icon: Building2, navMatch: ['/vermietung'], component: VermietungSettingsPanel },
   { id: 'rapporte', group: 'module', labelKey: 'moduleSettings.entries.rapporte', icon: ClipboardCheck, navMatch: ['/rapporte'], component: RapporteSettingsPanel },
+  { id: 'schichten', group: 'module', labelKey: 'moduleSettings.entries.schichten', icon: CalendarClock, navMatch: ['/schichten'], component: SchichtenSettingsPanel },
   // '/' is exact-match only in the resolver — keep this entry from swallowing other routes.
   { id: 'dashboard', group: 'module', labelKey: 'moduleSettings.entries.dashboard', icon: LayoutDashboard, navMatch: ['/'], component: DashboardSettingsPanel },
 
