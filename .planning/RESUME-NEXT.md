@@ -1,8 +1,19 @@
 # RESUME — nächster Einstieg (Stand 2026-07-15, Session #11)
 
-> **★★★★★ SESSION #11 (2026-07-15) — main `9cb06ab7` (gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+> **★★★★★ SESSION #11 (2026-07-15) — main `10a32584` (gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >
-> **Branchen-Block 4/7: schichten komplett auf Standard** (`9cb06ab7`, gleiches Rezept: Marktrecherche-Agent Planday/Deputy/Papershift/Shiftbase → bauen → Gates → ALL PASS + Bilder angesehen):
+> **Branchen-Block 5/7: schichten (`9cb06ab7`) + fuhrpark (`10a32584`) komplett auf Standard**, gleiches Rezept (Marktrecherche-Agent → bauen → Gates → ALL PASS + Bilder angesehen).
+>
+> **fuhrpark (`10a32584`, Recherche Vimcar/Fleetster/Avrios/Carano):**
+> 1. **„Fahrt eintragen" echt** (war Coming-soon-Toast): `AddTripDialog` verdrahtet ungenutzte `useCreateTripLog` — finanzamts-Layout (Route, km-Stände mit Auto-Strecke, Kategorie, Zweck-Pflicht bei Geschäftsfahrt, Fahrer). Speichern-Roundtrip QA-verifiziert (4→5 Zeilen).
+> 2. **Fahrzeug-Detail Slide-over→`DetailModal`** + **Zeilen-Detail-Modals** für Wartung/Tanken/Fahrtenbuch (`FuhrparkDetailModals.tsx`), Tabellenzeilen `role=button`+Tastatur, echte Kennzeichen via `plateFor`-Lookup (Adapter tragen nur vehicle_id!).
+> 3. **Echte Exporte statt totem `getExportUrl`** (aus fuhrpark-client entfernt): Fahrtenbuch-**PDF** (Finanzamt-Layout, WinAnsi) + Fahrtenbuch-**CSV** + Fahrzeugliste-**CSV** (`fuhrpark-export.ts`).
+> 4. **Settings-Panel** (`fuhrparkPrefs`: Standard-Tab + **Standard-Fahrtenkategorie seedet TripDialog** + Reifen-Banner-Toggle · `fuhrparkTenant`: **reminderLeadDays speist getDateStatus/KPI** [war 30 hardcoded], **currency vereinheitlicht CHF/EUR-Mix** [TCO zeigte EUR, Tabellen CHF!], defaultFuelType [war 'diesel' hardcoded ×2], **privateTripsEnabled gatet Privat-Option**) + Registry + Hydrator ×2.
+> 5. **3 Mock-Bugs via Screenshot-QA gefunden+gefixt:** (a) **GET /services-Handler fehlte komplett** → Wartung-Tab war im Demo IMMER leer (nur per-vehicle + /upcoming existierten), (b) Services-Seed nutzte `scheduled_date`+deutschen Freitext statt Wire-Shape `scheduled_at`+Enums → Datum „—", alles als „Service" gemappt; Seed gefixt + repair/tire_change-Einträge ergänzt, (c) Trip-Create berechnete `km` nicht (macht das echte BE) → frische Zeile zeigte „NaN km" überall. Dazu: Raw-Key `fuhrpark.vehicleType.car` im Fahrzeug-Modal (fehlendes t()), Platzhalter-Datum 2099→„—", fuhrpark-client re-exportiert jetzt seine Wire-Typen (tsc-Vorbestand).
+> QA `scripts/qa-fuhrpark-tiefe.mjs` (10 Steps ALL PASS), tsconfig `fuhrparkcheck`, i18n ×4 (tote Keys costChf/chfPerLiter/tripComingSoon entfernt).
+> **★ Paritäts-Kandidaten aus fuhrpark-Recherche (NICHT gebaut):** OBD2/GPS-Dongle + Auto-Fahrterfassung, Live-GPS-Karte, Führerscheinkontrolle (§21 StVG OCR), UVV-Unterweisung, Schadens-Workflow mehrstufig, Kraftstoffkarten-Import (UTA/DKV), DATEV-Buchungsstapel, ELSTER-Export, Leasingrückgabe-Workflow, Pool-Buchung, CO₂/ESG, Arbeitsweg als 3. Fahrtkategorie (API hat nur is_private bool), Manipulationsschutz Fahrtenbuch (Einträge nicht editier-/löschbar + Änderungsprotokoll — DER Finanzamts-Blocker). ⚠ fuhrpark-Seeds sind noch statisch 2024-datiert (kein daysFromNow-Muster wie schichten) — bei Gelegenheit modernisieren.
+>
+> **schichten (`9cb06ab7`, Recherche Planday/Deputy/Papershift/Shiftbase):**
 > 1. **Grid-Zellen-Klick (belegt) → `ShiftDetailModal`** (war Info-Toast): Meta-Grid (MA/Datum/Zeit/Pause/Netto), Status-Badge draft/published, Zuschlag, ArbZG-Hinweise des MA, **Zuweisung entfernen** + **Tausch-Formular inline** (verdrahtet die ungenutzte `useCreateSwapRequest`!). Zellen `role=button`+Tastatur.
 > 2. **„Vorlage bearbeiten" echt** (`useUpdateTemplate` lag ungenutzt bereit, Seeding-beim-Öffnen statt stale state) + **„Auf Woche anwenden"-Dialog** (aktuelle/nächste KW, verdrahtet ungenutzte `useApplyTemplate`).
 > 3. **PDF-Stub → echter Dienstplan-PDF** (`schichten-export.ts`, WinAnsi-Muster aus rapporte: Kopf KW/Zeitraum/Summen, pro MA die Wochen-Schichten) + **neuer Wochen-CSV** (eine Zeile pro Zuweisung, BOM für Excel).
@@ -10,7 +21,7 @@
 > 5. **Alt-Bug gefunden+gefixt (via Screenshot-QA!):** Klick auf belegte Zelle feuerte Drag-Selbst-Drop → sinnloser unassign→assign-API-Roundtrip + „Schicht verschoben"-Toast bei jedem Klick. Guard in `handleDrop` (Quelle==Ziel → no-op).
 > QA `scripts/qa-schichten-tiefe.mjs` (10 Steps ALL PASS), tsconfig `schichtencheck`, SortMenu Name/Rolle/Wochenstunden, i18n ×4 (ICU-Plural arbzgHinweise/applyToastHint).
 > **★ Paritäts-Kandidaten aus schichten-Recherche (NICHT gebaut):** Auto-Scheduling (KI), MA-Verfügbarkeits-Selbstpflege echt (Tab ist noch localStorage-Mock), MA-zu-MA-Tausch-Marktplatz (3-Step + Notifications), Skills-/Qualifikations-Matrix, Rotations-Templates, Wochen-als-Vorlage-Bibliothek, Offene-Schichten-Bewerbungsflow, Schichttyp-Farbe/Pause im Backend-Modell (Adapter-Defaults, color/breakMinutes fehlen im BE).
-> **★ VERBLEIBEN: Branchen ×2 mittel + 1 groß** — **fuhrpark** (⚠ totes `getExportUrl` fuhrpark-client.ts:227) / **einkauf** → **produktion** (groß, Statuswechsel-Endpoint ERST greppen, sonst Luke). Rezept + Stand: `.planning/branchen-block/README.md`.
+> **★ VERBLEIBEN: Branchen ×2** — **einkauf** (mittel; tote toast.info Bestellung/Lieferant bearbeiten/deaktivieren/Warenkorb/Neuer Abruf) → **produktion** (groß, Statuswechsel-Endpoint ERST greppen [5/5 Modulen lag er ungenutzt bereit], sonst Luke). Rezept + Stand: `.planning/branchen-block/README.md`.
 >
 > ---
 > _(Historie #10 folgt)_
