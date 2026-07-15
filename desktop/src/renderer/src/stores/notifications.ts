@@ -20,7 +20,7 @@ export type NotificationType =
   | 'dialer_callback'
   | 'billing_recommendation'
 
-export type NotificationPriority = 'low' | 'normal' | 'high'
+export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent'
 
 export interface NotificationAction {
   key: string
@@ -167,8 +167,8 @@ const mockNotifications: Notification[] = [
     title: 'Rechnung überfällig',
     body: 'RE-2026-0042 — Müller & Partner — CHF 3.450,00 (fällig seit 7 Tagen)',
     icon: 'AlertCircle',
-    priority: 'high',
-    isRead: true,
+    priority: 'urgent',
+    isRead: false,
     actionUrl: '/buchhaltung',
     createdAt: '2026-02-19T10:00:00',
   },

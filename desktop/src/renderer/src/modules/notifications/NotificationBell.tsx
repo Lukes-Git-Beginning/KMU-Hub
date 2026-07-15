@@ -148,8 +148,9 @@ function NotificationItem({
   return (
     <button
       className={cn(
-        'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent',
-        !notification.is_read && 'bg-primary-light/50'
+        'flex w-full items-start gap-3 border-l-2 border-l-transparent px-4 py-3 text-left transition-colors hover:bg-accent',
+        !notification.is_read && 'bg-primary-light/50',
+        priorityAccent(notification.priority)
       )}
       onClick={onClick}
     >
@@ -191,5 +192,17 @@ function getNotificationIcon(moduleId: string) {
       return Users
     default:
       return Megaphone
+  }
+}
+
+/** Left-border accent that highlights urgent/high-priority notifications. */
+function priorityAccent(priority?: string): string {
+  switch (priority) {
+    case 'urgent':
+      return 'border-l-red-500'
+    case 'high':
+      return 'border-l-orange-500'
+    default:
+      return ''
   }
 }

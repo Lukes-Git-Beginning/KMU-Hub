@@ -35,6 +35,13 @@ interface SeedNotification {
   is_pinned?: boolean
   /** Dismissed rows are hidden from every list + count (POST /:id/dismiss). */
   is_dismissed?: boolean
+  /** Snoozed until this ISO time — hidden from every list until then (POST /:id/snooze). */
+  snoozed_until?: string
+}
+
+/** A notification whose snooze window has not yet elapsed. */
+function isSnoozed(n: SeedNotification): boolean {
+  return !!n.snoozed_until && new Date(n.snoozed_until).getTime() > Date.now()
 }
 
 const notifications: SeedNotification[] = [
@@ -392,7 +399,7 @@ export const notificationHandlers = [
     const moduleId = url.searchParams.get('module_id')
     const unreadOnly = url.searchParams.get('unread') === 'true'
 
-    let list = notifications.filter((n) => !n.is_dismissed)
+    let list = notifications.filter((n) => !n.is_dismissed && !isSnoozed(n))
     if (moduleId) list = list.filter((n) => n.module_id === moduleId)
     if (isReadParam === 'true') list = list.filter((n) => n.is_read)
     else if (isReadParam === 'false') list = list.filter((n) => !n.is_read)
@@ -415,7 +422,7 @@ export const notificationHandlers = [
   // Unread count
   http.get(`${API}/api/v1/notifications/unread-count`, () => {
     flushArrivals()
-    const count = notifications.filter((n) => !n.is_read && !n.is_dismissed).length
+    const count = notifications.filter((n) => !n.is_read && !n.is_dismissed && !isSnoozed(n)).length
     return HttpResponse.json({ count })
   }),
 
@@ -472,6 +479,18 @@ export const notificationHandlers = [
     }
     notif.is_dismissed = true
     return HttpResponse.json({ id: notif.id, is_pinned: notif.is_pinned ?? false, is_dismissed: true, actor_name: notif.actor_name ?? null })
+  }),
+
+  // Snooze a notification (stateful — hidden from every list until snoozed_until)
+  http.post(`${API}/api/v1/notifications/:id/snooze`, async ({ params, request }) => {
+    const notif = notifications.find((n) => n.id === params.id)
+    if (!notif) {
+      return HttpResponse.json({ error: 'Notification not found' }, { status: 404 })
+    }
+    const body = (await request.json().catch(() => ({}))) as { until?: string }
+    notif.snoozed_until = body.until ?? new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    notif.is_read = true
+    return HttpResponse.json({ id: notif.id, snoozed_until: notif.snoozed_until })
   }),
 
   // Notification preferences — list (per-event in-app/desktop toggles)

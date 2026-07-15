@@ -141,3 +141,18 @@ export const dismissApi = {
     })
   },
 }
+
+export interface SnoozeResponse {
+  id: string
+  snoozed_until: string
+}
+
+export const snoozeApi = {
+  /** Snooze a notification until the given ISO timestamp (POST /{id}/snooze). */
+  snooze(id: string, until: string) {
+    return request<SnoozeResponse>(`/api/v1/notifications/${id}/snooze`, {
+      method: 'POST',
+      body: JSON.stringify({ until }),
+    })
+  },
+}

@@ -8,6 +8,7 @@
     "src/renderer/src/modules/notifications/NotificationToast.tsx",
     "src/renderer/src/modules/notifications/NotificationBell.tsx",
     "src/renderer/src/modules/notifications/NotificationCenter.tsx",
+    "src/renderer/src/stores/notifications.ts",
     "src/renderer/src/mocks/handlers/notifications.ts",
     "src/renderer/src/api/notification-client.ts",
     "src/renderer/src/api/hooks/useNotifications.ts",

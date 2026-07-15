@@ -253,7 +253,7 @@ export function useNotificationWebSocket() {
 // Quiet Hours hooks
 // ---------------------------------------------------------------------------
 
-import { quietHoursApi, dndApi, mutingApi, pinApi, dismissApi } from '../notification-client'
+import { quietHoursApi, dndApi, mutingApi, pinApi, dismissApi, snoozeApi } from '../notification-client'
 import type { QuietHours, MutedResource } from '../notification-client'
 
 /**
@@ -370,6 +370,18 @@ export function useDismissNotification() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => dismissApi.dismiss(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: notificationKeys.lists() })
+      qc.invalidateQueries({ queryKey: notificationKeys.unreadCount() })
+    },
+  })
+}
+
+/** Snooze a notification until a given ISO timestamp — hidden from lists until then. */
+export function useSnoozeNotification() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, until }: { id: string; until: string }) => snoozeApi.snooze(id, until),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: notificationKeys.lists() })
       qc.invalidateQueries({ queryKey: notificationKeys.unreadCount() })

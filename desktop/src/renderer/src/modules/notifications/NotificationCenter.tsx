@@ -10,9 +10,10 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone, PhoneCall, Pin, PinOff, EyeOff, ArrowRight } from 'lucide-react'
+import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone, PhoneCall, Pin, PinOff, EyeOff, ArrowRight, AlarmClock } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { toast } from 'sonner'
 import { cn } from '@/lib/cn'
 import {
   useNotifications,
@@ -24,6 +25,7 @@ import {
   useEventTypes,
   useToggleNotificationPin,
   useDismissNotification,
+  useSnoozeNotification,
   type Notification,
   type NotificationWithPin,
   type NotificationPreference,
@@ -35,10 +37,38 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { SortMenu, type SortDirection } from '@/components/shared/SortMenu'
 import { DetailModal } from '@/components/shared/DetailModal'
+import { EmptyState } from '@/components/shared/EmptyState'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu'
 import { navItems, moduleHsl } from '@/components/layout/sidebar/nav-items'
 
 // Priority ordering for the sort control (highest first when descending).
 const PRIORITY_RANK: Record<string, number> = { urgent: 3, high: 2, normal: 1, low: 0 }
+// Priority filter order (highest first) + dot colour for the filter chips.
+const PRIORITY_ORDER = ['urgent', 'high', 'normal', 'low'] as const
+const PRIORITY_DOT: Record<string, string> = {
+  urgent: '#dc2626',
+  high: '#ea580c',
+  normal: '#2563eb',
+  low: '#64748b',
+}
+
+/** Compute the ISO timestamp for a snooze preset. */
+function snoozeUntil(preset: '30min' | '1h' | 'tomorrow'): string {
+  const d = new Date()
+  if (preset === '30min') d.setMinutes(d.getMinutes() + 30)
+  else if (preset === '1h') d.setHours(d.getHours() + 1)
+  else {
+    d.setDate(d.getDate() + 1)
+    d.setHours(9, 0, 0, 0)
+  }
+  return d.toISOString()
+}
 
 // Module ids whose readable label differs from the matching nav item label.
 const MODULE_LABEL_OVERRIDE: Record<string, string> = {
@@ -71,8 +101,9 @@ export default function NotificationCenter() {
   const [page, setPage] = useState(1)
   const [showPreferences, setShowPreferences] = useState(false)
 
-  // Module filter + sort (client-side, on the loaded list).
+  // Module + priority filters + sort (client-side, on the loaded list).
   const [moduleFilter, setModuleFilter] = useState<string | null>(null)
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
   const [sortField, setSortField] = useState<'date' | 'priority'>('date')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
 
@@ -88,6 +119,7 @@ export default function NotificationCenter() {
   // query is invalidated on success, so pinned/dismissed survive a refetch.
   const togglePinMutation = useToggleNotificationPin()
   const dismissMutation = useDismissNotification()
+  const snoozeMutation = useSnoozeNotification()
 
   // Only local interaction state: which row's detail modal is open.
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -114,10 +146,26 @@ export default function NotificationCenter() {
     return Object.keys(moduleCounts).sort((a, b) => order.indexOf(a) - order.indexOf(b))
   }, [moduleCounts])
 
+  // Per-priority counts + the priorities actually present (highest first).
+  const priorityCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const n of visibleBeforeFilter) {
+      const p = n.priority ?? 'normal'
+      counts[p] = (counts[p] ?? 0) + 1
+    }
+    return counts
+  }, [visibleBeforeFilter])
+
+  const availablePriorities = useMemo(
+    () => PRIORITY_ORDER.filter((p) => priorityCounts[p]),
+    [priorityCounts],
+  )
+
   // Dismissed hidden; module filter applied; sorted by field; pinned floated to top.
   const notifications = useMemo(() => {
     return visibleBeforeFilter
       .filter((n) => !moduleFilter || n.module_id === moduleFilter)
+      .filter((n) => !priorityFilter || (n.priority ?? 'normal') === priorityFilter)
       .slice()
       .sort((a, b) => {
         const cmp =
@@ -127,10 +175,10 @@ export default function NotificationCenter() {
         return sortDir === 'asc' ? cmp : -cmp
       })
       .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
-  }, [visibleBeforeFilter, moduleFilter, sortField, sortDir])
+  }, [visibleBeforeFilter, moduleFilter, priorityFilter, sortField, sortDir])
 
-  const hasMore = !moduleFilter && rawNotifications.length === 20
-  const displayTotal = moduleFilter ? notifications.length : total
+  const hasMore = !moduleFilter && !priorityFilter && rawNotifications.length === 20
+  const displayTotal = moduleFilter || priorityFilter ? notifications.length : total
   const detailNotification = detailId ? rawNotifications.find((n) => n.id === detailId) ?? null : null
 
   const sortOptions = useMemo(
@@ -146,6 +194,12 @@ export default function NotificationCenter() {
   const dismiss = (id: string) => {
     dismissMutation.mutate(id)
     setDetailId((cur) => (cur === id ? null : cur))
+  }
+
+  const snooze = (id: string, until: string) => {
+    snoozeMutation.mutate({ id, until })
+    setDetailId((cur) => (cur === id ? null : cur))
+    toast.success(t('notifications.actions.snoozed'))
   }
 
   // "Dorthin springen": mark read + navigate to the notification's target.
@@ -205,6 +259,7 @@ export default function NotificationCenter() {
             setActiveTab(v as 'all' | 'unread')
             setPage(1)
             setModuleFilter(null)
+            setPriorityFilter(null)
           }}
         >
           <TabsList>
@@ -222,34 +277,58 @@ export default function NotificationCenter() {
           <TabsContent value={activeTab} className="mt-4">
             {/* Module filter chips + sort control */}
             {!isLoading && visibleBeforeFilter.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <FilterChip
-                    label={t('notifications.center.allModules')}
-                    count={visibleBeforeFilter.length}
-                    active={!moduleFilter}
-                    onClick={() => setModuleFilter(null)}
-                  />
-                  {availableModules.map((m) => (
+              <div className="mb-4 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <FilterChip
-                      key={m}
-                      label={moduleLabelOf(t, m)}
-                      count={moduleCounts[m]}
-                      color={moduleHsl(m)}
-                      active={moduleFilter === m}
-                      onClick={() => setModuleFilter((cur) => (cur === m ? null : m))}
+                      label={t('notifications.center.allModules')}
+                      count={visibleBeforeFilter.length}
+                      active={!moduleFilter}
+                      onClick={() => setModuleFilter(null)}
                     />
-                  ))}
+                    {availableModules.map((m) => (
+                      <FilterChip
+                        key={m}
+                        label={moduleLabelOf(t, m)}
+                        count={moduleCounts[m]}
+                        color={moduleHsl(m)}
+                        active={moduleFilter === m}
+                        onClick={() => setModuleFilter((cur) => (cur === m ? null : m))}
+                      />
+                    ))}
+                  </div>
+                  <SortMenu
+                    options={sortOptions}
+                    field={sortField}
+                    direction={sortDir}
+                    onChange={(f, d) => {
+                      setSortField(f as 'date' | 'priority')
+                      setSortDir(d)
+                    }}
+                  />
                 </div>
-                <SortMenu
-                  options={sortOptions}
-                  field={sortField}
-                  direction={sortDir}
-                  onChange={(f, d) => {
-                    setSortField(f as 'date' | 'priority')
-                    setSortDir(d)
-                  }}
-                />
+
+                {/* Priority filter chips — only when more than one priority is present. */}
+                {availablePriorities.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <FilterChip
+                      label={t('notifications.center.allPriorities')}
+                      count={visibleBeforeFilter.length}
+                      active={!priorityFilter}
+                      onClick={() => setPriorityFilter(null)}
+                    />
+                    {availablePriorities.map((p) => (
+                      <FilterChip
+                        key={p}
+                        label={t(`notifications.priority.${p}`)}
+                        count={priorityCounts[p]}
+                        color={PRIORITY_DOT[p]}
+                        active={priorityFilter === p}
+                        onClick={() => setPriorityFilter((cur) => (cur === p ? null : p))}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -258,7 +337,7 @@ export default function NotificationCenter() {
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
               </div>
             ) : notifications.length === 0 ? (
-              <EmptyState
+              <NotificationsEmpty
                 isUnreadFilter={activeTab === 'unread'}
                 filteredModule={moduleFilter ? moduleLabelOf(t, moduleFilter) : null}
               />
@@ -318,6 +397,7 @@ export default function NotificationCenter() {
           }}
           onPin={() => detailNotification.id && togglePin(detailNotification.id, Boolean(detailNotification.is_pinned))}
           onDismiss={() => detailNotification.id && dismiss(detailNotification.id)}
+          onSnooze={(until) => detailNotification.id && snooze(detailNotification.id, until)}
           onMarkRead={() => detailNotification.id && markRead.mutate(detailNotification.id)}
         />
       )}
@@ -487,6 +567,7 @@ function NotificationDetailModal({
   onOpen,
   onPin,
   onDismiss,
+  onSnooze,
   onMarkRead,
 }: {
   notification: NotificationWithActor
@@ -495,6 +576,7 @@ function NotificationDetailModal({
   onOpen: () => void
   onPin: () => void
   onDismiss: () => void
+  onSnooze: (until: string) => void
   onMarkRead: () => void
 }) {
   const { t } = useTranslation()
@@ -532,6 +614,26 @@ function NotificationDetailModal({
             {pinned ? <PinOff className="mr-1.5 h-3.5 w-3.5" /> : <Pin className="mr-1.5 h-3.5 w-3.5" />}
             {pinned ? t('notifications.actions.unpin') : t('notifications.actions.pin')}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <AlarmClock className="mr-1.5 h-3.5 w-3.5" />
+                {t('notifications.actions.snooze')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>{t('notifications.actions.snoozeLabel')}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onSnooze(snoozeUntil('30min'))}>
+                {t('notifications.actions.snooze30min')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSnooze(snoozeUntil('1h'))}>
+                {t('notifications.actions.snooze1h')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSnooze(snoozeUntil('tomorrow'))}>
+                {t('notifications.actions.snoozeTomorrow')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onDismiss}>
             <EyeOff className="mr-1.5 h-3.5 w-3.5" />
             {t('notifications.actions.dismiss')}
@@ -689,7 +791,7 @@ function PreferencesPanel() {
   )
 }
 
-function EmptyState({ isUnreadFilter, filteredModule }: { isUnreadFilter: boolean; filteredModule?: string | null }) {
+function NotificationsEmpty({ isUnreadFilter, filteredModule }: { isUnreadFilter: boolean; filteredModule?: string | null }) {
   const { t } = useTranslation()
   const title = filteredModule
     ? t('notifications.center.emptyFiltered', { module: filteredModule })
@@ -701,13 +803,7 @@ function EmptyState({ isUnreadFilter, filteredModule }: { isUnreadFilter: boolea
     : isUnreadFilter
       ? t('notifications.center.emptyUnreadDescription')
       : t('notifications.center.emptyAllDescription')
-  return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <BellOff className="h-12 w-12 text-muted-foreground/50" />
-      <h3 className="mt-4 text-lg font-semibold text-foreground">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
-  )
+  return <EmptyState icon={BellOff} title={title} description={description} />
 }
 
 function getNotificationIcon(moduleId: string) {
