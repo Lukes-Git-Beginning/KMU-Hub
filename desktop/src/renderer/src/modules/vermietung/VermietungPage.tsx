@@ -3,10 +3,6 @@ import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
-  Wrench,
-  DoorOpen,
-  Car,
-  Hammer,
   MapPin,
   CalendarDays,
   ChevronLeft,
@@ -25,6 +21,7 @@ import {
   Filter,
   ClipboardCheck,
   Building2,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -38,9 +35,34 @@ import {
 } from '@/api/hooks/useVermietung'
 import type { RentalObject, Rental } from '@/api/vermietung-types'
 import { useVermietungPrefsStore } from '@/stores/vermietungPrefs'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
+import { useVermietungViewPrefsStore } from '@/stores/vermietungViewPrefs'
+import { useVermietungTenantStore, VERMIETUNG_CURRENCY_OPTIONS } from '@/stores/vermietungTenant'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader, SortMenu, type SortDirection, type SortFieldOption } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import ZustandsprotokollDialog from './ZustandsprotokollDialog'
+import { ObjectDetailModal } from './ObjectDetailModal'
+import { RentalDetailModal } from './RentalDetailModal'
+import {
+  WEEKDAYS,
+  OBJECT_TYPE_CONFIG,
+  getTypeCfg,
+  STATUS_CONFIG,
+  RESERVATION_STATUS_CONFIG,
+  DEPOSIT_STATUS_CONFIG,
+  computeObjectStatus,
+  computeDepositStatus,
+  isOverdue,
+  getWeekDates,
+  getKW,
+  formatDateRange,
+  formatDate,
+  isToday,
+  daysBetween,
+  dateInRange,
+  shiftDate,
+  computeRentalPrice,
+} from './vermietung-shared'
+import { buildObjectsCsv, buildRentalsCsv, downloadCsv, csvDateStamp } from './vermietung-export'
 
 // ============================================================
 // Types
@@ -48,154 +70,6 @@ import ZustandsprotokollDialog from './ZustandsprotokollDialog'
 
 type TabKey = 'objekte' | 'reservierungen' | 'kalender'
 type ReservationFilter = 'all' | 'active' | 'reserved' | 'completed'
-
-// ============================================================
-// Constants
-// ============================================================
-
-const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-
-const OBJECT_TYPE_CONFIG: Record<
-  string,
-  { labelKey: string; icon: typeof Wrench; color: string; bg: string; badgeBg: string }
-> = {
-  gerät: { labelKey: 'vermietung.objectType.gerät', icon: Wrench, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', badgeBg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
-  raum: { labelKey: 'vermietung.objectType.raum', icon: DoorOpen, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30', badgeBg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-  fahrzeug: { labelKey: 'vermietung.objectType.fahrzeug', icon: Car, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30', badgeBg: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-  werkzeug: { labelKey: 'vermietung.objectType.werkzeug', icon: Hammer, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30', badgeBg: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
-}
-
-const DEFAULT_TYPE_CONFIG = {
-  labelKey: 'vermietung.objectType.gerät',
-  icon: Wrench,
-  color: 'text-muted-foreground',
-  bg: 'bg-secondary',
-  badgeBg: 'bg-secondary text-muted-foreground',
-}
-
-function getTypeCfg(cat: string) {
-  return OBJECT_TYPE_CONFIG[cat] ?? DEFAULT_TYPE_CONFIG
-}
-
-const STATUS_CONFIG: Record<
-  'available' | 'reserved' | 'maintenance',
-  { labelKey: string; dot: string; text: string }
-> = {
-  available: { labelKey: 'vermietung.status.available', dot: 'bg-success', text: 'text-success' },
-  reserved: { labelKey: 'vermietung.status.reserved', dot: 'bg-info', text: 'text-info' },
-  maintenance: { labelKey: 'vermietung.status.maintenance', dot: 'bg-warning', text: 'text-warning' },
-}
-
-const RESERVATION_STATUS_CONFIG: Record<string, { labelKey: string; bg: string }> = {
-  active: { labelKey: 'vermietung.reservationStatus.active', bg: 'bg-success-light text-success' },
-  reserved: { labelKey: 'vermietung.reservationStatus.upcoming', bg: 'bg-info-light text-info' },
-  completed: { labelKey: 'vermietung.reservationStatus.completed', bg: 'bg-secondary text-muted-foreground' },
-  cancelled: { labelKey: 'vermietung.reservationStatus.cancelled', bg: 'bg-error-light text-error' },
-}
-
-const DEPOSIT_STATUS_CONFIG: Record<'none' | 'collected', { labelKey: string; bg: string }> = {
-  none: { labelKey: 'vermietung.depositStatus.none', bg: 'bg-secondary text-muted-foreground' },
-  collected: { labelKey: 'vermietung.depositStatus.collected', bg: 'bg-success-light text-success' },
-}
-
-const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD'] as const
-
-// ============================================================
-// Helpers
-// ============================================================
-
-function computeObjectStatus(obj: RentalObject, rentals: Rental[]): 'available' | 'reserved' | 'maintenance' {
-  if (!obj.active) return 'maintenance'
-  const today = new Date().toISOString().slice(0, 10)
-  const hasActiveRental = rentals.some(
-    (r) =>
-      r.object_id === obj.id &&
-      (r.status === 'active' || r.status === 'reserved') &&
-      r.end_date.slice(0, 10) >= today,
-  )
-  return hasActiveRental ? 'reserved' : 'available'
-}
-
-function computeDepositStatus(rental: Rental): 'none' | 'collected' {
-  return rental.deposit_paid ? 'collected' : 'none'
-}
-
-function getWeekDates(offset: number): string[] {
-  const today = new Date()
-  const dayOfWeek = today.getDay()
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7) + offset * 7)
-  const dates: string[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    dates.push(d.toISOString().split('T')[0])
-  }
-  return dates
-}
-
-function getKW(dateStr: string): number {
-  const date = new Date(dateStr + 'T00:00:00')
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-}
-
-function formatDateRange(dates: string[]): string {
-  if (dates.length === 0) return ''
-  const first = new Date(dates[0] + 'T00:00:00')
-  const last = new Date(dates[dates.length - 1] + 'T00:00:00')
-  const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' }
-  return `${first.toLocaleDateString('de-DE', opts)} – ${last.toLocaleDateString('de-DE', opts)} ${last.getFullYear()}`
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr.slice(0, 10) + 'T00:00:00').toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
-
-function isToday(dateStr: string): boolean {
-  return dateStr === new Date().toISOString().split('T')[0]
-}
-
-function daysBetween(start: string, end: string): number {
-  const s = new Date(start + 'T00:00:00')
-  const e = new Date(end + 'T00:00:00')
-  return Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1)
-}
-
-function dateInRange(date: string, start: string, end: string): boolean {
-  return date >= start && date <= end
-}
-
-/** Compute rental price breakdown given days and rates. */
-function computeRentalPrice(
-  totalDays: number,
-  dailyRate: number,
-  weeklyRate?: number,
-): { weeks: number; remainingDays: number; total: number; breakdown: string } {
-  if (weeklyRate && totalDays >= 7) {
-    const weeks = Math.floor(totalDays / 7)
-    const remainingDays = totalDays % 7
-    const total = weeks * weeklyRate + remainingDays * dailyRate
-    const parts: string[] = [`${weeks} Woche${weeks > 1 ? 'n' : ''}`]
-    if (remainingDays > 0) {
-      parts.push(`${remainingDays} Tag${remainingDays > 1 ? 'e' : ''}`)
-    }
-    return { weeks, remainingDays, total, breakdown: parts.join(' + ') }
-  }
-  return {
-    weeks: 0,
-    remainingDays: totalDays,
-    total: totalDays * dailyRate,
-    breakdown: `${totalDays} Tag${totalDays > 1 ? 'e' : ''}`,
-  }
-}
 
 // ============================================================
 // Sub-components
@@ -214,6 +88,8 @@ function ObjectDialog({
   const createObjectMut = useCreateObject()
   const updateObjectMut = useUpdateObject()
   const { objectPrefs, setObjectPref } = useVermietungPrefsStore()
+  // Tenant default seeds the currency for new objects (settings panel).
+  const defaultCurrency = useVermietungTenantStore((s) => s.defaultCurrency)
   const isEdit = !!initial
 
   const [name, setName] = useState(initial?.name ?? '')
@@ -224,7 +100,7 @@ function ObjectDialog({
     initial ? (objectPrefs[initial.id]?.weeklyRate?.toString() ?? '') : '',
   )
   const [currency, setCurrency] = useState(
-    initial ? (objectPrefs[initial.id]?.currency ?? 'EUR') : 'EUR',
+    initial ? (objectPrefs[initial.id]?.currency ?? 'EUR') : defaultCurrency,
   )
   const [deposit, setDeposit] = useState(initial?.deposit?.toString() ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -282,7 +158,7 @@ function ObjectDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">
             {isEdit ? t('vermietung.objectDialog.titleEdit') : t('vermietung.objectDialog.titleNew')}
@@ -346,7 +222,7 @@ function ObjectDialog({
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelCurrency')}</label>
             <div className="flex gap-2">
-              {CURRENCY_OPTIONS.map((cur) => (
+              {VERMIETUNG_CURRENCY_OPTIONS.map((cur) => (
                 <button
                   key={cur}
                   onClick={() => setCurrency(cur)}
@@ -460,6 +336,9 @@ function ReservationDialog({
   const { t } = useTranslation()
   const createRentalMut = useCreateRental()
   const { objectPrefs, setRentalPref } = useVermietungPrefsStore()
+  // Tenant policies: preparation buffer between rentals + deposit requirement.
+  const bufferDays = useVermietungTenantStore((s) => s.bufferDays)
+  const requireDeposit = useVermietungTenantStore((s) => s.requireDeposit)
 
   const [objectId, setObjectId] = useState(preSelectedObjectId ?? '')
   const [startDate, setStartDate] = useState(preSelectedDate ?? '')
@@ -484,11 +363,24 @@ function ReservationDialog({
     }
   }
 
+  // Availability: conflicts including the tenant preparation buffer.
+  const objRentals = rentals.filter((r) => r.object_id === objectId && (r.status === 'active' || r.status === 'reserved'))
+  const hasConflict =
+    !!startDate &&
+    !!endDate &&
+    startDate <= endDate &&
+    objRentals.some(
+      (r) =>
+        !(shiftDate(r.end_date.slice(0, 10), bufferDays) < startDate ||
+          shiftDate(r.start_date.slice(0, 10), -bufferDays) > endDate),
+    )
+
   const handleSave = () => {
     if (!objectId) { toast.error(t('vermietung.reservationDialog.errorObjekt')); return }
     if (!startDate || !endDate) { toast.error(t('vermietung.reservationDialog.errorDates')); return }
     if (startDate > endDate) { toast.error(t('vermietung.reservationDialog.errorDateOrder')); return }
     if (!renter.trim()) { toast.error(t('vermietung.reservationDialog.errorMieter')); return }
+    if (hasConflict) { toast.error(t('vermietung.reservationDialog.errorConflict')); return }
 
     const days = daysBetween(startDate, endDate)
     const pricing = selectedObj
@@ -529,24 +421,10 @@ function ReservationDialog({
 
   if (!open) return null
 
-  // Availability: check if selected object has conflicts
-  const today = new Date().toISOString().slice(0, 10)
-  const objRentals = rentals.filter((r) => r.object_id === objectId && (r.status === 'active' || r.status === 'reserved'))
-  const hasConflict =
-    startDate &&
-    endDate &&
-    startDate <= endDate &&
-    objRentals.some(
-      (r) =>
-        !(r.end_date.slice(0, 10) < startDate || r.start_date.slice(0, 10) > endDate),
-    )
-  void today
-  void hasConflict
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">{t('vermietung.reservationDialog.title')}</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
@@ -593,6 +471,21 @@ function ReservationDialog({
               />
             </div>
           </div>
+
+          {/* Availability conflict (respects tenant buffer) */}
+          {hasConflict && (
+            <div className="flex items-start gap-2 rounded-lg border border-error/30 bg-error-light p-3">
+              <AlertTriangle className="h-4 w-4 text-error mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-error">{t('vermietung.reservationDialog.conflictTitle')}</p>
+                <p className="text-xs text-error/80 mt-0.5">
+                  {bufferDays > 0
+                    ? t('vermietung.reservationDialog.conflictDescBuffer', { days: bufferDays })
+                    : t('vermietung.reservationDialog.conflictDesc')}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Renter */}
           <div className="space-y-1.5">
@@ -714,6 +607,7 @@ function ReservationDialog({
             <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-3">
               <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
                 {t('vermietung.reservationDialog.depositNotice', { amount: formatCurrency(selectedObj.deposit, objCurrency) })}
+                {requireDeposit ? ` ${t('vermietung.reservationDialog.depositRequired')}` : ''}
               </p>
             </div>
           ) : null}
@@ -723,210 +617,16 @@ function ReservationDialog({
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors">
             {t('common.cancel')}
           </button>
-          <button onClick={handleSave} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
+          <button
+            onClick={handleSave}
+            disabled={hasConflict}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
+          >
             {t('vermietung.reservationDialog.buttonCreate')}
           </button>
         </div>
       </div>
     </div>
-  )
-}
-
-// ============================================================
-// ObjectDetailPanel — ausgelagert um tsc-IIFE-Bug zu vermeiden
-// ============================================================
-
-interface ObjectPrefsMap {
-  [id: string]: { weeklyRate?: number; currency?: string; serialNumber?: string }
-}
-
-function ObjectDetailPanel({
-  selectedObject,
-  rentals,
-  objectPrefs,
-  getActiveRental,
-  getObjectRentals,
-  onClose,
-  onEdit,
-  onReserve,
-  t,
-}: {
-  selectedObject: RentalObject | null
-  rentals: Rental[]
-  objectPrefs: ObjectPrefsMap
-  getActiveRental: (id: string) => Rental | undefined
-  getObjectRentals: (id: string) => Rental[]
-  onClose: () => void
-  onEdit: (obj: RentalObject) => void
-  onReserve: (id: string) => void
-  t: (key: string, opts?: Record<string, unknown>) => string
-}) {
-  if (!selectedObject) {
-    return (
-      <DetailPanel
-        open={false}
-        onClose={onClose}
-        title={undefined}
-        width="w-[380px]"
-      >
-        <div />
-      </DetailPanel>
-    )
-  }
-
-  const objStatus = computeObjectStatus(selectedObject, rentals)
-  const statusCfg = STATUS_CONFIG[objStatus]
-  const badgeClass =
-    statusCfg.dot === 'bg-success'
-      ? 'bg-success-light text-success'
-      : statusCfg.dot === 'bg-info'
-        ? 'bg-info-light text-info'
-        : 'bg-warning-light text-warning'
-
-  const objWeeklyRate = objectPrefs[selectedObject.id]?.weeklyRate
-  const objCurrency = objectPrefs[selectedObject.id]?.currency ?? 'EUR'
-  const objSerial = objectPrefs[selectedObject.id]?.serialNumber
-  const activeRental = getActiveRental(selectedObject.id)
-  const objectRentals = getObjectRentals(selectedObject.id)
-
-  return (
-    <DetailPanel
-      open={true}
-      onClose={onClose}
-      title={selectedObject.name}
-      subtitle={`${t(getTypeCfg(selectedObject.category).labelKey)} · ${selectedObject.location ?? ''}`}
-      badge={
-        <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-          {t(statusCfg.labelKey)}
-        </span>
-      }
-      width="w-[380px]"
-      footer={
-        <div className="flex gap-2">
-          <button
-            onClick={() => onEdit(selectedObject)}
-            className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            {t('common.edit')}
-          </button>
-          <button
-            onClick={() => onReserve(selectedObject.id)}
-            className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            {t('vermietung.detail.buttonReservieren')}
-          </button>
-        </div>
-      }
-    >
-      <div className="space-y-5">
-        {/* Basic info */}
-        <div className="space-y-3">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.details')}</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldName')}</p>
-              <p className="text-sm text-foreground font-medium">{selectedObject.name}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldTyp')}</p>
-              <p className="text-sm text-foreground">{t(getTypeCfg(selectedObject.category).labelKey)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldStandort')}</p>
-              <p className="text-sm text-foreground">{selectedObject.location ?? ''}</p>
-            </div>
-            {objSerial && (
-              <div>
-                <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldSerial')}</p>
-                <p className="text-sm text-foreground font-mono">{objSerial}</p>
-              </div>
-            )}
-          </div>
-          {selectedObject.description && (
-            <div>
-              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldDescription')}</p>
-              <p className="text-sm text-foreground">{selectedObject.description}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Pricing */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.preise')}</h4>
-          <div className="rounded-lg border border-border bg-secondary/30 p-3">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <span className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(selectedObject.daily_rate, objCurrency)}</span>
-                <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perDay')}</span>
-              </div>
-              {objWeeklyRate && (
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground tabular-nums">{formatCurrency(objWeeklyRate, objCurrency)}</span>
-                  <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perWeek')}</span>
-                </div>
-              )}
-            </div>
-            {selectedObject.deposit > 0 && (
-              <div className="mt-2 pt-2 border-t border-border-muted flex items-baseline justify-between">
-                <span className="text-xs text-muted-foreground">{t('vermietung.detail.kaution')}</span>
-                <span className="text-sm font-medium text-foreground tabular-nums">
-                  {formatCurrency(selectedObject.deposit, objCurrency)}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Current status */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.currentStatus')}</h4>
-          <div className="rounded-lg border border-border p-3">
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${statusCfg.dot}`} />
-              <span className={`text-sm font-medium ${statusCfg.text}`}>
-                {t(statusCfg.labelKey)}
-              </span>
-            </div>
-            {activeRental && (
-              <div className="mt-2 pt-2 border-t border-border-muted">
-                <p className="text-xs text-muted-foreground">{t('vermietung.detail.activeReservation')}</p>
-                <p className="text-sm text-foreground font-medium">{activeRental.renter_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(activeRental.start_date)} – {formatDate(activeRental.end_date)}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Last 5 rentals */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.lastReservations')}</h4>
-          {objectRentals.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">{t('vermietung.detail.noReservations')}</p>
-          ) : (
-            <div className="space-y-1">
-              {objectRentals.map((res) => {
-                const resCfg = RESERVATION_STATUS_CONFIG[res.status] ?? RESERVATION_STATUS_CONFIG['cancelled']
-                return (
-                  <div key={res.id} className="flex items-center gap-2 rounded-md border border-border-muted p-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground">{res.renter_name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatDate(res.start_date)} – {formatDate(res.end_date)}
-                      </p>
-                    </div>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${resCfg.bg}`}>
-                      {t(resCfg.labelKey)}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </DetailPanel>
   )
 }
 
@@ -946,16 +646,22 @@ export default function VermietungPage() {
   const deleteObjectMut = useDeleteObject()
   const deleteRentalMut = useDeleteRental()
   const { objectPrefs, rentalPrefs } = useVermietungPrefsStore()
+  // Personal view prefs (settings panel)
+  const showKpis = useVermietungViewPrefsStore((s) => s.showKpis)
 
   // State
-  const [tab, setTab] = useState<TabKey>('objekte')
+  const [tab, setTab] = useState<TabKey>(() => useVermietungViewPrefsStore.getState().defaultTab)
   const [search, setSearch] = useState('')
   const [weekOffset, setWeekOffset] = useState(0)
   const [reservationFilter, setReservationFilter] = useState<ReservationFilter>('all')
   const [hoveredCell, setHoveredCell] = useState<string | null>(null)
+  const [rentalSortField, setRentalSortField] = useState('start')
+  const [rentalSortDir, setRentalSortDir] = useState<SortDirection>('desc')
 
-  // Detail panel
+  // Detail modals + back-chain (object → rental → back)
   const [selectedObject, setSelectedObject] = useState<RentalObject | null>(null)
+  const [selectedRental, setSelectedRental] = useState<Rental | null>(null)
+  const [rentalBackObject, setRentalBackObject] = useState<RentalObject | null>(null)
 
   // Dialogs
   const [objectDialogOpen, setObjectDialogOpen] = useState(false)
@@ -966,6 +672,11 @@ export default function VermietungPage() {
   const [confirmDelete, setConfirmDelete] = useState<RentalObject | null>(null)
   const [confirmCancel, setConfirmCancel] = useState<Rental | null>(null)
   const [zustandsprotokollReservation, setZustandsprotokollReservation] = useState<Rental | null>(null)
+
+  // Keep the rental modal in sync after mutations (start/end/deposit refetch the list).
+  const liveSelectedRental = selectedRental
+    ? (rentals.find((r) => r.id === selectedRental.id) ?? selectedRental)
+    : null
 
   // All hooks before any early returns
   const filteredObjects = useMemo(() => {
@@ -979,7 +690,27 @@ export default function VermietungPage() {
   }, [objects, search])
 
   const filteredRentals = useMemo(() => {
-    let result = [...rentals].sort((a, b) => b.start_date.localeCompare(a.start_date))
+    const dir = rentalSortDir === 'asc' ? 1 : -1
+    let result = [...rentals].sort((a, b) => {
+      switch (rentalSortField) {
+        case 'objekt': {
+          const an = objects.find((o) => o.id === a.object_id)?.name ?? ''
+          const bn = objects.find((o) => o.id === b.object_id)?.name ?? ''
+          return an.localeCompare(bn) * dir
+        }
+        case 'mieter':
+          return a.renter_name.localeCompare(b.renter_name) * dir
+        case 'dauer':
+          return (
+            (daysBetween(a.start_date.slice(0, 10), a.end_date.slice(0, 10)) -
+              daysBetween(b.start_date.slice(0, 10), b.end_date.slice(0, 10))) * dir
+          )
+        case 'status':
+          return a.status.localeCompare(b.status) * dir
+        default:
+          return a.start_date.localeCompare(b.start_date) * dir
+      }
+    })
 
     if (reservationFilter !== 'all') {
       result = result.filter((r) => r.status === reservationFilter)
@@ -998,7 +729,7 @@ export default function VermietungPage() {
     }
 
     return result
-  }, [rentals, reservationFilter, search, objects])
+  }, [rentals, reservationFilter, search, objects, rentalSortField, rentalSortDir])
 
   const getRentalsForObjectAndDate = useCallback(
     (objectId: string, date: string) => {
@@ -1075,6 +806,7 @@ export default function VermietungPage() {
   const maintenanceCount = objects.filter((o) => computeObjectStatus(o, rentals) === 'maintenance').length
   const activeReservations = rentals.filter((r) => r.status === 'active' || r.status === 'reserved').length
   const utilization = objects.length > 0 ? Math.round(((reservedCount + maintenanceCount) / objects.length) * 100) : 0
+  const objectsById = new Map(objects.map((o) => [o.id, o]))
 
   // Handlers
   const openObjectDialog = (obj?: RentalObject) => {
@@ -1086,6 +818,12 @@ export default function VermietungPage() {
     setPreSelectedObjectId(objectId)
     setPreSelectedDate(date)
     setReservationDialogOpen(true)
+  }
+
+  const openRentalDetail = (rental: Rental, backToObject?: RentalObject | null) => {
+    setRentalBackObject(backToObject ?? null)
+    setSelectedObject(null)
+    setSelectedRental(rental)
   }
 
   const handleDeleteObject = (obj: RentalObject) => {
@@ -1105,6 +843,7 @@ export default function VermietungPage() {
         const objName = objects.find((o) => o.id === res.object_id)?.name ?? res.id
         toast.success(t('vermietung.cancel.success', { name: objName }))
         setConfirmCancel(null)
+        if (selectedRental?.id === res.id) setSelectedRental(null)
       },
       onError: () => toast.error('Fehler beim Stornieren'),
     })
@@ -1113,14 +852,21 @@ export default function VermietungPage() {
   const handleCalendarCellClick = (objectId: string, date: string) => {
     const existing = getRentalsForObjectAndDate(objectId, date)
     if (existing.length > 0) {
-      const r = existing[0]
-      const objName = objects.find((o) => o.id === r.object_id)?.name ?? r.object_id
-      toast.info(`${objName}: ${r.renter_name}`, {
-        description: `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`,
-      })
+      // Belegter Slot → Reservierungs-Detailfenster (statt Info-Toast)
+      openRentalDetail(existing[0])
     } else {
       openReservationDialog(objectId, date)
     }
+  }
+
+  const handleExportObjects = () => {
+    downloadCsv(buildObjectsCsv(filteredObjects), `vermietung-objekte-${csvDateStamp()}.csv`)
+    toast.success(t('vermietung.export.objectsSuccess', { count: filteredObjects.length }))
+  }
+
+  const handleExportRentals = () => {
+    downloadCsv(buildRentalsCsv(filteredRentals, objectsById), `vermietung-reservierungen-${csvDateStamp()}.csv`)
+    toast.success(t('vermietung.export.rentalsSuccess', { count: filteredRentals.length }))
   }
 
   const getObjectActions = (obj: RentalObject) => [
@@ -1129,6 +875,14 @@ export default function VermietungPage() {
     { label: t('vermietung.actions.reservieren'), icon: CalendarPlus, onClick: () => openReservationDialog(obj.id) },
     { separator: true as const, label: '', onClick: () => {} },
     { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(obj) },
+  ]
+
+  const rentalSortOptions: SortFieldOption[] = [
+    { value: 'start', label: t('vermietung.sort.start') },
+    { value: 'objekt', label: t('vermietung.sort.objekt') },
+    { value: 'mieter', label: t('vermietung.sort.mieter') },
+    { value: 'dauer', label: t('vermietung.sort.dauer') },
+    { value: 'status', label: t('vermietung.sort.status') },
   ]
 
   return (
@@ -1159,52 +913,54 @@ export default function VermietungPage() {
         }
       />
 
-      {/* ---- KPI Row ---- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          {
-            label: t('vermietung.kpi.available'),
-            value: `${availableCount}`,
-            icon: CheckCircle2,
-            color: 'text-success',
-            bg: 'bg-success-light',
-          },
-          {
-            label: t('vermietung.kpi.reserved'),
-            value: `${reservedCount}`,
-            icon: Clock,
-            color: 'text-info',
-            bg: 'bg-info-light',
-          },
-          {
-            label: t('vermietung.kpi.maintenance'),
-            value: `${maintenanceCount}`,
-            icon: AlertTriangle,
-            color: 'text-warning',
-            bg: 'bg-warning-light',
-          },
-          {
-            label: t('vermietung.kpi.utilization'),
-            value: `${utilization}%`,
-            icon: BarChart3,
-            color: utilization >= 70 ? 'text-success' : utilization >= 40 ? 'text-warning' : 'text-muted-foreground',
-            bg: utilization >= 70 ? 'bg-success-light' : utilization >= 40 ? 'bg-warning-light' : 'bg-secondary',
-          },
-        ].map((stat) => {
-          const Icon = stat.icon
-          return (
-            <div key={stat.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
+      {/* ---- KPI Row (personal pref) ---- */}
+      {showKpis && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[
+            {
+              label: t('vermietung.kpi.available'),
+              value: `${availableCount}`,
+              icon: CheckCircle2,
+              color: 'text-success',
+              bg: 'bg-success-light',
+            },
+            {
+              label: t('vermietung.kpi.reserved'),
+              value: `${reservedCount}`,
+              icon: Clock,
+              color: 'text-info',
+              bg: 'bg-info-light',
+            },
+            {
+              label: t('vermietung.kpi.maintenance'),
+              value: `${maintenanceCount}`,
+              icon: AlertTriangle,
+              color: 'text-warning',
+              bg: 'bg-warning-light',
+            },
+            {
+              label: t('vermietung.kpi.utilization'),
+              value: `${utilization}%`,
+              icon: BarChart3,
+              color: utilization >= 70 ? 'text-success' : utilization >= 40 ? 'text-warning' : 'text-muted-foreground',
+              bg: utilization >= 70 ? 'bg-success-light' : utilization >= 40 ? 'bg-warning-light' : 'bg-secondary',
+            },
+          ].map((stat) => {
+            const Icon = stat.icon
+            return (
+              <div key={stat.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
+                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                  </div>
                 </div>
+                <p className={`text-xl font-semibold ${stat.color}`}>{stat.value}</p>
               </div>
-              <p className={`text-xl font-semibold ${stat.color}`}>{stat.value}</p>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ---- Tabs ---- */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
@@ -1236,7 +992,7 @@ export default function VermietungPage() {
       {/* ============================================================ */}
       {tab === 'objekte' && (
         <>
-          {/* Search */}
+          {/* Search + Export */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1248,6 +1004,14 @@ export default function VermietungPage() {
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
+            <button
+              onClick={handleExportObjects}
+              disabled={filteredObjects.length === 0}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('vermietung.export.button')}</span>
+            </button>
           </div>
 
           {filteredObjects.length === 0 ? (
@@ -1273,8 +1037,17 @@ export default function VermietungPage() {
                 return (
                   <div
                     key={obj.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={obj.name}
                     onClick={() => setSelectedObject(obj)}
-                    className={`rounded-lg border bg-card p-4 transition-shadow cursor-pointer hover:shadow-[var(--shadow-card-hover)] ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedObject(obj)
+                      }
+                    }}
+                    className={`rounded-lg border bg-card p-4 transition-shadow cursor-pointer hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring ${
                       isSelected ? 'border-primary ring-1 ring-primary/20' : 'border-border'
                     }`}
                   >
@@ -1356,7 +1129,7 @@ export default function VermietungPage() {
       {/* ============================================================ */}
       {tab === 'reservierungen' && (
         <>
-          {/* Search + Filter */}
+          {/* Search + Filter + Sort + Export */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1390,6 +1163,21 @@ export default function VermietungPage() {
                 {t('common.resetFilters')}
               </button>
             )}
+            <SortMenu
+              options={rentalSortOptions}
+              field={rentalSortField}
+              direction={rentalSortDir}
+              onChange={(field, direction) => { setRentalSortField(field); setRentalSortDir(direction) }}
+              triggerClassName="py-2"
+            />
+            <button
+              onClick={handleExportRentals}
+              disabled={filteredRentals.length === 0}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('vermietung.export.button')}</span>
+            </button>
           </div>
 
           {filteredRentals.length === 0 ? (
@@ -1429,11 +1217,22 @@ export default function VermietungPage() {
                     const pickupLoc = rentalPrefs[r.id]?.pickupLocation ?? obj?.location ?? ''
                     const returnLoc = rentalPrefs[r.id]?.returnLocation ?? obj?.location ?? ''
                     const renterType = rentalPrefs[r.id]?.renterType ?? 'customer'
+                    const overdue = isOverdue(r)
 
                     return (
                       <tr
                         key={r.id}
-                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${objName} · ${r.renter_name}`}
+                        onClick={() => openRentalDetail(r)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            openRentalDetail(r)
+                          }
+                        }}
+                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:bg-secondary/50"
                       >
                         <td className="px-4 py-3 font-medium text-foreground">{objName}</td>
                         <td className="px-4 py-3">
@@ -1451,8 +1250,16 @@ export default function VermietungPage() {
                           {days} {days === 1 ? t('vermietung.reservierungen.duration.day') : t('vermietung.reservierungen.duration.days')}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusCfg.bg}`}>
-                            {t(statusCfg.labelKey)}
+                          <span className="flex items-center gap-1.5">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusCfg.bg}`}>
+                              {t(statusCfg.labelKey)}
+                            </span>
+                            {overdue && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error">
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                {t('vermietung.rentalDetail.overdue')}
+                              </span>
+                            )}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -1467,7 +1274,7 @@ export default function VermietungPage() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{pickupLoc}</td>
                         <td className="px-4 py-3 text-muted-foreground">{returnLoc}</td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           {(r.status === 'active' || r.status === 'reserved') && (
                             <ItemActions
                               items={[
@@ -1606,12 +1413,21 @@ export default function VermietungPage() {
                       return (
                         <div
                           key={date}
-                          className={`relative flex items-center justify-center px-0.5 py-2 cursor-pointer transition-colors ${
+                          role="button"
+                          tabIndex={0}
+                          aria-label={hasRental ? `${obj.name}: ${cellRentals[0].renter_name}` : `${obj.name} ${date}`}
+                          className={`relative flex items-center justify-center px-0.5 py-2 cursor-pointer transition-colors focus:outline-none focus-visible:bg-secondary/60 ${
                             dayIdx < 6 ? 'border-r border-border-muted' : ''
                           } ${todayCell ? 'bg-primary/[0.02]' : ''} ${
                             !hasRental && !isMaintenance && isHovered ? 'bg-secondary/60' : ''
                           }`}
                           onClick={() => handleCalendarCellClick(obj.id, date)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              handleCalendarCellClick(obj.id, date)
+                            }
+                          }}
                           onMouseEnter={() => setHoveredCell(cellKey)}
                           onMouseLeave={() => setHoveredCell(null)}
                         >
@@ -1685,10 +1501,10 @@ export default function VermietungPage() {
       )}
 
       {/* ============================================================ */}
-      {/* DETAIL PANEL                                                  */}
+      {/* DETAIL MODALS (Cosmi-Fenster)                                 */}
       {/* ============================================================ */}
-      <ObjectDetailPanel
-        selectedObject={selectedObject}
+      <ObjectDetailModal
+        object={selectedObject}
         rentals={rentals}
         objectPrefs={objectPrefs}
         getActiveRental={getActiveRental}
@@ -1696,13 +1512,39 @@ export default function VermietungPage() {
         onClose={() => setSelectedObject(null)}
         onEdit={openObjectDialog}
         onReserve={(id) => { openReservationDialog(id); setSelectedObject(null) }}
-        t={t}
+        onRentalClick={(rental) => openRentalDetail(rental, selectedObject)}
+      />
+
+      <RentalDetailModal
+        rental={liveSelectedRental}
+        object={liveSelectedRental ? objectsById.get(liveSelectedRental.object_id) : undefined}
+        rentalPrefs={liveSelectedRental ? rentalPrefs[liveSelectedRental.id] : undefined}
+        onClose={() => {
+          setSelectedRental(null)
+          setRentalBackObject(null)
+        }}
+        onBack={
+          rentalBackObject
+            ? () => {
+                setSelectedRental(null)
+                setSelectedObject(rentalBackObject)
+                setRentalBackObject(null)
+              }
+            : undefined
+        }
+        onOpenProtokoll={(rental) => {
+          setSelectedRental(null)
+          setRentalBackObject(null)
+          setZustandsprotokollReservation(rental)
+        }}
+        onCancel={(rental) => setConfirmCancel(rental)}
       />
 
       {/* ============================================================ */}
       {/* DIALOGS                                                       */}
       {/* ============================================================ */}
       <ObjectDialog
+        key={objectDialogOpen ? (editObject?.id ?? 'new') : 'closed'}
         open={objectDialogOpen}
         onClose={() => {
           setObjectDialogOpen(false)
@@ -1712,6 +1554,7 @@ export default function VermietungPage() {
       />
 
       <ReservationDialog
+        key={reservationDialogOpen ? `${preSelectedObjectId ?? 'none'}-${preSelectedDate ?? 'none'}` : 'closed'}
         open={reservationDialogOpen}
         onClose={() => {
           setReservationDialogOpen(false)

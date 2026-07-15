@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/modules/vermietung/**/*.ts",
+    "src/renderer/src/modules/vermietung/**/*.tsx",
+    "src/renderer/src/stores/vermietungViewPrefs.ts",
+    "src/renderer/src/stores/vermietungTenant.ts",
+    "src/renderer/src/hooks/useHydrateModuleSettings.ts",
+    "src/renderer/src/modules/settings/module-settings-registry.tsx"
+  ]
+}

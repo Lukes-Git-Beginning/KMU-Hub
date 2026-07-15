@@ -94,7 +94,7 @@ export function checkAvailability(objectId: string, params: CheckAvailabilityPar
   return request<AvailabilityResult>({
     method: 'GET',
     path: `${BASE}/objects/${objectId}/availability`,
-    params: params as Record<string, string | number | boolean | undefined>,
+    params: params as unknown as Record<string, string | number | boolean | undefined>,
   })
 }
 
@@ -197,14 +197,9 @@ export function getRentalCalendar(params: GetRentalCalendarParams) {
   return request<CalendarResult>({
     method: 'GET',
     path: `${BASE}/calendar`,
-    params: params as Record<string, string | number | boolean | undefined>,
+    params: params as unknown as Record<string, string | number | boolean | undefined>,
   })
 }
 
-// ---------------------------------------------------------------------------
-// Export
-// ---------------------------------------------------------------------------
-
-export function getExportUrl(format: 'csv' = 'csv') {
-  return `${API_BASE_URL}${BASE}/export?format=${format}`
-}
+// NOTE: the former getExportUrl() helper was dead code referencing a missing
+// API_BASE_URL — CSV exports are built client-side (modules/vermietung/vermietung-export.ts).
