@@ -1,8 +1,25 @@
 # Branchen-Block — Demo-Tiefe auf Standard (×7)
 
 > **Auftrag (Darien, 2026-07-15):** Die 7 Branchen-Module auf **Demo-Tiefe review-reif**, **voll auf Standard** — damit Luke das Backend gebündelt bauen kann und der Onboarding/Info-Center-Block alle Modul-Funktionen abbilden kann.
-> **Basis:** verifiziertes Audit (2 Explore-Agents, Session #9). Alle 7 sind heute **TEILWEISE** (produktion **NUR GRUNDGERÜST**). Grundgerüst + P1-Backend-Wiring stehen; es fehlt der Demo-Tiefe-Feinschliff.
-> **Voraussetzung:** frisches Terminal, erst `git pull` (main ≥ `1627b7c2`). Dev-Server + Screenshot-QA wie gehabt.
+> **Basis:** verifiziertes Audit (2 Explore-Agents, Session #9). Grundgerüst + P1-Backend-Wiring stehen; es fehlt der Demo-Tiefe-Feinschliff.
+> **Voraussetzung:** frisches Terminal, erst `git pull`. Dev-Server + Screenshot-QA wie gehabt.
+
+---
+
+## ✅ STAND Session #10 (2026-07-15): 3 von 7 fertig — verbleiben schichten, fuhrpark, einkauf, produktion
+
+| Modul | Commit | Referenz-tauglich für |
+|---|---|---|
+| ✅ **inventar** (Pilot) | `1d1fac6c` | Modal-Umbau, Settings-Stores, SortMenu, CSV, Sub-Listen-Back-Kette, Workflow-Vervollständigung (Inventur-Zählung) |
+| ✅ **vermietung** | `aafe636a` | Status-Lifecycle-Aktionen aus ungenutzten Hooks, Kalender-Slot→Modal, Konfliktcheck + tenant-Policy (bufferDays) |
+| ✅ **rapporte** | `23c39644` | **echter PDF-Export ohne Library** (`modules/rapporte/rapporte-export.ts`, WinAnsi-Umlaute), Prefs seeden Dialog-Defaults, tenant-Policy blockt Aktion (Unterschrift-Pflicht) |
+
+**Erprobtes Rezept pro Modul (aus 3 Durchläufen, je ~1 Commit):**
+1. **Marktrecherche-Agent zuerst** (Web-Research-Sub-Agent, ~3 Min parallel zum Code-Lesen): Detail-Ansicht / Status-Lifecycle / Settings personal-vs-tenant / Exporte / Listen-UX der 3–4 Marktführer. Ergebnis bestimmt Settings-Felder + Workflow-Lücken. Paritäts-Funde (zu groß für Demo-Tiefe) im RESUME-NEXT notieren, nicht bauen.
+2. **API-Schicht VOR dem Bauen greppen** — in allen 3 Modulen existierten ungenutzte Hooks/Endpoints (Inventur-Create+Counts, startRental/endRental/Inspections). Erst schauen, was da ist; oft ist der „tote Button" nur unverdrahtet.
+3. **Dateien pro Modul:** `modules/<m>/<X>DetailModal.tsx` (+ ggf. Zweit-Modal mit onBack-Kette) · `modules/<m>/<m>-shared.ts` (Status-Maps/Helper aus der Page extrahieren) · `modules/<m>/<m>-export.ts` (CSV; downloadCsv/downloadBlob wiederverwenden) · `stores/<m>Prefs.ts` + `stores/<m>Tenant.ts` (Muster videoPrefs/dialerTenant; ⚠ Namenskollision prüfen — vermietungPrefs war ein Daten-Store → vermietungViewPrefs) · `modules/<m>/settings/<M>SettingsPanel.tsx` · Registry-Eintrag + Hydrator ×2 · i18n ×4 · `tsconfig.<m>check.json` · `scripts/qa-<m>-tiefe.mjs`.
+4. **Wiederkehrende Alt-Bugs mitfixen:** Dialog-stale-state (Remount-key `key={open ? (editItem?.id ?? 'new') : 'closed'}`) · totes `getExportUrl`/`getExportPDFUrl` mit fehlendem `API_BASE_URL` in `api/<m>-client.ts` (**fuhrpark-client.ts:227 hat es noch!**) · Zeilen/Karten ohne role=button+Tastatur.
+5. **Gate:** scoped tsc (Baseline-Fehler nur in unberührten Dateien ok) → eslint --quiet → QA-Skript (Muster qa-rapporte-tiefe.mjs: Modal, Downloads via waitForEvent('download'), SortMenu, Settings-Panel-Text, Raw-Keys, pageerrors) → **Bilder ansehen** → Commit + Push (Auto-Deploy).
 
 ---
 
@@ -28,13 +45,12 @@ Alle Referenzen wurden in Session #9 (video) frisch gebaut — direkt abkupfern:
 
 ---
 
-## Reihenfolge
+## Reihenfolge (Rest)
 
-1. **Pilot: `inventar`** (klein, deckt ALLE 5 Muster-Elemente ab) — **Spec: `pilot-inventar.md`**. Zuerst komplett bauen → Darien-Review → Muster steht.
-2. Danach die restlichen 6 nach dem Pilot-Muster, aufsteigend nach Aufwand, gut für 2-Terminal (disjunkte Module, keine Hot-File-Kollision außer i18n-JSONs + `module-settings-registry.tsx` + `useHydrateModuleSettings.ts` → die serialisieren, nicht doppelt gleichzeitig editieren):
-   - **klein:** vermietung, rapporte
+1. ~~Pilot: inventar~~ ✅ · ~~vermietung~~ ✅ · ~~rapporte~~ ✅ (siehe Stand-Block oben)
+2. Verbleibende 4 nach dem erprobten Rezept, aufsteigend nach Aufwand, gut für 2-Terminal (disjunkte Module, keine Hot-File-Kollision außer i18n-JSONs + `module-settings-registry.tsx` + `useHydrateModuleSettings.ts` → die serialisieren, nicht doppelt gleichzeitig editieren):
    - **mittel:** schichten, fuhrpark, einkauf
-   - **groß:** produktion (Statuswechsel-Mutation fehlt komplett — ggf. mit Luke abklären ob Endpoint da; sonst mock-first + 🔒-Zeile)
+   - **groß:** produktion (Statuswechsel-Mutation fehlt komplett — ERST API-Schicht greppen [in 3 von 3 Modulen lag der Endpoint ungenutzt bereit], sonst mit Luke abklären; Fallback mock-first + 🔒-Zeile in backend-gaps.md)
 
 ---
 
