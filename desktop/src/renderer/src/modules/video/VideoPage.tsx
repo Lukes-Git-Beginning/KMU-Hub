@@ -27,6 +27,7 @@ import { VideoCallView } from '@/features/video/VideoCallView'
 import type { IceServer } from '@/api/video-types'
 import { useVideoStore } from '@/stores/video'
 import { backendMeetingToUI } from '../meetings/mappers'
+import { MeetingFormDialog } from '../meetings/MeetingFormDialog'
 import { PageHeader } from '@/components/shared'
 import { formatDate } from '@/lib/format'
 
@@ -139,7 +140,7 @@ function ActiveCallCard({
 // Call History Row
 // ---------------------------------------------------------------------------
 
-function CallHistoryRow({ entry }: { entry: CallHistoryEntry }) {
+function CallHistoryRow({ entry, onCall }: { entry: CallHistoryEntry; onCall: (entry: CallHistoryEntry) => void }) {
   const { t } = useTranslation()
   return (
     <div className="flex items-center gap-4 rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors group">
@@ -175,10 +176,10 @@ function CallHistoryRow({ entry }: { entry: CallHistoryEntry }) {
       <div className="text-xs text-muted-foreground">{formatRelativeDate(entry.date, t)}</div>
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.videoanruf')} aria-label={t('video.history.videoanruf')}>
+        <button onClick={() => onCall(entry)} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.videoanruf')} aria-label={t('video.history.videoanruf')}>
           <Video className="h-4 w-4" />
         </button>
-        <button className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.audioanruf')} aria-label={t('video.history.audioanruf')}>
+        <button onClick={() => onCall(entry)} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.audioanruf')} aria-label={t('video.history.audioanruf')}>
           <Phone className="h-4 w-4" />
         </button>
       </div>
@@ -289,7 +290,9 @@ export default function VideoPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<VideoTab>('active')
   const [historySearch, setHistorySearch] = useState('')
-  const { meetings: localMeetings, callHistory } = useMeetingsStore()
+  const [formOpen, setFormOpen] = useState(false)
+  const [presetTitle, setPresetTitle] = useState('')
+  const { meetings: localMeetings, callHistory, addMeeting } = useMeetingsStore()
 
   // Real meetings from the backend, merged with local mock meetings (R3-E4).
   const { data: apiMeetings } = useMeetings()
@@ -344,6 +347,11 @@ export default function VideoPage() {
     }
   }
 
+  const openNewMeeting = (title = '') => {
+    setPresetTitle(title)
+    setFormOpen(true)
+  }
+
   const liveMeetings = meetings.filter((m) => m.status === 'live')
 
   const filteredHistory = historySearch
@@ -379,11 +387,11 @@ export default function VideoPage() {
           moduleId="meetings"
           actions={
             <div className="flex gap-2">
-              <button className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+              <button onClick={() => openNewMeeting()} className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
                 <Phone className="h-4 w-4" />
                 {t('video.actions.neuerAnruf')}
               </button>
-              <button className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+              <button onClick={() => openNewMeeting()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
                 <Video className="h-4 w-4" />
                 {t('video.actions.meetingStarten')}
               </button>
@@ -498,7 +506,7 @@ export default function VideoPage() {
                     <h3 className="text-xs font-medium text-muted-foreground mb-1 px-3">{dateLabel}</h3>
                     <div className="space-y-0.5">
                       {entries.map((entry) => (
-                        <CallHistoryRow key={entry.id} entry={entry} />
+                        <CallHistoryRow key={entry.id} entry={entry} onCall={(e) => openNewMeeting(e.contactName)} />
                       ))}
                     </div>
                   </div>
@@ -530,6 +538,16 @@ export default function VideoPage() {
           />
         </div>
       )}
+
+      <MeetingFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        presetTitle={presetTitle}
+        onSubmit={(data) => {
+          addMeeting(data)
+          toast.success(t('meetings.toast.created'))
+        }}
+      />
     </div>
   )
 }

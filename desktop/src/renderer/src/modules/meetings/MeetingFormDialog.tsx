@@ -48,6 +48,8 @@ interface MeetingFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   meeting?: Meeting | null
+  /** Seeds the title when creating a new meeting (e.g. a call-back from Video). */
+  presetTitle?: string
   onSubmit: (data: Omit<Meeting, 'id'>) => void
 }
 
@@ -96,7 +98,7 @@ const availableParticipants = [
   { id: 'p8', name: 'Eva Brunner', initials: 'EB' },
 ]
 
-export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: MeetingFormDialogProps) {
+export function MeetingFormDialog({ open, onOpenChange, meeting, presetTitle, onSubmit }: MeetingFormDialogProps) {
   const { t } = useTranslation()
   const isEdit = !!meeting
 
@@ -160,7 +162,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setContactId(meeting.contact_id ?? '')
       setDealId(meeting.deal_id ?? '')
     } else {
-      setTitle('')
+      setTitle(presetTitle ?? '')
       setDate(new Date().toISOString().split('T')[0])
       setStartTime('09:00')
       setDuration(30)
@@ -183,7 +185,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setContactId('')
       setDealId('')
     }
-  }, [meeting, open])
+  }, [meeting, open, presetTitle])
 
   const filteredParticipants = availableParticipants.filter(
     (p) =>
@@ -521,16 +523,16 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                 <UserRound className="h-3.5 w-3.5 text-[var(--muted)]" />
                 {t('meetings.form.contact')}
               </Label>
-              <Select value={contactId} onValueChange={setContactId}>
+              <Select value={contactId || 'none'} onValueChange={(v) => setContactId(v === 'none' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('meetings.form.contactPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('meetings.form.crmNone')}</SelectItem>
-                  {contacts.map((c) => {
-                    const label = `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || (c.id ?? '')
+                  <SelectItem value="none">{t('meetings.form.crmNone')}</SelectItem>
+                  {contacts.filter((c) => c.id).map((c) => {
+                    const label = `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || c.id!
                     return (
-                      <SelectItem key={c.id ?? label} value={c.id ?? ''}>
+                      <SelectItem key={c.id} value={c.id!}>
                         {label}
                       </SelectItem>
                     )
@@ -543,14 +545,14 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                 <Handshake className="h-3.5 w-3.5 text-[var(--muted)]" />
                 {t('meetings.form.deal')}
               </Label>
-              <Select value={dealId} onValueChange={setDealId}>
+              <Select value={dealId || 'none'} onValueChange={(v) => setDealId(v === 'none' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('meetings.form.dealPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('meetings.form.crmNone')}</SelectItem>
-                  {deals.map((d) => (
-                    <SelectItem key={d.id ?? d.name} value={d.id ?? ''}>
+                  <SelectItem value="none">{t('meetings.form.crmNone')}</SelectItem>
+                  {deals.filter((d) => d.id).map((d) => (
+                    <SelectItem key={d.id} value={d.id!}>
                       {d.name ?? d.id}
                     </SelectItem>
                   ))}
