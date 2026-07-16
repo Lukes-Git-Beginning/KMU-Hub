@@ -1,4 +1,26 @@
-# RESUME — nächster Einstieg (Stand 2026-07-16, Session #12)
+# RESUME — nächster Einstieg (Stand 2026-07-16, Session #13)
+
+> **★★★★★ SESSION #13 (2026-07-16) — main `b4472b6d` (gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Branchen-Block 7/7 KOMPLETT: produktion auf Standard** (`b4472b6d`) — letztes Branchen-Modul, gleiches Rezept (Marktrecherche-Agent Katana/MRPeasy/Xentral/weclapp → bauen → Gates → QA 17 Steps ALL PASS + alle Bilder angesehen).
+>
+> **produktion (`b4472b6d`):**
+> 1. **Statuswechsel-Grep-Ergebnis: 7/7-Serie hält** — start/complete/cancel lagen KOMPLETT ungenutzt bereit (Client `produktion-client.ts` + Hooks + BE-Service mit Transition-Guards + Tests + Gateway-Routes). Der „tote toast.success" (Audit `:472`) brauchte nur Verdrahtung, **kein Luke, kein mock-first für den Lifecycle**. Footer-Aktionen je Status (Starten/Abschließen/Stornieren+Inline-Confirm/Löschen bei geplant), QS-Pflicht-Gate vor Abschluss via tenant-Setting.
+> 2. **Stateless-MSW-Hauptbefund:** ALLE produktion-Handler mutierten nichts (gaben transformierte Kopien zurück) → **jede Mutation war im Demo ein No-op**: neuer Auftrag verschwand nach Invalidierung+Refetch, QS-Prüfungen ebenso, Schritt-Updates wirkungslos. Komplett stateful neu geschrieben + Envelope-Drift gefixt (Client erwartet `{bom}/{step}/{machine}/{check}`, Handler lieferten bare) + Seeds relativ (`dayIso`) + Wire-Shape (Steps trugen `production_order_id` statt `order_id`, kein assignee).
+> 3. **Gantt war im Demo IMMER leer:** `RANGE_START` fix Feb-2026, Seeds Juni → alle Blöcke außerhalb. Jetzt rollierendes Fenster (heute−7…+28), Heute-Linie, Auftragsnummern statt UUID-Fragmenten (`orderNumbers`-Map), Blöcke klickbar → Order-Modal, Maschinen-Zeile → MachineDetailModal (Status-Select via ungenutztem useUpdateMachine), „Neue Maschine"-Dialog (useCreateMachine).
+> 4. **Fake-Zahlen ersetzt:** Listen-Fortschritt war hardcoded 50 % für jede laufende Order → echt aus WorkSteps via `useQueries` (nur in_progress-Orders); `scrapRate` war hardcoded 0 (ganze Ausschuss-Sektion tot) → Σ defects_found aus QS-Prüfungen / Menge, Warnschwelle aus tenant-Setting; Priorität (API 1–5) wurde NIRGENDS angezeigt → Spalte+Badge+Dialog-Feld+Sort.
+> 5. **4-Modal-Back-Kette** (`ProduktionDetailModals.tsx`, Stack in der Page): Order↔BOM (verwendende Aufträge klickbar), QC-Detail (Qualität-Tab-Zeilen jetzt klickbar, Auftragsnummern statt `order_id.slice(0,8)`), Maschine→Order. Schritt-Abhaken im Order-Modal (pending→in_progress→completed via ungenutztem useUpdateWorkStep, Fortschritt steigt live), Inline-Edit (geplant: alles; laufend: Prio+Notizen), Notizen-Sektion (order.notes wurde nie angezeigt).
+> 6. **Echte Exporte** (`produktion-export.ts`, WinAnsi): **Laufkarte-PDF** (Kopf+Materialbedarf×Menge+Arbeitsschritte mit Unterschriftslinien+QS-Historie — Markt: Arbeitspapier) + Aufträge-CSV (Toolbar) + BOM-Positions-CSV (im BOM-Modal).
+> 7. **Settings-Panel** (`produktionPrefs`: Standard-Tab + Standard-Statusfilter seeden Page · `produktionTenant`: **PA-Nummernkreis-Präfix speist generateOrderNumber**, Standard-Priorität + **Standard-Laufzeit seeden NewOrderDialog**, **requireQcBeforeComplete gatet Abschließen-Button**, **scrapWarnThreshold speist Ausschuss-Warnung**) + Registry + Hydrator ×2.
+> 8. **Sonstiges:** toter Zustand-Daten-Store `stores/produktion.ts` gelöscht (nirgends importiert) · QC-Dialog-Prüfer = Freitext statt 2 hardcoded Namen · Dialog-Remount-keys · 🔒 backend-gaps: **produktion-Sektion war veraltet** (BOM/Machines/Quality/Steps existieren längst im BE!) → neu geschrieben; einziger echter Gap: **Order-Modell ohne `bom_id`** (Create/Update nehmen keins an → FE mock-first via `CreateOrderInput.bom_id`, MSW persistiert) · i18n ×4 (113 neu, 10 tot raus, Alt-Key „Arbeitsgaenge"→„Arbeitsgänge"; Einfüge-Skript `scripts/i18n-produktion-tiefe.mjs` erhält Datei-Reihenfolge — globales Sort hätte ~2k Zeilen bewegt).
+> QA `scripts/qa-produktion-tiefe.mjs` (17 Steps ALL PASS), tsconfig `produktioncheck`.
+> **★ Paritäts-Kandidaten aus produktion-Recherche (NICHT gebaut):** Kapazitäts-Plantafel mit Drag&Drop-Terminierung, mehrstufige Stücklisten + Kaskaden-Sub-PAs, QS-Sperrbestand/Inspektions-Queue + Rework-Service-Order (MRPeasy), Shop-Floor-Werker-Kiosk, MRP-Bedarfsermittlung (PA-Vorschläge aus Verkauf/Mindestbestand), Varianten-BOM/Configure-to-Order, Fremdfertigung, Chargen-/Serien-Genealogie, **Backflush + Lagerbuchung bei Abschluss** (weclapp-Doppelbuchung: Komponenten aus, Fertigware ein — braucht inventar-Wiring), Fertigmeldung mit Ist-Menge/Erfüllungsgrad, Statuswechsel-Historie, echte Materialverfügbarkeit aus inventar (aktuell deterministischer Fake-Hash), Druck-Template-Varianten (Katana: 7 Stück), Ist-Zeiterfassung pro Arbeitsschritt, Verkaufsauftrag-Verknüpfung (MTO).
+> **★ BRANCHEN-BLOCK DAMIT KOMPLETT (7/7)** — alle 32 Module review-reif auf Demo-Tiefe. **WEITER: Onboarding/Info-Center O-0** (§1.2 MASTER-PLAN, O-0-Konzept MIT Darien abstimmen bevor O-1…O-6) **+ 3 offene Bexio-Review-Punkte** (#8, `.planning/bexio-review-paket.md`). Danach lt. Pipeline: FE→BE-Wiring-Phase gebündelt (memory `project_fe_be_wiring_phase`).
+>
+> ---
+> _(Historie #12 folgt)_
+
+# RESUME — Historie (Stand 2026-07-16, Session #12)
 
 > **★★★★★ SESSION #12 (2026-07-16) — main `be6ad91a` (gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >

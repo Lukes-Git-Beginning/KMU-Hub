@@ -6,7 +6,7 @@
 
 ---
 
-## ✅ STAND Session #12 (2026-07-16): 6 von 7 fertig — verbleibt nur produktion
+## ✅ STAND Session #13 (2026-07-16): 7 von 7 fertig — BRANCHEN-BLOCK KOMPLETT
 
 | Modul | Commit | Referenz-tauglich für |
 |---|---|---|
@@ -16,6 +16,7 @@
 | ✅ **schichten** | `9cb06ab7` | Grid-Zellen-Klick→Modal mit Inline-Aktions-Formular (Tausch), tenant-Policy gatet Modal-Aktion (swapEnabled) + speist Berechnung (maxWeeklyHours→ArbZG) + Dialog-Default (defaultBreakMinutes), Drag&Drop-Selbst-Drop-Guard |
 | ✅ **fuhrpark** | `10a32584` | **Mock-Bugs via Screenshot-QA gefunden** (fehlender GET /services-Handler = Tab immer leer, Seed-Feld-Drift scheduled_date→scheduled_at, km nicht berechnet = NaN), Zeilen-Detail-Modals für Tabellen-Tabs, Client-Typ-Re-Exports, plateFor-Lookup (Adapter tragen nur vehicle_id), Platzhalter-Datum 2099→"—" |
 | ✅ **einkauf** | `be6ad91a` | **Listen-Query-ohne-Relationen-Bug** (Detail/Wareneingang zogen `po.lines` aus der Liste → immer leer; Fix: `usePOLines` im Modal), **mock-first-Endpoint bei BE-Lücke** (cancelPO + MSW + backend-gaps 🔒), Warenkorb→Sammelbestellung pro Lieferant, Query-Invalidierung über Entitätsgrenzen (Line-Mutationen → PO-Liste, total_amount!), Seeds relativ via date-helpers |
+| ✅ **produktion** | `b4472b6d` | **Statuswechsel-Endpoints lagen 7/7 ungenutzt bereit** (start/complete/cancel in Client UND BE mit Transition-Guards — kein Luke nötig!), **stateless-MSW-Befund** (create/patch/status mutierten nichts → neue Aufträge/QS-Prüfungen verschwanden beim Refetch), **Gantt mit Fix-Datumsfenster = im Demo immer leer** (Feb-2026-Range → rollierendes Heute-Fenster), echter Fortschritt aus WorkSteps statt hardcoded 50 %, Ausschuss aus QC-defects statt hardcoded 0, Schritt-Abhaken via ungenutztem useUpdateWorkStep, 4-Modal-Back-Kette (Order↔BOM/QC/Maschine), mock-first `bom_id` (BE-Order ohne BOM-Link 🔒) |
 
 **Erprobtes Rezept pro Modul (aus 3 Durchläufen, je ~1 Commit):**
 1. **Marktrecherche-Agent zuerst** (Web-Research-Sub-Agent, ~3 Min parallel zum Code-Lesen): Detail-Ansicht / Status-Lifecycle / Settings personal-vs-tenant / Exporte / Listen-UX der 3–4 Marktführer. Ergebnis bestimmt Settings-Felder + Workflow-Lücken. Paritäts-Funde (zu groß für Demo-Tiefe) im RESUME-NEXT notieren, nicht bauen.
@@ -50,9 +51,7 @@ Alle Referenzen wurden in Session #9 (video) frisch gebaut — direkt abkupfern:
 
 ## Reihenfolge (Rest)
 
-1. ~~Pilot: inventar~~ ✅ · ~~vermietung~~ ✅ · ~~rapporte~~ ✅ · ~~schichten~~ ✅ · ~~fuhrpark~~ ✅ · ~~einkauf~~ ✅ (siehe Stand-Block oben)
-2. Verbleibt 1 nach dem erprobten Rezept:
-   - **groß:** produktion (Statuswechsel-Mutation fehlt komplett — ERST API-Schicht greppen [in 6 von 6 Modulen lagen Endpoints ungenutzt bereit], sonst mit Luke abklären; Fallback mock-first + 🔒-Zeile in backend-gaps.md — Muster einkauf-cancelPO `be6ad91a`)
+**KEINE — alle 7 Module fertig.** ~~Pilot: inventar~~ ✅ · ~~vermietung~~ ✅ · ~~rapporte~~ ✅ · ~~schichten~~ ✅ · ~~fuhrpark~~ ✅ · ~~einkauf~~ ✅ · ~~produktion~~ ✅ (siehe Stand-Block oben). Weiter geht's mit Onboarding/Info-Center O-0 + Bexio-Review-Punkte — `.planning/RESUME-NEXT.md` Top-Block.
 
 ---
 
