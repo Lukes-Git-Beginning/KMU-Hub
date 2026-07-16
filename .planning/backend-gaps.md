@@ -13,6 +13,21 @@
 - **Welle 3 Onboarding/Info-Center**: praktisch KEIN neues Backend — reines FE; Onboarding-/Kurs-Fortschritt läuft über das vorhandene **user-settings** (Migr. 138). Falls serverseitige Kurs-Inhalte gewünscht → später separat.
 - **FE-Priorität:** (1) admin Invite + License/Modul-Aktivierung · (2) security-DSGVO (P0) · (3) **S3-Service (X-1)** entsperrt admin-Branding/profil-Avatar/Branchen/vertraege · (4) settings-OAuth.
 
+## 🔴 RBAC-Baukasten (neuer FE-Block ab 2026-07-16 — Luke parallel ab R-1)
+
+> Darien-Entscheid: Custom Roles tenant-scoped + Multi-Rollen pro Account + 3-Ebenen-Capability-Modell über alle 32 Module. Konzept/Recherche: `.planning/rbac-block/KONZEPT.md` + `CAPABILITY-KATALOG.md`. Das bestehende BE-Fundament (roles/permissions/role_permissions/user_roles + `RequirePermission` an allen Modul-Routen + 30 Seed-Migrationen) ist die Basis — folgende Erweiterungen:
+
+- 🔴 **`roles.tenant_id` (NULL = System-Preset) + `based_on`-Referenz** — Custom-Rollen pro Firma, Presets unveränderlich.
+- 🔴 **Rollen-Verwaltungs-API:** `GET/POST/PATCH/DELETE /api/v1/admin/roles` + `GET/PUT /api/v1/admin/roles/{id}/permissions` (Matrix lesen/schreiben). Ersetzt den A-2-Mock-Contract.
+- 🔴 **`GET /api/v1/me/permissions`** — aufgelöste effektive Rechte des eingeloggten Users (Union aller Rollen, inkl. Scope je resource). Die eine Quelle fürs FE-Gating.
+- 🔴 **Validator-Entkopplung:** `assignRoleRequest` erlaubt nur `oneof=admin manager member` (route_auth.go) → dynamisch gegen roles-Tabelle validieren. FE↔BE-Rollen-Drift beheben (FE kennt hr/it_support).
+- 🔴 **Daten-Scope-Dimension** im Grant-Modell: `own / team(reporting_line) / all` pro resource (heute nur resource×action).
+- 🔴 **Guardrails serverseitig:** Mindestens-1-Admin · Selbst-Aussperr-Schutz · Privilege-Escalation-Guard (niemand vergibt Rechte über die eigenen hinaus) · Default-Deny für neue Module · `admin:role`×create/edit (IT) getrennt von ×assign (HR).
+- 🔴 **Audit-Events für Rechteänderungen** (wer→wem→was→wann, immutable; kann auf `audit_log` aufsetzen).
+- 🟠 Permission-Cache/Propagation: Rollen-Änderung muss ohne Re-Login wirken (oder definierter Refresh).
+- 🟠 Zentria-Setup-Zugang (GDAP-light): Setup-Rolle mit Ablaufdatum + Audit-Sichtbarkeit für den Kunden.
+- ⚪ R-6 später: zeitlich befristete Rollen-Zuweisungen (`user_roles.expires_at`), Vertretungs-Delegation, Gehalts-Feldgruppen.
+
 ## 🟠 Echt-Schaltung-Befunde 2026-06-24 (Darien, lokale Live-Verifikation)
 - **🟠 Modul-Feature-Flags = Deploy-/Auto-Deploy-kritisch:** helpdesk/wiki/berichte/formulare/vertraege/buchhaltung/video + alle Branchen-Module sind im Gateway hinter `modules.*`-Flags (`featureflag/registry.go`, default **OFF**, Env `COSMI_MODULE_<NAME>_ENABLED`). Solange das Env-Var fehlt, sind die Routen **nicht registriert** (404) **und** die FE-Nav blendet das Modul aus — egal wie fertig die FE ist. **→ Für Hetzner/Prod muss `.env.production` die gewünschten `COSMI_MODULE_*_ENABLED=true` setzen, sonst deployt der Auto-Deploy ein Build ohne diese Module.** (Lokal via `deploy/docker/docker-compose.flags.yml`-Override aktivierbar, untracked.)
 - **🟠 kommunikation Inbox — notification-Service + `/inbox/messages/unread-count`-Pfad:** Der chat/Team-Teil ist echt (chat-Service, `/channels` 200, rendert sauber). Die **Inbox** liegt im **notification**-Service (`InboxRoutes.ServiceName()="notification"`). `GET /inbox/messages/unread-count` → **400 „invalid id"** — der Pfad matcht offenbar `/inbox/messages/{id}` (kein dediziertes `unread-count`-Route-Segment davor) → „unread-count" wird als UUID-Param abgelehnt. Entweder dedizierte Route vor `/{id}` registrieren oder FE-Pfad korrigieren; + Inbox-Backend (Status/Threading/Tags/Forward/Canned) für die echte Inbox. FE degradiert sauber (kein Crash).
