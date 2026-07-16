@@ -17,6 +17,7 @@ import {
   updatePO,
   deletePO,
   submitPO,
+  cancelPO,
   receiveGoods,
   partialReceive,
   listPOLines,
@@ -207,6 +208,17 @@ export function useSubmitPO() {
   })
 }
 
+export function useCancelPO() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => cancelPO(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.po(id) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'pos'] })
+    },
+  })
+}
+
 export function useReceiveGoods() {
   const qc = useQueryClient()
   return useMutation({
@@ -236,13 +248,17 @@ export function usePartialReceive() {
 // Mutations — PO Lines
 // ---------------------------------------------------------------------------
 
+// Line mutations also invalidate the PO list/detail — the header total_amount
+// is derived from the lines (freshly created orders showed 0,00 € otherwise).
 export function useAddPOLine() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ poId, ...body }: AddPOLineInput & { poId: string }) =>
       addPOLine(poId, body),
-    onSuccess: (_data, variables) =>
-      qc.invalidateQueries({ queryKey: einkaufKeys.poLines(variables.poId) }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.poLines(variables.poId) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'pos'] })
+    },
   })
 }
 
@@ -255,8 +271,10 @@ export function useUpdatePOLine() {
       ...body
     }: UpdatePOLineInput & { poId: string; lineId: string }) =>
       updatePOLine(poId, lineId, body),
-    onSuccess: (_data, variables) =>
-      qc.invalidateQueries({ queryKey: einkaufKeys.poLines(variables.poId) }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.poLines(variables.poId) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'pos'] })
+    },
   })
 }
 
@@ -265,8 +283,10 @@ export function useDeletePOLine() {
   return useMutation({
     mutationFn: ({ poId, lineId }: { poId: string; lineId: string }) =>
       deletePOLine(poId, lineId),
-    onSuccess: (_data, variables) =>
-      qc.invalidateQueries({ queryKey: einkaufKeys.poLines(variables.poId) }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.poLines(variables.poId) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'pos'] })
+    },
   })
 }
 

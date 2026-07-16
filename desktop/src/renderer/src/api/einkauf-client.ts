@@ -140,12 +140,17 @@ export function partialReceive(id: string, body: PartialReceiveInput) {
     .then(r => r.po)
 }
 
-export function exportPO(id: string, format: 'pdf' | 'csv' = 'pdf') {
-  return request<Blob>({
-    method: 'POST',
-    path: `${BASE}/pos/${id}/export`,
-    params: { format },
-  })
+// PO exports are generated client-side (modules/einkauf/einkauf-export.ts) —
+// the backend ExportPO endpoint is a stub and returns no document.
+
+/**
+ * 🔒 Backend-Gap: es gibt keinen Cancel-Endpoint im einkauf-Service
+ * (UpdatePO trägt kein Status-Feld). Mock-first gegen MSW; der echte
+ * Endpoint ist in backend-gaps.md für Luke notiert.
+ */
+export function cancelPO(id: string) {
+  return request<{ po: PurchaseOrder }>({ method: 'POST', path: `${BASE}/pos/${id}/cancel` })
+    .then(r => r.po)
 }
 
 // ---------------------------------------------------------------------------

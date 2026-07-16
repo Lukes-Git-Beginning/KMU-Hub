@@ -276,10 +276,12 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - Tarif-Erweiterung (Wochensatz, Staffeln, Saison)
 
 ### einkauf
-- `SupplierRating`-Modell (quality/delivery/price)
-- `FrameworkContract`-Modell (Rahmenverträge) + Katalogartikel
-- 2-stufiger Bestellfreigabe-Workflow (`approved_by`, `/approve`-Endpoint)
-- Automatische Bestellvorschläge (Inventar-MinQty → PO)
+- ~~`SupplierRating`-Modell~~ ✅ · ~~`FrameworkContract`-Modell + Katalogartikel~~ ✅ (BE + Client + MSW vorhanden, FE seit Demo-Tiefe 2026-07-16 verdrahtet: Rating-Formular, Abrufe via `CreateContractCall`)
+- 🔒 **`POST /pos/{id}/cancel` fehlt komplett** (Demo-Tiefe 2026-07-16): `UpdatePOInput` trägt kein Status-Feld, es gibt keinen Cancel-Übergang. FE läuft mock-first (`einkauf-client.ts cancelPO` + MSW-Handler). → Cancel-Endpoint mit Status-Guard (nur offene Bestellungen).
+- 🔒 **`PurchaseOrder.total_amount` wird nie berechnet**: `CreatePO` setzt `"0"`, Add/Update/DeletePOLine rechnen den Kopfbetrag nicht nach → gegen echtes BE zeigen alle Bestellungen 0,00 €. MSW macht das Recompute (Netto-Zeilensumme) vor — gleiche Semantik ins BE.
+- 🔒 **`ExportPO` ist Stub** (service.go:716): FE erzeugt Bestell-PDF/CSVs seit 2026-07-16 client-seitig (`modules/einkauf/einkauf-export.ts`), `exportPO` aus dem FE-Client entfernt. BE-Endpoint kann gestrichen oder später echt (Briefpapier/Versand an Lieferant) gebaut werden.
+- 2-stufiger Bestellfreigabe-Workflow (`approved_by`, `/approve`-Endpoint) — FE nutzt aktuell `einkaufTenant.approvalThreshold` (Settings) + Freigeben=Submit
+- Automatische Bestellvorschläge (Inventar-MinQty → PO) — FE hat jetzt Katalog-Warenkorb mit Bündelung pro Lieferant als Vorstufe
 
 ### produktion (Brücke — MRP-Tiefe bewusst begrenzen)
 - BOM-Modell (`bom` + `bom_items`) + CRUD

@@ -1,7 +1,9 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
+import { daysAgo, daysFromNow } from '../data/date-helpers'
 
 const API = API_BASE_URL
+const YEAR = new Date().getFullYear()
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -154,32 +156,51 @@ let suppliers: WireSupplier[] = [
   { id: 'sup-5', tenant_id: 'tenant-001', name: 'Hilti Deutschland AG', contact_id: null, email: 'u.ammann@hilti.de', phone: '+49 800 888 5555', address: '', payment_terms: '45 Tage netto', notes: '', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
 ]
 
+// Every PO carries lines (the detail modal + goods-receipt dialog need them);
+// PO total_amount is the net sum of its lines (see recomputePOTotal below).
 let poLines: WirePOLine[] = [
-  { id: 'poi-1', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'Sicherungsautomat C16A', sku: 'SA-C16-3P', quantity: '50', unit_price: '12.80', tax_rate: '0.19', received_quantity: '50', line_position: 1, created_at: '2026-02-03T08:00:00Z', updated_at: '2026-02-03T08:00:00Z' },
-  { id: 'poi-2', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'FI/LS-Schalter B16 30mA', sku: 'FILS-B16-2P', quantity: '20', unit_price: '68.50', tax_rate: '0.19', received_quantity: '20', line_position: 2, created_at: '2026-02-03T08:00:00Z', updated_at: '2026-02-03T08:00:00Z' },
-  { id: 'poi-3', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'Reihenklemme 4mm²', sku: '', quantity: '100', unit_price: '3.90', tax_rate: '0.19', received_quantity: '100', line_position: 3, created_at: '2026-02-03T08:00:00Z', updated_at: '2026-02-03T08:00:00Z' },
-  { id: 'poi-4', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'Hutschiene 1m', sku: '', quantity: '10', unit_price: '8.50', tax_rate: '0.19', received_quantity: '10', line_position: 4, created_at: '2026-02-03T08:00:00Z', updated_at: '2026-02-03T08:00:00Z' },
-  { id: 'poi-5', tenant_id: 'tenant-001', po_id: 'po-2', product_name: 'Dübel-Set 6/8/10mm', sku: '', quantity: '200', unit_price: '0.85', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: '2026-02-05T14:30:00Z', updated_at: '2026-02-05T14:30:00Z' },
-  { id: 'poi-6', tenant_id: 'tenant-001', po_id: 'po-2', product_name: 'Schrauben TX M5x40', sku: '', quantity: '500', unit_price: '0.18', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: '2026-02-05T14:30:00Z', updated_at: '2026-02-05T14:30:00Z' },
-  { id: 'poi-7', tenant_id: 'tenant-001', po_id: 'po-2', product_name: 'Kabelbinder 200mm schwarz', sku: '', quantity: '1000', unit_price: '1.02', tax_rate: '0.19', received_quantity: '0', line_position: 3, created_at: '2026-02-05T14:30:00Z', updated_at: '2026-02-05T14:30:00Z' },
-  { id: 'poi-8', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Arbeitshandschuhe Gr. L', sku: '', quantity: '50', unit_price: '8.40', tax_rate: '0.19', received_quantity: '50', line_position: 1, created_at: '2026-02-06T09:15:00Z', updated_at: '2026-02-06T09:15:00Z' },
-  { id: 'poi-9', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Schutzbrille klar', sku: '', quantity: '30', unit_price: '12.50', tax_rate: '0.19', received_quantity: '30', line_position: 2, created_at: '2026-02-06T09:15:00Z', updated_at: '2026-02-06T09:15:00Z' },
-  { id: 'poi-10', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Sicherheitsschuhe S3', sku: '', quantity: '10', unit_price: '89.00', tax_rate: '0.19', received_quantity: '0', line_position: 3, created_at: '2026-02-06T09:15:00Z', updated_at: '2026-02-06T09:15:00Z' },
-  { id: 'poi-11', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Gehörschutz Peltor', sku: '', quantity: '15', unit_price: '42.00', tax_rate: '0.19', received_quantity: '0', line_position: 4, created_at: '2026-02-06T09:15:00Z', updated_at: '2026-02-06T09:15:00Z' },
-  { id: 'poi-12', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Warnweste gelb', sku: '', quantity: '20', unit_price: '6.50', tax_rate: '0.19', received_quantity: '20', line_position: 5, created_at: '2026-02-06T09:15:00Z', updated_at: '2026-02-06T09:15:00Z' },
+  { id: 'poi-1', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'Sicherungsautomat C16A', sku: 'SA-C16-3P', quantity: '50', unit_price: '12.80', tax_rate: '0.19', received_quantity: '50', line_position: 1, created_at: daysAgo(42) + 'T08:00:00Z', updated_at: daysAgo(35) + 'T08:00:00Z' },
+  { id: 'poi-2', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'FI/LS-Schalter B16 30mA', sku: 'FILS-B16-2P', quantity: '20', unit_price: '68.50', tax_rate: '0.19', received_quantity: '20', line_position: 2, created_at: daysAgo(42) + 'T08:00:00Z', updated_at: daysAgo(35) + 'T08:00:00Z' },
+  { id: 'poi-3', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'Reihenklemme 4mm²', sku: '', quantity: '100', unit_price: '3.90', tax_rate: '0.19', received_quantity: '100', line_position: 3, created_at: daysAgo(42) + 'T08:00:00Z', updated_at: daysAgo(35) + 'T08:00:00Z' },
+  { id: 'poi-4', tenant_id: 'tenant-001', po_id: 'po-1', product_name: 'Hutschiene 1m', sku: '', quantity: '10', unit_price: '8.50', tax_rate: '0.19', received_quantity: '10', line_position: 4, created_at: daysAgo(42) + 'T08:00:00Z', updated_at: daysAgo(35) + 'T08:00:00Z' },
+  { id: 'poi-5', tenant_id: 'tenant-001', po_id: 'po-2', product_name: 'Dübel-Set 6/8/10mm', sku: '', quantity: '200', unit_price: '0.85', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: daysAgo(10) + 'T14:30:00Z', updated_at: daysAgo(10) + 'T14:30:00Z' },
+  { id: 'poi-6', tenant_id: 'tenant-001', po_id: 'po-2', product_name: 'Schrauben TX M5x40', sku: '', quantity: '500', unit_price: '0.18', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: daysAgo(10) + 'T14:30:00Z', updated_at: daysAgo(10) + 'T14:30:00Z' },
+  { id: 'poi-7', tenant_id: 'tenant-001', po_id: 'po-2', product_name: 'Kabelbinder 200mm schwarz', sku: '', quantity: '1000', unit_price: '1.02', tax_rate: '0.19', received_quantity: '0', line_position: 3, created_at: daysAgo(10) + 'T14:30:00Z', updated_at: daysAgo(10) + 'T14:30:00Z' },
+  { id: 'poi-8', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Arbeitshandschuhe Gr. L', sku: '', quantity: '50', unit_price: '8.40', tax_rate: '0.19', received_quantity: '50', line_position: 1, created_at: daysAgo(9) + 'T09:15:00Z', updated_at: daysAgo(2) + 'T09:15:00Z' },
+  { id: 'poi-9', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Schutzbrille klar', sku: '', quantity: '30', unit_price: '12.50', tax_rate: '0.19', received_quantity: '30', line_position: 2, created_at: daysAgo(9) + 'T09:15:00Z', updated_at: daysAgo(2) + 'T09:15:00Z' },
+  { id: 'poi-10', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Sicherheitsschuhe S3', sku: '', quantity: '10', unit_price: '89.00', tax_rate: '0.19', received_quantity: '0', line_position: 3, created_at: daysAgo(9) + 'T09:15:00Z', updated_at: daysAgo(9) + 'T09:15:00Z' },
+  { id: 'poi-11', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Gehörschutz Peltor', sku: '', quantity: '15', unit_price: '42.00', tax_rate: '0.19', received_quantity: '0', line_position: 4, created_at: daysAgo(9) + 'T09:15:00Z', updated_at: daysAgo(9) + 'T09:15:00Z' },
+  { id: 'poi-12', tenant_id: 'tenant-001', po_id: 'po-3', product_name: 'Warnweste gelb', sku: '', quantity: '20', unit_price: '6.50', tax_rate: '0.19', received_quantity: '20', line_position: 5, created_at: daysAgo(9) + 'T09:15:00Z', updated_at: daysAgo(2) + 'T09:15:00Z' },
+  { id: 'poi-13', tenant_id: 'tenant-001', po_id: 'po-4', product_name: 'LED-Roehre T8 150cm 24W', sku: 'LED-T8-150', quantity: '30', unit_price: '12.80', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: daysAgo(5) + 'T11:00:00Z', updated_at: daysAgo(5) + 'T11:00:00Z' },
+  { id: 'poi-14', tenant_id: 'tenant-001', po_id: 'po-4', product_name: 'Multimeter Digital CAT III', sku: 'MM-DIG-C3', quantity: '2', unit_price: '149.00', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: daysAgo(5) + 'T11:00:00Z', updated_at: daysAgo(5) + 'T11:00:00Z' },
+  { id: 'poi-15', tenant_id: 'tenant-001', po_id: 'po-4', product_name: 'Verteilerdose AP IP54', sku: 'VD-AP-IP54', quantity: '20', unit_price: '7.20', tax_rate: '0.19', received_quantity: '0', line_position: 3, created_at: daysAgo(5) + 'T11:00:00Z', updated_at: daysAgo(5) + 'T11:00:00Z' },
+  { id: 'poi-16', tenant_id: 'tenant-001', po_id: 'po-5', product_name: 'NYM-J 5x2.5mm² (50m Ring)', sku: 'NYM-525-50', quantity: '40', unit_price: '89.50', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: daysAgo(3) + 'T16:45:00Z', updated_at: daysAgo(3) + 'T16:45:00Z' },
+  { id: 'poi-17', tenant_id: 'tenant-001', po_id: 'po-5', product_name: 'Multimeter Digital CAT III', sku: 'MM-DIG-C3', quantity: '15', unit_price: '149.00', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: daysAgo(3) + 'T16:45:00Z', updated_at: daysAgo(3) + 'T16:45:00Z' },
+  { id: 'poi-18', tenant_id: 'tenant-001', po_id: 'po-6', product_name: 'Kabelbinder 200mm schwarz (100er)', sku: 'KB-200-BK', quantity: '20', unit_price: '8.90', tax_rate: '0.19', received_quantity: '20', line_position: 1, created_at: daysAgo(44) + 'T10:20:00Z', updated_at: daysAgo(37) + 'T10:20:00Z' },
+  { id: 'poi-19', tenant_id: 'tenant-001', po_id: 'po-6', product_name: 'Schrauben TX M5x40 (200er)', sku: 'SR-TX-M540', quantity: '25', unit_price: '18.90', tax_rate: '0.19', received_quantity: '25', line_position: 2, created_at: daysAgo(44) + 'T10:20:00Z', updated_at: daysAgo(37) + 'T10:20:00Z' },
+  { id: 'poi-20', tenant_id: 'tenant-001', po_id: 'po-7', product_name: 'Bohrhammer SDS-Plus 800W', sku: 'BH-SDS-800', quantity: '10', unit_price: '289.00', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: daysAgo(38) + 'T13:00:00Z', updated_at: daysAgo(38) + 'T13:00:00Z' },
+  { id: 'poi-21', tenant_id: 'tenant-001', po_id: 'po-7', product_name: 'Sicherheitsschuhe S3 Gr. 43', sku: 'SS-S3-43', quantity: '12', unit_price: '89.00', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: daysAgo(38) + 'T13:00:00Z', updated_at: daysAgo(38) + 'T13:00:00Z' },
+  { id: 'poi-22', tenant_id: 'tenant-001', po_id: 'po-8', product_name: 'Arbeitshandschuhe Nitril Gr. L', sku: 'AH-NIT-L', quantity: '60', unit_price: '9.50', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: daysAgo(4) + 'T08:30:00Z', updated_at: daysAgo(4) + 'T08:30:00Z' },
+  { id: 'poi-23', tenant_id: 'tenant-001', po_id: 'po-8', product_name: 'Sicherheitsschuhe S3 Gr. 43', sku: 'SS-S3-43', quantity: '8', unit_price: '89.00', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: daysAgo(4) + 'T08:30:00Z', updated_at: daysAgo(4) + 'T08:30:00Z' },
+  { id: 'poi-24', tenant_id: 'tenant-001', po_id: 'po-9', product_name: 'Sicherungsautomat C16A 3-polig', sku: 'SA-C16-3P', quantity: '200', unit_price: '14.90', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: daysAgo(2) + 'T15:00:00Z', updated_at: daysAgo(2) + 'T15:00:00Z' },
+  { id: 'poi-25', tenant_id: 'tenant-001', po_id: 'po-9', product_name: 'FI/LS-Schalter B16 30mA 2-polig', sku: 'FILS-B16-2P', quantity: '40', unit_price: '72.50', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: daysAgo(2) + 'T15:00:00Z', updated_at: daysAgo(2) + 'T15:00:00Z' },
+  { id: 'poi-26', tenant_id: 'tenant-001', po_id: 'po-10', product_name: 'Kabelkanal 40x60mm weiss (2m)', sku: 'KK-4060-W', quantity: '50', unit_price: '6.50', tax_rate: '0.19', received_quantity: '0', line_position: 1, created_at: daysAgo(1) + 'T09:00:00Z', updated_at: daysAgo(1) + 'T09:00:00Z' },
+  { id: 'poi-27', tenant_id: 'tenant-001', po_id: 'po-10', product_name: 'Kabelbinder 200mm schwarz (100er)', sku: 'KB-200-BK', quantity: '10', unit_price: '8.90', tax_rate: '0.19', received_quantity: '0', line_position: 2, created_at: daysAgo(1) + 'T09:00:00Z', updated_at: daysAgo(1) + 'T09:00:00Z' },
 ]
 
+// Dates are relative to "today" (date-helpers) so the demo always looks
+// current; total_amount equals the net sum of the PO's lines.
 let purchaseOrders: WirePO[] = [
-  { id: 'po-1', tenant_id: 'tenant-001', supplier_id: 'sup-1', po_number: 'PO-2026-001', status: 'received', order_date: '2026-02-03', expected_delivery_date: '2026-02-10', total_amount: '3450.80', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-03T08:00:00Z', updated_at: '2026-02-03T08:00:00Z' },
-  { id: 'po-2', tenant_id: 'tenant-001', supplier_id: 'sup-3', po_number: 'PO-2026-002', status: 'sent', order_date: '2026-02-05', expected_delivery_date: '2026-02-18', total_amount: '1280.50', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-05T14:30:00Z', updated_at: '2026-02-05T14:30:00Z' },
-  { id: 'po-3', tenant_id: 'tenant-001', supplier_id: 'sup-2', po_number: 'PO-2026-003', status: 'partially_received', order_date: '2026-02-06', expected_delivery_date: '2026-02-15', total_amount: '5670.00', currency: 'EUR', notes: 'Freigabe erforderlich', created_by: null, created_at: '2026-02-06T09:15:00Z', updated_at: '2026-02-06T09:15:00Z' },
-  { id: 'po-4', tenant_id: 'tenant-001', supplier_id: 'sup-4', po_number: 'PO-2026-004', status: 'sent', order_date: '2026-02-10', expected_delivery_date: '2026-02-20', total_amount: '890.20', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-10T11:00:00Z', updated_at: '2026-02-10T11:00:00Z' },
-  { id: 'po-5', tenant_id: 'tenant-001', supplier_id: 'sup-1', po_number: 'PO-2026-005', status: 'draft', order_date: '2026-02-12', expected_delivery_date: '2026-02-25', total_amount: '2150.00', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-12T16:45:00Z', updated_at: '2026-02-12T16:45:00Z' },
-  { id: 'po-6', tenant_id: 'tenant-001', supplier_id: 'sup-3', po_number: 'PO-2026-006', status: 'received', order_date: '2026-02-01', expected_delivery_date: '2026-02-08', total_amount: '780.40', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-01T10:20:00Z', updated_at: '2026-02-01T10:20:00Z' },
-  { id: 'po-7', tenant_id: 'tenant-001', supplier_id: 'sup-5', po_number: 'PO-2026-007', status: 'cancelled', order_date: '2026-02-07', expected_delivery_date: '2026-02-22', total_amount: '4200.00', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-07T13:00:00Z', updated_at: '2026-02-07T13:00:00Z' },
-  { id: 'po-8', tenant_id: 'tenant-001', supplier_id: 'sup-2', po_number: 'PO-2026-008', status: 'sent', order_date: '2026-02-11', expected_delivery_date: '2026-02-21', total_amount: '1560.30', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-11T08:30:00Z', updated_at: '2026-02-11T08:30:00Z' },
-  { id: 'po-9', tenant_id: 'tenant-001', supplier_id: 'sup-1', po_number: 'PO-2026-009', status: 'sent', order_date: '2026-02-13', expected_delivery_date: '2026-02-24', total_amount: '3100.00', currency: 'EUR', notes: 'Freigabe erteilt: Max Mustermann', created_by: null, created_at: '2026-02-13T15:00:00Z', updated_at: '2026-02-13T15:00:00Z' },
-  { id: 'po-10', tenant_id: 'tenant-001', supplier_id: 'sup-4', po_number: 'PO-2026-010', status: 'draft', order_date: '2026-02-14', expected_delivery_date: '2026-02-28', total_amount: '420.60', currency: 'EUR', notes: '', created_by: null, created_at: '2026-02-14T09:00:00Z', updated_at: '2026-02-14T09:00:00Z' },
+  { id: 'po-1', tenant_id: 'tenant-001', supplier_id: 'sup-1', po_number: `PO-${YEAR}-001`, status: 'received', order_date: daysAgo(42), expected_delivery_date: daysAgo(35), total_amount: '2485.00', currency: 'EUR', notes: '', created_by: null, created_at: daysAgo(42) + 'T08:00:00Z', updated_at: daysAgo(35) + 'T08:00:00Z' },
+  { id: 'po-2', tenant_id: 'tenant-001', supplier_id: 'sup-3', po_number: `PO-${YEAR}-002`, status: 'sent', order_date: daysAgo(10), expected_delivery_date: daysFromNow(3), total_amount: '1280.00', currency: 'EUR', notes: '', created_by: null, created_at: daysAgo(10) + 'T14:30:00Z', updated_at: daysAgo(10) + 'T14:30:00Z' },
+  { id: 'po-3', tenant_id: 'tenant-001', supplier_id: 'sup-2', po_number: `PO-${YEAR}-003`, status: 'partially_received', order_date: daysAgo(9), expected_delivery_date: daysAgo(1), total_amount: '2445.00', currency: 'EUR', notes: 'Restlieferung Sicherheitsschuhe avisiert', created_by: null, created_at: daysAgo(9) + 'T09:15:00Z', updated_at: daysAgo(2) + 'T09:15:00Z' },
+  { id: 'po-4', tenant_id: 'tenant-001', supplier_id: 'sup-4', po_number: `PO-${YEAR}-004`, status: 'sent', order_date: daysAgo(5), expected_delivery_date: daysFromNow(5), total_amount: '826.00', currency: 'EUR', notes: '', created_by: null, created_at: daysAgo(5) + 'T11:00:00Z', updated_at: daysAgo(5) + 'T11:00:00Z' },
+  { id: 'po-5', tenant_id: 'tenant-001', supplier_id: 'sup-1', po_number: `PO-${YEAR}-005`, status: 'draft', order_date: daysAgo(3), expected_delivery_date: daysFromNow(10), total_amount: '5815.00', currency: 'EUR', notes: 'Material Baustelle Nordring', created_by: null, created_at: daysAgo(3) + 'T16:45:00Z', updated_at: daysAgo(3) + 'T16:45:00Z' },
+  { id: 'po-6', tenant_id: 'tenant-001', supplier_id: 'sup-3', po_number: `PO-${YEAR}-006`, status: 'received', order_date: daysAgo(44), expected_delivery_date: daysAgo(37), total_amount: '650.50', currency: 'EUR', notes: '', created_by: null, created_at: daysAgo(44) + 'T10:20:00Z', updated_at: daysAgo(37) + 'T10:20:00Z' },
+  { id: 'po-7', tenant_id: 'tenant-001', supplier_id: 'sup-5', po_number: `PO-${YEAR}-007`, status: 'cancelled', order_date: daysAgo(38), expected_delivery_date: daysAgo(23), total_amount: '3958.00', currency: 'EUR', notes: 'Storniert — Lieferant nicht lieferfähig', created_by: null, created_at: daysAgo(38) + 'T13:00:00Z', updated_at: daysAgo(36) + 'T13:00:00Z' },
+  { id: 'po-8', tenant_id: 'tenant-001', supplier_id: 'sup-2', po_number: `PO-${YEAR}-008`, status: 'sent', order_date: daysAgo(4), expected_delivery_date: daysFromNow(6), total_amount: '1282.00', currency: 'EUR', notes: '', created_by: null, created_at: daysAgo(4) + 'T08:30:00Z', updated_at: daysAgo(4) + 'T08:30:00Z' },
+  { id: 'po-9', tenant_id: 'tenant-001', supplier_id: 'sup-1', po_number: `PO-${YEAR}-009`, status: 'sent', order_date: daysAgo(2), expected_delivery_date: daysFromNow(9), total_amount: '5880.00', currency: 'EUR', notes: 'Freigabe erteilt: Max Mustermann', created_by: null, created_at: daysAgo(2) + 'T15:00:00Z', updated_at: daysAgo(2) + 'T15:00:00Z' },
+  { id: 'po-10', tenant_id: 'tenant-001', supplier_id: 'sup-4', po_number: `PO-${YEAR}-010`, status: 'draft', order_date: daysAgo(1), expected_delivery_date: daysFromNow(14), total_amount: '414.00', currency: 'EUR', notes: '', created_by: null, created_at: daysAgo(1) + 'T09:00:00Z', updated_at: daysAgo(1) + 'T09:00:00Z' },
 ]
 
 let catalogItems: WireCatalogItem[] = [
@@ -223,13 +244,34 @@ let frameworkContractItems: WireFrameworkContractItem[] = [
   { id: 'fci-8', tenant_id: 'tenant-001', contract_id: 'fc-3', name: 'Sicherheitsschuhe S3', unit_price: '89.00', unit: 'Paar', agreed_qty: '30', called_qty: '28', created_at: '2025-07-01T00:00:00Z', updated_at: '2025-07-01T00:00:00Z' },
 ]
 
+// Contract periods are relative too — a fixed end date in the past with
+// status 'active' would look broken as soon as the seed ages.
 let frameworkContracts: WireFrameworkContract[] = [
-  { id: 'fc-1', tenant_id: 'tenant-001', supplier_id: 'sup-1', title: 'Jahresvertrag Elektromaterial 2026', contract_nr: 'RV-2026-001', start_date: '2026-01-01', end_date: '2026-12-31', total_value: '50000.00', used_value: '12500.00', currency: 'EUR', status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
-  { id: 'fc-2', tenant_id: 'tenant-001', supplier_id: 'sup-3', title: 'Befestigungsmaterial 2026', contract_nr: 'RV-2026-002', start_date: '2026-01-01', end_date: '2026-06-30', total_value: '15000.00', used_value: '8200.00', currency: 'EUR', status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
-  { id: 'fc-3', tenant_id: 'tenant-001', supplier_id: 'sup-2', title: 'Schutzausrüstung Q1/Q2', contract_nr: 'RV-2025-008', start_date: '2025-07-01', end_date: '2025-12-31', total_value: '8000.00', used_value: '7850.00', currency: 'EUR', status: 'expired', created_at: '2025-07-01T00:00:00Z', updated_at: '2025-07-01T00:00:00Z' },
+  { id: 'fc-1', tenant_id: 'tenant-001', supplier_id: 'sup-1', title: `Jahresvertrag Elektromaterial ${YEAR}`, contract_nr: `RV-${YEAR}-001`, start_date: `${YEAR}-01-01`, end_date: `${YEAR}-12-31`, total_value: '50000.00', used_value: '12500.00', currency: 'EUR', status: 'active', created_at: `${YEAR}-01-01T00:00:00Z`, updated_at: daysAgo(20) + 'T00:00:00Z' },
+  { id: 'fc-2', tenant_id: 'tenant-001', supplier_id: 'sup-3', title: `Befestigungsmaterial ${YEAR}`, contract_nr: `RV-${YEAR}-002`, start_date: daysAgo(120), end_date: daysFromNow(60), total_value: '15000.00', used_value: '8200.00', currency: 'EUR', status: 'active', created_at: daysAgo(120) + 'T00:00:00Z', updated_at: daysAgo(12) + 'T00:00:00Z' },
+  { id: 'fc-3', tenant_id: 'tenant-001', supplier_id: 'sup-2', title: 'Schutzausrüstung Vorjahr', contract_nr: `RV-${YEAR - 1}-008`, start_date: daysAgo(380), end_date: daysAgo(200), total_value: '8000.00', used_value: '7850.00', currency: 'EUR', status: 'expired', created_at: daysAgo(380) + 'T00:00:00Z', updated_at: daysAgo(200) + 'T00:00:00Z' },
 ]
 
-let contractCalls: WireFrameworkContractCall[] = []
+let contractCalls: WireFrameworkContractCall[] = [
+  { id: 'fcc-1', tenant_id: 'tenant-001', contract_id: 'fc-1', po_id: null, amount: '7500.00', currency: 'EUR', called_at: daysAgo(65) + 'T10:00:00Z', notes: 'Erstausstattung Lager', created_at: daysAgo(65) + 'T10:00:00Z', updated_at: daysAgo(65) + 'T10:00:00Z' },
+  { id: 'fcc-2', tenant_id: 'tenant-001', contract_id: 'fc-1', po_id: null, amount: '5000.00', currency: 'EUR', called_at: daysAgo(20) + 'T10:00:00Z', notes: 'Nachschub Q-Lauf', created_at: daysAgo(20) + 'T10:00:00Z', updated_at: daysAgo(20) + 'T10:00:00Z' },
+  { id: 'fcc-3', tenant_id: 'tenant-001', contract_id: 'fc-2', po_id: null, amount: '5000.00', currency: 'EUR', called_at: daysAgo(80) + 'T10:00:00Z', notes: 'Baustellen-Paket Frühjahr', created_at: daysAgo(80) + 'T10:00:00Z', updated_at: daysAgo(80) + 'T10:00:00Z' },
+  { id: 'fcc-4', tenant_id: 'tenant-001', contract_id: 'fc-2', po_id: null, amount: '3200.00', currency: 'EUR', called_at: daysAgo(12) + 'T10:00:00Z', notes: '', created_at: daysAgo(12) + 'T10:00:00Z', updated_at: daysAgo(12) + 'T10:00:00Z' },
+]
+
+/**
+ * Keep PO.total_amount in sync with its lines (net sum). The real backend
+ * never recomputes the total after AddPOLine — 🔒 noted in backend-gaps.md;
+ * the mock behaves the way the backend eventually should.
+ */
+function recomputePOTotal(poId: string): void {
+  const idx = purchaseOrders.findIndex(p => p.id === poId)
+  if (idx === -1) return
+  const total = poLines
+    .filter(l => l.po_id === poId)
+    .reduce((s, l) => s + parseFloat(l.quantity) * parseFloat(l.unit_price), 0)
+  purchaseOrders[idx] = { ...purchaseOrders[idx], total_amount: total.toFixed(2), updated_at: now() }
+}
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -382,6 +424,14 @@ export const einkaufHandlers = [
     return HttpResponse.json({ po: purchaseOrders[idx] })
   }),
 
+  // 🔒 Backend-Gap: no cancel endpoint exists in the einkauf service — mock-first.
+  http.post(`${API}/api/v1/einkauf/pos/:id/cancel`, ({ params }) => {
+    const idx = purchaseOrders.findIndex(p => p.id === params.id)
+    if (idx === -1) return HttpResponse.json({ error: 'not found' }, { status: 404 })
+    purchaseOrders[idx] = { ...purchaseOrders[idx], status: 'cancelled', updated_at: now() }
+    return HttpResponse.json({ po: purchaseOrders[idx] })
+  }),
+
   http.post(`${API}/api/v1/einkauf/pos/:id/receive`, ({ params }) => {
     const idx = purchaseOrders.findIndex(p => p.id === params.id)
     if (idx === -1) return HttpResponse.json({ error: 'not found' }, { status: 404 })
@@ -434,6 +484,7 @@ export const einkaufHandlers = [
       updated_at: now(),
     }
     poLines = [...poLines, line]
+    recomputePOTotal(String(params.poId))
     return HttpResponse.json({ line }, { status: 201 })
   }),
 
@@ -442,11 +493,13 @@ export const einkaufHandlers = [
     const idx = poLines.findIndex(l => l.id === params.lineId && l.po_id === params.poId)
     if (idx === -1) return HttpResponse.json({ error: 'not found' }, { status: 404 })
     poLines[idx] = { ...poLines[idx], ...body, updated_at: now() }
+    recomputePOTotal(String(params.poId))
     return HttpResponse.json({ line: poLines[idx] })
   }),
 
   http.delete(`${API}/api/v1/einkauf/pos/:poId/lines/:lineId`, ({ params }) => {
     poLines = poLines.filter(l => !(l.id === params.lineId && l.po_id === params.poId))
+    recomputePOTotal(String(params.poId))
     return new HttpResponse(null, { status: 204 })
   }),
 
