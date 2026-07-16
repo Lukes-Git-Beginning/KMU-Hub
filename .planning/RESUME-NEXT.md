@@ -1,4 +1,25 @@
-# RESUME — nächster Einstieg (Stand 2026-07-15, Session #11)
+# RESUME — nächster Einstieg (Stand 2026-07-16, Session #12)
+
+> **★★★★★ SESSION #12 (2026-07-16) — main `be6ad91a` (gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
+>
+> **Branchen-Block 6/7: einkauf komplett auf Standard** (`be6ad91a`), gleiches Rezept (Marktrecherche-Agent weclapp/Xentral/myfactory/Precoro → bauen → Gates → QA 12 Steps ALL PASS + alle Bilder angesehen).
+>
+> **einkauf (`be6ad91a`):**
+> 1. **Modal-Umbau + Back-Kette:** Bestell-/Lieferanten-Slide-over → `EinkaufDetailModals.tsx` (shared/DetailModal), Bestellung↔Lieferant beidseitig verlinkt mit onBack, Zeilen/Karten `role=button`+Tastatur. **Alt-Bug gefunden:** Detail-Positionen + Wareneingang-Dialog zogen `po.lines` aus der **Listen**-Query — nur GET /pos/:id liefert lines → **beide waren im Demo IMMER leer**. Fix: `usePOLines` in Modal/Dialog.
+> 2. **Tote Buttons an vorhandene ungenutzte Hooks:** Bestellung bearbeiten (`useUpdatePO` + Positions-Editing bei Entwürfen), Lieferant bearbeiten (`useUpdateSupplier`), **Deaktivieren = BE-Soft-Delete** (`useDeleteSupplier` — kein is_active-Feld im BE, DeleteSupplier IST das Deaktivieren), Genehmigen-Banner + „An Lieferant senden" → `useSubmitPO` (echter Statuswechsel draft→submitted, Threshold aus einkaufTenant), Bewertung abgeben (`useCreateSupplierRating`, Inline-Formular mit Stern-Picker), **Neuer Abruf → `useCreateContractCall`** (+ Abrufe-Liste `useContractCalls`, used_value/Auslastung steigt live — MSW konnte das schon!).
+> 3. **Echter Warenkorb** (war toast.success): Cart snapshottet Katalog-Artikel, Header-Button mit Badge, `CartDialog` bündelt **pro Lieferant zu Sammelbestellungen** (weclapp/Xentral-Muster, Mindestbestellmengen), erstellt POs+Lines, springt zu Bestellungen.
+> 4. **Cancel mock-first (BE-Lücke):** kein Cancel-Endpoint, `UpdatePOInput` ohne Status-Feld → `cancelPO` (Client) + MSW `POST /pos/:id/cancel` + 🔒 backend-gaps; Entwürfe → echtes DELETE. Dazu 🔒: **BE berechnet `total_amount` NIE aus Lines** (CreatePO="0", kein Recompute — gegen echtes BE zeigen alle Bestellungen 0 €!) + ExportPO=Stub.
+> 5. **Echte Exporte statt totem `exportPO`** (aus Client entfernt): Bestell-**PDF** (WinAnsi, Netto/USt/Brutto-Block, an Lieferant) im Modal + Bestell-/Lieferanten-**CSV** in der Toolbar (`einkauf-export.ts`).
+> 6. **Settings-Panel** (`einkaufPrefs`: Standard-Tab + Standard-Statusfilter, beide seeden die Page · `einkaufTenant`: **approvalThreshold** [migriert aus gelöschtem Alt-Mock-Store `stores/einkauf.ts`] + **Standardwährung seedet NewOrder** + **Zahlungsziel-Default seedet NewSupplier** + **PO-Nummernkreis-Präfix speist Nummern-Generierung**) + Registry + Hydrator ×2.
+> 7. **Mock/Wiring-Bugs via QA:** (a) Line-Mutationen invalidierten nur poLines, nicht die PO-Liste → **frische Bestellungen zeigten 0,00 €** (Fix: Invalidierung über Entitätsgrenze + MSW `recomputePOTotal`), (b) Seeds statisch Feb-2026 → date-helpers relativ; **fc-2 stand „active" mit end_date 30.06. = abgelaufen** → relativ gefixt, (c) alle 10 POs tragen jetzt Lines (poi-13…27), Summen = Netto-Zeilensumme konsistent zur Positionsanzeige.
+> QA `scripts/qa-einkauf-tiefe.mjs` (12 Steps ALL PASS), tsconfig `einkaufcheck`, i18n ×4 (10 tote Keys raus, 93 neue, ICU-Plurals orderCountLabel/cartOrdersCreated/csvExported/createOrders).
+> **★ Paritäts-Kandidaten aus einkauf-Recherche (NICHT gebaut):** OCR-Rechnungsabgleich/3-Wege-Matching (PO+WE+Rechnung), EDI, Lieferantenportal (Precoro), E-Procurement/Punch-Out (OCI), mehrstufige Genehmigungs-Workflows mit Vertretung/Eskalation, Lieferanten-KPIs (Liefertreue %/Qualitätsquote statt manueller Sterne), Purchase Requisitions (Bedarfsanforderung vor PO), MRP-Bestellvorschläge (Mindestbestand→PO, Xentral täglich), Zertifikats-Tracking mit Ablauf-Alerts, Sammelrechnungen, Dropshipping-Automatik, bestätigter Liefertermin + Incoterms/Lieferbedingungen als Felder, Nummernkreise voll (nur Präfix light).
+> **★ VERBLEIBT: produktion (groß, letztes Branchen-Modul)** — Statuswechsel-Endpoint ERST greppen; falls fehlt: mock-first nach einkauf-cancelPO-Muster + 🔒 backend-gaps. Rezept + Stand: `.planning/branchen-block/README.md`. **DANACH: Onboarding/Info-Center O-0** (§1.2 MASTER-PLAN) + 3 offene Bexio-Review-Punkte (#8).
+>
+> ---
+> _(Historie #11 folgt)_
+
+# RESUME — Historie (Stand 2026-07-15, Session #11)
 
 > **★★★★★ SESSION #11 (2026-07-15) — main `10a32584` (gepusht, Auto-Deploy lief). NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >

@@ -6,7 +6,7 @@
 
 ---
 
-## ✅ STAND Session #11 (2026-07-15): 5 von 7 fertig — verbleiben einkauf, produktion
+## ✅ STAND Session #12 (2026-07-16): 6 von 7 fertig — verbleibt nur produktion
 
 | Modul | Commit | Referenz-tauglich für |
 |---|---|---|
@@ -15,6 +15,7 @@
 | ✅ **rapporte** | `23c39644` | **echter PDF-Export ohne Library** (`modules/rapporte/rapporte-export.ts`, WinAnsi-Umlaute), Prefs seeden Dialog-Defaults, tenant-Policy blockt Aktion (Unterschrift-Pflicht) |
 | ✅ **schichten** | `9cb06ab7` | Grid-Zellen-Klick→Modal mit Inline-Aktions-Formular (Tausch), tenant-Policy gatet Modal-Aktion (swapEnabled) + speist Berechnung (maxWeeklyHours→ArbZG) + Dialog-Default (defaultBreakMinutes), Drag&Drop-Selbst-Drop-Guard |
 | ✅ **fuhrpark** | `10a32584` | **Mock-Bugs via Screenshot-QA gefunden** (fehlender GET /services-Handler = Tab immer leer, Seed-Feld-Drift scheduled_date→scheduled_at, km nicht berechnet = NaN), Zeilen-Detail-Modals für Tabellen-Tabs, Client-Typ-Re-Exports, plateFor-Lookup (Adapter tragen nur vehicle_id), Platzhalter-Datum 2099→"—" |
+| ✅ **einkauf** | `be6ad91a` | **Listen-Query-ohne-Relationen-Bug** (Detail/Wareneingang zogen `po.lines` aus der Liste → immer leer; Fix: `usePOLines` im Modal), **mock-first-Endpoint bei BE-Lücke** (cancelPO + MSW + backend-gaps 🔒), Warenkorb→Sammelbestellung pro Lieferant, Query-Invalidierung über Entitätsgrenzen (Line-Mutationen → PO-Liste, total_amount!), Seeds relativ via date-helpers |
 
 **Erprobtes Rezept pro Modul (aus 3 Durchläufen, je ~1 Commit):**
 1. **Marktrecherche-Agent zuerst** (Web-Research-Sub-Agent, ~3 Min parallel zum Code-Lesen): Detail-Ansicht / Status-Lifecycle / Settings personal-vs-tenant / Exporte / Listen-UX der 3–4 Marktführer. Ergebnis bestimmt Settings-Felder + Workflow-Lücken. Paritäts-Funde (zu groß für Demo-Tiefe) im RESUME-NEXT notieren, nicht bauen.
@@ -49,10 +50,9 @@ Alle Referenzen wurden in Session #9 (video) frisch gebaut — direkt abkupfern:
 
 ## Reihenfolge (Rest)
 
-1. ~~Pilot: inventar~~ ✅ · ~~vermietung~~ ✅ · ~~rapporte~~ ✅ · ~~schichten~~ ✅ · ~~fuhrpark~~ ✅ (siehe Stand-Block oben)
-2. Verbleibende 2 nach dem erprobten Rezept:
-   - **mittel:** einkauf (tote toast.info: Bestellung/Lieferant bearbeiten, deaktivieren, Warenkorb, Neuer Abruf — siehe Audit-Tabelle unten)
-   - **groß:** produktion (Statuswechsel-Mutation fehlt komplett — ERST API-Schicht greppen [in 5 von 5 Modulen lag der Endpoint ungenutzt bereit], sonst mit Luke abklären; Fallback mock-first + 🔒-Zeile in backend-gaps.md)
+1. ~~Pilot: inventar~~ ✅ · ~~vermietung~~ ✅ · ~~rapporte~~ ✅ · ~~schichten~~ ✅ · ~~fuhrpark~~ ✅ · ~~einkauf~~ ✅ (siehe Stand-Block oben)
+2. Verbleibt 1 nach dem erprobten Rezept:
+   - **groß:** produktion (Statuswechsel-Mutation fehlt komplett — ERST API-Schicht greppen [in 6 von 6 Modulen lagen Endpoints ungenutzt bereit], sonst mit Luke abklären; Fallback mock-first + 🔒-Zeile in backend-gaps.md — Muster einkauf-cancelPO `be6ad91a`)
 
 ---
 
