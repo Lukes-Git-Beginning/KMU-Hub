@@ -109,6 +109,8 @@ Zwei-Pane-Editor (Modul-Baum ↔ Aktions-Matrix + Scope) · based_on-Badge „X 
 
 ## 4. Phasenplan (final, 2026-07-16 — Bau in NEUEN Terminals nach dem 10-Phasen-Batch-Muster; dieses Terminal hat nur geplant)
 
+> **⚠ Recherche-Gate pro Bau-Phase (Darien 2026-07-16):** Dieses Konzept ersetzt NICHT die Recherche im Bau-Terminal. Jede Phase startet mit gezielter Umsetzungs-Recherche zu **Aufbau + Funktionen** des jeweiligen Stücks (z.B. R-2: Rollen-Editor-UIs der Marktführer visuell ansehen — Screens/Layout/Interaktion; R-3 je Modul: wie gaten Marktführer diese Aktionen, welche Zustände zeigt disabled/hidden; R-4: Personio-Flows im Detail). Beide Achsen: Funktion UND Gestaltung (memory `feedback_market_driven_workflow`). Danach gebündelte Fragen → Darien-OK → bauen. Anspruch: **mindestens Markt-Niveau, besser durchdacht.**
+
 **FE (mock-first, bewährtes Muster; Contract so schneiden, dass Lukes BE ihn 1:1 übernehmen kann):**
 - **R-0 Katalog-Finalisierung (Planung, teils erledigt):** `CAPABILITY-KATALOG.md` — Fein-Capabilities pro Modul kuratieren. Kern-Module hier vor-kuratiert; restliche Module werden je R-3-Batch vor dem Gating kuratiert (Modul-UI sichten → Schalter ableiten → in Katalog eintragen → dann gaten).
 - **R-1 Fundament:** Contract `Role`/`RolePermissions`/`EffectivePermissions` (tenant-scoped, based_on, Multi-Rollen-Union) · `useCapability`-Hook (liest effektive Rechte, MSW `GET /me/permissions`) · `config/roles.ts` → dynamische Rollen aus API/MSW · Default-Deny-Mechanik für neue Module.
