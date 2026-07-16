@@ -284,12 +284,13 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - Automatische Bestellvorschläge (Inventar-MinQty → PO) — FE hat jetzt Katalog-Warenkorb mit Bündelung pro Lieferant als Vorstufe
 
 ### produktion (Brücke — MRP-Tiefe bewusst begrenzen)
-- BOM-Modell (`bom` + `bom_items`) + CRUD
-- `progress`/`work_steps`/`scrap`-Felder auf Order
-- Maschinen-Stammdaten-Register (aktuell nur String-ID)
-- Material-Verfügbarkeit: Inventar-Abgleich (FE nutzt Fake-Hash)
-- QualityCheck-Modell (FE-UI existiert)
-- Kalkulation (Soll/Ist-Kosten)
+
+> Stand 2026-07-16 (Demo-Tiefe-Session): BOM/WorkSteps/Machines/Quality-CRUD + Start/Complete/Cancel existieren im BE komplett (`route_produktion_ext.go`, Service mit Transition-Guards + Tests) — die früheren Zeilen dazu waren veraltet. Verbleibende echte Gaps:
+
+- 🔒 **Order↔BOM-Verknüpfung fehlt im BE-Modell** (Demo-Tiefe 2026-07-16): `production_orders` hat kein `bom_id`, Create-/UpdateOrderInput nehmen keines an. FE-Auftragsdetail (Stückliste-Sektion, Materialverfügbarkeit, Laufkarten-PDF-Materialbedarf) hängt daran — läuft mock-first (`CreateOrderInput.bom_id` FE-seitig ergänzt, MSW persistiert). → Spalte + Create/Update-Feld + Response.
+- Material-Verfügbarkeit: Inventar-Abgleich (FE nutzt deterministischen Fake-Hash, `produktion-shared.ts getMaterialAvailability`)
+- Kalkulation (Soll/Ist-Kosten auf Order/Steps — Katana/MRPeasy-Parität)
+- `progress`/`scrap` braucht KEIN BE-Feld mehr: FE berechnet Fortschritt aus WorkSteps (completed/total) und Ausschuss aus QualityChecks (Σ defects_found) — bewusste Ableitung statt Denormalisierung
 
 ### schichten (Self-Service Pilot-kritisch)
 - `shift_swap_requests`-Modell + approve/reject (FE-Tab da)

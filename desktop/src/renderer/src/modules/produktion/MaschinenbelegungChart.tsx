@@ -2,26 +2,27 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
 import type { MachineResponse as Machine, MachineBooking } from '@/api/produktion-types'
+import { machineStatusLabelKeys, machineStatusDots } from './produktion-shared'
 
 interface MaschinenbelegungChartProps {
   machines: Machine[]
   bookings: MachineBooking[]
+  /** production_order_id → order_number (the adapter payload only carries ids). */
+  orderNumbers: Map<string, string>
+  onSelectOrder?: (orderId: string) => void
+  onSelectMachine?: (machineId: string) => void
 }
 
-const RANGE_START = new Date('2026-02-03')
-const RANGE_END = new Date('2026-03-08') // exclusive: day after Mar 7
-const TOTAL_DAYS = 33 // Feb 3 - Mar 7 inclusive = 33 days (Feb has 28 days in 2026)
+// Rolling window relative to today (the previous fixed Feb-2026 range meant
+// the Gantt was permanently empty once the seeds moved on).
+const DAYS_BEFORE = 7
+const TOTAL_DAYS = 35
 const DAY_WIDTH = 30
 
-const machineStatusConfigKeys: Record<string, { dot: string; labelKey: string }> = {
-  available: { dot: 'bg-success', labelKey: 'produktion.machineStatus.available' },
-  in_use: { dot: 'bg-info', labelKey: 'produktion.machineStatus.inUse' },
-  maintenance: { dot: 'bg-error', labelKey: 'produktion.machineStatus.maintenance' },
-}
-
-function getDayOffset(dateStr: string): number {
-  const date = new Date(dateStr)
-  return Math.floor((date.getTime() - RANGE_START.getTime()) / (1000 * 60 * 60 * 24))
+function startOfToday(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
 function hashColor(id: string): string {
@@ -33,34 +34,47 @@ function hashColor(id: string): string {
   return colors[hash % colors.length]
 }
 
-function getMondays(): { offset: number; label: string }[] {
-  const mondays: { offset: number; label: string }[] = []
-  const current = new Date(RANGE_START)
-
-  // Move to the first Monday on or after RANGE_START
-  while (current.getDay() !== 1) {
-    current.setDate(current.getDate() + 1)
-  }
-
-  while (current < RANGE_END) {
-    const offset = getDayOffset(current.toISOString().split('T')[0])
-    const label = `${current.getDate()}.${current.getMonth() + 1}.`
-    mondays.push({ offset, label })
-    current.setDate(current.getDate() + 7)
-  }
-
-  return mondays
-}
-
-export default function MaschinenbelegungChart({ machines, bookings }: MaschinenbelegungChartProps) {
+export default function MaschinenbelegungChart({
+  machines,
+  bookings,
+  orderNumbers,
+  onSelectOrder,
+  onSelectMachine,
+}: MaschinenbelegungChartProps) {
   const { t } = useTranslation()
-  const mondays = useMemo(() => getMondays(), [])
+
+  const rangeStart = useMemo(() => {
+    const d = startOfToday()
+    d.setDate(d.getDate() - DAYS_BEFORE)
+    return d
+  }, [])
+
+  const getDayOffset = useMemo(() => {
+    return (dateStr: string): number => {
+      const date = new Date(dateStr)
+      return Math.floor((date.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24))
+    }
+  }, [rangeStart])
+
+  const mondays = useMemo(() => {
+    const result: { offset: number; label: string }[] = []
+    const current = new Date(rangeStart)
+    while (current.getDay() !== 1) {
+      current.setDate(current.getDate() + 1)
+    }
+    while ((current.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24) < TOTAL_DAYS) {
+      const offset = Math.floor((current.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24))
+      result.push({ offset, label: `${current.getDate()}.${current.getMonth() + 1}.` })
+      current.setDate(current.getDate() + 7)
+    }
+    return result
+  }, [rangeStart])
 
   const machineStatusConfig = useMemo(() => {
     return Object.fromEntries(
-      Object.entries(machineStatusConfigKeys).map(([key, val]) => [
+      Object.entries(machineStatusLabelKeys).map(([key, labelKey]) => [
         key,
-        { dot: val.dot, label: t(val.labelKey) },
+        { dot: machineStatusDots[key] ?? 'bg-muted', label: t(labelKey) },
       ])
     ) as Record<string, { dot: string; label: string }>
   }, [t])
@@ -76,6 +90,7 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
   }, [machines, bookings])
 
   const chartWidth = TOTAL_DAYS * DAY_WIDTH
+  const todayOffset = DAYS_BEFORE
 
   if (machines.length === 0) {
     return (
@@ -111,6 +126,13 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
                     {m.label}
                   </div>
                 ))}
+                {/* Today marker label */}
+                <div
+                  className="absolute top-0 text-[10px] text-primary font-semibold"
+                  style={{ left: todayOffset * DAY_WIDTH + 4, paddingTop: 10 }}
+                >
+                  {t('produktion.chart.heute')}
+                </div>
               </div>
             </div>
 
@@ -124,8 +146,14 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
                   key={machine.id}
                   className="flex border-b border-border-muted last:border-0 hover:bg-secondary/30 transition-colors"
                 >
-                  {/* Machine info */}
-                  <div className="w-[200px] shrink-0 px-4 py-3 border-r border-border flex items-center gap-2">
+                  {/* Machine info (click-through to the machine detail modal) */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSelectMachine?.(machine.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectMachine?.(machine.id) } }}
+                    className="w-[200px] shrink-0 px-4 py-3 border-r border-border flex items-center gap-2 cursor-pointer hover:bg-secondary/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  >
                     <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${statusCfg?.dot ?? 'bg-muted'}`} />
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-foreground truncate">{machine.name}</p>
@@ -143,21 +171,30 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
                         style={{ left: m.offset * DAY_WIDTH }}
                       />
                     ))}
+                    {/* Today line */}
+                    <div
+                      className="absolute top-0 bottom-0 border-l-2 border-primary/60"
+                      style={{ left: todayOffset * DAY_WIDTH }}
+                    />
 
                     {/* Booking blocks */}
                     {mBookings.map((booking) => {
                       const startOffset = Math.max(0, getDayOffset(booking.starts_at))
-                      const endOffset = Math.min(TOTAL_DAYS, getDayOffset(booking.ends_at))
+                      const endOffset = Math.min(TOTAL_DAYS, getDayOffset(booking.ends_at) + 1)
                       const span = endOffset - startOffset
-                      const color = hashColor(booking.id)
-                      const orderLabel = booking.production_order_id.slice(0, 8)
+                      const color = hashColor(booking.production_order_id)
+                      const orderLabel = orderNumbers.get(booking.production_order_id) ?? booking.production_order_id.slice(0, 8)
 
                       if (span <= 0) return null
 
                       return (
                         <div
                           key={booking.id}
-                          className="absolute top-2 rounded-md flex items-center px-2 overflow-hidden cursor-default"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onSelectOrder?.(booking.production_order_id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectOrder?.(booking.production_order_id) } }}
+                          className="absolute top-2 rounded-md flex items-center px-2 overflow-hidden cursor-pointer transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                           style={{
                             left: startOffset * DAY_WIDTH + 1,
                             width: span * DAY_WIDTH - 2,
@@ -199,13 +236,13 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
 
         {/* Booking colors — derive from actual data */}
         {bookings.length > 0 && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('produktion.chart.auftraege')}</span>
             {Array.from(new Map(bookings.map((b) => [b.production_order_id, b])).values()).map((b) => {
-              const color = hashColor(b.id)
-              const label = b.production_order_id.slice(0, 8)
+              const color = hashColor(b.production_order_id)
+              const label = orderNumbers.get(b.production_order_id) ?? b.production_order_id.slice(0, 8)
               return (
-                <div key={b.id} className="flex items-center gap-1.5">
+                <div key={b.production_order_id} className="flex items-center gap-1.5">
                   <span
                     className="h-2.5 w-5 rounded-sm"
                     style={{ backgroundColor: color + '60', borderLeft: `2px solid ${color}` }}

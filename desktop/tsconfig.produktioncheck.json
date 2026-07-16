@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/modules/produktion/**/*.ts",
+    "src/renderer/src/modules/produktion/**/*.tsx",
+    "src/renderer/src/api/produktion-client.ts",
+    "src/renderer/src/api/produktion-types.ts",
+    "src/renderer/src/api/hooks/useProduktion.ts",
+    "src/renderer/src/mocks/handlers/produktion.ts",
+    "src/renderer/src/stores/produktionPrefs.ts",
+    "src/renderer/src/stores/produktionTenant.ts",
+    "src/renderer/src/hooks/useHydrateModuleSettings.ts",
+    "src/renderer/src/modules/settings/module-settings-registry.tsx"
+  ]
+}

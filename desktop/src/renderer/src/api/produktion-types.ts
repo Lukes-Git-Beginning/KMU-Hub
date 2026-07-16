@@ -81,6 +81,12 @@ export interface CreateOrderInput {
   planned_end: string   // RFC3339
   priority?: number
   notes?: string
+  /**
+   * Mock-first (backend-gaps 🔒): the backend CreateOrderInput does not
+   * accept a BOM reference yet, so a freshly created order loses its
+   * Stückliste. MSW persists this field; the real service ignores it.
+   */
+  bom_id?: string
 }
 
 export interface UpdateOrderInput {

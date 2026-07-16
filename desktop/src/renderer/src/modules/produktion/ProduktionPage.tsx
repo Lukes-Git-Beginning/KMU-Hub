@@ -4,23 +4,16 @@ import {
   Search,
   Plus,
   Factory,
-  ClipboardList,
-  ShieldCheck,
   CheckCircle2,
   XCircle,
   ChevronDown,
   ChevronRight,
   Package,
-  Calendar,
-  Clock,
-  AlertCircle,
-  PlayCircle,
   Trash2,
-  ListChecks,
-  AlertTriangle,
-  Gauge,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQueries } from '@tanstack/react-query'
 import {
   useOrders,
   useBOMs,
@@ -30,19 +23,19 @@ import {
   useCreateOrder,
   useCreateBOM,
   useCreateQualityCheck,
-  useWorkSteps,
+  useCreateMachine,
 } from '@/api/hooks/useProduktion'
+import { listWorkSteps } from '@/api/produktion-client'
 import type {
   ProductionOrder,
   BOMResponse as BOM,
   QualityCheckResponse as QualityCheck,
   BomItemResponse as BomItem,
-  WorkStepResponse as WorkStep,
   CreateOrderInput,
   CreateBOMInput,
   CreateQualityCheckInput,
 } from '@/api/produktion-types'
-import { DetailPanel, PageHeader, EmptyState } from '@/components/shared'
+import { PageHeader, EmptyState, SortMenu, type SortDirection } from '@/components/shared'
 import { EmptyGeneric } from '@/components/shared/illustrations'
 import {
   Dialog,
@@ -62,31 +55,30 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import MaschinenbelegungChart from './MaschinenbelegungChart'
+import {
+  OrderDetailModal,
+  BomDetailModal,
+  QualityCheckDetailModal,
+  MachineDetailModal,
+} from './ProduktionDetailModals'
+import {
+  orderStatusLabelKeys,
+  orderStatusColors,
+  progressBarColors,
+  priorityLabelKeys,
+  priorityColors,
+  PRIORITY_VALUES,
+  getDaysRemaining,
+  orderNumberById,
+  generateOrderNumber,
+} from './produktion-shared'
+import { buildOrdersCsv, downloadBlob, csvDateStamp } from './produktion-export'
+import { useProduktionPrefsStore } from '@/stores/produktionPrefs'
+import { useProduktionTenantStore } from '@/stores/produktionTenant'
 import { formatDate } from '@/lib/format'
 
 type TabKey = 'auftraege' | 'stuecklisten' | 'qualitaet' | 'maschinen'
 type StatusFilter = 'all' | 'planned' | 'in_progress' | 'completed' | 'cancelled'
-
-const orderStatusLabelKeys: Record<string, string> = {
-  planned: 'produktion.status.planned',
-  in_progress: 'produktion.status.in_progress',
-  completed: 'produktion.status.completed',
-  cancelled: 'produktion.status.cancelled',
-}
-
-const orderStatusColors: Record<string, string> = {
-  planned: 'bg-secondary text-muted-foreground',
-  in_progress: 'bg-info-light text-info',
-  completed: 'bg-success-light text-success',
-  cancelled: 'bg-error-light text-error',
-}
-
-const progressBarColors: Record<string, string> = {
-  planned: 'bg-muted-foreground/40',
-  in_progress: 'bg-info',
-  completed: 'bg-success',
-  cancelled: 'bg-error',
-}
 
 const statusFilterOptionKeys: { value: StatusFilter; labelKey: string }[] = [
   { value: 'all', labelKey: 'produktion.filter.all' },
@@ -96,40 +88,13 @@ const statusFilterOptionKeys: { value: StatusFilter; labelKey: string }[] = [
   { value: 'cancelled', labelKey: 'produktion.filter.cancelled' },
 ]
 
-const workStepStatusLabelKeys: Record<string, string> = {
-  pending: 'produktion.workstep.pending',
-  in_progress: 'produktion.workstep.inProgress',
-  completed: 'produktion.workstep.completed',
-  skipped: 'produktion.workstep.skipped',
-}
+/** Detail navigation chain (order ↔ bom / qc / machine) rendered as DetailModal. */
+type DetailTarget =
+  | { type: 'order'; id: string }
+  | { type: 'bom'; id: string }
+  | { type: 'qc'; id: string }
+  | { type: 'machine'; id: string }
 
-const workStepStatusColors: Record<string, string> = {
-  pending: 'bg-secondary text-muted-foreground',
-  in_progress: 'bg-info-light text-info',
-  completed: 'bg-success-light text-success',
-  skipped: 'bg-secondary text-muted-foreground/60',
-}
-
-function getDaysRemaining(dueDate: string): number {
-  const due = new Date(dueDate)
-  const now = new Date()
-  return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-function formatDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}min`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}min`
-}
-
-function getMaterialAvailability(materialName: string, idx: number): 'green' | 'yellow' | 'red' {
-  const val = (materialName.length * 7 + idx * 13) % 10
-  if (val < 1) return 'red'
-  if (val < 3) return 'yellow'
-  return 'green'
-}
 // ============================================================
 // Main Component
 // ============================================================
@@ -143,41 +108,102 @@ export default function ProduktionPage() {
   const { data: machinesData } = useMachines()
   const { data: bookingsData } = useMachineBookings()
 
-  const orders = ordersData?.orders ?? []
-  const boms = bomsData?.boms ?? []
+  const orders = useMemo(() => ordersData?.orders ?? [], [ordersData])
+  const boms = useMemo(() => bomsData?.boms ?? [], [bomsData])
   const qualityChecks = qualityData?.checks ?? []
   const machines = machinesData?.machines ?? []
   const machineBookings = bookingsData?.bookings ?? []
 
+  const defaultTab = useProduktionPrefsStore((s) => s.defaultTab)
+  const defaultStatusFilter = useProduktionPrefsStore((s) => s.defaultStatusFilter)
+
   const orderStatusLabels = useMemo(() => Object.fromEntries(
     Object.entries(orderStatusLabelKeys).map(([k, v]) => [k, t(v)])
   ) as Record<string, string>, [t])
+
+  const priorityLabels = useMemo(() => Object.fromEntries(
+    Object.entries(priorityLabelKeys).map(([k, v]) => [Number(k), t(v)])
+  ) as Record<number, string>, [t])
 
   const statusFilterOptions = useMemo(() =>
     statusFilterOptionKeys.map((o) => ({ value: o.value, label: t(o.labelKey) })),
     [t]
   )
 
-  const [tab, setTab] = useState<TabKey>('auftraege')
+  const [tab, setTab] = useState<TabKey>(defaultTab)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(defaultStatusFilter)
+  const [sortField, setSortField] = useState('plannedEnd')
+  const [sortDir, setSortDir] = useState<SortDirection>('asc')
   const [expandedBom, setExpandedBom] = useState<string | null>(null)
-  const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null)
+  const [detailStack, setDetailStack] = useState<DetailTarget[]>([])
   const [showNewOrder, setShowNewOrder] = useState(false)
   const [showNewBom, setShowNewBom] = useState(false)
+  const [showNewMachine, setShowNewMachine] = useState(false)
   const [showQualityCheck, setShowQualityCheck] = useState(false)
   const [qualityCheckOrderId, setQualityCheckOrderId] = useState<string>('')
 
+  const currentDetail = detailStack[detailStack.length - 1]
+  const pushDetail = (target: DetailTarget) => setDetailStack((s) => [...s, target])
+  const goBack = () => setDetailStack((s) => s.slice(0, -1))
+  const closeDetail = () => setDetailStack([])
+
   const activeOrders = orders.filter((o) => o.status === 'in_progress' || o.status === 'planned')
 
+  // Real progress for running orders: completed steps / total steps. The list
+  // used to hard-code 50 % for every in_progress order — fetch the (few)
+  // running orders' steps instead so the bar reflects reality.
+  const inProgressOrders = useMemo(
+    () => orders.filter((o) => o.status === 'in_progress'),
+    [orders],
+  )
+  const stepQueries = useQueries({
+    queries: inProgressOrders.map((o) => ({
+      queryKey: ['produktion', 'worksteps', o.id],
+      queryFn: () => listWorkSteps(o.id),
+    })),
+  })
+  const progressById = new Map<string, number>()
+  inProgressOrders.forEach((o, i) => {
+    const steps = stepQueries[i]?.data?.steps ?? []
+    if (steps.length > 0) {
+      progressById.set(o.id, Math.round((steps.filter((s) => s.status === 'completed').length / steps.length) * 100))
+    }
+  })
+  orders.forEach((o) => {
+    if (!progressById.has(o.id)) {
+      progressById.set(o.id, o.status === 'completed' ? 100 : 0)
+    }
+  })
+
+  const sortOptions = useMemo(() => [
+    { value: 'orderNumber', label: t('produktion.sort.orderNumber') },
+    { value: 'product', label: t('produktion.sort.product') },
+    { value: 'quantity', label: t('produktion.sort.quantity') },
+    { value: 'priority', label: t('produktion.sort.priority') },
+    { value: 'plannedStart', label: t('produktion.sort.plannedStart') },
+    { value: 'plannedEnd', label: t('produktion.sort.plannedEnd') },
+  ], [t])
+
   const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
+    const filtered = orders.filter((o) => {
       if (statusFilter !== 'all' && o.status !== statusFilter) return false
       if (!search) return true
       const q = search.toLowerCase()
       return o.order_number.toLowerCase().includes(q) || o.product_name.toLowerCase().includes(q)
     })
-  }, [orders, search, statusFilter])
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      switch (sortField) {
+        case 'orderNumber': return dir * a.order_number.localeCompare(b.order_number)
+        case 'product': return dir * a.product_name.localeCompare(b.product_name)
+        case 'quantity': return dir * (a.quantity - b.quantity)
+        case 'priority': return dir * (a.priority - b.priority)
+        case 'plannedStart': return dir * a.planned_start.localeCompare(b.planned_start)
+        default: return dir * a.planned_end.localeCompare(b.planned_end)
+      }
+    })
+  }, [orders, search, statusFilter, sortField, sortDir])
 
   const bomMap = useMemo(() => {
     const map = new Map<string, BOM>()
@@ -185,13 +211,29 @@ export default function ProduktionPage() {
     return map
   }, [boms])
 
+  const orderNumbers = useMemo(() => orderNumberById(orders), [orders])
+
   const toggleBom = (id: string) => setExpandedBom(expandedBom === id ? null : id)
 
   const handleOpenQualityCheckFromDetail = (orderId: string) => {
     setQualityCheckOrderId(orderId)
-    setSelectedOrder(null)
+    closeDetail()
     setShowQualityCheck(true)
   }
+
+  const handleExportOrdersCsv = () => {
+    const csv = buildOrdersCsv(filteredOrders, orderStatusLabels, priorityLabels, progressById)
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    downloadBlob(blob, `produktionsauftraege-${csvDateStamp()}.csv`)
+    toast.success(t('produktion.export.csvExported'))
+  }
+
+  // Resolve the current detail target against live query data so mutations
+  // (status change, QC create) update the open modal.
+  const detailOrder = currentDetail?.type === 'order' ? orders.find((o) => o.id === currentDetail.id) : undefined
+  const detailBom = currentDetail?.type === 'bom' ? boms.find((b) => b.id === currentDetail.id) : undefined
+  const detailQc = currentDetail?.type === 'qc' ? qualityChecks.find((c) => c.id === currentDetail.id) : undefined
+  const detailMachine = currentDetail?.type === 'machine' ? machines.find((m) => m.id === currentDetail.id) : undefined
 
   if (ordersLoading) {
     return (
@@ -222,6 +264,11 @@ export default function ProduktionPage() {
             {tab === 'qualitaet' && (
               <button onClick={() => { setQualityCheckOrderId(''); setShowQualityCheck(true) }} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 <Plus className="h-4 w-4" />{t('produktion.actions.qualitaetspruefung')}
+              </button>
+            )}
+            {tab === 'maschinen' && (
+              <button onClick={() => setShowNewMachine(true)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
+                <Plus className="h-4 w-4" />{t('produktion.actions.neueMaschine')}
               </button>
             )}
             <button onClick={() => setShowNewOrder(true)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
@@ -261,6 +308,21 @@ export default function ProduktionPage() {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <SortMenu
+                options={sortOptions}
+                field={sortField}
+                direction={sortDir}
+                onChange={(f, d) => { setSortField(f); setSortDir(d) }}
+              />
+              <button
+                onClick={handleExportOrdersCsv}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden md:inline">{t('produktion.export.csvButton')}</span>
+              </button>
+            </div>
           </div>
 
           <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -271,6 +333,7 @@ export default function ProduktionPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.auftragNr')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.produkt')}</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('produktion.table.menge')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.prioritaet')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.status')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground min-w-[160px]">{t('produktion.table.fortschritt')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.start')}</th>
@@ -280,12 +343,24 @@ export default function ProduktionPage() {
                 <tbody>
                   {filteredOrders.map((order) => {
                     const daysLeft = getDaysRemaining(order.planned_end)
-                    const progress = order.status === 'completed' ? 100 : order.status === 'cancelled' ? 0 : order.status === 'in_progress' ? 50 : 0
+                    const progress = progressById.get(order.id) ?? 0
                     return (
-                      <tr key={order.id} onClick={() => setSelectedOrder(order)} className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer">
+                      <tr
+                        key={order.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => pushDetail({ type: 'order', id: order.id })}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pushDetail({ type: 'order', id: order.id }) } }}
+                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      >
                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{order.order_number}</td>
                         <td className="px-4 py-3 text-foreground font-medium">{order.product_name}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground text-right">{order.quantity.toLocaleString('de-DE')}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[order.priority] ?? priorityColors[3]}`}>
+                            {priorityLabels[order.priority] ?? `P${order.priority}`}
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${orderStatusColors[order.status]}`}>{orderStatusLabels[order.status] ?? order.status}</span>
                         </td>
@@ -329,30 +404,42 @@ export default function ProduktionPage() {
               const usedByOrders = orders.filter((o) => o.bom_id === bom.id)
               return (
                 <div key={bom.id} className="rounded-lg border border-border bg-card overflow-hidden transition-shadow hover:shadow-[var(--shadow-card-hover)]">
-                  <button onClick={() => toggleBom(bom.id)} className="w-full flex items-center justify-between p-4 text-left">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
+                  <div className="flex items-center">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => pushDetail({ type: 'bom', id: bom.id })}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pushDetail({ type: 'bom', id: bom.id }) } }}
+                      className="flex flex-1 items-center gap-3 p-4 text-left cursor-pointer hover:bg-secondary/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light shrink-0">
                         <Package className="h-5 w-5 text-primary" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h4 className="text-sm font-medium text-foreground">{bom.product_name}</h4>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="text-xs text-muted-foreground">{t('produktion.stueckliste.sku')} {bom.sku}</span>
                           <span className="text-xs text-muted-foreground">&middot; {t('produktion.stueckliste.version', { version: bom.version })}</span>
                           <span className="text-xs text-muted-foreground">&middot; {t('produktion.stueckliste.positionen', { count: bom.items.length })}</span>
                           {usedByOrders.length > 0 && <span className="text-xs text-muted-foreground">&middot; {t('produktion.stueckliste.auftraege', { count: usedByOrders.length })}</span>}
                         </div>
                       </div>
+                      <div className="ml-auto flex items-center gap-2 shrink-0">
+                        {bom.active ? (
+                          <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">{t('produktion.stueckliste.aktiv')}</span>
+                        ) : (
+                          <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">{t('produktion.stueckliste.inaktiv')}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {bom.active ? (
-                        <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">{t('produktion.stueckliste.aktiv')}</span>
-                      ) : (
-                        <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">{t('produktion.stueckliste.inaktiv')}</span>
-                      )}
-                      {expandedBom === bom.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                    </div>
-                  </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleBom(bom.id) }}
+                      aria-label={t('produktion.stueckliste.togglePositionen')}
+                      className="p-4 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {expandedBom === bom.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                  </div>
                   {expandedBom === bom.id && (
                     <div className="border-t border-border-muted px-4 pb-4">
                       <table className="w-full text-sm mt-3">
@@ -400,9 +487,16 @@ export default function ProduktionPage() {
               </thead>
               <tbody>
                 {qualityChecks.map((check: QualityCheck) => (
-                  <tr key={check.id} className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors">
+                  <tr
+                    key={check.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => pushDetail({ type: 'qc', id: check.id })}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pushDetail({ type: 'qc', id: check.id }) } }}
+                    className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  >
                     <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(check.checked_at)}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{check.order_id.slice(0, 8)}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{orderNumbers.get(check.order_id) ?? check.order_id.slice(0, 8)}</td>
                     <td className="px-4 py-3 text-xs text-foreground">{check.inspector}</td>
                     <td className="px-4 py-3 text-center">
                       {check.passed ? <CheckCircle2 className="h-4 w-4 text-success mx-auto" /> : <XCircle className="h-4 w-4 text-error mx-auto" />}
@@ -420,324 +514,71 @@ export default function ProduktionPage() {
         </div>
       )}
 
-      {tab === 'maschinen' && <MaschinenbelegungChart machines={machines} bookings={machineBookings} />}
-
-      {selectedOrder && (
-        <OrderDetailPanel
-          order={selectedOrder}
-          bom={bomMap.get(selectedOrder.bom_id ?? '')}
-          qualityChecks={qualityChecks.filter((qc: QualityCheck) => qc.order_id === selectedOrder.id)}
-          onClose={() => setSelectedOrder(null)}
-          onAddQualityCheck={() => handleOpenQualityCheckFromDetail(selectedOrder.id)}
+      {tab === 'maschinen' && (
+        <MaschinenbelegungChart
+          machines={machines}
+          bookings={machineBookings}
+          orderNumbers={orderNumbers}
+          onSelectOrder={(orderId) => pushDetail({ type: 'order', id: orderId })}
+          onSelectMachine={(machineId) => pushDetail({ type: 'machine', id: machineId })}
         />
       )}
 
-      <NewOrderDialog open={showNewOrder} onOpenChange={setShowNewOrder} boms={boms} />
-      <NewBomDialog open={showNewBom} onOpenChange={setShowNewBom} />
-      <QualityCheckDialog open={showQualityCheck} onOpenChange={setShowQualityCheck} orders={orders} preselectedOrderId={qualityCheckOrderId} />
+      {detailOrder && (
+        <OrderDetailModal
+          order={detailOrder}
+          bom={bomMap.get(detailOrder.bom_id ?? '')}
+          qualityChecks={qualityChecks.filter((qc: QualityCheck) => qc.order_id === detailOrder.id)}
+          onClose={closeDetail}
+          onBack={detailStack.length > 1 ? goBack : undefined}
+          onOpenBom={(bomId) => pushDetail({ type: 'bom', id: bomId })}
+          onOpenQualityCheck={(checkId) => pushDetail({ type: 'qc', id: checkId })}
+          onAddQualityCheck={() => handleOpenQualityCheckFromDetail(detailOrder.id)}
+        />
+      )}
+      {detailBom && (
+        <BomDetailModal
+          bom={detailBom}
+          orders={orders}
+          onClose={closeDetail}
+          onBack={detailStack.length > 1 ? goBack : undefined}
+          onOpenOrder={(orderId) => pushDetail({ type: 'order', id: orderId })}
+        />
+      )}
+      {detailQc && (
+        <QualityCheckDetailModal
+          check={detailQc}
+          order={orders.find((o) => o.id === detailQc.order_id)}
+          onClose={closeDetail}
+          onBack={detailStack.length > 1 ? goBack : undefined}
+          onOpenOrder={(orderId) => pushDetail({ type: 'order', id: orderId })}
+        />
+      )}
+      {detailMachine && (
+        <MachineDetailModal
+          machine={detailMachine}
+          bookings={machineBookings}
+          orderNumbers={orderNumbers}
+          onClose={closeDetail}
+          onBack={detailStack.length > 1 ? goBack : undefined}
+          onOpenOrder={(orderId) => pushDetail({ type: 'order', id: orderId })}
+        />
+      )}
+
+      <NewOrderDialog key={showNewOrder ? 'order-open' : 'order-closed'} open={showNewOrder} onOpenChange={setShowNewOrder} boms={boms} />
+      <NewBomDialog key={showNewBom ? 'bom-open' : 'bom-closed'} open={showNewBom} onOpenChange={setShowNewBom} />
+      <NewMachineDialog key={showNewMachine ? 'machine-open' : 'machine-closed'} open={showNewMachine} onOpenChange={setShowNewMachine} />
+      <QualityCheckDialog
+        key={showQualityCheck ? `qc-${qualityCheckOrderId || 'new'}` : 'qc-closed'}
+        open={showQualityCheck}
+        onOpenChange={setShowQualityCheck}
+        orders={orders}
+        preselectedOrderId={qualityCheckOrderId}
+      />
     </div>
   )
 }
-// ============================================================
-// Order Detail Panel
-// ============================================================
 
-function OrderDetailPanel({
-  order, bom, qualityChecks, onClose, onAddQualityCheck,
-}: {
-  order: ProductionOrder
-  bom: BOM | undefined
-  qualityChecks: QualityCheck[]
-  onClose: () => void
-  onAddQualityCheck: () => void
-}) {
-  const { t } = useTranslation()
-  const { data: workStepsData } = useWorkSteps(order.id)
-  const workSteps: WorkStep[] = workStepsData?.steps ?? []
-
-  const daysLeft = getDaysRemaining(order.planned_end)
-  const totalDays = Math.max(1, Math.ceil(
-    (new Date(order.planned_end).getTime() - new Date(order.planned_start).getTime()) / (1000 * 60 * 60 * 24),
-  ))
-
-  const orderStatusLabels = Object.fromEntries(
-    Object.entries(orderStatusLabelKeys).map(([k, v]) => [k, t(v)])
-  ) as Record<string, string>
-
-  const workStepStatusLabels = Object.fromEntries(
-    Object.entries(workStepStatusLabelKeys).map(([k, v]) => [k, t(v)])
-  ) as Record<string, string>
-
-  const handleStatusChange = (newStatus: string) => {
-    toast.success(t('produktion.statusChange.toast', { orderNr: order.order_number, status: orderStatusLabels[newStatus] }))
-  }
-
-  const materialAvailability = useMemo(() => {
-    if (!bom) return null
-    if (order.status !== 'planned' && order.status !== 'in_progress') return null
-    const results = bom.items.map((item: BomItem, idx: number) => ({
-      ...item,
-      availability: getMaterialAvailability(item.material_name, idx),
-    }))
-    const available = results.filter((r) => r.availability === 'green').length
-    return { results, available, total: results.length }
-  }, [bom, order.status])
-
-  const sortedWorkSteps = useMemo(() => [...workSteps].sort((a, b) => a.step_nr - b.step_nr), [workSteps])
-  const completedSteps = sortedWorkSteps.filter((s) => s.status === 'completed').length
-  const totalDuration = sortedWorkSteps.reduce((sum, s) => sum + s.duration_minutes, 0)
-  const progress = sortedWorkSteps.length > 0
-    ? Math.round((completedSteps / sortedWorkSteps.length) * 100)
-    : order.status === 'completed' ? 100 : 0
-
-  const scrapRate = 0
-  const showScrap = order.status !== 'planned'
-
-  return (
-    <DetailPanel open={true} title={t('produktion.detail.title')} subtitle={order.order_number} onClose={onClose}>
-      <div className="space-y-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-base font-medium text-foreground">{order.product_name}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5 font-mono">{order.order_number}</p>
-          </div>
-          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${orderStatusColors[order.status]}`}>{orderStatusLabels[order.status]}</span>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium text-foreground">{t('produktion.detail.fortschritt')}</span>
-            <span className="text-sm font-semibold text-foreground tabular-nums">{progress}%</span>
-          </div>
-          <div className="h-3 rounded-full bg-secondary overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${progressBarColors[order.status] ?? 'bg-primary'}`} style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Package className="h-3.5 w-3.5 shrink-0" />
-            <div>
-              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.menge')}</p>
-              <p className="text-foreground font-medium">{t('produktion.detail.stueck', { qty: order.quantity.toLocaleString('de-DE') })}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5 shrink-0" />
-            <div>
-              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.startdatum')}</p>
-              <p className="text-foreground">{formatDate(order.planned_start)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="h-3.5 w-3.5 shrink-0" />
-            <div>
-              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.faelligkeitsdatum')}</p>
-              <p className={order.status !== 'completed' && order.status !== 'cancelled' && daysLeft < 0 ? 'text-error font-medium' : 'text-foreground'}>
-                {formatDate(order.planned_end)}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            <div>
-              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.verbleibend')}</p>
-              <p className={`font-medium ${order.status === 'completed' ? 'text-success' : order.status === 'cancelled' ? 'text-muted-foreground' : daysLeft < 0 ? 'text-error' : daysLeft <= 3 ? 'text-warning' : 'text-foreground'}`}>
-                {order.status === 'completed' ? t('produktion.status.completed') :
-                 order.status === 'cancelled' ? t('produktion.status.cancelled') :
-                 daysLeft < 0 ? t('produktion.detail.tageUeberfaellig', { days: Math.abs(daysLeft) }) :
-                 daysLeft === 0 ? t('produktion.detail.heuteFaellig') :
-                 t('produktion.detail.tage', { days: daysLeft })}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-md border border-border p-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-            <span>{formatDate(order.planned_start)}</span>
-            <span>{t('produktion.detail.laufzeit', { days: totalDays })}</span>
-            <span>{formatDate(order.planned_end)}</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-            <div className="h-full rounded-full bg-primary/60 transition-all"
-              style={{ width: `${Math.min(100, Math.max(0, ((totalDays - Math.max(0, daysLeft)) / totalDays) * 100))}%` }} />
-          </div>
-        </div>
-
-        {materialAvailability && bom && (
-          <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('produktion.detail.materialverfuegbarkeit')}</h4>
-            <div className="rounded-md border border-border p-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-primary" />
-                <span className="text-xs font-medium text-foreground">{t('produktion.detail.materialVon', { available: materialAvailability.available, total: materialAvailability.total })}</span>
-              </div>
-              <div className="space-y-1">
-                {materialAvailability.results.map((item, idx: number) => {
-                  const colorMap = {
-                    green: { dot: 'bg-success', text: 'text-success', bg: 'bg-success-light', label: t('produktion.material.available') },
-                    yellow: { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning-light', label: t('produktion.material.limited') },
-                    red: { dot: 'bg-error', text: 'text-error', bg: 'bg-error-light', label: t('produktion.material.missing') },
-                  }
-                  const c = colorMap[item.availability]
-                  return (
-                    <div key={idx} className="flex items-center justify-between py-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${c.dot} shrink-0`} />
-                        <span className="text-xs text-foreground">{item.material_name}</span>
-                      </div>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${c.bg} ${c.text}`}>{c.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {bom && (
-          <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('produktion.detail.stueckliste')}</h4>
-            <div className="rounded-md border border-border p-3">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-xs font-medium text-foreground">{bom.product_name}</p>
-                  <p className="text-[10px] text-muted-foreground">{t('produktion.stueckliste.sku')} {bom.sku} &middot; {t('produktion.stueckliste.version', { version: bom.version })} &middot; {t('produktion.stueckliste.positionen', { count: bom.items.length })}</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {sortedWorkSteps.length > 0 && (
-          <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('produktion.detail.arbeitsgaenge')}</h4>
-            <div className="rounded-md border border-border p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ListChecks className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-medium text-foreground">{t('produktion.detail.schritte', { completed: completedSteps, total: sortedWorkSteps.length })}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{t('produktion.detail.gesamt')} {formatDuration(totalDuration)}</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                <div className="h-full rounded-full bg-success transition-all" style={{ width: sortedWorkSteps.length > 0 ? `${(completedSteps / sortedWorkSteps.length) * 100}%` : '0%' }} />
-              </div>
-              <div className="space-y-1">
-                {sortedWorkSteps.map((step: WorkStep) => (
-                  <div key={step.id} className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-[10px] text-muted-foreground font-mono w-4 shrink-0 text-right">{step.step_nr}</span>
-                      <div className="min-w-0">
-                        <p className="text-xs text-foreground font-medium truncate">{step.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground">{formatDuration(step.duration_minutes)}</span>
-                          {step.assignee && <span className="text-[10px] text-muted-foreground">&middot; {step.assignee}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2 ${workStepStatusColors[step.status]}`}>{workStepStatusLabels[step.status]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {showScrap && (
-          <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('produktion.detail.ausschuss')}</h4>
-            <div className="rounded-md border border-border p-3 space-y-3">
-              {scrapRate === 0 ? (
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                  <span className="text-xs text-muted-foreground">{t('produktion.detail.keinAusschuss')}</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Gauge className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-[10px] text-muted-foreground">{t('produktion.detail.ausschussrate')}</p>
-                        <p className={`text-sm font-semibold tabular-nums ${scrapRate > 5 ? 'text-error' : 'text-foreground'}`}>{scrapRate}%</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-[10px] text-muted-foreground">{t('produktion.detail.ausschussProduziert')}</p>
-                        <p className="text-sm font-medium text-foreground tabular-nums">0 / {order.quantity} Stk</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-success/30 overflow-hidden">
-                    <div className="h-full rounded-full bg-error transition-all" style={{ width: `${Math.min(100, scrapRate)}%` }} />
-                  </div>
-                  {scrapRate > 5 && (
-                    <div className="flex items-center gap-2 rounded-md bg-error-light px-3 py-2">
-                      <AlertTriangle className="h-3.5 w-3.5 text-error shrink-0" />
-                      <span className="text-xs text-error font-medium">{t('produktion.detail.ausschussWarnung')}</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('produktion.detail.qualitaetspruefungen', { count: qualityChecks.length })}</h4>
-          {qualityChecks.length === 0 ? (
-            <EmptyState illustration={<EmptyGeneric />} title={t('produktion.detail.noPruefungen')} />
-          ) : (
-            <div className="space-y-1.5">
-              {qualityChecks.map((qc: QualityCheck) => (
-                <div key={qc.id} className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    {qc.passed ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <XCircle className="h-3.5 w-3.5 text-error" />}
-                    <div>
-                      <p className="text-foreground">{qc.inspector}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatDate(qc.checked_at)}
-                        {qc.defects_found > 0 && t('produktion.detail.maengel', { count: qc.defects_found })}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${qc.passed ? 'bg-success-light text-success' : 'bg-error-light text-error'}`}>
-                    {qc.passed ? t('produktion.detail.bestanden') : t('produktion.detail.nichtBestanden')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <div className="flex gap-2 pt-2">
-          {order.status !== 'completed' && order.status !== 'cancelled' && (
-            <>
-              {order.status === 'planned' && (
-                <button onClick={() => handleStatusChange('in_progress')} className="flex items-center gap-1.5 flex-1 justify-center rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors">
-                  <PlayCircle className="h-3.5 w-3.5" />{t('produktion.action.starten')}
-                </button>
-              )}
-              <button onClick={onAddQualityCheck} className="flex items-center gap-1.5 flex-1 justify-center rounded-lg bg-primary py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">
-                <ShieldCheck className="h-3.5 w-3.5" />{t('produktion.action.qualitaetspruefung')}
-              </button>
-            </>
-          )}
-          {order.status === 'completed' && (
-            <div className="flex items-center gap-2 w-full justify-center py-2 text-xs text-success">
-              <CheckCircle2 className="h-4 w-4" />{t('produktion.action.auftragAbgeschlossen')}
-            </div>
-          )}
-        </div>
-      </div>
-    </DetailPanel>
-  )
-}
 // ============================================================
 // Neuer Auftrag Dialog
 // ============================================================
@@ -745,10 +586,18 @@ function OrderDetailPanel({
 function NewOrderDialog({ open, onOpenChange, boms }: { open: boolean; onOpenChange: (open: boolean) => void; boms: BOM[] }) {
   const { t } = useTranslation()
   const createOrder = useCreateOrder()
+  const orderNumberPrefix = useProduktionTenantStore((s) => s.orderNumberPrefix)
+  const defaultPriority = useProduktionTenantStore((s) => s.defaultPriority)
+  const defaultLeadDays = useProduktionTenantStore((s) => s.defaultLeadDays)
   const [bomId, setBomId] = useState('')
   const [quantity, setQuantity] = useState('')
+  const [priority, setPriority] = useState(String(defaultPriority))
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
-  const [dueDate, setDueDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 14); return d.toISOString().split('T')[0] })
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + defaultLeadDays)
+    return d.toISOString().split('T')[0]
+  })
   const [notes, setNotes] = useState('')
   const activeBoms = boms.filter((b) => b.active)
 
@@ -757,20 +606,19 @@ function NewOrderDialog({ open, onOpenChange, boms }: { open: boolean; onOpenCha
     if (!quantity || parseInt(quantity) <= 0) { toast.error(t('produktion.dialog.errorMenge')); return }
     if (!startDate || !dueDate) { toast.error(t('produktion.dialog.errorDaten')); return }
     const selectedBom = boms.find((b) => b.id === bomId)
-    const now = new Date()
-    const orderNumber = `PA-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getTime()).slice(-4)}`
     const input: CreateOrderInput = {
-      order_number: orderNumber,
+      order_number: generateOrderNumber(orderNumberPrefix),
       product_name: selectedBom?.product_name ?? '',
       quantity: parseInt(quantity),
       planned_start: new Date(startDate).toISOString(),
       planned_end: new Date(dueDate).toISOString(),
+      priority: parseInt(priority),
       notes: notes || undefined,
+      bom_id: bomId,
     }
     try {
       await createOrder.mutateAsync(input)
       toast.success(t('produktion.dialog.auftragErstelltToast', { name: selectedBom?.product_name, qty: quantity }))
-      setBomId(''); setQuantity(''); setNotes('')
       onOpenChange(false)
     } catch {
       toast.error(t('common.error'))
@@ -789,9 +637,22 @@ function NewOrderDialog({ open, onOpenChange, boms }: { open: boolean; onOpenCha
               <SelectContent>{activeBoms.map((b) => <SelectItem key={b.id} value={b.id}>{b.product_name} ({b.sku})</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">{t('produktion.dialog.menge')}</Label>
-            <Input type="number" min="1" placeholder={t('produktion.dialog.mengePlaceholder')} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">{t('produktion.dialog.menge')}</Label>
+              <Input type="number" min="1" placeholder={t('produktion.dialog.mengePlaceholder')} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">{t('produktion.dialog.prioritaet')}</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PRIORITY_VALUES.map((p) => (
+                    <SelectItem key={p} value={String(p)}>{t(priorityLabelKeys[p])}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -851,8 +712,6 @@ function NewBomDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
     try {
       await createBOM.mutateAsync(input)
       toast.success(t('produktion.dialog.stuecklisteErstelltToast', { name: productName, count: validMaterials.length }))
-      setProductName(''); setSku(''); setVersion('1.0')
-      setMaterials([{ material_name: '', quantity: 1, unit: 'Stk' }])
       onOpenChange(false)
     } catch {
       toast.error(t('common.error'))
@@ -918,6 +777,55 @@ function NewBomDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 }
 
 // ============================================================
+// Neue Maschine Dialog
+// ============================================================
+
+function NewMachineDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { t } = useTranslation()
+  const createMachine = useCreateMachine()
+  const [name, setName] = useState('')
+  const [type, setType] = useState('')
+  const [notes, setNotes] = useState('')
+
+  const handleSave = async () => {
+    if (!name.trim()) { toast.error(t('produktion.machineDialog.errorName')); return }
+    try {
+      await createMachine.mutateAsync({ name: name.trim(), type: type.trim() || undefined, notes: notes.trim() || undefined })
+      toast.success(t('produktion.machineDialog.createdToast', { name: name.trim() }))
+      onOpenChange(false)
+    } catch {
+      toast.error(t('common.error'))
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[420px]">
+        <DialogHeader><DialogTitle>{t('produktion.machineDialog.title')}</DialogTitle></DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{t('produktion.machineDialog.name')}</Label>
+            <Input placeholder={t('produktion.machineDialog.namePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{t('produktion.machineDialog.type')}</Label>
+            <Input placeholder={t('produktion.machineDialog.typePlaceholder')} value={type} onChange={(e) => setType(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{t('produktion.dialog.notizen')}</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button onClick={() => onOpenChange(false)} className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+            <button onClick={handleSave} disabled={createMachine.isPending} className="flex-1 rounded-lg bg-primary py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-60">{t('produktion.machineDialog.create')}</button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ============================================================
 // Qualitaetspruefung Dialog
 // ============================================================
 
@@ -938,12 +846,12 @@ function QualityCheckDialog({
   const handleSave = async () => {
     const selectedOrderId = orderId || preselectedOrderId
     if (!selectedOrderId) { toast.error(t('produktion.dialog.errorAuftrag')); return }
-    if (!inspector) { toast.error(t('produktion.dialog.errorPruefer')); return }
+    if (!inspector.trim()) { toast.error(t('produktion.dialog.errorPruefer')); return }
     if (!date) { toast.error(t('produktion.dialog.errorDatum')); return }
     const selectedOrder = orders.find((o) => o.id === selectedOrderId)
     const input: CreateQualityCheckInput = {
       order_id: selectedOrderId,
-      inspector,
+      inspector: inspector.trim(),
       checked_at: new Date(date).toISOString(),
       passed,
       defects_found: passed ? 0 : (parseInt(defects) || 0),
@@ -955,7 +863,6 @@ function QualityCheckDialog({
         orderNr: selectedOrder?.order_number ?? t('produktion.dialog.auftrag'),
         result: passed ? t('produktion.detail.bestanden') : t('produktion.detail.nichtBestanden'),
       }))
-      setOrderId(''); setInspector(''); setPassed(true); setDefects(''); setNotes('')
       onOpenChange(false)
     } catch {
       toast.error(t('common.error'))
@@ -977,13 +884,7 @@ function QualityCheckDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">{t('produktion.dialog.pruefer')}</Label>
-              <Select value={inspector} onValueChange={setInspector}>
-                <SelectTrigger><SelectValue placeholder={t('produktion.dialog.prueferSelect')} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Werner Stoeckli">Werner Stoeckli</SelectItem>
-                  <SelectItem value="Irene Graf">Irene Graf</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input placeholder={t('produktion.dialog.prueferPlaceholder')} value={inspector} onChange={(e) => setInspector(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">{t('produktion.dialog.datum')}</Label>
