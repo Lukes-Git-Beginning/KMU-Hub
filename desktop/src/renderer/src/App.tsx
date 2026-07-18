@@ -25,7 +25,8 @@ import ResetPasswordPage from '@/modules/auth/ResetPasswordPage'
 import { IdleLock } from '@/modules/auth/IdleLock'
 import { LaunchOverlay } from '@/modules/auth/LaunchOverlay'
 import { useLaunchStore } from '@/stores/launch'
-import { DEV_PROFILES } from '@/config/roles'
+import { DEMO_PROFILES } from '@/mocks/data/rbac'
+import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 
@@ -169,7 +170,7 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 
 /** Helper to wrap a lazy page in Suspense. The `variant` picks a loading-skeleton
  *  archetype that matches the module's layout (list = default). */
-function lazyRoute(Component: React.LazyExoticComponent<() => JSX.Element>, variant: ModuleSkeletonVariant = 'list') {
+function lazyRoute(Component: React.LazyExoticComponent<() => React.JSX.Element>, variant: ModuleSkeletonVariant = 'list') {
   return (
     <Suspense fallback={<ModuleLoadingFallback variant={variant} />}>
       <Component />
@@ -350,7 +351,7 @@ export default function App() {
     if (DEV_BYPASS_AUTH) {
       const { user } = useAuthStore.getState()
       if (!user) {
-        const adminProfile = DEV_PROFILES.find((p) => p.id === 'admin')
+        const adminProfile = DEMO_PROFILES.find((p) => p.roleId === 'admin')
         if (adminProfile) {
           useAuthStore.setState({
             user: adminProfile.user,
@@ -376,7 +377,10 @@ export default function App() {
           <NotificationToast />
           <OfflineBanner />
           <IdleLock />
-          {/* Dev profile switcher temporarily hidden per request (DEV_BYPASS_AUTH still drives the default mock user). */}
+          {/* Dev profile switcher — re-enabled for the RBAC R-block: switching
+              presets (incl. Aushilfe/Extern + multi-role combo) is the primary
+              review artefact for capability gating. */}
+          {DEV_BYPASS_AUTH && <ProfileSwitcher />}
         </TooltipProvider>
       </I18nProvider>
     </PersistQueryClientProvider>

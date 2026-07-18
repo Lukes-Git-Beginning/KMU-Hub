@@ -19,7 +19,18 @@
 
 - 🔴 **`roles.tenant_id` (NULL = System-Preset) + `based_on`-Referenz** — Custom-Rollen pro Firma, Presets unveränderlich.
 - 🔴 **Rollen-Verwaltungs-API:** `GET/POST/PATCH/DELETE /api/v1/admin/roles` + `GET/PUT /api/v1/admin/roles/{id}/permissions` (Matrix lesen/schreiben). Ersetzt den A-2-Mock-Contract.
-- 🔴 **`GET /api/v1/me/permissions`** — aufgelöste effektive Rechte des eingeloggten Users (Union aller Rollen, inkl. Scope je resource). Die eine Quelle fürs FE-Gating.
+- 🔴 **`GET /api/v1/auth/me/permissions`** — aufgelöste effektive Rechte des eingeloggten Users (Union aller Rollen, inkl. Scope je resource). Die eine Quelle fürs FE-Gating.
+  - **Contract FINAL (FE R-1 gebaut 2026-07-18, `desktop/src/renderer/src/api/rbac-types.ts` + MSW `mocks/handlers/rbac.ts` als Referenz-Implementierung):**
+    ```json
+    { "permissions": {
+        "roles": [{ "id": "manager", "name": "Team Lead", "isSystem": true, "color": "hsl(217 91% 60%)" }],
+        "capabilities": { "work:task:edit": { "scope": "own|team|all", "sources": ["manager", "hr_admin"] } }
+    } }
+    ```
+    Fehlender Key = verboten (Default-Deny, kein Wildcard — auch admin trägt explizite Grants). `sources` = Rollen-Herkunft für die „Effektive Rechte"-Ansicht (Union: weitester Scope gewinnt, sources kumulieren). Ebene-1-Sichtbarkeit = `<modul>:module:view`.
+  - **`GET /api/v1/admin/roles`** → `{ "roles": [Role] }` mit `tenantId|null`, `basedOn`, `isSystem`, `memberCount`, `capabilityCount`.
+  - **Preset-Rollen-IDs (7, ersetzen die alten 5):** `admin` · `it_admin` · `hr_admin` · `manager` · `member` · `readonly` · `extern`. **Migrations-Mapping:** `hr`→`hr_admin`, `it_support`→`it_admin`; `admin/manager/member` bleiben (BE-Seeds kompatibel). Grants pro Preset: `mocks/data/rbac.ts` `ROLE_DEFS` (= gewünschter Seed-Inhalt für die BE-Migration).
+  - FE hat Client-Fallback (löst Presets lokal aus `user.roles` auf), solange der Endpoint fehlt — App bricht gegen echtes BE nicht.
 - 🔴 **Validator-Entkopplung:** `assignRoleRequest` erlaubt nur `oneof=admin manager member` (route_auth.go) → dynamisch gegen roles-Tabelle validieren. FE↔BE-Rollen-Drift beheben (FE kennt hr/it_support).
 - 🔴 **Daten-Scope-Dimension** im Grant-Modell: `own / team(reporting_line) / all` pro resource (heute nur resource×action).
 - 🔴 **Guardrails serverseitig:** Mindestens-1-Admin · Selbst-Aussperr-Schutz · Privilege-Escalation-Guard (niemand vergibt Rechte über die eigenen hinaus) · Default-Deny für neue Module · `admin:role`×create/edit (IT) getrennt von ×assign (HR).

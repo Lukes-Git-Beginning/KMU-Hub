@@ -6,9 +6,11 @@
  *
  * Seeded from the shared identity source (`IDS.users` + `CURRENT_USER`) so the
  * admin user list and the team roster reference the same people. The canonical
- * role-bearing identities (admin / manager / member / hr / it_support) mirror
- * `DEV_PROFILES` in `@/config/roles`. NEVER hardcode the current user's name —
- * reference `CURRENT_USER`.
+ * role-bearing identities mirror `DEMO_PROFILES` + `USER_ROLE_ASSIGNMENTS` in
+ * `mocks/data/rbac.ts` (7 preset roles, RBAC R-1). NEVER hardcode the current
+ * user's name — reference `CURRENT_USER`.
+ * Note: `role` is the PRIMARY role (Laura additionally holds hr_admin via
+ * USER_ROLE_ASSIGNMENTS — A-1 goes multi-role in R-2).
  *
  * Real backend (account provisioning, invite tokens, SSO) is Luke's track 🔒.
  */
@@ -54,7 +56,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     lastName: 'Keller',
     email: 'thomas.keller@techvision.de',
     jobTitle: 'IT-Administrator',
-    role: 'it_support',
+    role: 'it_admin',
     status: 'active',
     lastLoginAt: minutesAgo(38),
     invitedAt: null,
@@ -65,7 +67,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     lastName: 'Fischer',
     email: 'nina.fischer@techvision.de',
     jobTitle: 'HR-Managerin',
-    role: 'hr',
+    role: 'hr_admin',
     status: 'active',
     lastLoginAt: hoursAgo(5),
     invitedAt: null,
@@ -178,6 +180,30 @@ export const seedAdminUsers = (): AdminUser[] => [
     role: 'member',
     status: 'deactivated',
     lastLoginAt: days(96),
+    invitedAt: null,
+  },
+  {
+    // Read-only preset demo (external tax advisor — sees, never edits)
+    id: IDS.users.elena,
+    firstName: 'Elena',
+    lastName: 'Richter',
+    email: 'elena.richter@extern.de',
+    jobTitle: 'Steuerberaterin (extern)',
+    role: 'readonly',
+    status: 'active',
+    lastLoginAt: days(3),
+    invitedAt: null,
+  },
+  {
+    // Aushilfe/Extern preset demo (Dariens Referenzfall)
+    id: IDS.users.max,
+    firstName: 'Max',
+    lastName: 'Steiner',
+    email: 'max.steiner@extern.de',
+    jobTitle: 'Aushilfe Lager',
+    role: 'extern',
+    status: 'active',
+    lastLoginAt: days(1),
     invitedAt: null,
   },
 ]

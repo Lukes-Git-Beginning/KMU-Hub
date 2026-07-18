@@ -63,7 +63,7 @@ import { ItemActions, ConfirmDialog, EmptyState, SortMenu, ColorSwatchPicker, ty
 import { RulesDialog } from './RulesDialog'
 import { MailCrmPanel } from './MailCrmPanel'
 import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
-import { userHasRole } from '@/config/roles'
+import { useHasCapability } from '@/hooks/useCapability'
 import { downloadAttachment, printMessage, exportMessageEml } from './lib/mail-export'
 import { ThreadView } from './ThreadView'
 import { AccountSwitcher } from './AccountSwitcher'
@@ -132,7 +132,7 @@ export default function MailsPage() {
   const userId = user?.id ?? ''
   const consumeIntent = useNavigationStore((s) => s.consumeIntent)
   const { setComposeDraft: _setComposeDraft } = useMailsStore()
-  const canSeeMailSettings = userHasRole(user, ['admin', 'it_support'])
+  const canSeeMailSettings = useHasCapability('mail:settings:manage')
   const [showMailSettings, setShowMailSettings] = useState(false)
 
   // Account(s)

@@ -26,7 +26,7 @@ let adminUsers: AdminUser[] = seedAdminUsers()
 let permissionMatrix: PermissionMatrix = seedPermissionMatrix()
 const tenantModules: TenantModule[] = seedTenantModules()
 
-const VALID_ROLES: RoleId[] = ['admin', 'manager', 'member', 'hr', 'it_support']
+const VALID_ROLES: RoleId[] = ['admin', 'it_admin', 'hr_admin', 'manager', 'member', 'readonly', 'extern']
 
 /** Derive a display name from an e-mail local part, e.g. "max.muster" → "Max Muster". */
 function nameFromEmail(email: string): { firstName: string; lastName: string } {

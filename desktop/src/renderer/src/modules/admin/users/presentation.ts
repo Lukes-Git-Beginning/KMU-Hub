@@ -7,21 +7,21 @@ import { CheckCircle2, Clock, MinusCircle, type LucideIcon } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
 import type { AdminUserStatus } from '@/api/admin-types'
 
-/** Subtle role accent dot — mirrors the DEV_PROFILES palette in @/config/roles. */
+export { roleLabelKey } from '@/config/roles'
+
+/** Subtle role accent dot — mirrors the preset palette in mocks/data/rbac ROLE_DEFS.
+ *  Static classes on purpose: Tailwind JIT only picks up literal class strings. */
 export const ROLE_DOT: Record<RoleId, string> = {
   admin: 'bg-[hsl(0_72%_51%)]',
+  it_admin: 'bg-[hsl(25_95%_53%)]',
+  hr_admin: 'bg-[hsl(270_76%_55%)]',
   manager: 'bg-[hsl(217_91%_60%)]',
   member: 'bg-[hsl(142_71%_45%)]',
-  hr: 'bg-[hsl(270_76%_55%)]',
-  it_support: 'bg-[hsl(25_95%_53%)]',
+  readonly: 'bg-[hsl(215_16%_47%)]',
+  extern: 'bg-[hsl(180_45%_42%)]',
 }
 
-export const ROLE_ORDER: RoleId[] = ['admin', 'it_support', 'manager', 'hr', 'member']
-
-/** i18n key for a role label — reuses the existing config.roles.* namespace. */
-export function roleLabelKey(role: RoleId): string {
-  return `config.roles.${role}.label`
-}
+export const ROLE_ORDER: RoleId[] = ['admin', 'it_admin', 'hr_admin', 'manager', 'member', 'readonly', 'extern']
 
 export interface StatusMeta {
   labelKey: string

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { usePermissionsStore } from '@/stores/permissions'
 import { useCrmPrefsStore } from '@/stores/crmPrefs'
 import { useFinancePrefsStore } from '@/stores/financePrefs'
 import { useTeamPrefsStore } from '@/stores/teamPrefs'
@@ -59,6 +60,8 @@ import { useProduktionTenantStore } from '@/stores/produktionTenant'
  * scope) and register its initFromServer below.
  */
 const HYDRATORS: Array<() => Promise<void>> = [
+  // effective permissions (RBAC R-1) — first: everything gates on it
+  () => usePermissionsStore.getState().initFromServer(),
   // user scope (per-user preferences)
   () => useCrmPrefsStore.getState().initFromServer(),
   () => useFinancePrefsStore.getState().initFromServer(),

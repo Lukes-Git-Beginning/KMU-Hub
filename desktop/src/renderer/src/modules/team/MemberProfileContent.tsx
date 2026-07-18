@@ -28,7 +28,7 @@ import {
   useEmployeeDocuments,
 } from '@/api/hooks/hr-hooks'
 import { useUserModules } from '@/api/hooks/useModuleAssignments'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
 import { LEADABLE_MODULES } from '@/lib/module-settings'
@@ -60,7 +60,6 @@ interface MemberProfileContentProps {
 export function MemberProfileContent({ memberId, onNavigateAway, onClose }: MemberProfileContentProps) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const viewer = useAuthStore((s) => s.user)
   const { startCall } = useMeetingsStore()
   const { setIntent } = useNavigationStore()
 
@@ -91,8 +90,8 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
     ? t(CONTRACT_TYPE_KEYS[employee.contractType] ?? 'team.contractType.fullTime')
     : ''
   const tenure = employee ? getTenure(employee.startDate) : ''
-  const canViewPayroll = viewer?.roles.some((r) => ['admin', 'hr'].includes(r)) ?? false
-  const canManageLeads = viewer?.roles.some((r) => ['admin', 'it_support'].includes(r)) ?? false
+  const canViewPayroll = useHasCapability('team:payroll:view')
+  const canManageLeads = useHasCapability('admin:modules:manage')
   const hasLeadable = userGrants.some((g) => LEADABLE_MODULES.includes(g.moduleId))
   const showModuleLead = canManageLeads && hasLeadable && !!employee?.userId
 

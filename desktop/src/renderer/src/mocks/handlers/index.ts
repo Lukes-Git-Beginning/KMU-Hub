@@ -34,8 +34,10 @@ import { fuhrparkHandlers } from './fuhrpark'
 import { rapporteHandlers } from './rapporte'
 import { formulareHandlers } from './formulare'
 import { adminHandlers } from './admin'
+import { rbacHandlers } from './rbac'
 
 export const handlers = [
+  ...rbacHandlers,
   ...authHandlers,
   ...crmHandlers,
   ...workHandlers,

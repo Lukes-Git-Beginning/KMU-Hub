@@ -27,11 +27,11 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared'
 import { useSettingsStore } from '@/stores/settings'
-import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { useLocaleStore, type SupportedLocale } from '@/stores/locale'
 import { DESK_BACKGROUNDS } from '@/components/layout/DeskEnvironment'
-import { canSeeSettingsTab } from '@/config/roles'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { SETTINGS_TAB_CAPABILITY } from '@/config/capabilities'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
 import { PaletteSwitcher } from '@/components/shared/PaletteSwitcher'
 import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
@@ -87,7 +87,7 @@ const TAB_GROUP_KEYS = [
 export default function SettingsPage() {
   const { t } = useTranslation()
   const location = useLocation()
-  const user = useAuthStore((s) => s.user)
+  const { has } = useCapabilitySet()
   const navigate = useNavigate()
   const initFromServer = useSettingsStore((s) => s.initFromServer)
 
@@ -106,7 +106,8 @@ export default function SettingsPage() {
   // 1. RBAC — restricted tabs are INVISIBLE
   // 2. adminOnly Tabs — IMMER ausgeblendet (Admin-Funktionen leben im Admin-Modul links unten)
   const tabs = ALL_TABS.filter((tab) => {
-    if (!canSeeSettingsTab(user, tab.key)) return false
+    const capability = SETTINGS_TAB_CAPABILITY[tab.key]
+    if (capability && !has(capability)) return false
     if (tab.adminOnly) return false
     return true
   })
@@ -163,7 +164,7 @@ export default function SettingsPage() {
           })}
 
           {/* Hinweis auf Admin-Modul (für admin/it_support) */}
-          {user?.roles.some((r) => ['admin', 'it_support'].includes(r)) && (
+          {has('admin:module:view') && (
             <div className="px-3 mt-2">
               <p className="text-[10px] text-muted-foreground leading-relaxed">
                 {t('settings.adminBlock.distributedHint', { defaultValue: 'Tenant-weite Administration im Modul links unten.' })}

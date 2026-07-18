@@ -122,7 +122,7 @@ export function InviteUserDialog({ open, onOpenChange, seatsUsed, seatsTotal }: 
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">{t(`config.roles.${role}.description`)}</p>
+            <p className="text-xs text-muted-foreground">{t(`rbac.roles.${role}.description`)}</p>
           </div>
 
           {/* Seat hint — communicate the limit inline, before the invite is sent. */}

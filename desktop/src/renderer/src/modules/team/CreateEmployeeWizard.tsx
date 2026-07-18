@@ -6,6 +6,7 @@
  */
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { roleLabelKey, roleDescriptionKey } from '@/config/roles'
 import {
   X,
   ChevronLeft,
@@ -136,12 +137,15 @@ const STEPS = [
   { labelKey: 'team.wizard.stepSummary', icon: CheckCircle, descKey: 'team.wizard.stepSummaryDesc' },
 ]
 
+// The 7 RBAC presets (labels/descriptions via rbac.roles.* — config/roles.ts)
 const ROLE_OPTIONS = [
-  { id: 'admin', labelKey: 'team.wizard.roleAdmin', descKey: 'team.wizard.roleAdminDesc', icon: Shield },
-  { id: 'manager', labelKey: 'team.wizard.roleManager', descKey: 'team.wizard.roleManagerDesc', icon: Briefcase },
-  { id: 'member', labelKey: 'team.wizard.roleMember', descKey: 'team.wizard.roleMemberDesc', icon: User },
-  { id: 'hr', labelKey: 'team.wizard.roleHR', descKey: 'team.wizard.roleHRDesc', icon: UserPlus },
-  { id: 'it_support', labelKey: 'team.wizard.roleIT', descKey: 'team.wizard.roleITDesc', icon: Building2 },
+  { id: 'admin', labelKey: roleLabelKey('admin'), descKey: roleDescriptionKey('admin'), icon: Shield },
+  { id: 'it_admin', labelKey: roleLabelKey('it_admin'), descKey: roleDescriptionKey('it_admin'), icon: Building2 },
+  { id: 'hr_admin', labelKey: roleLabelKey('hr_admin'), descKey: roleDescriptionKey('hr_admin'), icon: UserPlus },
+  { id: 'manager', labelKey: roleLabelKey('manager'), descKey: roleDescriptionKey('manager'), icon: Briefcase },
+  { id: 'member', labelKey: roleLabelKey('member'), descKey: roleDescriptionKey('member'), icon: User },
+  { id: 'readonly', labelKey: roleLabelKey('readonly'), descKey: roleDescriptionKey('readonly'), icon: FileText },
+  { id: 'extern', labelKey: roleLabelKey('extern'), descKey: roleDescriptionKey('extern'), icon: Home },
 ]
 
 const CONTRACT_LABEL_KEYS: Record<string, string> = {

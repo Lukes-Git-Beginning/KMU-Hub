@@ -1,14 +1,15 @@
 import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, Clock, Calendar, FolderOpen } from 'lucide-react'
+import { User, Clock, Calendar, FolderOpen, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const ProfilTab = lazy(() => import('./tabs/ProfilTab'))
 const ZeiterfassungTab = lazy(() => import('./tabs/ZeiterfassungTab'))
 const AbwesenheitenTab = lazy(() => import('./tabs/AbwesenheitenTab'))
 const DokumenteTab = lazy(() => import('./tabs/DokumenteTab'))
+const BerechtigungenTab = lazy(() => import('./tabs/BerechtigungenTab'))
 
-type TabKey = 'profil' | 'zeiterfassung' | 'abwesenheiten' | 'dokumente'
+type TabKey = 'profil' | 'zeiterfassung' | 'abwesenheiten' | 'dokumente' | 'berechtigungen'
 
 export default function ProfilPage() {
   const { t } = useTranslation()
@@ -19,6 +20,7 @@ export default function ProfilPage() {
     { key: 'zeiterfassung', label: t('profil.tabs.timeTracking'), icon: Clock },
     { key: 'abwesenheiten', label: t('profil.tabs.absences'), icon: Calendar },
     { key: 'dokumente', label: t('profil.tabs.documents'), icon: FolderOpen },
+    { key: 'berechtigungen', label: t('profil.tabs.permissions'), icon: ShieldCheck },
   ]
 
   return (
@@ -63,6 +65,7 @@ export default function ProfilPage() {
           {activeTab === 'zeiterfassung' && <ZeiterfassungTab />}
           {activeTab === 'abwesenheiten' && <AbwesenheitenTab />}
           {activeTab === 'dokumente' && <DokumenteTab />}
+          {activeTab === 'berechtigungen' && <BerechtigungenTab />}
         </Suspense>
       </div>
     </div>

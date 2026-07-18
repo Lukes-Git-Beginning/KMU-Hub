@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { useUIStore } from '@/stores/ui'
-import { useAuthStore } from '@/stores/auth'
-import { userHasRole } from '@/config/roles'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { SETTINGS_ENTRY_CAPABILITY, SETTINGS_ENTRY_MODULE, moduleViewKey } from '@/config/capabilities'
 import {
   SETTINGS_ENTRIES,
   resolveEntryForPath,
@@ -29,16 +29,23 @@ const GROUP_LABEL: Record<SettingsGroup, string> = {
 export function SettingsOverlay() {
   const { t } = useTranslation()
   const location = useLocation()
-  const user = useAuthStore((s) => s.user)
+  const { has } = useCapabilitySet()
 
   const isOpen = useUIStore((s) => s.isSettingsOverlayOpen)
   const requestedEntry = useUIStore((s) => s.settingsOverlayEntry)
   const close = useUIStore((s) => s.closeSettingsOverlay)
 
-  // RBAC-filtered entries
+  // RBAC-filtered entries: explicit capability first (admin surfaces), else
+  // module entries follow level-1 module visibility; unmapped entries are public.
   const entries = useMemo(
-    () => SETTINGS_ENTRIES.filter((e) => !e.roles || userHasRole(user, e.roles)),
-    [user],
+    () =>
+      SETTINGS_ENTRIES.filter((e) => {
+        const capability = SETTINGS_ENTRY_CAPABILITY[e.id]
+        if (capability) return has(capability)
+        const module = SETTINGS_ENTRY_MODULE[e.id]
+        return !module || has(moduleViewKey(module))
+      }),
+    [has],
   )
 
   // The entry matching the current route (for the "Aktiv" marker + preselect)

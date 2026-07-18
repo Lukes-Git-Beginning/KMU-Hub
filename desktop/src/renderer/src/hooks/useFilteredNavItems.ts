@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
 import { useUIStore } from '@/stores/ui'
-import { canSeeNavItem } from '@/config/roles'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { NAV_ITEM_MODULE, moduleViewKey } from '@/config/capabilities'
 import { isModuleAllowedForProfile } from '@/config/business-profiles'
 import { navItems, type NavItemConfig } from '@/components/layout/sidebar/nav-items'
 import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
@@ -29,7 +29,7 @@ const MODULE_FLAG_IDS = new Set([
  */
 export function useFilteredNavItems() {
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
+  const { has } = useCapabilitySet()
   const businessProfileId = useProfileStore((s) => s.businessProfileId)
   const devShowAll = useProfileStore((s) => s.devShowAllModules)
   const enabledOptionals = useProfileStore((s) => s.enabledOptionalModules)
@@ -63,7 +63,10 @@ export function useFilteredNavItems() {
 
     const filter = (items: NavItemConfig[]) =>
       items.filter((item) => {
-        if (!canSeeNavItem(user, item.id)) return false
+        // RBAC level 1 (default-deny): the module's :module:view capability
+        // must be granted. Unmapped items stay hidden until catalogued.
+        const moduleKey = NAV_ITEM_MODULE[item.id]
+        if (!moduleKey || !has(moduleViewKey(moduleKey))) return false
 
         // devShowAll bypasses every gate (profile + feature flags).
         // It's the explicit "show me everything" switch for design/dev work.
@@ -88,5 +91,5 @@ export function useFilteredNavItems() {
       bottomItems: filter(bottom).map(resolve),
       allItems: filter(navItems).map(resolve),
     }
-  }, [t, user, businessProfileId, devShowAll, enabledOptionals, isFlagEnabled, flagsLoading, openSettingsOverlay, moduleUnreadCounts])
+  }, [t, has, businessProfileId, devShowAll, enabledOptionals, isFlagEnabled, flagsLoading, openSettingsOverlay, moduleUnreadCounts])
 }

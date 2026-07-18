@@ -34,7 +34,6 @@ import {
   Factory,
   type LucideIcon,
 } from 'lucide-react'
-import type { RoleId } from '@/config/roles'
 import { CrmSettingsPanel } from './panels/CrmSettingsPanel'
 import { FinanceSettingsPanel } from './panels/FinanceSettingsPanel'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
@@ -88,10 +87,10 @@ export interface SettingsEntry {
   icon: LucideIcon
   /** Route prefixes that map to this entry (for context preselect). */
   navMatch?: string[]
-  /** RBAC: visible only to these roles (undefined = everyone). */
-  roles?: RoleId[]
   component: ComponentType
 }
+// Access gating: SETTINGS_ENTRY_CAPABILITY in @/config/capabilities maps entry
+// ids to required capabilities; the overlay filters against the effective set.
 
 export const SETTINGS_ENTRIES: SettingsEntry[] = [
   // ── MODULE ──
@@ -102,7 +101,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailsSettingsPanel },
   { id: 'kommunikation', group: 'module', labelKey: 'moduleSettings.entries.kommunikation', icon: MessagesSquare, navMatch: ['/kommunikation', '/chat'], component: KommunikationSettingsPanel },
-  { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
+  { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], component: TeamSettingsPanel },
   { id: 'work', group: 'module', labelKey: 'moduleSettings.entries.work', icon: KanbanSquare, navMatch: ['/work'], component: WorkSettingsPanel },
   { id: 'automatisierung', group: 'module', labelKey: 'moduleSettings.entries.automatisierung', icon: Workflow, navMatch: ['/automatisierung'], component: AutomatisierungSettingsPanel },
   { id: 'helpdesk', group: 'module', labelKey: 'moduleSettings.entries.helpdesk', icon: LifeBuoy, navMatch: ['/helpdesk'], component: HelpdeskSettingsPanel },
@@ -125,14 +124,14 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'dashboard', group: 'module', labelKey: 'moduleSettings.entries.dashboard', icon: LayoutDashboard, navMatch: ['/'], component: DashboardSettingsPanel },
 
   // ── COSMI (Allgemein) ──
-  { id: 'company', group: 'cosmi', labelKey: 'moduleSettings.entries.company', icon: Building2, roles: ['admin'], component: CompanySettingsTab },
-  { id: 'billing', group: 'cosmi', labelKey: 'moduleSettings.entries.billing', icon: CreditCard, roles: ['admin'], component: BillingSettingsTab },
-  { id: 'modulzuteilung', group: 'cosmi', labelKey: 'moduleSettings.entries.moduleAssignment', icon: Package, roles: ['admin', 'it_support'], component: ModuleAssignmentSettingsPanel },
-  { id: 'integrations', group: 'cosmi', labelKey: 'moduleSettings.entries.integrations', icon: Plug, roles: ['admin'], component: IntegrationSettingsTab },
-  { id: 'it', group: 'cosmi', labelKey: 'moduleSettings.entries.it', icon: Monitor, roles: ['admin', 'it_support'], component: ITAdminTab },
-  { id: 'security', group: 'cosmi', labelKey: 'moduleSettings.entries.security', icon: ShieldCheck, roles: ['admin', 'it_support'], navMatch: ['/admin/security'], component: SecuritySettingsPanel },
+  { id: 'company', group: 'cosmi', labelKey: 'moduleSettings.entries.company', icon: Building2, component: CompanySettingsTab },
+  { id: 'billing', group: 'cosmi', labelKey: 'moduleSettings.entries.billing', icon: CreditCard, component: BillingSettingsTab },
+  { id: 'modulzuteilung', group: 'cosmi', labelKey: 'moduleSettings.entries.moduleAssignment', icon: Package, component: ModuleAssignmentSettingsPanel },
+  { id: 'integrations', group: 'cosmi', labelKey: 'moduleSettings.entries.integrations', icon: Plug, component: IntegrationSettingsTab },
+  { id: 'it', group: 'cosmi', labelKey: 'moduleSettings.entries.it', icon: Monitor, component: ITAdminTab },
+  { id: 'security', group: 'cosmi', labelKey: 'moduleSettings.entries.security', icon: ShieldCheck, navMatch: ['/admin/security'], component: SecuritySettingsPanel },
   // admin-batch (parallel/admin) — additive entry; new tenant branding surface
-  { id: 'branding', group: 'cosmi', labelKey: 'moduleSettings.entries.branding', icon: Palette, roles: ['admin'], navMatch: ['/admin/branding'], component: BrandingAdminHubTab },
+  { id: 'branding', group: 'cosmi', labelKey: 'moduleSettings.entries.branding', icon: Palette, navMatch: ['/admin/branding'], component: BrandingAdminHubTab },
 ]
 
 /** Resolve the settings entry id that matches the current route (context preselect). */

@@ -243,7 +243,7 @@ function RoleUsersModal({
       open={role !== null}
       onClose={onClose}
       title={t(roleLabelKey(role))}
-      subtitle={t(`config.roles.${role}.description`)}
+      subtitle={t(`rbac.roles.${role}.description`)}
       badge={
         <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />

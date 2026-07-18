@@ -40,7 +40,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
-import { canSeeTeamTab } from '@/config/roles'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { TEAM_TAB_CAPABILITY } from '@/config/capabilities'
 import {
   useTeamStore,
   type Training,
@@ -180,7 +181,12 @@ export default function TeamPage() {
     return st !== 'last' ? (st as TabKey) : 'members'
   })
   // If active tab gets restricted (role switch), fall back to 'members'
-  const effectiveTab: TabKey = canSeeTeamTab(user, tab) ? tab : 'members'
+  const { has } = useCapabilitySet()
+  const canSeeTab = (key: string) => {
+    const capability = TEAM_TAB_CAPABILITY[key]
+    return !capability || has(capability)
+  }
+  const effectiveTab: TabKey = canSeeTab(tab) ? tab : 'members'
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => useTeamPrefsStore.getState().defaultView)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
@@ -344,7 +350,7 @@ export default function TeamPage() {
             { key: 'schulungen' as const, label: t('team.page.tab.trainings'), icon: GraduationCap },
             { key: 'selfservice' as const, label: t('team.page.tab.selfservice'), icon: UserCircle },
           ])
-            .filter((tab_item) => canSeeTeamTab(user, tab_item.key))
+            .filter((tab_item) => canSeeTab(tab_item.key))
             .map((tab_item) => (
             <button
               key={tab_item.key}

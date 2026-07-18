@@ -23,8 +23,7 @@ import { Shield } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '@/stores/settings'
 import { useTenantMode } from '@/hooks/useTenantMode'
-import { useAuthStore } from '@/stores/auth'
-import { userHasRole } from '@/config/roles'
+import { useHasCapability } from '@/hooks/useCapability'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNav } from './SidebarNav'
 import { SidebarModulePanel } from './SidebarModulePanel'
@@ -40,8 +39,8 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const navigate = useNavigate()
   const { isDistributed } = useTenantMode()
-  const user = useAuthStore((s) => s.user)
-  const canSeeAdminHub = isDistributed && userHasRole(user, ['admin', 'it_support'])
+  const hasAdminHubCapability = useHasCapability('admin:module:view')
+  const canSeeAdminHub = isDistributed && hasAdminHubCapability
   const security = useSettingsStore((s) => s.security)
   const pwLastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
   const pwExpiryDays = security.passwordExpiryDays || 90

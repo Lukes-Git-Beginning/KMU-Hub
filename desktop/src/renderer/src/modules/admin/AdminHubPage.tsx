@@ -8,14 +8,14 @@
  *   /admin/billing     → tab=billing
  *   /admin/integrations → tab=integrations
  *
- * Gated: nur admin / it_support.
+ * Gated: capability `admin:module:view` (admin / it_admin / hr_admin presets).
  */
 import { useEffect, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import { useAuthStore } from '@/stores/auth'
-import { userHasRole } from '@/config/roles'
+import { useHasCapability } from '@/hooks/useCapability'
 
 const UsersAdminHubTab = lazy(() => import('./users/UsersAdminHubTab'))
 const RolesAdminHubTab = lazy(() => import('./roles/RolesAdminHubTab'))
@@ -57,7 +57,7 @@ export default function AdminHubPage() {
   const user = useAuthStore((s) => s.user)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const canAccess = userHasRole(user, ['admin', 'it_support'])
+  const canAccess = useHasCapability('admin:module:view')
 
   // Derive active tab from current pathname
   const activeTab: AdminTab = ROUTE_TO_TAB[location.pathname] ?? 'it'

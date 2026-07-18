@@ -3,7 +3,8 @@
  *
  * Shows a small button in the bottom-left corner. Clicking opens
  * a panel with:
- * - 5 mock role profiles (RBAC testing)
+ * - the RBAC preset demo identities (7 roles + multi-role combo, from
+ *   mocks/data/rbac DEMO_PROFILES — switching reloads effective permissions)
  * - 10 business/industry profiles (module visibility)
  * - "Show all modules" dev toggle
  *
@@ -13,7 +14,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users, ChevronUp, Check, X, Building2, Eye, RotateCcw } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
-import { DEV_PROFILES, type DevProfile } from '@/config/roles'
+import { roleLabelKey } from '@/config/roles'
+import { DEMO_PROFILES, ROLE_DEFS, setDemoSessionUserId, type DemoProfile } from '@/mocks/data/rbac'
 import { BUSINESS_PROFILES, type BusinessProfileId } from '@/config/business-profiles'
 import { useProfileStore } from '@/stores/profile'
 
@@ -30,18 +32,23 @@ export function ProfileSwitcher() {
   const setBusinessProfile = useProfileStore((s) => s.setBusinessProfile)
   const toggleDevShowAll = useProfileStore((s) => s.toggleDevShowAll)
 
-  const currentRoleId = DEV_PROFILES.find(
-    (p) => p.user.id === currentUser?.id
-  )?.id
+  const currentProfile = DEMO_PROFILES.find((p) => p.user.id === currentUser?.id)
 
   const currentBusinessProfile = BUSINESS_PROFILES.find((p) => p.id === businessProfileId)
 
-  const switchRoleProfile = (profile: DevProfile) => {
+  const switchRoleProfile = (profile: DemoProfile) => {
+    // Order matters: the MSW session must know the new account before the
+    // permissions store (auth-store subscription) refetches /auth/me/permissions.
+    setDemoSessionUserId(profile.user.id)
     useAuthStore.setState({
       user: profile.user,
       isAuthenticated: true,
     })
   }
+
+  /** Translated role chain of a profile, e.g. "Teamleiter + HR-Admin". */
+  const roleChain = (profile: DemoProfile) =>
+    profile.user.roles.map((r) => t(roleLabelKey(r))).join(' + ')
 
   const switchBusinessProfile = (id: BusinessProfileId | null) => {
     setBusinessProfile(id)
@@ -49,26 +56,25 @@ export function ProfileSwitcher() {
 
   return (
     <>
-      {/* Floating trigger button */}
+      {/* Floating trigger button — bottom-RIGHT so it never covers the
+          sidebar's bottom nav entries (Modul-Einstellungen). */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 left-4 z-[100] flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-lg hover:shadow-xl transition-all hover:scale-105 glass-elevated"
+        className="fixed bottom-4 right-4 z-[100] flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-lg hover:shadow-xl transition-all hover:scale-105 glass-elevated"
         title={t('devTools.switchProfileTooltip')}
       >
-        {currentRoleId ? (
+        {currentProfile ? (
           <div
             className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white"
-            style={{ background: DEV_PROFILES.find((p) => p.id === currentRoleId)?.color }}
+            style={{ background: ROLE_DEFS[currentProfile.roleId].color }}
           >
-            {DEV_PROFILES.find((p) => p.id === currentRoleId)?.initials}
+            {currentProfile.initials}
           </div>
         ) : (
           <Users className="h-4 w-4 text-muted-foreground" />
         )}
         <span className="text-xs font-medium text-foreground hidden sm:inline">
-          {currentRoleId
-            ? t(DEV_PROFILES.find((p) => p.id === currentRoleId)?.label ?? '')
-            : t('devTools.noProfile')}
+          {currentProfile ? roleChain(currentProfile) : t('devTools.noProfile')}
         </span>
         {currentBusinessProfile && (
           <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -85,7 +91,7 @@ export function ProfileSwitcher() {
           <div className="fixed inset-0 z-[99]" onClick={() => setIsOpen(false)} />
 
           {/* Panel */}
-          <div className="fixed bottom-16 left-4 z-[100] w-80 rounded-xl border border-border bg-card shadow-2xl overflow-hidden glass-elevated">
+          <div className="fixed bottom-16 right-4 z-[100] w-80 rounded-xl border border-border bg-card shadow-2xl overflow-hidden glass-elevated">
             {/* Header with tabs */}
             <div className="border-b border-border bg-secondary/30">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
@@ -120,11 +126,11 @@ export function ProfileSwitcher() {
             <div className="max-h-80 overflow-y-auto">
               {tab === 'roles' ? (
                 <div className="p-2 space-y-1">
-                  {DEV_PROFILES.map((profile) => {
-                    const isActive = currentRoleId === profile.id
+                  {DEMO_PROFILES.map((profile) => {
+                    const isActive = currentProfile?.user.id === profile.user.id
                     return (
                       <button
-                        key={profile.id}
+                        key={profile.user.id}
                         onClick={() => switchRoleProfile(profile)}
                         className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all ${
                           isActive
@@ -134,18 +140,20 @@ export function ProfileSwitcher() {
                       >
                         <div
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                          style={{ background: profile.color }}
+                          style={{ background: ROLE_DEFS[profile.roleId].color }}
                         >
                           {profile.initials}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                              {t(profile.label)}
+                              {roleChain(profile)}
                             </p>
                             {isActive && <Check className="h-3.5 w-3.5 text-primary" />}
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate">{t(profile.description)}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {profile.user.firstName} {profile.user.lastName} · {t(`rbac.roles.${profile.roleId}.description`)}
+                          </p>
                         </div>
                       </button>
                     )

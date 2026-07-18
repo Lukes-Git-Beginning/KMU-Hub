@@ -125,7 +125,7 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
                   {t('admin.users.detail.selfRoleLocked')}
                 </span>
               ) : (
-                t(`config.roles.${user.role}.description`)
+                t(`rbac.roles.${user.role}.description`)
               )}
             </p>
           </section>

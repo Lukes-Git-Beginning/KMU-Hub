@@ -34,7 +34,7 @@ import {
 import { useUserModules } from '@/api/hooks/useModuleAssignments'
 import { useInsightSettings } from '@/api/hooks/useBilling'
 import { useNavigationStore } from '@/stores/navigation'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 import { useModuleLeadsStore } from '@/stores/moduleLeads'
 import { LEADABLE_MODULES } from '@/lib/module-settings'
 import { DEFAULT_INSIGHT_SETTINGS } from '@/lib/pricing'
@@ -541,14 +541,13 @@ export function EmployeeModulesSection({
 // ============================================================
 export function EmployeeModuleLeadSection({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const viewer = useAuthStore((s) => s.user)
   const { data: userGrants = [] } = useUserModules(userId)
   const leadModules = useModuleLeadsStore((s) => s.leads[userId] ?? [])
   const toggleLead = useModuleLeadsStore((s) => s.toggleLead)
   const [expanded, setExpanded] = useState(false)
 
-  // Only admins / IT-support may delegate Modul-Leiter rights.
-  const canManage = viewer?.roles.some((r) => ['admin', 'it_support'].includes(r))
+  // Delegating Modul-Leiter rights is module administration (admin/it_admin).
+  const canManage = useHasCapability('admin:modules:manage')
 
   // Modules the employee has access to AND that expose tenant-wide settings.
   const leadable = userGrants

@@ -1,6 +1,8 @@
 # Capability-Katalog — Fein-Berechtigungen pro Modul (Entwurf R-0)
 
-> Arbeitsdokument zum RBAC-Block (`KONZEPT.md` §3). **Status: Entwurf** — Kern-Module hier vor-kuratiert (aus Code-Kenntnis), finale Kuratierung je R-3-Batch **gegen die echte Modul-UI** (jeden sichtbaren Button/Export/Dialog einer Capability zuordnen). Ziel bis 1.0: **alle 32 Module fein** (Darien 2026-07-16).
+> Arbeitsdokument zum RBAC-Block (`KONZEPT.md` §3). **Status: R-1 GEBAUT (2026-07-18)** — Kern-Module vor-kuratiert, finale Kuratierung je R-3-Batch **gegen die echte Modul-UI** (jeden sichtbaren Button/Export/Dialog einer Capability zuordnen). Ziel bis 1.0: **alle 32 Module fein** (Darien 2026-07-16).
+>
+> **R-1-Implementierung (Code = SSOT für Keys):** Grants pro Preset in `desktop/src/renderer/src/mocks/data/rbac.ts` (`ROLE_DEFS`), UI-Mappings in `config/capabilities.ts` (`NAV_ITEM_MODULE`, `SETTINGS_TAB_CAPABILITY`, `SETTINGS_ENTRY_CAPABILITY`, `SETTINGS_ENTRY_MODULE`, `TEAM_TAB_CAPABILITY`). **In R-1 ergänzte Keys** (aus den real existierenden UI-Gates abgeleitet): `admin:company:manage` (Firmenprofil) · `admin:modules:manage` (Modulzuteilung + Modul-Leiter-Delegation) · `admin:it:manage` · `admin:ai:manage` · `mail:settings:manage` (tenant-Mail-Bereich) · `team:corrections:manage` · `team:onboarding:manage`. Rest-Module tragen in R-1 nur `<modul>:module:view` — Basis-/Fein-Grants folgen je R-3-Batch.
 >
 > **Referenz-Fall „Aushilfe":** work lesen ✓ + zugewiesen-bekommen ✓ + kommentieren ✓, bearbeiten/erstellen ✗ · dokumente lesen ✓, herunterladen ✗ · übrige Module unsichtbar.
 

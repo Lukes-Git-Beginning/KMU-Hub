@@ -1,14 +1,11 @@
 /**
- * RBAC permission catalogue + default grant matrix (A-2).
+ * RBAC permission catalogue + default grant matrix (A-2 — LEGACY).
  *
- * The five roles are canonical and fixed (`@/config/roles` — admin / it_support
- * / manager / hr / member); no custom roles in 1.0. Capabilities are grouped by
- * functional area (resource × action) so the matrix stays readable. The admin
- * role implicitly holds every capability and is locked in the UI + server.
- *
- * Real RBAC enforcement lives in the gateway (Luke's track 🔒); this matrix is a
- * mock-persisted FE model, swap-ready behind the `/api/v1/admin/permissions`
- * contract.
+ * ⚠ Superseded by the RBAC R-block: roles are the 7 presets from
+ * mocks/data/rbac.ts (custom roles come with the R-2 role builder, which
+ * replaces this matrix UI entirely). Kept functional until R-2 lands.
+ * readonly/extern hold nothing here (default-deny); admin implicitly holds
+ * every capability and is locked in the UI + server.
  */
 import type { RoleId } from '@/config/roles'
 import type { PermissionGroup, PermissionMatrix } from '@/api/admin-types'
@@ -38,21 +35,21 @@ const T = (...roles: RoleId[]) => {
 }
 
 export const seedPermissionMatrix = (): PermissionMatrix => ({
-  'users.view': T('it_support', 'manager', 'hr'),
-  'users.manage': T('it_support'),
-  'roles.manage': T(),
-  'crm.view': T('it_support', 'manager', 'hr', 'member'),
+  'users.view': T('it_admin', 'manager', 'hr_admin'),
+  'users.manage': T('it_admin'),
+  'roles.manage': T('it_admin'),
+  'crm.view': T('it_admin', 'manager', 'hr_admin', 'member'),
   'crm.edit': T('manager', 'member'),
   'crm.export': T('manager'),
-  'projects.view': T('it_support', 'manager', 'hr', 'member'),
+  'projects.view': T('it_admin', 'manager', 'hr_admin', 'member'),
   'projects.edit': T('manager', 'member'),
   'projects.manage': T('manager'),
   'finance.view': T(),
   'finance.manage': T(),
-  'team.view': T('manager', 'hr'),
-  'team.manage': T('hr'),
-  'security.view': T('it_support'),
-  'security.manage': T('it_support'),
-  'settings.view': T('it_support'),
-  'settings.manage': T('it_support'),
+  'team.view': T('manager', 'hr_admin'),
+  'team.manage': T('hr_admin'),
+  'security.view': T('it_admin'),
+  'security.manage': T('it_admin'),
+  'settings.view': T('it_admin'),
+  'settings.manage': T('it_admin'),
 })
