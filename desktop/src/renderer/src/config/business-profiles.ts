@@ -31,8 +31,9 @@ export interface BusinessProfile {
   examples: string[]
 }
 
-/** Always-visible modules that every profile includes implicitly */
-export const ALWAYS_VISIBLE_MODULES = ['dashboard', 'settings', 'security-admin', 'profil', 'notifications', 'contacts']
+/** Always-visible modules that every profile includes implicitly.
+ *  'admin' (Verwaltung) is RBAC-gated (admin:module:view), never profile-gated. */
+export const ALWAYS_VISIBLE_MODULES = ['dashboard', 'settings', 'security-admin', 'profil', 'notifications', 'contacts', 'admin']
 
 export const BUSINESS_PROFILES: BusinessProfile[] = [
   {

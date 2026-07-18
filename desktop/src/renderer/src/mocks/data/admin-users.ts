@@ -5,18 +5,20 @@
  * login — NOT contracts/payroll (that lives in HR).
  *
  * Seeded from the shared identity source (`IDS.users` + `CURRENT_USER`) so the
- * admin user list and the team roster reference the same people. The canonical
- * role-bearing identities mirror `DEMO_PROFILES` + `USER_ROLE_ASSIGNMENTS` in
- * `mocks/data/rbac.ts` (7 preset roles, RBAC R-1). NEVER hardcode the current
- * user's name — reference `CURRENT_USER`.
- * Note: `role` is the PRIMARY role (Laura additionally holds hr_admin via
- * USER_ROLE_ASSIGNMENTS — A-1 goes multi-role in R-2).
+ * admin user list and the team roster reference the same people. Roles are NOT
+ * stored here (multi-role since R-2): `USER_ROLE_ASSIGNMENTS` in
+ * `mocks/data/rbac.ts` is the single source, the admin handlers compose
+ * `AdminUser.roles` from it on read. NEVER hardcode the current user's name —
+ * reference `CURRENT_USER`.
  *
  * Real backend (account provisioning, invite tokens, SSO) is Luke's track 🔒.
  */
 import type { AdminUser } from '@/api/admin-types'
 import { IDS, CURRENT_USER } from './shared-ids'
 import { hoursAgo, minutesAgo } from './date-helpers'
+
+/** Stored account row — roles are composed from USER_ROLE_ASSIGNMENTS on read. */
+export type AdminUserRecord = Omit<AdminUser, 'roles'>
 
 const days = (n: number) => hoursAgo(n * 24)
 
@@ -26,16 +28,14 @@ const days = (n: number) => hoursAgo(n * 24)
  * account does not — keeping the count consistent with the tenant's seat usage
  * surfaced in A-3 (Lizenz/Modul).
  */
-export const seedAdminUsers = (): AdminUser[] => [
+export const seedAdminUsers = (): AdminUserRecord[] => [
   {
     // Current demo identity — Geschäftsführer / owner. Name from CURRENT_USER.
     id: CURRENT_USER.id,
     firstName: CURRENT_USER.firstName,
     lastName: CURRENT_USER.lastName,
     email: CURRENT_USER.email,
-    jobTitle: CURRENT_USER.jobTitle,
-    role: 'admin',
-    status: 'active',
+    jobTitle: CURRENT_USER.jobTitle,    status: 'active',
     lastLoginAt: minutesAgo(4),
     invitedAt: null,
   },
@@ -44,9 +44,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Sarah',
     lastName: 'Müller',
     email: 'sarah.mueller@techvision.de',
-    jobTitle: 'Teamleiterin Projekte',
-    role: 'manager',
-    status: 'active',
+    jobTitle: 'Teamleiterin Projekte',    status: 'active',
     lastLoginAt: hoursAgo(2),
     invitedAt: null,
   },
@@ -55,9 +53,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Thomas',
     lastName: 'Keller',
     email: 'thomas.keller@techvision.de',
-    jobTitle: 'IT-Administrator',
-    role: 'it_admin',
-    status: 'active',
+    jobTitle: 'IT-Administrator',    status: 'active',
     lastLoginAt: minutesAgo(38),
     invitedAt: null,
   },
@@ -66,9 +62,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Nina',
     lastName: 'Fischer',
     email: 'nina.fischer@techvision.de',
-    jobTitle: 'HR-Managerin',
-    role: 'hr_admin',
-    status: 'active',
+    jobTitle: 'HR-Managerin',    status: 'active',
     lastLoginAt: hoursAgo(5),
     invitedAt: null,
   },
@@ -77,9 +71,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Markus',
     lastName: 'Weber',
     email: 'markus.weber@techvision.de',
-    jobTitle: 'Senior Developer',
-    role: 'member',
-    status: 'active',
+    jobTitle: 'Senior Developer',    status: 'active',
     lastLoginAt: hoursAgo(1),
     invitedAt: null,
   },
@@ -88,9 +80,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Laura',
     lastName: 'Neumann',
     email: 'laura.neumann@techvision.de',
-    jobTitle: 'Account Managerin',
-    role: 'manager',
-    status: 'active',
+    jobTitle: 'Account Managerin',    status: 'active',
     lastLoginAt: hoursAgo(7),
     invitedAt: null,
   },
@@ -99,9 +89,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Felix',
     lastName: 'Krause',
     email: 'felix.krause@techvision.de',
-    jobTitle: 'Sales Development Rep',
-    role: 'member',
-    status: 'active',
+    jobTitle: 'Sales Development Rep',    status: 'active',
     lastLoginAt: days(1),
     invitedAt: null,
   },
@@ -110,9 +98,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Julia',
     lastName: 'Hofmann',
     email: 'julia.hofmann@techvision.de',
-    jobTitle: 'UX Designerin',
-    role: 'member',
-    status: 'active',
+    jobTitle: 'UX Designerin',    status: 'active',
     lastLoginAt: hoursAgo(9),
     invitedAt: null,
   },
@@ -121,9 +107,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Jan',
     lastName: 'Schäfer',
     email: 'jan.schaefer@techvision.de',
-    jobTitle: 'Backend Engineer',
-    role: 'member',
-    status: 'active',
+    jobTitle: 'Backend Engineer',    status: 'active',
     lastLoginAt: days(2),
     invitedAt: null,
   },
@@ -132,9 +116,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Lena',
     lastName: 'Braun',
     email: 'lena.braun@techvision.de',
-    jobTitle: 'Support-Spezialistin',
-    role: 'member',
-    status: 'active',
+    jobTitle: 'Support-Spezialistin',    status: 'active',
     lastLoginAt: days(4),
     invitedAt: null,
   },
@@ -143,9 +125,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'David',
     lastName: 'Wagner',
     email: 'david.wagner@techvision.de',
-    jobTitle: 'DevOps Engineer',
-    role: 'member',
-    status: 'active',
+    jobTitle: 'DevOps Engineer',    status: 'active',
     lastLoginAt: days(11),
     invitedAt: null,
   },
@@ -154,9 +134,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Lisa',
     lastName: 'Becker',
     email: 'lisa.becker@techvision.de',
-    jobTitle: 'Marketing Managerin',
-    role: 'member',
-    status: 'invited',
+    jobTitle: 'Marketing Managerin',    status: 'invited',
     lastLoginAt: null,
     invitedAt: days(2),
   },
@@ -165,9 +143,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Michael',
     lastName: 'Schulz',
     email: 'michael.schulz@techvision.de',
-    jobTitle: 'Buchhalter',
-    role: 'member',
-    status: 'invited',
+    jobTitle: 'Buchhalter',    status: 'invited',
     lastLoginAt: null,
     invitedAt: hoursAgo(20),
   },
@@ -176,9 +152,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Anna',
     lastName: 'Großmann',
     email: 'anna.grossmann@techvision.de',
-    jobTitle: 'Office Managerin',
-    role: 'member',
-    status: 'deactivated',
+    jobTitle: 'Office Managerin',    status: 'deactivated',
     lastLoginAt: days(96),
     invitedAt: null,
   },
@@ -188,9 +162,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Elena',
     lastName: 'Richter',
     email: 'elena.richter@extern.de',
-    jobTitle: 'Steuerberaterin (extern)',
-    role: 'readonly',
-    status: 'active',
+    jobTitle: 'Steuerberaterin (extern)',    status: 'active',
     lastLoginAt: days(3),
     invitedAt: null,
   },
@@ -200,9 +172,7 @@ export const seedAdminUsers = (): AdminUser[] => [
     firstName: 'Max',
     lastName: 'Steiner',
     email: 'max.steiner@extern.de',
-    jobTitle: 'Aushilfe Lager',
-    role: 'extern',
-    status: 'active',
+    jobTitle: 'Aushilfe Lager',    status: 'active',
     lastLoginAt: days(1),
     invitedAt: null,
   },

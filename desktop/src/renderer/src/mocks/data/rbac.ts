@@ -16,6 +16,7 @@ import type { CapabilityGrant, CapabilityScope, Role } from '@/api/rbac-types'
 import { SCOPE_ORDER } from '@/api/rbac-types'
 import type { RoleId } from '@/config/roles'
 import { MODULE_KEYS, moduleViewKey, type ModuleKey } from '@/config/capabilities'
+import { catalogCapabilityKeys } from '@/config/capability-catalog'
 import type { User } from '@/stores/auth'
 import { CURRENT_USER, IDS } from './shared-ids'
 
@@ -46,62 +47,22 @@ const INDUSTRY_MODULES: ModuleKey[] = [
   'automatisierung',
 ]
 
-// ── Core-module fine capabilities (catalogue keys) ──────────────────────────
+// ── Core-module fine capabilities (from the catalogue — one source, no drift) ─
 
-const WORK_ALL = [
-  'work:task:read', 'work:task:create', 'work:task:edit', 'work:task:delete',
-  'work:task:be_assigned', 'work:task:comment',
-  'work:project:read', 'work:project:create', 'work:project:edit', 'work:project:delete',
-  'work:project:manage_members', 'work:time:log', 'work:board:export',
-]
-
-const DOCUMENTS_ALL = [
-  'documents:file:read', 'documents:file:download', 'documents:file:upload',
-  'documents:file:edit', 'documents:file:delete',
-  'documents:share:manage', 'documents:share_link:create',
-  'documents:version:restore', 'documents:template:manage',
-]
-
-const CRM_ALL = [
-  'crm:contact:read', 'crm:contact:create', 'crm:contact:edit', 'crm:contact:delete',
-  'crm:contact:export', 'crm:deal:read', 'crm:deal:create', 'crm:deal:edit',
-  'crm:pipeline:manage', 'crm:import:run', 'crm:advisory:read', 'crm:advisory:write',
-  'crm:segment:override',
-]
-
-const FINANCE_ALL = [
-  'finance:invoice:read', 'finance:invoice:create', 'finance:invoice:edit',
-  'finance:invoice:delete', 'finance:invoice:send', 'finance:dunning:run',
-  'finance:quote:read', 'finance:quote:create', 'finance:quote:send',
-  'finance:amounts:view', 'finance:export:run', 'finance:incoming:review',
-  'finance:incoming:book', 'finance:settings:manage',
-]
-
-const TEAM_HR_ALL = [
-  'team:employee:read', 'team:employee:create', 'team:employee:edit', 'team:employee:deactivate',
-  'team:data_personal:view', 'team:data_personal:edit',
-  'team:data_job:view', 'team:data_job:edit',
-  'team:salary:view', 'team:salary:edit',
-  'team:documents:view', 'team:documents:edit',
-  'team:absence:read', 'team:absence:approve',
-  'team:role:assign', 'team:training:manage',
-  'team:payroll:view', 'team:payroll:run',
-  'team:corrections:manage', 'team:onboarding:manage',
-]
-
-const WIKI_ALL = [
-  'wiki:article:read', 'wiki:article:create', 'wiki:article:edit', 'wiki:article:delete',
-  'wiki:article:publish', 'wiki:share_token:create', 'wiki:template:manage',
-]
+const WORK_ALL = catalogCapabilityKeys('work')
+const DOCUMENTS_ALL = catalogCapabilityKeys('documents')
+const CRM_ALL = catalogCapabilityKeys('crm')
+const FINANCE_ALL = catalogCapabilityKeys('finance')
+const TEAM_HR_ALL = catalogCapabilityKeys('team')
+const WIKI_ALL = catalogCapabilityKeys('wiki')
 
 const ADMIN_SECURITY_ALL = [
-  'settings:personal:manage', 'settings:tenant:manage',
-  'admin:module:view', 'admin:user:read', 'admin:user:invite', 'admin:user:deactivate',
-  'admin:role:read', 'admin:role:create', 'admin:role:edit', 'admin:role:delete', 'admin:role:assign',
-  'admin:license:manage', 'admin:branding:manage', 'admin:integrations:manage',
-  'admin:company:manage', 'admin:modules:manage', 'admin:it:manage', 'admin:ai:manage',
-  'admin:impersonate:run', 'mail:settings:manage',
-  'security:module:view', 'security:audit:read', 'security:policy:manage', 'security:gdpr:execute',
+  ...catalogCapabilityKeys('settings'),
+  ...catalogCapabilityKeys('admin'),
+  ...catalogCapabilityKeys('security'),
+  ...catalogCapabilityKeys('mail'),
+  moduleViewKey('admin'),
+  moduleViewKey('security'),
 ]
 
 // ── The 7 system presets ────────────────────────────────────────────────────
@@ -235,14 +196,122 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
 
 export const PRESET_ROLE_IDS = Object.keys(ROLE_DEFS) as RoleId[]
 
+export function isPresetRole(roleId: string): roleId is RoleId {
+  return roleId in ROLE_DEFS
+}
+
+// ── Custom roles (R-2 builder — mirrors Luke's tenant-scoped roles rows) ────
+
+export interface CustomRoleDef {
+  id: string
+  name: string
+  description: string
+  color: string
+  basedOn: string
+  grants: GrantSpec
+}
+
+/** Tenant custom-role limit (KONZEPT §3: cap against role sprawl). */
+export const CUSTOM_ROLE_LIMIT = 20
+
+const CUSTOM_ROLES = new Map<string, CustomRoleDef>()
+let customRoleSeq = 0
+
+/**
+ * One seeded custom role so list/editor/diff surfaces demo without setup:
+ * a warehouse-temp clone of `extern` with two deviations (inventar visible,
+ * documents downloadable). Nobody holds it → delete stays demoable.
+ */
+function seedCustomRoles(): void {
+  customRoleSeq = 1
+  CUSTOM_ROLES.set('role-c1', {
+    id: 'role-c1',
+    name: 'Lager & Logistik',
+    description: 'Aushilfen im Lager: Aufgaben + Inventar-Einblick, Dokumente mit Download',
+    color: 'hsl(38 92% 50%)',
+    basedOn: 'extern',
+    grants: merge(ROLE_DEFS.extern.grants, {
+      [moduleViewKey('inventar')]: 'all',
+      'documents:file:download': 'all',
+    }),
+  })
+}
+seedCustomRoles()
+
+export function customRoleCount(): number {
+  return CUSTOM_ROLES.size
+}
+
+export function getCustomRole(roleId: string): CustomRoleDef | undefined {
+  return CUSTOM_ROLES.get(roleId)
+}
+
+export function roleNameExists(name: string, exceptId?: string): boolean {
+  const needle = name.trim().toLowerCase()
+  if (PRESET_ROLE_IDS.some((id) => ROLE_DEFS[id].name.toLowerCase() === needle)) return true
+  return [...CUSTOM_ROLES.values()].some(
+    (r) => r.id !== exceptId && r.name.trim().toLowerCase() === needle,
+  )
+}
+
+export function createCustomRole(input: {
+  name: string
+  description: string
+  color: string
+  basedOn: string
+}): CustomRoleDef {
+  customRoleSeq += 1
+  const id = `role-c${customRoleSeq}`
+  const baseGrants = getRoleGrants(input.basedOn) ?? {}
+  const def: CustomRoleDef = {
+    id,
+    name: input.name.trim(),
+    description: input.description.trim(),
+    color: input.color,
+    basedOn: input.basedOn,
+    grants: { ...baseGrants },
+  }
+  CUSTOM_ROLES.set(id, def)
+  return def
+}
+
+export function updateCustomRole(
+  roleId: string,
+  patch: Partial<Pick<CustomRoleDef, 'name' | 'description' | 'color'>>,
+): CustomRoleDef | undefined {
+  const def = CUSTOM_ROLES.get(roleId)
+  if (!def) return undefined
+  if (patch.name !== undefined) def.name = patch.name.trim()
+  if (patch.description !== undefined) def.description = patch.description.trim()
+  if (patch.color !== undefined) def.color = patch.color
+  return def
+}
+
+export function deleteCustomRole(roleId: string): boolean {
+  return CUSTOM_ROLES.delete(roleId)
+}
+
+export function setCustomRoleGrants(roleId: string, grants: GrantSpec): CustomRoleDef | undefined {
+  const def = CUSTOM_ROLES.get(roleId)
+  if (!def) return undefined
+  def.grants = { ...grants }
+  return def
+}
+
+/** Grant map of any role (preset or custom). */
+export function getRoleGrants(roleId: string): GrantSpec | undefined {
+  if (isPresetRole(roleId)) return ROLE_DEFS[roleId].grants
+  return CUSTOM_ROLES.get(roleId)?.grants
+}
+
 // ── Demo account → roles assignment (mirrors Luke's user_roles n:m) ─────────
 
 /**
  * Laura carries TWO roles (manager + hr_admin) — the multi-role union demo
- * that feeds the "Effektive Rechte" provenance view. AdminUser.role (singular)
- * still shows her primary role until A-1 moves to multi-role in R-2.
+ * that feeds the "Effektive Rechte" provenance view. Mutable in R-2: the
+ * assignment handlers write here, A-1/team read through it.
  */
-export const USER_ROLE_ASSIGNMENTS: Record<string, RoleId[]> = {
+export const USER_ROLE_ASSIGNMENTS: Record<string, string[]> = {
   [CURRENT_USER.id]: ['admin'],
   [IDS.users.thomas]: ['it_admin'],
   [IDS.users.nina]: ['hr_admin'],
@@ -259,19 +328,46 @@ export const USER_ROLE_ASSIGNMENTS: Record<string, RoleId[]> = {
 }
 
 /** Roles for an account; unknown accounts fall back to least-privilege member. */
-export function rolesForUser(userId: string): RoleId[] {
+export function rolesForUser(userId: string): string[] {
   return USER_ROLE_ASSIGNMENTS[userId] ?? ['member']
+}
+
+export function assignRoleToUser(userId: string, roleId: string): string[] {
+  const current = USER_ROLE_ASSIGNMENTS[userId] ?? ['member']
+  if (!current.includes(roleId)) USER_ROLE_ASSIGNMENTS[userId] = [...current, roleId]
+  return USER_ROLE_ASSIGNMENTS[userId] ?? []
+}
+
+export function removeRoleFromUser(userId: string, roleId: string): string[] {
+  const current = USER_ROLE_ASSIGNMENTS[userId] ?? []
+  USER_ROLE_ASSIGNMENTS[userId] = current.filter((r) => r !== roleId)
+  return USER_ROLE_ASSIGNMENTS[userId] ?? []
+}
+
+/** Accounts currently holding a role (guardrails + member views). */
+export function membersOfRole(roleId: string): string[] {
+  return Object.entries(USER_ROLE_ASSIGNMENTS)
+    .filter(([, roles]) => roles.includes(roleId))
+    .map(([userId]) => userId)
+}
+
+/**
+ * Last-admin guardrail: number of accounts holding the full-access preset.
+ * Removing/deactivating the last one must be rejected (Report C P0 set).
+ */
+export function fullAccessHolderCount(): number {
+  return membersOfRole('admin').length
 }
 
 // ── Union resolution (server-side logic, mirrored by Luke later) ────────────
 
 /** Resolve the effective capability map for a set of roles (widest scope wins, provenance kept). */
-export function resolveCapabilities(roleIds: RoleId[]): Record<string, CapabilityGrant> {
+export function resolveCapabilities(roleIds: string[]): Record<string, CapabilityGrant> {
   const result: Record<string, CapabilityGrant> = {}
   for (const roleId of roleIds) {
-    const def = ROLE_DEFS[roleId]
-    if (!def) continue
-    for (const [key, scope] of Object.entries(def.grants)) {
+    const grants = getRoleGrants(roleId)
+    if (!grants) continue
+    for (const [key, scope] of Object.entries(grants)) {
       const existing = result[key]
       if (!existing) {
         result[key] = { scope, sources: [roleId] }
@@ -284,12 +380,27 @@ export function resolveCapabilities(roleIds: RoleId[]): Record<string, Capabilit
   return result
 }
 
-export function seedRoles(): Role[] {
+/** Role summary (id/name/isSystem/color) for effective-permission responses. */
+export function roleSummary(roleId: string): Pick<Role, 'id' | 'name' | 'isSystem' | 'color'> {
+  if (isPresetRole(roleId)) {
+    return { id: roleId, name: ROLE_DEFS[roleId].name, isSystem: true, color: ROLE_DEFS[roleId].color }
+  }
+  const custom = CUSTOM_ROLES.get(roleId)
+  return {
+    id: roleId,
+    name: custom?.name ?? roleId,
+    isSystem: false,
+    color: custom?.color ?? 'hsl(215 16% 47%)',
+  }
+}
+
+/** All roles of the tenant: the 7 presets followed by custom roles. */
+export function listRoles(): Role[] {
   const memberCounts: Record<string, number> = {}
   for (const roleIds of Object.values(USER_ROLE_ASSIGNMENTS)) {
     for (const r of roleIds) memberCounts[r] = (memberCounts[r] ?? 0) + 1
   }
-  return PRESET_ROLE_IDS.map((id) => ({
+  const presets: Role[] = PRESET_ROLE_IDS.map((id) => ({
     id,
     name: ROLE_DEFS[id].name,
     description: ROLE_DEFS[id].description,
@@ -300,6 +411,18 @@ export function seedRoles(): Role[] {
     memberCount: memberCounts[id] ?? 0,
     capabilityCount: Object.keys(ROLE_DEFS[id].grants).length,
   }))
+  const customs: Role[] = [...CUSTOM_ROLES.values()].map((def) => ({
+    id: def.id,
+    name: def.name,
+    description: def.description,
+    tenantId: 'tenant-demo',
+    basedOn: def.basedOn,
+    isSystem: false,
+    color: def.color,
+    memberCount: memberCounts[def.id] ?? 0,
+    capabilityCount: Object.keys(def.grants).length,
+  }))
+  return [...presets, ...customs]
 }
 
 // ── Demo session (which account "is" logged in for MSW) ─────────────────────

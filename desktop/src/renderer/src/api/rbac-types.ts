@@ -66,3 +66,51 @@ export interface EffectivePermissionsResponse {
 export interface RolesResponse {
   roles: Role[]
 }
+
+// ── R-2 role builder (CRUD + per-role grants + assignment) ──────────────────
+
+/**
+ * The editable grant map of a single role: capability key → scope. Missing
+ * key = not granted. This is what `PUT /admin/roles/{id}/permissions` writes —
+ * Luke's `role_permissions` rows map 1:1 (scope lands as a new column there,
+ * backend-gaps §RBAC).
+ */
+export type RoleGrants = Record<string, { scope: CapabilityScope }>
+
+export interface RolePermissionsResponse {
+  roleId: string
+  grants: RoleGrants
+}
+
+/** Create = always a clone: grants start as a copy of `basedOn`'s grants. */
+export interface CreateRoleInput {
+  name: string
+  description: string
+  color: string
+  /** Role id (preset or custom) the new role clones from. */
+  basedOn: string
+}
+
+export interface UpdateRoleInput {
+  name?: string
+  description?: string
+  color?: string
+}
+
+export interface UpdateRolePermissionsInput {
+  grants: RoleGrants
+}
+
+export interface RoleResponse {
+  role: Role
+}
+
+/** `POST /users/{id}/roles` body (route exists in Luke's route_auth.go). */
+export interface AssignRoleInput {
+  roleId: string
+}
+
+/** Role ids an account holds after an assignment mutation. */
+export interface UserRolesResponse {
+  roles: string[]
+}

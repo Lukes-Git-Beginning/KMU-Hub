@@ -19,6 +19,13 @@
 
 - 🔴 **`roles.tenant_id` (NULL = System-Preset) + `based_on`-Referenz** — Custom-Rollen pro Firma, Presets unveränderlich.
 - 🔴 **Rollen-Verwaltungs-API:** `GET/POST/PATCH/DELETE /api/v1/admin/roles` + `GET/PUT /api/v1/admin/roles/{id}/permissions` (Matrix lesen/schreiben). Ersetzt den A-2-Mock-Contract.
+  - **Contract FINAL (FE R-2 gebaut 2026-07-18 — MSW `mocks/handlers/rbac.ts` = Referenz-Implementierung inkl. Guardrails):**
+    - `GET /admin/roles/{id}/permissions` → `{ "roleId": "...", "grants": { "work:task:edit": { "scope": "own|team|all" } } }` (kompletter Grant-Satz EINER Rolle; `role_permissions` + neue scope-Spalte 1:1).
+    - `POST /admin/roles` Body `{ name, description, color, basedOn }` → **Create = immer Klon**: Grants von `basedOn` kopieren (Presets + Customs klonbar). 201 `{ role }`.
+    - `PATCH /admin/roles/{id}` Body `{ name?, description?, color? }` → `{ role }` · `PUT /admin/roles/{id}/permissions` Body `{ grants }` (Vollersatz) → `{ roleId, grants }` · `DELETE` → 204.
+    - `POST /api/v1/users/{id}/roles` Body `{ roleId }` / `DELETE /api/v1/users/{id}/roles/{roleId}` → beide `{ "roles": ["admin", ...] }` (Routen existieren in route_auth.go — Response-Shape angleichen).
+    - **`GET /api/v1/admin/users/{id}/permissions`** (NEU) → gleiche Shape wie `me/permissions`, für die Admin-/HR-Ansicht „Effektive Rechte pro User" (Team-Modul + A-1).
+    - **Fehler-Codes** (FE mappt auf i18n): `{ "error": "preset_immutable" | "role_limit_reached" | "role_name_exists" | "role_has_members" | "last_admin" | "not_found" }` — Preset-Schutz 403, Konflikte 409. Custom-Limit 20/Tenant; DELETE nur bei 0 Trägern; letzter `admin`-Träger nie entziehbar.
 - 🔴 **`GET /api/v1/auth/me/permissions`** — aufgelöste effektive Rechte des eingeloggten Users (Union aller Rollen, inkl. Scope je resource). Die eine Quelle fürs FE-Gating.
   - **Contract FINAL (FE R-1 gebaut 2026-07-18, `desktop/src/renderer/src/api/rbac-types.ts` + MSW `mocks/handlers/rbac.ts` als Referenz-Implementierung):**
     ```json

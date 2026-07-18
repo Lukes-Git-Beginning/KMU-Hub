@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useHasCapability } from '@/hooks/useCapability'
 
 const UsersAdminHubTab = lazy(() => import('./users/UsersAdminHubTab'))
-const RolesAdminHubTab = lazy(() => import('./roles/RolesAdminHubTab'))
+const RolesBuilderTab = lazy(() => import('./roles/RolesBuilderTab'))
 const LicenseAdminHubTab = lazy(() => import('./license/LicenseAdminHubTab'))
 const BrandingAdminHubTab = lazy(() => import('./branding/BrandingAdminHubTab'))
 const ITAdminHubTab = lazy(() => import('./tabs/ITAdminHubTab'))
@@ -132,7 +132,7 @@ export default function AdminHubPage() {
       >
         <Suspense fallback={<ModuleLoadingFallback />}>
           {activeTab === 'users' && <UsersAdminHubTab />}
-          {activeTab === 'roles' && <RolesAdminHubTab />}
+          {activeTab === 'roles' && <RolesBuilderTab />}
           {activeTab === 'license' && <LicenseAdminHubTab />}
           {activeTab === 'branding' && <BrandingAdminHubTab />}
           {activeTab === 'it' && <ITAdminHubTab />}

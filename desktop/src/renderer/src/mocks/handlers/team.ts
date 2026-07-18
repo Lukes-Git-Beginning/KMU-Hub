@@ -10,12 +10,39 @@ const API = API_BASE_URL
 // Map mock-db employees to HR API shape
 // ---------------------------------------------------------------------------
 
+/**
+ * mock-db EMPLOYEES indices drifted from the canonical IDS.users mapping
+ * (mock-db e4 is "Laura Neumann", but IDS says usr-e4 = Julia). Until the big
+ * seed sweep aligns mock-db, resolve userId by NAME against the shared ids so
+ * roles (R-2), leave balances and module grants attach to the right person.
+ */
+const NAME_TO_USER_ID: Record<string, string> = {
+  'Stefan Vogel': IDS.users.stefan,
+  'Markus Weber': IDS.users.markus,
+  'Thomas Keller': IDS.users.thomas,
+  'Julia Hofmann': IDS.users.julia,
+  'Laura Neumann': IDS.users.laura,
+  'Felix Krause': IDS.users.felix,
+  'Sarah Müller': IDS.users.sarah,
+  'Jan Schäfer': IDS.users.jan,
+  'Lena Braun': IDS.users.lena,
+  'David Wagner': IDS.users.david,
+  'Lisa Becker': IDS.users.lisa,
+  'Anna Großmann': IDS.users.anna,
+  'Michael Schulz': IDS.users.michael,
+  'Sophie Lang': IDS.users.sophie,
+  'Nina Fischer': IDS.users.nina,
+  'Max Steiner': IDS.users.max,
+  'Elena Richter': IDS.users.elena,
+}
+
 function toHrEmployee(e: (typeof EMPLOYEES)[number]) {
   const fullName = `${e.firstName} ${e.lastName}`
+  const canonicalUserId = NAME_TO_USER_ID[fullName] ?? `usr-${e.id}`
   return {
     // canonical camelCase fields matching EmployeeProfile interface (hr-types.ts)
     id: `usr-${e.id}`,
-    userId: `usr-${e.id}`,
+    userId: canonicalUserId,
     userName: fullName,
     userEmail: e.email,
     positionTitle: e.jobTitle,

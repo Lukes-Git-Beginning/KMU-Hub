@@ -25,6 +25,13 @@ import { useAuthStore } from '@/stores/auth'
 
 type PermissionsStatus = 'idle' | 'loading' | 'ready' | 'error'
 
+/** Runtime-only overlay preview ("Als Rolle anzeigen", R-2 editor). */
+export interface PermissionsPreview {
+  /** Display label shown in the preview banner (role name). */
+  label: string
+  capabilities: Record<string, CapabilityGrant>
+}
+
 interface PermissionsState {
   /** Account the loaded permission set belongs to (guards the persisted cache). */
   forUserId: string | null
@@ -33,10 +40,17 @@ interface PermissionsState {
   status: PermissionsStatus
   /** Session guard — initFromServer() runs once, refresh() forces. */
   serverInitialized: boolean
+  /**
+   * Overlay preview: while set, capability checks resolve against this map
+   * instead of the account's own — the user stays signed in (never persisted).
+   */
+  preview: PermissionsPreview | null
   /** Hydrate once per session (central hydrator). */
   initFromServer: () => Promise<void>
   /** Force reload (profile switch / role change). */
   refresh: () => Promise<void>
+  startPreview: (preview: PermissionsPreview) => void
+  endPreview: () => void
 }
 
 /** Map backend role-name strings onto known preset ids; unknown → least-privilege member. */
@@ -67,11 +81,15 @@ export const usePermissionsStore = create<PermissionsState>()(
       capabilities: {},
       status: 'idle',
       serverInitialized: false,
+      preview: null,
 
       initFromServer: async () => {
         if (get().serverInitialized) return
         await get().refresh()
       },
+
+      startPreview: (preview) => set({ preview }),
+      endPreview: () => set({ preview: null }),
 
       refresh: async () => {
         const user = useAuthStore.getState().user
@@ -119,6 +137,8 @@ export const usePermissionsStore = create<PermissionsState>()(
 useAuthStore.subscribe((state, prev) => {
   const id = state.user?.id
   if (id && id !== prev.user?.id) {
+    // A different account never inherits an active overlay preview.
+    usePermissionsStore.getState().endPreview()
     void usePermissionsStore.getState().refresh()
   }
 })

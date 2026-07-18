@@ -12,11 +12,14 @@ import { Search, UserPlus, Users } from 'lucide-react'
 import { SortMenu, EmptyState, type SortDirection, type SortFieldOption } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { useAdminUsers } from '@/api/hooks/useAdminUsers'
+import { useRoles } from '@/api/hooks/useRbacRoles'
 import { useTenant } from '@/api/hooks/useBilling'
 import type { AdminUser, AdminUserStatus } from '@/api/admin-types'
+import type { Role } from '@/api/rbac-types'
+import { roleDisplayName } from '@/lib/rbac-format'
 import { InviteUserDialog } from './InviteUserDialog'
 import { UserDetailModal } from './UserDetailModal'
-import { ROLE_DOT, ROLE_ORDER, roleLabelKey, STATUS_META, initials, formatRelative } from './presentation'
+import { ROLE_ORDER, STATUS_META, initials, formatRelative } from './presentation'
 
 type StatusFilter = 'all' | AdminUserStatus
 type SortField = 'name' | 'role' | 'status' | 'lastLogin'
@@ -27,6 +30,7 @@ const STATUS_SORT_RANK: Record<AdminUserStatus, number> = { active: 0, invited: 
 export default function UsersAdminHubTab() {
   const { t, i18n } = useTranslation()
   const { data: users = [], isLoading } = useAdminUsers()
+  const { data: allRoles = [] } = useRoles()
   const { data: tenant } = useTenant()
 
   const [search, setSearch] = useState('')
@@ -73,11 +77,18 @@ export default function UsersAdminHubTab() {
       )
     })
 
+    // Primary role rank: presets by ROLE_ORDER, custom roles after them.
+    const roleRank = (u: AdminUser): number => {
+      const primary = u.roles[0] ?? ''
+      const idx = ROLE_ORDER.indexOf(primary as (typeof ROLE_ORDER)[number])
+      return idx === -1 ? ROLE_ORDER.length : idx
+    }
+
     const dir = sortDir === 'asc' ? 1 : -1
     const cmp = (a: AdminUser, b: AdminUser): number => {
       switch (sortField) {
         case 'role':
-          return (ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)) * dir
+          return (roleRank(a) - roleRank(b)) * dir
         case 'status':
           return (STATUS_SORT_RANK[a.status] - STATUS_SORT_RANK[b.status]) * dir
         case 'lastLogin': {
@@ -206,11 +217,8 @@ export default function UsersAdminHubTab() {
                       </div>
                     </div>
 
-                    {/* Role */}
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${ROLE_DOT[u.role]}`} aria-hidden="true" />
-                      <span className="truncate text-sm text-foreground">{t(roleLabelKey(u.role))}</span>
-                    </div>
+                    {/* Roles (multi-role chips, +n overflow) */}
+                    <RoleChipCell roleIds={u.roles} roles={allRoles} />
 
                     {/* Status */}
                     <div>
@@ -234,6 +242,38 @@ export default function UsersAdminHubTab() {
 
       <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} seatsUsed={seatsUsed} seatsTotal={seatsTotal} />
       <UserDetailModal user={selectedUser} open={selectedId !== null} onClose={() => setSelectedId(null)} />
+    </div>
+  )
+}
+
+/** Role cell: up to two chips with role color, "+n" for the rest. */
+function RoleChipCell({ roleIds, roles }: { roleIds: string[]; roles: Role[] }) {
+  const { t } = useTranslation()
+  const shown = roleIds.slice(0, 2)
+  const rest = roleIds.length - shown.length
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1">
+      {shown.map((roleId) => {
+        const role = roles.find((r) => r.id === roleId)
+        return (
+          <span
+            key={roleId}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-2 py-0.5 text-xs text-foreground"
+          >
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: role?.color ?? 'currentColor' }}
+              aria-hidden="true"
+            />
+            <span className="truncate">{role ? roleDisplayName(t, role) : roleId}</span>
+          </span>
+        )
+      })}
+      {rest > 0 && (
+        <span className="rounded-full bg-secondary/60 px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
+          +{rest}
+        </span>
+      )}
     </div>
   )
 }

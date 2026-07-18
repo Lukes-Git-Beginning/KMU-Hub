@@ -36,6 +36,8 @@ import { formatDate, formatRelativeTime } from '@/lib/format'
 import { MODULE_DISPLAY_NAMES } from './ModuleAssignmentTab'
 import { EmployeePayrollData } from './EmployeePayrollData'
 import { DocumentsSection, EmployeeModuleLeadSection } from './MemberDetailPanel'
+import { UserRolesSection } from '@/components/shared/rbac/UserRolesSection'
+import { useAdminUsers } from '@/api/hooks/useAdminUsers'
 
 function getTenure(joinDate: string): string {
   const join = new Date(joinDate)
@@ -94,6 +96,16 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
   const canManageLeads = useHasCapability('admin:modules:manage')
   const hasLeadable = userGrants.some((g) => LEADABLE_MODULES.includes(g.moduleId))
   const showModuleLead = canManageLeads && hasLeadable && !!employee?.userId
+
+  // Roles & access (R-2): assignment lives HERE in the team module — HR's home
+  // turf (team:role:assign); IT admins carry admin:role:assign.
+  const canAssignHr = useHasCapability('team:role:assign')
+  const canAssignIt = useHasCapability('admin:role:assign')
+  const showRoles = canAssignHr || canAssignIt
+  const { data: adminUsers = [] } = useAdminUsers()
+  const memberAccount = employee?.userId
+    ? adminUsers.find((u) => u.id === employee.userId)
+    : undefined
 
   function goTo(path: string) {
     onNavigateAway?.()
@@ -290,6 +302,22 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
                     )}
                   </div>
                 </div>
+              </section>
+            </>
+          )}
+
+          {/* Roles & access (HR assigns here; effective rights incl. union provenance) */}
+          {showRoles && memberAccount && (
+            <>
+              <Separator />
+              <section>
+                <SectionTitle>{t('team.member.roles.title')}</SectionTitle>
+                <UserRolesSection
+                  userId={memberAccount.id}
+                  roleIds={memberAccount.roles}
+                  editable={canAssignHr || canAssignIt}
+                  displayName={fullName}
+                />
               </section>
             </>
           )}

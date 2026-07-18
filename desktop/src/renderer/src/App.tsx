@@ -27,6 +27,7 @@ import { LaunchOverlay } from '@/modules/auth/LaunchOverlay'
 import { useLaunchStore } from '@/stores/launch'
 import { DEMO_PROFILES } from '@/mocks/data/rbac'
 import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
+import { PermissionPreviewBanner } from '@/components/layout/PermissionPreviewBanner'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 
@@ -44,6 +45,9 @@ const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
 
 // Admin Hub — neue Routen /admin/it | /admin/security | /admin/billing | /admin/integrations
 const AdminHubPage = lazy(() => import('@/modules/admin/AdminHubPage'))
+
+// Role builder editor (R-2) — full page under /admin/roles/:roleId
+const RoleEditorPage = lazy(() => import('@/modules/admin/roles/RoleEditorPage'))
 
 // CalDAV admin page
 const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
@@ -241,6 +245,7 @@ const router = createHashRouter([
       // Admin Hub — neue /admin/* Routen
       { path: 'admin/users', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/roles', element: lazyRoute(AdminHubPage, 'adminhub') },
+      { path: 'admin/roles/:roleId', element: lazyRoute(RoleEditorPage, 'adminhub') },
       { path: 'admin/license', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/branding', element: lazyRoute(AdminHubPage, 'adminhub') },
       { path: 'admin/it', element: lazyRoute(AdminHubPage, 'adminhub') },
@@ -376,6 +381,7 @@ export default function App() {
           <Toaster richColors position="bottom-right" closeButton />
           <NotificationToast />
           <OfflineBanner />
+          <PermissionPreviewBanner />
           <IdleLock />
           {/* Dev profile switcher — re-enabled for the RBAC R-block: switching
               presets (incl. Aushilfe/Extern + multi-role combo) is the primary

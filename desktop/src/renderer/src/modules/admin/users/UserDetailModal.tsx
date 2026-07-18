@@ -5,22 +5,16 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Mail, Send, UserCheck, UserX, ShieldCheck } from 'lucide-react'
+import { Mail, Send, UserCheck, UserX } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal, ConfirmDialog } from '@/components/shared'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useAuthStore } from '@/stores/auth'
-import type { RoleId } from '@/config/roles'
 import type { AdminUser } from '@/api/admin-types'
 import { useUpdateAdminUser, useResendInvite } from '@/api/hooks/useAdminUsers'
-import { ROLE_DOT, ROLE_ORDER, roleLabelKey, STATUS_META, initials, formatRelative } from './presentation'
+import { useHasCapability } from '@/hooks/useCapability'
+import { UserRolesSection } from '@/components/shared/rbac/UserRolesSection'
+import { STATUS_META, initials, formatRelative } from './presentation'
 
 interface UserDetailModalProps {
   user: AdminUser | null
@@ -33,6 +27,7 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
   const updateUser = useUpdateAdminUser()
   const resendInvite = useResendInvite()
   const authUserId = useAuthStore((s) => s.user?.id)
+  const canAssignRoles = useHasCapability('admin:role:assign')
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
 
   if (!user) return null
@@ -41,14 +36,6 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
   const status = STATUS_META[user.status]
   const StatusIcon = status.icon
   const fullName = `${user.firstName} ${user.lastName}`
-
-  const handleRoleChange = (role: RoleId) => {
-    if (role === user.role) return
-    updateUser.mutate(
-      { id: user.id, role },
-      { onSuccess: () => toast.success(t('admin.users.detail.roleChanged', { role: t(roleLabelKey(role)) })) },
-    )
-  }
 
   const setStatus = (next: AdminUser['status'], message: string) => {
     updateUser.mutate(
@@ -98,36 +85,18 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
             </div>
           </div>
 
-          {/* Role */}
+          {/* Roles (multi-role since R-2 — assignment itself is HR's home turf
+              in the team module; IT with admin:role:assign can manage here too) */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {t('admin.users.detail.roleSection')}
             </h3>
-            <Select value={user.role} onValueChange={(v) => handleRoleChange(v as RoleId)} disabled={isSelf}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLE_ORDER.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    <span className="flex items-center gap-2">
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${ROLE_DOT[r]}`} aria-hidden="true" />
-                      {t(roleLabelKey(r))}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {isSelf ? (
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  {t('admin.users.detail.selfRoleLocked')}
-                </span>
-              ) : (
-                t(`rbac.roles.${user.role}.description`)
-              )}
-            </p>
+            <UserRolesSection
+              userId={user.id}
+              roleIds={user.roles}
+              editable={canAssignRoles}
+              displayName={fullName}
+            />
           </section>
 
           {/* Account meta */}

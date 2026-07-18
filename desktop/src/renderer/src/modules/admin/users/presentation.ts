@@ -9,18 +9,8 @@ import type { AdminUserStatus } from '@/api/admin-types'
 
 export { roleLabelKey } from '@/config/roles'
 
-/** Subtle role accent dot — mirrors the preset palette in mocks/data/rbac ROLE_DEFS.
- *  Static classes on purpose: Tailwind JIT only picks up literal class strings. */
-export const ROLE_DOT: Record<RoleId, string> = {
-  admin: 'bg-[hsl(0_72%_51%)]',
-  it_admin: 'bg-[hsl(25_95%_53%)]',
-  hr_admin: 'bg-[hsl(270_76%_55%)]',
-  manager: 'bg-[hsl(217_91%_60%)]',
-  member: 'bg-[hsl(142_71%_45%)]',
-  readonly: 'bg-[hsl(215_16%_47%)]',
-  extern: 'bg-[hsl(180_45%_42%)]',
-}
-
+/** Preset sort order for role columns; custom roles rank after the presets
+ *  (their colors come from Role.color at runtime — no static palette since R-2). */
 export const ROLE_ORDER: RoleId[] = ['admin', 'it_admin', 'hr_admin', 'manager', 'member', 'readonly', 'extern']
 
 export interface StatusMeta {

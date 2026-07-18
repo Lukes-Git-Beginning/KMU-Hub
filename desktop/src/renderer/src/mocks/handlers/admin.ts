@@ -13,20 +13,23 @@
  */
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import type { RoleId } from '@/config/roles'
-import type { AdminUser, AdminUserStatus, PermissionMatrix, TenantModule } from '@/api/admin-types'
-import { seedAdminUsers } from '../data/admin-users'
-import { PERMISSION_GROUPS, seedPermissionMatrix } from '../data/admin-permissions'
+import type { AdminUser, AdminUserStatus, TenantModule } from '@/api/admin-types'
+import { seedAdminUsers, type AdminUserRecord } from '../data/admin-users'
 import { seedTenantModules } from '../data/admin-license'
+import { USER_ROLE_ASSIGNMENTS, getRoleGrants, rolesForUser } from '../data/rbac'
 
 const API = API_BASE_URL
 
 // ── In-memory state (stateful for the session) ──────────────────────────────
-let adminUsers: AdminUser[] = seedAdminUsers()
-let permissionMatrix: PermissionMatrix = seedPermissionMatrix()
+// Role assignments live in ../data/rbac USER_ROLE_ASSIGNMENTS (single source —
+// the RBAC assignment handlers mutate there); users compose them on read.
+let adminUsers: AdminUserRecord[] = seedAdminUsers()
 const tenantModules: TenantModule[] = seedTenantModules()
 
-const VALID_ROLES: RoleId[] = ['admin', 'it_admin', 'hr_admin', 'manager', 'member', 'readonly', 'extern']
+const withRoles = (u: AdminUserRecord): AdminUser => ({ ...u, roles: rolesForUser(u.id) })
+
+const validRoles = (roles: unknown): string[] =>
+  Array.isArray(roles) ? roles.filter((r): r is string => typeof r === 'string' && Boolean(getRoleGrants(r))) : []
 
 /** Derive a display name from an e-mail local part, e.g. "max.muster" → "Max Muster". */
 function nameFromEmail(email: string): { firstName: string; lastName: string } {
@@ -41,7 +44,7 @@ function nameFromEmail(email: string): { firstName: string; lastName: string } {
 export const adminHandlers = [
   // ── List ──────────────────────────────────────────────────────────────────
   http.get(`${API}/api/v1/admin/users`, () => {
-    return HttpResponse.json({ users: adminUsers })
+    return HttpResponse.json({ users: adminUsers.map(withRoles) })
   }),
 
   // ── Invite (creates a pending account) ─────────────────────────────────────
@@ -50,7 +53,7 @@ export const adminHandlers = [
       email?: string
       firstName?: string
       lastName?: string
-      role?: RoleId
+      roles?: string[]
     }
 
     const email = (body.email ?? '').trim().toLowerCase()
@@ -62,20 +65,20 @@ export const adminHandlers = [
     }
 
     const derived = nameFromEmail(email)
-    const role: RoleId = VALID_ROLES.includes(body.role as RoleId) ? (body.role as RoleId) : 'member'
-    const user: AdminUser = {
+    const roles = validRoles(body.roles)
+    const record: AdminUserRecord = {
       id: `usr-inv-${Date.now()}`,
       firstName: (body.firstName ?? derived.firstName).trim() || derived.firstName,
       lastName: (body.lastName ?? derived.lastName).trim() || derived.lastName,
       email,
       jobTitle: '',
-      role,
       status: 'invited',
       lastLoginAt: null,
       invitedAt: new Date().toISOString(),
     }
-    adminUsers = [user, ...adminUsers]
-    return HttpResponse.json({ user }, { status: 201 })
+    adminUsers = [record, ...adminUsers]
+    USER_ROLE_ASSIGNMENTS[record.id] = roles.length > 0 ? roles : ['member']
+    return HttpResponse.json({ user: withRoles(record) }, { status: 201 })
   }),
 
   // ── Resend invite ──────────────────────────────────────────────────────────
@@ -84,50 +87,29 @@ export const adminHandlers = [
     const user = adminUsers.find((u) => u.id === id)
     if (!user) return HttpResponse.json({ error: 'not_found' }, { status: 404 })
     user.invitedAt = new Date().toISOString()
-    return HttpResponse.json({ user })
+    return HttpResponse.json({ user: withRoles(user) })
   }),
 
-  // ── Update (role / status) ──────────────────────────────────────────────────
+  // ── Update (roles / status) ─────────────────────────────────────────────────
   http.patch(`${API}/api/v1/admin/users/:id`, async ({ params, request }) => {
     const id = String(params.id)
     const patch = (await request.json().catch(() => ({}))) as {
-      role?: RoleId
+      roles?: string[]
       status?: AdminUserStatus
     }
     const user = adminUsers.find((u) => u.id === id)
     if (!user) return HttpResponse.json({ error: 'not_found' }, { status: 404 })
 
-    if (patch.role && VALID_ROLES.includes(patch.role)) {
-      user.role = patch.role
+    if (patch.roles !== undefined) {
+      const roles = validRoles(patch.roles)
+      USER_ROLE_ASSIGNMENTS[id] = roles.length > 0 ? roles : ['member']
     }
     if (patch.status && ['active', 'invited', 'deactivated'].includes(patch.status)) {
       user.status = patch.status
       // Reactivating a never-logged-in invite keeps lastLoginAt null; an active
       // account that gets reactivated keeps its prior login timestamp.
     }
-    return HttpResponse.json({ user })
-  }),
-
-  // ── RBAC: permission matrix (A-2) ───────────────────────────────────────────
-  http.get(`${API}/api/v1/admin/permissions`, () => {
-    return HttpResponse.json({ groups: PERMISSION_GROUPS, matrix: permissionMatrix })
-  }),
-
-  http.patch(`${API}/api/v1/admin/permissions`, async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as {
-      capabilityId?: string
-      role?: RoleId
-      granted?: boolean
-    }
-    const { capabilityId, role, granted } = body
-    // Admin always holds every capability — its grants are not editable.
-    if (capabilityId && role && role !== 'admin' && typeof granted === 'boolean') {
-      const row = { ...(permissionMatrix[capabilityId] ?? { admin: true }) }
-      if (granted) row[role] = true
-      else delete row[role]
-      permissionMatrix = { ...permissionMatrix, [capabilityId]: row }
-    }
-    return HttpResponse.json({ matrix: permissionMatrix })
+    return HttpResponse.json({ user: withRoles(user) })
   }),
 
   // ── Licensing: tenant module activation (A-3) ───────────────────────────────

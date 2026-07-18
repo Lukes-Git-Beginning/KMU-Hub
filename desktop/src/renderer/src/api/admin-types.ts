@@ -5,8 +5,6 @@
  * the real backend (Luke's track 🔒) will conform tomorrow. Keep this the single
  * source of truth so swapping the data source needs no UI change.
  */
-import type { RoleId } from '@/config/roles'
-
 export type AdminUserStatus = 'active' | 'invited' | 'deactivated'
 
 export interface AdminUser {
@@ -15,7 +13,12 @@ export interface AdminUser {
   lastName: string
   email: string
   jobTitle: string
-  role: RoleId
+  /**
+   * Role ids the account holds (n:m, union semantics — RBAC R-2 multi-role).
+   * Preset ids (`admin`, `member`, …) or custom role ids (`role-c*`). The
+   * single source in the mock layer is USER_ROLE_ASSIGNMENTS (mocks/data/rbac).
+   */
+  roles: string[]
   status: AdminUserStatus
   /** ISO timestamp of the last successful sign-in. `null` while invite is pending. */
   lastLoginAt: string | null
@@ -27,29 +30,7 @@ export interface InviteUserInput {
   email: string
   firstName?: string
   lastName?: string
-  role: RoleId
-}
-
-// ── RBAC (A-2) ──────────────────────────────────────────────────────────────
-
-/** A functional capability group with its ordered capability ids. */
-export interface PermissionGroup {
-  id: string
-  capabilities: string[]
-}
-
-/** capabilityId → which roles hold it. Admin is implicitly always true. */
-export type PermissionMatrix = Record<string, Partial<Record<RoleId, boolean>>>
-
-export interface PermissionsResponse {
-  groups: PermissionGroup[]
-  matrix: PermissionMatrix
-}
-
-export interface SetPermissionInput {
-  capabilityId: string
-  role: RoleId
-  granted: boolean
+  roles: string[]
 }
 
 // ── Licensing / module activation (A-3) ─────────────────────────────────────

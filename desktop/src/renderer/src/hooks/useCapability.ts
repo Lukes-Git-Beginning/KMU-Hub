@@ -26,14 +26,20 @@ export interface CapabilityResult {
   isLoading: boolean
 }
 
-/** Full capability check with scope + provenance. */
+/** Full capability check with scope + provenance. Overlay preview (R-2 "Als
+ *  Rolle anzeigen") takes precedence over the account's own map while active. */
 export function useCapability(key: string): CapabilityResult {
   const userId = useAuthStore((s) => s.user?.id ?? null)
   const forUserId = usePermissionsStore((s) => s.forUserId)
   const status = usePermissionsStore((s) => s.status)
-  const grant: CapabilityGrant | undefined = usePermissionsStore((s) => s.capabilities[key])
+  const previewActive = usePermissionsStore((s) => s.preview !== null)
+  const previewGrant: CapabilityGrant | undefined = usePermissionsStore(
+    (s) => s.preview?.capabilities[key],
+  )
+  const ownGrant: CapabilityGrant | undefined = usePermissionsStore((s) => s.capabilities[key])
+  const grant = previewActive ? previewGrant : ownGrant
 
-  const valid = userId !== null && forUserId === userId
+  const valid = userId !== null && (previewActive || forUserId === userId)
   const allowed = valid && grant !== undefined
   return {
     allowed,
@@ -62,12 +68,14 @@ export function useCapabilitySet(): { has: (key: string) => boolean; ready: bool
   const userId = useAuthStore((s) => s.user?.id ?? null)
   const forUserId = usePermissionsStore((s) => s.forUserId)
   const capabilities = usePermissionsStore((s) => s.capabilities)
+  const preview = usePermissionsStore((s) => s.preview)
 
   return useMemo(() => {
-    const valid = userId !== null && forUserId === userId
+    const valid = userId !== null && (preview !== null || forUserId === userId)
+    const effective = preview ? preview.capabilities : capabilities
     return {
-      has: (key: string) => valid && key in capabilities,
+      has: (key: string) => valid && key in effective,
       ready: valid,
     }
-  }, [userId, forUserId, capabilities])
+  }, [userId, forUserId, capabilities, preview])
 }

@@ -28,6 +28,7 @@ import {
   PhoneCall,
   Workflow,
   Bell,
+  ShieldCheck,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -127,8 +128,10 @@ export const navItems: NavItemConfig[] = [
   { id: 'automatisierung', to: '/automatisierung', icon: Workflow, label: 'layout.navItems.automatisierung', enabled: true, section: 'main', color: { h: 188, s: 78 } },
 
   // ── System (bottom) ──
-  // Admin/organisation settings now live inside the module-settings overlay
-  // (COSMI group), so there is no separate "Administration" entry point.
+  // "Verwaltung" is the IT home of Cosmi (role builder, users, security) — a
+  // real module by Darien's R-2 call, not buried in settings. RBAC-gated via
+  // NAV_ITEM_MODULE (admin:module:view → admin/it_admin/hr_admin only).
+  { id: 'admin', to: '/admin/roles', icon: ShieldCheck, label: 'layout.navItems.admin', enabled: true, section: 'bottom', color: { h: 355, s: 65 } },
   { id: 'notifications', to: '/notifications', icon: Bell, label: 'layout.navItems.notifications', enabled: true, section: 'bottom', color: { h: 280, s: 65 } },
   { id: 'settings', to: '/settings', icon: Cog, label: 'layout.navItems.settings', enabled: true, section: 'bottom', color: { h: 220, s: 18 } },
 ]

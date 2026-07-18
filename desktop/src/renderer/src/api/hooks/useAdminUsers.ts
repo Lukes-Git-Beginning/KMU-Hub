@@ -7,7 +7,6 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
-import type { RoleId } from '@/config/roles'
 import type { AdminUser, AdminUserStatus, InviteUserInput } from '@/api/admin-types'
 
 const ADMIN_USERS_KEY = ['admin', 'users'] as const
@@ -42,11 +41,11 @@ export function useInviteUser() {
   })
 }
 
-/** Change a user's role and/or account status. */
+/** Change a user's roles and/or account status. */
 export function useUpdateAdminUser() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { id: string; role?: RoleId; status?: AdminUserStatus }) => {
+    mutationFn: async (input: { id: string; roles?: string[]; status?: AdminUserStatus }) => {
       const { id, ...patch } = input
       const data = await authenticatedRequest<{ user: AdminUser }>({
         method: 'PATCH',
