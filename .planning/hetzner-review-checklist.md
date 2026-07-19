@@ -2,7 +2,8 @@
 
 > **Zweck:** Darien prüft Änderungen hands-on auf der über Hetzner laufenden Cosmi-exe, parallel während Main + Sub weiterbauen.
 > **Ablauf:** Alles geht auf `main`. Hier sammeln sich konkrete „klick hier → erwarte das"-Items. Abgehakt = von Darien geprüft + ok.
-> **Stand:** 2026-06-24.
+> **⚡ Darien-Entscheid 2026-07-19: SAMMEL-REVIEW AM ENDE** — es gibt keine Zwischen-Reviews mehr; diese Liste sammelt ALLE Review-Items (RBAC-Batches, Modul-Reviews, Rest) und wird nach Abschluss der Bau-Strecke in einem Rutsch abgearbeitet.
+> **Stand:** 2026-07-19.
 
 ## ✅ Voraussetzungen geklärt (Darien, 2026-06-24)
 1. **Deploy:** macht **Luke** (irgendwann). Push auf `main` ≠ sofort live → Änderungen erscheinen auf Hetzner erst nach Lukes Deploy.
