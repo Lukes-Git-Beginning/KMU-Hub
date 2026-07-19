@@ -22,6 +22,8 @@ import { formatAccount } from '../lib/skr-accounts'
 import { ExpenseFormDialog } from '../ExpenseFormDialog'
 import { ReceiptPreviewDialog } from '../ReceiptPreviewDialog'
 import { ExpenseDetailPanel } from '../ExpenseDetailPanel'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible } from '../lib/amounts-visibility'
 
 export function ExpensesTab() {
   const { t, i18n } = useTranslation()
@@ -37,6 +39,11 @@ export function ExpensesTab() {
   const [detailExpense, setDetailExpense] = useState<Expense | null>(null)
   const [previewExpense, setPreviewExpense] = useState<Expense | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string } | null>(null)
+
+  // RBAC R-3
+  const canBook    = useHasCapability('finance:incoming:book')
+  const canReview  = useHasCapability('finance:incoming:review')
+  const amountsVisible = useAmountsVisible()
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -87,14 +94,17 @@ export function ExpensesTab() {
             className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           />
         </div>
-        <button
-          type="button"
-          onClick={openNew}
-          className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {t('buchhaltung.newExpense')}
-        </button>
+        {/* Neu → incoming:book */}
+        {canBook && (
+          <button
+            type="button"
+            onClick={openNew}
+            className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('buchhaltung.newExpense')}
+          </button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -102,7 +112,7 @@ export function ExpensesTab() {
           icon={Receipt}
           title={t('buchhaltung.empty.expensesTitle')}
           description={t('buchhaltung.empty.expensesDesc')}
-          action={{ label: t('buchhaltung.newExpense'), onClick: openNew }}
+          action={canBook ? { label: t('buchhaltung.newExpense'), onClick: openNew } : undefined}
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -155,16 +165,24 @@ export function ExpensesTab() {
                   {exp.account}
                 </span>
               ) : (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); openEdit(exp) }}
-                  className="w-fit text-xs text-warning underline-offset-2 hover:underline"
-                >
-                  {t('buchhaltung.table.uncategorized')}
-                </button>
+                /* Unkategorisiert → incoming:book */
+                canBook ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); openEdit(exp) }}
+                    className="w-fit text-xs text-warning underline-offset-2 hover:underline"
+                  >
+                    {t('buchhaltung.table.uncategorized')}
+                  </button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">{t('buchhaltung.table.uncategorized')}</span>
+                )
               )}
-              <span className="text-right text-sm font-medium tabular-nums text-error">
-                −{formatCurrency(exp.amount)}
+              <span
+                className="text-right text-sm font-medium tabular-nums text-error"
+                title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+              >
+                {amountsVisible ? `−${formatCurrency(exp.amount)}` : '•••'}
               </span>
               <span className="truncate text-xs text-muted-foreground">{exp.supplier}</span>
               <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[exp.status]}`}>
@@ -177,11 +195,13 @@ export function ExpensesTab() {
                     label: t('common.details'),
                     onClick: () => setDetailExpense(exp),
                   },
-                  {
+                  // Edit → incoming:book
+                  ...(canBook ? [{
                     label: t('buchhaltung.actions.editExpense'),
                     onClick: () => openEdit(exp),
-                  },
-                  ...(exp.status === 'pending'
+                  }] : []),
+                  // Approve/Reject → incoming:review
+                  ...(exp.status === 'pending' && canReview
                     ? [
                         {
                           label: t('buchhaltung.actions.approve'),
@@ -199,11 +219,12 @@ export function ExpensesTab() {
                         },
                       ]
                     : []),
-                  {
+                  // Delete → incoming:book
+                  ...(canBook ? [{
                     label: t('common.delete'),
                     variant: 'destructive' as const,
                     onClick: () => setConfirmDelete({ id: exp.id, label: exp.description }),
-                  },
+                  }] : []),
                 ]}
               />
               </div>

@@ -21,10 +21,13 @@ type CustomFieldInfo = components['schemas']['CustomFieldInfo']
 interface CustomFieldsSectionProps {
   taskId: string
   projectId: string
+  /** RBAC (R-3): values stay visible, inputs are locked (fieldset cascade). */
+  canEdit?: boolean
 }
 
 export default function CustomFieldsSection({
   taskId,
+  canEdit = true,
 }: CustomFieldsSectionProps) {
   const { t } = useTranslation()
   // Fetch custom field definitions for 'task' entity type
@@ -50,7 +53,7 @@ export default function CustomFieldsSection({
   const currentValuesKey = JSON.stringify(currentValues)
 
   const [localValues, setLocalValues] = useState<Record<string, string>>({})
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
 
   useEffect(() => {
@@ -91,7 +94,7 @@ export default function CustomFieldsSection({
   }
 
   return (
-    <div className="space-y-2">
+    <fieldset disabled={!canEdit} className="min-w-0 space-y-2 border-0 p-0 m-0">
       {definitions.map((field) => {
         const fieldId = field.id ?? ''
         const value = localValues[fieldId] ?? ''
@@ -194,6 +197,6 @@ export default function CustomFieldsSection({
           </div>
         )
       })}
-    </div>
+    </fieldset>
   )
 }

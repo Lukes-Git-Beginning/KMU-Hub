@@ -32,6 +32,8 @@ import {
 import type { BankAccount, BankTransaction } from '@/types/finance-types'
 import { BankTransactionDetailPanel } from './BankTransactionDetailPanel'
 import { BankConnectDialog } from './BankConnectDialog'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -48,6 +50,11 @@ export function BankingWidget() {
   const [syncing, setSyncing] = useState(false)
   const [detailTx, setDetailTx] = useState<BankTransaction | null>(null)
   const [connectAcc, setConnectAcc] = useState<BankAccount | null>(null)
+
+  // RBAC R-3
+  const canSettings    = useHasCapability('finance:settings:manage')
+  const canBook        = useHasCapability('finance:incoming:book')
+  const amountsVisible = useAmountsVisible()
 
   const connectedAccount = accounts.find((a) => a.connected)
 
@@ -122,13 +129,16 @@ export function BankingWidget() {
               {acc.connected ? (
                 <CheckCircle2 className="h-4 w-4 text-success" />
               ) : (
-                <button
-                  onClick={() => setConnectAcc(acc)}
-                  className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  <Link2 className="h-3 w-3" />
-                  {t('finanzen.banking.connect')}
-                </button>
+                /* Connect → settings:manage */
+                canSettings && (
+                  <button
+                    onClick={() => setConnectAcc(acc)}
+                    className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    <Link2 className="h-3 w-3" />
+                    {t('finanzen.banking.connect')}
+                  </button>
+                )
               )}
             </div>
 
@@ -136,7 +146,12 @@ export function BankingWidget() {
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-[10px] text-muted-foreground">{t('finanzen.banking.balance')}</p>
-                  <p className="text-lg font-semibold text-foreground">{formatEUR(acc.balance)}</p>
+                  <p
+                    className="text-lg font-semibold text-foreground"
+                    title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                  >
+                    {maskedAmount(amountsVisible, formatEUR(acc.balance))}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {acc.lastSync && (
@@ -144,13 +159,16 @@ export function BankingWidget() {
                       {t('finanzen.banking.lastSync')}: {formatDate(acc.lastSync)}
                     </span>
                   )}
-                  <button
-                    onClick={handleSync}
-                    disabled={syncing}
-                    className="rounded-md border border-border p-1.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                  </button>
+                  {/* Sync → incoming:book */}
+                  {canBook && (
+                    <button
+                      onClick={handleSync}
+                      disabled={syncing}
+                      className="rounded-md border border-border p-1.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -224,13 +242,14 @@ export function BankingWidget() {
                   className={`text-xs font-medium text-right flex items-center justify-end gap-1 ${
                     tx.type === 'credit' ? 'text-success' : 'text-foreground'
                   }`}
+                  title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
                 >
                   {tx.type === 'credit' ? (
                     <ArrowDownRight className="h-3 w-3" />
                   ) : (
                     <ArrowUpRight className="h-3 w-3 text-muted-foreground" />
                   )}
-                  {formatEUR(Math.abs(tx.amount))}
+                  {maskedAmount(amountsVisible, formatEUR(Math.abs(tx.amount)))}
                 </span>
                 <div>
                   {tx.matchStatus === 'matched' && (
@@ -250,7 +269,8 @@ export function BankingWidget() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  {tx.matchStatus === 'suggested' && (
+                  {/* Match accept/reject → incoming:book */}
+                  {tx.matchStatus === 'suggested' && canBook && (
                     <>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleAcceptMatch(tx.id) }}
@@ -268,7 +288,7 @@ export function BankingWidget() {
                       </button>
                     </>
                   )}
-                  {tx.matchStatus === 'unmatched' && tx.type === 'credit' && (
+                  {tx.matchStatus === 'unmatched' && tx.type === 'credit' && canBook && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setDetailTx(tx) }}
                       className="rounded p-1 text-primary hover:bg-primary/10 transition-colors"

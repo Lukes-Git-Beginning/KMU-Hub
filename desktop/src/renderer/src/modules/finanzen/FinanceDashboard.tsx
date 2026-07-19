@@ -14,6 +14,7 @@ import { useFinanceDashboard } from '@/api/hooks/useFinance'
 import { useFinanceUIStore, formatEUR } from '@/stores/finance'
 import type { InvoiceStatus } from '@/types/finance-types'
 import { formatDate } from '@/lib/format'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
   draft: 'bg-secondary',
@@ -75,6 +76,7 @@ export function FinanceDashboard({ onOpenInvoice, onOpenQuote, onOpenDunnings }:
   const { t } = useTranslation()
   const { dateRange, setDateRange } = useFinanceUIStore()
   const [preset, setPreset] = useState<DatePreset>('year')
+  const amountsVisible = useAmountsVisible()
   const { data: dashboard, isLoading } = useFinanceDashboard(
     dateRange.from,
     dateRange.to,
@@ -169,28 +171,32 @@ export function FinanceDashboard({ onOpenInvoice, onOpenQuote, onOpenDunnings }:
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           label={t('finanzen.dashboard.totalInvoiced')}
-          value={formatEUR(totalInvoiced)}
+          value={maskedAmount(amountsVisible, formatEUR(totalInvoiced))}
+          amountsHiddenTitle={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
           icon={TrendingUp}
           color="text-primary"
           bg="bg-primary-light"
         />
         <MetricCard
           label={t('finanzen.status.paid')}
-          value={formatEUR(totalPaid)}
+          value={maskedAmount(amountsVisible, formatEUR(totalPaid))}
+          amountsHiddenTitle={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
           icon={DollarSign}
           color="text-success"
           bg="bg-success-light"
         />
         <MetricCard
           label={t('finanzen.dashboard.outstanding')}
-          value={formatEUR(totalOutstanding)}
+          value={maskedAmount(amountsVisible, formatEUR(totalOutstanding))}
+          amountsHiddenTitle={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
           icon={Clock}
           color="text-warning"
           bg="bg-warning-light"
         />
         <MetricCard
           label={t('finanzen.status.overdue')}
-          value={formatEUR(overdueAmount)}
+          value={maskedAmount(amountsVisible, formatEUR(overdueAmount))}
+          amountsHiddenTitle={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
           icon={AlertCircle}
           color="text-error"
           bg="bg-error-light"
@@ -225,14 +231,16 @@ export function FinanceDashboard({ onOpenInvoice, onOpenQuote, onOpenDunnings }:
         />
         <MetricCard
           label={t('finanzen.dashboard.avgDealSize')}
-          value={formatEUR(avgDealSize)}
+          value={maskedAmount(amountsVisible, formatEUR(avgDealSize))}
+          amountsHiddenTitle={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
           icon={BarChart3}
           color="text-primary"
           bg="bg-primary-light"
         />
         <MetricCard
           label={t('finanzen.dashboard.revenueForecast')}
-          value={formatEUR(revenueForecast)}
+          value={maskedAmount(amountsVisible, formatEUR(revenueForecast))}
+          amountsHiddenTitle={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
           icon={TrendingDown}
           color="text-success"
           bg="bg-success-light"
@@ -309,8 +317,11 @@ export function FinanceDashboard({ onOpenInvoice, onOpenQuote, onOpenDunnings }:
                       {inv.customer?.name ?? inv.customer_name ?? ''}
                     </p>
                   </div>
-                  <span className="text-foreground font-medium ml-2 shrink-0">
-                    {formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)}
+                  <span
+                    className="text-foreground font-medium ml-2 shrink-0"
+                    title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                  >
+                    {maskedAmount(amountsVisible, formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0))}
                   </span>
                 </button>
               ))}
@@ -377,8 +388,11 @@ export function FinanceDashboard({ onOpenInvoice, onOpenQuote, onOpenDunnings }:
                     />
                     <span className="text-foreground">{t('finanzen.dunning.levelLabel', { level: d.level })}</span>
                   </div>
-                  <span className="text-foreground font-medium ml-2">
-                    {formatEUR(d.fee)}
+                  <span
+                    className="text-foreground font-medium ml-2"
+                    title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                  >
+                    {maskedAmount(amountsVisible, formatEUR(d.fee))}
                   </span>
                 </button>
               ))}
@@ -401,6 +415,7 @@ function MetricCard({
   color,
   bg,
   badge,
+  amountsHiddenTitle,
 }: {
   label: string
   value: string
@@ -408,6 +423,7 @@ function MetricCard({
   color: string
   bg: string
   badge?: string
+  amountsHiddenTitle?: string
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
@@ -419,7 +435,7 @@ function MetricCard({
           <Icon className={`h-4 w-4 ${color}`} />
         </div>
       </div>
-      <p className={`text-xl font-semibold ${color}`}>{value}</p>
+      <p className={`text-xl font-semibold ${color}`} title={amountsHiddenTitle}>{value}</p>
       {badge && (
         <span className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
           {badge}

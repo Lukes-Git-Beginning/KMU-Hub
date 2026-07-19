@@ -44,6 +44,7 @@ import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
 import TaskLabelChips from '../components/TaskLabelChips'
 import TaskLabelPicker from '../components/TaskLabelPicker'
+import { useTaskCan } from '../useWorkPermissions'
 
 export default function TaskDetailPanel() {
   const { t } = useTranslation()
@@ -57,6 +58,7 @@ export default function TaskDetailPanel() {
   const { data: taskData, isLoading } = useTask(activeTaskId ?? '')
   const task = taskData?.task as TaskWithDerived | undefined
   const projectId = task?.project_id ?? ''
+  const can = useTaskCan(task)
 
   const { data: statusesData } = useProjectStatuses(projectId)
   const { data: membersData } = useProjectMembers(projectId)
@@ -207,20 +209,22 @@ export default function TaskDetailPanel() {
           <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => setConfirmDelete(true)}
-        title={t('common.delete', { defaultValue: 'Löschen' })}
-        aria-label={t('common.delete', { defaultValue: 'Löschen' })}
-      >
-        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-      </Button>
+      {can.delete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => setConfirmDelete(true)}
+          title={t('common.delete', { defaultValue: 'Löschen' })}
+          aria-label={t('common.delete', { defaultValue: 'Löschen' })}
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      )}
     </div>
   ) : undefined
 
-  const commentComposer = task ? (
+  const commentComposer = task && can.comment ? (
     <div className="relative">
       <Input
         className="pr-10 text-sm"
@@ -271,8 +275,8 @@ export default function TaskDetailPanel() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Title (editable) */}
-          {editingTitle ? (
+          {/* Title (editable if can.edit) */}
+          {editingTitle && can.edit ? (
             <Input
               className="text-lg font-semibold"
               value={titleValue}
@@ -289,9 +293,12 @@ export default function TaskDetailPanel() {
             />
           ) : (
             <h2
-              className="text-lg font-semibold cursor-pointer hover:bg-accent/30 rounded px-1 -mx-1 py-0.5 transition-colors"
-              onClick={() => setEditingTitle(true)}
-              title={t('work.panel.clickToEdit')}
+              className={cn(
+                'text-lg font-semibold rounded px-1 -mx-1 py-0.5 transition-colors',
+                can.edit && 'cursor-pointer hover:bg-accent/30'
+              )}
+              onClick={() => can.edit && setEditingTitle(true)}
+              title={can.edit ? t('work.panel.clickToEdit') : task.title}
             >
               {task.title}
             </h2>
@@ -304,40 +311,50 @@ export default function TaskDetailPanel() {
               <label className="text-xs font-medium text-muted-foreground">
                 {t('common.status')}
               </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button type="button" className="cursor-pointer">
-                    <StatusBadge
-                      name={task.status_name ?? 'Offen'}
-                      color={task.status_color}
-                      isClosed={task.is_closed}
-                    />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-1" align="start">
-                  <div className="space-y-0.5">
-                    {statuses.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                          s.id === task.status_id && 'bg-accent'
-                        )}
-                        onClick={() => s.id && handleStatusChange(s.id)}
-                      >
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{
-                            backgroundColor: s.color || '#6b7280',
-                          }}
-                        />
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {(can.edit || can.complete) ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="cursor-pointer">
+                      <StatusBadge
+                        name={task.status_name ?? 'Offen'}
+                        color={task.status_color}
+                        isClosed={task.is_closed}
+                      />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" align="start">
+                    <div className="space-y-0.5">
+                      {statuses.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
+                            s.id === task.status_id && 'bg-accent'
+                          )}
+                          onClick={() => s.id && handleStatusChange(s.id)}
+                        >
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{
+                              backgroundColor: s.color || '#6b7280',
+                            }}
+                          />
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span>
+                  <StatusBadge
+                    name={task.status_name ?? 'Offen'}
+                    color={task.status_color}
+                    isClosed={task.is_closed}
+                  />
+                </span>
+              )}
             </div>
 
             {/* Priority */}
@@ -345,41 +362,49 @@ export default function TaskDetailPanel() {
               <label className="text-xs font-medium text-muted-foreground">
                 {t('work.tasks.priority')}
               </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button type="button" className="cursor-pointer">
-                    <PriorityBadge
-                      priority={(task.priority as Priority) ?? 'normal'}
-                    />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-40 p-1" align="start">
-                  <div className="space-y-0.5">
-                    {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                          p === task.priority && 'bg-accent'
-                        )}
-                        onClick={() => handlePriorityChange(p)}
-                      >
-                        <PriorityBadge priority={p} compact />
-                        <span>
-                          {p === 'urgent'
-                            ? t('work.priority.urgent')
-                            : p === 'high'
-                              ? t('work.priority.high')
-                              : p === 'normal'
-                                ? t('work.priority.normal')
-                                : t('work.priority.low')}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {can.edit ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="cursor-pointer">
+                      <PriorityBadge
+                        priority={(task.priority as Priority) ?? 'normal'}
+                      />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-1" align="start">
+                    <div className="space-y-0.5">
+                      {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
+                            p === task.priority && 'bg-accent'
+                          )}
+                          onClick={() => handlePriorityChange(p)}
+                        >
+                          <PriorityBadge priority={p} compact />
+                          <span>
+                            {p === 'urgent'
+                              ? t('work.priority.urgent')
+                              : p === 'high'
+                                ? t('work.priority.high')
+                                : p === 'normal'
+                                  ? t('work.priority.normal')
+                                  : t('work.priority.low')}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span>
+                  <PriorityBadge
+                    priority={(task.priority as Priority) ?? 'normal'}
+                  />
+                </span>
+              )}
             </div>
 
             {/* Assignee */}
@@ -387,48 +412,55 @@ export default function TaskDetailPanel() {
               <label className="text-xs font-medium text-muted-foreground">
                 {t('work.tasks.assignee')}
               </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
-                  >
-                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>
-                      {task.assignee_name || t('work.tasks.unassigned')}
-                    </span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-1" align="start">
-                  <div className="space-y-0.5">
+              {can.edit ? (
+                <Popover>
+                  <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                        !task.assignee_id && 'bg-accent'
-                      )}
-                      onClick={() => handleAssigneeChange('__none__')}
+                      className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
                     >
-                      {t('work.tasks.unassigned')}
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>
+                        {task.assignee_name || t('work.tasks.unassigned')}
+                      </span>
                     </button>
-                    {members.map((m) => (
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" align="start">
+                    <div className="space-y-0.5">
                       <button
-                        key={m.user_id}
                         type="button"
                         className={cn(
                           'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                          m.user_id === task.assignee_id && 'bg-accent'
+                          !task.assignee_id && 'bg-accent'
                         )}
-                        onClick={() =>
-                          m.user_id && handleAssigneeChange(m.user_id)
-                        }
+                        onClick={() => handleAssigneeChange('__none__')}
                       >
-                        {memberDisplayName(m) || t('work.tasks.user')}
+                        {t('work.tasks.unassigned')}
                       </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                      {members.map((m) => (
+                        <button
+                          key={m.user_id}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
+                            m.user_id === task.assignee_id && 'bg-accent'
+                          )}
+                          onClick={() =>
+                            m.user_id && handleAssigneeChange(m.user_id)
+                          }
+                        >
+                          {memberDisplayName(m) || t('work.tasks.user')}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground px-1 py-0.5">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{task.assignee_name || t('work.tasks.unassigned')}</span>
+                </span>
+              )}
             </div>
 
             {/* Due date */}
@@ -436,41 +468,52 @@ export default function TaskDetailPanel() {
               <label className="text-xs font-medium text-muted-foreground">
                 {t('work.tasks.dueAt')}
               </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
-                  >
-                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>
-                      {task.due_date
-                        ? new Date(task.due_date).toLocaleDateString('de-DE')
-                        : t('work.tasks.noDate')}
-                    </span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-3" align="start">
-                  <div className="space-y-2">
-                    <Input
-                      type="date"
-                      className="h-8 text-xs"
-                      value={toDateInputValue(task.due_date)}
-                      onChange={(e) => handleDueDateChange(e.target.value)}
-                    />
-                    {task.due_date && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-full text-xs"
-                        onClick={() => handleDueDateChange('')}
-                      >
-                        {t('work.tasks.removeDate')}
-                      </Button>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {can.edit ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>
+                        {task.due_date
+                          ? new Date(task.due_date).toLocaleDateString('de-DE')
+                          : t('work.tasks.noDate')}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3" align="start">
+                    <div className="space-y-2">
+                      <Input
+                        type="date"
+                        className="h-8 text-xs"
+                        value={toDateInputValue(task.due_date)}
+                        onChange={(e) => handleDueDateChange(e.target.value)}
+                      />
+                      {task.due_date && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-full text-xs"
+                          onClick={() => handleDueDateChange('')}
+                        >
+                          {t('work.tasks.removeDate')}
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground px-1 py-0.5">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>
+                    {task.due_date
+                      ? new Date(task.due_date).toLocaleDateString('de-DE')
+                      : t('work.tasks.noDate')}
+                  </span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -481,7 +524,7 @@ export default function TaskDetailPanel() {
             </label>
             <div className="flex flex-wrap items-center gap-1.5">
               {activeTaskId && <TaskLabelChips taskId={activeTaskId} />}
-              {activeTaskId && <TaskLabelPicker taskId={activeTaskId} />}
+              {activeTaskId && can.edit && <TaskLabelPicker taskId={activeTaskId} />}
             </div>
           </div>
 
@@ -490,7 +533,7 @@ export default function TaskDetailPanel() {
             <label className="text-xs font-medium text-muted-foreground">
               {t('work.tasks.description')}
             </label>
-            {editingDesc ? (
+            {editingDesc && can.edit ? (
               <div className="space-y-2">
                 <Textarea
                   value={descValue}
@@ -518,13 +561,14 @@ export default function TaskDetailPanel() {
             ) : (
               <div
                 className={cn(
-                  'min-h-[40px] rounded-md border border-transparent px-2 py-1.5 text-sm cursor-pointer hover:bg-accent/30 hover:border-border transition-colors whitespace-pre-wrap',
-                  !task.description && 'text-muted-foreground italic'
+                  'min-h-[40px] rounded-md border border-transparent px-2 py-1.5 text-sm whitespace-pre-wrap',
+                  !task.description && 'text-muted-foreground italic',
+                  can.edit && 'cursor-pointer hover:bg-accent/30 hover:border-border transition-colors'
                 )}
-                onClick={() => setEditingDesc(true)}
-                title={t('work.panel.clickToEdit')}
+                onClick={() => can.edit && setEditingDesc(true)}
+                title={can.edit ? t('work.panel.clickToEdit') : undefined}
               >
-                {task.description || t('work.panel.addDescription')}
+                {task.description || (can.edit ? t('work.panel.addDescription') : t('work.tasks.description'))}
               </div>
             )}
           </div>
@@ -584,27 +628,29 @@ export default function TaskDetailPanel() {
     </DetailModal>
 
     {/* Delete confirmation */}
-    <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          {t('work.myTasks.deleteBody', {
-            defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
-            title: task?.title ?? '',
-          })}
-        </p>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={deleteTask.isPending}>
-            {t('common.delete', { defaultValue: 'Löschen' })}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    {can.delete && (
+      <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t('work.myTasks.deleteBody', {
+              defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
+              title: task?.title ?? '',
+            })}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteTask.isPending}>
+              {t('common.delete', { defaultValue: 'Löschen' })}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
     </>
   )
 }

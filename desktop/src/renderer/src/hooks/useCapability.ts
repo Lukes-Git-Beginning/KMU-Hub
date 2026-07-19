@@ -54,6 +54,24 @@ export function useHasCapability(key: string): boolean {
   return useCapability(key).allowed
 }
 
+/**
+ * Scope-aware object-level check (R-3): may the account act on THIS object?
+ * `own` grants pass only when one of the given owner ids matches the signed-in
+ * account; `team` is treated like `all` for now — objects carry no team model
+ * yet (documented gap, R3-BRIEFING §1.4). Convention: controls gated with this
+ * hook disappear silently on foreign objects (the object stays readable).
+ */
+export function useScopedCapability(
+  key: string,
+  ...ownerIds: Array<string | null | undefined>
+): boolean {
+  const { allowed, scope } = useCapability(key)
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  if (!allowed) return false
+  if (scope !== 'own') return true
+  return userId !== null && ownerIds.some((id) => id != null && id === userId)
+}
+
 /** Level-1 module visibility (`<module>:module:view`). */
 export function useModuleVisible(module: ModuleKey): boolean {
   return useHasCapability(moduleViewKey(module))

@@ -33,6 +33,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import { formatDate } from '@/lib/format'
+import { useScopedCapability } from '@/hooks/useCapability'
 
 type Deal = NonNullable<ReturnType<typeof useDeals>['data']>['deals'][number]
 type Stage = NonNullable<ReturnType<typeof usePipelineStages>['data']>['stages'][number]
@@ -80,12 +81,14 @@ interface DealCardProps {
   onOpen: (id: string) => void
   onMark: (deal: Deal, target: 'won' | 'lost') => void
   isDragOverlay?: boolean
+  canEdit: boolean
 }
 
-function DealCard({ deal, stageOpen, onOpen, onMark, isDragOverlay }: DealCardProps) {
+function DealCard({ deal, stageOpen, onOpen, onMark, isDragOverlay, canEdit }: DealCardProps) {
   const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id ?? '',
+    disabled: !canEdit,
     data: { deal },
   })
 
@@ -167,8 +170,8 @@ function DealCard({ deal, stageOpen, onOpen, onMark, isDragOverlay }: DealCardPr
         </div>
       )}
 
-      {/* Hover quick-actions — only for open stages, hidden in the drag overlay */}
-      {stageOpen && !isDragOverlay && (
+      {/* Hover quick-actions — only for open stages, hidden in the drag overlay, requires edit right */}
+      {stageOpen && !isDragOverlay && canEdit && (
         <div
           className="mt-2 hidden items-center gap-1 group-hover:flex group-focus-within:flex"
           onPointerDown={stopDrag}
@@ -204,11 +207,13 @@ function StageColumn({
   deals,
   onOpen,
   onMark,
+  canEdit,
 }: {
   stage: Stage
   deals: Deal[]
   onOpen: (id: string) => void
   onMark: (deal: Deal, target: 'won' | 'lost') => void
+  canEdit: boolean
 }) {
   const { t } = useTranslation()
   const { setNodeRef, isOver } = useDroppable({ id: `stage-${stage.id}`, data: { stageId: stage.id } })
@@ -248,7 +253,7 @@ function StageColumn({
           </div>
         ) : (
           deals.map((deal) => (
-            <DealCard key={deal.id} deal={deal} stageOpen={open} onOpen={onOpen} onMark={onMark} />
+            <DealCard key={deal.id} deal={deal} stageOpen={open} onOpen={onOpen} onMark={onMark} canEdit={canEdit} />
           ))
         )}
       </div>
@@ -266,6 +271,9 @@ export default function DealPipelineView() {
   const queryClient = useQueryClient()
   const moveDeal = useMoveDealToStage()
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null)
+
+  // RBAC — CRM-Objekte kein owner-Feld → ownerIds leer → scope='own' ergibt deny
+  const canEdit = useScopedCapability('crm:deal:edit')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -322,6 +330,7 @@ export default function DealPipelineView() {
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveDeal(null)
+    if (!canEdit) return
     const { active, over } = event
     if (!over) return
     const dealId = active.id as string
@@ -336,6 +345,7 @@ export default function DealPipelineView() {
   }
 
   function handleMark(deal: Deal, target: 'won' | 'lost') {
+    if (!canEdit) return
     const targetStage = target === 'won' ? wonStage : lostStage
     if (!targetStage || !deal.id || targetStage.id === deal.stageId) return
     applyMove(deal.id, targetStage)
@@ -405,6 +415,7 @@ export default function DealPipelineView() {
               deals={dealsByStage.get(stage.id ?? '') ?? []}
               onOpen={(id) => navigate(`/kontakte/pipeline/${id}`)}
               onMark={handleMark}
+              canEdit={canEdit}
             />
           ))}
         </div>
@@ -413,7 +424,7 @@ export default function DealPipelineView() {
 
       <DragOverlay>
         {activeDeal ? (
-          <DealCard deal={activeDeal} stageOpen={false} onOpen={() => {}} onMark={() => {}} isDragOverlay />
+          <DealCard deal={activeDeal} stageOpen={false} onOpen={() => {}} onMark={() => {}} isDragOverlay canEdit={canEdit} />
         ) : null}
       </DragOverlay>
     </DndContext>

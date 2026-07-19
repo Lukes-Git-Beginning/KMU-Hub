@@ -27,6 +27,7 @@ import {
 
 import { useUpdateTask } from '@/api/hooks/useTasks'
 import { useWorkStore } from '@/stores/work'
+import { useTaskCan } from '../useWorkPermissions'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
@@ -49,6 +50,8 @@ interface TaskData {
   subtask_count?: number
   completed_subtask_count?: number
   parent_task_id?: string
+  created_by?: string
+  reporter_id?: string
 }
 
 interface StatusOption {
@@ -86,6 +89,7 @@ export default function TaskRow({
   const { t } = useTranslation()
   const updateTask = useUpdateTask()
   const openTaskPanel = useWorkStore((s) => s.openTaskPanel)
+  const can = useTaskCan(task)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState(task.title ?? '')
 
@@ -241,9 +245,9 @@ export default function TaskRow({
             }}
             onDoubleClick={(e) => {
               e.stopPropagation()
-              setEditingTitle(true)
+              if (can.edit) setEditingTitle(true)
             }}
-            title={t('work.list.clickToOpenDblEdit')}
+            title={can.edit ? t('work.list.clickToOpenDblEdit') : task.title}
           >
             {task.title}
           </button>
@@ -272,7 +276,16 @@ export default function TaskRow({
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-      {/* Status (inline edit via popover) */}
+      {/* Status (inline edit via popover; value stays visible without the right) */}
+      {!can.complete ? (
+        <span className="shrink-0">
+          <StatusBadge
+            name={task.status_name ?? t('work.status.open')}
+            color={task.status_color}
+            isClosed={task.is_closed}
+          />
+        </span>
+      ) : (
       <Popover>
         <PopoverTrigger asChild>
           <button type="button" className="shrink-0 cursor-pointer">
@@ -305,8 +318,14 @@ export default function TaskRow({
           </div>
         </PopoverContent>
       </Popover>
+      )}
 
-      {/* Priority (inline edit via popover) */}
+      {/* Priority (inline edit via popover; value stays visible without the right) */}
+      {!can.edit ? (
+        <span className="shrink-0">
+          <PriorityBadge priority={(task.priority as Priority) ?? 'normal'} compact />
+        </span>
+      ) : (
       <Popover>
         <PopoverTrigger asChild>
           <button type="button" className="shrink-0 cursor-pointer">
@@ -340,8 +359,18 @@ export default function TaskRow({
           </div>
         </PopoverContent>
       </Popover>
+      )}
 
-      {/* Assignee (inline edit) */}
+      {/* Assignee (inline edit; value stays visible without the right) */}
+      {!can.edit ? (
+        <span
+          className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground w-24 truncate"
+          title={task.assignee_name || t('work.tasks.unassigned')}
+        >
+          <User className="h-3 w-3" />
+          <span className="truncate">{task.assignee_name || '-'}</span>
+        </span>
+      ) : (
       <Popover>
         <PopoverTrigger asChild>
           <button
@@ -383,8 +412,24 @@ export default function TaskRow({
           </div>
         </PopoverContent>
       </Popover>
+      )}
 
-      {/* Due date (inline edit) */}
+      {/* Due date (inline edit; value stays visible without the right) */}
+      {!can.edit ? (
+        <span
+          className={cn(
+            'shrink-0 flex items-center gap-1 text-xs w-24',
+            overdue
+              ? 'text-destructive font-medium'
+              : dueLabel
+                ? 'text-muted-foreground'
+                : 'text-muted-foreground/50'
+          )}
+        >
+          <Calendar className="h-3 w-3" />
+          <span className="truncate">{dueLabel || '-'}</span>
+        </span>
+      ) : (
       <Popover>
         <PopoverTrigger asChild>
           <button
@@ -426,6 +471,7 @@ export default function TaskRow({
           </div>
         </PopoverContent>
       </Popover>
+      )}
       </div>
     </div>
   )

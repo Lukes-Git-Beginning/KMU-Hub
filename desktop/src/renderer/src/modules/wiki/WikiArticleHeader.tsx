@@ -12,12 +12,14 @@ import {
   BookOpen,
   ChevronRight,
   FolderInput,
+  Tag,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { WikiArticle, WikiCategory } from '@/types/wiki'
 import { useUpdateArticle } from '@/api/hooks/useWiki'
 import { useWikiStore } from '@/stores/wiki'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import { ItemActions } from '@/components/shared'
 import { formatDate as libFormatDate } from '@/lib/format'
 import { WikiMoveDialog } from './WikiMoveDialog'
@@ -79,6 +81,52 @@ export function WikiArticleHeader({
   const [editingTitle, setEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState(article.title)
 
+  // RBAC
+  const canEdit = useScopedCapability('wiki:article:edit', article.authorId)
+  const canPublish = useHasCapability('wiki:article:publish')
+  const canDelete = useScopedCapability('wiki:article:delete', article.authorId)
+
+  // Dropdown items — only non-empty items are included; if none remain, the
+  // trigger is suppressed entirely (no empty action bar).
+  const dropdownItems = [
+    ...(canEdit
+      ? [
+          {
+            label: article.isPinned ? t('wiki.actions.unpin') : t('wiki.actions.pin'),
+            icon: Pin,
+            onClick: () => {
+              togglePin(article.id)
+              toast.success(article.isPinned ? t('wiki.actions.unpinned') : t('wiki.actions.pinned'))
+            },
+          },
+          { label: t('wiki.actions.move'), icon: FolderInput, onClick: () => setMoveOpen(true) },
+        ]
+      : []),
+    ...(canPublish && article.status === 'draft'
+      ? [{
+          label: t('wiki.actions.publish'),
+          icon: Send,
+          onClick: () => {
+            updateMutation.mutate({ id: article.id, published: true })
+            toast.success(t('wiki.actions.published'))
+          },
+        }]
+      : []),
+    ...(canEdit && article.status === 'published'
+      ? [{
+          label: t('wiki.actions.archive'),
+          icon: Archive,
+          onClick: () => {
+            updateMutation.mutate({ id: article.id, published: false })
+            toast.success(t('wiki.actions.archived'))
+          },
+        }]
+      : []),
+    ...(canDelete
+      ? [{ label: t('common.delete'), icon: Trash2, onClick: onDelete, variant: 'destructive' as const }]
+      : []),
+  ]
+
   const st = statusConfig[article.status]
   const coverBg = coverBackground(article.coverUrl)
   const crumbs = categoryPath(article.categoryId, categories)
@@ -134,7 +182,7 @@ export function WikiArticleHeader({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               {article.isPinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
-            {editingTitle ? (
+            {canEdit && editingTitle ? (
               <input
                 value={draftTitle}
                 onChange={(e) => setDraftTitle(e.target.value)}
@@ -150,7 +198,7 @@ export function WikiArticleHeader({
                 aria-label={t('wiki.header.renameTitle')}
                 className="min-w-0 flex-1 rounded border border-primary/50 bg-background px-1.5 py-0.5 text-lg font-semibold text-foreground outline-none"
               />
-            ) : (
+            ) : canEdit ? (
               <button
                 onClick={() => {
                   setDraftTitle(article.title)
@@ -161,6 +209,10 @@ export function WikiArticleHeader({
               >
                 {article.title}
               </button>
+            ) : (
+              <span className="min-w-0 truncate px-1 -mx-1 text-lg font-semibold text-foreground">
+                {article.title}
+              </span>
             )}
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${st?.bg ?? ''}`}>
               {st ? t(st.key) : article.status}
@@ -187,13 +239,15 @@ export function WikiArticleHeader({
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={onEdit}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title={t('common.edit')}
-          >
-            <Edit3 className="h-4 w-4" />
-          </button>
+          {canEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              title={t('common.edit')}
+            >
+              <Edit3 className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={onToggleVersions}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -208,46 +262,28 @@ export function WikiArticleHeader({
           >
             <Share2 className="h-4 w-4" />
           </button>
-          <ItemActions
-            items={[
-              {
-                label: article.isPinned ? t('wiki.actions.unpin') : t('wiki.actions.pin'),
-                icon: Pin,
-                onClick: () => {
-                  togglePin(article.id)
-                  toast.success(article.isPinned ? t('wiki.actions.unpinned') : t('wiki.actions.pinned'))
-                },
-              },
-              { label: t('wiki.actions.move'), icon: FolderInput, onClick: () => setMoveOpen(true) },
-              ...(article.status === 'draft'
-                ? [{
-                    label: t('wiki.actions.publish'),
-                    icon: Send,
-                    onClick: () => {
-                      updateMutation.mutate({ id: article.id, published: true })
-                      toast.success(t('wiki.actions.published'))
-                    },
-                  }]
-                : []),
-              ...(article.status === 'published'
-                ? [{
-                    label: t('wiki.actions.archive'),
-                    icon: Archive,
-                    // archive = unpublish (closest available API equivalent)
-                    onClick: () => {
-                      updateMutation.mutate({ id: article.id, published: false })
-                      toast.success(t('wiki.actions.archived'))
-                    },
-                  }]
-                : []),
-              { label: t('common.delete'), icon: Trash2, onClick: onDelete, variant: 'destructive' as const },
-            ]}
-          />
+          {dropdownItems.length > 0 && (
+            <ItemActions items={dropdownItems} />
+          )}
         </div>
       </div>
 
-        {/* Tags (editable) */}
-        <WikiTagEditor articleId={article.id} tags={article.tags ?? []} suggestions={allTags} />
+        {/* Tags — editable only with edit permission */}
+        {canEdit ? (
+          <WikiTagEditor articleId={article.id} tags={article.tags ?? []} suggestions={allTags} />
+        ) : (article.tags ?? []).length > 0 ? (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {(article.tags ?? []).map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground"
+              >
+                <Tag className="h-3 w-3" />
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <WikiMoveDialog

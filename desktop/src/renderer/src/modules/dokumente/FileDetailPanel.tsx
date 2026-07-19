@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { DetailPanel } from '@/components/shared'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   useShares,
   useFileVersions,
@@ -42,6 +43,7 @@ import {
 import type { DocumentFile } from '@/api/types/document-types'
 import { formatDate } from '@/lib/format'
 import { downloadDocumentFile } from './download'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 
 interface FileDetailPanelProps {
   file: DocumentFile | null
@@ -98,6 +100,13 @@ export function FileDetailPanel({
 }: FileDetailPanelProps) {
   const { t } = useTranslation()
 
+  // RBAC checks (unconditional — hooks always called)
+  const canDownload = useHasCapability('documents:file:download')
+  const canEdit = useScopedCapability('documents:file:edit', file?.owner_id)
+  const canDelete = useScopedCapability('documents:file:delete', file?.owner_id)
+  const canShare = useHasCapability('documents:share:manage')
+  const canVersionRestore = useHasCapability('documents:version:restore')
+
   // API data
   const { data: sharesData } = useShares('file', file?.id ?? '')
   const { data: versionsData } = useFileVersions(file?.id ?? '')
@@ -140,27 +149,31 @@ export function FileDetailPanel({
             <FileText className="mr-1.5 h-4 w-4" />
             {t('dokumente.detail.preview')}
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onToggleFavorite(file.id)}
-          >
-            <Star
-              className={`h-4 w-4 ${
-                file.is_favorite
-                  ? 'fill-warning text-warning'
-                  : ''
-              }`}
-            />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => onDelete(file.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onToggleFavorite(file.id)}
+            >
+              <Star
+                className={`h-4 w-4 ${
+                  file.is_favorite
+                    ? 'fill-warning text-warning'
+                    : ''
+                }`}
+              />
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(file.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       }
     >
@@ -190,34 +203,55 @@ export function FileDetailPanel({
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2 mt-4">
-        <Button variant="outline" size="sm" onClick={() => onRename(file)}>
-          <Pencil className="mr-1.5 h-3.5 w-3.5" />
-          {t('dokumente.context.rename')}
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => onShare(file)}>
-          <Share2 className="mr-1.5 h-3.5 w-3.5" />
-          {t('dokumente.context.share')}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onVersionHistory(file.id)}
-        >
-          <History className="mr-1.5 h-3.5 w-3.5" />
-          {t('dokumente.detail.versions', { count: versions.length })}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            downloadDocumentFile(file.id, file.filename)
-              .then(() => toast.success(t('dokumente.downloading', { name: file.filename })))
-              .catch((err: Error) => toast.error(`${t('common.error')}: ${err.message}`))
-          }
-        >
-          <Download className="mr-1.5 h-3.5 w-3.5" />
-          {t('common.download')}
-        </Button>
+        {canEdit && (
+          <Button variant="outline" size="sm" onClick={() => onRename(file)}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            {t('dokumente.context.rename')}
+          </Button>
+        )}
+        {canShare && (
+          <Button variant="outline" size="sm" onClick={() => onShare(file)}>
+            <Share2 className="mr-1.5 h-3.5 w-3.5" />
+            {t('dokumente.context.share')}
+          </Button>
+        )}
+        {canVersionRestore && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onVersionHistory(file.id)}
+          >
+            <History className="mr-1.5 h-3.5 w-3.5" />
+            {t('dokumente.detail.versions', { count: versions.length })}
+          </Button>
+        )}
+        {/* Download: Ausnahme-Muster — immer sichtbar, ohne Recht deaktiviert */}
+        {canDownload ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              downloadDocumentFile(file.id, file.filename)
+                .then(() => toast.success(t('dokumente.downloading', { name: file.filename })))
+                .catch((err: Error) => toast.error(`${t('common.error')}: ${err.message}`))
+            }
+          >
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            {t('common.download')}
+          </Button>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex" tabIndex={0}>
+                <Button variant="outline" size="sm" disabled className="pointer-events-none">
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  {t('common.download')}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{t('rbac.gate.downloadDisabled')}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* Tags */}
@@ -229,19 +263,25 @@ export function FileDetailPanel({
         </h4>
         <div className="flex flex-wrap gap-1.5">
           {fileTags.map((tag) => (
-            <Badge
-              key={tag.id}
-              variant="secondary"
-              className="text-xs group cursor-pointer"
-              onClick={() =>
-                untagFile.mutate({ fileId: file.id, tagId: tag.id })
-              }
-            >
-              {tag.name}
-              <X className="ml-1 h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Badge>
+            canEdit ? (
+              <Badge
+                key={tag.id}
+                variant="secondary"
+                className="text-xs group cursor-pointer"
+                onClick={() =>
+                  untagFile.mutate({ fileId: file.id, tagId: tag.id })
+                }
+              >
+                {tag.name}
+                <X className="ml-1 h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </Badge>
+            ) : (
+              <Badge key={tag.id} variant="secondary" className="text-xs">
+                {tag.name}
+              </Badge>
+            )
           ))}
-          {availableTags.length > 0 && (
+          {canEdit && availableTags.length > 0 && (
             <Badge
               variant="outline"
               className="text-xs cursor-pointer hover:bg-secondary"

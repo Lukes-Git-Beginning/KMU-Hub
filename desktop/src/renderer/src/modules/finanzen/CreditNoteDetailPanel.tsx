@@ -20,6 +20,12 @@ import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   useCreditNote,
   useSendCreditNote,
   useDownloadCreditNotePDF,
@@ -29,6 +35,8 @@ import { formatDate } from '@/lib/format'
 import { PDFPreviewPanel } from './PDFPreviewPanel'
 import { CustomerAccountSection } from './CustomerAccountSection'
 import { useFinanceDetailNavOptional } from './FinanceDetailNav'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 interface CreditNoteDetailPanelProps {
   creditNoteId: string
@@ -42,6 +50,10 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose, onBack }: CreditN
   const nav = useFinanceDetailNavOptional()
   const sendCreditNote = useSendCreditNote()
   const downloadPDF = useDownloadCreditNotePDF()
+
+  // RBAC R-3
+  const canSendInvoice = useHasCapability('finance:invoice:send')
+  const amountsVisible = useAmountsVisible()
 
   if (isLoading || !cn) {
     return (
@@ -170,17 +182,23 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose, onBack }: CreditN
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between text-muted-foreground">
             <span>{t('finanzen.totals.subtotalNet')}</span>
-            <span>{money(cn.tax_breakdown?.subtotal ?? cn.total_net ?? 0)}</span>
+            <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+              {maskedAmount(amountsVisible, money(cn.tax_breakdown?.subtotal ?? cn.total_net ?? 0))}
+            </span>
           </div>
           {Object.entries(cn.tax_breakdown?.tax_by_rate ?? {}).map(([rate, amount]) => (
             <div key={rate} className="flex justify-between text-muted-foreground">
               <span>MwSt {rate}%</span>
-              <span>{money(amount as number)}</span>
+              <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+                {maskedAmount(amountsVisible, money(Number(amount)))}
+              </span>
             </div>
           ))}
           <div className="flex justify-between border-t border-border pt-1.5 text-sm font-medium text-foreground">
             <span>{t('finanzen.totals.totalAmount')}</span>
-            <span>{money(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}</span>
+            <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+              {maskedAmount(amountsVisible, money(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0))}
+            </span>
           </div>
         </div>
 
@@ -248,26 +266,42 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose, onBack }: CreditN
         <CustomerAccountSection customer={cn.customer} currentDocId={cn.id} />
 
         {/* Actions */}
-        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-          {!isSent && (
-            <Button
-              size="sm"
-              onClick={() =>
-                sendCreditNote.mutate(creditNoteId, {
-                  onSuccess: () => toast.success(`${cn.credit_note_number} ${t('finanzen.dunning.sent')}`),
-                  onError: (err) => toast.error(err.message),
-                })
-              }
-            >
-              <Send className="mr-1.5 h-4 w-4" />
-              {t('finanzen.dunning.send')}
+        <TooltipProvider>
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+            {/* Send → AUSNAHME invoice:send: visible when draft, disabled without right */}
+            {!isSent && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex" tabIndex={0}>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!canSendInvoice) return
+                        sendCreditNote.mutate(creditNoteId, {
+                          onSuccess: () => toast.success(`${cn.credit_note_number} ${t('finanzen.dunning.sent')}`),
+                          onError: (err) => toast.error(err.message),
+                        })
+                      }}
+                      disabled={!canSendInvoice}
+                      className={!canSendInvoice ? 'pointer-events-none' : ''}
+                    >
+                      <Send className="mr-1.5 h-4 w-4" />
+                      {t('finanzen.dunning.send')}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canSendInvoice && (
+                  <TooltipContent>{t('rbac.gate.sendDisabled')}</TooltipContent>
+                )}
+              </Tooltip>
+            )}
+            {/* PDF — always free */}
+            <Button variant="outline" size="sm" onClick={() => downloadPDF.mutate(creditNoteId)}>
+              <Download className="mr-1.5 h-4 w-4" />
+              {t('finanzen.pdf.downloadPdf')}
             </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => downloadPDF.mutate(creditNoteId)}>
-            <Download className="mr-1.5 h-4 w-4" />
-            {t('finanzen.pdf.downloadPdf')}
-          </Button>
-        </div>
+          </div>
+        </TooltipProvider>
       </div>
     </DetailModal>
   )

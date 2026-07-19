@@ -6,6 +6,7 @@ import type { WikiArticle } from '@/types/wiki'
 import { useShareTokens, useCreateShareToken, useRevokeShareToken } from '@/api/hooks/useWiki'
 import { useWikiStore } from '@/stores/wiki'
 import { useWikiSettingsStore } from '@/stores/wikiSettings'
+import { useHasCapability } from '@/hooks/useCapability'
 import { formatDate as libFormatDate } from '@/lib/format'
 import {
   Dialog,
@@ -47,6 +48,7 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
   const [copied, setCopied] = useState(false)
   const shareDefault = useWikiSettingsStore((s) => s.shareDefault)
   const setSelectedArticle = useWikiStore((s) => s.setSelectedArticle)
+  const canShareToken = useHasCapability('wiki:share_token:create')
 
   const articleId = article?.id ?? ''
   const { data: tokens = [], isLoading: tokensLoading } = useShareTokens(articleId)
@@ -133,91 +135,95 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
             </button>
           </div>
 
-          {/* Access level for new share */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-muted-foreground">{t('wiki.share.accessLevel')}</label>
-            {accessOptionKeys.map((opt) => {
-              const Icon = opt.icon
-              const isActive = access === opt.id
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => setAccess(opt.id)}
-                  className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
-                    isActive ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>{t(opt.labelKey)}</p>
-                    <p className="text-[11px] text-muted-foreground">{t(opt.descKey)}</p>
-                  </div>
-                </button>
-              )
-            })}
-            <button
-              onClick={handleCreate}
-              disabled={createShareToken.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
-            >
-              {createShareToken.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
-              {createShareToken.isPending ? t('wiki.share.creating') : t('wiki.share.create')}
-            </button>
-          </div>
-
-          {/* Active share tokens */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              {t('wiki.share.activeTokens')}
-              <span className="ml-1 text-muted-foreground/60">({tokens.length})</span>
-            </label>
-            {tokensLoading ? (
+          {/* Access level + token management — only with share_token:create */}
+          {canShareToken && (
+            <>
               <div className="space-y-1.5">
-                {[1, 2].map((i) => (
-                  <div key={i} className="h-10 rounded-md bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : tokens.length === 0 ? (
-              <p className="rounded-md border border-dashed border-border px-3 py-3 text-center text-[11px] text-muted-foreground">
-                {t('wiki.share.noTokens')}
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {tokens.map((tok) => {
-                  const acc = tokenAccess(tok.permissions)
-                  const Icon = acc.icon
-                  const revoking =
-                    revokeShareToken.isPending && revokeShareToken.variables?.tokenId === tok.id
+                <label className="block text-xs font-medium text-muted-foreground">{t('wiki.share.accessLevel')}</label>
+                {accessOptionKeys.map((opt) => {
+                  const Icon = opt.icon
+                  const isActive = access === opt.id
                   return (
-                    <div
-                      key={tok.id}
-                      className="group flex items-center gap-2.5 rounded-md border border-border bg-card/40 px-2.5 py-1.5"
+                    <button
+                      key={opt.id}
+                      onClick={() => setAccess(opt.id)}
+                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
+                        isActive ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
+                      }`}
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-info-light text-info">
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-foreground">{t(acc.labelKey)}</p>
-                        <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Clock className="h-2.5 w-2.5" />
-                          {libFormatDate(tok.created_at)}
-                        </p>
+                      <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div className="min-w-0">
+                        <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>{t(opt.labelKey)}</p>
+                        <p className="text-[11px] text-muted-foreground">{t(opt.descKey)}</p>
                       </div>
-                      <button
-                        onClick={() => handleRevoke(tok.id)}
-                        disabled={revoking}
-                        className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:opacity-100"
-                        title={t('wiki.share.revoke')}
-                        aria-label={t('wiki.share.revoke')}
-                      >
-                        {revoking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
+                    </button>
                   )
                 })}
+                <button
+                  onClick={handleCreate}
+                  disabled={createShareToken.isPending}
+                  className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  {createShareToken.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
+                  {createShareToken.isPending ? t('wiki.share.creating') : t('wiki.share.create')}
+                </button>
               </div>
-            )}
-          </div>
+
+              {/* Active share tokens */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  {t('wiki.share.activeTokens')}
+                  <span className="ml-1 text-muted-foreground/60">({tokens.length})</span>
+                </label>
+                {tokensLoading ? (
+                  <div className="space-y-1.5">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-10 rounded-md bg-muted animate-pulse" />
+                    ))}
+                  </div>
+                ) : tokens.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border px-3 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('wiki.share.noTokens')}
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {tokens.map((tok) => {
+                      const acc = tokenAccess(tok.permissions)
+                      const Icon = acc.icon
+                      const revoking =
+                        revokeShareToken.isPending && revokeShareToken.variables?.tokenId === tok.id
+                      return (
+                        <div
+                          key={tok.id}
+                          className="group flex items-center gap-2.5 rounded-md border border-border bg-card/40 px-2.5 py-1.5"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-info-light text-info">
+                            <Icon className="h-3.5 w-3.5" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-medium text-foreground">{t(acc.labelKey)}</p>
+                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <Clock className="h-2.5 w-2.5" />
+                              {libFormatDate(tok.created_at)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRevoke(tok.id)}
+                            disabled={revoking}
+                            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:opacity-100"
+                            title={t('wiki.share.revoke')}
+                            aria-label={t('wiki.share.revoke')}
+                          >
+                            {revoking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Done button */}
           <div className="flex justify-end">

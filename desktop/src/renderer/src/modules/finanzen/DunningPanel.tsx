@@ -34,6 +34,8 @@ import { EmptyState, InlineStat } from '@/components/shared'
 import { formatDate } from '@/lib/format'
 import { DunningDetailPanel } from './DunningDetailPanel'
 import { useFinanceDetailNavOptional } from './FinanceDetailNav'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 const LEVEL_LABEL_KEYS: Record<number, string> = {
   1: 'finanzen.dunning.level1',
@@ -70,6 +72,11 @@ export function DunningPanel() {
   const sendDunning = useSendDunning()
   const escalateDunning = useEscalateDunning()
   const downloadPDF = useDownloadDunningPDF()
+
+  // RBAC R-3
+  const canDunning       = useHasCapability('finance:dunning:run')
+  const canSettings      = useHasCapability('finance:settings:manage')
+  const amountsVisible   = useAmountsVisible()
 
   const dunnings = dunningsData?.dunnings ?? []
   const invoiceById = new Map<string, Invoice>(
@@ -123,27 +130,36 @@ export function DunningPanel() {
       <div className="flex items-center justify-between">
         <dl className="flex items-end gap-x-8 gap-y-3">
           <InlineStat label={t('finanzen.dunning.openDunnings')} value={openCount} accent={openCount > 0 ? 'warning' : 'default'} />
-          <InlineStat label={t('finanzen.dunning.totalFees')} value={formatEUR(totalAmount)} />
+          <InlineStat
+            label={t('finanzen.dunning.totalFees')}
+            value={maskedAmount(amountsVisible, formatEUR(totalAmount))}
+          />
         </dl>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowConfig(true)}
-          >
-            <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-            {t('finanzen.dunning.configuration')}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleDetect}
-            disabled={detectDunnings.isPending}
-          >
-            <RefreshCw
-              className={`mr-1.5 h-3.5 w-3.5 ${detectDunnings.isPending ? 'animate-spin' : ''}`}
-            />
-            {t('finanzen.dunning.checkOverdue')}
-          </Button>
+          {/* Konfiguration → settings:manage */}
+          {canSettings && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfig(true)}
+            >
+              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+              {t('finanzen.dunning.configuration')}
+            </Button>
+          )}
+          {/* Mahnlauf → dunning:run */}
+          {canDunning && (
+            <Button
+              size="sm"
+              onClick={handleDetect}
+              disabled={detectDunnings.isPending}
+            >
+              <RefreshCw
+                className={`mr-1.5 h-3.5 w-3.5 ${detectDunnings.isPending ? 'animate-spin' : ''}`}
+              />
+              {t('finanzen.dunning.checkOverdue')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -275,10 +291,18 @@ export function DunningPanel() {
                     ))}
                   </div>
                 </div>
-                <span className="text-sm font-medium text-foreground">
-                  {formatEUR(d.fee)}
+                <span
+                  className="text-sm font-medium text-foreground"
+                  title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                >
+                  {maskedAmount(amountsVisible, formatEUR(d.fee))}
                 </span>
-                <span className="text-sm text-foreground">{formatEUR(d.interest)}</span>
+                <span
+                  className="text-sm text-foreground"
+                  title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                >
+                  {maskedAmount(amountsVisible, formatEUR(d.interest))}
+                </span>
                 <span className="text-xs text-muted-foreground">
                   {d.sent_at ? formatDate(d.sent_at) : '--'}
                 </span>
@@ -288,7 +312,8 @@ export function DunningPanel() {
                   {t(sc.labelKey)}
                 </span>
                 <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                  {d.status === 'draft' && (
+                  {/* Senden → dunning:run */}
+                  {d.status === 'draft' && canDunning && (
                     <button
                       onClick={() => handleSend(d)}
                       disabled={sendDunning.isPending}
@@ -298,7 +323,8 @@ export function DunningPanel() {
                       {t('finanzen.dunning.send')}
                     </button>
                   )}
-                  {d.level < 3 && d.status !== 'paid' && (
+                  {/* Eskalieren → dunning:run */}
+                  {d.level < 3 && d.status !== 'paid' && canDunning && (
                     <button
                       onClick={() => handleEscalate(d)}
                       disabled={escalateDunning.isPending}
@@ -308,6 +334,7 @@ export function DunningPanel() {
                       {t('finanzen.dunning.escalate')}
                     </button>
                   )}
+                  {/* PDF — always free */}
                   <button
                     onClick={() => downloadPDF.mutate(d.id)}
                     disabled={downloadPDF.isPending}
@@ -352,6 +379,7 @@ function DunningConfigDialog({
   const { t } = useTranslation()
   const { data: config } = useDunningConfig()
   const updateConfig = useUpdateDunningConfig()
+  const canSettings = useHasCapability('finance:settings:manage')
 
   const [l1Days, setL1Days] = useState('7')
   const [l2Days, setL2Days] = useState('7')
@@ -488,9 +516,12 @@ function DunningConfigDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={updateConfig.isPending}>
-            {updateConfig.isPending ? t('finanzen.saving') : t('common.save')}
-          </Button>
+          {/* Save → settings:manage */}
+          {canSettings && (
+            <Button onClick={handleSave} disabled={updateConfig.isPending}>
+              {updateConfig.isPending ? t('finanzen.saving') : t('common.save')}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -44,6 +44,8 @@ import {
 interface DependencyListProps {
   taskId: string
   projectId: string
+  /** RBAC (R-3): hides add/remove controls; linked tasks stay readable. */
+  canEdit?: boolean
 }
 
 type DependencyType = 'blocks' | 'blocked_by' | 'relates_to' | 'duplicates'
@@ -81,6 +83,7 @@ const depTypeConfig: Record<
 export default function DependencyList({
   taskId,
   projectId,
+  canEdit = true,
 }: DependencyListProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -213,14 +216,16 @@ export default function DependencyList({
                         >
                           {linkedTaskId?.slice(0, 8)}...
                         </button>
-                        <button
-                          type="button"
-                          className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
-                          onClick={() => dep.id && handleRemoveDependency(dep.id)}
-                          title={t('work.dependencies.remove')}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+                            onClick={() => dep.id && handleRemoveDependency(dep.id)}
+                            title={t('work.dependencies.remove')}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     )
                   })}
@@ -236,6 +241,7 @@ export default function DependencyList({
       )}
 
       {/* Add dependency */}
+      {canEdit && (
       <Popover open={addOpen} onOpenChange={setAddOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -318,6 +324,7 @@ export default function DependencyList({
           </div>
         </PopoverContent>
       </Popover>
+      )}
     </div>
   )
 }

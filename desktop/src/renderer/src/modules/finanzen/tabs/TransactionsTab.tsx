@@ -15,6 +15,8 @@ import { formatCurrency } from '@/lib/format'
 import { Receipt } from 'lucide-react'
 import type { Transaction } from '@/stores/finance'
 import { TransactionDetailPanel } from '../TransactionDetailPanel'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible, maskedAmount } from '../lib/amounts-visibility'
 
 type TypeFilter = 'all' | 'income' | 'expense'
 
@@ -27,6 +29,10 @@ export function TransactionsTab() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [detailTx, setDetailTx] = useState<Transaction | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string } | null>(null)
+
+  // RBAC R-3
+  const canBook    = useHasCapability('finance:incoming:book')
+  const amountsVisible = useAmountsVisible()
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -65,24 +71,33 @@ export function TransactionsTab() {
           <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
             {t('buchhaltung.stats.income', { defaultValue: 'Einnahmen' })}
           </dt>
-          <dd className="mt-0.5 text-2xl font-semibold leading-none text-success tabular-nums">
-            {formatCurrency(totalIncome)}
+          <dd
+            className="mt-0.5 text-2xl font-semibold leading-none text-success tabular-nums"
+            title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+          >
+            {maskedAmount(amountsVisible, formatCurrency(totalIncome))}
           </dd>
         </div>
         <div className="min-w-[140px]">
           <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
             {t('buchhaltung.stats.expense', { defaultValue: 'Ausgaben' })}
           </dt>
-          <dd className="mt-0.5 text-2xl font-semibold leading-none text-error tabular-nums">
-            −{formatCurrency(totalExpense)}
+          <dd
+            className="mt-0.5 text-2xl font-semibold leading-none text-error tabular-nums"
+            title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+          >
+            {amountsVisible ? `−${formatCurrency(totalExpense)}` : '•••'}
           </dd>
         </div>
         <div className="min-w-[140px]">
           <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
             {t('buchhaltung.stats.balance', { defaultValue: 'Saldo' })}
           </dt>
-          <dd className={`mt-0.5 text-2xl font-semibold leading-none tabular-nums ${balance >= 0 ? 'text-foreground' : 'text-error'}`}>
-            {formatCurrency(balance)}
+          <dd
+            className={`mt-0.5 text-2xl font-semibold leading-none tabular-nums ${balance >= 0 ? 'text-foreground' : 'text-error'}`}
+            title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+          >
+            {maskedAmount(amountsVisible, formatCurrency(balance))}
           </dd>
         </div>
       </dl>
@@ -169,9 +184,11 @@ export function TransactionsTab() {
                 className={`text-right text-sm font-medium tabular-nums ${
                   tx.type === 'income' ? 'text-success' : 'text-error'
                 }`}
+                title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
               >
-                {tx.type === 'income' ? '+' : '−'}
-                {formatCurrency(Math.abs(tx.amount))}
+                {amountsVisible
+                  ? `${tx.type === 'income' ? '+' : '−'}${formatCurrency(Math.abs(tx.amount))}`
+                  : '•••'}
               </span>
               <span className="text-right text-xs text-muted-foreground tabular-nums">
                 {new Date(tx.date).toLocaleDateString(i18n.language)}
@@ -183,11 +200,12 @@ export function TransactionsTab() {
                     label: t('common.details'),
                     onClick: () => setDetailTx(tx),
                   },
-                  {
+                  // Delete → incoming:book
+                  ...(canBook ? [{
                     label: t('common.delete'),
                     variant: 'destructive' as const,
                     onClick: () => setConfirmDelete({ id: tx.id, label: tx.description }),
-                  },
+                  }] : []),
                 ]}
               />
               </div>

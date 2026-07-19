@@ -17,6 +17,8 @@ import { useFinanceTenantStore } from '@/stores/financeTenant'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { formatAccount } from './lib/skr-accounts'
 import { ReceiptPreviewDialog } from './ReceiptPreviewDialog'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible } from './lib/amounts-visibility'
 
 interface ExpenseDetailPanelProps {
   expense: Expense
@@ -31,6 +33,11 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
   const approve = useApproveExpense()
   const reject = useRejectExpense()
   const [showReceipt, setShowReceipt] = useState(false)
+
+  // RBAC R-3
+  const canBook   = useHasCapability('finance:incoming:book')
+  const canReview = useHasCapability('finance:incoming:review')
+  const amountsVisible = useAmountsVisible()
 
   // Lieferanten-Rollup: weitere Ausgaben desselben Lieferanten.
   const supplierExpenses = expense.supplier
@@ -91,7 +98,12 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-base font-medium text-foreground">{expense.description}</h3>
-            <p className="mt-0.5 text-xl font-semibold tabular-nums text-error">−{formatCurrency(expense.amount)}</p>
+            <p
+              className="mt-0.5 text-xl font-semibold tabular-nums text-error"
+              title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+            >
+              {amountsVisible ? `−${formatCurrency(expense.amount)}` : '•••'}
+            </p>
           </div>
           <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium ${statusStyles[expense.status]}`}>
             {statusLabels[expense.status]}
@@ -195,7 +207,8 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-          {expense.status === 'pending' && (
+          {/* Approve/Reject → incoming:review */}
+          {expense.status === 'pending' && canReview && (
             <>
               <Button size="sm" onClick={() => { approve.mutate(expense.id); toast.success(t('buchhaltung.toast.approved')); onClose() }}>
                 <CheckCircle2 className="mr-1.5 h-4 w-4" />
@@ -207,9 +220,12 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
               </Button>
             </>
           )}
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            {t('buchhaltung.actions.editExpense')}
-          </Button>
+          {/* Edit → incoming:book */}
+          {canBook && (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              {t('buchhaltung.actions.editExpense')}
+            </Button>
+          )}
         </div>
       </div>
 

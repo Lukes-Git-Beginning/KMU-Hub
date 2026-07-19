@@ -43,6 +43,9 @@ import HoursToInvoiceDialog from '../components/HoursToInvoiceDialog'
 import BudgetSection from '../components/BudgetSection'
 import AuslastungReport from '../components/AuslastungReport'
 import { useWorkPrefsStore } from '@/stores/workPrefs'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useProjectCan } from '../useWorkPermissions'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 
 /**
  * Wrapper component that handles nested routing for project detail.
@@ -75,6 +78,10 @@ function ProjectBoardView() {
 
   const project = data?.project
   const statuses = statusesData?.statuses ?? []
+
+  const projectCan = useProjectCan(project)
+  const canCreateTask = useHasCapability('work:task:create')
+  const canCreateInvoice = useHasCapability('finance:invoice:create')
 
   // View type: project-specific preference wins; otherwise the user's personal
   // default view (work settings) is used as the initial value.
@@ -176,6 +183,7 @@ function ProjectBoardView() {
             <Badge variant="outline" className="font-mono text-xs">
               {project.project_key}
             </Badge>
+            <RestrictedModeBadge module="work" />
           </div>
         </div>
 
@@ -229,28 +237,34 @@ function ProjectBoardView() {
             </Button>
           </div>
 
-          {/* Hours to Invoice */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setInvoiceOpen(true)}
-            title={t('work.invoice.title')}
-          >
-            <Receipt className="h-4 w-4" />
-          </Button>
+          {/* Hours to Invoice — creates a finance invoice draft */}
+          {canCreateInvoice && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setInvoiceOpen(true)}
+              title={t('work.invoice.title')}
+            >
+              <Receipt className="h-4 w-4" />
+            </Button>
+          )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+          {projectCan.edit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
 
-          <Button size="sm" className="gap-1" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {t('work.tasks.newTask')}
-          </Button>
+          {canCreateTask && (
+            <Button size="sm" className="gap-1" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              {t('work.tasks.newTask')}
+            </Button>
+          )}
         </div>
       </div>
 

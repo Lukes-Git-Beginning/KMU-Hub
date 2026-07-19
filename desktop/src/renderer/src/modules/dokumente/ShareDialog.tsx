@@ -33,6 +33,7 @@ import {
 } from '@/api/hooks/useDocuments'
 import type { SharePermission } from '@/api/types/document-types'
 import { formatDate } from '@/lib/format'
+import { useHasCapability } from '@/hooks/useCapability'
 
 interface ShareDialogProps {
   open: boolean
@@ -53,6 +54,10 @@ export function ShareDialog({
   const { data: sharesData, isLoading } = useShares(entityType, entityId)
   const shareEntity = useShareEntity()
   const unshareEntity = useUnshareEntity()
+
+  // RBAC: Dialog öffnet ohnehin nur via gegateten Einstieg, trotzdem gaten
+  const canShareManage = useHasCapability('documents:share:manage')
+  const canShareLink = useHasCapability('documents:share_link:create')
 
   const [searchUserId, setSearchUserId] = useState('')
   const [permission, setPermission] = useState<SharePermission>('read')
@@ -109,46 +114,48 @@ export function ShareDialog({
         <p className="text-sm text-muted-foreground truncate">{entityName}</p>
 
         <div className="space-y-4 py-2">
-          {/* Add person */}
-          <div className="space-y-1.5">
-            <Label>{t('dokumente.share.addPerson')}</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder={t('dokumente.share.userIdPlaceholder')}
-                value={searchUserId}
-                onChange={(e) => setSearchUserId(e.target.value)}
-                className="flex-1"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddShare()}
-              />
-              <Select
-                value={permission}
-                onValueChange={(v) =>
-                  setPermission(v as SharePermission)
-                }
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="read">{t('dokumente.share.permissionRead')}</SelectItem>
-                  <SelectItem value="write">{t('dokumente.share.permissionWrite')}</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Add person — nur mit share:manage */}
+          {canShareManage && (
+            <div className="space-y-1.5">
+              <Label>{t('dokumente.share.addPerson')}</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder={t('dokumente.share.userIdPlaceholder')}
+                  value={searchUserId}
+                  onChange={(e) => setSearchUserId(e.target.value)}
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddShare()}
+                />
+                <Select
+                  value={permission}
+                  onValueChange={(v) =>
+                    setPermission(v as SharePermission)
+                  }
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="read">{t('dokumente.share.permissionRead')}</SelectItem>
+                    <SelectItem value="write">{t('dokumente.share.permissionWrite')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {searchUserId.trim() && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={handleAddShare}
+                  disabled={shareEntity.isPending}
+                >
+                  {shareEntity.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  {t('dokumente.share.share')}
+                </Button>
+              )}
             </div>
-            {searchUserId.trim() && (
-              <Button
-                size="sm"
-                className="w-full"
-                onClick={handleAddShare}
-                disabled={shareEntity.isPending}
-              >
-                {shareEntity.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : null}
-                {t('dokumente.share.share')}
-              </Button>
-            )}
-          </div>
+          )}
 
           {/* Current shares */}
           {isLoading ? (
@@ -189,24 +196,29 @@ export function ShareDialog({
                         ? t('dokumente.share.permissionWrite')
                         : t('dokumente.share.permissionRead')}
                     </span>
-                    <button
-                      onClick={() => handleRemoveShare(s.id)}
-                      className="rounded p-0.5 text-muted-foreground hover:text-destructive"
-                      disabled={unshareEntity.isPending}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    {/* Freigabe entfernen — nur mit share:manage */}
+                    {canShareManage && (
+                      <button
+                        onClick={() => handleRemoveShare(s.id)}
+                        className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+                        disabled={unshareEntity.isPending}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           ) : null}
 
-          {/* Copy link */}
-          <Button variant="outline" className="w-full" onClick={copyLink}>
-            <Link className="mr-1.5 h-4 w-4" />
-            {t('dokumente.share.copyLink')}
-          </Button>
+          {/* Link kopieren — nur mit share_link:create */}
+          {canShareLink && (
+            <Button variant="outline" className="w-full" onClick={copyLink}>
+              <Link className="mr-1.5 h-4 w-4" />
+              {t('dokumente.share.copyLink')}
+            </Button>
+          )}
         </div>
 
         <DialogFooter>

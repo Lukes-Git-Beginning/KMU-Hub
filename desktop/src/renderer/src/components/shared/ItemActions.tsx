@@ -17,6 +17,10 @@ export interface ActionItem {
   onClick: () => void
   variant?: 'default' | 'destructive'
   disabled?: boolean
+  /** Hover hint for a disabled entry (RBAC exception pattern: the item stays
+   *  visible, greyed, and explains itself — e.g. missing send/import right).
+   *  Rendered as faux-disabled so the native tooltip still fires. */
+  title?: string
   separator?: boolean
 }
 
@@ -54,12 +58,16 @@ export function ItemActions({
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
+                if (item.disabled) return
                 item.onClick()
               }}
-              disabled={item.disabled}
+              disabled={item.disabled && !item.title}
+              aria-disabled={item.disabled || undefined}
+              title={item.disabled ? item.title : undefined}
               className={cn(
                 'cursor-pointer',
-                item.variant === 'destructive' && 'text-destructive focus:text-destructive'
+                item.variant === 'destructive' && 'text-destructive focus:text-destructive',
+                item.disabled && item.title && 'cursor-not-allowed opacity-50 focus:bg-transparent'
               )}
             >
               {item.icon && <item.icon className="mr-2 h-4 w-4" />}

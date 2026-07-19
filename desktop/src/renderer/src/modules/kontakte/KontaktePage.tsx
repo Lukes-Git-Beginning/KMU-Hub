@@ -15,7 +15,6 @@ import {
   Pencil,
   Trash2,
   Copy,
-  Download,
   FileDown,
   FolderOpen,
   FolderPlus,
@@ -41,6 +40,8 @@ import { GroupAssignDialog } from './GroupAssignDialog'
 import { CallOverlay } from '@/modules/meetings/CallOverlay'
 import { backendContactToUI, uiFormToCreateRequest, uiFormToUpdateRequest } from './adapters'
 import { formatDate } from '@/lib/format'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner' | `group:${string}`
 type SortField = 'name' | 'company' | 'lastContact'
@@ -70,6 +71,14 @@ export default function KontaktePage() {
   const { startCall, endCall, activeCallContactId, activeCallContactName } = useMeetingsStore()
   const navigate = useNavigate()
   const setIntent = useNavigationStore((s) => s.setIntent)
+
+  // RBAC — capability checks (hooks always called unconditionally)
+  const canCreate = useHasCapability('crm:contact:create')
+  const canImport = useHasCapability('crm:import:run')
+  // CRM-Objekte tragen kein owner-Feld → ownerIds leer → scope='own' ergibt deny (sicherer Fallback)
+  const canEdit = useScopedCapability('crm:contact:edit')
+  const canDelete = useScopedCapability('crm:contact:delete')
+  const canExport = useHasCapability('crm:contact:export')
 
   // React Query
   const { data: contactsData, isLoading, isError } = useContacts()
@@ -212,63 +221,93 @@ export default function KontaktePage() {
     toast.success(t('kontakte.toast.contactDuplicated'))
   }
 
-  const getContactActions = (c: Contact): ActionItem[] => [
-    {
-      label: t('common.edit'),
-      icon: Pencil,
-      onClick: () => {
-        setEditContact(c)
-        setFormOpen(true)
-      },
-    },
-    {
-      label: t('kontakte.action.duplicate'),
-      icon: Copy,
-      onClick: () => handleDuplicate(c),
-    },
-    {
-      label: c.isFavorite ? t('kontakte.action.unfavorite') : t('kontakte.action.favorite'),
-      icon: Star,
-      onClick: () => {
-        toggleFavorite(c.id)
-        toast.success(c.isFavorite ? t('kontakte.toast.removedFromFavorites') : t('kontakte.toast.addedToFavorites'))
-      },
-    },
-    {
-      label: t('kontakte.action.assignToGroup'),
-      icon: FolderPlus,
-      onClick: () => setGroupAssignContact(c),
-    },
-    {
+  // getContactActions uses scoped checks per-contact — defined as a function
+  // because useScopedCapability must be called at component level (see ContactRow).
+  // Here we accept pre-computed scoped booleans to avoid conditional hook calls.
+  const buildContactActions = (
+    c: Contact,
+    canEdit: boolean,
+    canDelete: boolean,
+    canExportArg: boolean,
+  ): ActionItem[] => {
+    const items: ActionItem[] = []
+
+    if (canEdit) {
+      items.push({
+        label: t('common.edit'),
+        icon: Pencil,
+        onClick: () => {
+          setEditContact(c)
+          setFormOpen(true)
+        },
+      })
+    }
+
+    if (canCreate) {
+      items.push({
+        label: t('kontakte.action.duplicate'),
+        icon: Copy,
+        onClick: () => handleDuplicate(c),
+      })
+    }
+
+    if (canEdit) {
+      items.push({
+        label: c.isFavorite ? t('kontakte.action.unfavorite') : t('kontakte.action.favorite'),
+        icon: Star,
+        onClick: () => {
+          toggleFavorite(c.id)
+          toast.success(c.isFavorite ? t('kontakte.toast.removedFromFavorites') : t('kontakte.toast.addedToFavorites'))
+        },
+      })
+      items.push({
+        label: t('kontakte.action.assignToGroup'),
+        icon: FolderPlus,
+        onClick: () => setGroupAssignContact(c),
+      })
+    }
+
+    // Read-Aktionen bleiben immer frei
+    items.push({
       label: t('kontakte.action.sendEmail'),
       icon: Mail,
       onClick: () => handleEmail(c),
-      separator: true,
-    },
-    {
+      separator: items.length > 0,
+    })
+    items.push({
       label: t('kontakte.action.call'),
       icon: Phone,
       onClick: () => handleCall(c),
-    },
-    {
+    })
+    items.push({
       label: t('kontakte.action.message'),
       icon: MessageSquare,
       onClick: () => handleMessage(c),
-    },
-    {
-      label: t('kontakte.action.exportVCard'),
-      icon: Download,
-      onClick: () => handleExportVCard(c),
-      separator: true,
-    },
-    {
-      label: t('common.delete'),
-      icon: Trash2,
-      variant: 'destructive',
-      onClick: () => setDeleteConfirmId(c.id),
-      separator: true,
-    },
-  ]
+    })
+
+    // vCard-Export: VERSTECKEN ohne crm:contact:export (kein Tooltip, komplett weg)
+    if (canExportArg) {
+      // Download Icon nicht mehr importiert — Aktion wird nur als Menü-Eintrag gezeigt
+      items.push({
+        label: t('kontakte.action.exportVCard'),
+        icon: FileDown,
+        onClick: () => handleExportVCard(c),
+        separator: true,
+      })
+    }
+
+    if (canDelete) {
+      items.push({
+        label: t('common.delete'),
+        icon: Trash2,
+        variant: 'destructive',
+        onClick: () => setDeleteConfirmId(c.id),
+        separator: true,
+      })
+    }
+
+    return items
+  }
 
   return (
     <div className="flex h-full overflow-hidden animate-fade-in">
@@ -304,13 +343,15 @@ export default function KontaktePage() {
                 <FolderOpen className="h-3.5 w-3.5" />
                 {t('kontakte.sidebar.groups')}
               </h3>
-              <button
-                onClick={() => setGroupManagerOpen(true)}
-                className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                title={t('kontakte.sidebar.manageGroups')}
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => setGroupManagerOpen(true)}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                  title={t('kontakte.sidebar.manageGroups')}
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
             <nav className="space-y-0.5">
               {groups.map((g) => (
@@ -424,24 +465,44 @@ export default function KontaktePage() {
             </button>
           </div>
 
-          <button
-            onClick={() => setImportOpen(true)}
-            className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-            title={t('kontakte.action.importContacts')}
-            aria-label={t('kontakte.action.importContacts')}
-          >
-            <FileDown className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => {
-              setEditContact(null)
-              setFormOpen(true)
-            }}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>{t('kontakte.action.new')}</span>
-          </button>
+          {/* Import: AUSNAHME-Muster — immer sichtbar, ohne Recht disabled+Tooltip */}
+          {canImport ? (
+            <button
+              onClick={() => setImportOpen(true)}
+              className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title={t('kontakte.action.importContacts')}
+              aria-label={t('kontakte.action.importContacts')}
+            >
+              <FileDown className="h-4 w-4" />
+            </button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex" tabIndex={0}>
+                  <button
+                    disabled
+                    className="rounded-lg border border-border p-1.5 text-muted-foreground/40 pointer-events-none"
+                    aria-label={t('kontakte.action.importContacts')}
+                  >
+                    <FileDown className="h-4 w-4" />
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{t('rbac.gate.importDisabled')}</TooltipContent>
+            </Tooltip>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => {
+                setEditContact(null)
+                setFormOpen(true)
+              }}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>{t('kontakte.action.new')}</span>
+            </button>
+          )}
           </div>
         </div>
 
@@ -480,7 +541,7 @@ export default function KontaktePage() {
                   : t('kontakte.empty.createFirst')
               }
               action={
-                !search
+                !search && canCreate
                   ? {
                       label: t('kontakte.action.newContact'),
                       onClick: () => {
@@ -577,12 +638,12 @@ export default function KontaktePage() {
                           <Mail className="h-3.5 w-3.5" />
                         </button>
                         <div onClick={(e) => e.stopPropagation()}>
-                          <ItemActions items={getContactActions(contact)} />
+                          <ItemActions items={buildContactActions(contact, canEdit, canDelete, canExport)} />
                         </div>
                       </div>
                       {/* Fallback: three-dot menu only (no hover on touch) */}
                       <div className="group-hover:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <ItemActions items={getContactActions(contact)} />
+                        <ItemActions items={buildContactActions(contact, canEdit, canDelete, canExport)} />
                       </div>
                     </div>
                   </Fragment>
@@ -716,7 +777,7 @@ export default function KontaktePage() {
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
                     </button>
-                    <ItemActions items={getContactActions(contact)} />
+                    <ItemActions items={buildContactActions(contact, canEdit, canDelete, canExport)} />
                   </div>
                 </div>
                       ))}
@@ -780,19 +841,21 @@ export default function KontaktePage() {
         onConfirm={handleDelete}
       />
 
-      {/* Import Dialog */}
-      <ImportContactsDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImport={async (data) => {
-          const results = await Promise.allSettled(
-            data.map((c) => createContactMutation.mutateAsync(uiFormToCreateRequest(c as Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>)))
-          )
-          const succeeded = results.filter((r) => r.status === 'fulfilled').length
-          toast.success(t('kontakte.toast.contactsImported', { count: succeeded }))
-          return succeeded
-        }}
-      />
+      {/* Import Dialog — nur mounten wenn Recht (Button ist eh disabled ohne Recht) */}
+      {canImport && (
+        <ImportContactsDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onImport={async (data) => {
+            const results = await Promise.allSettled(
+              data.map((c) => createContactMutation.mutateAsync(uiFormToCreateRequest(c as Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>)))
+            )
+            const succeeded = results.filter((r) => r.status === 'fulfilled').length
+            toast.success(t('kontakte.toast.contactsImported', { count: succeeded }))
+            return succeeded
+          }}
+        />
+      )}
 
       {/* Group Manager */}
       <GroupManagerDialog

@@ -28,12 +28,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   useFileVersions,
   useCreateVersion,
   useRevertVersion,
 } from '@/api/hooks/useDocuments'
 import { formatDateTime } from '@/lib/format'
+import { useHasCapability } from '@/hooks/useCapability'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,6 +75,10 @@ export function VersionHistoryPanel({
   const { data: versionsData, isLoading } = useFileVersions(fileId)
   const createVersion = useCreateVersion()
   const revertVersion = useRevertVersion()
+
+  // Defense in depth — Panel öffnet nur mit version:restore-Recht, trotzdem absichern
+  const canVersionRestore = useHasCapability('documents:version:restore')
+  const canDownload = useHasCapability('documents:file:download')
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [versionLabel, setVersionLabel] = useState('')
@@ -121,16 +127,18 @@ export function VersionHistoryPanel({
         title={t('dokumente.version.title')}
         subtitle={fileName}
         footer={
-          <Button
-            className="w-full"
-            onClick={() => {
-              setVersionLabel('')
-              setShowCreateDialog(true)
-            }}
-          >
-            <Plus className="mr-1.5 h-4 w-4" />
-            {t('dokumente.version.createVersion')}
-          </Button>
+          canVersionRestore ? (
+            <Button
+              className="w-full"
+              onClick={() => {
+                setVersionLabel('')
+                setShowCreateDialog(true)
+              }}
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              {t('dokumente.version.createVersion')}
+            </Button>
+          ) : undefined
         }
       >
         {isLoading ? (
@@ -204,18 +212,38 @@ export function VersionHistoryPanel({
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() =>
-                      toast.success(t('dokumente.version.downloadStarting'))
-                    }
-                  >
-                    <Download className="mr-1 h-3 w-3" />
-                    {t('common.download')}
-                  </Button>
-                  {idx > 0 && (
+                  {/* Version-Download: Ausnahme-Muster */}
+                  {canDownload ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() =>
+                        toast.success(t('dokumente.version.downloadStarting'))
+                      }
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      {t('common.download')}
+                    </Button>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex" tabIndex={0}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs pointer-events-none"
+                            disabled
+                          >
+                            <Download className="mr-1 h-3 w-3" />
+                            {t('common.download')}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('rbac.gate.downloadDisabled')}</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {canVersionRestore && idx > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -235,52 +263,56 @@ export function VersionHistoryPanel({
         )}
       </DetailPanel>
 
-      {/* Create Version Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('dokumente.version.createNewVersion')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1.5 py-2">
-            <Label>{t('dokumente.version.labelOptional')}</Label>
-            <Input
-              placeholder={t('dokumente.version.labelPlaceholder')}
-              value={versionLabel}
-              onChange={(e) => setVersionLabel(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateVersion()}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t('dokumente.version.labelHint')}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateDialog(false)}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={handleCreateVersion}
-              disabled={createVersion.isPending}
-            >
-              {createVersion.isPending ? t('dokumente.version.creating') : t('common.create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Create Version Dialog — nur mit version:restore-Recht */}
+      {canVersionRestore && (
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{t('dokumente.version.createNewVersion')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1.5 py-2">
+              <Label>{t('dokumente.version.labelOptional')}</Label>
+              <Input
+                placeholder={t('dokumente.version.labelPlaceholder')}
+                value={versionLabel}
+                onChange={(e) => setVersionLabel(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateVersion()}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('dokumente.version.labelHint')}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                onClick={handleCreateVersion}
+                disabled={createVersion.isPending}
+              >
+                {createVersion.isPending ? t('dokumente.version.creating') : t('common.create')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
-      {/* Revert Confirmation */}
-      <ConfirmDialog
-        open={revertTarget !== null}
-        onOpenChange={(open) => !open && setRevertTarget(null)}
-        title={t('dokumente.version.restoreTitle')}
-        description={t('dokumente.version.restoreDescription', { version: revertTarget })}
-        confirmLabel={t('dokumente.version.restore')}
-        variant="default"
-        onConfirm={handleRevert}
-      />
+      {/* Revert Confirmation — nur mit version:restore-Recht */}
+      {canVersionRestore && (
+        <ConfirmDialog
+          open={revertTarget !== null}
+          onOpenChange={(open) => !open && setRevertTarget(null)}
+          title={t('dokumente.version.restoreTitle')}
+          description={t('dokumente.version.restoreDescription', { version: revertTarget })}
+          confirmLabel={t('dokumente.version.restore')}
+          variant="default"
+          onConfirm={handleRevert}
+        />
+      )}
     </>
   )
 }

@@ -30,6 +30,9 @@ import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
 import { PermissionPreviewBanner } from '@/components/layout/PermissionPreviewBanner'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
+import { NoAccessView } from '@/components/shared/rbac/NoAccessView'
+import { useCapability } from '@/hooks/useCapability'
+import { moduleViewKey, type ModuleKey } from '@/config/capabilities'
 
 // Lazy-loaded module pages — existing (backend-connected)
 const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
@@ -172,13 +175,46 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/**
+ * Deep-link guard (R-3): a module route without level-1 visibility renders the
+ * shared "Kein Zugriff" page instead of a blank screen or silent redirect.
+ * While the first permission load is in flight we keep the skeleton — the
+ * NoAccess page must never flash for a role that does have access.
+ */
+function ModuleGate({
+  module,
+  variant,
+  children,
+}: {
+  module: ModuleKey
+  variant: ModuleSkeletonVariant
+  children: React.ReactNode
+}) {
+  const { allowed, isLoading } = useCapability(moduleViewKey(module))
+  if (!allowed) {
+    return isLoading ? <ModuleLoadingFallback variant={variant} /> : <NoAccessView module={module} />
+  }
+  return <>{children}</>
+}
+
 /** Helper to wrap a lazy page in Suspense. The `variant` picks a loading-skeleton
- *  archetype that matches the module's layout (list = default). */
-function lazyRoute(Component: React.LazyExoticComponent<() => React.JSX.Element>, variant: ModuleSkeletonVariant = 'list') {
-  return (
+ *  archetype that matches the module's layout (list = default). `module` adds the
+ *  level-1 deep-link guard (NoAccessView when the role lacks `<module>:module:view`). */
+function lazyRoute(
+  Component: React.LazyExoticComponent<() => React.JSX.Element | null>,
+  variant: ModuleSkeletonVariant = 'list',
+  module?: ModuleKey,
+) {
+  const page = (
     <Suspense fallback={<ModuleLoadingFallback variant={variant} />}>
       <Component />
     </Suspense>
+  )
+  if (!module) return page
+  return (
+    <ModuleGate module={module} variant={variant}>
+      {page}
+    </ModuleGate>
   )
 }
 
@@ -227,14 +263,14 @@ const router = createHashRouter([
     errorElement: <RouteErrorFallback />,
     children: [
       // Core modules (backend-connected)
-      { index: true, element: lazyRoute(DashboardPage, 'dashboard') },
+      { index: true, element: lazyRoute(DashboardPage, 'dashboard', 'dashboard') },
       { path: 'crm/*', element: <Navigate to="/kontakte" replace /> },
       { path: 'chat/*', element: <Navigate to="/kommunikation?bereich=team" replace /> },
-      { path: 'work/*', element: lazyRoute(WorkLayout, 'board') },
-      { path: 'kalender', element: lazyRoute(KalenderPage, 'calendar') },
-      { path: 'video/*', element: lazyRoute(VideoPage, 'video') },
-      { path: 'meetings/*', element: lazyRoute(MeetingsPage, 'meetings') },
-      { path: 'notifications', element: lazyRoute(NotificationCenter, 'notifications') },
+      { path: 'work/*', element: lazyRoute(WorkLayout, 'board', 'work') },
+      { path: 'kalender', element: lazyRoute(KalenderPage, 'calendar', 'kalender') },
+      { path: 'video/*', element: lazyRoute(VideoPage, 'video', 'video') },
+      { path: 'meetings/*', element: lazyRoute(MeetingsPage, 'meetings', 'video') },
+      { path: 'notifications', element: lazyRoute(NotificationCenter, 'notifications', 'notifications') },
       { path: 'settings/dashboard', element: lazyRoute(DashboardSettings, 'detail') },
       { path: 'settings', element: lazyRoute(SettingsPage, 'detail') },
 
@@ -243,28 +279,28 @@ const router = createHashRouter([
       { path: 'admin/security-legacy', element: <Navigate to="/admin/security" replace /> },
 
       // Admin Hub — neue /admin/* Routen
-      { path: 'admin/users', element: lazyRoute(AdminHubPage, 'adminhub') },
-      { path: 'admin/roles', element: lazyRoute(AdminHubPage, 'adminhub') },
-      { path: 'admin/roles/:roleId', element: lazyRoute(RoleEditorPage, 'adminhub') },
-      { path: 'admin/license', element: lazyRoute(AdminHubPage, 'adminhub') },
-      { path: 'admin/branding', element: lazyRoute(AdminHubPage, 'adminhub') },
-      { path: 'admin/it', element: lazyRoute(AdminHubPage, 'adminhub') },
-      { path: 'admin/security', element: lazyRoute(AdminHubPage, 'adminhub') },
-      { path: 'admin/billing', element: lazyRoute(AdminHubPage, 'adminhub') },
-      { path: 'admin/integrations', element: lazyRoute(AdminHubPage, 'adminhub') },
+      { path: 'admin/users', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/roles', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/roles/:roleId', element: lazyRoute(RoleEditorPage, 'adminhub', 'admin') },
+      { path: 'admin/license', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/branding', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/it', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/security', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/billing', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/integrations', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
       // Backwards-Compat: /einstellungen?tab=it-admin → /admin/it (via Settings redirect)
       // Backwards-Compat: /einstellungen?tab=billing → /admin/billing (via Settings redirect)
 
       // CalDAV admin
-      { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage) },
+      { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage, 'list', 'admin') },
 
       // Plugin admin
-      { path: 'admin/plugins', element: lazyRoute(PluginListPage) },
+      { path: 'admin/plugins', element: lazyRoute(PluginListPage, 'list', 'admin') },
 
       // Kontakte — Kunden-Zentrale (Kontakte + Firmen + Pipeline + Aktivitäten)
       {
         path: 'kontakte',
-        element: lazyRoute(KontakteLayout, 'kontakte'),
+        element: lazyRoute(KontakteLayout, 'kontakte', 'crm'),
         children: [
           { index: true, element: lazyRoute(KontaktePage, 'kontakte') },
           { path: 'firmen', element: lazyRoute(CompaniesListPage, 'kontakte') },
@@ -277,31 +313,31 @@ const router = createHashRouter([
           { path: 'protokoll/:contactId/:protocolId', element: lazyRoute(AdvisoryProtocolEditor, 'detail') },
         ],
       },
-      { path: 'dokumente', element: lazyRoute(DokumentePage, 'dokumente') },
-      { path: 'mails', element: lazyRoute(MailsPage, 'mails') },
-      { path: 'kommunikation', element: lazyRoute(KommunikationPage, 'kommunikation') },
-      { path: 'automatisierung', element: lazyRoute(AutomatisierungPage, 'automatisierung') },
-      { path: 'team', element: lazyRoute(TeamPage, 'team') },
-      { path: 'team/member/:id', element: lazyRoute(MemberDetailPage, 'detail') },
-      { path: 'finanzen', element: lazyRoute(FinanzenPage, 'finanzen') },
-      { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage, 'infrastruktur') },
+      { path: 'dokumente', element: lazyRoute(DokumentePage, 'dokumente', 'documents') },
+      { path: 'mails', element: lazyRoute(MailsPage, 'mails', 'mail') },
+      { path: 'kommunikation', element: lazyRoute(KommunikationPage, 'kommunikation', 'kommunikation') },
+      { path: 'automatisierung', element: lazyRoute(AutomatisierungPage, 'automatisierung', 'automatisierung') },
+      { path: 'team', element: lazyRoute(TeamPage, 'team', 'team') },
+      { path: 'team/member/:id', element: lazyRoute(MemberDetailPage, 'detail', 'team') },
+      { path: 'finanzen', element: lazyRoute(FinanzenPage, 'finanzen', 'finance') },
+      { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage, 'infrastruktur', 'infrastructure') },
       { path: 'profil', element: lazyRoute(ProfilPage, 'detail') },
 
       // Industry-specific modules
-      { path: 'inventar', element: lazyRoute(InventarPage, 'inventar') },
-      { path: 'schichten', element: lazyRoute(SchichtenPage, 'calendar') },
-      { path: 'einkauf', element: lazyRoute(EinkaufPage, 'einkauf') },
-      { path: 'helpdesk', element: lazyRoute(HelpdeskPage, 'helpdesk') },
-      { path: 'fuhrpark', element: lazyRoute(FuhrparkPage, 'fuhrpark') },
-      { path: 'produktion', element: lazyRoute(ProduktionPage, 'produktion') },
-      { path: 'berichte', element: lazyRoute(BerichtePage, 'dashboard') },
-      { path: 'vertraege', element: lazyRoute(VertraegePage, 'vertraege') },
-      { path: 'formulare', element: lazyRoute(FormularePage, 'formulare') },
-      { path: 'vermietung', element: lazyRoute(VermietungPage, 'vermietung') },
-      { path: 'rapporte', element: lazyRoute(RapportePage, 'rapporte') },
-      { path: 'zeiterfassung', element: lazyRoute(ZeiterfassungPage, 'zeiterfassung') },
-      { path: 'wiki', element: lazyRoute(WikiPage, 'wiki') },
-      { path: 'dialer/*', element: lazyRoute(DialerLayout, 'dialer') },
+      { path: 'inventar', element: lazyRoute(InventarPage, 'inventar', 'inventar') },
+      { path: 'schichten', element: lazyRoute(SchichtenPage, 'calendar', 'schichten') },
+      { path: 'einkauf', element: lazyRoute(EinkaufPage, 'einkauf', 'einkauf') },
+      { path: 'helpdesk', element: lazyRoute(HelpdeskPage, 'helpdesk', 'helpdesk') },
+      { path: 'fuhrpark', element: lazyRoute(FuhrparkPage, 'fuhrpark', 'fuhrpark') },
+      { path: 'produktion', element: lazyRoute(ProduktionPage, 'produktion', 'produktion') },
+      { path: 'berichte', element: lazyRoute(BerichtePage, 'dashboard', 'berichte') },
+      { path: 'vertraege', element: lazyRoute(VertraegePage, 'vertraege', 'vertraege') },
+      { path: 'formulare', element: lazyRoute(FormularePage, 'formulare', 'formulare') },
+      { path: 'vermietung', element: lazyRoute(VermietungPage, 'vermietung', 'vermietung') },
+      { path: 'rapporte', element: lazyRoute(RapportePage, 'rapporte', 'rapporte') },
+      { path: 'zeiterfassung', element: lazyRoute(ZeiterfassungPage, 'zeiterfassung', 'zeiterfassung') },
+      { path: 'wiki', element: lazyRoute(WikiPage, 'wiki', 'wiki') },
+      { path: 'dialer/*', element: lazyRoute(DialerLayout, 'dialer', 'dialer') },
     ],
   },
   {

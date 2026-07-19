@@ -23,6 +23,9 @@ import {
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
 import { useFinanceUIStore, formatMoney, calcInvoiceTotal, type FinanceTabKey } from '@/stores/finance'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 import {
   useInvoices,
   useQuotes,
@@ -176,6 +179,18 @@ function FinanzenPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // RBAC R-3 capability hooks
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canCreateInvoice = useHasCapability('finance:invoice:create')
+  const canEditInvoice   = useHasCapability('finance:invoice:edit')
+  const canDeleteInvoice = useHasCapability('finance:invoice:delete')
+  const canSendInvoice   = useHasCapability('finance:invoice:send')
+  const canCreateQuote   = useHasCapability('finance:quote:create')
+  const canSendQuote     = useHasCapability('finance:quote:send')
+  const canExport        = useHasCapability('finance:export:run')
+  const canDunning       = useHasCapability('finance:dunning:run')
+  const amountsVisible   = useAmountsVisible()
+
   const [search, setSearch] = useState('')
 
   // Data hooks
@@ -316,6 +331,8 @@ function FinanzenPageContent() {
       onClick: () => void
       variant?: 'destructive'
       separator?: true
+      disabled?: boolean
+      title?: string
     }[] = [
       { label: t('common.details'), onClick: () => openDetail('invoice', inv.id) },
       {
@@ -324,13 +341,19 @@ function FinanzenPageContent() {
       },
     ]
     if (inv.status === 'draft') {
-      actions.push({
-        label: t('common.edit'),
-        onClick: () => handleEditInvoice(inv),
-      })
+      if (canEditInvoice) {
+        actions.push({
+          label: t('common.edit'),
+          onClick: () => handleEditInvoice(inv),
+        })
+      }
+      // AUSNAHME invoice:send — sichtbar aber disabled wenn kein Recht
       actions.push({
         label: t('finanzen.dunning.send'),
+        disabled: !canSendInvoice,
+        title: !canSendInvoice ? t('rbac.gate.sendDisabled') : undefined,
         onClick: () => {
+          if (!canSendInvoice) return
           sendInvoice.mutate(inv.id, {
             onSuccess: () => {
               setSentAnimation(inv.invoice_number)
@@ -343,7 +366,8 @@ function FinanzenPageContent() {
     }
     if (
       inv.status !== 'paid' &&
-      inv.status !== 'cancelled'
+      inv.status !== 'cancelled' &&
+      canEditInvoice
     ) {
       actions.push({
         label: t('finanzen.invoiceDetail.recordPayment'),
@@ -353,21 +377,27 @@ function FinanzenPageContent() {
     // Issued invoices are storniert via a linked credit note (GoBD); drafts
     // can be cancelled directly since they were never issued.
     if (inv.status === 'sent' || inv.status === 'overdue') {
-      actions.push({
-        separator: true as const,
-        label: '',
-        onClick: () => {},
-      })
-      actions.push({
-        label: t('finanzen.creditNote.createForInvoice'),
-        onClick: () => setCreditNote({ invoice: inv, storno: false }),
-      })
-      actions.push({
-        label: t('finanzen.invoiceDetail.storno'),
-        variant: 'destructive' as const,
-        onClick: () => setCreditNote({ invoice: inv, storno: true }),
-      })
-    } else if (inv.status === 'draft') {
+      if (canCreateInvoice || canDeleteInvoice) {
+        actions.push({
+          separator: true as const,
+          label: '',
+          onClick: () => {},
+        })
+      }
+      if (canCreateInvoice) {
+        actions.push({
+          label: t('finanzen.creditNote.createForInvoice'),
+          onClick: () => setCreditNote({ invoice: inv, storno: false }),
+        })
+      }
+      if (canDeleteInvoice) {
+        actions.push({
+          label: t('finanzen.invoiceDetail.storno'),
+          variant: 'destructive' as const,
+          onClick: () => setCreditNote({ invoice: inv, storno: true }),
+        })
+      }
+    } else if (inv.status === 'draft' && canDeleteInvoice) {
       actions.push({
         separator: true as const,
         label: '',
@@ -394,6 +424,8 @@ function FinanzenPageContent() {
       onClick: () => void
       variant?: 'destructive'
       separator?: true
+      disabled?: boolean
+      title?: string
     }[] = [
       {
         label: t('common.details'),
@@ -405,9 +437,13 @@ function FinanzenPageContent() {
       },
     ]
     if (q.status === 'draft') {
+      // AUSNAHME quote:send — sichtbar aber disabled wenn kein Recht
       actions.push({
         label: t('finanzen.dunning.send'),
+        disabled: !canSendQuote,
+        title: !canSendQuote ? t('rbac.gate.sendDisabled') : undefined,
         onClick: () => {
+          if (!canSendQuote) return
           sendQuote.mutate(q.id, {
             onSuccess: () =>
               toast.success(`${q.quote_number} ${t('finanzen.dunning.sent')}`),
@@ -416,7 +452,7 @@ function FinanzenPageContent() {
         },
       })
     }
-    if (q.status === 'sent') {
+    if (q.status === 'sent' && canCreateQuote) {
       actions.push({
         label: t('finanzen.page.accept'),
         onClick: () => {
@@ -438,7 +474,7 @@ function FinanzenPageContent() {
         },
       })
     }
-    if (q.status === 'accepted') {
+    if (q.status === 'accepted' && canCreateInvoice) {
       actions.push({
         label: t('finanzen.page.convertToInvoice'),
         onClick: () => {
@@ -450,7 +486,7 @@ function FinanzenPageContent() {
         },
       })
     }
-    if (q.status === 'draft') {
+    if (q.status === 'draft' && canCreateQuote) {
       actions.push({
         separator: true as const,
         label: '',
@@ -470,55 +506,38 @@ function FinanzenPageContent() {
     return actions
   }
 
-  // Tabs config
-  const tabs: {
-    key: FinanceTabKey
-    label: string
-    icon: typeof FileText
-    count?: number
-  }[] = [
-    { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    {
-      key: 'invoices',
-      label: t('finanzen.tabs.invoices', { count: invoicesData?.total ?? 0 }),
-      icon: FileText,
-    },
-    {
-      key: 'open-items',
-      label: t('finanzen.tabs.openItems'),
-      icon: Wallet,
-    },
-    {
-      key: 'quotes',
-      label: t('finanzen.tabs.quotes', { count: quotesData?.total ?? 0 }),
-      icon: FileText,
-    },
-    {
-      key: 'recurring',
-      label: t('finanzen.tabs.recurring'),
-      icon: Repeat,
-    },
-    {
-      key: 'credit-notes',
-      label: t('finanzen.tabs.creditNotes', { count: creditNotesData?.total ?? 0 }),
-      icon: Receipt,
-    },
-    {
-      key: 'expenses',
-      label: t('buchhaltung.tabs.expenses'),
-      icon: Receipt,
-    },
-    {
-      key: 'transactions',
-      label: t('buchhaltung.tabs.transactions'),
-      icon: Timer,
-    },
-    { key: 'berichte', label: t('buchhaltung.tabs.reports'), icon: PieChart },
-    { key: 'dunning', label: t('finanzen.tabs.dunning'), icon: Gavel },
-    { key: 'belegkette', label: t('finanzen.tabs.belegkette'), icon: Link2 },
-    { key: 'banking', label: t('finanzen.tabs.banking'), icon: Landmark },
-    { key: 'export', label: t('finanzen.tabs.export'), icon: Download },
+  // Tabs config — RBAC R-3: tab visibility gated by capability.
+  // `ready` guard prevents flicker: before permissions load, keep the current
+  // effective tab visible so no premature tab-switch occurs.
+  const allTabs: { key: FinanceTabKey; label: string; icon: typeof FileText; visible: boolean }[] = [
+    { key: 'dashboard',    label: 'Dashboard',                                                         icon: BarChart3, visible: capHas('finance:invoice:read') },
+    { key: 'invoices',     label: t('finanzen.tabs.invoices', { count: invoicesData?.total ?? 0 }),   icon: FileText,  visible: capHas('finance:invoice:read') },
+    { key: 'open-items',   label: t('finanzen.tabs.openItems'),                                        icon: Wallet,    visible: capHas('finance:invoice:read') },
+    { key: 'quotes',       label: t('finanzen.tabs.quotes', { count: quotesData?.total ?? 0 }),        icon: FileText,  visible: capHas('finance:quote:read') },
+    { key: 'recurring',    label: t('finanzen.tabs.recurring'),                                        icon: Repeat,    visible: capHas('finance:invoice:read') },
+    { key: 'credit-notes', label: t('finanzen.tabs.creditNotes', { count: creditNotesData?.total ?? 0 }), icon: Receipt, visible: capHas('finance:invoice:read') },
+    { key: 'expenses',     label: t('buchhaltung.tabs.expenses'),                                      icon: Receipt,   visible: capHas('finance:incoming:review') || capHas('finance:incoming:book') },
+    { key: 'transactions', label: t('buchhaltung.tabs.transactions'),                                  icon: Timer,     visible: capHas('finance:incoming:review') || capHas('finance:incoming:book') },
+    { key: 'berichte',     label: t('buchhaltung.tabs.reports'),                                       icon: PieChart,  visible: capHas('finance:amounts:view') },
+    { key: 'dunning',      label: t('finanzen.tabs.dunning'),                                          icon: Gavel,     visible: capHas('finance:dunning:run') },
+    { key: 'belegkette',   label: t('finanzen.tabs.belegkette'),                                      icon: Link2,     visible: capHas('finance:invoice:read') },
+    { key: 'banking',      label: t('finanzen.tabs.banking'),                                          icon: Landmark,  visible: capHas('finance:incoming:book') || capHas('finance:settings:manage') },
+    { key: 'export',       label: t('finanzen.tabs.export'),                                           icon: Download,  visible: capHas('finance:export:run') },
   ]
+  // While permissions are not yet loaded keep all tabs visible to avoid flicker
+  const tabs = capReady ? allTabs.filter((tab) => tab.visible) : allTabs
+
+  // If the active tab is no longer visible after permission load, fall back to
+  // the first visible tab. Runs only when `tabs` changes (after ready).
+  useEffect(() => {
+    if (!capReady) return
+    const visible = tabs.map((tab) => tab.key)
+    if (visible.length > 0 && !visible.includes(effectiveTab)) {
+      setActiveTab(visible[0])
+    }
+    // tabs reference changes when capReady flips — intentional dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capReady])
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -530,28 +549,35 @@ function FinanzenPageContent() {
         moduleId="finance"
         className="mb-6"
         actions={
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowHoursToInvoice(true)}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-            >
-              <Timer className="h-4 w-4" />
-              {t('finanzen.hours.title')}
-            </button>
-            <button
-              onClick={() => setShowExport(true)}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              {t('finanzen.page.datevExport')}
-            </button>
-            <button
-              onClick={handleNewInvoice}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('finanzen.invoices.create')}
-            </button>
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="finance" />
+            {canCreateInvoice && (
+              <button
+                onClick={() => setShowHoursToInvoice(true)}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <Timer className="h-4 w-4" />
+                {t('finanzen.hours.title')}
+              </button>
+            )}
+            {canExport && (
+              <button
+                onClick={() => setShowExport(true)}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                {t('finanzen.page.datevExport')}
+              </button>
+            )}
+            {canCreateInvoice && (
+              <button
+                onClick={handleNewInvoice}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('finanzen.invoices.create')}
+              </button>
+            )}
           </div>
         }
       />
@@ -592,7 +618,7 @@ function FinanzenPageContent() {
               className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
-          {effectiveTab === 'quotes' && (
+          {effectiveTab === 'quotes' && canCreateQuote && (
             <button
               onClick={handleNewQuote}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
@@ -601,7 +627,7 @@ function FinanzenPageContent() {
               {t('finanzen.quotes.create')}
             </button>
           )}
-          {effectiveTab === 'credit-notes' && (
+          {effectiveTab === 'credit-notes' && canCreateInvoice && (
             <button
               onClick={() => setCreditNote({ invoice: null, storno: false })}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
@@ -672,7 +698,7 @@ function FinanzenPageContent() {
             icon={FileText}
             title={t('finanzen.invoices.emptyTitle')}
             description={t('finanzen.invoices.emptyDescription')}
-            action={{ label: t('finanzen.invoices.create'), onClick: handleNewInvoice }}
+            action={canCreateInvoice ? { label: t('finanzen.invoices.create'), onClick: handleNewInvoice } : undefined}
           />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
@@ -705,8 +731,11 @@ function FinanzenPageContent() {
                   <span className="text-sm text-foreground truncate">
                     {inv.customer.name}
                   </span>
-                  <span className="text-sm font-medium text-foreground stat-accent">
-                    {formatMoney(grossTotal, inv.currency)}
+                  <span
+                    className="text-sm font-medium text-foreground stat-accent"
+                    title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                  >
+                    {maskedAmount(amountsVisible, formatMoney(grossTotal, inv.currency))}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(inv.due_date)}
@@ -715,9 +744,10 @@ function FinanzenPageContent() {
                     className={`text-xs font-medium ${
                       inv.status !== 'paid' ? 'text-warning' : 'text-success'
                     }`}
+                    title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
                   >
                     {inv.status !== 'paid'
-                      ? formatMoney(grossTotal, inv.currency)
+                      ? maskedAmount(amountsVisible, formatMoney(grossTotal, inv.currency))
                       : '--'}
                   </span>
                   <div className="flex items-center gap-1 flex-wrap">
@@ -759,7 +789,7 @@ function FinanzenPageContent() {
             icon={FileText}
             title={t('finanzen.quotes.emptyTitle')}
             description={t('finanzen.quotes.emptyDescription')}
-            action={{ label: t('finanzen.quotes.create'), onClick: handleNewQuote }}
+            action={canCreateQuote ? { label: t('finanzen.quotes.create'), onClick: handleNewQuote } : undefined}
           />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
@@ -787,10 +817,16 @@ function FinanzenPageContent() {
                   <span className="text-sm text-foreground truncate">
                     {q.customer.name}
                   </span>
-                  <span className="text-sm font-medium text-foreground">
-                    {formatMoney(
-                      Number(q.tax_breakdown?.gross_total) || calcInvoiceTotal(q.line_items ?? []),
-                      q.currency,
+                  <span
+                    className="text-sm font-medium text-foreground"
+                    title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                  >
+                    {maskedAmount(
+                      amountsVisible,
+                      formatMoney(
+                        Number(q.tax_breakdown?.gross_total) || calcInvoiceTotal(q.line_items ?? []),
+                        q.currency,
+                      ),
                     )}
                   </span>
                   <span className="text-xs text-muted-foreground">
@@ -822,10 +858,10 @@ function FinanzenPageContent() {
             icon={Receipt}
             title={t('finanzen.creditNotes.emptyTitle')}
             description={t('finanzen.creditNotes.emptyDescription')}
-            action={{
+            action={canCreateInvoice ? {
               label: t('finanzen.creditNote.createTitle'),
               onClick: () => setCreditNote({ invoice: null, storno: false }),
-            }}
+            } : undefined}
           />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
@@ -860,10 +896,16 @@ function FinanzenPageContent() {
                       </span>
                     )}
                   </span>
-                  <span className="text-sm font-medium text-foreground">
-                    {formatMoney(
-                      Number(cn.tax_breakdown?.gross_total) || calcInvoiceTotal(cn.line_items ?? []),
-                      cn.currency,
+                  <span
+                    className="text-sm font-medium text-foreground"
+                    title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                  >
+                    {maskedAmount(
+                      amountsVisible,
+                      formatMoney(
+                        Number(cn.tax_breakdown?.gross_total) || calcInvoiceTotal(cn.line_items ?? []),
+                        cn.currency,
+                      ),
                     )}
                   </span>
                   <span
@@ -887,11 +929,15 @@ function FinanzenPageContent() {
                         onClick: () =>
                           downloadCreditNotePDF.mutate(cn.id),
                       },
+                      // AUSNAHME invoice:send — immer sichtbar wenn draft, disabled ohne Recht
                       ...(isDraft
                         ? [
                             {
                               label: t('finanzen.dunning.send'),
+                              disabled: !canSendInvoice,
+                              title: !canSendInvoice ? t('rbac.gate.sendDisabled') : undefined,
                               onClick: () => {
+                                if (!canSendInvoice) return
                                 sendCreditNote.mutate(cn.id, {
                                   onSuccess: () =>
                                     toast.success(t('finanzen.creditNote.sent')),
@@ -950,13 +996,15 @@ function FinanzenPageContent() {
               <p className="text-xs text-muted-foreground">
                 {t('finanzen.exportTab.datevDescription')}
               </p>
-              <button
-                onClick={() => setShowExport(true)}
-                className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {t('finanzen.page.datevExport')}
-              </button>
+              {canExport && (
+                <button
+                  onClick={() => setShowExport(true)}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t('finanzen.page.datevExport')}
+                </button>
+              )}
             </div>
             {/* Bexio */}
             <div className="rounded-lg border border-border p-4 space-y-3">
@@ -972,16 +1020,18 @@ function FinanzenPageContent() {
               <p className="text-xs text-muted-foreground">
                 {t('finanzen.exportTab.bexioDescription')}
               </p>
-              <button
-                onClick={() => {
-                  downloadCsv(buildBexioCsv(invoices as never), 'bexio-rechnungen.csv')
-                  toast.success(t('finanzen.exportTab.bexioDownloaded'))
-                }}
-                className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {t('finanzen.exportTab.bexioExport')}
-              </button>
+              {canExport && (
+                <button
+                  onClick={() => {
+                    downloadCsv(buildBexioCsv(invoices as never), 'bexio-rechnungen.csv')
+                    toast.success(t('finanzen.exportTab.bexioDownloaded'))
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t('finanzen.exportTab.bexioExport')}
+                </button>
+              )}
             </div>
             {/* BMD */}
             <div className="rounded-lg border border-border p-4 space-y-3">
@@ -997,16 +1047,18 @@ function FinanzenPageContent() {
               <p className="text-xs text-muted-foreground">
                 {t('finanzen.exportTab.bmdDescription')}
               </p>
-              <button
-                onClick={() => {
-                  downloadCsv(buildBmdCsv(invoices as never), 'bmd-ntcs-export.csv')
-                  toast.success(t('finanzen.exportTab.bmdDownloaded'))
-                }}
-                className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {t('finanzen.exportTab.bmdExport')}
-              </button>
+              {canExport && (
+                <button
+                  onClick={() => {
+                    downloadCsv(buildBmdCsv(invoices as never), 'bmd-ntcs-export.csv')
+                    toast.success(t('finanzen.exportTab.bmdDownloaded'))
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t('finanzen.exportTab.bmdExport')}
+                </button>
+              )}
             </div>
           </div>
         </div>

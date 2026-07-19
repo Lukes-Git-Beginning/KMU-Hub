@@ -74,12 +74,15 @@ interface TaskLinkFieldProps {
   taskId: string
   taskTitle?: string
   taskDescription?: string
+  /** RBAC (R-3): hides link/unlink controls; existing links stay navigable. */
+  canEdit?: boolean
 }
 
 export default function TaskLinkField({
   taskId,
   taskTitle,
   taskDescription,
+  canEdit = true,
 }: TaskLinkFieldProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -170,7 +173,7 @@ export default function TaskLinkField({
   return (
     <div className="space-y-2">
       {/* Context-aware auto-suggestions */}
-      {suggestions.length > 0 && (
+      {canEdit && suggestions.length > 0 && (
         <div className="rounded-md border border-blue-200 bg-blue-50/50 px-3 py-2 space-y-1.5">
           <p className="text-xs text-blue-700 font-medium">
             {t('work.links.didYouMean')}
@@ -246,14 +249,16 @@ export default function TaskLinkField({
                     {link.entity_display_name ?? t('work.links.link')}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  className="ml-0.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                  onClick={() => link.id && handleUnlink(link.id)}
-                  title={t('work.links.removeLink')}
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="ml-0.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                    onClick={() => link.id && handleUnlink(link.id)}
+                    title={t('work.links.removeLink')}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </span>
             )
           })}
@@ -261,6 +266,7 @@ export default function TaskLinkField({
       )}
 
       {/* Add link button + search popover */}
+      {canEdit && (
       <Popover open={searchOpen} onOpenChange={setSearchOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -358,6 +364,7 @@ export default function TaskLinkField({
           </div>
         </PopoverContent>
       </Popover>
+      )}
     </div>
   )
 }

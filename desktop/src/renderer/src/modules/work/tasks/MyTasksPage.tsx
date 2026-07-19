@@ -39,6 +39,9 @@ import { useWorkPrefsStore, type MyTasksGroupBy } from '@/stores/workPrefs'
 import { useWorkStore } from '@/stores/work'
 import { useAuthStore } from '@/stores/auth'
 import TaskDetailPanel from './TaskDetailPanel'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useTaskCan } from '../useWorkPermissions'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -57,6 +60,250 @@ import {
 import type { Priority } from '../components/PriorityBadge'
 
 const PAGE_SIZE = 50
+
+// ---------------------------------------------------------------------------
+// Per-task row — extracted so useTaskCan can be called at the top level
+// (React Rules of Hooks forbid calling hooks inside map callbacks).
+// ---------------------------------------------------------------------------
+interface MyTaskRowProps {
+  task: TaskItem
+  rowPad: string
+  projects: { id?: string; name?: string; project_key?: string }[]
+  onOpen: (task: TaskItem) => void
+  onToggleComplete: (task: TaskItem) => void
+  onAssignToMe: (task: TaskItem) => void
+  onSetQuickDue: (task: TaskItem, days: number | null) => void
+  onMoveToProject: (task: TaskItem, project: { id?: string; name?: string }) => void
+  onDeleteTarget: (task: TaskItem) => void
+  formatDueDate: (date?: string) => string | null
+  isDueOverdue: (date?: string) => boolean
+  t: (key: string, opts?: Record<string, unknown>) => string
+}
+
+function MyTaskRow({
+  task,
+  rowPad,
+  projects,
+  onOpen,
+  onToggleComplete,
+  onAssignToMe,
+  onSetQuickDue,
+  onMoveToProject,
+  onDeleteTarget,
+  formatDueDate,
+  isDueOverdue,
+  t,
+}: MyTaskRowProps) {
+  const can = useTaskCan(task)
+  const priorityConfig = PRIORITY_CONFIG[task.priority ?? 'normal']
+  const dueLabel = formatDueDate(task.due_date)
+  const overdue = isDueOverdue(task.due_date)
+  const moveTargets = projects.filter((p) => p.id !== task.project_id)
+  const hasMenu = can.complete || can.assignSelf || can.edit || (moveTargets.length > 0 && can.edit) || can.delete
+
+  return (
+    <div
+      key={task.id}
+      className={cn(
+        'flex items-center gap-3 rounded-md border border-border px-3 hover:bg-accent/50 transition-colors',
+        rowPad,
+      )}
+    >
+      {/* Quick-complete checkbox */}
+      {can.complete ? (
+        <button
+          type="button"
+          onClick={() => onToggleComplete(task)}
+          className={cn(
+            'group/check shrink-0 rounded-full p-1.5 transition-colors',
+            task.completed_at
+              ? 'text-success hover:bg-success/10'
+              : 'text-muted-foreground hover:bg-success/10 hover:text-success',
+          )}
+          aria-label={
+            task.completed_at
+              ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
+              : t('work.myTasks.complete', { defaultValue: 'Abschließen' })
+          }
+          title={
+            task.completed_at
+              ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
+              : t('work.myTasks.complete', { defaultValue: 'Abschließen' })
+          }
+        >
+          {task.completed_at ? (
+            <CheckCircle2 className="h-6 w-6" />
+          ) : (
+            <>
+              <Circle className="h-6 w-6 group-hover/check:hidden" />
+              <CheckCircle2 className="hidden h-6 w-6 group-hover/check:block" />
+            </>
+          )}
+        </button>
+      ) : (
+        <span className="shrink-0 p-1.5 text-muted-foreground/30">
+          {task.completed_at ? (
+            <CheckCircle2 className="h-6 w-6 text-success/50" />
+          ) : (
+            <Circle className="h-6 w-6" />
+          )}
+        </span>
+      )}
+
+      {/* Open task — title + meta */}
+      <button
+        type="button"
+        onClick={() => onOpen(task)}
+        className="flex flex-1 min-w-0 items-center gap-3 rounded text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <span className="flex-1 min-w-0 flex items-center gap-2">
+          {task.project_key && task.task_number ? (
+            <span className="text-xs font-mono text-muted-foreground shrink-0">
+              {task.project_key}-{task.task_number}
+            </span>
+          ) : null}
+          <span
+            className={cn(
+              'text-sm truncate',
+              task.completed_at && 'line-through text-muted-foreground',
+            )}
+          >
+            {task.title}
+          </span>
+        </span>
+
+        {priorityConfig && (
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold shrink-0',
+              priorityConfig.className,
+            )}
+          >
+            {t(priorityConfig.labelKey)}
+          </span>
+        )}
+
+        {dueLabel && (
+          <span
+            className={cn(
+              'text-xs shrink-0',
+              overdue ? 'text-destructive font-medium' : 'text-muted-foreground',
+            )}
+          >
+            {dueLabel}
+          </span>
+        )}
+      </button>
+
+      {/* Quick actions menu — only if at least one action is available */}
+      {hasMenu && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors shrink-0"
+              title={t('work.myTasks.actions', { defaultValue: 'Aktionen' })}
+              aria-label={t('work.myTasks.actions', { defaultValue: 'Aktionen' })}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-1" align="end">
+            {can.complete && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
+                onClick={() => onToggleComplete(task)}
+              >
+                {task.completed_at ? (
+                  <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                )}
+                {task.completed_at
+                  ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
+                  : t('work.myTasks.complete', { defaultValue: 'Abschließen' })}
+              </button>
+            )}
+            {can.assignSelf && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
+                onClick={() => onAssignToMe(task)}
+              >
+                <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                {t('work.myTasks.assignToMe', { defaultValue: 'Mir zuweisen' })}
+              </button>
+            )}
+
+            {can.edit && (
+              <div className="mt-1 border-t border-border pt-1">
+                <p className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                  <CalendarDays className="h-3 w-3" />
+                  {t('work.list.dueDate', { defaultValue: 'Fälligkeit' })}
+                </p>
+                <div className="flex flex-wrap gap-1 px-1 pb-1">
+                  {[
+                    { d: 0, key: 'work.time.today', dv: 'Heute' },
+                    { d: 1, key: 'work.time.tomorrow', dv: 'Morgen' },
+                    { d: 7, key: 'work.myTasks.dueNextWeek', dv: 'Nächste Woche' },
+                    { d: null, key: 'work.myTasks.dueClear', dv: 'Entfernen' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.dv}
+                      type="button"
+                      className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      onClick={() => onSetQuickDue(task, opt.d)}
+                    >
+                      {t(opt.key, { defaultValue: opt.dv })}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {can.edit && moveTargets.length > 0 && (
+              <div className="mt-1 border-t border-border pt-1">
+                <p className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                  {t('work.myTasks.moveToProject')}
+                </p>
+                <div className="max-h-32 overflow-y-auto space-y-0.5">
+                  {moveTargets.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
+                      onClick={() => onMoveToProject(task, p)}
+                    >
+                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <span className="truncate">{p.name}</span>
+                      <span className="ml-auto font-mono text-muted-foreground">
+                        {p.project_key}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {can.delete && (
+              <div className="mt-1 border-t border-border pt-1">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-destructive hover:bg-error-light transition-colors"
+                  onClick={() => onDeleteTarget(task)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('common.delete', { defaultValue: 'Löschen' })}
+                </button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  )
+}
 
 const PRIORITY_CONFIG: Record<string, { labelKey: string; className: string }> = {
   urgent: { labelKey: 'work.priority.urgent', className: 'bg-error-light text-destructive border-destructive/30' },
@@ -84,6 +331,8 @@ interface TaskItem {
   status_color?: string
   priority?: string
   assignee_name?: string
+  assignee_id?: string
+  created_by?: string
   due_date?: string
   completed_at?: string
 }
@@ -149,6 +398,7 @@ export default function MyTasksPage() {
 
   const groupBy = useWorkPrefsStore((s) => s.myTasksGroupBy)
   const density = useWorkPrefsStore((s) => s.density)
+  const canCreateTask = useHasCapability('work:task:create')
 
   const { data: projectsData } = useProjects({ page_size: 100 })
   const projects = projectsData?.projects ?? []
@@ -371,10 +621,15 @@ export default function MyTasksPage() {
         icon={ListChecks}
         moduleId="tasks"
         actions={
-          <Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {t('work.tasks.newTask')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="work" />
+            {canCreateTask && (
+              <Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                {t('work.tasks.newTask')}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -469,7 +724,7 @@ export default function MyTasksPage() {
               ? t('work.projects.tryOtherSearch')
               : t('work.myTasks.noTasksHint')
           }
-          action={{ label: t('work.myTasks.createFirst'), onClick: () => setCreateDialogOpen(true) }}
+          action={canCreateTask ? { label: t('work.myTasks.createFirst'), onClick: () => setCreateDialogOpen(true) } : undefined}
         />
       ) : (
         <>
@@ -494,203 +749,23 @@ export default function MyTasksPage() {
 
                 {/* Tasks in this group */}
                 <div className="space-y-1">
-                  {group.tasks.map((task) => {
-                    const priorityConfig = PRIORITY_CONFIG[task.priority ?? 'normal']
-                    const dueLabel = formatDueDate(task.due_date)
-                    const overdue = isDueOverdue(task.due_date)
-                    const moveTargets = projects.filter((p) => p.id !== task.project_id)
-
-                    return (
-                      <div
-                        key={task.id}
-                        className={cn(
-                          'flex items-center gap-3 rounded-md border border-border px-3 hover:bg-accent/50 transition-colors',
-                          rowPad,
-                        )}
-                      >
-                        {/* Quick-complete checkbox */}
-                        <button
-                          type="button"
-                          onClick={() => toggleComplete(task)}
-                          className={cn(
-                            'group/check shrink-0 rounded-full p-1.5 transition-colors',
-                            task.completed_at
-                              ? 'text-success hover:bg-success/10'
-                              : 'text-muted-foreground hover:bg-success/10 hover:text-success',
-                          )}
-                          aria-label={
-                            task.completed_at
-                              ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
-                              : t('work.myTasks.complete', { defaultValue: 'Abschließen' })
-                          }
-                          title={
-                            task.completed_at
-                              ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
-                              : t('work.myTasks.complete', { defaultValue: 'Abschließen' })
-                          }
-                        >
-                          {task.completed_at ? (
-                            <CheckCircle2 className="h-6 w-6" />
-                          ) : (
-                            <>
-                              <Circle className="h-6 w-6 group-hover/check:hidden" />
-                              <CheckCircle2 className="hidden h-6 w-6 group-hover/check:block" />
-                            </>
-                          )}
-                        </button>
-
-                        {/* Open task — title + meta (everything but checkbox & menu) */}
-                        <button
-                          type="button"
-                          onClick={() => openTask(task)}
-                          className="flex flex-1 min-w-0 items-center gap-3 rounded text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        >
-                          {/* Task key + title */}
-                          <span className="flex-1 min-w-0 flex items-center gap-2">
-                            {task.project_key && task.task_number ? (
-                              <span className="text-xs font-mono text-muted-foreground shrink-0">
-                                {task.project_key}-{task.task_number}
-                              </span>
-                            ) : null}
-                            <span
-                              className={cn(
-                                'text-sm truncate',
-                                task.completed_at && 'line-through text-muted-foreground',
-                              )}
-                            >
-                              {task.title}
-                            </span>
-                          </span>
-
-                          {/* Priority badge (span — div Badge is invalid inside a button) */}
-                          {priorityConfig && (
-                            <span
-                              className={cn(
-                                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold shrink-0',
-                                priorityConfig.className,
-                              )}
-                            >
-                              {t(priorityConfig.labelKey)}
-                            </span>
-                          )}
-
-                          {/* Due date */}
-                          {dueLabel && (
-                            <span
-                              className={cn(
-                                'text-xs shrink-0',
-                                overdue ? 'text-destructive font-medium' : 'text-muted-foreground',
-                              )}
-                            >
-                              {dueLabel}
-                            </span>
-                          )}
-                        </button>
-
-                        {/* Quick actions menu (all tasks) — sibling button, no row-nav bubbling */}
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors shrink-0"
-                              title={t('work.myTasks.actions', { defaultValue: 'Aktionen' })}
-                              aria-label={t('work.myTasks.actions', { defaultValue: 'Aktionen' })}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-56 p-1" align="end">
-                            {/* Complete / reopen */}
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
-                              onClick={() => toggleComplete(task)}
-                            >
-                              {task.completed_at ? (
-                                <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                              ) : (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                              )}
-                              {task.completed_at
-                                ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
-                                : t('work.myTasks.complete', { defaultValue: 'Abschließen' })}
-                            </button>
-                            {/* Assign to me */}
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
-                              onClick={() => assignToMe(task)}
-                            >
-                              <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
-                              {t('work.myTasks.assignToMe', { defaultValue: 'Mir zuweisen' })}
-                            </button>
-
-                            {/* Due date quick-pick */}
-                            <div className="mt-1 border-t border-border pt-1">
-                              <p className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                                <CalendarDays className="h-3 w-3" />
-                                {t('work.list.dueDate', { defaultValue: 'Fälligkeit' })}
-                              </p>
-                              <div className="flex flex-wrap gap-1 px-1 pb-1">
-                                {[
-                                  { d: 0, key: 'work.time.today', dv: 'Heute' },
-                                  { d: 1, key: 'work.time.tomorrow', dv: 'Morgen' },
-                                  { d: 7, key: 'work.myTasks.dueNextWeek', dv: 'Nächste Woche' },
-                                  { d: null, key: 'work.myTasks.dueClear', dv: 'Entfernen' },
-                                ].map((opt) => (
-                                  <button
-                                    key={opt.dv}
-                                    type="button"
-                                    className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                                    onClick={() => setQuickDue(task, opt.d)}
-                                  >
-                                    {t(opt.key, { defaultValue: opt.dv })}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Move to project */}
-                            {moveTargets.length > 0 && (
-                              <div className="mt-1 border-t border-border pt-1">
-                                <p className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                                  {t('work.myTasks.moveToProject')}
-                                </p>
-                                <div className="max-h-32 overflow-y-auto space-y-0.5">
-                                  {moveTargets.map((p) => (
-                                    <button
-                                      key={p.id}
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
-                                      onClick={() => handleMoveToProject(task, p)}
-                                    >
-                                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                      <span className="truncate">{p.name}</span>
-                                      <span className="ml-auto font-mono text-muted-foreground">
-                                        {p.project_key}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Delete */}
-                            <div className="mt-1 border-t border-border pt-1">
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-destructive hover:bg-error-light transition-colors"
-                                onClick={() => setDeleteTarget(task)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                {t('common.delete', { defaultValue: 'Löschen' })}
-                              </button>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    )
-                  })}
+                  {group.tasks.map((task) => (
+                    <MyTaskRow
+                      key={task.id}
+                      task={task}
+                      rowPad={rowPad}
+                      projects={projects}
+                      onOpen={openTask}
+                      onToggleComplete={toggleComplete}
+                      onAssignToMe={assignToMe}
+                      onSetQuickDue={setQuickDue}
+                      onMoveToProject={handleMoveToProject}
+                      onDeleteTarget={setDeleteTarget}
+                      formatDueDate={formatDueDate}
+                      isDueOverdue={isDueOverdue}
+                      t={t}
+                    />
+                  ))}
                 </div>
               </div>
             ))}
@@ -729,7 +804,7 @@ export default function MyTasksPage() {
       )}
 
       {/* Standalone task creation dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={canCreateTask && createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t('work.tasks.newTask')}</DialogTitle>
@@ -793,7 +868,7 @@ export default function MyTasksPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
+      {/* Delete confirmation — only reachable via can.delete rows, guard nonetheless */}
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

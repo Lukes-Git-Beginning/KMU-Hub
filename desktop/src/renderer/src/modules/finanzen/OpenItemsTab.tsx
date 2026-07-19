@@ -6,6 +6,7 @@ import { useInvoices } from '@/api/hooks/useFinance'
 import { formatMoney, formatEUR, calcInvoiceTotal } from '@/stores/finance'
 import { formatDate } from '@/lib/format'
 import type { Invoice } from '@/types/finance-types'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 type Bucket = 'current' | 'd30' | 'd60' | 'd60plus'
 
@@ -48,6 +49,7 @@ export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
   const { t } = useTranslation()
   const { data, isLoading } = useInvoices()
   const [activeBucket, setActiveBucket] = useState<Bucket | 'all'>('all')
+  const amountsVisible = useAmountsVisible()
 
   const items = useMemo<OpenItem[]>(() => {
     const invoices = data?.invoices ?? []
@@ -122,7 +124,12 @@ export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
             <Wallet className="h-4 w-4" />
             <span className="text-xs">{t('finanzen.openItems.totalOpen')}</span>
           </div>
-          <p className="mt-1.5 text-xl font-semibold text-foreground stat-accent">{formatEUR(stats.totalEUR)}</p>
+          <p
+            className="mt-1.5 text-xl font-semibold text-foreground stat-accent"
+            title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+          >
+            {maskedAmount(amountsVisible, formatEUR(stats.totalEUR))}
+          </p>
           <p className="text-[10px] text-muted-foreground">{t('finanzen.openItems.itemCount', { count: items.length })}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
@@ -130,7 +137,12 @@ export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
             <AlertTriangle className="h-4 w-4" />
             <span className="text-xs">{t('finanzen.openItems.totalOverdue')}</span>
           </div>
-          <p className="mt-1.5 text-xl font-semibold text-error">{formatEUR(stats.overdueEUR)}</p>
+          <p
+            className="mt-1.5 text-xl font-semibold text-error"
+            title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+          >
+            {maskedAmount(amountsVisible, formatEUR(stats.overdueEUR))}
+          </p>
           <p className="text-[10px] text-muted-foreground">{t('finanzen.openItems.itemCount', { count: stats.overdueCount })}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
@@ -168,7 +180,12 @@ export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
           >
             <span className={`inline-block h-2 w-2 rounded-full ${BUCKET_STYLES[b].split(' ')[0]}`} />
             {t(`finanzen.openItems.bucket.${b}`)} ({stats.byBucket[b].count})
-            <span className="text-[10px] text-muted-foreground">· {formatEUR(stats.byBucket[b].eur)}</span>
+            <span
+              className="text-[10px] text-muted-foreground"
+              title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+            >
+              · {maskedAmount(amountsVisible, formatEUR(stats.byBucket[b].eur))}
+            </span>
           </button>
         ))}
       </div>
@@ -200,7 +217,12 @@ export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
                 ? t('finanzen.openItems.daysOverdue', { count: it.daysOverdue })
                 : t('finanzen.openItems.notDue', { count: Math.abs(it.daysOverdue) })}
             </span>
-            <span className="text-sm font-medium text-foreground text-right">{formatMoney(it.gross, it.currency)}</span>
+            <span
+              className="text-sm font-medium text-foreground text-right"
+              title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+            >
+              {maskedAmount(amountsVisible, formatMoney(it.gross, it.currency))}
+            </span>
             <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${BUCKET_STYLES[it.bucket]}`}>
               {t(`finanzen.openItems.bucket.${it.bucket}`)}
             </span>

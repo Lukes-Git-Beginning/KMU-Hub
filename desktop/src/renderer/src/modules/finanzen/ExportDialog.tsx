@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Download, FileSpreadsheet, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { useExportDATEV } from '@/api/hooks/useFinance'
+import { useHasCapability } from '@/hooks/useCapability'
 
 interface ExportDialogProps {
   open: boolean
@@ -31,8 +32,12 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
   })
 
   const exportDATEV = useExportDATEV()
+  // RBAC R-3 — defensive: dialog only opens when tab is visible (canExport),
+  // but guard the button too so direct-render edge cases are safe.
+  const canExport = useHasCapability('finance:export:run')
 
   const handleExport = () => {
+    if (!canExport) return
     if (!startDate || !endDate) return
     exportDATEV.mutate(
       { date_from: startDate, date_to: endDate },
@@ -110,6 +115,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
+          {canExport && (
           <Button
             onClick={handleExport}
             disabled={!startDate || !endDate || exportDATEV.isPending}
@@ -117,6 +123,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             <Download className="mr-1.5 h-4 w-4" />
             {exportDATEV.isPending ? t('finanzen.export.exporting') : t('finanzen.export.exportBtn')}
           </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -5,6 +5,7 @@ import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useWikiStore } from '@/stores/wiki'
 import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import type { WikiArticle, WikiCategory } from '@/types/wiki'
+import { useHasCapability } from '@/hooks/useCapability'
 import { WikiSearch } from './WikiSearch'
 import { WikiTreeNode } from './WikiTreeNode'
 
@@ -26,6 +27,8 @@ interface WikiSidebarProps {
 
 export function WikiSidebar({ categories, articles, categoriesLoading, onNewArticle, onNewCategory }: WikiSidebarProps) {
   const { t } = useTranslation()
+  const canManageCategory = useHasCapability('wiki:category:manage')
+  const canCreateArticle = useHasCapability('wiki:article:create')
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
   const setSelectedCategory = useWikiStore((s) => s.setSelectedCategory)
   const defaultView = useWikiPrefsStore((s) => s.defaultView)
@@ -88,20 +91,24 @@ export function WikiSidebar({ categories, articles, categoriesLoading, onNewArti
           </div>
         </div>
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={onNewCategory}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title={t('wiki.sidebar.newCategory')}
-          >
-            <FolderPlus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={onNewArticle}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title={t('wiki.sidebar.newArticle')}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          {canManageCategory && (
+            <button
+              onClick={onNewCategory}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              title={t('wiki.sidebar.newCategory')}
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {canCreateArticle && (
+            <button
+              onClick={onNewArticle}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              title={t('wiki.sidebar.newArticle')}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

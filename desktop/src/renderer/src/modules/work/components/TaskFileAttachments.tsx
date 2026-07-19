@@ -31,6 +31,7 @@ import { useAuthStore } from '@/stores/auth'
 
 interface TaskFileAttachmentsProps {
   taskId: string
+  canEdit?: boolean
 }
 
 function getFileIcon(mimeType?: string) {
@@ -62,6 +63,7 @@ function formatRelativeTime(dateStr: string | undefined, t: (key: string, opts?:
 
 export default function TaskFileAttachments({
   taskId,
+  canEdit = true,
 }: TaskFileAttachmentsProps) {
   const { t } = useTranslation()
   const currentUserId = useAuthStore((s) => s.user?.id)
@@ -117,34 +119,36 @@ export default function TaskFileAttachments({
   return (
     <div>
       {/* Upload area */}
-      <div className="mb-3">
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={handleFileSelect}
-          multiple
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full gap-2"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={attachFile.isPending}
-        >
-          {attachFile.isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t('work.files.uploading')}
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4" />
-              {t('work.files.attach')}
-            </>
-          )}
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="mb-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileSelect}
+            multiple
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={attachFile.isPending}
+          >
+            {attachFile.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('work.files.uploading')}
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                {t('work.files.attach')}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* File list */}
       {isLoading ? (
@@ -206,7 +210,7 @@ export default function TaskFileAttachments({
                       <Download className="h-3.5 w-3.5" />
                     )}
                   </button>
-                  {isOwn && (
+                  {isOwn && canEdit && (
                     <button
                       type="button"
                       className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"

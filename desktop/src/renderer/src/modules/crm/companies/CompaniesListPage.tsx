@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared'
 import { useCompanies, useCreateCompany, useDeleteCompany } from '@/api/hooks/useCompanies'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import { backendCompanyToUI } from './adapters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -79,6 +80,11 @@ export default function CompaniesListPage() {
 
   const createCompany = useCreateCompany()
   const deleteCompany = useDeleteCompany()
+
+  // RBAC — Firmen laufen unter crm:contact:*
+  const canCreate = useHasCapability('crm:contact:create')
+  // CRM-Objekte kein owner-Feld → ownerIds leer → scope='own' ergibt deny
+  const canDelete = useScopedCapability('crm:contact:delete')
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -216,10 +222,12 @@ export default function CompaniesListPage() {
         icon={Building2}
         moduleId="contacts"
         actions={
-          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            {t('crm.companies.new')}
-          </Button>
+          canCreate ? (
+            <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              {t('crm.companies.new')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -234,7 +242,7 @@ export default function CompaniesListPage() {
       </div>
 
       {/* Bulk action bar */}
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && canDelete && (
         <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-2">
           <span className="text-sm font-medium text-foreground">
             {t('crm.bulk.selected', { count: selectedIds.size })}
@@ -275,7 +283,7 @@ export default function CompaniesListPage() {
               ? t('crm.tryDifferentSearch')
               : t('crm.companies.emptyHint')}
           </p>
-          {!debouncedSearch && (
+          {!debouncedSearch && canCreate && (
             <Button className="mt-4 gap-2" onClick={() => setShowCreateDialog(true)}>
               <Plus className="h-4 w-4" />
               {t('crm.companies.createFirst')}

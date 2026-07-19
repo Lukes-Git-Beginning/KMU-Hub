@@ -24,6 +24,12 @@ import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   useQuote,
   useSendQuote,
   useAcceptQuote,
@@ -38,6 +44,8 @@ import { formatDate } from '@/lib/format'
 import { PDFPreviewPanel } from './PDFPreviewPanel'
 import { CustomerAccountSection } from './CustomerAccountSection'
 import { useFinanceDetailNavOptional } from './FinanceDetailNav'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 const statusConfig: Record<QuoteStatus, { labelKey: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
   draft: { labelKey: 'finanzen.status.draft', color: 'text-muted-foreground', bg: 'bg-secondary', icon: FileText },
@@ -66,6 +74,12 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted, onBack
   const rejectQuote = useRejectQuote()
   const convertQuote = useConvertQuoteToInvoice()
   const downloadPDF = useDownloadQuotePDF()
+
+  // RBAC R-3
+  const canCreateQuote   = useHasCapability('finance:quote:create')
+  const canSendQuote     = useHasCapability('finance:quote:send')
+  const canCreateInvoice = useHasCapability('finance:invoice:create')
+  const amountsVisible   = useAmountsVisible()
 
   if (isLoading || !quote) {
     return (
@@ -222,17 +236,23 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted, onBack
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between text-muted-foreground">
             <span>{t('finanzen.totals.subtotalNet')}</span>
-            <span>{money(quote.tax_breakdown?.subtotal ?? quote.total_net ?? 0)}</span>
+            <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+              {maskedAmount(amountsVisible, money(quote.tax_breakdown?.subtotal ?? quote.total_net ?? 0))}
+            </span>
           </div>
           {Object.entries(quote.tax_breakdown?.tax_by_rate ?? {}).map(([rate, amount]) => (
             <div key={rate} className="flex justify-between text-muted-foreground">
               <span>MwSt {rate}%</span>
-              <span>{money(amount as number)}</span>
+              <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+                {maskedAmount(amountsVisible, money(Number(amount)))}
+              </span>
             </div>
           ))}
           <div className="flex justify-between border-t border-border pt-1.5 text-sm font-medium text-foreground">
             <span>{t('finanzen.totals.totalAmount')}</span>
-            <span>{money(quote.tax_breakdown?.gross_total ?? quote.total_gross ?? 0)}</span>
+            <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+              {maskedAmount(amountsVisible, money(quote.tax_breakdown?.gross_total ?? quote.total_gross ?? 0))}
+            </span>
           </div>
         </div>
 
@@ -300,41 +320,64 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted, onBack
         <CustomerAccountSection customer={quote.customer} currentDocId={quote.id} />
 
         {/* Actions */}
-        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-          {quote.status === 'draft' && (
-            <>
-              <Button variant="outline" size="sm" onClick={onEdit}>
-                {t('common.edit')}
+        <TooltipProvider>
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+            {quote.status === 'draft' && (
+              <>
+                {/* Edit → quote:create */}
+                {canCreateQuote && (
+                  <Button variant="outline" size="sm" onClick={onEdit}>
+                    {t('common.edit')}
+                  </Button>
+                )}
+                {/* Send → AUSNAHME quote:send: visible, disabled without right */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex" tabIndex={0}>
+                      <Button
+                        size="sm"
+                        onClick={() => run(sendQuote, `${quote.quote_number} ${t('finanzen.dunning.sent')}`)}
+                        disabled={!canSendQuote}
+                        className={!canSendQuote ? 'pointer-events-none' : ''}
+                      >
+                        <Send className="mr-1.5 h-4 w-4" />
+                        {t('finanzen.dunning.send')}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!canSendQuote && (
+                    <TooltipContent>{t('rbac.gate.sendDisabled')}</TooltipContent>
+                  )}
+                </Tooltip>
+              </>
+            )}
+            {/* Accept/Reject → quote:create */}
+            {quote.status === 'sent' && canCreateQuote && (
+              <>
+                <Button size="sm" onClick={() => run(acceptQuote, `${quote.quote_number} ${t('finanzen.quoteStatus.accepted')}`)}>
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                  {t('finanzen.page.accept')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => run(rejectQuote, `${quote.quote_number} ${t('finanzen.quoteStatus.rejected')}`)}>
+                  <XCircle className="mr-1.5 h-4 w-4" />
+                  {t('finanzen.page.reject')}
+                </Button>
+              </>
+            )}
+            {/* Convert → invoice:create */}
+            {quote.status === 'accepted' && !convertedNumber && canCreateInvoice && (
+              <Button size="sm" onClick={() => run(convertQuote, t('finanzen.page.invoiceFromQuoteCreated'), onConverted)}>
+                <FileCheck className="mr-1.5 h-4 w-4" />
+                {t('finanzen.page.convertToInvoice')}
               </Button>
-              <Button size="sm" onClick={() => run(sendQuote, `${quote.quote_number} ${t('finanzen.dunning.sent')}`)}>
-                <Send className="mr-1.5 h-4 w-4" />
-                {t('finanzen.dunning.send')}
-              </Button>
-            </>
-          )}
-          {quote.status === 'sent' && (
-            <>
-              <Button size="sm" onClick={() => run(acceptQuote, `${quote.quote_number} ${t('finanzen.quoteStatus.accepted')}`)}>
-                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                {t('finanzen.page.accept')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => run(rejectQuote, `${quote.quote_number} ${t('finanzen.quoteStatus.rejected')}`)}>
-                <XCircle className="mr-1.5 h-4 w-4" />
-                {t('finanzen.page.reject')}
-              </Button>
-            </>
-          )}
-          {quote.status === 'accepted' && !convertedNumber && (
-            <Button size="sm" onClick={() => run(convertQuote, t('finanzen.page.invoiceFromQuoteCreated'), onConverted)}>
-              <FileCheck className="mr-1.5 h-4 w-4" />
-              {t('finanzen.page.convertToInvoice')}
+            )}
+            {/* PDF — always free */}
+            <Button variant="outline" size="sm" onClick={() => downloadPDF.mutate(quoteId)}>
+              <Download className="mr-1.5 h-4 w-4" />
+              {t('finanzen.pdf.downloadPdf')}
             </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => downloadPDF.mutate(quoteId)}>
-            <Download className="mr-1.5 h-4 w-4" />
-            {t('finanzen.pdf.downloadPdf')}
-          </Button>
-        </div>
+          </div>
+        </TooltipProvider>
       </div>
     </DetailModal>
   )

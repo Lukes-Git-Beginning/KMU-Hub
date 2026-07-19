@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { useWikiStore } from '@/stores/wiki'
 import { useCreateArticle, useTemplates } from '@/api/hooks/useWiki'
+import { useHasCapability } from '@/hooks/useCapability'
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
   const createArticle = useCreateArticle()
   const { data: templates } = useTemplates()
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
+  const canManageTemplates = useHasCapability('wiki:template:manage')
 
   const [title, setTitle] = useState('')
   // null = blank document; otherwise the picked template id.
@@ -68,13 +70,15 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
                 <DialogTitle>{t('wiki.article.newTitle')}</DialogTitle>
                 <DialogDescription>{t('wiki.article.newDescription')}</DialogDescription>
               </div>
-              <button
-                onClick={() => setManagerOpen(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                {t('wiki.template.manage')}
-              </button>
+              {canManageTemplates && (
+                <button
+                  onClick={() => setManagerOpen(true)}
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {t('wiki.template.manage')}
+                </button>
+              )}
             </div>
           </DialogHeader>
 

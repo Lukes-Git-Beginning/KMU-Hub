@@ -43,6 +43,7 @@ export interface GanttTask {
   status_name?: string
   status_color?: string
   assignee_name?: string
+  assignee_id?: string | null
   parent_task_id?: string | null
   depth: number
   completed_at?: string | null
@@ -470,6 +471,7 @@ export function mapApiTasksToGantt(
       status_name: t.status_name,
       status_color: t.status_color,
       assignee_name: t.assignee_name,
+      assignee_id: t.assignee_id ?? null,
       parent_task_id: t.parent_task_id ?? null,
       depth: 0, // flat for Gantt (no nesting in timeline view)
       completed_at: t.completed_at ?? null,

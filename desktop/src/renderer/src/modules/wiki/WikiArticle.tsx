@@ -7,6 +7,7 @@ import { useWikiStore } from '@/stores/wiki'
 import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { useUpdateArticle, useArticleVersions, useRestoreVersion, useArticle } from '@/api/hooks/useWiki'
 import { adaptVersion } from '@/api/wiki-adapter'
+import { useScopedCapability } from '@/hooks/useCapability'
 import { DocumentReader, type DocRow } from '@/components/shared/document'
 import { wikiBlockRegistry } from './wiki-blocks'
 import { useWikiUsers } from './useWikiUsers'
@@ -38,6 +39,7 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   const readingWidth = useWikiPrefsStore((s) => s.readingWidth)
   const updateArticleMutation = useUpdateArticle()
   const restoreVersionMutation = useRestoreVersion()
+  const canEdit = useScopedCapability('wiki:article:edit', article.authorId)
   const [editRows, setEditRows] = useState<DocRow[]>(article.body)
   const [editTitle, setEditTitle] = useState(article.title)
   const [editIcon, setEditIcon] = useState(article.icon)
@@ -93,6 +95,7 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   }
 
   const handleStartEdit = () => {
+    if (!canEdit) return
     setEditRows(article.body)
     setEditTitle(article.title)
     setEditIcon(article.icon)
@@ -101,6 +104,7 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
   }
 
   const handleRestore = async (versionId: string) => {
+    if (!canEdit) return
     try {
       await restoreVersionMutation.mutateAsync({ articleId: article.id, versionId })
       toast.success(t('wiki.version.restored'))
@@ -135,6 +139,7 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
           <WikiEditor
             key={article.id}
             articleId={article.id}
+            authorId={article.authorId}
             title={editTitle}
             onTitleChange={setEditTitle}
             rows={editRows}
@@ -159,12 +164,16 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
               <div className={cn('min-w-0 flex-1', readingWidth === 'wide' ? '' : 'max-w-[72ch]')}>
                 {hasBody ? (
                   <DocumentReader rows={article.body} registry={wikiBlockRegistry} mode="web" />
-                ) : (
+                ) : canEdit ? (
                   <WikiEmptyCanvas onStart={handleStartEdit} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                    <p className="text-sm text-muted-foreground">{t('wiki.empty.title')}</p>
+                  </div>
                 )}
 
                 {/* Attachments */}
-                <WikiAttachments articleId={article.id} />
+                <WikiAttachments articleId={article.id} authorId={article.authorId} />
               </div>
 
               {/* Table of contents (sticky, wide screens only) */}
@@ -178,12 +187,12 @@ export function WikiArticle({ article, categories, allTags, onDelete, onShare }:
         )}
       </div>
 
-      {/* Version history slide-in */}
+      {/* Version history slide-in — restore only with edit permission */}
       <WikiVersionHistory
         versions={versions}
         open={showVersions}
         onClose={() => setShowVersions(false)}
-        onRestore={handleRestore}
+        onRestore={canEdit ? handleRestore : undefined}
         restoringId={restoreVersionMutation.isPending ? restoreVersionMutation.variables?.versionId : undefined}
       />
     </div>

@@ -42,6 +42,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import ProjectCreateDialog from './ProjectCreateDialog'
+import { useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 
 const PAGE_SIZE = 12
 
@@ -83,6 +85,7 @@ export default function ProjectsListPage() {
 
   const createProject = useCreateProject()
   const createFromTemplate = useCreateFromTemplate()
+  const canCreateProject = useHasCapability('work:project:create')
 
   const projects = data?.projects ?? []
   const total = data?.total ?? 0
@@ -128,7 +131,8 @@ export default function ProjectsListPage() {
         moduleId="projects"
         actions={
           <div className="flex items-center gap-2">
-            {templates.length > 0 && (
+            <RestrictedModeBadge module="work" />
+            {canCreateProject && templates.length > 0 && (
               <Button
                 variant="outline"
                 onClick={() => setTemplateDialogOpen(true)}
@@ -138,10 +142,12 @@ export default function ProjectsListPage() {
                 {t('work.projects.createFromTemplate')}
               </Button>
             )}
-            <Button onClick={() => setCreateOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              {t('work.projects.newProject')}
-            </Button>
+            {canCreateProject && (
+              <Button onClick={() => setCreateOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                {t('work.projects.newProject')}
+              </Button>
+            )}
           </div>
         }
       />
@@ -221,7 +227,7 @@ export default function ProjectsListPage() {
                 ? t('work.projects.noTemplatesHint')
                 : t('work.projects.noProjectsHint')
           }
-          action={!debouncedSearch && !showTemplates ? { label: t('work.projects.createFirst'), onClick: () => setCreateOpen(true) } : undefined}
+          action={!debouncedSearch && !showTemplates && canCreateProject ? { label: t('work.projects.createFirst'), onClick: () => setCreateOpen(true) } : undefined}
         />
       ) : viewMode === 'portfolio' ? (
         <ProjectPortfolioView projects={projects} />
@@ -383,17 +389,19 @@ export default function ProjectsListPage() {
               >
                 {t('common.cancel')}
               </Button>
-              <Button
-                onClick={handleCreateFromTemplate}
-                disabled={
-                  !selectedTemplateId ||
-                  !templateName.trim() ||
-                  !templateKey.trim() ||
-                  createFromTemplate.isPending
-                }
-              >
-                {createFromTemplate.isPending ? t('work.projects.creating') : t('work.projects.createFromTemplate')}
-              </Button>
+              {canCreateProject && (
+                <Button
+                  onClick={handleCreateFromTemplate}
+                  disabled={
+                    !selectedTemplateId ||
+                    !templateName.trim() ||
+                    !templateKey.trim() ||
+                    createFromTemplate.isPending
+                  }
+                >
+                  {createFromTemplate.isPending ? t('work.projects.creating') : t('work.projects.createFromTemplate')}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

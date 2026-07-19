@@ -29,6 +29,8 @@ import { adaptArticle, adaptCategory } from '@/api/wiki-adapter'
 import { useWikiUsers } from './useWikiUsers'
 import type { WikiArticle as WikiArticleType } from '@/types/wiki'
 import { EmptyState, ConfirmDialog } from '@/components/shared'
+import { useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { WikiSidebar } from './WikiSidebar'
 import { WikiArticle } from './WikiArticle'
 import { WikiTemplateDialog } from './WikiTemplateDialog'
@@ -77,6 +79,7 @@ function ArticleListSkeleton() {
 
 export default function WikiPage() {
   const { t } = useTranslation()
+  const canCreateArticle = useHasCapability('wiki:article:create')
 
   // Server state
   const { data: articlesData, isLoading: articlesLoading, isError: articlesError } = useArticles()
@@ -209,6 +212,7 @@ export default function WikiPage() {
                     ? t('wiki.list.searchResults', { count: filteredArticles.length })
                     : t('wiki.list.articleCount', { count: filteredArticles.length })}
                 </span>
+                <RestrictedModeBadge module="wiki" />
                 {activeTag && (
                   <button
                     onClick={() => setActiveTag(null)}

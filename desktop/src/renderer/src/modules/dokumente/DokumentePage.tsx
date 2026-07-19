@@ -39,6 +39,8 @@ import { downloadDocumentFile } from './download'
 import { useAIStore, type ClassificationLevel } from '@/stores/ai'
 import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
 import { useDokumenteSettingsStore } from '@/stores/dokumenteSettings'
+import { useCapability, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import {
   useDocumentFolders,
   useDocumentFiles,
@@ -136,6 +138,10 @@ const SIDEBAR_VIRTUAL_TASK = '__virtual_task__'
 
 export default function DokumentePage() {
   const { t } = useTranslation()
+  const canUpload = useHasCapability('documents:file:upload')
+  const canTemplate = useHasCapability('documents:template:manage')
+  const { allowed: canEditAllowed } = useCapability('documents:file:edit')
+  const canNewFolder = canEditAllowed // new folder always owned by self → ungescoped check ok
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
   const [activeSpecialView, setActiveSpecialView] = useState<string | null>(null)
   // Personal prefs: default view is the fallback for folders without a
@@ -378,6 +384,9 @@ export default function DokumentePage() {
       )
       return
     }
+
+    // Gate external file uploads
+    if (!canUpload) return
 
     // Desktop file upload
     const droppedFiles = e.dataTransfer.files
@@ -626,16 +635,18 @@ export default function DokumentePage() {
                   <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {t('dokumente.sidebar.myFiles')}
                   </h3>
-                  <button
-                    onClick={() => {
-                      setFolderCreateParentId(null)
-                      setFolderCreateOpen(true)
-                    }}
-                    className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                    title={t('dokumente.folder.new')}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
+                  {canNewFolder && (
+                    <button
+                      onClick={() => {
+                        setFolderCreateParentId(null)
+                        setFolderCreateOpen(true)
+                      }}
+                      className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                      title={t('dokumente.folder.new')}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
                 <nav className="space-y-0.5">
                   {(personalFolders?.folders ?? [])
@@ -823,6 +834,7 @@ export default function DokumentePage() {
               >
                 <FolderOpen className="h-4 w-4" />
               </button>
+              <RestrictedModeBadge module="documents" />
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
@@ -869,20 +881,24 @@ export default function DokumentePage() {
                   <List className="h-4 w-4" />
                 </button>
               </div>
-              <button
-                onClick={() => setShowTemplateGallery(true)}
-                className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                {t('dokumente.fromTemplate')}
-              </button>
-              <button
-                onClick={handleUpload}
-                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-              >
-                <Upload className="h-4 w-4" />
-                {t('common.upload')}
-              </button>
+              {canTemplate && (
+                <button
+                  onClick={() => setShowTemplateGallery(true)}
+                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('dokumente.fromTemplate')}
+                </button>
+              )}
+              {canUpload && (
+                <button
+                  onClick={handleUpload}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  {t('common.upload')}
+                </button>
+              )}
             </div>
 
             {/* Breadcrumbs */}
@@ -1161,7 +1177,7 @@ export default function DokumentePage() {
                       : t('dokumente.empty.uploadHint')
                   }
                   action={
-                    !search
+                    !search && canUpload
                       ? { label: t('dokumente.empty.uploadAction'), onClick: handleUpload }
                       : undefined
                   }

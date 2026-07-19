@@ -42,6 +42,7 @@ import { useEntityTasks } from '@/api/hooks/useTasks'
 import { ConsentPanel } from '@/modules/kontakte/ConsentPanel'
 import type { Contact } from '@/stores/contacts'
 import { formatDate } from '@/lib/format'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 
 interface ContactDetailPanelProps {
   contact: Contact
@@ -82,6 +83,8 @@ function TagEditor({ contactId, tagNames }: TagEditorProps) {
   const { data: availableTags = [] } = useTags()
   const addTags = useAddContactTags()
   const removeTags = useRemoveContactTags()
+  // CRM-Objekte tragen kein owner-Feld → ownerIds leer → scope='own' ergibt deny
+  const canEdit = useScopedCapability('crm:contact:edit')
 
   // Find which available tags are already active (match by name, case-insensitive)
   const activeTagNames = new Set(tagNames.map((n) => n.toLowerCase()))
@@ -131,18 +134,21 @@ function TagEditor({ contactId, tagNames }: TagEditorProps) {
               />
             )}
             {tagName}
-            <button
-              onClick={() => handleRemove(tagName)}
-              className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
-              aria-label={t('kontakte.tag.remove', { name: tagName })}
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => handleRemove(tagName)}
+                className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                aria-label={t('kontakte.tag.remove', { name: tagName })}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            )}
           </span>
         )
       })}
 
       {/* Add-tag popover */}
+      {canEdit && (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
@@ -175,6 +181,7 @@ function TagEditor({ contactId, tagNames }: TagEditorProps) {
           )}
         </PopoverContent>
       </Popover>
+      )}
     </div>
   )
 }
@@ -222,6 +229,12 @@ export function ContactDetailPanel({
   const navigate = useNavigate()
   const status = statusConfig[contact.status]
   const authUser = useAuthStore((s) => s.user)
+
+  // RBAC — CRM-Objekte ohne owner-Feld: leere ownerIds → scope='own' ergibt deny
+  const canEdit = useScopedCapability('crm:contact:edit')
+  const canDelete = useScopedCapability('crm:contact:delete')
+  const canAdvisoryRead = useHasCapability('crm:advisory:read')
+  const canSegmentOverride = useHasCapability('crm:segment:override')
   const advisorName = authUser ? `${authUser.firstName} ${authUser.lastName}`.trim() : ''
   const segmentThresholds = useSegmentSettingsStore((s) => s.thresholds)
 
@@ -259,27 +272,33 @@ export function ContactDetailPanel({
       <div className="bg-gradient-to-br from-primary to-primary-dark px-6 py-5 shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-1.5 ml-auto">
-            <button
-              onClick={() => onToggleFavorite(contact.id)}
-              className="rounded-md p-1.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-              title={contact.isFavorite ? t('kontakte.action.unfavorite') : t('kontakte.action.addToFavorites')}
-            >
-              <Star className={`h-4 w-4 ${contact.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-            </button>
-            <button
-              onClick={() => onEdit(contact)}
-              className="rounded-md p-1.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-              title={t('common.edit')}
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => onDelete(contact.id)}
-              className="rounded-md p-1.5 text-primary-foreground/70 hover:text-red-300 transition-colors"
-              title={t('common.delete')}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => onToggleFavorite(contact.id)}
+                className="rounded-md p-1.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+                title={contact.isFavorite ? t('kontakte.action.unfavorite') : t('kontakte.action.addToFavorites')}
+              >
+                <Star className={`h-4 w-4 ${contact.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+              </button>
+            )}
+            {canEdit && (
+              <button
+                onClick={() => onEdit(contact)}
+                className="rounded-md p-1.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+                title={t('common.edit')}
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={() => onDelete(contact.id)}
+                className="rounded-md p-1.5 text-primary-foreground/70 hover:text-red-300 transition-colors"
+                title={t('common.delete')}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
             <button
               onClick={onClose}
               className="ml-1 rounded-md p-1.5 text-primary-foreground/70 hover:bg-primary-foreground/20 hover:text-primary-foreground transition-colors"
@@ -320,39 +339,47 @@ export function ContactDetailPanel({
               <span className="rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground">
                 {t(categoryLabelKeys[contact.category] ?? 'kontakte.category.customer')}
               </span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    className="inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground transition-colors hover:bg-primary-foreground/30"
-                    title={t('crm.segment.badgeTooltip')}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: segMeta.color }} />
-                    {t('crm.segment.badge', { segment })}
-                    {segmentOverride && <span className="opacity-70">·{t('crm.segment.manual')}</span>}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-56">
-                  <p className="mb-2 text-xs font-medium text-foreground">{t('crm.segment.setManual')}</p>
-                  <div className="space-y-1">
-                    {(['A', 'B', 'C'] as MandantSegment[]).map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => setSegmentOverride(contact.id, s)}
-                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-secondary ${segmentOverride === s ? 'bg-secondary font-medium' : ''}`}
-                      >
-                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SEGMENT_META[s].color }} />
-                        {t('crm.segment.badge', { segment: s })}
-                      </button>
-                    ))}
+              {canSegmentOverride ? (
+                <Popover>
+                  <PopoverTrigger asChild>
                     <button
-                      onClick={() => setSegmentOverride(contact.id, null)}
-                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary ${!segmentOverride ? 'font-medium text-foreground' : ''}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground transition-colors hover:bg-primary-foreground/30"
+                      title={t('crm.segment.badgeTooltip')}
                     >
-                      {t('crm.segment.auto', { segment: ruleSegment })}
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: segMeta.color }} />
+                      {t('crm.segment.badge', { segment })}
+                      {segmentOverride && <span className="opacity-70">·{t('crm.segment.manual')}</span>}
                     </button>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56">
+                    <p className="mb-2 text-xs font-medium text-foreground">{t('crm.segment.setManual')}</p>
+                    <div className="space-y-1">
+                      {(['A', 'B', 'C'] as MandantSegment[]).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setSegmentOverride(contact.id, s)}
+                          className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-secondary ${segmentOverride === s ? 'bg-secondary font-medium' : ''}`}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SEGMENT_META[s].color }} />
+                          {t('crm.segment.badge', { segment: s })}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setSegmentOverride(contact.id, null)}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary ${!segmentOverride ? 'font-medium text-foreground' : ''}`}
+                      >
+                        {t('crm.segment.auto', { segment: ruleSegment })}
+                      </button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: segMeta.color }} />
+                  {t('crm.segment.badge', { segment })}
+                  {segmentOverride && <span className="opacity-70">·{t('crm.segment.manual')}</span>}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -389,7 +416,9 @@ export function ContactDetailPanel({
       <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden min-h-0">
         <TabsList className="shrink-0 gap-1 px-6 pt-1">
           <TabsTrigger value="overview">{t('kontakte.detail.tabOverview')}</TabsTrigger>
-          <TabsTrigger value="advisory">{t('advisory.tab.title')}</TabsTrigger>
+          {canAdvisoryRead && (
+            <TabsTrigger value="advisory">{t('advisory.tab.title')}</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent
@@ -742,9 +771,11 @@ export function ContactDetailPanel({
         </div>
         </TabsContent>
 
-        <TabsContent value="advisory" className="mt-0 flex-1 overflow-y-auto p-5">
-          <AdvisoryProtocolsTab contactId={contact.id} advisorName={advisorName} onNavigate={onClose} />
-        </TabsContent>
+        {canAdvisoryRead && (
+          <TabsContent value="advisory" className="mt-0 flex-1 overflow-y-auto p-5">
+            <AdvisoryProtocolsTab contactId={contact.id} advisorName={advisorName} onNavigate={onClose} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

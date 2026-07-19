@@ -7,16 +7,18 @@
  */
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BarChart3, PieChart } from 'lucide-react'
+import { BarChart3, PieChart, EyeOff } from 'lucide-react'
 import { useTransactions } from '@/api/hooks/useFinanceLedger'
 import { EmptyState } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
+import { useAmountsVisible } from '../lib/amounts-visibility'
 
 const MONTHS_BACK = 6
 
 export function BerichteTab() {
   const { t, i18n } = useTranslation()
   const { data: transactions = [] } = useTransactions()
+  const amountsVisible = useAmountsVisible()
 
   // Letzte 6 Monate als Buckets (income/expense-Summe je Monat).
   const months = useMemo(() => {
@@ -65,6 +67,16 @@ export function BerichteTab() {
         title={t('buchhaltung.reports.emptyTitle')}
         description={t('buchhaltung.reports.emptyDesc')}
       />
+    )
+  }
+
+  // When amounts are hidden, replace the charts with a notice block
+  if (!amountsVisible) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card py-16 text-center">
+        <EyeOff className="h-8 w-8 text-muted-foreground" />
+        <p className="text-sm font-medium text-foreground">{t('rbac.gate.amountsHidden')}</p>
+      </div>
     )
   }
 

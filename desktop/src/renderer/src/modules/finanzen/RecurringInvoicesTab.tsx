@@ -14,6 +14,8 @@ import { formatDate } from '@/lib/format'
 import type { RecurringInvoice, RecurringStatus } from '@/types/finance-types'
 import { RecurringInvoiceDialog } from './RecurringInvoiceDialog'
 import { RecurringDetailPanel } from './RecurringDetailPanel'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 const STATUS_STYLES: Record<RecurringStatus, string> = {
   active: 'bg-success-light text-success',
@@ -40,6 +42,12 @@ export function RecurringInvoicesTab() {
   const [editRec, setEditRec] = useState<RecurringInvoice | null>(null)
   const [detailRec, setDetailRec] = useState<RecurringInvoice | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<RecurringInvoice | null>(null)
+
+  // RBAC R-3
+  const canCreateInvoice = useHasCapability('finance:invoice:create')
+  const canEditInvoice   = useHasCapability('finance:invoice:edit')
+  const canDeleteInvoice = useHasCapability('finance:invoice:delete')
+  const amountsVisible   = useAmountsVisible()
 
   const recurring = data?.recurring ?? []
 
@@ -75,19 +83,31 @@ export function RecurringInvoicesTab() {
     const actions: { label: string; onClick: () => void; variant?: 'destructive'; separator?: true }[] = []
     actions.push({ label: t('common.details'), onClick: () => setDetailRec(r) })
     if (r.status !== 'ended') {
-      actions.push({ label: t('finanzen.recurring.generateNow'), onClick: () => handleGenerate(r) })
+      // Sofort erzeugen → invoice:create
+      if (canCreateInvoice) {
+        actions.push({ label: t('finanzen.recurring.generateNow'), onClick: () => handleGenerate(r) })
+      }
+      // Pause/Resume → invoice:edit
+      if (canEditInvoice) {
+        actions.push({
+          label: r.status === 'active' ? t('finanzen.recurring.pause') : t('finanzen.recurring.resume'),
+          onClick: () => handleTogglePause(r),
+        })
+      }
+    }
+    // Edit → invoice:edit
+    if (canEditInvoice) {
+      actions.push({ label: t('common.edit'), onClick: () => { setEditRec(r); setShowForm(true) } })
+    }
+    // Delete → invoice:delete
+    if (canDeleteInvoice) {
+      actions.push({ separator: true as const, label: '', onClick: () => {} })
       actions.push({
-        label: r.status === 'active' ? t('finanzen.recurring.pause') : t('finanzen.recurring.resume'),
-        onClick: () => handleTogglePause(r),
+        label: t('common.delete'),
+        variant: 'destructive' as const,
+        onClick: () => setConfirmDelete(r),
       })
     }
-    actions.push({ label: t('common.edit'), onClick: () => { setEditRec(r); setShowForm(true) } })
-    actions.push({ separator: true as const, label: '', onClick: () => {} })
-    actions.push({
-      label: t('common.delete'),
-      variant: 'destructive' as const,
-      onClick: () => setConfirmDelete(r),
-    })
     return actions
   }
 
@@ -118,16 +138,24 @@ export function RecurringInvoicesTab() {
               <TrendingUp className="h-4 w-4" />
               <span className="text-xs">{t('finanzen.recurring.mrr')}</span>
             </div>
-            <p className="mt-1 text-xl font-semibold text-foreground stat-accent">{formatEUR(stats.mrr)}</p>
+            <p
+              className="mt-1 text-xl font-semibold text-foreground stat-accent"
+              title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+            >
+              {maskedAmount(amountsVisible, formatEUR(stats.mrr))}
+            </p>
           </div>
         </div>
-        <button
-          onClick={() => { setEditRec(null); setShowForm(true) }}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          <Repeat className="h-4 w-4" />
-          {t('finanzen.recurring.createTitle')}
-        </button>
+        {/* Neues Abo → invoice:create */}
+        {canCreateInvoice && (
+          <button
+            onClick={() => { setEditRec(null); setShowForm(true) }}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Repeat className="h-4 w-4" />
+            {t('finanzen.recurring.createTitle')}
+          </button>
+        )}
       </div>
 
       {recurring.length === 0 ? (
@@ -135,7 +163,7 @@ export function RecurringInvoicesTab() {
           icon={Repeat}
           title={t('finanzen.recurring.emptyTitle')}
           description={t('finanzen.recurring.emptyDescription')}
-          action={{ label: t('finanzen.recurring.createTitle'), onClick: () => { setEditRec(null); setShowForm(true) } }}
+          action={canCreateInvoice ? { label: t('finanzen.recurring.createTitle'), onClick: () => { setEditRec(null); setShowForm(true) } } : undefined}
         />
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -175,8 +203,11 @@ export function RecurringInvoicesTab() {
                   <CalendarClock className="h-3 w-3" />
                   {r.status === 'ended' ? '--' : formatDate(r.next_run)}
                 </span>
-                <span className="text-sm font-medium text-foreground text-right">
-                  {formatMoney(gross, r.currency ?? 'EUR')}
+                <span
+                  className="text-sm font-medium text-foreground text-right"
+                  title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}
+                >
+                  {maskedAmount(amountsVisible, formatMoney(gross, r.currency ?? 'EUR'))}
                 </span>
                 <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLES[r.status]}`}>
                   {r.status === 'active' && <Play className="h-2.5 w-2.5" />}

@@ -25,6 +25,7 @@ import {
   BAR_HEIGHT,
   TASK_INFO_WIDTH,
 } from './gantt-utils'
+import { useTaskCan } from '../useWorkPermissions'
 
 // ---------------------------------------------------------------------------
 // Drag state types
@@ -71,9 +72,12 @@ export default function GanttTaskRow({
   timelineWidth,
 }: GanttTaskRowProps) {
   const { t } = useTranslation()
+  const can = useTaskCan(task)
   const bar = useMemo(() => taskToBar(task, config), [task, config])
   const barColor = useMemo(() => getBarColor(task), [task])
   const isCompleted = !!task.completed_at
+  // Drag is only enabled when the user may edit this task
+  const dragEnabled = can.edit && !isCompleted && !!onTaskDateChange
 
   // -----------------------------------------------------------------------
   // Drag state
@@ -97,7 +101,7 @@ export default function GanttTaskRow({
   const handleBarMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (drag) return
-      if (!bar) return
+      if (!bar || !dragEnabled) return
       const rect = e.currentTarget.getBoundingClientRect()
       const localX = e.clientX - rect.left
       const barWidth = e.currentTarget.offsetWidth
@@ -110,7 +114,7 @@ export default function GanttTaskRow({
         setCursorStyle('cursor-grab')
       }
     },
-    [bar, drag]
+    [bar, drag, dragEnabled]
   )
 
   // -----------------------------------------------------------------------
@@ -118,7 +122,7 @@ export default function GanttTaskRow({
   // -----------------------------------------------------------------------
   const handleBarMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!bar || !barAreaRef.current || isCompleted) return
+      if (!bar || !barAreaRef.current || !dragEnabled) return
       e.preventDefault()
       e.stopPropagation()
 
@@ -338,7 +342,7 @@ export default function GanttTaskRow({
                   }}
                 >
                   {/* Resize handles visual indicators */}
-                  {!isCompleted && !drag && (
+                  {dragEnabled && !drag && (
                     <>
                       <div
                         className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l opacity-0 hover:opacity-100 bg-white/30"

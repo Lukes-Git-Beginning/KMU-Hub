@@ -27,6 +27,7 @@ import {
   useDeleteActivity,
   useCompleteActivity,
 } from '@/api/hooks/useActivities'
+import { useScopedCapability } from '@/hooks/useCapability'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -82,6 +83,11 @@ export default function ActivitiesListPage() {
   const updateActivity = useUpdateActivity()
   const deleteActivity = useDeleteActivity()
   const completeActivity = useCompleteActivity()
+
+  // RBAC — Aktivitäten: abschließen/bearbeiten/neu → contact:edit; löschen → contact:delete
+  // CRM-Objekte kein owner-Feld → ownerIds leer → scope='own' ergibt deny
+  const canEdit = useScopedCapability('crm:contact:edit')
+  const canDelete = useScopedCapability('crm:contact:delete')
 
   // Reset page when filter/sort changes
   useEffect(() => {
@@ -243,10 +249,12 @@ export default function ActivitiesListPage() {
                 <CalendarClock className="h-4 w-4" />
               </Button>
             </div>
-            <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              {t('crm.activities.new')}
-            </Button>
+            {canEdit && (
+              <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                {t('crm.activities.new')}
+              </Button>
+            )}
           </div>
         }
       />
@@ -297,7 +305,7 @@ export default function ActivitiesListPage() {
       </div>
 
       {/* Bulk action bar */}
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && canDelete && (
         <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-2">
           <Checkbox
             checked={allOnPageSelected ? true : someOnPageSelected ? 'indeterminate' : false}
@@ -353,9 +361,9 @@ export default function ActivitiesListPage() {
               return (
                 <div
                   key={activity.id}
-                  className="flex items-start gap-3 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30 cursor-pointer"
+                  className={`flex items-start gap-3 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
                   onClick={() =>
-                    activity.id &&
+                    canEdit && activity.id &&
                     setEditingActivity({
                       id: activity.id,
                       data: {
@@ -437,7 +445,7 @@ export default function ActivitiesListPage() {
                     </div>
                   </div>
                   <div className="shrink-0 flex items-center gap-1">
-                    {!activity.completed && (
+                    {!activity.completed && canEdit && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -452,17 +460,19 @@ export default function ActivitiesListPage() {
                         {t('crm.activities.markComplete')}
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (activity.id) handleDelete(activity.id)
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canDelete && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (activity.id) handleDelete(activity.id)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               )

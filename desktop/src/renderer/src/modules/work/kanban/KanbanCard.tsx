@@ -40,6 +40,7 @@ import type { TaskData } from '../list/TaskRow'
 import type { Priority } from '../components/PriorityBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import TaskLabelChips from '../components/TaskLabelChips'
+import { useTaskCan } from '../useWorkPermissions'
 
 interface KanbanCardProps {
   task: TaskData
@@ -69,6 +70,8 @@ export default function KanbanCard({
   isDragOverlay = false,
   onClick,
 }: KanbanCardProps) {
+  const can = useTaskCan(task)
+
   const {
     attributes,
     listeners,
@@ -79,6 +82,7 @@ export default function KanbanCard({
   } = useSortable({
     id: task.id ?? '',
     data: { task },
+    disabled: !can.complete,
   })
 
   const style = {
@@ -178,7 +182,7 @@ export default function KanbanCard({
       {/* Top row: quick-complete + key on the left, priority + actions on the right */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          {!isDragOverlay && (
+          {!isDragOverlay && can.complete && (
             <button
               type="button"
               data-card-control
@@ -220,7 +224,7 @@ export default function KanbanCard({
             priority={(task.priority as Priority) ?? 'normal'}
             compact
           />
-          {!isDragOverlay && (
+          {!isDragOverlay && (can.complete || can.assignSelf || can.edit || can.delete) && (
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -242,64 +246,72 @@ export default function KanbanCard({
                 onClick={stopDrag}
               >
                 {/* Complete / reopen */}
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
-                  onClick={() => toggleComplete()}
-                >
-                  {done ? (
-                    <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                  )}
-                  {done
-                    ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
-                    : t('work.myTasks.complete', { defaultValue: 'Abschließen' })}
-                </button>
-                {/* Assign to me */}
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
-                  onClick={() => assignToMe()}
-                >
-                  <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
-                  {t('work.myTasks.assignToMe', { defaultValue: 'Mir zuweisen' })}
-                </button>
-                {/* Due date quick-pick */}
-                <div className="mt-1 border-t border-border pt-1">
-                  <p className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                    <CalendarDays className="h-3 w-3" />
-                    {t('work.list.dueDate', { defaultValue: 'Fälligkeit' })}
-                  </p>
-                  <div className="flex flex-wrap gap-1 px-1 pb-1">
-                    {[
-                      { d: 0, key: 'work.time.today', dv: 'Heute' },
-                      { d: 1, key: 'work.time.tomorrow', dv: 'Morgen' },
-                      { d: 7, key: 'work.myTasks.dueNextWeek', dv: 'Nächste Woche' },
-                      { d: null, key: 'work.myTasks.dueClear', dv: 'Entfernen' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.dv}
-                        type="button"
-                        className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                        onClick={() => setQuickDue(opt.d)}
-                      >
-                        {t(opt.key, { defaultValue: opt.dv })}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Delete */}
-                <div className="mt-1 border-t border-border pt-1">
+                {can.complete && (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-destructive hover:bg-error-light transition-colors"
-                    onClick={() => setConfirmDelete(true)}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
+                    onClick={() => toggleComplete()}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {t('common.delete', { defaultValue: 'Löschen' })}
+                    {done ? (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                    )}
+                    {done
+                      ? t('work.myTasks.reopen', { defaultValue: 'Wieder öffnen' })
+                      : t('work.myTasks.complete', { defaultValue: 'Abschließen' })}
                   </button>
-                </div>
+                )}
+                {/* Assign to me */}
+                {can.assignSelf && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
+                    onClick={() => assignToMe()}
+                  >
+                    <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                    {t('work.myTasks.assignToMe', { defaultValue: 'Mir zuweisen' })}
+                  </button>
+                )}
+                {/* Due date quick-pick */}
+                {can.edit && (
+                  <div className="mt-1 border-t border-border pt-1">
+                    <p className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                      <CalendarDays className="h-3 w-3" />
+                      {t('work.list.dueDate', { defaultValue: 'Fälligkeit' })}
+                    </p>
+                    <div className="flex flex-wrap gap-1 px-1 pb-1">
+                      {[
+                        { d: 0, key: 'work.time.today', dv: 'Heute' },
+                        { d: 1, key: 'work.time.tomorrow', dv: 'Morgen' },
+                        { d: 7, key: 'work.myTasks.dueNextWeek', dv: 'Nächste Woche' },
+                        { d: null, key: 'work.myTasks.dueClear', dv: 'Entfernen' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.dv}
+                          type="button"
+                          className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          onClick={() => setQuickDue(opt.d)}
+                        >
+                          {t(opt.key, { defaultValue: opt.dv })}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Delete */}
+                {can.delete && (
+                  <div className="mt-1 border-t border-border pt-1">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-destructive hover:bg-error-light transition-colors"
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t('common.delete', { defaultValue: 'Löschen' })}
+                    </button>
+                  </div>
+                )}
               </PopoverContent>
             </Popover>
           )}
@@ -362,27 +374,29 @@ export default function KanbanCard({
     </div>
 
     {/* Delete confirmation */}
-    <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          {t('work.myTasks.deleteBody', {
-            defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
-            title: task.title ?? '',
-          })}
-        </p>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="destructive" onClick={doDelete} disabled={deleteTask.isPending}>
-            {t('common.delete', { defaultValue: 'Löschen' })}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    {can.delete && (
+      <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t('work.myTasks.deleteBody', {
+              defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
+              title: task.title ?? '',
+            })}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={doDelete} disabled={deleteTask.isPending}>
+              {t('common.delete', { defaultValue: 'Löschen' })}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
     </>
   )
 }

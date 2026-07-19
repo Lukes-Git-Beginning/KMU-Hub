@@ -29,6 +29,7 @@ import { useCreateQuoteFromDeal } from '@/api/hooks/useFinance'
 import { useActivities } from '@/api/hooks/useActivities'
 import { useEntityTasks } from '@/api/hooks/useTasks'
 import { Button } from '@/components/ui/button'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -84,6 +85,12 @@ export default function DealDetailPage() {
   const deal = data?.deal
   const activities = activitiesData?.activities ?? []
   const linkedTasks = tasksData?.tasks ?? []
+
+  // RBAC — CRM-Objekte kein owner-Feld → ownerIds leer → scope='own' ergibt deny
+  const canEdit = useScopedCapability('crm:deal:edit')
+  const canDelete = useScopedCapability('crm:deal:delete')
+  const canCreateQuote = useHasCapability('finance:quote:create')
+  const canCreateTask = useHasCapability('work:task:create')
 
   function dealToFormData(): Partial<DealFormData> {
     if (!deal) return {}
@@ -227,28 +234,34 @@ export default function DealDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCreateQuoteFromDeal}
-            disabled={createQuoteFromDeal.isPending}
-          >
-            <FileText className="h-4 w-4 mr-1" />
-            {createQuoteFromDeal.isPending ? t('crm.deals.creatingQuote') : t('crm.deals.createQuote')}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
-            <Pencil className="h-4 w-4 mr-1" />
-            {t('common.edit')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            {t('common.delete')}
-          </Button>
+          {canCreateQuote && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCreateQuoteFromDeal}
+              disabled={createQuoteFromDeal.isPending}
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              {createQuoteFromDeal.isPending ? t('crm.deals.creatingQuote') : t('crm.deals.createQuote')}
+            </Button>
+          )}
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
+              <Pencil className="h-4 w-4 mr-1" />
+              {t('common.edit')}
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {t('common.delete')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -503,15 +516,17 @@ export default function DealDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   {t('crm.tasks.linkedCount', { count: linkedTasks.length })}
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 h-7 text-xs"
-                  onClick={handleCreateTaskFromDeal}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {t('crm.tasks.create')}
-                </Button>
+                {canCreateTask && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 h-7 text-xs"
+                    onClick={handleCreateTaskFromDeal}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {t('crm.tasks.create')}
+                  </Button>
+                )}
               </div>
 
               {linkedTasks.length === 0 ? (

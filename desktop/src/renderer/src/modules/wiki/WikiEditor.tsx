@@ -13,6 +13,8 @@ import { WikiAttachments } from './WikiAttachments'
 interface WikiEditorProps {
   /** The article being edited — needed for inline attachment management. */
   articleId: string
+  /** Author id of the article — passed to WikiAttachments for RBAC. */
+  authorId?: string
   /** Editorial title heading — editable inline, saved together with the body. */
   title: string
   onTitleChange: (title: string) => void
@@ -40,6 +42,7 @@ interface WikiEditorProps {
  */
 export function WikiEditor({
   articleId,
+  authorId,
   title,
   onTitleChange,
   rows,
@@ -116,7 +119,7 @@ export function WikiEditor({
 
           {/* Attachments — manageable while writing, not only when reading. */}
           <div className="mt-8">
-            <WikiAttachments articleId={articleId} />
+            <WikiAttachments articleId={articleId} authorId={authorId} />
           </div>
         </div>
       </div>

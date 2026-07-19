@@ -128,6 +128,7 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
     base('crm:deal:read', true),
     base('crm:deal:create'),
     base('crm:deal:edit', true),
+    base('crm:deal:delete', true),
     fine('crm:pipeline:manage'),
     fine('crm:import:run'),
     fine('crm:advisory:read'),
@@ -183,6 +184,7 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
     fine('wiki:article:publish'),
     fine('wiki:share_token:create'),
     fine('wiki:template:manage'),
+    fine('wiki:category:manage'),
   ],
 
   mail: [fine('mail:settings:manage')],

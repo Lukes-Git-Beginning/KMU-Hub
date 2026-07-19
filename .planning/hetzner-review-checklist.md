@@ -18,6 +18,12 @@
 - [ ] dashboard · [ ] vertraege · [ ] helpdesk · [ ] automatisierung · [ ] profil · [ ] mails · [ ] kommunikation · [ ] berichte · [ ] wiki
 
 ## B · Bereit zum Review (gemergt auf main)
+- [ ] **RBAC R-3 Batch 1 — Aktions-Gating work/dokumente/kontakte/finanzen/wiki** (Session #17). **Demo-Mode prüfen** (Rechte kommen aus MSW; Live hat den permissions-Endpoint noch nicht → FE-Fallback löst Presets auf). Schnellster Weg: Verwaltung → Rollen → Rolle öffnen → „Als Rolle anzeigen"; echte Sessions über den ProfileSwitcher unten rechts. Achten auf:
+  - Als **Elena (Nur Lesen)**: „Nur Ansicht"-Chip im Modul-Header · KEINE Erstellen/Bearbeiten/Löschen-Controls · finanzen-Tabs reduziert (kein Export/Mahnwesen/Ausgaben/Banking) · Zeilen-Menüs nur Details/PDF, **Versenden ausgegraut mit Hover-Hinweis** · dokumente-Kontextmenü: **Herunterladen ausgegraut mit Hinweis**, Edit-Einträge weg · kontakte: **Import-Button ausgegraut mit Hinweis**, kein vCard-Export im Menü.
+  - Als **Max (Aushilfe/Extern)**: „Eingeschränkt"-Chip in Aufgaben · eigene zugewiesene Tasks abhakbar + kommentierbar, sonst nichts · Deep-Link `/#/finanzen` oder `/#/kontakte` → **„Kein Zugriff"-Seite** (nicht leer/Redirect).
+  - Beträge-Maskierung `•••`: Rolle „Lager & Logistik" im Editor öffnen → Buchhaltung sichtbar + Rechnungen-Ansehen AN (amounts AUS lassen) → „Als Rolle anzeigen" → Buchhaltung: alle €-Werte als Punkte, Anzahl/Prozent normal.
+  - Als **admin**: ALLES unverändert da (Regression).
+  - ⚠ Bekannter Vorbestand (NICHT dieser Batch): Rechnungen-Liste zeigt 0,00 € je Zeile (Listen-API ohne Positionen) — separater Fix folgt.
 - [ ] **security / DSGVO** ✅ gemergt (`43fecf37`, S-1…S-5) — **Demo-Mode prüfbar** (reine FE/MSW-Arbeit). Hub `/admin/security` (10 Sub-Tabs). Achten auf: alle Seiten crashfrei, keine Raw-Keys (DE+EN), DSGVO-Flows durchklickbar — Audit (Filter/Export), DSAR Art.15 (Cross-Modul-Suche + Export), Export Art.15/20 (Genehmigen/Download + Frist), Erasure Art.17 (Preview/Execute + Legal-Hold-Hinweis), Retention (DACH-Fristen + Auto-Löschung-Toggle), Sessions (beenden), Vault, PW-Policy, IP-Access, 2FA. Sub-Bericht: `.planning/parallel-batch/qa-security.md`.
 - [ ] **zeiterfassung** (Main, echt-geschaltet) — siehe C.
 

@@ -26,6 +26,7 @@ import { UserProfileTrigger } from '@/components/user/UserProfileCard'
 interface CommentThreadProps {
   taskId: string
   projectId: string
+  canComment?: boolean
 }
 
 function getInitials(name?: string): string {
@@ -62,6 +63,7 @@ function formatRelativeTime(dateStr: string | undefined, t: (key: string, opts?:
 export default function CommentThread({
   taskId,
   projectId,
+  canComment = true,
 }: CommentThreadProps) {
   const { t } = useTranslation()
   const currentUserId = useAuthStore((s) => s.user?.id)
@@ -296,14 +298,16 @@ export default function CommentThread({
 
                   {/* Actions (on hover) */}
                   <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                      onClick={() => startQuote(comment)}
-                      title={t('work.comments.reply')}
-                    >
-                      <Reply className="h-3.5 w-3.5" />
-                    </button>
+                    {canComment && (
+                      <button
+                        type="button"
+                        className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        onClick={() => startQuote(comment)}
+                        title={t('work.comments.reply')}
+                      >
+                        <Reply className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     {isOwn && (
                       <>
                         <button
@@ -388,8 +392,8 @@ export default function CommentThread({
         </div>
       )}
 
-      {/* Comment input */}
-      <div className="mt-4 relative">
+      {/* Comment input — only shown if canComment */}
+      {canComment && <div className="mt-4 relative">
         {/* Quoted preview above input */}
         {quotedComment && (
           <div className="flex items-start gap-2 rounded-t-md border border-b-0 border-input bg-muted/50 px-3 py-2">
@@ -478,7 +482,7 @@ export default function CommentThread({
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

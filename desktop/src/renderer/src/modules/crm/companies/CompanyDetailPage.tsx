@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCompany, useCompanyContacts, useUpdateCompany, useDeleteCompany } from '@/api/hooks/useCompanies'
+import { useScopedCapability } from '@/hooks/useCapability'
 import { backendCompanyToUI } from './adapters'
 import { useActivities } from '@/api/hooks/useActivities'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,10 @@ export default function CompanyDetailPage() {
   const deleteCompany = useDeleteCompany()
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  // RBAC — Firmen laufen unter crm:contact:*; kein owner-Feld → ownerIds leer
+  const canEdit = useScopedCapability('crm:contact:edit')
+  const canDelete = useScopedCapability('crm:contact:delete')
 
   const company = data?.company ? backendCompanyToUI(data.company) : undefined
   const contacts = contactsData?.contacts ?? []
@@ -168,19 +173,23 @@ export default function CompanyDetailPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
-            <Pencil className="h-4 w-4 mr-1" />
-            {t('common.edit')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            {t('common.delete')}
-          </Button>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
+              <Pencil className="h-4 w-4 mr-1" />
+              {t('common.edit')}
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {t('common.delete')}
+            </Button>
+          )}
         </div>
       </div>
 

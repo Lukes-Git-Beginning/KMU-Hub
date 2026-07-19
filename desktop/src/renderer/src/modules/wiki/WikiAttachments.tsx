@@ -8,6 +8,7 @@ import {
   useDeleteAttachment,
 } from '@/api/hooks/useWiki'
 import { formatDate as libFormatDate } from '@/lib/format'
+import { useScopedCapability } from '@/hooks/useCapability'
 
 // Read a File as a data URL so demo uploads can be downloaded/previewed later.
 // Skip very large files to keep the (in-memory) mock payload reasonable.
@@ -47,18 +48,22 @@ function iconForMime(mime: string): typeof FileText {
 
 interface WikiAttachmentsProps {
   articleId: string
+  /** Author id of the article — used for scoped edit capability check. */
+  authorId?: string
 }
 
 /**
  * Attachment panel for the article detail view. Lists attachments and supports
  * adding (file metadata only — the mock stores name/mime/size) and removing.
+ * Upload and delete are gated by wiki:article:edit (scoped to the article author).
  */
-export function WikiAttachments({ articleId }: WikiAttachmentsProps) {
+export function WikiAttachments({ articleId, authorId }: WikiAttachmentsProps) {
   const { t } = useTranslation()
   const { data: attachments = [], isLoading } = useAttachments(articleId)
   const uploadMutation = useUploadAttachment()
   const deleteMutation = useDeleteAttachment()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const canEdit = useScopedCapability('wiki:article:edit', authorId)
 
   const handlePick = () => fileInputRef.current?.click()
 
@@ -130,18 +135,20 @@ export function WikiAttachments({ articleId }: WikiAttachmentsProps) {
           </h3>
           <span className="text-[10px] text-muted-foreground">({attachments.length})</span>
         </div>
-        <button
-          onClick={handlePick}
-          disabled={uploadMutation.isPending}
-          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent transition-colors disabled:opacity-50"
-        >
-          {uploadMutation.isPending ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <Plus className="h-3 w-3" />
-          )}
-          {t('wiki.attachments.add')}
-        </button>
+        {canEdit && (
+          <button
+            onClick={handlePick}
+            disabled={uploadMutation.isPending}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {uploadMutation.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Plus className="h-3 w-3" />
+            )}
+            {t('wiki.attachments.add')}
+          </button>
+        )}
       </div>
 
       {/* List */}
@@ -152,13 +159,15 @@ export function WikiAttachments({ articleId }: WikiAttachmentsProps) {
           ))}
         </div>
       ) : attachments.length === 0 ? (
-        <button
-          onClick={handlePick}
-          className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-border px-4 py-5 text-center transition-colors hover:bg-accent/40"
-        >
-          <Paperclip className="h-4 w-4 text-muted-foreground/50" />
-          <span className="text-xs text-muted-foreground">{t('wiki.attachments.empty')}</span>
-        </button>
+        canEdit ? (
+          <button
+            onClick={handlePick}
+            className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-border px-4 py-5 text-center transition-colors hover:bg-accent/40"
+          >
+            <Paperclip className="h-4 w-4 text-muted-foreground/50" />
+            <span className="text-xs text-muted-foreground">{t('wiki.attachments.empty')}</span>
+          </button>
+        ) : null
       ) : (
         <div className="space-y-1">
           {attachments.map((att) => {
@@ -195,18 +204,20 @@ export function WikiAttachments({ articleId }: WikiAttachmentsProps) {
                 >
                   <Download className="h-3.5 w-3.5" />
                 </button>
-                <button
-                  onClick={() => handleDelete(att.id)}
-                  disabled={deleting}
-                  className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-100"
-                  title={t('common.delete')}
-                >
-                  {deleting ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" />
-                  )}
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => handleDelete(att.id)}
+                    disabled={deleting}
+                    className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-100"
+                    title={t('common.delete')}
+                  >
+                    {deleting ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                )}
               </div>
             )
           })}

@@ -23,6 +23,12 @@ import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   useInvoice,
   usePayments,
   useSendInvoice,
@@ -39,6 +45,8 @@ import { PDFPreviewPanel } from './PDFPreviewPanel'
 import { CustomerAccountSection } from './CustomerAccountSection'
 import { useFinanceDetailNavOptional } from './FinanceDetailNav'
 import { formatDate } from '@/lib/format'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAmountsVisible, maskedAmount } from './lib/amounts-visibility'
 
 const statusConfig: Record<
   InvoiceStatus,
@@ -116,6 +124,12 @@ export function InvoiceDetailPanel({
   const markPaid = useMarkInvoicePaid()
   const cancelInvoice = useCancelInvoice()
   const downloadPDF = useDownloadInvoicePDF()
+
+  // RBAC R-3
+  const canEditInvoice   = useHasCapability('finance:invoice:edit')
+  const canSendInvoice   = useHasCapability('finance:invoice:send')
+  const canDeleteInvoice = useHasCapability('finance:invoice:delete')
+  const amountsVisible   = useAmountsVisible()
 
   if (isLoading || !invoice) {
     return (
@@ -358,7 +372,9 @@ export function InvoiceDetailPanel({
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between text-muted-foreground">
             <span>{t('finanzen.totals.subtotalNet')}</span>
-            <span>{money(invoice.tax_breakdown?.subtotal ?? invoice.total_net ?? 0)}</span>
+            <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+              {maskedAmount(amountsVisible, money(invoice.tax_breakdown?.subtotal ?? invoice.total_net ?? 0))}
+            </span>
           </div>
           {Object.entries(invoice.tax_breakdown?.tax_by_rate ?? {}).map(
             ([rate, amount]) => (
@@ -367,24 +383,32 @@ export function InvoiceDetailPanel({
                 className="flex justify-between text-muted-foreground"
               >
                 <span>MwSt {rate}%</span>
-                <span>{money(amount)}</span>
+                <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+                  {maskedAmount(amountsVisible, money(amount))}
+                </span>
               </div>
             ),
           )}
           <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
             <span>{t('finanzen.totals.totalAmount')}</span>
-            <span>{money(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}</span>
+            <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+              {maskedAmount(amountsVisible, money(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0))}
+            </span>
           </div>
           {totalPaid > 0 && (
             <>
               <div className="flex justify-between text-success">
                 <span>{t('finanzen.status.paid')}</span>
-                <span>{money(totalPaid)}</span>
+                <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+                  {maskedAmount(amountsVisible, money(totalPaid))}
+                </span>
               </div>
               {remaining > 0 && (
                 <div className="flex justify-between font-medium text-warning">
                   <span>{t('finanzen.invoiceDetail.open')}</span>
-                  <span>{money(remaining)}</span>
+                  <span title={!amountsVisible ? t('rbac.gate.amountsHidden') : undefined}>
+                    {maskedAmount(amountsVisible, money(remaining))}
+                  </span>
                 </div>
               )}
             </>
@@ -558,59 +582,84 @@ export function InvoiceDetailPanel({
         </section>
 
         {/* Actions */}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => downloadPDF.mutate(invoiceId)}
-            disabled={downloadPDF.isPending}
-          >
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            PDF
-          </Button>
-          {!isExternal && invoice.status === 'draft' && (
-            <>
-              <Button variant="outline" size="sm" onClick={onEdit}>
-                {t('common.edit')}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSend}
-                disabled={sendInvoice.isPending}
-              >
-                <Send className="mr-1.5 h-3.5 w-3.5" />
-                {t('finanzen.dunning.send')}
-              </Button>
-            </>
-          )}
-          {!isExternal && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-            <>
-              <Button size="sm" onClick={onRecordPayment}>
-                <CreditCard className="mr-1.5 h-3.5 w-3.5" />
-                {t('finanzen.invoiceDetail.recordPayment')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleMarkPaid}
-                disabled={markPaid.isPending}
-              >
-                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                {t('finanzen.invoiceDetail.markPaid')}
-              </Button>
-              {invoice.status === 'draft' ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={cancelInvoice.isPending}
-                  className="text-error hover:text-error"
-                >
-                  <Ban className="mr-1.5 h-3.5 w-3.5" />
-                  {t('finanzen.invoiceDetail.cancel')}
-                </Button>
-              ) : (
-                onStorno && (
+        <TooltipProvider>
+          <div className="flex flex-wrap gap-2">
+            {/* PDF — always free */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadPDF.mutate(invoiceId)}
+              disabled={downloadPDF.isPending}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              PDF
+            </Button>
+
+            {!isExternal && invoice.status === 'draft' && (
+              <>
+                {/* Edit → invoice:edit */}
+                {canEditInvoice && (
+                  <Button variant="outline" size="sm" onClick={onEdit}>
+                    {t('common.edit')}
+                  </Button>
+                )}
+                {/* Send → AUSNAHME invoice:send: visible, disabled without right */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex" tabIndex={0}>
+                      <Button
+                        size="sm"
+                        onClick={handleSend}
+                        disabled={!canSendInvoice || sendInvoice.isPending}
+                        className={!canSendInvoice ? 'pointer-events-none' : ''}
+                      >
+                        <Send className="mr-1.5 h-3.5 w-3.5" />
+                        {t('finanzen.dunning.send')}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!canSendInvoice && (
+                    <TooltipContent>{t('rbac.gate.sendDisabled')}</TooltipContent>
+                  )}
+                </Tooltip>
+              </>
+            )}
+
+            {!isExternal && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+              <>
+                {/* Record payment + markPaid → invoice:edit */}
+                {canEditInvoice && (
+                  <>
+                    <Button size="sm" onClick={onRecordPayment}>
+                      <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                      {t('finanzen.invoiceDetail.recordPayment')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleMarkPaid}
+                      disabled={markPaid.isPending}
+                    >
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                      {t('finanzen.invoiceDetail.markPaid')}
+                    </Button>
+                  </>
+                )}
+                {/* Cancel (draft) → invoice:delete */}
+                {invoice.status === 'draft' && canDeleteInvoice && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancel}
+                    disabled={cancelInvoice.isPending}
+                    className="text-error hover:text-error"
+                  >
+                    <Ban className="mr-1.5 h-3.5 w-3.5" />
+                    {t('finanzen.invoiceDetail.cancel')}
+                  </Button>
+                )}
+                {/* Storno (sent/overdue) → invoice:delete */}
+                {invoice.status !== 'draft' && onStorno && canDeleteInvoice && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -620,11 +669,11 @@ export function InvoiceDetailPanel({
                     <Ban className="mr-1.5 h-3.5 w-3.5" />
                     {t('finanzen.invoiceDetail.storno')}
                   </Button>
-                )
-              )}
-            </>
-          )}
-        </div>
+                )}
+              </>
+            )}
+          </div>
+        </TooltipProvider>
       </div>
     </DetailModal>
   )

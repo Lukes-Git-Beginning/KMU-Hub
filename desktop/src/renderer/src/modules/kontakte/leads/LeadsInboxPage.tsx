@@ -25,6 +25,8 @@ import { TEMP_COLORS } from './leadVisuals'
 import { ConvertLeadDialog } from './ConvertLeadDialog'
 import { LeadFormDialog } from './LeadFormDialog'
 import { LeadImportDialog } from './LeadImportDialog'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type StatusFilter = 'all' | LeadStatus
 const STATUS_ORDER: LeadStatus[] = ['new', 'contacted', 'qualified', 'disqualified']
@@ -53,6 +55,12 @@ export default function LeadsInboxPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
 
+  // RBAC
+  const canCreate = useHasCapability('crm:contact:create')
+  const canImport = useHasCapability('crm:import:run')
+  // CRM-Objekte kein owner-Feld → ownerIds leer → scope='own' ergibt deny
+  const canEdit = useScopedCapability('crm:contact:edit')
+
   const all = useMemo(() => leads ?? [], [leads])
   const counts = useMemo(() => {
     const c: Record<StatusFilter, number> = { all: all.length, new: 0, contacted: 0, qualified: 0, disqualified: 0 }
@@ -72,15 +80,21 @@ export default function LeadsInboxPage() {
   }
 
   const getActions = (l: Lead): ActionItem[] => {
-    const items: ActionItem[] = [
-      { label: t('leads.action.convert'), icon: Trophy, onClick: () => setConvertLead(l) },
-    ]
-    if (l.status === 'new') items.push({ label: t('leads.action.markContacted'), icon: PhoneCall, onClick: () => changeStatus(l.id, 'contacted') })
-    if (l.status === 'disqualified' || l.status === 'qualified') items.push({ label: t('leads.action.reopen'), icon: RotateCcw, onClick: () => changeStatus(l.id, 'new') })
-    items.push({ label: t('leads.action.setHot'), icon: Flame, onClick: () => setTemp(l.id, 'hot'), separator: true })
-    items.push({ label: t('leads.action.setWarm'), icon: Flame, onClick: () => setTemp(l.id, 'warm') })
-    items.push({ label: t('leads.action.setCold'), icon: Flame, onClick: () => setTemp(l.id, 'cold') })
-    if (l.status !== 'disqualified') items.push({ label: t('leads.action.disqualify'), icon: XCircle, variant: 'destructive', onClick: () => changeStatus(l.id, 'disqualified'), separator: true })
+    const items: ActionItem[] = []
+
+    // Konvertieren → contact:create
+    if (canCreate) items.push({ label: t('leads.action.convert'), icon: Trophy, onClick: () => setConvertLead(l) })
+
+    // Status/Temperatur-Aktionen → contact:edit
+    if (canEdit) {
+      if (l.status === 'new') items.push({ label: t('leads.action.markContacted'), icon: PhoneCall, onClick: () => changeStatus(l.id, 'contacted') })
+      if (l.status === 'disqualified' || l.status === 'qualified') items.push({ label: t('leads.action.reopen'), icon: RotateCcw, onClick: () => changeStatus(l.id, 'new') })
+      items.push({ label: t('leads.action.setHot'), icon: Flame, onClick: () => setTemp(l.id, 'hot'), separator: items.length > 0 })
+      items.push({ label: t('leads.action.setWarm'), icon: Flame, onClick: () => setTemp(l.id, 'warm') })
+      items.push({ label: t('leads.action.setCold'), icon: Flame, onClick: () => setTemp(l.id, 'cold') })
+      if (l.status !== 'disqualified') items.push({ label: t('leads.action.disqualify'), icon: XCircle, variant: 'destructive', onClick: () => changeStatus(l.id, 'disqualified'), separator: true })
+    }
+
     return items
   }
 
@@ -110,20 +124,40 @@ export default function LeadsInboxPage() {
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setImportOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('leads.import.button')}</span>
-          </button>
-          <button
-            onClick={() => setFormOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-          >
-            <Plus className="h-4 w-4" />
-            {t('leads.new')}
-          </button>
+          {/* Import: AUSNAHME-Muster — immer sichtbar, ohne Recht disabled+Tooltip */}
+          {canImport ? (
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('leads.import.button')}</span>
+            </button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex" tabIndex={0}>
+                  <button
+                    disabled
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground/40 pointer-events-none"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t('leads.import.button')}</span>
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{t('rbac.gate.importDisabled')}</TooltipContent>
+            </Tooltip>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => setFormOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+            >
+              <Plus className="h-4 w-4" />
+              {t('leads.new')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -203,7 +237,7 @@ export default function LeadsInboxPage() {
                       <Phone className="h-3.5 w-3.5" />
                     </span>
                   )}
-                  <ItemActions items={getActions(lead)} />
+                  {getActions(lead).length > 0 && <ItemActions items={getActions(lead)} />}
                 </div>
               </div>
             )

@@ -34,6 +34,11 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   useFileDownloadURL,
   useFileActivity,
   useDocumentTags,
@@ -43,6 +48,7 @@ import {
 import type { DocumentFile, DocumentActivityAction } from '@/api/types/document-types'
 import { formatDate } from '@/lib/format'
 import { downloadDocumentFile } from './download'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 
 interface FilePreviewModalProps {
   file: DocumentFile | null
@@ -161,6 +167,9 @@ function ViewerInfoPanel({ file }: { file: DocumentFile }) {
   const tagFile = useTagFile()
   const untagFile = useUntagFile()
 
+  // Tag-Aktionen brauchen edit-Recht
+  const canEditTags = useScopedCapability('documents:file:edit', file.owner_id)
+
   const activities = activityData?.activities ?? []
   const fileTagIds = new Set((file.tags ?? []).map((tg) => tg.id))
   const availableTags = (allTagsData?.tags ?? []).filter((tg) => !fileTagIds.has(tg.id))
@@ -205,29 +214,33 @@ function ViewerInfoPanel({ file }: { file: DocumentFile }) {
               className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-foreground"
             >
               {tag.name}
-              <button
-                onClick={() =>
-                  untagFile.mutate(
-                    { fileId: file.id, tagId: tag.id },
-                    { onError: (err) => toast.error(`${t('common.error')}: ${err.message}`) },
-                  )
-                }
-                className="text-muted-foreground hover:text-foreground"
-                aria-label={t('common.delete')}
-              >
-                <X className="h-3 w-3" />
-              </button>
+              {canEditTags && (
+                <button
+                  onClick={() =>
+                    untagFile.mutate(
+                      { fileId: file.id, tagId: tag.id },
+                      { onError: (err) => toast.error(`${t('common.error')}: ${err.message}`) },
+                    )
+                  }
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label={t('common.delete')}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </span>
           ))}
-          <button
-            onClick={() => setTagPickerOpen((o) => !o)}
-            className="flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          >
-            <Plus className="h-3 w-3" />
-            {t('dokumente.viewer.addTag')}
-          </button>
+          {canEditTags && (
+            <button
+              onClick={() => setTagPickerOpen((o) => !o)}
+              className="flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              {t('dokumente.viewer.addTag')}
+            </button>
+          )}
         </div>
-        {tagPickerOpen && (
+        {canEditTags && tagPickerOpen && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {availableTags.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('dokumente.viewer.noMoreTags')}</p>
@@ -301,6 +314,12 @@ export function FilePreviewModal({
   )
   const presignedURL = downloadData?.url
 
+  // RBAC checks (called unconditionally — hooks must not be conditional)
+  const canDownload = useHasCapability('documents:file:download')
+  const canEdit = useScopedCapability('documents:file:edit', file?.owner_id)
+  const canShare = useHasCapability('documents:share:manage')
+  const canVersionRestore = useHasCapability('documents:version:restore')
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- info panel starts collapsed per document
     if (open) setInfoOpen(false)
@@ -331,23 +350,38 @@ export function FilePreviewModal({
             </span>
           </DialogTitle>
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={handleDownload}>
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              {t('common.download')}
-            </Button>
-            {onRename && (
+            {/* Download: Ausnahme-Muster — immer sichtbar, ohne Recht deaktiviert */}
+            {canDownload ? (
+              <Button variant="ghost" size="sm" onClick={handleDownload}>
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                {t('common.download')}
+              </Button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex" tabIndex={0}>
+                    <Button variant="ghost" size="sm" disabled className="pointer-events-none">
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      {t('common.download')}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{t('rbac.gate.downloadDisabled')}</TooltipContent>
+              </Tooltip>
+            )}
+            {onRename && canEdit && (
               <Button variant="ghost" size="sm" onClick={() => onRename(file)}>
                 <Pencil className="mr-1.5 h-3.5 w-3.5" />
                 {t('dokumente.context.rename')}
               </Button>
             )}
-            {onShare && (
+            {onShare && canShare && (
               <Button variant="ghost" size="sm" onClick={() => onShare(file)}>
                 <Share2 className="mr-1.5 h-3.5 w-3.5" />
                 {t('dokumente.context.share')}
               </Button>
             )}
-            {onVersionHistory && (
+            {onVersionHistory && canVersionRestore && (
               <Button variant="ghost" size="sm" onClick={() => onVersionHistory(file)}>
                 <History className="mr-1.5 h-3.5 w-3.5" />
                 {t('dokumente.context.versionHistory')}

@@ -9,23 +9,31 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Users, Building2, TrendingUp, Activity, Inbox, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 
-const kontakteNavItems = [
-  { to: '/kontakte', icon: Users, labelKey: 'crm.nav.contacts', end: true },
-  { to: '/kontakte/leads', icon: Inbox, labelKey: 'crm.nav.leads', end: false },
-  { to: '/kontakte/firmen', icon: Building2, labelKey: 'crm.nav.companies', end: false },
-  { to: '/kontakte/pipeline', icon: TrendingUp, labelKey: 'crm.nav.deals', end: false },
-  { to: '/kontakte/aktivitaeten', icon: Activity, labelKey: 'crm.nav.activities', end: false },
-  { to: '/kontakte/auswertungen', icon: BarChart3, labelKey: 'crm.nav.reports', end: false },
+const ALL_NAV_ITEMS = [
+  { to: '/kontakte', icon: Users, labelKey: 'crm.nav.contacts', end: true, capKey: 'crm:contact:read' },
+  { to: '/kontakte/leads', icon: Inbox, labelKey: 'crm.nav.leads', end: false, capKey: 'crm:contact:read' },
+  { to: '/kontakte/firmen', icon: Building2, labelKey: 'crm.nav.companies', end: false, capKey: 'crm:contact:read' },
+  { to: '/kontakte/pipeline', icon: TrendingUp, labelKey: 'crm.nav.deals', end: false, capKey: 'crm:deal:read' },
+  { to: '/kontakte/aktivitaeten', icon: Activity, labelKey: 'crm.nav.activities', end: false, capKey: 'crm:contact:read' },
+  { to: '/kontakte/auswertungen', icon: BarChart3, labelKey: 'crm.nav.reports', end: false, capKey: 'crm:deal:read' },
 ] as const
 
 export default function KontakteLayout() {
   const { t } = useTranslation()
+  const { has, ready } = useCapabilitySet()
+
+  const visibleItems = ready
+    ? ALL_NAV_ITEMS.filter((item) => has(item.capKey))
+    : ALL_NAV_ITEMS
+
   return (
     <div className="flex h-full flex-col animate-fade-in">
       {/* Sub-navigation bar — 1:1 Optik wie CRMLayout */}
       <nav className="flex items-center gap-1 border-b border-border bg-card px-6 py-2">
-        {kontakteNavItems.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -43,6 +51,9 @@ export default function KontakteLayout() {
             <span>{t(item.labelKey)}</span>
           </NavLink>
         ))}
+        <div className="ml-auto">
+          <RestrictedModeBadge module="crm" />
+        </div>
       </nav>
 
       {/* Content area */}

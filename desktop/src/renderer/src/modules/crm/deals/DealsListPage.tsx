@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +97,11 @@ export default function DealsListPage() {
   const deleteDeal = useDeleteDeal()
   const { data: stagesData } = usePipelineStages()
   const stages = stagesData?.stages ?? []
+
+  // RBAC
+  const canCreate = useHasCapability('crm:deal:create')
+  // CRM-Objekte kein owner-Feld → ownerIds leer → scope='own' ergibt deny
+  const canDelete = useScopedCapability('crm:deal:delete')
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -252,10 +258,12 @@ export default function DealsListPage() {
                 <BarChart3 className="h-4 w-4" />
               </Button>
             </div>
-            <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              {t('crm.deals.new')}
-            </Button>
+            {canCreate && (
+              <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                {t('crm.deals.new')}
+              </Button>
+            )}
           </div>
         }
       />
@@ -278,7 +286,7 @@ export default function DealsListPage() {
           </div>
 
           {/* Bulk action bar */}
-          {selectedIds.size > 0 && (
+          {selectedIds.size > 0 && canDelete && (
             <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-2">
               <span className="text-sm font-medium text-foreground">
                 {t('crm.bulk.selected', { count: selectedIds.size })}
@@ -319,7 +327,7 @@ export default function DealsListPage() {
                   ? t('crm.tryDifferentSearch')
                   : t('crm.deals.emptyHint')}
               </p>
-              {!debouncedSearch && (
+              {!debouncedSearch && canCreate && (
                 <Button className="mt-4 gap-2" onClick={() => setShowCreateDialog(true)}>
                   <Plus className="h-4 w-4" />
                   {t('crm.deals.createFirst')}

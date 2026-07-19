@@ -64,6 +64,8 @@ import CustomFieldsSection from '../components/CustomFieldsSection'
 import TaskTimer from '../components/TaskTimer'
 import TimeEntryList from '../components/TimeEntryList'
 import ManualTimeEntryDialog from '../components/ManualTimeEntryDialog'
+import { useTaskCan } from '../useWorkPermissions'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 
 export default function TaskDetailPage() {
   const { t } = useTranslation()
@@ -89,6 +91,10 @@ export default function TaskDetailPage() {
   const { data: subtasksData } = useSubtasks(taskId ?? '')
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
+
+  const can = useTaskCan(task)
+  const canCreateSubtask = useHasCapability('work:task:create')
+  const canLogTime = useScopedCapability('work:time:log', task?.assignee_id, task?.created_by)
 
   const project = projectData?.project
   const statuses = statusesData?.statuses ?? []
@@ -252,24 +258,26 @@ export default function TaskDetailPage() {
             </Badge>
           </>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto gap-1.5 px-2 text-muted-foreground hover:text-destructive"
-          onClick={() => setConfirmDelete(true)}
-          title={t('common.delete', { defaultValue: 'Löschen' })}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          <span className="text-xs">{t('common.delete', { defaultValue: 'Löschen' })}</span>
-        </Button>
+        {can.delete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto gap-1.5 px-2 text-muted-foreground hover:text-destructive"
+            onClick={() => setConfirmDelete(true)}
+            title={t('common.delete', { defaultValue: 'Löschen' })}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="text-xs">{t('common.delete', { defaultValue: 'Löschen' })}</span>
+          </Button>
+        )}
       </div>
 
       {/* Two-column layout */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Main content (left) */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 min-w-0">
-          {/* Title (editable) */}
-          {editingTitle ? (
+          {/* Title (editable if can.edit) */}
+          {editingTitle && can.edit ? (
             <Input
               className="text-2xl font-bold h-auto py-1"
               value={titleValue}
@@ -286,9 +294,12 @@ export default function TaskDetailPage() {
             />
           ) : (
             <h1
-              className="text-2xl font-bold cursor-pointer hover:bg-accent/30 rounded px-2 -mx-2 py-1 transition-colors"
-              onClick={() => setEditingTitle(true)}
-              title={t('work.taskDetail.clickToEdit')}
+              className={cn(
+                'text-2xl font-bold rounded px-2 -mx-2 py-1 transition-colors',
+                can.edit && 'cursor-pointer hover:bg-accent/30'
+              )}
+              onClick={() => can.edit && setEditingTitle(true)}
+              title={can.edit ? t('work.taskDetail.clickToEdit') : task.title}
             >
               {task.title}
             </h1>
@@ -299,7 +310,7 @@ export default function TaskDetailPage() {
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               {t('work.tasks.description')}
             </label>
-            {editingDesc ? (
+            {editingDesc && can.edit ? (
               <div className="space-y-2">
                 <Textarea
                   value={descValue}
@@ -327,13 +338,14 @@ export default function TaskDetailPage() {
             ) : (
               <div
                 className={cn(
-                  'min-h-[60px] rounded-md border border-transparent px-3 py-2 text-sm cursor-pointer hover:bg-accent/30 hover:border-border transition-colors whitespace-pre-wrap',
-                  !task.description && 'text-muted-foreground italic'
+                  'min-h-[60px] rounded-md border border-transparent px-3 py-2 text-sm whitespace-pre-wrap',
+                  !task.description && 'text-muted-foreground italic',
+                  can.edit && 'cursor-pointer hover:bg-accent/30 hover:border-border transition-colors'
                 )}
-                onClick={() => setEditingDesc(true)}
-                title={t('work.panel.clickToEdit')}
+                onClick={() => can.edit && setEditingDesc(true)}
+                title={can.edit ? t('work.panel.clickToEdit') : undefined}
               >
-                {task.description || t('work.panel.addDescription')}
+                {task.description || (can.edit ? t('work.panel.addDescription') : t('work.tasks.description'))}
               </div>
             )}
           </div>
@@ -348,15 +360,17 @@ export default function TaskDetailPage() {
                   <span>({subtasks.length})</span>
                 )}
               </label>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1 text-xs"
-                onClick={() => setCreateSubtaskOpen(true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {t('work.taskDetail.addSubtask')}
-              </Button>
+              {canCreateSubtask && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => setCreateSubtaskOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t('work.taskDetail.addSubtask')}
+                </Button>
+              )}
             </div>
             {subtasks.length > 0 ? (
               <div className="space-y-0.5 rounded-md border border-border">
@@ -464,6 +478,7 @@ export default function TaskDetailPage() {
               <CommentThread
                 taskId={taskId ?? ''}
                 projectId={effectiveProjectId}
+                canComment={can.comment}
               />
             )}
           </div>
@@ -476,38 +491,48 @@ export default function TaskDetailPage() {
             <label className="text-xs font-medium text-muted-foreground">
               {t('common.status')}
             </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button type="button" className="cursor-pointer">
-                  <StatusBadge
-                    name={task.status_name ?? t('work.status.open')}
-                    color={task.status_color}
-                    isClosed={task.is_closed}
-                  />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-1" align="start">
-                <div className="space-y-0.5">
-                  {statuses.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                        s.id === task.status_id && 'bg-accent'
-                      )}
-                      onClick={() => s.id && handleStatusChange(s.id)}
-                    >
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: s.color || '#6b7280' }}
-                      />
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+            {(can.edit || can.complete) ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className="cursor-pointer">
+                    <StatusBadge
+                      name={task.status_name ?? t('work.status.open')}
+                      color={task.status_color}
+                      isClosed={task.is_closed}
+                    />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-1" align="start">
+                  <div className="space-y-0.5">
+                    {statuses.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
+                          s.id === task.status_id && 'bg-accent'
+                        )}
+                        onClick={() => s.id && handleStatusChange(s.id)}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: s.color || '#6b7280' }}
+                        />
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <span>
+                <StatusBadge
+                  name={task.status_name ?? t('work.status.open')}
+                  color={task.status_color}
+                  isClosed={task.is_closed}
+                />
+              </span>
+            )}
           </div>
 
           {/* Priority */}
@@ -515,41 +540,49 @@ export default function TaskDetailPage() {
             <label className="text-xs font-medium text-muted-foreground">
               {t('work.tasks.priority')}
             </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button type="button" className="cursor-pointer">
-                  <PriorityBadge
-                    priority={(task.priority as Priority) ?? 'normal'}
-                  />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-40 p-1" align="start">
-                <div className="space-y-0.5">
-                  {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                        p === task.priority && 'bg-accent'
-                      )}
-                      onClick={() => handlePriorityChange(p)}
-                    >
-                      <PriorityBadge priority={p} compact />
-                      <span>
-                        {p === 'urgent'
-                          ? t('work.priority.urgent')
-                          : p === 'high'
-                            ? t('work.priority.high')
-                            : p === 'normal'
-                              ? t('work.priority.normal')
-                              : t('work.priority.low')}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+            {can.edit ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className="cursor-pointer">
+                    <PriorityBadge
+                      priority={(task.priority as Priority) ?? 'normal'}
+                    />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-40 p-1" align="start">
+                  <div className="space-y-0.5">
+                    {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
+                          p === task.priority && 'bg-accent'
+                        )}
+                        onClick={() => handlePriorityChange(p)}
+                      >
+                        <PriorityBadge priority={p} compact />
+                        <span>
+                          {p === 'urgent'
+                            ? t('work.priority.urgent')
+                            : p === 'high'
+                              ? t('work.priority.high')
+                              : p === 'normal'
+                                ? t('work.priority.normal')
+                                : t('work.priority.low')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <span>
+                <PriorityBadge
+                  priority={(task.priority as Priority) ?? 'normal'}
+                />
+              </span>
+            )}
           </div>
 
           {/* Assignee */}
@@ -557,46 +590,53 @@ export default function TaskDetailPage() {
             <label className="text-xs font-medium text-muted-foreground">
               {t('work.tasks.assignee')}
             </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
-                >
-                  <User className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{task.assignee_name || t('work.tasks.unassigned')}</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-1" align="start">
-                <div className="space-y-0.5">
+            {can.edit ? (
+              <Popover>
+                <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                      !task.assignee_id && 'bg-accent'
-                    )}
-                    onClick={() => handleAssigneeChange('__none__')}
+                    className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
                   >
-                    {t('work.tasks.unassigned')}
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>{task.assignee_name || t('work.tasks.unassigned')}</span>
                   </button>
-                  {members.map((m) => (
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-1" align="start">
+                  <div className="space-y-0.5">
                     <button
-                      key={m.user_id}
                       type="button"
                       className={cn(
                         'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
-                        m.user_id === task.assignee_id && 'bg-accent'
+                        !task.assignee_id && 'bg-accent'
                       )}
-                      onClick={() =>
-                        m.user_id && handleAssigneeChange(m.user_id)
-                      }
+                      onClick={() => handleAssigneeChange('__none__')}
                     >
-                      {memberDisplayName(m) || t('work.tasks.user')}
+                      {t('work.tasks.unassigned')}
                     </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+                    {members.map((m) => (
+                      <button
+                        key={m.user_id}
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
+                          m.user_id === task.assignee_id && 'bg-accent'
+                        )}
+                        onClick={() =>
+                          m.user_id && handleAssigneeChange(m.user_id)
+                        }
+                      >
+                        {memberDisplayName(m) || t('work.tasks.user')}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground px-1 py-0.5">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{task.assignee_name || t('work.tasks.unassigned')}</span>
+              </span>
+            )}
           </div>
 
           {/* Due date */}
@@ -604,41 +644,52 @@ export default function TaskDetailPage() {
             <label className="text-xs font-medium text-muted-foreground">
               {t('work.tasks.dueAt')}
             </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
-                >
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>
-                    {task.due_date
-                      ? formatDate(task.due_date)
-                      : t('work.tasks.noDate')}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-3" align="start">
-                <div className="space-y-2">
-                  <Input
-                    type="date"
-                    className="h-8 text-xs"
-                    value={toDateInputValue(task.due_date)}
-                    onChange={(e) => handleDueDateChange(e.target.value)}
-                  />
-                  {task.due_date && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-full text-xs"
-                      onClick={() => handleDueDateChange('')}
-                    >
-                      {t('work.tasks.removeDate')}
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+            {can.edit ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
+                  >
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>
+                      {task.due_date
+                        ? formatDate(task.due_date)
+                        : t('work.tasks.noDate')}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-3" align="start">
+                  <div className="space-y-2">
+                    <Input
+                      type="date"
+                      className="h-8 text-xs"
+                      value={toDateInputValue(task.due_date)}
+                      onChange={(e) => handleDueDateChange(e.target.value)}
+                    />
+                    {task.due_date && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs"
+                        onClick={() => handleDueDateChange('')}
+                      >
+                        {t('work.tasks.removeDate')}
+                      </Button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground px-1 py-0.5">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>
+                  {task.due_date
+                    ? formatDate(task.due_date)
+                    : t('work.tasks.noDate')}
+                </span>
+              </span>
+            )}
           </div>
 
           <Separator />
@@ -650,7 +701,7 @@ export default function TaskDetailPage() {
             </label>
             <div className="flex flex-wrap items-center gap-1.5">
               {taskId && <TaskLabelChips taskId={taskId} />}
-              {taskId && <TaskLabelPicker taskId={taskId} />}
+              {taskId && can.edit && <TaskLabelPicker taskId={taskId} />}
             </div>
           </div>
 
@@ -664,6 +715,7 @@ export default function TaskDetailPage() {
             <DependencyList
               taskId={taskId ?? ''}
               projectId={effectiveProjectId}
+              canEdit={can.edit}
             />
           </div>
 
@@ -678,6 +730,7 @@ export default function TaskDetailPage() {
               taskId={taskId ?? ''}
               taskTitle={task.title}
               taskDescription={task.description}
+              canEdit={can.edit}
             />
           </div>
 
@@ -689,6 +742,7 @@ export default function TaskDetailPage() {
             <CustomFieldsSection
               taskId={taskId ?? ''}
               projectId={effectiveProjectId}
+              canEdit={can.edit}
             />
           </div>
 
@@ -699,28 +753,30 @@ export default function TaskDetailPage() {
             <label className="text-xs font-medium text-muted-foreground">
               {t('work.taskDetail.files')}
             </label>
-            <TaskFileAttachments taskId={taskId ?? ''} />
+            <TaskFileAttachments taskId={taskId ?? ''} canEdit={can.edit} />
           </div>
 
           <Separator />
 
           {/* Time tracking */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">
-                {t('work.taskDetail.timeTracking')}
-              </label>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs px-2"
-                onClick={() => setManualTimeEntryOpen(true)}
-              >
-                {t('work.taskDetail.addManual')}
-              </Button>
+          {canLogTime && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-muted-foreground">
+                  {t('work.taskDetail.timeTracking')}
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs px-2"
+                  onClick={() => setManualTimeEntryOpen(true)}
+                >
+                  {t('work.taskDetail.addManual')}
+                </Button>
+              </div>
+              <TaskTimer taskId={taskId ?? ''} />
             </div>
-            <TaskTimer taskId={taskId ?? ''} />
-          </div>
+          )}
 
           {/* Time entries */}
           <div className="space-y-1.5">
@@ -768,34 +824,38 @@ export default function TaskDetailPage() {
       />
 
       {/* Manual time entry dialog */}
-      <ManualTimeEntryDialog
-        open={manualTimeEntryOpen}
-        onOpenChange={setManualTimeEntryOpen}
-        taskId={taskId ?? ''}
-      />
+      {canLogTime && (
+        <ManualTimeEntryDialog
+          open={manualTimeEntryOpen}
+          onOpenChange={setManualTimeEntryOpen}
+          taskId={taskId ?? ''}
+        />
+      )}
 
       {/* Delete confirmation */}
-      <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            {t('work.myTasks.deleteBody', {
-              defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
-              title: task.title ?? '',
-            })}
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteTask.isPending}>
-              {t('common.delete', { defaultValue: 'Löschen' })}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {can.delete && (
+        <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {t('work.myTasks.deleteBody', {
+                defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
+                title: task.title ?? '',
+              })}
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleteTask.isPending}>
+                {t('common.delete', { defaultValue: 'Löschen' })}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

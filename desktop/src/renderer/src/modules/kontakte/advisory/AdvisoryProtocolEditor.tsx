@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   FileText,
 } from 'lucide-react'
+import { useHasCapability } from '@/hooks/useCapability'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -213,7 +214,8 @@ export default function AdvisoryProtocolEditor() {
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [showPrint, setShowPrint] = useState(false)
 
-  const readOnly = form?.status === 'finalized'
+  const canWrite = useHasCapability('crm:advisory:write')
+  const readOnly = form?.status === 'finalized' || !canWrite
 
   const duration = useMemo(
     () => (form ? protocolDurationMin(form.timeFrom, form.timeTo) : null),

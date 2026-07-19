@@ -1,5 +1,7 @@
 # R-3 Enforcement-Sweep — Terminal-Briefing (erstellt Session #15, 2026-07-18)
 
+> **⚡⚡ UPDATE Session #17 (2026-07-19): BATCH 1 GEBAUT (work · documents · crm · finance · wiki) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #17. Shared-Bausteine stehen (RestrictedModeBadge, NoAccessView+ModuleGate an ALLEN Routen, useScopedCapability, ItemActions-title). Nächstes Bau-Terminal: BATCH 2 (team-Rest · dashboard Ebene-2 · settings/security-Rest) DIREKT — Konvention aus #16 gilt für alle Batches, kein neues Gate.**
+
 > **⚡ UPDATE Session #16 (2026-07-19): Recherche-Gate Batch 1 DURCHLAUFEN + alle 4 Darien-Entscheide gefallen — Ergebnis + verbindliche Gating-Konvention in `R3-RECHERCHE.md`. Das Bau-Terminal kann Batch 1 DIREKT bauen (Schritte 1–3 unten sind erledigt; §2 nur noch Historie). Darien-Review R-1/R-2: ohne Feedback freigegeben („Kein Feedback, direkt R-3").**
 > **Kern-Konvention (ersetzt §1.3-Konvention):** Default VERSTECKEN (auch Erstellen/Bearbeiten) · disabled+Tooltip NUR für Ausnahmen-Liste (crm:import:run, finance:invoice:send/quote:send, documents:file:download) · Read-only-Felder mit sichtbarem Wert als drittes Pattern · shared „Nur Ansicht"-Header-Chip · scope-own = Edit-Controls still weg · shared „Kein Zugriff"-Seite an Modul-Routen.
 >

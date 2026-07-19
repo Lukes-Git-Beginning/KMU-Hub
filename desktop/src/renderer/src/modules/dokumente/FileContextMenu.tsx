@@ -25,6 +25,7 @@ import {
   AppWindow,
 } from 'lucide-react'
 import type { DocumentFile, DocumentFolder } from '@/api/types/document-types'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,6 +69,9 @@ interface MenuItem {
   onClick: () => void
   variant?: 'default' | 'destructive'
   separator?: boolean
+  /** If true: item renders visually disabled (aria-disabled) with a title tooltip. */
+  disabled?: boolean
+  disabledTitle?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -134,8 +138,14 @@ function ContextMenuContent({
               <div className="-mx-1 my-1 h-px bg-muted" />
             )}
             <button
+              aria-disabled={item.disabled || undefined}
+              title={item.disabled ? item.disabledTitle : undefined}
               onClick={(e) => {
                 e.stopPropagation()
+                if (item.disabled) {
+                  e.preventDefault()
+                  return
+                }
                 item.onClick()
                 onClose()
               }}
@@ -143,7 +153,7 @@ function ContextMenuContent({
                 item.variant === 'destructive'
                   ? 'text-destructive hover:text-destructive'
                   : ''
-              }`}
+              } ${item.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-inherit' : ''}`}
             >
               <Icon className="h-4 w-4 shrink-0" />
               {item.label}
@@ -161,7 +171,7 @@ function ContextMenuContent({
 // ---------------------------------------------------------------------------
 
 export function FileContextMenu({
-  file: _file,
+  file,
   children,
   onOpen,
   onDownload,
@@ -179,6 +189,14 @@ export function FileContextMenu({
   const { t } = useTranslation()
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
 
+  // RBAC capability checks (hooks must be at component top level)
+  const canDownload = useHasCapability('documents:file:download')
+  const canEdit = useScopedCapability('documents:file:edit', file.owner_id)
+  const canDelete = useScopedCapability('documents:file:delete', file.owner_id)
+  const canShare = useHasCapability('documents:share:manage')
+  const canShareLink = useHasCapability('documents:share_link:create')
+  const canVersionRestore = useHasCapability('documents:version:restore')
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
@@ -188,30 +206,57 @@ export function FileContextMenu({
     [],
   )
 
+  const downloadDisabledTitle = t('rbac.gate.downloadDisabled')
+
   const items: MenuItem[] = [
     { label: t('dokumente.context.open'), icon: ExternalLink, onClick: onOpen },
-    ...(onEditInOnlyOffice
+    ...(onEditInOnlyOffice && canEdit
       ? [{ label: t('dokumente.context.editInOnlyOffice'), icon: FileEdit, onClick: onEditInOnlyOffice }]
       : []),
     ...(onOpenInOffice
       ? [{ label: t('dokumente.context.openInOffice'), icon: AppWindow, onClick: onOpenInOffice }]
       : []),
-    { label: t('common.download'), icon: Download, onClick: onDownload },
-    { label: t('dokumente.context.rename'), icon: Pencil, onClick: onRename, separator: true },
-    { label: t('dokumente.context.move'), icon: FolderInput, onClick: onMove },
-    { label: t('dokumente.context.copy'), icon: Copy, onClick: onCopy },
-    { label: t('dokumente.context.share'), icon: Share2, onClick: onShare, separator: true },
-    ...(onShareLink
+    // Download: always visible, disabled without right (Ausnahme-Muster)
+    {
+      label: t('common.download'),
+      icon: Download,
+      onClick: onDownload,
+      disabled: !canDownload,
+      disabledTitle: downloadDisabledTitle,
+    },
+    // Rename + Move: only with edit right on own files
+    ...(canEdit
+      ? [
+          { label: t('dokumente.context.rename'), icon: Pencil, onClick: onRename, separator: true },
+          { label: t('dokumente.context.move'), icon: FolderInput, onClick: onMove },
+        ]
+      : []),
+    // Copy is read-action — always visible
+    { label: t('dokumente.context.copy'), icon: Copy, onClick: onCopy, ...(!canEdit ? { separator: true } : {}) },
+    // Share: only with share:manage
+    ...(canShare
+      ? [{ label: t('dokumente.context.share'), icon: Share2, onClick: onShare, separator: canEdit }]
+      : []),
+    // Share link: only with share_link:create
+    ...(canShareLink && onShareLink
       ? [{ label: t('dokumente.context.shareLink'), icon: Link2, onClick: onShareLink }]
       : []),
-    { label: t('dokumente.context.versionHistory'), icon: History, onClick: onVersionHistory },
-    {
-      label: t('common.delete'),
-      icon: Trash2,
-      onClick: onDelete,
-      variant: 'destructive',
-      separator: true,
-    },
+    // Version history: only with version:restore
+    ...(canVersionRestore
+      ? [{ label: t('dokumente.context.versionHistory'), icon: History, onClick: onVersionHistory }]
+      : []),
+    // Delete: only with delete right on own files
+    ...(canDelete
+      ? [
+          {
+            label: t('common.delete'),
+            icon: Trash2,
+            onClick: onDelete,
+            variant: 'destructive' as const,
+            separator: true,
+          },
+        ]
+      : []),
     {
       label: t('dokumente.context.properties'),
       icon: Info,
@@ -239,7 +284,7 @@ export function FileContextMenu({
 // ---------------------------------------------------------------------------
 
 export function FolderContextMenu({
-  folder: _folder,
+  folder,
   children,
   onOpen,
   onNewSubfolder,
@@ -249,6 +294,12 @@ export function FolderContextMenu({
 }: FolderContextMenuProps) {
   const { t } = useTranslation()
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
+
+  // RBAC capability checks (hooks must be at component top level)
+  const canUpload = useHasCapability('documents:file:upload')
+  // Ordner-Owner = owner_id
+  const canEditFolder = useScopedCapability('documents:file:edit', folder.created_by)
+  const canDeleteFolder = useScopedCapability('documents:file:delete', folder.created_by)
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -261,25 +312,43 @@ export function FolderContextMenu({
 
   const items: MenuItem[] = [
     { label: t('dokumente.context.open'), icon: ExternalLink, onClick: onOpen },
-    {
-      label: t('dokumente.context.newSubfolder'),
-      icon: FolderPlus,
-      onClick: onNewSubfolder,
-    },
-    { label: t('dokumente.context.uploadHere'), icon: Upload, onClick: onUploadHere },
-    {
-      label: t('dokumente.context.rename'),
-      icon: Pencil,
-      onClick: onRename,
-      separator: true,
-    },
-    {
-      label: t('common.delete'),
-      icon: Trash2,
-      onClick: onDelete,
-      variant: 'destructive',
-      separator: true,
-    },
+    // Neuer Unterordner: requires edit right
+    ...(canEditFolder
+      ? [
+          {
+            label: t('dokumente.context.newSubfolder'),
+            icon: FolderPlus,
+            onClick: onNewSubfolder,
+          },
+        ]
+      : []),
+    // Hier hochladen: requires upload right
+    ...(canUpload
+      ? [{ label: t('dokumente.context.uploadHere'), icon: Upload, onClick: onUploadHere }]
+      : []),
+    // Umbenennen: requires edit right on this folder's owner
+    ...(canEditFolder
+      ? [
+          {
+            label: t('dokumente.context.rename'),
+            icon: Pencil,
+            onClick: onRename,
+            separator: true,
+          },
+        ]
+      : []),
+    // Löschen: requires delete right on this folder's owner
+    ...(canDeleteFolder
+      ? [
+          {
+            label: t('common.delete'),
+            icon: Trash2,
+            onClick: onDelete,
+            variant: 'destructive' as const,
+            separator: true,
+          },
+        ]
+      : []),
   ]
 
   return (

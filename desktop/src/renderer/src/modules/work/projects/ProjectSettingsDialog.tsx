@@ -33,6 +33,7 @@ import {
   useRemoveMember,
   useSaveAsTemplate,
 } from '@/api/hooks/useProjects'
+import { useProjectCan } from '../useWorkPermissions'
 
 interface ProjectSettingsDialogProps {
   open: boolean
@@ -62,6 +63,8 @@ export default function ProjectSettingsDialog({
   const project = projectData?.project
   const statuses = statusesData?.statuses ?? []
   const members = membersData?.members ?? []
+
+  const projectCan = useProjectCan(project)
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -207,26 +210,30 @@ export default function ProjectSettingsDialog({
             <Separator />
 
             {/* Archive */}
-            <Button
-              variant="outline"
-              className="text-destructive gap-1"
-              onClick={handleArchive}
-              disabled={archiveProject.isPending}
-            >
-              <Archive className="h-4 w-4" />
-              {t('work.settings.archiveProject')}
-            </Button>
+            {projectCan.delete && (
+              <Button
+                variant="outline"
+                className="text-destructive gap-1"
+                onClick={handleArchive}
+                disabled={archiveProject.isPending}
+              >
+                <Archive className="h-4 w-4" />
+                {t('work.settings.archiveProject')}
+              </Button>
+            )}
 
             {/* Delete — permanent, irreversible */}
-            <Button
-              variant="destructive"
-              className="gap-1"
-              onClick={handleDelete}
-              disabled={deleteProject.isPending}
-            >
-              <AlertTriangle className="h-4 w-4" />
-              {t('work.settings.deleteProject')}
-            </Button>
+            {projectCan.delete && (
+              <Button
+                variant="destructive"
+                className="gap-1"
+                onClick={handleDelete}
+                disabled={deleteProject.isPending}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                {t('work.settings.deleteProject')}
+              </Button>
+            )}
           </div>
         )}
 
@@ -322,7 +329,7 @@ export default function ProjectSettingsDialog({
                         ? t('work.settings.roleMember')
                         : t('work.settings.roleViewer')}
                     </Badge>
-                    {member.role !== 'owner' && (
+                    {member.role !== 'owner' && projectCan.manageMembers && (
                       <Button
                         variant="ghost"
                         size="icon"

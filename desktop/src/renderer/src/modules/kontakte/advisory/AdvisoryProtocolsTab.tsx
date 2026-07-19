@@ -18,6 +18,7 @@ import {
   sriColor,
 } from '@/lib/advisory'
 import { formatDate } from '@/lib/format'
+import { useHasCapability } from '@/hooks/useCapability'
 
 interface AdvisoryProtocolsTabProps {
   contactId: string
@@ -32,6 +33,7 @@ export function AdvisoryProtocolsTab({ contactId, advisorName, onNavigate }: Adv
   // a fresh array each render and trigger an infinite re-render loop.
   const allProtocols = useAdvisoryProtocolsStore((s) => s.protocols)
   const createDraft = useAdvisoryProtocolsStore((s) => s.createDraft)
+  const canWrite = useHasCapability('crm:advisory:write')
   const protocols = useMemo(
     () =>
       allProtocols
@@ -54,10 +56,12 @@ export function AdvisoryProtocolsTab({ contactId, advisorName, onNavigate }: Adv
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">{t('advisory.tab.subtitle')}</p>
-        <Button size="sm" onClick={handleNew}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('advisory.tab.new')}
-        </Button>
+        {canWrite && (
+          <Button size="sm" onClick={handleNew}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('advisory.tab.new')}
+          </Button>
+        )}
       </div>
 
       {protocols.length === 0 ? (
