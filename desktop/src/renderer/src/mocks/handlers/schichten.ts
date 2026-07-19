@@ -328,7 +328,8 @@ const assignments: ShiftAssignment[] = [
 
 // --- SwapRequests —
 // swap-req-001: pending (Jan requests to swap sft-006 with Lena's sft-007 slot)
-// swap-req-002: approved (Felix already approved, Lena → felix swap on sft-007)
+// swap-req-002: approved (Felix ↔ Markus swap on sft-007 — Markus as counterpart
+// keeps the member scope-own demo non-empty: he sees exactly this one request)
 // swap-req-003: rejected (Thomas rejected a swap on sft-008)
 const swapRequests: SwapRequestWire[] = [
   {
@@ -350,7 +351,7 @@ const swapRequests: SwapRequestWire[] = [
     assignment_id: 'asgn-013',        // Felix on sft-007 (Spätschicht morgen)
     shift_id: 'sft-007',
     requested_by_employee_id: IDS.users.felix,
-    swap_with_employee_id: IDS.users.lena,
+    swap_with_employee_id: IDS.users.markus,
     status: 'approved',
     reason: 'Familienfeier am Abend, Tausch bereits abgesprochen',
     idempotency_key: 'swap-idem-002',

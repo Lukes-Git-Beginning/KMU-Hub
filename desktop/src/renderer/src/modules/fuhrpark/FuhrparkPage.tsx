@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -27,6 +27,8 @@ import {
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { DetailModal, EmptyState, PageHeader, SortMenu, type SortDirection } from '@/components/shared'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { formatAmount, formatDate, formatTime } from '@/lib/format'
 import type { Vehicle, MaintenanceRecord, FuelRecord, LogbookEntry, VehicleDocument, DamageReport, VehicleRoute } from '@/stores/fuhrpark'
 import {
@@ -1016,6 +1018,10 @@ interface VehicleDetailContentProps {
   onAddMaintenance: () => void
   onAddFuel: () => void
   onAddDamage: () => void
+  // RBAC: action gate flags passed from parent (hooks live in FuhrparkPage)
+  canCreateService: boolean
+  canCreateFuel: boolean
+  canCreateDamage: boolean
 }
 
 function VehicleDetailContent({
@@ -1030,6 +1036,9 @@ function VehicleDetailContent({
   onAddMaintenance,
   onAddFuel,
   onAddDamage,
+  canCreateService,
+  canCreateFuel,
+  canCreateDamage,
 }: VehicleDetailContentProps) {
   const { t } = useTranslation()
   const inspectionStatus = getDateStatus(vehicle.nextInspection, reminderLeadDays)
@@ -1359,30 +1368,38 @@ function VehicleDetailContent({
         )}
       </section>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 pt-1 flex-wrap">
-        <button
-          onClick={onAddMaintenance}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-        >
-          <Wrench className="h-3.5 w-3.5" />
-          {t('fuhrpark.action.addMaintenance')}
-        </button>
-        <button
-          onClick={onAddFuel}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-        >
-          <Fuel className="h-3.5 w-3.5" />
-          {t('fuhrpark.action.addFuel')}
-        </button>
-        <button
-          onClick={onAddDamage}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-        >
-          <Camera className="h-3.5 w-3.5" />
-          {t('fuhrpark.action.reportDamage')}
-        </button>
-      </div>
+      {/* Action Buttons — only render when at least one action is permitted */}
+      {(canCreateService || canCreateFuel || canCreateDamage) && (
+        <div className="flex gap-2 pt-1 flex-wrap">
+          {canCreateService && (
+            <button
+              onClick={onAddMaintenance}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              {t('fuhrpark.action.addMaintenance')}
+            </button>
+          )}
+          {canCreateFuel && (
+            <button
+              onClick={onAddFuel}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+            >
+              <Fuel className="h-3.5 w-3.5" />
+              {t('fuhrpark.action.addFuel')}
+            </button>
+          )}
+          {canCreateDamage && (
+            <button
+              onClick={onAddDamage}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+            >
+              <Camera className="h-3.5 w-3.5" />
+              {t('fuhrpark.action.reportDamage')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -1402,6 +1419,27 @@ export default function FuhrparkPage() {
   const currency = useFuhrparkTenantStore((s) => s.currency)
   const defaultFuelType = useFuhrparkTenantStore((s) => s.defaultFuelType)
   const privateTripsEnabled = useFuhrparkTenantStore((s) => s.privateTripsEnabled)
+
+  // ── RBAC R-3 capability checks (default hidden per gating convention) ──
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canManageVehicle = useHasCapability('fuhrpark:vehicle:manage')
+  const canCreateService = useHasCapability('fuhrpark:service:create')
+  const canCreateFuel = useHasCapability('fuhrpark:fuel:create')
+  const canCreateTrip = useHasCapability('fuhrpark:trip:create')
+  const canCreateDamage = useHasCapability('fuhrpark:damage:create')
+  const canExportFuhrpark = useHasCapability('fuhrpark:export:run')
+
+  // Tab capability map (tab = read key rule)
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    fahrzeuge: 'fuhrpark:vehicle:read',
+    wartung: 'fuhrpark:service:read',
+    tankprotokoll: 'fuhrpark:fuel:read',
+    fahrtenbuch: 'fuhrpark:trip:read',
+    tracking: 'fuhrpark:gps:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
 
   // ---------------------------------------------------------------------------
   // Selected vehicle state (needed before hook calls so useVehicleDocuments can use it)
@@ -1469,6 +1507,12 @@ export default function FuhrparkPage() {
   const [tab, setTab] = useState<TabKey>(defaultTab)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'car' | 'van' | 'truck'>('all')
+
+  // Fallback: wenn der aktive Tab durch RBAC nicht mehr sichtbar ist, zum ersten sichtbaren wechseln
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [dialog, setDialog] = useState<DialogKey>(null)
   const [dialogPreselectedVehicleId, setDialogPreselectedVehicleId] = useState<string | undefined>()
@@ -1814,6 +1858,23 @@ export default function FuhrparkPage() {
             ? t('fuhrpark.search.logbook')
             : t('fuhrpark.search.fuel')
 
+  // moduleEmpty: kein sichtbarer Tab nach Permissions-Load
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('fuhrpark.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={Truck}
+          moduleId="fuhrpark"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="fuhrpark" />}
+        />
+        <EmptyState icon={Car} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
@@ -1827,7 +1888,8 @@ export default function FuhrparkPage() {
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">
-            {tab === 'wartung' && (
+            <RestrictedModeBadge module="fuhrpark" />
+            {tab === 'wartung' && canCreateService && (
               <button
                 onClick={openAddMaintenanceGlobal}
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -1836,7 +1898,7 @@ export default function FuhrparkPage() {
                 {t('fuhrpark.action.addMaintenance')}
               </button>
             )}
-            {tab === 'tankprotokoll' && (
+            {tab === 'tankprotokoll' && canCreateFuel && (
               <button
                 onClick={openAddFuelGlobal}
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -1845,7 +1907,7 @@ export default function FuhrparkPage() {
                 {t('fuhrpark.action.addFuel')}
               </button>
             )}
-            {tab === 'fahrzeuge' && (
+            {tab === 'fahrzeuge' && canExportFuhrpark && (
               <button
                 onClick={handleVehiclesCsvExport}
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -1856,30 +1918,36 @@ export default function FuhrparkPage() {
             )}
             {tab === 'fahrtenbuch' && (
               <>
-                <button
-                  onClick={handleLogbookCsvExport}
-                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  <FileSpreadsheet className="h-4 w-4" />
-                  {t('fuhrpark.action.exportCsv')}
-                </button>
-                <button
-                  onClick={handleLogbookPdfExport}
-                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  <FileDown className="h-4 w-4" />
-                  {t('fuhrpark.action.exportPdf')}
-                </button>
-                <button
-                  onClick={() => setDialog('addTrip')}
-                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  {t('fuhrpark.action.addTrip')}
-                </button>
+                {canExportFuhrpark && (
+                  <button
+                    onClick={handleLogbookCsvExport}
+                    className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    {t('fuhrpark.action.exportCsv')}
+                  </button>
+                )}
+                {canExportFuhrpark && (
+                  <button
+                    onClick={handleLogbookPdfExport}
+                    className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    {t('fuhrpark.action.exportPdf')}
+                  </button>
+                )}
+                {canCreateTrip && (
+                  <button
+                    onClick={() => setDialog('addTrip')}
+                    className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    {t('fuhrpark.action.addTrip')}
+                  </button>
+                )}
               </>
             )}
-            {tab === 'tracking' && (
+            {tab === 'tracking' && capHas('fuhrpark:gps:read') && (
               <button
                 onClick={handleRefreshTracking}
                 disabled={trackingRefreshing}
@@ -1889,13 +1957,15 @@ export default function FuhrparkPage() {
                 {t('fuhrpark.action.refresh')}
               </button>
             )}
-            <button
-              onClick={openAddVehicle}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('fuhrpark.action.addVehicle')}
-            </button>
+            {canManageVehicle && (
+              <button
+                onClick={openAddVehicle}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('fuhrpark.action.addVehicle')}
+              </button>
+            )}
           </div>
         }
       />
@@ -1908,7 +1978,7 @@ export default function FuhrparkPage() {
           { key: 'tankprotokoll' as const, label: t('fuhrpark.tab.tankprotokoll', { count: fuelRecords.length }), icon: null },
           { key: 'fahrtenbuch' as const, label: t('fuhrpark.tab.fahrtenbuch', { count: logbookEntries.length }), icon: BookOpen },
           { key: 'tracking' as const, label: t('fuhrpark.tab.tracking'), icon: MapPin },
-        ]).map((tabItem) => (
+        ]).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => (
           <button
             key={tabItem.key}
             onClick={() => { setTab(tabItem.key); setSearch(''); setExpandedRouteId(null) }}
@@ -2659,6 +2729,9 @@ export default function FuhrparkPage() {
             onAddMaintenance={() => openAddMaintenanceFromPanel(selectedVehicle.id)}
             onAddFuel={() => openAddFuelFromPanel(selectedVehicle.id)}
             onAddDamage={() => openAddDamageFromPanel(selectedVehicle.id)}
+            canCreateService={canCreateService}
+            canCreateFuel={canCreateFuel}
+            canCreateDamage={canCreateDamage}
           />
         )}
       </DetailModal>

@@ -12,6 +12,7 @@ import {
   usePauseCampaign,
   useArchiveCampaign,
 } from '@/api/hooks/useDialer'
+import { useHasCapability } from '@/hooks/useCapability'
 import CampaignCard from './components/CampaignCard'
 import CampaignFormDialog from './components/CampaignFormDialog'
 import type { Campaign } from '@/api/dialer-client'
@@ -30,6 +31,9 @@ export default function CampaignListPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editCampaign, setEditCampaign] = useState<Campaign | null>(null)
   const [archiveId, setArchiveId] = useState<string | null>(null)
+
+  // RBAC: campaigns:manage gates create/edit/start/pause/archive
+  const canManageCampaigns = useHasCapability('dialer:campaigns:manage')
 
   const { data, isLoading } = useCampaigns({ status_filter: statusFilter })
   const createMutation = useCreateCampaign()
@@ -70,6 +74,11 @@ export default function CampaignListPage() {
     })
   }
 
+  const openNewCampaignDialog = () => {
+    setEditCampaign(null)
+    setFormOpen(true)
+  }
+
   return (
     <div className="p-6 space-y-5">
       <PageHeader
@@ -78,10 +87,12 @@ export default function CampaignListPage() {
         icon={PhoneCall}
         moduleId="dialer"
         actions={
-          <Button className="gap-2" onClick={() => { setEditCampaign(null); setFormOpen(true) }}>
-            <Plus className="h-4 w-4" />
-            {t('dialer.campaigns.new')}
-          </Button>
+          canManageCampaigns ? (
+            <Button className="gap-2" onClick={openNewCampaignDialog}>
+              <Plus className="h-4 w-4" />
+              {t('dialer.campaigns.new')}
+            </Button>
+          ) : null
         }
       />
 
@@ -117,10 +128,14 @@ export default function CampaignListPage() {
           icon={PhoneCall}
           title={t('dialer.campaigns.empty.title')}
           description={t('dialer.campaigns.empty.description')}
-          action={{
-            label: t('dialer.campaigns.new'),
-            onClick: () => { setEditCampaign(null); setFormOpen(true) },
-          }}
+          action={
+            canManageCampaigns
+              ? {
+                  label: t('dialer.campaigns.new'),
+                  onClick: openNewCampaignDialog,
+                }
+              : undefined
+          }
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -131,6 +146,7 @@ export default function CampaignListPage() {
             >
               <CampaignCard
                 campaign={campaign}
+                canManage={canManageCampaigns}
                 onStart={handleStart}
                 onPause={handlePause}
                 onEdit={(c) => { setEditCampaign(c); setFormOpen(true) }}

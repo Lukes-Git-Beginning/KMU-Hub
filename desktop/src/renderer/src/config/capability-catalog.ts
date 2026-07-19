@@ -77,13 +77,8 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
   zeiterfassung: [],
   infrastructure: [],
   notifications: [],
-  schichten: [],
-  fuhrpark: [],
   berichte: [],
   formulare: [],
-  vermietung: [],
-  rapporte: [],
-  dialer: [],
   automatisierung: [],
 
   // Batch-3 industry modules — subjects mirror Luke's permission seeds
@@ -163,6 +158,74 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
     fine('helpdesk:kb:manage'),
     fine('helpdesk:canned:manage'),
     fine('helpdesk:stats:view'),
+  ],
+
+  // Batch-4 industry modules — subjects mirror Luke's permission seeds
+  // (000095/000161 schichten incl. swap:create/approve, 000097/000196
+  // fuhrpark, 000099 vermietung, 000093/000100/000164 rapporte incl.
+  // report:approve, 000068 dialer with PLURAL subjects campaigns/calls).
+  // FE folds rapporte line/attachment into report:* and fuhrpark document
+  // into vehicle:read (read-only display) — mapping noted in backend-gaps.
+
+  schichten: [
+    base('schichten:shift:read'),
+    fine('schichten:shift:publish'),
+    base('schichten:assignment:manage'),
+    base('schichten:template:read'),
+    base('schichten:template:manage'),
+    base('schichten:swap:read', true),
+    fine('schichten:swap:create', true),
+    fine('schichten:swap:approve'),
+    fine('schichten:export:run'),
+  ],
+
+  fuhrpark: [
+    base('fuhrpark:vehicle:read'),
+    base('fuhrpark:vehicle:manage'),
+    base('fuhrpark:service:read'),
+    base('fuhrpark:service:create'),
+    base('fuhrpark:fuel:read'),
+    base('fuhrpark:fuel:create'),
+    base('fuhrpark:trip:read'),
+    base('fuhrpark:trip:create'),
+    base('fuhrpark:damage:create'),
+    fine('fuhrpark:gps:read'),
+    fine('fuhrpark:export:run'),
+  ],
+
+  vermietung: [
+    base('vermietung:object:read'),
+    base('vermietung:object:create'),
+    base('vermietung:object:edit'),
+    base('vermietung:object:delete'),
+    base('vermietung:rental:read'),
+    base('vermietung:rental:create'),
+    base('vermietung:rental:edit'),
+    fine('vermietung:rental:cancel'),
+    fine('vermietung:rental:handover'),
+    base('vermietung:inspection:create'),
+    fine('vermietung:export:run'),
+  ],
+
+  rapporte: [
+    base('rapporte:report:read', true),
+    base('rapporte:report:create'),
+    base('rapporte:report:edit', true),
+    base('rapporte:report:delete', true),
+    fine('rapporte:report:approve'),
+    base('rapporte:measurement:read'),
+    base('rapporte:measurement:manage'),
+    base('rapporte:template:read'),
+    fine('rapporte:export:run'),
+  ],
+
+  dialer: [
+    base('dialer:campaigns:read'),
+    base('dialer:campaigns:manage'),
+    base('dialer:calls:read'),
+    base('dialer:calls:write'),
+    fine('dialer:outcomes:manage'),
+    fine('dialer:agent:manage'),
   ],
 
   work: [

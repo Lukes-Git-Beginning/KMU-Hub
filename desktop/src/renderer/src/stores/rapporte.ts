@@ -30,6 +30,8 @@ export interface FieldReport {
   projectId: string
   projectName: string
   author: string
+  /** Raw user id for scope-own checks (API reports only; legacy seeds omit it). */
+  authorId?: string
   weather: WeatherType
   temperature: number
   workStart: string

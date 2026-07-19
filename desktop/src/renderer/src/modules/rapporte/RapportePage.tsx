@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -39,8 +39,13 @@ import {
   useUpdateReport,
   useDeleteReport,
   useSubmitReport,
+  useApproveReport,
+  useRejectReport,
 } from '@/api/hooks/useRapporte'
 import { adaptWorkReport } from '@/api/rapporte-adapter'
+import { useCapability, useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
+import { useAuthStore } from '@/stores/auth'
 import SignatureCanvas from './SignatureCanvas'
 import SketchCanvas from './SketchCanvas'
 import { EmptyState, PageHeader, SortMenu, type SortDirection, type SortFieldOption } from '@/components/shared'
@@ -129,12 +134,31 @@ export default function RapportePage() {
   const deleteReportMutation = useDeleteReport()
   const submitReportMutation = useSubmitReport()
   const updateReportMutation = useUpdateReport()
+  const approveReportMutation = useApproveReport()
+  const rejectReportMutation = useRejectReport()
+
+  // RBAC R-3 capability checks (default hidden per gating convention)
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const reportRead = useCapability('rapporte:report:read')
+  const canCreateReport = useHasCapability('rapporte:report:create')
+  const canManageMeasurement = useHasCapability('rapporte:measurement:manage')
+  const canExport = useHasCapability('rapporte:export:run')
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
 
   // Map wire shape → FieldReport for the UI
   const reports: FieldReport[] = useMemo(
     () => (reportsData?.reports ?? []).map(adaptWorkReport),
     [reportsData],
   )
+
+  // Author model: report:read scope=own → only own daily reports (site-worker
+  // view); managers/auditors read all. Mirrors the helpdesk requester filter.
+  const baseReports = useMemo(() => {
+    if (reportRead.allowed && reportRead.scope === 'own') {
+      return reports.filter((r) => r.authorId === currentUserId)
+    }
+    return reports
+  }, [reports, reportRead.allowed, reportRead.scope, currentUserId])
 
   // ---------------------------------------------------------------------------
   // Client state — measurements + templates (no API endpoints yet)
@@ -170,15 +194,30 @@ export default function RapportePage() {
   // Derived data
   // ---------------------------------------------------------------------------
 
+  // RBAC tab gating (tab = read-key rule); while permissions load keep all
+  // tabs visible to avoid flicker (finance pattern).
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    tagesberichte: 'rapporte:report:read',
+    aufmass: 'rapporte:measurement:read',
+    vorlagen: 'rapporte:template:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
+
   const uniqueProjects = useMemo(() => {
     const set = new Map<string, string>()
-    reports.forEach((r) => set.set(r.projectId, r.projectName))
+    baseReports.forEach((r) => set.set(r.projectId, r.projectName))
     return Array.from(set.entries()).map(([id, name]) => ({ id, name }))
-  }, [reports])
+  }, [baseReports])
 
   const filteredReports = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1
-    let list = [...reports].sort((a, b) => {
+    let list = [...baseReports].sort((a, b) => {
       switch (sortField) {
         case 'project':
           return a.projectName.localeCompare(b.projectName) * dir
@@ -208,15 +247,18 @@ export default function RapportePage() {
       )
     }
     return list
-  }, [reports, projectFilter, dateFilter, search, sortField, sortDir])
+  }, [baseReports, projectFilter, dateFilter, search, sortField, sortDir])
 
-  // Stats — prefer server stats when available, fall back to client-computed values
-  const reportsThisWeek = reports.filter((r) => isThisWeek(r.date)).length
-  const totalHours = reports.reduce((sum, r) => sum + calcNetMinutes(r.workStart, r.workEnd, r.breakMinutes), 0)
+  // Stats — prefer server stats when available, fall back to client-computed
+  // values. Own-scope roles get client-computed numbers only (the server stats
+  // aggregate ALL reports and would leak other people's counts).
+  const scopedOwn = reportRead.scope === 'own'
+  const reportsThisWeek = baseReports.filter((r) => isThisWeek(r.date)).length
+  const totalHours = baseReports.reduce((sum, r) => sum + calcNetMinutes(r.workStart, r.workEnd, r.breakMinutes), 0)
   const totalHoursFormatted = `${Math.floor(totalHours / 60)}h`
-  const activeProjects = statsData
+  const activeProjects = statsData && !scopedOwn
     ? statsData.approved_count + statsData.submitted_count
-    : new Set(reports.map((r) => r.projectId)).size
+    : new Set(baseReports.map((r) => r.projectId)).size
 
   // Mock material cost (no API field yet)
   const materialCostMock = 48_750
@@ -272,6 +314,37 @@ export default function RapportePage() {
     }
   }
 
+  // Approval workflow (rapporte:report:approve — BE seed 000100): the modal
+  // renders the buttons, transitions run here next to the other lifecycle
+  // handlers so selectedReport stays in sync.
+  const handleApproveReport = (id: string) => {
+    if (!currentUserId) return
+    approveReportMutation.mutate(
+      { id, reviewer_id: currentUserId },
+      {
+        onSuccess: (data) => {
+          if (selectedReport?.id === id) setSelectedReport(adaptWorkReport(data.report))
+          toast.success(t('rapporte.detail.approveSuccess'))
+        },
+        onError: () => toast.error(t('rapporte.detail.approveError')),
+      },
+    )
+  }
+
+  const handleRejectReport = (id: string, note: string) => {
+    if (!currentUserId) return
+    rejectReportMutation.mutate(
+      { id, reviewer_id: currentUserId, review_note: note },
+      {
+        onSuccess: (data) => {
+          if (selectedReport?.id === id) setSelectedReport(adaptWorkReport(data.report))
+          toast.success(t('rapporte.detail.rejectSuccess'))
+        },
+        onError: () => toast.error(t('rapporte.detail.rejectError')),
+      },
+    )
+  }
+
   const toggleMeasurement = (id: string) => {
     setExpandedMeasurement(expandedMeasurement === id ? null : id)
   }
@@ -311,6 +384,24 @@ export default function RapportePage() {
     )
   }
 
+  // Custom role with module visibility but no read grant on any tab: honest
+  // hint instead of an empty tab skeleton (rbac gating convention).
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('rapporte.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={ClipboardCheck}
+          moduleId="rapporte"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="rapporte" />}
+        />
+        <EmptyState icon={ClipboardList} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
       <PageHeader
@@ -320,8 +411,9 @@ export default function RapportePage() {
         moduleId="rapporte"
         className="mb-6"
         actions={
-          <div className="flex gap-2">
-            {tab === 'aufmass' && (
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="rapporte" />
+            {tab === 'aufmass' && canManageMeasurement && (
               <button
                 onClick={() => setShowNewMeasurement(true)}
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
@@ -330,16 +422,18 @@ export default function RapportePage() {
                 {t('rapporte.newMeasurement')}
               </button>
             )}
-            <button
-              onClick={() => {
-                setTemplatePrefill(null)
-                setShowNewReport(true)
-              }}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('rapporte.newReport')}
-            </button>
+            {canCreateReport && (
+              <button
+                onClick={() => {
+                  setTemplatePrefill(null)
+                  setShowNewReport(true)
+                }}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('rapporte.newReport')}
+              </button>
+            )}
           </div>
         }
       />
@@ -369,10 +463,10 @@ export default function RapportePage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'tagesberichte' as const, label: t('rapporte.tabs.reports', { count: reports.length }) },
+          { key: 'tagesberichte' as const, label: t('rapporte.tabs.reports', { count: baseReports.length }) },
           { key: 'aufmass' as const, label: t('rapporte.tabs.measurements', { count: measurements.length }) },
           { key: 'vorlagen' as const, label: t('rapporte.tabs.templates', { count: templates.length }) },
-        ]).map((t) => (
+        ]).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -439,14 +533,16 @@ export default function RapportePage() {
               onChange={(field, direction) => { setSortField(field); setSortDir(direction) }}
               triggerClassName="py-2"
             />
-            <button
-              onClick={handleExportReports}
-              disabled={filteredReports.length === 0}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('rapporte.export.button')}</span>
-            </button>
+            {canExport && (
+              <button
+                onClick={handleExportReports}
+                disabled={filteredReports.length === 0}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('rapporte.export.button')}</span>
+              </button>
+            )}
           </div>
 
           {/* Report cards */}
@@ -644,18 +740,20 @@ export default function RapportePage() {
                         </div>
 
                         {/* Delete button */}
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteMeasurement(m.id)
-                            }}
-                            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            {t('common.delete')}
-                          </button>
-                        </div>
+                        {canManageMeasurement && (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteMeasurement(m.id)
+                              }}
+                              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -710,15 +808,17 @@ export default function RapportePage() {
                 </div>
               </div>
 
-              <div className="mt-auto">
-                <button
-                  onClick={() => handleUseTemplate(tpl)}
-                  className="w-full flex items-center justify-center gap-2 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {t('rapporte.template.use')}
-                </button>
-              </div>
+              {canCreateReport && (
+                <div className="mt-auto">
+                  <button
+                    onClick={() => handleUseTemplate(tpl)}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {t('rapporte.template.use')}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -732,6 +832,8 @@ export default function RapportePage() {
         onClose={() => setSelectedReport(null)}
         onDelete={handleDeleteReport}
         onUpdate={handleUpdateReport}
+        onApprove={handleApproveReport}
+        onReject={handleRejectReport}
       />
 
       {/* ============================== */}
@@ -774,6 +876,8 @@ function NewReportDialog({
 }) {
   const { t } = useTranslation()
   const createReport = useCreateReport()
+  // Author = the logged-in user, never a free-text worker name (scope-own).
+  const authorId = useAuthStore((s) => s.user?.id ?? '')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [projectId, setProjectId] = useState('')
   const [weather, setWeather] = useState<WeatherType>('sunny')
@@ -879,7 +983,7 @@ function NewReportDialog({
         // Use project name as title (no dedicated project FK in API yet)
         title: project?.name ?? projectId,
         description: activitiesSummary,
-        author_id: validWorkers[0]?.name ?? 'current-user',
+        author_id: authorId,
         report_date: date,
       },
       {

@@ -17,6 +17,9 @@ import type { Campaign } from '@/api/dialer-client'
 
 interface CampaignCardProps {
   campaign: Campaign
+  /** Derived from dialer:campaigns:manage; passed by the list page to avoid
+   *  per-card hook calls (capability set is fetched once in the parent). */
+  canManage?: boolean
   onStart?: (id: string) => void
   onPause?: (id: string) => void
   onEdit?: (campaign: Campaign) => void
@@ -32,6 +35,7 @@ const modeBorderColor: Record<number, string> = {
 
 export default function CampaignCard({
   campaign,
+  canManage = false,
   onStart,
   onPause,
   onEdit,
@@ -45,6 +49,10 @@ export default function CampaignCard({
   const isActive = campaign.status === 2
   const isPaused = campaign.status === 3
   const isDraft = campaign.status === 1
+
+  // Derive whether there are any dropdown items at all (if not, omit the trigger)
+  const canArchive = canManage && (campaign.status === 3 || campaign.status === 4)
+  const hasDropdownItems = canManage || canArchive
 
   return (
     <div
@@ -111,7 +119,8 @@ export default function CampaignCard({
           <CampaignModeBadge mode={campaign.mode} />
 
           <div className="flex items-center gap-1 mt-auto">
-            {(isDraft || isPaused) && (
+            {/* Start / Pause buttons — only for campaigns:manage */}
+            {canManage && (isDraft || isPaused) && (
               <Button
                 variant="default"
                 size="sm"
@@ -123,7 +132,7 @@ export default function CampaignCard({
                 {t('dialer.campaign.actions.start')}
               </Button>
             )}
-            {isActive && (
+            {canManage && isActive && (
               <Button
                 variant="outline"
                 size="sm"
@@ -135,31 +144,36 @@ export default function CampaignCard({
               </Button>
             )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="menu-stagger">
-                <DropdownMenuItem onClick={() => onEdit?.(campaign)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  {t('dialer.campaign.actions.edit')}
-                </DropdownMenuItem>
-                {(campaign.status === 3 || campaign.status === 4) && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => onArchive?.(campaign.id)}
-                    >
-                      <Archive className="mr-2 h-4 w-4" />
-                      {t('dialer.campaign.actions.archive')}
+            {/* Dropdown — only render when there's at least one item */}
+            {hasDropdownItems && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="menu-stagger">
+                  {canManage && (
+                    <DropdownMenuItem onClick={() => onEdit?.(campaign)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      {t('dialer.campaign.actions.edit')}
                     </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  )}
+                  {canArchive && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onArchive?.(campaign.id)}
+                      >
+                        <Archive className="mr-2 h-4 w-4" />
+                        {t('dialer.campaign.actions.archive')}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </div>

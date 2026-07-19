@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -23,6 +23,8 @@ import {
   Building2,
   Download,
 } from 'lucide-react'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { toast } from 'sonner'
 import {
   useObjectsList,
@@ -678,6 +680,33 @@ export default function VermietungPage() {
     ? (rentals.find((r) => r.id === selectedRental.id) ?? selectedRental)
     : null
 
+  // ── RBAC R-3 capability checks (default hidden per gating convention) ──
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canCreateObject = useHasCapability('vermietung:object:create')
+  const canEditObject = useHasCapability('vermietung:object:edit')
+  const canDeleteObject = useHasCapability('vermietung:object:delete')
+  const canCreateRental = useHasCapability('vermietung:rental:create')
+  const canCancelRental = useHasCapability('vermietung:rental:cancel')
+  const canCreateInspection = useHasCapability('vermietung:inspection:create')
+  const canExportVermietung = useHasCapability('vermietung:export:run')
+
+  // Tab capability map (objekte→object:read, reservierungen+kalender→rental:read)
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    objekte: 'vermietung:object:read',
+    reservierungen: 'vermietung:rental:read',
+    kalender: 'vermietung:rental:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+
+  // Deduplicate: kalender shares the same key as reservierungen — filter keeps both only once per entry;
+  // if rental:read is denied both kalender and reservierungen are hidden together.
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
+
   // All hooks before any early returns
   const filteredObjects = useMemo(() => {
     if (!search) return objects
@@ -796,6 +825,23 @@ export default function VermietungPage() {
     )
   }
 
+  // moduleEmpty: no readable tab after permissions load
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('vermietung.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={Building2}
+          moduleId="vermietung"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="vermietung" />}
+        />
+        <EmptyState icon={Package} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
+
   // Derived data
   const weekDates = getWeekDates(weekOffset)
   const kw = getKW(weekDates[0])
@@ -852,11 +898,13 @@ export default function VermietungPage() {
   const handleCalendarCellClick = (objectId: string, date: string) => {
     const existing = getRentalsForObjectAndDate(objectId, date)
     if (existing.length > 0) {
-      // Belegter Slot → Reservierungs-Detailfenster (statt Info-Toast)
+      // Belegter Slot → Reservierungs-Detailfenster (Detail öffnen ist immer erlaubt)
       openRentalDetail(existing[0])
-    } else {
+    } else if (canCreateRental) {
+      // Freier Slot → Neue Reservierung (nur mit rental:create)
       openReservationDialog(objectId, date)
     }
+    // ohne Recht: Klick auf freie Zelle ignoriert
   }
 
   const handleExportObjects = () => {
@@ -871,10 +919,12 @@ export default function VermietungPage() {
 
   const getObjectActions = (obj: RentalObject) => [
     { label: t('vermietung.actions.showDetails'), icon: Eye, onClick: () => setSelectedObject(obj) },
-    { label: t('common.edit'), icon: EditIcon, onClick: () => openObjectDialog(obj) },
-    { label: t('vermietung.actions.reservieren'), icon: CalendarPlus, onClick: () => openReservationDialog(obj.id) },
-    { separator: true as const, label: '', onClick: () => {} },
-    { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(obj) },
+    ...(canEditObject ? [{ label: t('common.edit'), icon: EditIcon, onClick: () => openObjectDialog(obj) }] : []),
+    ...(canCreateRental ? [{ label: t('vermietung.actions.reservieren'), icon: CalendarPlus, onClick: () => openReservationDialog(obj.id) }] : []),
+    ...(canDeleteObject ? [
+      { separator: true as const, label: '', onClick: () => {} },
+      { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(obj) },
+    ] : []),
   ]
 
   const rentalSortOptions: SortFieldOption[] = [
@@ -895,20 +945,25 @@ export default function VermietungPage() {
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => openReservationDialog()}
-              className="flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-            >
-              <CalendarPlus className="h-4 w-4" />
-              {t('vermietung.page.buttonReservierung')}
-            </button>
-            <button
-              onClick={() => openObjectDialog()}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('vermietung.page.buttonObjektAnlegen')}
-            </button>
+            <RestrictedModeBadge module="vermietung" />
+            {canCreateRental && (
+              <button
+                onClick={() => openReservationDialog()}
+                className="flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <CalendarPlus className="h-4 w-4" />
+                {t('vermietung.page.buttonReservierung')}
+              </button>
+            )}
+            {canCreateObject && (
+              <button
+                onClick={() => openObjectDialog()}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('vermietung.page.buttonObjektAnlegen')}
+              </button>
+            )}
           </div>
         }
       />
@@ -968,7 +1023,7 @@ export default function VermietungPage() {
           { key: 'objekte' as const, label: t('vermietung.tab.objekte', { count: objects.length }), icon: Package },
           { key: 'reservierungen' as const, label: t('vermietung.tab.reservierungen', { count: rentals.length }), icon: CalendarDays },
           { key: 'kalender' as const, label: t('vermietung.tab.kalender'), icon: CalendarDays },
-        ]).map((tabItem) => {
+        ]).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => {
           const Icon = tabItem.icon
           return (
             <button
@@ -1004,14 +1059,16 @@ export default function VermietungPage() {
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
-            <button
-              onClick={handleExportObjects}
-              disabled={filteredObjects.length === 0}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('vermietung.export.button')}</span>
-            </button>
+            {canExportVermietung && (
+              <button
+                onClick={handleExportObjects}
+                disabled={filteredObjects.length === 0}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('vermietung.export.button')}</span>
+              </button>
+            )}
           </div>
 
           {filteredObjects.length === 0 ? (
@@ -1170,14 +1227,16 @@ export default function VermietungPage() {
               onChange={(field, direction) => { setRentalSortField(field); setRentalSortDir(direction) }}
               triggerClassName="py-2"
             />
-            <button
-              onClick={handleExportRentals}
-              disabled={filteredRentals.length === 0}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('vermietung.export.button')}</span>
-            </button>
+            {canExportVermietung && (
+              <button
+                onClick={handleExportRentals}
+                disabled={filteredRentals.length === 0}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('vermietung.export.button')}</span>
+              </button>
+            )}
           </div>
 
           {filteredRentals.length === 0 ? (
@@ -1275,20 +1334,20 @@ export default function VermietungPage() {
                         <td className="px-4 py-3 text-muted-foreground">{pickupLoc}</td>
                         <td className="px-4 py-3 text-muted-foreground">{returnLoc}</td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          {(r.status === 'active' || r.status === 'reserved') && (
+                          {(r.status === 'active' || r.status === 'reserved') && (canCreateInspection || canCancelRental) && (
                             <ItemActions
                               items={[
-                                {
+                                ...(canCreateInspection ? [{
                                   label: t('vermietung.reservierungen.actions.zustandsprotokoll'),
                                   icon: ClipboardCheck,
                                   onClick: () => setZustandsprotokollReservation(r),
-                                },
-                                {
+                                }] : []),
+                                ...(canCancelRental ? [{
                                   label: t('vermietung.reservierungen.actions.stornieren'),
                                   icon: X,
                                   variant: 'destructive' as const,
                                   onClick: () => setConfirmCancel(r),
-                                },
+                                }] : []),
                               ]}
                             />
                           )}
@@ -1410,16 +1469,21 @@ export default function VermietungPage() {
                       // Check if this is the start of a rental block
                       const startsHere = cellRentals.find((r) => r.start_date.slice(0, 10) === date)
 
+                      // Free cell is only clickable/interactive when rental:create is granted
+                      const freeCellClickable = !hasRental && !isMaintenance && canCreateRental
+
                       return (
                         <div
                           key={date}
-                          role="button"
-                          tabIndex={0}
+                          role={hasRental || freeCellClickable ? 'button' : undefined}
+                          tabIndex={hasRental || freeCellClickable ? 0 : undefined}
                           aria-label={hasRental ? `${obj.name}: ${cellRentals[0].renter_name}` : `${obj.name} ${date}`}
-                          className={`relative flex items-center justify-center px-0.5 py-2 cursor-pointer transition-colors focus:outline-none focus-visible:bg-secondary/60 ${
+                          className={`relative flex items-center justify-center px-0.5 py-2 transition-colors focus:outline-none focus-visible:bg-secondary/60 ${
+                            hasRental || freeCellClickable ? 'cursor-pointer' : 'cursor-default'
+                          } ${
                             dayIdx < 6 ? 'border-r border-border-muted' : ''
                           } ${todayCell ? 'bg-primary/[0.02]' : ''} ${
-                            !hasRental && !isMaintenance && isHovered ? 'bg-secondary/60' : ''
+                            !hasRental && !isMaintenance && isHovered && canCreateRental ? 'bg-secondary/60' : ''
                           }`}
                           onClick={() => handleCalendarCellClick(obj.id, date)}
                           onKeyDown={(e) => {
@@ -1428,7 +1492,7 @@ export default function VermietungPage() {
                               handleCalendarCellClick(obj.id, date)
                             }
                           }}
-                          onMouseEnter={() => setHoveredCell(cellKey)}
+                          onMouseEnter={() => (hasRental || freeCellClickable) && setHoveredCell(cellKey)}
                           onMouseLeave={() => setHoveredCell(null)}
                         >
                           {isMaintenance ? (
@@ -1458,12 +1522,12 @@ export default function VermietungPage() {
                           ) : (
                             <div
                               className={`w-full h-8 rounded-md border border-dashed transition-colors ${
-                                isHovered
+                                isHovered && canCreateRental
                                   ? 'border-primary/40 bg-primary/5'
                                   : 'border-transparent'
                               }`}
                             >
-                              {isHovered && (
+                              {isHovered && canCreateRental && (
                                 <div className="flex items-center justify-center h-full">
                                   <Plus className="h-3 w-3 text-primary/40" />
                                 </div>

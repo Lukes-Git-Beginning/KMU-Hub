@@ -138,6 +138,22 @@
     "src/renderer/src/modules/inventar/LocationDetailModal.tsx",
     "src/renderer/src/modules/produktion/ProduktionPage.tsx",
     "src/renderer/src/modules/produktion/ProduktionDetailModals.tsx",
-    "src/renderer/src/modules/vertraege/VertraegePage.tsx"
+    "src/renderer/src/modules/vertraege/VertraegePage.tsx",
+    "src/renderer/src/api/rapporte-adapter.ts",
+    "src/renderer/src/stores/rapporte.ts",
+    "src/renderer/src/mocks/handlers/rapporte.ts",
+    "src/renderer/src/modules/rapporte/RapportePage.tsx",
+    "src/renderer/src/modules/rapporte/ReportDetailModal.tsx",
+    "src/renderer/src/modules/schichten/SchichtenPage.tsx",
+    "src/renderer/src/modules/schichten/ShiftDetailModal.tsx",
+    "src/renderer/src/modules/fuhrpark/FuhrparkPage.tsx",
+    "src/renderer/src/modules/vermietung/VermietungPage.tsx",
+    "src/renderer/src/modules/vermietung/ObjectDetailModal.tsx",
+    "src/renderer/src/modules/vermietung/RentalDetailModal.tsx",
+    "src/renderer/src/modules/dialer/DialerLayout.tsx",
+    "src/renderer/src/modules/dialer/CampaignListPage.tsx",
+    "src/renderer/src/modules/dialer/CampaignDetailPage.tsx",
+    "src/renderer/src/modules/dialer/components/CampaignCard.tsx",
+    "src/renderer/src/modules/dialer/components/ContactQueueTable.tsx"
   ]
 }

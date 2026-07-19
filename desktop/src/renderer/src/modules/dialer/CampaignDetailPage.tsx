@@ -27,6 +27,7 @@ import {
   useRequeueContact,
 } from '@/api/hooks/useDialer'
 import { useDialerStore } from '@/stores/dialer'
+import { useHasCapability } from '@/hooks/useCapability'
 import ContactQueueTable from './components/ContactQueueTable'
 import AddContactsDialog from './components/AddContactsDialog'
 import CampaignStatusBadge from './components/CampaignStatusBadge'
@@ -40,6 +41,9 @@ export default function CampaignDetailPage() {
   const { t } = useTranslation()
   const [addContactsOpen, setAddContactsOpen] = useState(false)
   const [contactStatusFilter, setContactStatusFilter] = useState<number | undefined>(undefined)
+
+  // RBAC: campaigns:manage gates all mutating actions on this page
+  const canManageCampaigns = useHasCapability('dialer:campaigns:manage')
 
   const { data: campaign, isLoading: campaignLoading } = useCampaign(id!)
   const { data: contactsData, isLoading: contactsLoading } = useCampaignContacts(id!, {
@@ -119,7 +123,8 @@ export default function CampaignDetailPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {isDraft && (
+          {/* Add contacts — campaigns:manage only */}
+          {canManageCampaigns && isDraft && (
             <Button
               variant="outline"
               size="sm"
@@ -130,7 +135,8 @@ export default function CampaignDetailPage() {
               {t('dialer.campaign.contacts.add')}
             </Button>
           )}
-          {(isDraft || isPaused) && (
+          {/* Start — campaigns:manage only */}
+          {canManageCampaigns && (isDraft || isPaused) && (
             <Button
               size="sm"
               className="gap-1.5"
@@ -147,19 +153,23 @@ export default function CampaignDetailPage() {
           )}
           {isActive && (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() =>
-                  pauseMutation.mutate(campaign.id, {
-                    onSuccess: () => toast.success(t('dialer.campaign.status.paused')),
-                  })
-                }
-              >
-                <Pause className="h-4 w-4" />
-                {t('dialer.campaign.actions.pause')}
-              </Button>
+              {/* Pause — campaigns:manage only */}
+              {canManageCampaigns && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() =>
+                    pauseMutation.mutate(campaign.id, {
+                      onSuccess: () => toast.success(t('dialer.campaign.status.paused')),
+                    })
+                  }
+                >
+                  <Pause className="h-4 w-4" />
+                  {t('dialer.campaign.actions.pause')}
+                </Button>
+              )}
+              {/* "In Workspace starten" — requires calls:write (workspace route), not campaigns:manage */}
               <Button size="sm" className="gap-1.5" onClick={handleStartCall}>
                 <PhoneCall className="h-4 w-4" />
                 {t('dialer.campaign.launchCTA')}
@@ -234,6 +244,7 @@ export default function CampaignDetailPage() {
                 isLoading={contactsLoading}
                 campaignStatus={campaign.status}
                 isFiltered={contactStatusFilter !== undefined}
+                canManage={canManageCampaigns}
                 onSkip={(contactId) =>
                   skipMutation.mutate(
                     { campaignId: campaign.id, contactId },

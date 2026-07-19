@@ -9,6 +9,7 @@ import {
   computeObjectStatus,
   formatDate,
 } from './vermietung-shared'
+import { useHasCapability } from '@/hooks/useCapability'
 
 interface ObjectPrefsMap {
   [id: string]: { weeklyRate?: number; currency?: string; serialNumber?: string }
@@ -42,6 +43,9 @@ export function ObjectDetailModal({
   onRentalClick: (rental: Rental) => void
 }) {
   const { t } = useTranslation()
+  // RBAC: checks inside the modal follow the same hook-before-early-return rule
+  const canEditObject = useHasCapability('vermietung:object:edit')
+  const canCreateRental = useHasCapability('vermietung:rental:create')
 
   const objStatus = object ? computeObjectStatus(object, rentals) : 'available'
   const statusCfg = STATUS_CONFIG[objStatus]
@@ -72,20 +76,24 @@ export function ObjectDetailModal({
         ) : undefined
       }
       footer={
-        object ? (
+        object && (canEditObject || canCreateRental) ? (
           <div className="flex gap-2">
-            <button
-              onClick={() => onEdit(object)}
-              className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              {t('common.edit')}
-            </button>
-            <button
-              onClick={() => onReserve(object.id)}
-              className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              {t('vermietung.detail.buttonReservieren')}
-            </button>
+            {canEditObject && (
+              <button
+                onClick={() => onEdit(object)}
+                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                {t('common.edit')}
+              </button>
+            )}
+            {canCreateRental && (
+              <button
+                onClick={() => onReserve(object.id)}
+                className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                {t('vermietung.detail.buttonReservieren')}
+              </button>
+            )}
           </div>
         ) : undefined
       }

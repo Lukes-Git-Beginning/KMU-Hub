@@ -23,6 +23,8 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { daysAgo } from '../data/date-helpers'
+import { IDS, displayUserName } from '../data/shared-ids'
+import { getDemoSessionUserId } from '../data/rbac'
 
 const API = API_BASE_URL
 const BASE = `${API}/api/v1/rapporte`
@@ -99,8 +101,8 @@ let reports: WorkReport[] = [
     title: 'Rohbau Mehrfamilienhaus Zürich',
     description: 'Schalung 2. OG Decke Achse A-C aufgestellt und Bewehrung verlegt.',
     status: 'approved',
-    author_id: 'Marco Brunner',
-    reviewer_id: 'Peter Widmer',
+    author_id: IDS.users.felix,
+    reviewer_id: IDS.users.sarah,
     reviewed_at: daysAgo(3) + 'T14:00:00Z',
     review_note: 'Betonpumpe ab 13:00 im Einsatz. Nächster Guss geplant für Mittwoch.',
     lat: null,
@@ -116,8 +118,8 @@ let reports: WorkReport[] = [
     title: 'Fassadensanierung Bern',
     description: 'Alte Fassadenverkleidung Südseite demontiert. Dämmplatten EPS 160mm montiert (32 m²).',
     status: 'approved',
-    author_id: 'Stefan Gerber',
-    reviewer_id: 'Hans Meier',
+    author_id: IDS.users.jan,
+    reviewer_id: IDS.users.sarah,
     reviewed_at: daysAgo(4) + 'T10:00:00Z',
     review_note: 'Südseite komplett entfernt. Untergrund stellenweise schadhaft — Bauherr informiert.',
     lat: null,
@@ -133,7 +135,7 @@ let reports: WorkReport[] = [
     title: 'Innenausbau Büro Winterthur',
     description: 'Trennwände Grossraumbüro montiert (Trockenbau). Bodenbelag Vinyl in Büro 3+4 verlegt.',
     status: 'submitted',
-    author_id: 'Thomas Lehmann',
+    author_id: IDS.users.markus,
     reviewer_id: null,
     reviewed_at: null,
     review_note: '',
@@ -150,8 +152,8 @@ let reports: WorkReport[] = [
     title: 'Dacherneuerung Luzern',
     description: 'Unterdachbahn auf Ostseite verlegt (18 m²). Arbeit wegen Starkregen um 14:00 eingestellt.',
     status: 'approved',
-    author_id: 'Beat Zimmermann',
-    reviewer_id: 'Beat Zimmermann',
+    author_id: IDS.users.david,
+    reviewer_id: IDS.users.sarah,
     reviewed_at: daysAgo(5) + 'T15:00:00Z',
     review_note: 'Wetterprognose für morgen besser — Weiterarbeit geplant.',
     lat: null,
@@ -167,8 +169,8 @@ let reports: WorkReport[] = [
     title: 'Elektrische Installation St. Gallen',
     description: 'Leerrohrverlegung 1. OG (42 Stk). Unterverteilung UG montiert und verdrahtet.',
     status: 'rejected',
-    author_id: 'Christian Sutter',
-    reviewer_id: 'Peter Widmer',
+    author_id: IDS.users.markus,
+    reviewer_id: IDS.users.sarah,
     reviewed_at: daysAgo(3) + 'T09:00:00Z',
     review_note: 'Prüfprotokoll Erdung fehlt als Anlage',
     lat: null,
@@ -184,7 +186,7 @@ let reports: WorkReport[] = [
     title: 'Badezimmer-Renovation Thun',
     description: 'Abdichtung Duschbereich mit Flüssigfolie. Bodenplatten 60x60 Feinsteinzeug verlegt.',
     status: 'draft',
-    author_id: 'René Lüthi',
+    author_id: IDS.users.markus,
     reviewer_id: null,
     reviewed_at: null,
     review_note: '',
@@ -247,7 +249,7 @@ export const rapporteHandlers = [
       result = result.filter(r =>
         r.title.toLowerCase().includes(q) ||
         r.description.toLowerCase().includes(q) ||
-        r.author_id.toLowerCase().includes(q),
+        displayUserName(r.author_id).toLowerCase().includes(q),
       )
     }
     if (status) {
@@ -265,7 +267,7 @@ export const rapporteHandlers = [
       title: body.title ?? '',
       description: body.description ?? '',
       status: 'draft',
-      author_id: body.author_id ?? 'current-user',
+      author_id: body.author_id || getDemoSessionUserId(),
       reviewer_id: null,
       reviewed_at: null,
       review_note: '',
@@ -309,8 +311,9 @@ export const rapporteHandlers = [
   http.post(`${BASE}/reports/:id/submit`, ({ params }) => {
     const idx = reports.findIndex(r => r.id === params.id)
     if (idx === -1) return HttpResponse.json({ error: 'not found' }, { status: 404 })
-    if (reports[idx].status !== 'draft') {
-      return HttpResponse.json({ error: 'can only submit draft reports' }, { status: 409 })
+    // draft → submitted (first submit) and rejected → submitted (resubmit)
+    if (reports[idx].status !== 'draft' && reports[idx].status !== 'rejected') {
+      return HttpResponse.json({ error: 'can only submit draft or rejected reports' }, { status: 409 })
     }
     reports[idx] = { ...reports[idx], status: 'submitted', updated_at: new Date().toISOString() }
     return HttpResponse.json({ report: reports[idx] })

@@ -71,6 +71,26 @@ const INDUSTRY_B3_READS = [
   'vertraege:contract:read',
 ]
 
+// R-3 batch 4: industry modules (schichten/fuhrpark/vermietung/rapporte/dialer)
+const SCHICHTEN_ALL = catalogCapabilityKeys('schichten')
+const FUHRPARK_ALL = catalogCapabilityKeys('fuhrpark')
+const VERMIETUNG_ALL = catalogCapabilityKeys('vermietung')
+const RAPPORTE_ALL = catalogCapabilityKeys('rapporte')
+const DIALER_ALL = catalogCapabilityKeys('dialer')
+
+/**
+ * Read-level keys of the batch-4 modules. `fuhrpark:gps:read` deliberately
+ * stays out — GPS routes are movement profiles (personal data), granted only
+ * to admin + manager, not to insight-style roles.
+ */
+const INDUSTRY_B4_READS = [
+  'schichten:shift:read', 'schichten:template:read', 'schichten:swap:read',
+  'fuhrpark:vehicle:read', 'fuhrpark:service:read', 'fuhrpark:fuel:read', 'fuhrpark:trip:read',
+  'vermietung:object:read', 'vermietung:rental:read',
+  'rapporte:report:read', 'rapporte:measurement:read', 'rapporte:template:read',
+  'dialer:campaigns:read', 'dialer:calls:read',
+]
+
 const ADMIN_SECURITY_ALL = [
   ...catalogCapabilityKeys('settings'),
   ...catalogCapabilityKeys('admin'),
@@ -102,6 +122,8 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       keys(TEAM_HR_ALL), keys(WIKI_ALL), keys(ADMIN_SECURITY_ALL),
       keys(INVENTAR_ALL), keys(EINKAUF_ALL), keys(PRODUKTION_ALL),
       keys(VERTRAEGE_ALL), keys(HELPDESK_ALL),
+      keys(SCHICHTEN_ALL), keys(FUHRPARK_ALL), keys(VERMIETUNG_ALL),
+      keys(RAPPORTE_ALL), keys(DIALER_ALL),
     ),
   },
   // IT-Admin — full technical control, NO HR data categories, no finance
@@ -126,6 +148,7 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       // Industry modules: read-level insight; helpdesk is the IT domain → full.
       keys(INDUSTRY_B3_READS),
       keys(HELPDESK_ALL),
+      keys(INDUSTRY_B4_READS),
     ),
   },
   // HR-Admin — people management incl. protected data categories; assigns
@@ -135,8 +158,11 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
     description: 'People management incl. protected HR data; assigns roles',
     color: 'hsl(270 76% 55%)',
     grants: merge(
-      view([...STANDARD_MODULES, 'admin']),
+      // schichten is the HR domain (workforce scheduling à la Personio) —
+      // mirrors the it_admin↔helpdesk pattern from batch 3.
+      view([...STANDARD_MODULES, 'admin', 'schichten']),
       keys(TEAM_HR_ALL),
+      keys(SCHICHTEN_ALL),
       keys(['work:task:read', 'work:project:read', 'documents:file:read', 'documents:file:download',
         'documents:file:upload', 'wiki:article:read', 'wiki:article:create',
         'crm:contact:read']),
@@ -169,6 +195,10 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       // Industry batch 3: fully operative (approves POs, runs production, manages helpdesk).
       keys(INVENTAR_ALL), keys(EINKAUF_ALL), keys(PRODUKTION_ALL),
       keys(VERTRAEGE_ALL), keys(HELPDESK_ALL),
+      // Industry batch 4: fully operative (plans shifts, approves swaps +
+      // reports, manages fleet/rentals/campaigns incl. GPS insight).
+      keys(SCHICHTEN_ALL), keys(FUHRPARK_ALL), keys(VERMIETUNG_ALL),
+      keys(RAPPORTE_ALL), keys(DIALER_ALL),
     ),
   },
   // Mitarbeiter — day-to-day work, own-scope editing, no management.
@@ -202,6 +232,23 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'helpdesk:ticket:create', 'helpdesk:ticket:reply',
       ]),
       keys(['helpdesk:ticket:read'], 'own'),
+      // Industry batch 4: operative basics — sees the shift plan, logs fuel +
+      // trips, reports damage, runs the rental desk (handover + protocols),
+      // writes own daily reports from templates (incl. the PDF via
+      // export:run), dials as an agent. No plan management, no GPS, no
+      // campaign administration.
+      keys([
+        'schichten:shift:read',
+        'fuhrpark:vehicle:read', 'fuhrpark:service:read', 'fuhrpark:fuel:read',
+        'fuhrpark:fuel:create', 'fuhrpark:trip:read', 'fuhrpark:trip:create',
+        'fuhrpark:damage:create',
+        'vermietung:object:read', 'vermietung:rental:read', 'vermietung:rental:create',
+        'vermietung:rental:edit', 'vermietung:rental:handover', 'vermietung:inspection:create',
+        'rapporte:report:create', 'rapporte:measurement:read', 'rapporte:measurement:manage',
+        'rapporte:template:read', 'rapporte:export:run',
+        'dialer:campaigns:read', 'dialer:calls:read', 'dialer:calls:write',
+      ]),
+      keys(['schichten:swap:read', 'schichten:swap:create', 'rapporte:report:read', 'rapporte:report:edit'], 'own'),
     ),
   },
   // Nur-Lesen — audit/tax-advisor style visibility, zero mutations, no download.
@@ -216,8 +263,9 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'team:employee:read', 'team:absence:read',
         'finance:invoice:read', 'finance:quote:read', 'finance:amounts:view',
         'settings:personal:manage']),
-      // Industry batch 3: reads only (audit/tax-advisor sees, never changes).
+      // Industry batch 3+4: reads only (audit/tax-advisor sees, never changes).
       keys([...INDUSTRY_B3_READS, 'helpdesk:ticket:read', 'helpdesk:stats:view']),
+      keys(INDUSTRY_B4_READS),
     ),
   },
   // Aushilfe/Extern — Dariens Referenzfall: sees assigned work and documents,

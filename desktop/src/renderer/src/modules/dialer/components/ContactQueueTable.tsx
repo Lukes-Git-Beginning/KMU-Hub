@@ -34,6 +34,8 @@ interface ContactQueueTableProps {
   campaignStatus: number
   /** Whether a status filter is active (drives the filter-aware empty state). */
   isFiltered?: boolean
+  /** Derived from dialer:campaigns:manage; controls Skip/Requeue item-actions. */
+  canManage?: boolean
   onSkip?: (contactId: string) => void
   onRequeue?: (contactId: string) => void
 }
@@ -43,6 +45,7 @@ export default function ContactQueueTable({
   isLoading,
   campaignStatus,
   isFiltered,
+  canManage = false,
   onSkip,
   onRequeue,
 }: ContactQueueTableProps) {
@@ -98,6 +101,9 @@ export default function ContactQueueTable({
     )
   }
 
+  // Whether to show the actions column at all (only for active campaigns + manage right)
+  const showActionsColumn = campaignStatus === 2 && canManage
+
   return (
     <>
     <div className="flex items-center justify-end border-b border-border px-3 py-2">
@@ -126,7 +132,7 @@ export default function ContactQueueTable({
           <TableHead className="text-center">
             <Phone className="h-3.5 w-3.5 mx-auto" />
           </TableHead>
-          {campaignStatus === 2 && <TableHead className="w-10" />}
+          {showActionsColumn && <TableHead className="w-10" />}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -134,14 +140,15 @@ export default function ContactQueueTable({
           const statusCfg = contactStatusConfig[contact.status] ?? contactStatusConfig[1]
           const actions = []
 
-          if (contact.status === 1 && campaignStatus === 2) {
+          // Skip/Requeue actions are gated behind canManage (campaigns:manage)
+          if (canManage && contact.status === 1 && campaignStatus === 2) {
             actions.push({
               label: t('dialer.workspace.onCall.skip'),
               icon: SkipForward,
               onClick: () => onSkip?.(contact.id),
             })
           }
-          if ((contact.status === 4 || contact.status === 3) && campaignStatus === 2) {
+          if (canManage && (contact.status === 4 || contact.status === 3) && campaignStatus === 2) {
             actions.push({
               label: t('dialer.campaign.contacts.requeue'),
               icon: RotateCcw,
@@ -194,7 +201,7 @@ export default function ContactQueueTable({
               <TableCell className="text-center tabular-nums text-xs">
                 {contact.call_count}
               </TableCell>
-              {campaignStatus === 2 && (
+              {showActionsColumn && (
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   {actions.length > 0 && <ItemActions items={actions} />}
                 </TableCell>

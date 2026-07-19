@@ -7,6 +7,7 @@
  */
 import type { WorkReport, ReportStats } from './rapporte-types'
 import type { FieldReport } from '@/stores/rapporte'
+import { displayUserName } from '@/mocks/data/shared-ids'
 
 /** Map a single WorkReport wire record to the UI FieldReport shape. */
 export function adaptWorkReport(api: WorkReport): FieldReport {
@@ -17,7 +18,8 @@ export function adaptWorkReport(api: WorkReport): FieldReport {
     // The API does not carry project info on the report — use title as project name
     projectId: api.id, // no separate project FK yet; use id as placeholder key
     projectName: api.title,
-    author: api.author_id,
+    author: displayUserName(api.author_id),
+    authorId: api.author_id,
     // Weather / timing fields not in API — safe defaults
     weather: 'sunny' as const,
     temperature: 10,
@@ -36,7 +38,7 @@ export function adaptWorkReport(api: WorkReport): FieldReport {
     signatureDataUrl: undefined,
     approvalStatus: api.status as FieldReport['approvalStatus'],
     approvalComment: api.review_note ?? undefined,
-    approvedBy: api.reviewer_id ?? undefined,
+    approvedBy: api.reviewer_id ? displayUserName(api.reviewer_id) : undefined,
   }
 }
 

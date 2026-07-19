@@ -29,6 +29,7 @@ import {
   daysBetween,
   getTypeCfg,
 } from './vermietung-shared'
+import { useHasCapability } from '@/hooks/useCapability'
 
 interface RentalPrefsEntry {
   renterType?: 'employee' | 'customer'
@@ -68,6 +69,12 @@ export function RentalDetailModal({
   const startMut = useStartRental()
   const endMut = useEndRental()
   const updateMut = useUpdateRental()
+
+  // RBAC: fine-grained action gates for this modal
+  const canEditRental = useHasCapability('vermietung:rental:edit')
+  const canCancelRental = useHasCapability('vermietung:rental:cancel')
+  const canHandoverRental = useHasCapability('vermietung:rental:handover')
+  const canCreateInspection = useHasCapability('vermietung:inspection:create')
 
   const inspections = inspectionsQuery.data?.inspections ?? []
   const statusCfg = rental
@@ -133,24 +140,37 @@ export function RentalDetailModal({
           </span>
         ) : undefined
       }
-      footer={
-        rental && (rental.status === 'reserved' || rental.status === 'active') ? (
+      footer={(() => {
+        if (!rental) return undefined
+        if (rental.status !== 'reserved' && rental.status !== 'active') return undefined
+        // Compute which buttons are visible
+        const showCancel = canCancelRental
+        const showProtokoll = canCreateInspection
+        const showStart = rental.status === 'reserved' && canHandoverRental
+        const showEnd = rental.status === 'active' && canHandoverRental
+        // If all actions are hidden, suppress footer entirely
+        if (!showCancel && !showProtokoll && !showStart && !showEnd) return undefined
+        return (
           <div className="flex gap-2">
-            <button
-              onClick={() => onCancel(rental)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-error transition-colors"
-            >
-              <X className="h-4 w-4" />
-              {t('vermietung.reservierungen.actions.stornieren')}
-            </button>
-            <button
-              onClick={() => rental && onOpenProtokoll(rental)}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              {t('vermietung.reservierungen.actions.zustandsprotokoll')}
-            </button>
-            {rental.status === 'reserved' && (
+            {showCancel && (
+              <button
+                onClick={() => onCancel(rental)}
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-error transition-colors"
+              >
+                <X className="h-4 w-4" />
+                {t('vermietung.reservierungen.actions.stornieren')}
+              </button>
+            )}
+            {showProtokoll && (
+              <button
+                onClick={() => rental && onOpenProtokoll(rental)}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                {t('vermietung.reservierungen.actions.zustandsprotokoll')}
+              </button>
+            )}
+            {showStart && (
               <button
                 onClick={handleStart}
                 disabled={startMut.isPending}
@@ -160,7 +180,7 @@ export function RentalDetailModal({
                 {t('vermietung.rentalDetail.buttonStart')}
               </button>
             )}
-            {rental.status === 'active' && (
+            {showEnd && (
               <button
                 onClick={handleEnd}
                 disabled={endMut.isPending}
@@ -171,8 +191,8 @@ export function RentalDetailModal({
               </button>
             )}
           </div>
-        ) : undefined
-      }
+        )
+      })()}
     >
       {rental && (
         <div className="space-y-5">
@@ -240,7 +260,7 @@ export function RentalDetailModal({
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${depositCfg.bg}`}>
                       {t(depositCfg.labelKey)}
                     </span>
-                    {!rental.deposit_paid && rental.status !== 'completed' && rental.status !== 'cancelled' && (
+                    {!rental.deposit_paid && rental.status !== 'completed' && rental.status !== 'cancelled' && canEditRental && (
                       <button
                         onClick={handleMarkDepositPaid}
                         disabled={updateMut.isPending}

@@ -17,8 +17,10 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
+import { Textarea } from '@/components/ui/textarea'
 import type { FieldReport } from '@/stores/rapporte'
 import { useRapporteTenantStore } from '@/stores/rapporteTenant'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import SignatureCanvas from './SignatureCanvas'
 import {
   weatherIcons,
@@ -43,15 +45,28 @@ export function ReportDetailModal({
   onClose,
   onDelete,
   onUpdate,
+  onApprove,
+  onReject,
 }: {
   report: FieldReport | null
   onClose: () => void
   onDelete: (id: string) => void
   onUpdate: (id: string, updates: Partial<FieldReport>) => void
+  onApprove: (id: string) => void
+  onReject: (id: string, note: string) => void
 }) {
   const { t } = useTranslation()
   const [showSignaturePad, setShowSignaturePad] = useState(false)
+  const [showRejectForm, setShowRejectForm] = useState(false)
+  const [rejectNote, setRejectNote] = useState('')
   const requireSignature = useRapporteTenantStore((s) => s.requireSignature)
+
+  // RBAC R-3: edit/delete respect scope-own (site worker touches only own
+  // reports), approve is the reviewer fine switch (BE seed 000100).
+  const canEdit = useScopedCapability('rapporte:report:edit', report?.authorId)
+  const canDelete = useScopedCapability('rapporte:report:delete', report?.authorId)
+  const canApprove = useHasCapability('rapporte:report:approve')
+  const canExportPdf = useHasCapability('rapporte:export:run')
 
   const WeatherIcon = report ? weatherIcons[report.weather] : Thermometer
   const netHours = report ? calcNetHours(report.workStart, report.workEnd, report.breakMinutes) : ''
@@ -92,22 +107,26 @@ export function ReportDetailModal({
         ) : undefined
       }
       footer={
-        report ? (
+        report && (canDelete || canExportPdf) ? (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onDelete(report.id)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {t('common.delete')}
-            </button>
-            <button
-              onClick={handlePdfExport}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
-            >
-              <FileDown className="h-3.5 w-3.5" />
-              {t('rapporte.detail.pdfExport')}
-            </button>
+            {canDelete && (
+              <button
+                onClick={() => onDelete(report.id)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t('common.delete')}
+              </button>
+            )}
+            {canExportPdf && (
+              <button
+                onClick={handlePdfExport}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                {t('rapporte.detail.pdfExport')}
+              </button>
+            )}
           </div>
         ) : undefined
       }
@@ -273,7 +292,8 @@ export function ReportDetailModal({
             </section>
           )}
 
-          {/* Signature section */}
+          {/* Signature section (capture needs edit right; readers see it only once signed) */}
+          {(report.signatureDataUrl || canEdit) && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               {t('rapporte.detail.signatureTitle')}
@@ -321,6 +341,7 @@ export function ReportDetailModal({
               </button>
             )}
           </section>
+          )}
 
           {/* Approval workflow */}
           <section>
@@ -328,7 +349,7 @@ export function ReportDetailModal({
               <ShieldCheck className="h-3 w-3" />
               {t('rapporte.detail.approvalTitle')}
             </h4>
-            {report.approvalStatus === 'draft' && (
+            {report.approvalStatus === 'draft' && canEdit && (
               <div className="space-y-2">
                 {/* Tenant policy: signature required before submitting (HERO/ToolTime) */}
                 {signatureBlocked && (
@@ -355,12 +376,69 @@ export function ReportDetailModal({
               </div>
             )}
             {report.approvalStatus === 'submitted' && (
-              <div className="rounded-lg border border-info bg-info-light p-3 flex items-center gap-2">
-                <Clock className="h-4 w-4 text-info shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-info">{t('rapporte.detail.waitingApproval')}</p>
-                  <p className="text-[10px] text-info/70 mt-0.5">{t('rapporte.detail.waitingDescription')}</p>
+              <div className="space-y-2">
+                <div className="rounded-lg border border-info bg-info-light p-3 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-info shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-info">{t('rapporte.detail.waitingApproval')}</p>
+                    <p className="text-[10px] text-info/70 mt-0.5">{t('rapporte.detail.waitingDescription')}</p>
+                  </div>
                 </div>
+                {/* Reviewer actions (rapporte:report:approve) */}
+                {canApprove && !showRejectForm && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onApprove(report.id)}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-success bg-success-light px-3 py-2.5 text-xs font-medium text-success hover:bg-success hover:text-primary-foreground transition-colors"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {t('rapporte.detail.approve')}
+                    </button>
+                    <button
+                      onClick={() => setShowRejectForm(true)}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-error px-3 py-2.5 text-xs font-medium text-error hover:bg-error-light transition-colors"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      {t('rapporte.detail.reject')}
+                    </button>
+                  </div>
+                )}
+                {canApprove && showRejectForm && (
+                  <div className="rounded-lg border border-border p-3 space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t('rapporte.detail.rejectNoteLabel')}
+                    </p>
+                    <Textarea
+                      value={rejectNote}
+                      onChange={(e) => setRejectNote(e.target.value)}
+                      placeholder={t('rapporte.detail.rejectNotePlaceholder')}
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          onReject(report.id, rejectNote.trim())
+                          setShowRejectForm(false)
+                          setRejectNote('')
+                        }}
+                        disabled={!rejectNote.trim()}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-error bg-error-light px-3 py-2 text-xs font-medium text-error hover:bg-error hover:text-primary-foreground transition-colors disabled:opacity-50 disabled:hover:bg-error-light disabled:hover:text-error"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        {t('rapporte.detail.rejectConfirm')}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowRejectForm(false)
+                          setRejectNote('')
+                        }}
+                        className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {report.approvalStatus === 'approved' && (
@@ -388,16 +466,18 @@ export function ReportDetailModal({
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    onUpdate(report.id, { approvalStatus: 'submitted', approvalComment: undefined })
-                    toast.success(t('rapporte.detail.resubmitted'))
-                  }}
-                  className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {t('rapporte.detail.resubmit')}
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      onUpdate(report.id, { approvalStatus: 'submitted', approvalComment: undefined })
+                      toast.success(t('rapporte.detail.resubmitted'))
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {t('rapporte.detail.resubmit')}
+                  </button>
+                )}
               </div>
             )}
           </section>

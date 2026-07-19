@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '@/lib/format'
 import {
@@ -61,6 +61,10 @@ import {
 import { useEmployees } from '@/api/hooks/hr-hooks'
 import type { ShiftTemplate as ApiShiftTemplate } from '@/api/schichten-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, SortMenu, type SortDirection } from '@/components/shared'
+import { useCapabilitySet, useHasCapability, useCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
+import { useAuthStore } from '@/stores/auth'
+import { displayUserName } from '@/mocks/data/shared-ids'
 import { useSchichtenPrefsStore } from '@/stores/schichtenPrefs'
 import { useSchichtenTenantStore } from '@/stores/schichtenTenant'
 import { ShiftDetailModal } from './ShiftDetailModal'
@@ -320,6 +324,16 @@ export default function SchichtenPage() {
   const maxWeeklyHours = useSchichtenTenantStore((s) => s.maxWeeklyHours)
   const tenantBreakMinutes = useSchichtenTenantStore((s) => s.defaultBreakMinutes)
 
+  // ── RBAC R-3 capability checks (default hidden per gating convention) ──
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canPublish = useHasCapability('schichten:shift:publish')
+  const canAssignManage = useHasCapability('schichten:assignment:manage')
+  const canTemplateManage = useHasCapability('schichten:template:manage')
+  const canSwapApprove = useHasCapability('schichten:swap:approve')
+  const canExport = useHasCapability('schichten:export:run')
+  const swapReadCap = useCapability('schichten:swap:read')
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
+
   // ── Queries ──
   const templatesQuery = useTemplatesList()
   const swapRequestsQuery = useSwapRequests()
@@ -499,7 +513,35 @@ export default function SchichtenPage() {
     return map
   }, [templates])
 
-  const pendingSwapCount = swapRequests.filter((r) => r.status === 'pending').length
+  // swap:read scope=own → filter list to requests where the current user is requester or recipient.
+  // Field names come from the SwapRequest wire shape: requestedByEmployeeId / swapWithEmployeeId.
+  const baseSwapRequests = useMemo(() => {
+    if (swapReadCap.allowed && swapReadCap.scope === 'own') {
+      return swapRequests.filter(
+        (r) =>
+          r.requestedByEmployeeId === currentUserId ||
+          r.swapWithEmployeeId === currentUserId,
+      )
+    }
+    return swapRequests
+  }, [swapRequests, swapReadCap.allowed, swapReadCap.scope, currentUserId])
+
+  const pendingSwapCount = baseSwapRequests.filter((r) => r.status === 'pending').length
+
+  // ── RBAC tab gating; while permissions load keep all tabs visible (no flicker) ──
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    wochenplan: 'schichten:shift:read',
+    vorlagen: 'schichten:template:read',
+    anfragen: 'schichten:swap:read',
+    verfügbarkeit: 'schichten:shift:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
 
   // 7.10: Holiday detection for week
   const weekHolidays = useMemo(() => {
@@ -844,7 +886,7 @@ export default function SchichtenPage() {
     approveSwapMutation.mutate(swap.id, {
       onSuccess: () => {
         toast.success(t('schichten.toast.tauschGenehmigt'), {
-          description: `${swap.requestedByEmployeeId} <> ${swap.swapWithEmployeeId}`,
+          description: `${displayUserName(swap.requestedByEmployeeId)} <> ${displayUserName(swap.swapWithEmployeeId)}`,
         })
       },
       onError: () => {
@@ -857,7 +899,7 @@ export default function SchichtenPage() {
     rejectSwapMutation.mutate(swap.id, {
       onSuccess: () => {
         toast.info(t('schichten.toast.tauschAbgelehnt'), {
-          description: `Anfrage von ${swap.requestedByEmployeeId}`,
+          description: `Anfrage von ${displayUserName(swap.requestedByEmployeeId)}`,
         })
       },
       onError: () => {
@@ -951,12 +993,32 @@ export default function SchichtenPage() {
     })
   }
 
-  const getTemplateActions = (template: ShiftTemplate) => [
-    { label: t('schichten.vorlagen.actions.bearbeiten'), onClick: () => openTemplateDialog(template) },
-    { label: t('schichten.vorlagen.actions.anwenden'), onClick: () => { setApplyWeek('current'); setApplyTarget(template) } },
-    { separator: true as const, label: '', onClick: () => {} },
-    { label: t('schichten.vorlagen.actions.loeschen'), variant: 'destructive' as const, onClick: () => setConfirmDelete(template) },
-  ]
+  const getTemplateActions = (template: ShiftTemplate) => {
+    if (!canTemplateManage) return []
+    return [
+      { label: t('schichten.vorlagen.actions.bearbeiten'), onClick: () => openTemplateDialog(template) },
+      { label: t('schichten.vorlagen.actions.anwenden'), onClick: () => { setApplyWeek('current'); setApplyTarget(template) } },
+      { separator: true as const, label: '', onClick: () => {} },
+      { label: t('schichten.vorlagen.actions.loeschen'), variant: 'destructive' as const, onClick: () => setConfirmDelete(template) },
+    ]
+  }
+
+  // Module-empty guard: no readable tab at all → honest empty state
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('schichten.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={CalendarClock}
+          moduleId="schichten"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="schichten" />}
+        />
+        <EmptyState icon={CalendarClock} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -972,35 +1034,44 @@ export default function SchichtenPage() {
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleCsvExport}
-              className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              {t('schichten.actions.csvExport')}
-            </button>
-            <button
-              onClick={handlePDFExport}
-              className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-            >
-              <FileDown className="h-4 w-4" />
-              {t('schichten.actions.pdfExport')}
-            </button>
-            <button
-              onClick={handlePublishWeek}
-              disabled={publishShiftsMutation.isPending}
-              className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              <CalendarClock className="h-4 w-4" />
-              {t('schichten.actions.wochePublizieren')}
-            </button>
-            <button
-              onClick={handleOpenAssignDialog}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('schichten.actions.schichtZuweisen')}
-            </button>
+            <RestrictedModeBadge module="schichten" />
+            {canExport && (
+              <button
+                onClick={handleCsvExport}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                {t('schichten.actions.csvExport')}
+              </button>
+            )}
+            {canExport && (
+              <button
+                onClick={handlePDFExport}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <FileDown className="h-4 w-4" />
+                {t('schichten.actions.pdfExport')}
+              </button>
+            )}
+            {canPublish && (
+              <button
+                onClick={handlePublishWeek}
+                disabled={publishShiftsMutation.isPending}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                <CalendarClock className="h-4 w-4" />
+                {t('schichten.actions.wochePublizieren')}
+              </button>
+            )}
+            {canAssignManage && (
+              <button
+                onClick={handleOpenAssignDialog}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('schichten.actions.schichtZuweisen')}
+              </button>
+            )}
           </div>
         }
       />
@@ -1080,7 +1151,7 @@ export default function SchichtenPage() {
           { key: 'vorlagen' as const, label: t('schichten.tabs.vorlagen', { count: templates.length }), icon: Palette },
           { key: 'anfragen' as const, label: t('schichten.tabs.anfragen', { count: pendingSwapCount }), icon: ArrowLeftRight },
           { key: 'verfügbarkeit' as const, label: t('schichten.tabs.verfuegbarkeit'), icon: UserCheck },
-        ]).map((tabItem) => {
+        ]).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => {
           const Icon = tabItem.icon
           return (
             <button
@@ -1273,33 +1344,49 @@ export default function SchichtenPage() {
                               ? `${assignment.templateName} — ${emp.name}, ${date}`
                               : t('schichten.wochenplan.zelleFrei', { name: emp.name, date })
                           }
-                          className={`relative flex items-center justify-center px-1 py-2 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset ${
-                            dayIdx < 6 ? 'border-r border-border-muted' : ''
-                          } ${holiday ? 'bg-error/[0.03]' : today ? 'bg-primary/[0.02]' : weekend ? 'bg-secondary/10' : ''} ${
-                            !assignment && isHovered ? 'bg-secondary/60' : ''
-                          } ${isDragSource ? 'opacity-30' : ''} ${isDropTarget ? 'ring-2 ring-primary ring-inset bg-primary/10' : ''}`}
-                          onClick={() => handleCellClick(emp.id, date)}
+                          className={`relative flex items-center justify-center px-1 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset ${
+                            // Only occupied cells (→ detail modal) are always clickable;
+                            // empty cells open assign-dialog which requires assignment:manage.
+                            assignment || canAssignManage ? 'cursor-pointer' : 'cursor-default'
+                          } ${dayIdx < 6 ? 'border-r border-border-muted' : ''} ${
+                            holiday ? 'bg-error/[0.03]' : today ? 'bg-primary/[0.02]' : weekend ? 'bg-secondary/10' : ''
+                          } ${
+                            !assignment && isHovered && canAssignManage ? 'bg-secondary/60' : ''
+                          } ${isDragSource ? 'opacity-30' : ''} ${isDropTarget && canAssignManage ? 'ring-2 ring-primary ring-inset bg-primary/10' : ''}`}
+                          onClick={() => {
+                            // Occupied cell → detail modal (read-only; always allowed for shift:read holders)
+                            // Empty cell → assign dialog (requires assignment:manage)
+                            if (assignment || canAssignManage) handleCellClick(emp.id, date)
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault()
-                              handleCellClick(emp.id, date)
+                              if (assignment || canAssignManage) handleCellClick(emp.id, date)
                             }
                           }}
-                          onMouseEnter={() => { setHoveredCell(key); if (dragState) handleDragOver(emp.id, date) }}
+                          onMouseEnter={() => {
+                            setHoveredCell(key)
+                            if (dragState && canAssignManage) handleDragOver(emp.id, date)
+                          }}
                           onMouseLeave={() => setHoveredCell(null)}
-                          onMouseUp={() => { if (dragState) handleDrop(emp.id, date) }}
+                          onMouseUp={() => { if (dragState && canAssignManage) handleDrop(emp.id, date) }}
                         >
                           {assignment && template && style ? (
                             <div
                               className={`w-full rounded-md border px-2 py-1.5 transition-shadow ${style.bg} ${style.border} ${
                                 isHovered ? 'shadow-sm ring-1 ring-border' : ''
                               }`}
-                              onMouseDown={(e) => { e.preventDefault(); handleDragStart(emp.id, date, assignment) }}
-                              onMouseUp={() => handleDragEnd()}
+                              onMouseDown={(e) => {
+                                // Drag-to-move requires assignment:manage
+                                if (canAssignManage) { e.preventDefault(); handleDragStart(emp.id, date, assignment) }
+                              }}
+                              onMouseUp={() => canAssignManage && handleDragEnd()}
                             >
                               <div className={`flex items-center gap-1 ${style.text}`}>
-                                {/* 7.11: Drag handle */}
-                                <GripVertical className="h-3 w-3 flex-shrink-0 opacity-30 cursor-grab" />
+                                {/* Drag handle — only shown when the user may actually drag */}
+                                {canAssignManage && (
+                                  <GripVertical className="h-3 w-3 flex-shrink-0 opacity-30 cursor-grab" />
+                                )}
                                 <ShiftIcon className="h-3 w-3 flex-shrink-0" />
                                 <span className="text-xs font-semibold truncate">{assignment.templateName}</span>
                               </div>
@@ -1322,12 +1409,12 @@ export default function SchichtenPage() {
                           ) : (
                             <div
                               className={`w-full h-10 rounded-md border border-dashed transition-colors ${
-                                isDropTarget ? 'border-primary bg-primary/10' : isHovered
+                                isDropTarget && canAssignManage ? 'border-primary bg-primary/10' : isHovered && canAssignManage
                                   ? 'border-primary/40 bg-primary/5'
                                   : 'border-border-muted'
                               }`}
                             >
-                              {isHovered && !dragState && (
+                              {isHovered && !dragState && canAssignManage && (
                                 <div className="flex items-center justify-center h-full">
                                   <Plus className="h-3.5 w-3.5 text-primary/40" />
                                 </div>
@@ -1397,13 +1484,15 @@ export default function SchichtenPage() {
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
-            <button
-              onClick={() => openTemplateDialog(null)}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('schichten.vorlagen.neue')}
-            </button>
+            {canTemplateManage && (
+              <button
+                onClick={() => openTemplateDialog(null)}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('schichten.vorlagen.neue')}
+              </button>
+            )}
           </div>
 
           {templatesQuery.isLoading ? (
@@ -1516,7 +1605,7 @@ export default function SchichtenPage() {
             <div className="rounded-lg border border-error/30 bg-error-light/30 p-4 text-sm text-error">
               {t('schichten.error.loadFailed')}
             </div>
-          ) : swapRequests.length === 0 ? (
+          ) : baseSwapRequests.length === 0 ? (
             <EmptyState
               icon={ArrowLeftRight}
               title={t('schichten.anfragen.empty.title')}
@@ -1524,20 +1613,23 @@ export default function SchichtenPage() {
             />
           ) : (
             <div className="space-y-3">
-              {swapRequests
+              {baseSwapRequests
                 .filter((r) => {
                   if (!search) return true
                   const q = search.toLowerCase()
                   return (
-                    r.requestedByEmployeeId.toLowerCase().includes(q) ||
-                    r.swapWithEmployeeId.toLowerCase().includes(q) ||
+                    displayUserName(r.requestedByEmployeeId).toLowerCase().includes(q) ||
+                    displayUserName(r.swapWithEmployeeId).toLowerCase().includes(q) ||
                     (r.reason ?? '').toLowerCase().includes(q)
                   )
                 })
                 .map((swap) => {
-                  // Employee IDs are UUIDs from the API; initials derived from first 2 chars as fallback
-                  const reqInitials = swap.requestedByEmployeeId.slice(0, 2).toUpperCase()
-                  const swapInitials = swap.swapWithEmployeeId.slice(0, 2).toUpperCase()
+                  const reqName = displayUserName(swap.requestedByEmployeeId)
+                  const swapName = displayUserName(swap.swapWithEmployeeId)
+                  const initials = (name: string) =>
+                    name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
+                  const reqInitials = initials(reqName)
+                  const swapInitials = initials(swapName)
                   return (
                     <div key={swap.id} className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)]">
                       <div className="flex items-start justify-between gap-4">
@@ -1547,14 +1639,14 @@ export default function SchichtenPage() {
                               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-foreground">
                                 {reqInitials}
                               </div>
-                              <span className="text-sm font-medium text-foreground font-mono text-xs">{swap.requestedByEmployeeId}</span>
+                              <span className="text-sm font-medium text-foreground">{reqName}</span>
                             </div>
                             <ArrowLeftRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             <div className="flex items-center gap-2">
                               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-foreground">
                                 {swapInitials}
                               </div>
-                              <span className="text-sm font-medium text-foreground font-mono text-xs">{swap.swapWithEmployeeId}</span>
+                              <span className="text-sm font-medium text-foreground">{swapName}</span>
                             </div>
                           </div>
 
@@ -1575,7 +1667,8 @@ export default function SchichtenPage() {
                           )}
                         </div>
 
-                        {swap.status === 'pending' && (
+                        {/* swap:approve required — without it, member sees status only, no action buttons */}
+                        {swap.status === 'pending' && canSwapApprove && (
                           <div className="flex flex-col gap-2 flex-shrink-0">
                             <button
                               onClick={() => handleApproveSwap(swap)}
@@ -1615,20 +1708,23 @@ export default function SchichtenPage() {
                 {t('schichten.verfuegbarkeit.hinweis')}
               </p>
             </div>
-            <button
-              onClick={() => {
-                setEditingAvailability(!editingAvailability)
-                if (editingAvailability) toast.success(t('schichten.verfuegbarkeit.gespeichert'))
-              }}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${
-                editingAvailability
-                  ? 'bg-success text-white hover:bg-success/90'
-                  : 'bg-primary text-primary-foreground hover:bg-button-primary-hover'
-              }`}
-            >
-              {editingAvailability ? <Check className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-              {editingAvailability ? t('schichten.verfuegbarkeit.speichern') : t('schichten.verfuegbarkeit.bearbeiten')}
-            </button>
+            {/* assignment:manage required to edit availability — readonly mode shows grid without the toggle */}
+            {canAssignManage && (
+              <button
+                onClick={() => {
+                  setEditingAvailability(!editingAvailability)
+                  if (editingAvailability) toast.success(t('schichten.verfuegbarkeit.gespeichert'))
+                }}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${
+                  editingAvailability
+                    ? 'bg-success text-white hover:bg-success/90'
+                    : 'bg-primary text-primary-foreground hover:bg-button-primary-hover'
+                }`}
+              >
+                {editingAvailability ? <Check className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                {editingAvailability ? t('schichten.verfuegbarkeit.speichern') : t('schichten.verfuegbarkeit.bearbeiten')}
+              </button>
+            )}
           </div>
 
           <div className="rounded-lg border border-border overflow-hidden">
@@ -1671,9 +1767,9 @@ export default function SchichtenPage() {
                     <div
                       key={dayIdx}
                       className={`flex items-center justify-center py-3 ${dayIdx < 6 ? 'border-r border-border-muted' : ''} ${
-                        editingAvailability ? 'cursor-pointer hover:bg-secondary/30' : ''
+                        editingAvailability && canAssignManage ? 'cursor-pointer hover:bg-secondary/30' : ''
                       } ${config.bg}`}
-                      onClick={() => { if (editingAvailability) cycleAvailability(emp.id, String(dayIdx)) }}
+                      onClick={() => { if (editingAvailability && canAssignManage) cycleAvailability(emp.id, String(dayIdx)) }}
                     >
                       <div className={`flex items-center gap-1.5 ${config.text}`}>
                         <div className={`h-3 w-3 rounded-full ${

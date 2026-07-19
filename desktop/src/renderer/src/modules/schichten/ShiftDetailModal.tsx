@@ -24,6 +24,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { DetailModal } from '@/components/shared'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import type { ShiftAssignment, ShiftTemplate } from '@/stores/schichten'
 import {
   getSurchargeLabel,
@@ -73,6 +74,12 @@ export function ShiftDetailModal({
   const [swapWith, setSwapWith] = useState('')
   const [swapReason, setSwapReason] = useState('')
 
+  // RBAC R-3: hooks always before any early return (Rules of Hooks)
+  const canAssignManage = useHasCapability('schichten:assignment:manage')
+  // swap:create is scopeable — show only when the displayed assignment belongs to the current user
+  // (scope=own) or the user has all-scope access (manager/admin). assignment.userId is the assignee.
+  const canCreateSwap = useScopedCapability('schichten:swap:create', assignment?.userId)
+
   if (!assignment || !template) return null
 
   const surcharge = getSurchargeLabel(assignment.templateId, assignment.date)
@@ -119,9 +126,10 @@ export function ShiftDetailModal({
         </span>
       }
       footer={
-        shiftId ? (
+        shiftId && (canAssignManage || (swapEnabled && canCreateSwap)) ? (
           <div className="flex items-center justify-between gap-2">
-            {swapEnabled ? (
+            {/* swap:create (scopeable) + tenant policy gate */}
+            {swapEnabled && canCreateSwap ? (
               <button
                 onClick={() => setSwapOpen((v) => !v)}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
@@ -130,16 +138,22 @@ export function ShiftDetailModal({
                 {t('schichten.detail.tauschBeantragen')}
               </button>
             ) : (
-              <span className="text-[11px] text-muted-foreground">{t('schichten.detail.tauschDeaktiviert')}</span>
+              // Show placeholder only when swap is relevant (has any swap grant) but tenant disabled it
+              swapEnabled === false && canCreateSwap
+                ? <span className="text-[11px] text-muted-foreground">{t('schichten.detail.tauschDeaktiviert')}</span>
+                : <span />
             )}
-            <button
-              onClick={onUnassign}
-              disabled={isUnassigning}
-              className="flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error hover:bg-error-light transition-colors disabled:opacity-50"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {t('schichten.detail.zuweisungEntfernen')}
-            </button>
+            {/* assignment:manage required to remove an assignment */}
+            {canAssignManage && (
+              <button
+                onClick={onUnassign}
+                disabled={isUnassigning}
+                className="flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error hover:bg-error-light transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t('schichten.detail.zuweisungEntfernen')}
+              </button>
+            )}
           </div>
         ) : undefined
       }
