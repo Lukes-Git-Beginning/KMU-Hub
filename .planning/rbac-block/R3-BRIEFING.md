@@ -1,8 +1,22 @@
 # R-3 Enforcement-Sweep — Terminal-Briefing (erstellt Session #15, 2026-07-18)
 
-> **⚡⚡⚡⚡ UPDATE Session #19 (2026-07-19): BATCH 3 GEBAUT (inventar · einkauf · produktion · vertraege · helpdesk) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #19. Nächstes Bau-Terminal: BATCH 4 (Arbeitspaket direkt hierunter). Konvention aus #16 gilt weiter, kein neues Gate.**
+> **⚡⚡⚡⚡⚡ UPDATE Session #20 (2026-07-19): BATCH 4 GEBAUT (schichten · fuhrpark · vermietung · rapporte · dialer) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #20. Nächstes Bau-Terminal: BATCH 5 = R-3-ABSCHLUSS (Arbeitspaket direkt hierunter). Konvention aus #16 gilt weiter, kein neues Gate.**
 
-## Batch-4-Arbeitspaket (für das nächste Bau-Terminal, Stand nach #19)
+## Batch-5-Arbeitspaket (für das nächste Bau-Terminal, Stand nach #20 — LETZTER R-3-Batch)
+
+**Scope: berichte · formulare · automatisierung + Standard-Rest-Sichtung (kommunikation/kalender/zeiterfassung/video/infrastructure/notifications).** Für die 3 Industry-Module gilt die volle Kuratierungs-Reihenfolge; für den Standard-Rest zuerst PRÜFEN, ob Ebene 1 (Modul-Sichtbarkeit) reicht — nur dort Mini-Kataloge anlegen, wo es echte Verwaltungs-Aktionen gibt (Kandidaten: kalender Booking-Pages/Meetings-Verwaltung, video Aufzeichnungen, kommunikation Kanal-Verwaltung, zeiterfassung Korrekturen/Freigaben — Inventar via Explore-Agents entscheidet).
+
+**Gleiche Reihenfolge wie Batch 3/4:** ① UI-Inventar via Explore-Agents → ② Katalog kuratieren (`config/capability-catalog.ts`) + ③ ROLE_DEFS-Grants nachziehen (admin ALLE! manager voll operativ, member Basics, readonly reads, extern nichts) + ④ i18n subject/action ×4 (ordnungserhaltendes Insert-Skript, Muster `scripts/i18n-rbac-r3b4.mjs`) → ⑤ gaten (Referenz: **`modules/inventar/InventarPage.tsx`** [Tab-Muster] · **`modules/rapporte/RapportePage.tsx`** [own-Filter + Approve-UI] · **`modules/dialer/DialerLayout.tsx`** [Routen-Layout-Guard, falls ein Modul Router-basiert ist]).
+
+**⚠ BE-Seed-Abgleich Batch 5 (Subjekt-Namen übernehmen, nicht neu erfinden):** berichte 000080 → Subjekt **`reports` (PLURAL!)** read/write · formulare 000129 → Subjekte **`schemas` / `submissions` / `webhooks`** (je read/write) · automatisierung 000129 → **`automations` als modulweites Paar OHNE Sub-Subjekt** (`automations:read/write` — FE-Keys entsprechend `automatisierung:automations:*`? → beim Kuratieren entscheiden und in backend-gaps dokumentieren, BE-resource heißt `automations`). Standard-Rest-Seeds: notifications 000029 · kalender `calendars` (000129) + meetings 000131 + booking_pages 000136 · video `recording`/`recordings` (000129/000131) · kommunikation `inbox`/chat (000129). In `backend/migrations/` nachsehen.
+
+**Bekannte modul-spezifische Startpunkte:** berichte: Berichte bauen/Block-Editor vs. ansehen, Exporte (Dokument-Engine-Basis — Phase A `shared/document`!) · formulare: Schema-Designer vs. Submissions ansehen/erfassen, Webhooks = Verwaltung · automatisierung: Flows anlegen/aktivieren vs. Ausführungs-Historie lesen. Owner-Felder prüfen (Muster Batch 3/4: wo Freitext/null → Gap notieren, KEINE scopeable-Keys).
+
+**QA:** Muster `scripts/qa-rbac-enforcement-b4.mjs` (admin-Regression je Modul + readonly-Chip + member + extern-NoAccess + Bilder ansehen; Switcher NUR von `/#/settings`; Labels exakt aus de.json; Nav-Link-Checks via `a[href="#/..."]` bei Router-Modulen).
+
+**Danach:** R-4 (HR-Datenkategorien-Tiefe, Personio-Recherche-Gate) → R-5 (Audit-Log-UI · Zentria-Setup-Zugang · 3 Branchen-Template-Sets, je Set mit Darien) → Sammel-Review (`hetzner-review-checklist.md`).
+
+## Batch-4-Arbeitspaket — ✅ GEBAUT in Session #20 (Historie)
 
 **Scope: schichten · fuhrpark · vermietung · rapporte · dialer.** Danach Batch 5 = berichte · formulare · automatisierung + Standard-Rest (kommunikation/kalender/zeiterfassung/video/infrastructure/notifications — teils reicht Ebene 1 bzw. Mini-Katalog).
 
