@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -44,6 +44,8 @@ import {
 } from '@/api/hooks/useEinkauf'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, SortMenu } from '@/components/shared'
 import type { SortDirection } from '@/components/shared/SortMenu'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { formatAmount, formatCurrency, formatDate } from '@/lib/format'
 import { useEinkaufPrefsStore, type EinkaufTab, type EinkaufStatusFilter } from '@/stores/einkaufPrefs'
 import { useEinkaufTenantStore } from '@/stores/einkaufTenant'
@@ -99,6 +101,19 @@ function rowKeyHandler(open: () => void) {
 export default function EinkaufPage() {
   const { t } = useTranslation()
 
+  // RBAC R-3 capability checks (default hidden per gating convention)
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canCreatePO = useHasCapability('einkauf:po:create')
+  const canEditPO = useHasCapability('einkauf:po:edit')
+  const canDeletePO = useHasCapability('einkauf:po:delete')
+  const canCancelPO = useHasCapability('einkauf:po:cancel')
+  const canReceivePO = useHasCapability('einkauf:po:receive')
+  const canCreateSupplier = useHasCapability('einkauf:supplier:create')
+  const canEditSupplier = useHasCapability('einkauf:supplier:edit')
+  const canDeactivateSupplier = useHasCapability('einkauf:supplier:deactivate')
+  const canExport = useHasCapability('einkauf:export:run')
+  const canCallContract = useHasCapability('einkauf:contract:call')
+
   const STATUS_FILTER_OPTIONS: { value: EinkaufStatusFilter; label: string }[] = STATUS_FILTER_KEYS.map((key) => ({
     value: key,
     label: key === 'all' ? t('einkauf.statusFilter.all') : t(orderStatusLabels[key] ?? key),
@@ -116,6 +131,21 @@ export default function EinkaufPage() {
   const [statusFilter, setStatusFilter] = useState<EinkaufStatusFilter>(
     () => useEinkaufPrefsStore.getState().defaultStatusFilter,
   )
+
+  // RBAC tab gating — while permissions load keep all tabs visible to avoid flicker
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    bestellungen: 'einkauf:po:read',
+    lieferanten: 'einkauf:supplier:read',
+    katalog: 'einkauf:catalog:read',
+    'rahmenverträge': 'einkauf:contract:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
 
   // Sorting
   const [orderSort, setOrderSort] = useState<{ field: string; direction: SortDirection }>({
@@ -329,21 +359,38 @@ export default function EinkaufPage() {
       icon: Eye,
       onClick: () => openOrder(order),
     },
-    ...(canReceiveGoods(order.status)
+    ...(canReceiveGoods(order.status) && canReceivePO
       ? [{
           label: t('einkauf.action.bookReceipt'),
           icon: PackageCheck,
           onClick: () => setWareneingangOrder(order),
         }]
       : []),
-    { label: t('einkauf.action.edit'), icon: Edit, onClick: () => setEditOrder(order) },
-    { separator: true as const, label: '', onClick: () => {} },
-    {
-      label: order.status === 'draft' ? t('einkauf.action.deleteDraft') : t('einkauf.action.cancel'),
-      icon: order.status === 'draft' ? Trash2 : Ban,
-      variant: 'destructive' as const,
-      onClick: () => setConfirmCancel(order),
-    },
+    ...(canEditPO
+      ? [{ label: t('einkauf.action.edit'), icon: Edit, onClick: () => setEditOrder(order) }]
+      : []),
+    ...(order.status === 'draft' && canDeletePO
+      ? [
+          { separator: true as const, label: '', onClick: () => {} },
+          {
+            label: t('einkauf.action.deleteDraft'),
+            icon: Trash2,
+            variant: 'destructive' as const,
+            onClick: () => setConfirmCancel(order),
+          },
+        ]
+      : []),
+    ...(order.status !== 'draft' && canCancelPO
+      ? [
+          { separator: true as const, label: '', onClick: () => {} },
+          {
+            label: t('einkauf.action.cancel'),
+            icon: Ban,
+            variant: 'destructive' as const,
+            onClick: () => setConfirmCancel(order),
+          },
+        ]
+      : []),
   ]
 
   const handleCancelOrder = (order: PurchaseOrder) => {
@@ -547,6 +594,23 @@ export default function EinkaufPage() {
     ? supplierNameById.get(wareneingangOrder.supplier_id) ?? wareneingangOrder.supplier_id
     : ''
 
+  // moduleEmpty: custom role with module:view but no read grant on any tab
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('einkauf.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={ShoppingCart}
+          moduleId="einkauf"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="einkauf" />}
+        />
+        <EmptyState icon={ShoppingCart} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
@@ -557,7 +621,8 @@ export default function EinkaufPage() {
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">
-            {tab === 'lieferanten' && (
+            <RestrictedModeBadge module="einkauf" />
+            {tab === 'lieferanten' && canCreateSupplier && (
               <button
                 onClick={() => {
                   resetNewSupplierForm()
@@ -569,7 +634,7 @@ export default function EinkaufPage() {
                 {t('einkauf.action.addSupplier')}
               </button>
             )}
-            {cartCount > 0 && (
+            {cartCount > 0 && canCreatePO && (
               <button
                 onClick={() => setShowCartDialog(true)}
                 className="relative flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -581,16 +646,18 @@ export default function EinkaufPage() {
                 </span>
               </button>
             )}
-            <button
-              onClick={() => {
-                resetNewOrderForm()
-                setShowNewOrderDialog(true)
-              }}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('einkauf.action.newOrder')}
-            </button>
+            {canCreatePO && (
+              <button
+                onClick={() => {
+                  resetNewOrderForm()
+                  setShowNewOrderDialog(true)
+                }}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('einkauf.action.newOrder')}
+              </button>
+            )}
           </div>
         }
       />
@@ -602,7 +669,7 @@ export default function EinkaufPage() {
           { key: 'lieferanten' as const, label: t('einkauf.tab.lieferanten', { count: suppliers.length }) },
           { key: 'katalog' as const, label: t('einkauf.tab.katalog', { count: catalogData?.total ?? catalogItems.length }) },
           { key: 'rahmenverträge' as const, label: t('einkauf.tab.rahmenvertraege', { count: contractsData?.total ?? frameworkContracts.length }) },
-        ]).map((tabItem) => (
+        ]).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => (
           <button
             key={tabItem.key}
             onClick={() => {
@@ -680,14 +747,16 @@ export default function EinkaufPage() {
                 onChange={(field, direction) => setSupplierSort({ field, direction })}
               />
             )}
-            <button
-              onClick={tab === 'bestellungen' ? handleExportOrdersCsv : handleExportSuppliersCsv}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title={t('einkauf.action.exportCsv')}
-            >
-              <FileDown className="h-4 w-4" />
-              <span className="hidden md:inline">{t('einkauf.action.exportCsv')}</span>
-            </button>
+            {canExport && (
+              <button
+                onClick={tab === 'bestellungen' ? handleExportOrdersCsv : handleExportSuppliersCsv}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                title={t('einkauf.action.exportCsv')}
+              >
+                <FileDown className="h-4 w-4" />
+                <span className="hidden md:inline">{t('einkauf.action.exportCsv')}</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -815,13 +884,19 @@ export default function EinkaufPage() {
                               icon: Eye,
                               onClick: () => openSupplier(supplier),
                             },
-                            { label: t('einkauf.action.edit'), icon: Edit, onClick: () => setEditSupplier(supplier) },
-                            { separator: true as const, label: '', onClick: () => {} },
-                            {
-                              label: t('einkauf.action.deactivate'),
-                              variant: 'destructive' as const,
-                              onClick: () => setConfirmDeactivate(supplier),
-                            },
+                            ...(canEditSupplier
+                              ? [{ label: t('einkauf.action.edit'), icon: Edit, onClick: () => setEditSupplier(supplier) }]
+                              : []),
+                            ...(canDeactivateSupplier
+                              ? [
+                                  { separator: true as const, label: '', onClick: () => {} },
+                                  {
+                                    label: t('einkauf.action.deactivate'),
+                                    variant: 'destructive' as const,
+                                    onClick: () => setConfirmDeactivate(supplier),
+                                  },
+                                ]
+                              : []),
                           ]}
                         />
                       </div>
@@ -936,14 +1011,16 @@ export default function EinkaufPage() {
                       </p>
                       <p className="text-[10px] text-muted-foreground">{t('einkauf.catalog.perUnit', { unit: item.unit })}</p>
                     </div>
-                    <button
-                      onClick={() => addToCart(item)}
-                      disabled={!item.available}
-                      className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ShoppingCart className="h-3.5 w-3.5" />
-                      {t('einkauf.action.addToCart')}
-                    </button>
+                    {canCreatePO && (
+                      <button
+                        onClick={() => addToCart(item)}
+                        disabled={!item.available}
+                        className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ShoppingCart className="h-3.5 w-3.5" />
+                        {t('einkauf.action.addToCart')}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1094,17 +1171,19 @@ export default function EinkaufPage() {
                         {/* Bisherige Abrufe */}
                         <ContractCallsList contractId={contract.id} currency={contract.currency} />
 
-                        <div className="flex items-center justify-end px-4 py-3 border-t border-border-muted">
-                          <button
-                            onClick={() => setCallContract(contract)}
-                            disabled={contract.status !== 'active'}
-                            title={contract.status !== 'active' ? t('einkauf.contract.notActiveHint') : undefined}
-                            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            {t('einkauf.action.newCall')}
-                          </button>
-                        </div>
+                        {canCallContract && (
+                          <div className="flex items-center justify-end px-4 py-3 border-t border-border-muted">
+                            <button
+                              onClick={() => setCallContract(contract)}
+                              disabled={contract.status !== 'active'}
+                              title={contract.status !== 'active' ? t('einkauf.contract.notActiveHint') : undefined}
+                              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              {t('einkauf.action.newCall')}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

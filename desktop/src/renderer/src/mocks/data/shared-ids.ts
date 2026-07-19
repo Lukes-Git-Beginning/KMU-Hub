@@ -232,3 +232,34 @@ export const CURRENT_USER = {
   jobTitle: 'Geschäftsführer',
   company: 'TechVision GmbH',
 } as const
+
+/**
+ * Canonical display names per user id — reverse of the roster mapping in
+ * handlers/team.ts (NAME_TO_USER_ID). Seeds that reference people by id
+ * resolve their display label here instead of hardcoding names; ids without
+ * an entry (or free-text legacy values) pass through unchanged.
+ */
+export const USER_DISPLAY_NAMES: Record<string, string> = {
+  [IDS.users.stefan]: 'Stefan Vogel',
+  [IDS.users.markus]: 'Markus Weber',
+  [IDS.users.thomas]: 'Thomas Keller',
+  [IDS.users.julia]: 'Julia Hofmann',
+  [IDS.users.laura]: 'Laura Neumann',
+  [IDS.users.felix]: 'Felix Krause',
+  [IDS.users.sarah]: 'Sarah Müller',
+  [IDS.users.jan]: 'Jan Schäfer',
+  [IDS.users.lena]: 'Lena Braun',
+  [IDS.users.david]: 'David Wagner',
+  [IDS.users.anna]: 'Anna Großmann',
+  [IDS.users.michael]: 'Michael Schulz',
+  [IDS.users.sophie]: 'Sophie Lang',
+  [IDS.users.nina]: 'Nina Fischer',
+  [IDS.users.max]: 'Max Steiner',
+  [IDS.users.elena]: 'Elena Richter',
+}
+
+/** Display name for a user id; free-text legacy values pass through. */
+export function displayUserName(idOrName: string | null | undefined): string {
+  if (!idOrName) return ''
+  return USER_DISPLAY_NAMES[idOrName] ?? idOrName
+}

@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
+import { getDemoSessionUserId } from '../data/rbac'
 import { hoursFromNow } from '../data/date-helpers'
 
 const API = API_BASE_URL
@@ -230,7 +231,7 @@ const tickets: WireTicket[] = [
     status: 'open',
     priority: 'normal',
     assignee_id: IDS.users.julia,
-    requester_id: 'Karin Pfister',
+    requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-003'] * H).toISOString(),
     merged_into_id: null,
@@ -262,7 +263,7 @@ const tickets: WireTicket[] = [
     status: 'open',
     priority: 'low',
     assignee_id: IDS.users.julia,
-    requester_id: 'Regula Vogt',
+    requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-005'] * H).toISOString(),
     merged_into_id: null,
@@ -342,7 +343,7 @@ const tickets: WireTicket[] = [
     status: 'open',
     priority: 'normal',
     assignee_id: IDS.users.julia,
-    requester_id: 'Eveline Stauffer',
+    requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-010'] * H).toISOString(),
     merged_into_id: null,
@@ -568,7 +569,9 @@ export const helpdeskHandlers = [
       status: 'open',
       priority: body.priority ?? 'normal',
       assignee_id: body.assignee_id ?? null,
-      requester_id: IDS.users.stefan,
+      // Requester = the active demo session (RBAC scope=own: creators must
+      // see their own tickets, so never hardcode a fixed user here).
+      requester_id: getDemoSessionUserId(),
       queue_id: body.queue_id ?? null,
       due_at: hoursFromNow(8),
       merged_into_id: null,

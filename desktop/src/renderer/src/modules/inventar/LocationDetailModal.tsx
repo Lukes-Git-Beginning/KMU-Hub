@@ -10,6 +10,7 @@ import {
   locationTypeKeys,
 } from './inventar-shared'
 import { buildItemsCsv, downloadCsv, csvDateStamp } from './inventar-export'
+import { useHasCapability } from '@/hooks/useCapability'
 
 /**
  * LocationDetailModal — zentriertes Cosmi-Detailfenster für einen Lagerort.
@@ -32,6 +33,7 @@ export function LocationDetailModal({
   const { t } = useTranslation()
   const criticalCount = items.filter((i) => getStockStatus(i) === 'critical').length
   const LIcon = location ? locationTypeIcons[location.type] || Warehouse : Warehouse
+  const canExport = useHasCapability('inventar:export:run')
 
   const handleExport = () => {
     if (!location) return
@@ -56,7 +58,7 @@ export function LocationDetailModal({
         ) : undefined
       }
       footer={
-        location && items.length > 0 ? (
+        location && canExport && items.length > 0 ? (
           <button
             onClick={handleExport}
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"

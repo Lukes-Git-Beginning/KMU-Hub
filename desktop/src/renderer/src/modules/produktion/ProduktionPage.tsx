@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -37,6 +37,8 @@ import type {
 } from '@/api/produktion-types'
 import { PageHeader, EmptyState, SortMenu, type SortDirection } from '@/components/shared'
 import { EmptyGeneric } from '@/components/shared/illustrations'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import {
   Dialog,
   DialogContent,
@@ -117,6 +119,25 @@ export default function ProduktionPage() {
   const defaultTab = useProduktionPrefsStore((s) => s.defaultTab)
   const defaultStatusFilter = useProduktionPrefsStore((s) => s.defaultStatusFilter)
 
+  // RBAC R-3 capability checks (default hidden per gating convention)
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canCreateOrder = useHasCapability('produktion:order:create')
+  const canCreateBom = useHasCapability('produktion:bom:create')
+  const canCreateQuality = useHasCapability('produktion:quality:create')
+  const canManageMachine = useHasCapability('produktion:machine:manage')
+  const canExport = useHasCapability('produktion:export:run')
+
+  // RBAC tab gating — while permissions load keep all tabs visible (no flicker)
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    auftraege: 'produktion:order:read',
+    stuecklisten: 'produktion:bom:read',
+    qualitaet: 'produktion:quality:read',
+    maschinen: 'produktion:machine:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+
   const orderStatusLabels = useMemo(() => Object.fromEntries(
     Object.entries(orderStatusLabelKeys).map(([k, v]) => [k, t(v)])
   ) as Record<string, string>, [t])
@@ -131,6 +152,12 @@ export default function ProduktionPage() {
   )
 
   const [tab, setTab] = useState<TabKey>(defaultTab)
+
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
+
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(defaultStatusFilter)
   const [sortField, setSortField] = useState('plannedEnd')
@@ -246,6 +273,23 @@ export default function ProduktionPage() {
     )
   }
 
+  // Custom role with module visibility but no read grant on any tab
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title="Produktion"
+          description={t('rbac.gate.moduleEmpty')}
+          icon={Factory}
+          moduleId="produktion"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="produktion" />}
+        />
+        <EmptyState icon={Factory} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
       <PageHeader
@@ -255,25 +299,28 @@ export default function ProduktionPage() {
         moduleId="produktion"
         className="mb-6"
         actions={
-          <div className="flex gap-2">
-            {tab === 'stuecklisten' && (
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="produktion" />
+            {tab === 'stuecklisten' && canCreateBom && (
               <button onClick={() => setShowNewBom(true)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 <Plus className="h-4 w-4" />{t('produktion.actions.neueStückliste')}
               </button>
             )}
-            {tab === 'qualitaet' && (
+            {tab === 'qualitaet' && canCreateQuality && (
               <button onClick={() => { setQualityCheckOrderId(''); setShowQualityCheck(true) }} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 <Plus className="h-4 w-4" />{t('produktion.actions.qualitaetspruefung')}
               </button>
             )}
-            {tab === 'maschinen' && (
+            {tab === 'maschinen' && canManageMachine && (
               <button onClick={() => setShowNewMachine(true)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 <Plus className="h-4 w-4" />{t('produktion.actions.neueMaschine')}
               </button>
             )}
-            <button onClick={() => setShowNewOrder(true)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-              <Plus className="h-4 w-4" />{t('produktion.actions.neuerAuftrag')}
-            </button>
+            {canCreateOrder && (
+              <button onClick={() => setShowNewOrder(true)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
+                <Plus className="h-4 w-4" />{t('produktion.actions.neuerAuftrag')}
+              </button>
+            )}
           </div>
         }
       />
@@ -284,7 +331,7 @@ export default function ProduktionPage() {
           { key: 'stuecklisten' as const, label: t('produktion.tabs.stuecklisten', { count: boms.length }) },
           { key: 'qualitaet' as const, label: t('produktion.tabs.qualitaet', { count: qualityChecks.length }) },
           { key: 'maschinen' as const, label: t('produktion.tabs.maschinen', { count: machines.length }) },
-        ]).map((tabItem) => (
+        ]).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => (
           <button key={tabItem.key} onClick={() => setTab(tabItem.key)}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${tab === tabItem.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
             {tabItem.label}
@@ -315,13 +362,15 @@ export default function ProduktionPage() {
                 direction={sortDir}
                 onChange={(f, d) => { setSortField(f); setSortDir(d) }}
               />
-              <button
-                onClick={handleExportOrdersCsv}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                <span className="hidden md:inline">{t('produktion.export.csvButton')}</span>
-              </button>
+              {canExport && (
+                <button
+                  onClick={handleExportOrdersCsv}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="hidden md:inline">{t('produktion.export.csvButton')}</span>
+                </button>
+              )}
             </div>
           </div>
 

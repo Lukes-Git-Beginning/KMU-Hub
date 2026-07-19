@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -46,6 +46,8 @@ import {
 } from '@/api/hooks/useInventar'
 import type { InventarItem, InventoryLocation, InventurSession, InventurCount } from '@/api/inventar-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, SortMenu, type SortDirection, type SortFieldOption } from '@/components/shared'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { useInventarPrefsStore } from '@/stores/inventarPrefs'
 import { useInventarTenantStore, INVENTAR_UNIT_OPTIONS } from '@/stores/inventarTenant'
@@ -397,6 +399,8 @@ function BewegungDialog({
   const [referenz, setReferenz] = useState('')
   const [notizen, setNotizen] = useState('')
   const allowNegativeStock = useInventarTenantStore((s) => s.allowNegativeStock)
+  // RBAC: corrections rewrite stock without a movement reason — own fine switch.
+  const canAdjust = useHasCapability('inventar:movement:adjust')
 
   const recordMovementMutation = useRecordMovement()
   const adjustStockMutation = useAdjustStock()
@@ -442,7 +446,7 @@ function BewegungDialog({
     { key: 'in', label: t('inventar.movementType.in'), icon: ArrowDownToLine },
     { key: 'out', label: t('inventar.movementType.out'), icon: ArrowUpFromLine },
     { key: 'transfer', label: t('inventar.movementType.transfer'), icon: RefreshCw },
-    { key: 'adjustment', label: t('inventar.movementType.adjustment'), icon: ClipboardEdit },
+    ...(canAdjust ? [{ key: 'adjustment' as const, label: t('inventar.movementType.adjustment'), icon: ClipboardEdit }] : []),
   ]
 
   return (
@@ -596,6 +600,11 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
   const upsertMutation = useUpsertInventurCount()
   const statusMutation = useUpdateInventurSessionStatus()
 
+  // RBAC: counting is warehouse work, booking differences mutates stock.
+  const canCount = useHasCapability('inventar:inventur:count')
+  const canBook = useHasCapability('inventar:inventur:book')
+  const canExport = useHasCapability('inventar:export:run')
+
   const totalItems = session.counts.length
   // protojson serializes int64 as a JSON string (proto3 spec); coerce before comparing/subtracting.
   const itemsWithDiff = session.counts.filter((c) => c.counted !== null && Number(c.counted) !== Number(c.expected)).length
@@ -695,7 +704,7 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
                       <td className="px-4 py-2 text-muted-foreground font-mono text-xs">{matchedItem?.sku ?? '—'}</td>
                       <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{count.expected}</td>
                       <td className="px-4 py-2 text-right text-foreground tabular-nums">
-                        {isCounting ? (
+                        {isCounting && canCount ? (
                           <CountInput
                             key={`${count.item_id}-${count.counted ?? 'null'}`}
                             count={count}
@@ -735,13 +744,15 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
           {/* Card actions */}
           <div className="flex items-center justify-between gap-3 p-3 border-t border-border">
             <div className="flex items-center gap-3 min-w-0">
-              <button
-                onClick={handleExportList}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {t('inventar.inventur.exportList')}
-              </button>
+              {canExport && (
+                <button
+                  onClick={handleExportList}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t('inventar.inventur.exportList')}
+                </button>
+              )}
               {isCounting && uncountedItems > 0 && (
                 <span className="truncate text-xs text-muted-foreground">
                   {t('inventar.inventur.uncountedHint', { count: uncountedItems })}
@@ -749,7 +760,7 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {isCounting && (
+              {isCounting && canCount && (
                 <button
                   onClick={handleFinishCounting}
                   disabled={countedItems === 0 || statusMutation.isPending}
@@ -759,7 +770,7 @@ function InventurSessionCard({ session, allItems }: { session: InventurSession; 
                   {t('inventar.inventur.finishCounting')}
                 </button>
               )}
-              {session.status === 'review' && (
+              {session.status === 'review' && canBook && (
                 <button
                   onClick={() => bookMutation.mutate({ sessionId: session.id }, {
                     onSuccess: () => toast.success(t('inventar.inventur.bookDifferencesSuccess', { name: session.name }))
@@ -794,6 +805,15 @@ export default function InventarPage() {
   const density = useInventarPrefsStore((s) => s.density)
   const showMinStockWarnings = useInventarPrefsStore((s) => s.showMinStockWarnings)
 
+  // RBAC R-3 capability checks (default hidden per gating convention)
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canCreateItem = useHasCapability('inventar:item:create')
+  const canEditItem = useHasCapability('inventar:item:edit')
+  const canDeleteItem = useHasCapability('inventar:item:delete')
+  const canRecordMovement = useHasCapability('inventar:movement:create')
+  const canCreateInventur = useHasCapability('inventar:inventur:create')
+  const canExport = useHasCapability('inventar:export:run')
+
   const [tab, setTab] = useState<TabKey>(() => useInventarPrefsStore.getState().defaultTab)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -822,6 +842,22 @@ export default function InventarPage() {
   const movementsQuery = useInventarMovements(movementsItemId, { page: 1, page_size: 50 })
 
   const deleteItemMutation = useDeleteInventarItem()
+
+  // RBAC tab gating (tab = read-key rule); while permissions load keep all
+  // tabs visible to avoid flicker (finance pattern).
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    artikel: 'inventar:item:read',
+    lagerorte: 'inventar:location:read',
+    bewegungen: 'inventar:movement:read',
+    inventur: 'inventar:inventur:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
 
   // Get unique categories from items
   const allCategories = useMemo(() => {
@@ -944,10 +980,16 @@ export default function InventarPage() {
 
   const getItemActions = (item: InventarItem) => [
     { label: t('inventar.actions.showDetails'), icon: Eye, onClick: () => openItemDetail(item) },
-    { label: t('common.edit'), icon: Edit, onClick: () => openArtikelDialog(item) },
-    { label: t('inventar.actions.movement'), icon: ArrowRightLeft, onClick: () => openBewegungDialog(item), separator: true },
-    { separator: true as const, label: '', onClick: () => {} },
-    { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(item) },
+    ...(canEditItem ? [{ label: t('common.edit'), icon: Edit, onClick: () => openArtikelDialog(item) }] : []),
+    ...(canRecordMovement
+      ? [{ label: t('inventar.actions.movement'), icon: ArrowRightLeft, onClick: () => openBewegungDialog(item), separator: true }]
+      : []),
+    ...(canDeleteItem
+      ? [
+          { separator: true as const, label: '', onClick: () => {} },
+          { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(item) },
+        ]
+      : []),
   ]
 
   const handleDelete = (item: InventarItem) => {
@@ -971,6 +1013,24 @@ export default function InventarPage() {
     ? `${lowStockCount > 0 ? ` · ${t('inventar.page.descriptionCritical', { count: lowStockCount })}` : ''}${warningCount > 0 ? ` · ${t('inventar.page.descriptionWarning', { count: warningCount })}` : ''}${lowStockCount === 0 && warningCount === 0 ? ` · ${t('inventar.page.descriptionOk')}` : ''}`
     : ''
 
+  // Custom role with module visibility but no read grant on any tab: honest
+  // hint instead of an empty tab skeleton (rbac gating convention).
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('inventar.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={Warehouse}
+          moduleId="inventar"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="inventar" />}
+        />
+        <EmptyState icon={Package} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
@@ -980,13 +1040,18 @@ export default function InventarPage() {
         moduleId="inventar"
         className="mb-6"
         actions={
-          <button
-            onClick={() => openArtikelDialog()}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t('inventar.page.addArticle')}
-          </button>
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="inventar" />
+            {canCreateItem && (
+              <button
+                onClick={() => openArtikelDialog()}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('inventar.page.addArticle')}
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -997,7 +1062,7 @@ export default function InventarPage() {
           { key: 'lagerorte' as const, label: t('inventar.tab.lagerorte'), count: locations.length },
           { key: 'bewegungen' as const, label: t('inventar.tab.bewegungen'), count: movementsItemId ? (movementsQuery.data?.total ?? 0) : 0 },
           { key: 'inventur' as const, label: t('inventar.tab.inventur'), count: inventurSessions.length },
-        ]).map((tabItem) => (
+        ]).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => (
           <button
             key={tabItem.key}
             onClick={() => { setTab(tabItem.key); setSearch('') }}
@@ -1028,15 +1093,17 @@ export default function InventarPage() {
           />
         </div>
 
-        {/* Barcode Scanner button */}
-        <button
-          onClick={() => setShowBarcodeScanner(true)}
-          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title={t('inventar.search.barcodeScan')}
-        >
-          <ScanBarcode className="h-4 w-4" />
-          <span className="hidden sm:inline">{t('inventar.search.barcodeScan')}</span>
-        </button>
+        {/* Barcode Scanner button (opens the item detail → needs item:read) */}
+        {capHas('inventar:item:read') && (
+          <button
+            onClick={() => setShowBarcodeScanner(true)}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title={t('inventar.search.barcodeScan')}
+          >
+            <ScanBarcode className="h-4 w-4" />
+            <span className="hidden sm:inline">{t('inventar.search.barcodeScan')}</span>
+          </button>
+        )}
 
         {/* Category + Status filters + Sort + Export (Artikel tab only) */}
         {tab === 'artikel' && (
@@ -1088,19 +1155,21 @@ export default function InventarPage() {
               triggerClassName="py-2"
             />
 
-            <button
-              onClick={handleExportItems}
-              disabled={filteredItems.length === 0}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('inventar.export.button')}</span>
-            </button>
+            {canExport && (
+              <button
+                onClick={handleExportItems}
+                disabled={filteredItems.length === 0}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('inventar.export.button')}</span>
+              </button>
+            )}
           </>
         )}
 
         {/* Movements export (Bewegungen tab) */}
-        {tab === 'bewegungen' && movementsItem && (movementsQuery.data?.movements?.length ?? 0) > 0 && (
+        {tab === 'bewegungen' && canExport && movementsItem && (movementsQuery.data?.movements?.length ?? 0) > 0 && (
           <button
             onClick={handleExportMovements}
             className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
@@ -1393,13 +1462,15 @@ export default function InventarPage() {
                 ? t('inventar.inventur.sessionCountPlural', { count: inventurSessions.length })
                 : t('inventar.inventur.sessionCount', { count: inventurSessions.length })}
             </p>
-            <button
-              onClick={() => setInventurDialogOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('inventar.inventur.newSession')}
-            </button>
+            {canCreateInventur && (
+              <button
+                onClick={() => setInventurDialogOpen(true)}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('inventar.inventur.newSession')}
+              </button>
+            )}
           </div>
 
           {inventurSessions.length === 0 ? (

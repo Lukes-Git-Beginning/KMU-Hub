@@ -12,6 +12,7 @@
  * MachineDetailModal    — machine status (editable) + its bookings.
  */
 import { useMemo, useState } from 'react'
+import { useHasCapability } from '@/hooks/useCapability'
 import { useTranslation } from 'react-i18next'
 import {
   Package,
@@ -132,6 +133,16 @@ export function OrderDetailModal({
 
   const requireQc = useProduktionTenantStore((s) => s.requireQcBeforeComplete)
   const scrapWarnThreshold = useProduktionTenantStore((s) => s.scrapWarnThreshold)
+
+  // RBAC R-3 — all checks before any early returns
+  const canOrderStart = useHasCapability('produktion:order:start')
+  const canOrderComplete = useHasCapability('produktion:order:complete')
+  const canOrderEdit = useHasCapability('produktion:order:edit')
+  const canOrderCancel = useHasCapability('produktion:order:cancel')
+  const canOrderDelete = useHasCapability('produktion:order:delete')
+  const canQualityCreate = useHasCapability('produktion:quality:create')
+  const canWorkstepEdit = useHasCapability('produktion:workstep:edit')
+  const canExport = useHasCapability('produktion:export:run')
 
   const [confirmAction, setConfirmAction] = useState<'cancel' | 'delete' | null>(null)
   const [editing, setEditing] = useState(false)
@@ -295,7 +306,7 @@ export function OrderDetailModal({
             </div>
           ) : (
             <>
-              {order.status === 'planned' && (
+              {order.status === 'planned' && canOrderStart && (
                 <button
                   onClick={handleStart}
                   disabled={mutating}
@@ -305,7 +316,7 @@ export function OrderDetailModal({
                   {t('produktion.action.starten')}
                 </button>
               )}
-              {order.status === 'in_progress' && (
+              {order.status === 'in_progress' && canOrderComplete && (
                 <button
                   onClick={handleComplete}
                   disabled={mutating || completeBlocked}
@@ -316,32 +327,34 @@ export function OrderDetailModal({
                   {t('produktion.action.abschliessen')}
                 </button>
               )}
-              {isActive && (
-                <>
-                  <button
-                    onClick={onAddQualityCheck}
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {t('produktion.action.qualitaetspruefung')}
-                  </button>
-                  <button
-                    onClick={() => setEditing((v) => !v)}
-                    className={`flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs transition-colors ${editing ? 'bg-secondary text-foreground' : 'text-foreground hover:bg-secondary'}`}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    {t('produktion.action.bearbeiten')}
-                  </button>
-                </>
+              {isActive && canQualityCreate && (
+                <button
+                  onClick={onAddQualityCheck}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {t('produktion.action.qualitaetspruefung')}
+                </button>
               )}
-              <button
-                onClick={handleExportPdf}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                {t('produktion.action.pdfLaufkarte')}
-              </button>
-              {isActive && (
+              {isActive && canOrderEdit && (
+                <button
+                  onClick={() => setEditing((v) => !v)}
+                  className={`flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs transition-colors ${editing ? 'bg-secondary text-foreground' : 'text-foreground hover:bg-secondary'}`}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  {t('produktion.action.bearbeiten')}
+                </button>
+              )}
+              {canExport && (
+                <button
+                  onClick={handleExportPdf}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  {t('produktion.action.pdfLaufkarte')}
+                </button>
+              )}
+              {isActive && canOrderCancel && (
                 <button
                   onClick={() => setConfirmAction('cancel')}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-error hover:bg-error-light transition-colors ml-auto"
@@ -350,7 +363,7 @@ export function OrderDetailModal({
                   {t('produktion.action.stornieren')}
                 </button>
               )}
-              {order.status === 'planned' && (
+              {order.status === 'planned' && canOrderDelete && (
                 <button
                   onClick={() => setConfirmAction('delete')}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-error hover:bg-error-light transition-colors"
@@ -524,7 +537,7 @@ export function OrderDetailModal({
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${workStepStatusColors[step.status]}`}>{t(workStepStatusLabelKeys[step.status])}</span>
-                      {order.status === 'in_progress' && step.status === 'pending' && (
+                      {order.status === 'in_progress' && step.status === 'pending' && canWorkstepEdit && (
                         <button
                           onClick={() => handleStepAdvance(step)}
                           disabled={updateWorkStep.isPending}
@@ -535,7 +548,7 @@ export function OrderDetailModal({
                           <Play className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      {order.status === 'in_progress' && step.status === 'in_progress' && (
+                      {order.status === 'in_progress' && step.status === 'in_progress' && canWorkstepEdit && (
                         <button
                           onClick={() => handleStepAdvance(step)}
                           disabled={updateWorkStep.isPending}
@@ -744,6 +757,8 @@ export function BomDetailModal({
 }) {
   const { t } = useTranslation()
   const updateBOM = useUpdateBOM()
+  const canBomEdit = useHasCapability('produktion:bom:edit')
+  const canExportBom = useHasCapability('produktion:export:run')
   const usedByOrders = orders.filter((o) => o.bom_id === bom.id)
   const sortedItems = [...bom.items].sort((a, b) => a.sort_order - b.sort_order)
 
@@ -780,23 +795,29 @@ export function BomDetailModal({
         )
       }
       footer={
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleToggleActive}
-            disabled={updateBOM.isPending}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-60"
-          >
-            {bom.active ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-            {bom.active ? t('produktion.bomDetail.deactivate') : t('produktion.bomDetail.activate')}
-          </button>
-          <button
-            onClick={handleExportCsv}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" />
-            {t('produktion.bomDetail.exportCsv')}
-          </button>
-        </div>
+        (canBomEdit || canExportBom) ? (
+          <div className="flex flex-wrap gap-2">
+            {canBomEdit && (
+              <button
+                onClick={handleToggleActive}
+                disabled={updateBOM.isPending}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-60"
+              >
+                {bom.active ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                {bom.active ? t('produktion.bomDetail.deactivate') : t('produktion.bomDetail.activate')}
+              </button>
+            )}
+            {canExportBom && (
+              <button
+                onClick={handleExportCsv}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {t('produktion.bomDetail.exportCsv')}
+              </button>
+            )}
+          </div>
+        ) : undefined
       }
     >
       <div className="space-y-5">
@@ -979,6 +1000,7 @@ export function MachineDetailModal({
 }) {
   const { t } = useTranslation()
   const updateMachine = useUpdateMachine()
+  const canMachineManage = useHasCapability('produktion:machine:manage')
   const machineBookings = bookings
     .filter((b) => b.machine_id === machine.id)
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
@@ -1020,16 +1042,23 @@ export function MachineDetailModal({
 
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('produktion.machineDetail.status')}</h4>
-          <Select value={machine.status} onValueChange={(v) => handleStatusChange(v as MachineStatus)}>
-            <SelectTrigger className="w-56" disabled={updateMachine.isPending}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(['available', 'in_use', 'maintenance'] as const).map((s) => (
-                <SelectItem key={s} value={s}>{t(machineStatusLabelKeys[s])}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {canMachineManage ? (
+            <Select value={machine.status} onValueChange={(v) => handleStatusChange(v as MachineStatus)}>
+              <SelectTrigger className="w-56" disabled={updateMachine.isPending}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(['available', 'in_use', 'maintenance'] as const).map((s) => (
+                  <SelectItem key={s} value={s}>{t(machineStatusLabelKeys[s])}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[10px] font-medium text-foreground w-fit">
+              <span className={`h-2 w-2 rounded-full ${machineStatusDots[machine.status]}`} />
+              {t(machineStatusLabelKeys[machine.status])}
+            </span>
+          )}
         </section>
 
         <section>

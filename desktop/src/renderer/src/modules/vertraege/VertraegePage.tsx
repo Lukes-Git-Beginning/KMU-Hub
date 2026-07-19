@@ -57,6 +57,8 @@ import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
 import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
 import { currentUserName } from '@/stores/auth'
 import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { useContractExpiryNotifications } from './useContractReminders'
 import { FilePreviewModal } from '@/modules/dokumente/FilePreviewModal'
@@ -1160,9 +1162,11 @@ function StatCard({
 function TemplateCard({
   template,
   onUse,
+  showUseButton = true,
 }: {
   template: ContractTemplate
   onUse: () => void
+  showUseButton?: boolean
 }) {
   const { t } = useTranslation()
   const typeConf = contractTypeConfig[template.type]
@@ -1206,13 +1210,15 @@ function TemplateCard({
           </span>
         )}
       </div>
-      <button
-        onClick={onUse}
-        className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary-light px-3 py-2 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        {t('vertraege.template.buttonUse')}
-      </button>
+      {showUseButton && (
+        <button
+          onClick={onUse}
+          className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary-light px-3 py-2 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t('vertraege.template.buttonUse')}
+        </button>
+      )}
     </div>
   )
 }
@@ -1262,6 +1268,14 @@ export default function VertraegePage() {
 
   // Fristen-Reminder beim Mount in den Notification-Store synchronisieren (idempotent).
   useContractExpiryNotifications()
+
+  // RBAC R-3 capability checks (default hidden per gating convention)
+  const { ready: capReady } = useCapabilitySet()
+  const canReadContracts = useHasCapability('vertraege:contract:read')
+  const canCreateContract = useHasCapability('vertraege:contract:create')
+  const canEditContract = useHasCapability('vertraege:contract:edit')
+  const canDeleteContract = useHasCapability('vertraege:contract:delete')
+  const canTerminateContract = useHasCapability('vertraege:contract:terminate')
 
   // Personal prefs (settings panel): default tab on open + table density.
   const defaultTab = useVertraegePrefsStore((s) => s.defaultTab)
@@ -1365,6 +1379,27 @@ export default function VertraegePage() {
     })
   }, [baseContracts, typeFilter, search])
 
+  // RBAC: moduleEmpty gate — alle Tabs hängen an contract:read
+  if (capReady && !canReadContracts) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('vertraege.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={FileSignature}
+          moduleId="verträge"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="vertraege" />}
+        />
+        <EmptyState
+          icon={FileSignature}
+          title={t('rbac.gate.moduleEmpty')}
+          description={t('rbac.gate.noPermission')}
+        />
+      </div>
+    )
+  }
+
   // ── Actions ──
 
   const openContractDialog = (contract?: Contract) => {
@@ -1414,10 +1449,15 @@ export default function VertraegePage() {
 
   const getContractActions = (contract: Contract) => [
     { label: t('vertraege.actions.showDetails'), icon: Eye, onClick: () => setSelectedContractId(contract.id) },
-    { label: t('common.edit'), icon: Edit, onClick: () => openContractDialog(contract) },    ...(contract.status === 'active' || contract.status === 'expiring'
+    ...(canEditContract
+      ? [{ label: t('common.edit'), icon: Edit, onClick: () => openContractDialog(contract) }]
+      : []),
+    ...(canTerminateContract && (contract.status === 'active' || contract.status === 'expiring')
       ? [{ label: t('vertraege.actions.terminate'), icon: Ban, onClick: () => openTerminationDialog(contract), separator: true }]
       : []),
-    { separator: true, label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(contract) },
+    ...(canDeleteContract
+      ? [{ separator: true, label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(contract) }]
+      : []),
   ]
 
   const handleDelete = async (contract: Contract) => {
@@ -1450,13 +1490,18 @@ export default function VertraegePage() {
         moduleId="verträge"
         className="mb-6"
         actions={
-          <button
-            onClick={() => openContractDialog()}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t('vertraege.page.buttonNew')}
-          </button>
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="vertraege" />
+            {canCreateContract && (
+              <button
+                onClick={() => openContractDialog()}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('vertraege.page.buttonNew')}
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -1527,6 +1572,7 @@ export default function VertraegePage() {
                 key={template.id}
                 template={template}
                 onUse={() => openFromTemplate(template)}
+                showUseButton={canCreateContract}
               />
             ))}
           </div>
@@ -1696,14 +1742,17 @@ export default function VertraegePage() {
         }
         maxWidth="max-w-3xl"
         footer={
-          selectedContract ? (
+          selectedContract && (canEditContract || canTerminateContract) ? (
             <div className="flex gap-2">
-              <button
-                onClick={() => openContractDialog(selectedContract)}
-                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                {t('vertraege.detail.buttonEdit')}
-              </button>              {(selectedContract.status === 'active' || selectedContract.status === 'expiring') && (
+              {canEditContract && (
+                <button
+                  onClick={() => openContractDialog(selectedContract)}
+                  className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  {t('vertraege.detail.buttonEdit')}
+                </button>
+              )}
+              {canTerminateContract && (selectedContract.status === 'active' || selectedContract.status === 'expiring') && (
                 <button
                   onClick={() => openTerminationDialog(selectedContract)}
                   className="flex-1 rounded-lg bg-destructive px-3 py-2 text-sm text-white hover:bg-destructive/90 transition-colors"

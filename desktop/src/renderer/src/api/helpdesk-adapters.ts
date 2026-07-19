@@ -10,6 +10,7 @@ import type {
   TicketStatus,
   TicketPriority,
 } from './helpdesk-types'
+import { displayUserName } from '@/mocks/data/shared-ids'
 
 // ---------------------------------------------------------------------------
 // Display types (UI-facing, compatible with existing store type shapes)
@@ -24,6 +25,10 @@ export type DisplayTicket = {
   priority: 'low' | 'medium' | 'high' | 'critical'
   assignedTo: string
   contactName: string
+  /** Raw wire ids for ownership checks (RBAC scope=own); display uses the
+   *  resolved names above. Legacy seeds may carry free-text names here. */
+  assigneeId: string | null
+  requesterId: string
   queueId?: string
   slaDueAt: string
   slaOverdue: boolean
@@ -127,8 +132,10 @@ export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
     description: '',
     status: wireStatusToDisplay(t.status),
     priority: wirePriorityToDisplay(t.priority),
-    assignedTo: t.assignee_id ?? '',
-    contactName: t.requester_id,
+    assignedTo: displayUserName(t.assignee_id),
+    contactName: displayUserName(t.requester_id),
+    assigneeId: t.assignee_id,
+    requesterId: t.requester_id,
     queueId: t.queue_id ?? undefined,
     slaDueAt: t.due_at ?? new Date(Date.now() + 8 * 3600000).toISOString(),
     slaOverdue,

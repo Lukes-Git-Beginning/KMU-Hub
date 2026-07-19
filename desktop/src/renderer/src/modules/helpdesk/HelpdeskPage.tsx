@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -67,6 +67,9 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
+import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
+import { useAuthStore } from '@/stores/auth'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
 import { sanitizeHtml } from '@/lib/sanitize'
@@ -188,6 +191,13 @@ export default function HelpdeskPage() {
     closed: t('helpdesk.status.closed'),
   }
 
+  // RBAC R-3 capability checks (default hidden per gating convention)
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const ticketRead = useCapability('helpdesk:ticket:read')
+  const canCreateTicket = useHasCapability('helpdesk:ticket:create')
+  const canManageCanned = useHasCapability('helpdesk:canned:manage')
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
+
   // Tab & filters — seeded from personal prefs (H-6)
   const startTab = useHelpdeskPrefsStore((s) => s.startTab)
   const defaultStatusFilter = useHelpdeskPrefsStore((s) => s.defaultStatusFilter)
@@ -219,11 +229,35 @@ export default function HelpdeskPage() {
   // Dialogs (5.6) — business hours + routing now live in the settings panel (H-6)
   const [cannedResponsesOpen, setCannedResponsesOpen] = useState(false)
 
+  // RBAC tab gating — wissensdatenbank is always free (self-service KB)
+  const TAB_CAPABILITY: Record<TabKey, string | null> = {
+    tickets: 'helpdesk:ticket:read',
+    wissensdatenbank: null,
+    statistik: 'helpdesk:stats:view',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || TAB_CAPABILITY[key] === null || capHas(TAB_CAPABILITY[key] as string),
+  )
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
+
   // Computed
-  const openTickets = tickets.filter((t) => t.status !== 'closed' && t.status !== 'resolved')
+  // Requester-Modell: ticket:read scope=own → nur eigene Tickets sehen
+  const baseTickets = useMemo(() => {
+    if (ticketRead.allowed && ticketRead.scope === 'own') {
+      return tickets.filter(
+        (t) => t.requesterId === currentUserId || t.assigneeId === currentUserId,
+      )
+    }
+    return tickets
+  }, [tickets, ticketRead.allowed, ticketRead.scope, currentUserId])
+
+  const openTickets = baseTickets.filter((t) => t.status !== 'closed' && t.status !== 'resolved')
 
   const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
+    return baseTickets.filter((t) => {
       if (statusFilter !== 'all' && t.status !== statusFilter) return false
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
       if (categoryFilter !== 'all' && t.category !== categoryFilter) return false
@@ -238,7 +272,7 @@ export default function HelpdeskPage() {
       }
       return true
     })
-  }, [tickets, statusFilter, priorityFilter, categoryFilter, search])
+  }, [baseTickets, statusFilter, priorityFilter, categoryFilter, search])
 
   const sortedTickets = useMemo(() => {
     const arr = [...filteredTickets]
@@ -344,20 +378,25 @@ export default function HelpdeskPage() {
         moduleId="helpdesk"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCannedResponsesOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t('helpdesk.header.cannedResponses')}</span>
-            </button>
-            <button
-              onClick={handleOpenNewTicket}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t('helpdesk.header.newTicket')}
-            </button>
+            <RestrictedModeBadge module="helpdesk" />
+            {canManageCanned && (
+              <button
+                onClick={() => setCannedResponsesOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{t('helpdesk.header.cannedResponses')}</span>
+              </button>
+            )}
+            {canCreateTicket && (
+              <button
+                onClick={handleOpenNewTicket}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('helpdesk.header.newTicket')}
+              </button>
+            )}
           </div>
         }
         className="mb-6"
@@ -369,7 +408,7 @@ export default function HelpdeskPage() {
           { key: 'tickets' as const, label: t('helpdesk.tabs.tickets', { count: openTickets.length }) },
           { key: 'wissensdatenbank' as const, label: t('helpdesk.tabs.knowledgeBase') },
           { key: 'statistik' as const, label: t('helpdesk.tabs.statistics') },
-        ]).map((t) => (
+        ]).filter((item) => !capReady || visibleTabs.includes(item.key)).map((t) => (
           <button
             key={t.key}
             onClick={() => { setTab(t.key); setSelectedTicketId(null); setSelectedArticleId(null) }}
@@ -532,7 +571,7 @@ export default function HelpdeskPage() {
                 illustration={<EmptyHelpdesk />}
                 title={t('helpdesk.empty.noTickets')}
                 description={hasActiveFilters || search ? t('helpdesk.empty.adjustFilters') : t('helpdesk.empty.createTicket')}
-                action={!hasActiveFilters && !search ? { label: t('helpdesk.empty.createFirstTicket'), onClick: handleOpenNewTicket } : undefined}
+                action={!hasActiveFilters && !search && canCreateTicket ? { label: t('helpdesk.empty.createFirstTicket'), onClick: handleOpenNewTicket } : undefined}
               />
             )}
           </div>
@@ -778,6 +817,12 @@ function TicketDetailPanel({
   mergeTicketsMut: ReturnType<typeof useMergeTickets>
 }) {
   const { t } = useTranslation()
+
+  // RBAC R-3: agent-action gating — ticket:edit scope=own → only when assigned to me
+  const canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)
+  const canReplyPanel = useHasCapability('helpdesk:ticket:reply')
+  const canEditInternal = useHasCapability('helpdesk:ticket:edit')
+
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [aiSuggestionLoading, setAISuggestionLoading] = useState(false)
   const aiHelpdeskEnabled = useAIStore((s) => s.isModuleEnabled('helpdesk'))
@@ -860,7 +905,8 @@ function TicketDetailPanel({
     </div>
   )
 
-  const footer = (
+  // Reply footer — nur wenn ticket:reply gewährt; Interner-Notizen-Toggle zusätzlich ticket:edit
+  const footer = canReplyPanel ? (
     <div>
       {/* Internal note banner (5.7) */}
       {showInternalNotes && (
@@ -871,9 +917,11 @@ function TicketDetailPanel({
 
       <div className="flex items-center gap-2 mb-2">
         <button onClick={() => onToggleInternal(false)} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${!showInternalNotes ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>{t('helpdesk.ticket.reply')}</button>
-        <button onClick={() => onToggleInternal(true)} className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs transition-colors ${showInternalNotes ? 'bg-warning-light text-warning font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
-          <Lock className="h-3 w-3" />{t('helpdesk.ticket.internalNote')}{internalNoteCount > 0 && ` (${internalNoteCount})`}
-        </button>
+        {canEditInternal && (
+          <button onClick={() => onToggleInternal(true)} className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs transition-colors ${showInternalNotes ? 'bg-warning-light text-warning font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
+            <Lock className="h-3 w-3" />{t('helpdesk.ticket.internalNote')}{internalNoteCount > 0 && ` (${internalNoteCount})`}
+          </button>
+        )}
         <div className="flex-1" />
         {aiHelpdeskEnabled && (
           <button
@@ -906,7 +954,7 @@ function TicketDetailPanel({
         </button>
       </div>
     </div>
-  )
+  ) : undefined
 
   return (
     <DetailModal
@@ -995,76 +1043,80 @@ function TicketDetailPanel({
           </div>
         </div>
 
-        {/* Agent actions (H-4): assign / escalate / merge */}
-        <div className="rounded-lg border border-border bg-secondary/20 p-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('helpdesk.ticket.actions')}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Assign */}
-            <div className="relative">
-              <select
-                aria-label={t('helpdesk.ticket.assign')}
-                value={ticket.assignedTo}
-                onChange={(e) => handleAssign(e.target.value)}
-                className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
-              >
-                {!HELPDESK_AGENTS.includes(ticket.assignedTo as (typeof HELPDESK_AGENTS)[number]) && (
-                  <option value={ticket.assignedTo}>{ticket.assignedTo}</option>
-                )}
-                {HELPDESK_AGENTS.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <UserPlus className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            </div>
+        {/* Agent actions (H-4): assign / escalate / merge — only for ticket:edit-capable users */}
+        {canEditTicket && (
+          <>
+            <div className="rounded-lg border border-border bg-secondary/20 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('helpdesk.ticket.actions')}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Assign */}
+                <div className="relative">
+                  <select
+                    aria-label={t('helpdesk.ticket.assign')}
+                    value={ticket.assignedTo}
+                    onChange={(e) => handleAssign(e.target.value)}
+                    className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
+                  >
+                    {!HELPDESK_AGENTS.includes(ticket.assignedTo as (typeof HELPDESK_AGENTS)[number]) && (
+                      <option value={ticket.assignedTo}>{ticket.assignedTo}</option>
+                    )}
+                    {HELPDESK_AGENTS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                  <UserPlus className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                </div>
 
-            {/* Escalate */}
-            <button
-              onClick={handleEscalate}
-              disabled={ticket.priority === 'critical'}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ArrowUp className="h-3.5 w-3.5" />{t('helpdesk.ticket.escalate')}
-            </button>
+                {/* Escalate */}
+                <button
+                  onClick={handleEscalate}
+                  disabled={ticket.priority === 'critical'}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />{t('helpdesk.ticket.escalate')}
+                </button>
 
-            {/* Merge */}
-            <div className="relative">
-              <select
-                aria-label={t('helpdesk.ticket.mergeInto')}
-                value=""
-                disabled={mergeTargets.length === 0}
-                onChange={(e) => { if (e.target.value) handleMerge(e.target.value) }}
-                className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <option value="">{mergeTargets.length === 0 ? t('helpdesk.ticket.mergeNoTarget') : t('helpdesk.ticket.mergeInto')}</option>
-                {mergeTargets.map((tk) => <option key={tk.id} value={tk.id}>{tk.ticketNr} — {tk.subject}</option>)}
-              </select>
-              <GitMerge className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            </div>
-          </div>
-        </div>
-
-        {/* Status change */}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('helpdesk.ticket.changeStatus')}</p>
-          <div className="relative">
-            <button onClick={() => setStatusDropdownOpen(!statusDropdownOpen)} className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
-              <span className="flex items-center gap-2">
-                <span className={`inline-block h-2 w-2 rounded-full ${statusColors[ticket.status].split(' ')[0]}`} />
-                {statusLabels[ticket.status]}
-              </span>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </button>
-            {statusDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-border bg-card py-1 shadow-lg">
-                {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => (
-                  <button key={s} onClick={() => { onStatusChange(s); setStatusDropdownOpen(false) }} className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-secondary ${ticket.status === s ? 'text-primary font-medium' : 'text-foreground'}`}>
-                    <span className={`inline-block h-2 w-2 rounded-full ${statusColors[s].split(' ')[0]}`} />{statusLabels[s]}
-                  </button>
-                ))}
+                {/* Merge */}
+                <div className="relative">
+                  <select
+                    aria-label={t('helpdesk.ticket.mergeInto')}
+                    value=""
+                    disabled={mergeTargets.length === 0}
+                    onChange={(e) => { if (e.target.value) handleMerge(e.target.value) }}
+                    className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <option value="">{mergeTargets.length === 0 ? t('helpdesk.ticket.mergeNoTarget') : t('helpdesk.ticket.mergeInto')}</option>
+                    {mergeTargets.map((tk) => <option key={tk.id} value={tk.id}>{tk.ticketNr} — {tk.subject}</option>)}
+                  </select>
+                  <GitMerge className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+
+            {/* Status change */}
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('helpdesk.ticket.changeStatus')}</p>
+              <div className="relative">
+                <button onClick={() => setStatusDropdownOpen(!statusDropdownOpen)} className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
+                  <span className="flex items-center gap-2">
+                    <span className={`inline-block h-2 w-2 rounded-full ${statusColors[ticket.status].split(' ')[0]}`} />
+                    {statusLabels[ticket.status]}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </button>
+                {statusDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-border bg-card py-1 shadow-lg">
+                    {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => (
+                      <button key={s} onClick={() => { onStatusChange(s); setStatusDropdownOpen(false) }} className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-secondary ${ticket.status === s ? 'text-primary font-medium' : 'text-foreground'}`}>
+                        <span className={`inline-block h-2 w-2 rounded-full ${statusColors[s].split(' ')[0]}`} />{statusLabels[s]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="border-t border-border" />
 
@@ -1111,8 +1163,11 @@ function TicketDetailPanel({
 
 function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () => void }) {
   const { t } = useTranslation()
+  const canManageKbArticle = useHasCapability('helpdesk:kb:manage')
   const updateKBArticle = useUpdateKBArticle()
   const fallback = article.content || KB_BODIES[article.id] || t('helpdesk.kb.noContent')
+  // Saved rich-text body (HTML from the editor); fallback covers seed articles.
+  const savedBody = article.content
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(
     () => fallback.split('\n\n').map((p) => `<p>${p}</p>`).join(''),
@@ -1152,18 +1207,20 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {!editing ? (
-              <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
-                <Pencil className="h-3 w-3" />{t('common.edit')}
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
-                <button onClick={handleSaveBody} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
-              </div>
-            )}
-          </div>
+          {canManageKbArticle && (
+            <div className="flex items-center gap-2">
+              {!editing ? (
+                <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                  <Pencil className="h-3 w-3" />{t('common.edit')}
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+                  <button onClick={handleSaveBody} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="border-t border-border mb-4" />

@@ -56,6 +56,21 @@ const FINANCE_ALL = catalogCapabilityKeys('finance')
 const TEAM_HR_ALL = catalogCapabilityKeys('team')
 const WIKI_ALL = catalogCapabilityKeys('wiki')
 
+// R-3 batch 3: industry modules (inventar/einkauf/produktion/vertraege/helpdesk)
+const INVENTAR_ALL = catalogCapabilityKeys('inventar')
+const EINKAUF_ALL = catalogCapabilityKeys('einkauf')
+const PRODUKTION_ALL = catalogCapabilityKeys('produktion')
+const VERTRAEGE_ALL = catalogCapabilityKeys('vertraege')
+const HELPDESK_ALL = catalogCapabilityKeys('helpdesk')
+
+/** Read-level keys of the batch-3 modules (tab visibility for read-style roles). */
+const INDUSTRY_B3_READS = [
+  'inventar:item:read', 'inventar:location:read', 'inventar:movement:read', 'inventar:inventur:read',
+  'einkauf:po:read', 'einkauf:supplier:read', 'einkauf:catalog:read', 'einkauf:contract:read',
+  'produktion:order:read', 'produktion:bom:read', 'produktion:quality:read', 'produktion:machine:read',
+  'vertraege:contract:read',
+]
+
 const ADMIN_SECURITY_ALL = [
   ...catalogCapabilityKeys('settings'),
   ...catalogCapabilityKeys('admin'),
@@ -85,6 +100,8 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       view(MODULE_KEYS),
       keys(WORK_ALL), keys(DOCUMENTS_ALL), keys(CRM_ALL), keys(FINANCE_ALL),
       keys(TEAM_HR_ALL), keys(WIKI_ALL), keys(ADMIN_SECURITY_ALL),
+      keys(INVENTAR_ALL), keys(EINKAUF_ALL), keys(PRODUKTION_ALL),
+      keys(VERTRAEGE_ALL), keys(HELPDESK_ALL),
     ),
   },
   // IT-Admin — full technical control, NO HR data categories, no finance
@@ -106,6 +123,9 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'mail:settings:manage',
         'security:module:view', 'security:audit:read', 'security:policy:manage',
       ]),
+      // Industry modules: read-level insight; helpdesk is the IT domain → full.
+      keys(INDUSTRY_B3_READS),
+      keys(HELPDESK_ALL),
     ),
   },
   // HR-Admin — people management incl. protected data categories; assigns
@@ -146,6 +166,9 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'crm:contact:create', 'crm:contact:edit', 'crm:deal:edit', 'crm:deal:delete',
         'team:employee:read'], 'team'),
       keys(['wiki:article:edit'], 'own'),
+      // Industry batch 3: fully operative (approves POs, runs production, manages helpdesk).
+      keys(INVENTAR_ALL), keys(EINKAUF_ALL), keys(PRODUKTION_ALL),
+      keys(VERTRAEGE_ALL), keys(HELPDESK_ALL),
     ),
   },
   // Mitarbeiter — day-to-day work, own-scope editing, no management.
@@ -164,6 +187,21 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'settings:personal:manage']),
       keys(['work:task:edit', 'work:time:log', 'documents:file:edit', 'wiki:article:edit'], 'own'),
       keys(['crm:contact:create', 'crm:contact:edit'], 'team'),
+      // Industry batch 3: operative basics — records stock movements, counts
+      // stocktakes, drafts + receives POs, runs the shop floor (incl. the
+      // Laufkarte via export:run), raises + answers own helpdesk tickets.
+      keys([
+        'inventar:item:read', 'inventar:location:read', 'inventar:movement:read',
+        'inventar:movement:create', 'inventar:inventur:read', 'inventar:inventur:count',
+        'einkauf:po:read', 'einkauf:po:create', 'einkauf:po:receive',
+        'einkauf:supplier:read', 'einkauf:catalog:read', 'einkauf:contract:read',
+        'produktion:order:read', 'produktion:order:start', 'produktion:order:complete',
+        'produktion:workstep:edit', 'produktion:bom:read', 'produktion:quality:read',
+        'produktion:quality:create', 'produktion:machine:read', 'produktion:export:run',
+        'vertraege:contract:read',
+        'helpdesk:ticket:create', 'helpdesk:ticket:reply',
+      ]),
+      keys(['helpdesk:ticket:read'], 'own'),
     ),
   },
   // Nur-Lesen — audit/tax-advisor style visibility, zero mutations, no download.
@@ -178,6 +216,8 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'team:employee:read', 'team:absence:read',
         'finance:invoice:read', 'finance:quote:read', 'finance:amounts:view',
         'settings:personal:manage']),
+      // Industry batch 3: reads only (audit/tax-advisor sees, never changes).
+      keys([...INDUSTRY_B3_READS, 'helpdesk:ticket:read', 'helpdesk:stats:view']),
     ),
   },
   // Aushilfe/Extern — Dariens Referenzfall: sees assigned work and documents,
@@ -234,6 +274,14 @@ function seedCustomRoles(): void {
     grants: merge(ROLE_DEFS.extern.grants, {
       [moduleViewKey('inventar')]: 'all',
       'documents:file:download': 'all',
+      // Warehouse basics (R-3 batch 3: visibility alone would leave the
+      // module empty under default-deny — temps record movements + count).
+      'inventar:item:read': 'all',
+      'inventar:location:read': 'all',
+      'inventar:movement:read': 'all',
+      'inventar:movement:create': 'all',
+      'inventar:inventur:read': 'all',
+      'inventar:inventur:count': 'all',
     }),
   })
 }

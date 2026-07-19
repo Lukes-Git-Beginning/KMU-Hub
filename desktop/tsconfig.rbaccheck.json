@@ -126,6 +126,18 @@
     "src/renderer/src/modules/team/HRApprovalDialog.tsx",
     "src/renderer/src/modules/team/PayrollPrepPanel.tsx",
     "src/renderer/src/modules/team/PersonnelDocuments.tsx",
-    "src/renderer/src/modules/team/useTeamPermissions.ts"
+    "src/renderer/src/modules/team/useTeamPermissions.ts",
+    "src/renderer/src/api/helpdesk-adapters.ts",
+    "src/renderer/src/mocks/data/shared-ids.ts",
+    "src/renderer/src/mocks/handlers/helpdesk.ts",
+    "src/renderer/src/modules/einkauf/EinkaufPage.tsx",
+    "src/renderer/src/modules/einkauf/EinkaufDetailModals.tsx",
+    "src/renderer/src/modules/helpdesk/HelpdeskPage.tsx",
+    "src/renderer/src/modules/inventar/InventarPage.tsx",
+    "src/renderer/src/modules/inventar/ItemDetailModal.tsx",
+    "src/renderer/src/modules/inventar/LocationDetailModal.tsx",
+    "src/renderer/src/modules/produktion/ProduktionPage.tsx",
+    "src/renderer/src/modules/produktion/ProduktionDetailModals.tsx",
+    "src/renderer/src/modules/vertraege/VertraegePage.tsx"
   ]
 }

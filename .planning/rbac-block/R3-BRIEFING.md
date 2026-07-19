@@ -1,8 +1,20 @@
 # R-3 Enforcement-Sweep — Terminal-Briefing (erstellt Session #15, 2026-07-18)
 
-> **⚡⚡⚡ UPDATE Session #18 (2026-07-19): BATCH 2 GEBAUT (team-Aktionen · dashboard Ebene-2 · admin/security-Tabs) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #18. Nächstes Bau-Terminal: BATCH 3 (Arbeitspaket direkt hierunter). Konvention aus #16 gilt weiter, kein neues Gate.**
+> **⚡⚡⚡⚡ UPDATE Session #19 (2026-07-19): BATCH 3 GEBAUT (inventar · einkauf · produktion · vertraege · helpdesk) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #19. Nächstes Bau-Terminal: BATCH 4 (Arbeitspaket direkt hierunter). Konvention aus #16 gilt weiter, kein neues Gate.**
 
-## Batch-3-Arbeitspaket (für das nächste Bau-Terminal, Stand nach #18)
+## Batch-4-Arbeitspaket (für das nächste Bau-Terminal, Stand nach #19)
+
+**Scope: schichten · fuhrpark · vermietung · rapporte · dialer.** Danach Batch 5 = berichte · formulare · automatisierung + Standard-Rest (kommunikation/kalender/zeiterfassung/video/infrastructure/notifications — teils reicht Ebene 1 bzw. Mini-Katalog).
+
+**Gleiche Reihenfolge wie Batch 3 (Katalog dort LEER):** ① UI-Inventar via Explore-Agents → ② Katalog kuratieren (`config/capability-catalog.ts`) + ③ ROLE_DEFS-Grants nachziehen (admin ALLE! manager voll operativ, member Basics, readonly reads, extern nichts) + ④ i18n subject/action ×4 (ordnungserhaltendes Insert-Skript, Muster `scripts/i18n-rbac-r3b3.mjs`) → ⑤ gaten (Referenz-Implementierung: **`modules/inventar/InventarPage.tsx`** — Hooks-Block vor early returns, `TAB_CAPABILITY`+`visibleTabs`+Fallback-Effect, moduleEmpty-Early-Return mit PageHeader, RestrictedModeBadge im actions-Slot, konditionale ItemActions-Arrays; disabled+Tooltip-Ausnahme-Muster: `EinkaufDetailModals.tsx` OrderDetailModal „Senden").
+
+**⚠ BE-Seed-Abgleich Batch 4 (Subjekt-Namen übernehmen, nicht neu erfinden):** schichten 000095 + 000161 (`schichten:swap_request`!) · fuhrpark 000097 + 000196 (extended) · vermietung 000099 · rapporte 000093 + **000100 `rapporte:approve` existiert BE-seitig schon als feines Paar!** + 000164 · dialer 000068. In `backend/migrations/` nachsehen, gleiche resource-Namen verwenden.
+
+**Bekannte modul-spezifische Startpunkte:** rapporte: approve (BE-Key da!) vs. erstellen/eigene · schichten: Tausch-Anfragen (swap_request) vs. Plan verwalten · dialer: Kampagnen verwalten vs. selbst wählen, Outcomes erfassen · fuhrpark: Fahrzeuge verwalten vs. Fahrten buchen · vermietung: Buchungen vs. Katalog ansehen. Owner-Felder je Modul prüfen (scope-own-Kandidaten: rapporte-Ersteller, dialer-Agent, schichten-Mitarbeiter) — wo nur Freitext/null: NICHT stillschweigend all, als Gap notieren (Muster Batch 3).
+
+**QA:** Muster `scripts/qa-rbac-enforcement-b3.mjs` (admin-Regression je Modul + readonly-Chip + member-Rolle + extern-NoAccess + Bilder ansehen; Switcher NUR von `/#/settings`; Labels exakt aus de.json ziehen — „Statistik" ≠ „Statistiken").
+
+## Batch-3-Arbeitspaket — ✅ GEBAUT in Session #19 (Historie)
 
 **Scope: inventar · einkauf · produktion · vertraege · helpdesk** (Material-/Betriebs-Kette + die zwei Genehmigungs-/Vertrags-Module). Danach Batch 4 = schichten · fuhrpark · vermietung · rapporte · dialer, Batch 5 = berichte · formulare · automatisierung + Standard-Rest (kommunikation/kalender/zeiterfassung/video/infrastructure/notifications — teils reicht Ebene 1 bzw. Mini-Katalog).
 

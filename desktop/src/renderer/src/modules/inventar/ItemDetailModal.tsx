@@ -24,6 +24,7 @@ import {
   locationTypeIcons,
 } from './inventar-shared'
 import { buildMovementsCsv, downloadCsv, csvDateStamp } from './inventar-export'
+import { useHasCapability, useModuleVisible } from '@/hooks/useCapability'
 
 // ─── Stock Bar Visual ─────────────────────────────────────────────
 function StockBar({ current, min }: { current: number; min: number }) {
@@ -66,6 +67,7 @@ function ItemAttachmentsSection({ itemId }: { itemId: string }) {
   const uploadMut = useUploadItemAttachment()
   const deleteMut = useDeleteItemAttachment()
   const attachments = attachmentsQuery.data?.attachments ?? []
+  const canManageAttachments = useHasCapability('inventar:attachment:manage')
 
   const handleFile = (file: File | undefined) => {
     if (!file) return
@@ -90,15 +92,17 @@ function ItemAttachmentsSection({ itemId }: { itemId: string }) {
             e.target.value = ''
           }}
         />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploadMut.isPending}
-          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
-        >
-          <Paperclip className="h-3 w-3" />
-          {t('inventar.detail.attachmentAdd')}
-        </button>
+        {canManageAttachments && (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploadMut.isPending}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            <Paperclip className="h-3 w-3" />
+            {t('inventar.detail.attachmentAdd')}
+          </button>
+        )}
       </div>
       {attachments.length === 0 ? (
         <p className="text-xs text-muted-foreground py-2">{t('inventar.detail.attachmentsEmpty')}</p>
@@ -108,7 +112,7 @@ function ItemAttachmentsSection({ itemId }: { itemId: string }) {
             <ItemAttachmentRow
               key={att.id}
               attachment={att}
-              onRemove={() => deleteMut.mutate({ id: att.id, itemId })}
+              onRemove={canManageAttachments ? () => deleteMut.mutate({ id: att.id, itemId }) : undefined}
               removeLabel={t('inventar.detail.attachmentRemove')}
             />
           ))}
@@ -124,7 +128,8 @@ function ItemAttachmentRow({
   removeLabel,
 }: {
   attachment: ItemAttachment
-  onRemove: () => void
+  /** Absent when the role may not manage attachments (delete hidden). */
+  onRemove?: () => void
   removeLabel: string
 }) {
   const src = useAvatarSrc(attachment.object_key)
@@ -143,15 +148,17 @@ function ItemAttachmentRow({
       ) : (
         <span className="flex-1 min-w-0 truncate text-xs text-foreground">{attachment.name}</span>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={removeLabel}
-        title={removeLabel}
-        className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-error transition-colors"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={removeLabel}
+          title={removeLabel}
+          className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-error transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   )
 }
@@ -185,6 +192,13 @@ export function ItemDetailModal({
   const showMinStockWarnings = useInventarPrefsStore((s) => s.showMinStockWarnings)
   const movementsQuery = useInventarMovements(item?.id ?? '', { page: 1, page_size: 5 })
 
+  // RBAC: footer actions + export follow the page-level gating; the einkauf
+  // shortcuts only render when the role can see that module at all.
+  const canEditItem = useHasCapability('inventar:item:edit')
+  const canRecordMovement = useHasCapability('inventar:movement:create')
+  const canExport = useHasCapability('inventar:export:run')
+  const einkaufVisible = useModuleVisible('einkauf')
+
   const handleExportMovements = () => {
     if (!item) return
     const movements = movementsQuery.data?.movements ?? []
@@ -212,20 +226,24 @@ export function ItemDetailModal({
         ) : undefined
       }
       footer={
-        item ? (
+        item && (canEditItem || canRecordMovement) ? (
           <div className="flex gap-2">
-            <button
-              onClick={() => onEdit(item)}
-              className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              {t('common.edit')}
-            </button>
-            <button
-              onClick={() => onMovement(item)}
-              className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              {t('inventar.detail.buttonMovement')}
-            </button>
+            {canEditItem && (
+              <button
+                onClick={() => onEdit(item)}
+                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                {t('common.edit')}
+              </button>
+            )}
+            {canRecordMovement && (
+              <button
+                onClick={() => onMovement(item)}
+                className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                {t('inventar.detail.buttonMovement')}
+              </button>
+            )}
           </div>
         ) : undefined
       }
@@ -249,16 +267,18 @@ export function ItemDetailModal({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  onClose()
-                  navigate('/einkauf')
-                }}
-                className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                {t('inventar.detail.criticalBanner.button')}
-              </button>
+              {einkaufVisible && (
+                <button
+                  onClick={() => {
+                    onClose()
+                    navigate('/einkauf')
+                  }}
+                  className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  {t('inventar.detail.criticalBanner.button')}
+                </button>
+              )}
             </div>
           )}
 
@@ -371,16 +391,18 @@ export function ItemDetailModal({
                     <span className="font-mono font-medium">{item.linked_purchase_order}</span>
                   </span>
                 </div>
-                <button
-                  onClick={() => {
-                    onClose()
-                    navigate('/einkauf')
-                  }}
-                  className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  {t('inventar.detail.toOrder')}
-                </button>
+                {einkaufVisible && (
+                  <button
+                    onClick={() => {
+                      onClose()
+                      navigate('/einkauf')
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    {t('inventar.detail.toOrder')}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -418,7 +440,7 @@ export function ItemDetailModal({
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {t('inventar.detail.lastMovements')}
               </h4>
-              {(movementsQuery.data?.movements?.length ?? 0) > 0 && (
+              {canExport && (movementsQuery.data?.movements?.length ?? 0) > 0 && (
                 <button
                   type="button"
                   onClick={handleExportMovements}

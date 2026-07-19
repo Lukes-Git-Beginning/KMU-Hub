@@ -8,11 +8,17 @@ import type { TFunction } from 'i18next'
 import type { CapabilityScope, Role } from '@/api/rbac-types'
 import { roleLabelKey } from '@/config/roles'
 
-/** Human label for a capability key (`work:task:edit` → "Aufgaben — Bearbeiten"). */
+/** Human label for a capability key (`work:task:edit` → "Aufgaben — Bearbeiten").
+ *  Subjects resolve module-first (`rbac.subject.<module>_<subject>`) so shared
+ *  subject names can diverge per module (einkauf:contract = Rahmenverträge vs.
+ *  vertraege:contract = Verträge), falling back to the plain subject key. */
 export function capabilityLabel(t: TFunction, key: string): string {
-  const [, subject, action] = key.split(':')
+  const [module, subject, action] = key.split(':')
   if (subject === 'module' && action === 'view') return t('rbac.effective.moduleVisible')
-  return `${t(`rbac.subject.${subject}`, { defaultValue: subject })} — ${t(`rbac.action.${action}`, { defaultValue: action })}`
+  const subjectLabel = t(`rbac.subject.${module}_${subject}`, {
+    defaultValue: t(`rbac.subject.${subject}`, { defaultValue: subject }),
+  })
+  return `${subjectLabel} — ${t(`rbac.action.${action}`, { defaultValue: action })}`
 }
 
 /** Module display name. */

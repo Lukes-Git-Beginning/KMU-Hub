@@ -40,6 +40,12 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { formatCurrency, formatDate } from '@/lib/format'
 import type { PurchaseOrder, Supplier, RatingCategory } from '@/api/einkauf-types'
 import {
@@ -49,6 +55,7 @@ import {
   useSubmitPO,
 } from '@/api/hooks/useEinkauf'
 import { useEinkaufTenantStore } from '@/stores/einkaufTenant'
+import { useHasCapability } from '@/hooks/useCapability'
 import {
   orderStatusLabels,
   orderStatusColors,
@@ -167,6 +174,14 @@ export function OrderDetailModal({
   const approvalThreshold = useEinkaufTenantStore((s) => s.approvalThreshold)
   const submitPOMutation = useSubmitPO()
 
+  // RBAC R-3 capability checks
+  const canSendPO = useHasCapability('einkauf:po:send')
+  const canReceivePO = useHasCapability('einkauf:po:receive')
+  const canEditPO = useHasCapability('einkauf:po:edit')
+  const canExportPO = useHasCapability('einkauf:export:run')
+  const canCancelPO = useHasCapability('einkauf:po:cancel')
+  const canApprovePO = useHasCapability('einkauf:po:approve')
+
   // The list query carries no lines — fetch them for the open order.
   const { data: linesData } = usePOLines(order?.id ?? '')
   const lines = linesData?.lines ?? []
@@ -223,52 +238,82 @@ export function OrderDetailModal({
       subtitle={supplier?.name ?? order?.supplier_id}
       badge={order ? <OrderStatusBadge status={order.status} /> : undefined}
       footer={
-        order ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {draft && (
-              <button
-                onClick={() => handleSubmit(false)}
-                disabled={submitPOMutation.isPending}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" />
-                {t('einkauf.action.submit')}
-              </button>
-            )}
-            {receivable && (
-              <button
-                onClick={() => onBookReceipt(order)}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-              >
-                <PackageCheck className="h-4 w-4" />
-                {t('einkauf.action.bookReceipt')}
-              </button>
-            )}
-            <button
-              onClick={() => onEdit(order)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              {t('einkauf.action.edit')}
-            </button>
-            <button
-              onClick={handleExportPdf}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <FileDown className="h-3.5 w-3.5" />
-              {t('einkauf.action.exportPdf')}
-            </button>
-            {cancellable && (
-              <button
-                onClick={() => onCancel(order)}
-                className="ml-auto flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-error hover:bg-error-light transition-colors"
-              >
-                <Ban className="h-3.5 w-3.5" />
-                {t('einkauf.action.cancel')}
-              </button>
-            )}
-          </div>
-        ) : undefined
+        order && (() => {
+          const footerItems = [
+            draft,           // Senden (immer sichtbar wenn draft, ggf. disabled)
+            receivable && canReceivePO,
+            canEditPO,
+            canExportPO,
+            cancellable && canCancelPO,
+          ]
+          const hasAny = draft || footerItems.some(Boolean)
+          if (!hasAny) return undefined
+          return (
+            <TooltipProvider>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Senden → AUSNAHME einkauf:po:send: sichtbar bei Draft, disabled ohne Recht */}
+                {draft && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex" tabIndex={0}>
+                        <button
+                          onClick={() => {
+                            if (!canSendPO) return
+                            handleSubmit(false)
+                          }}
+                          disabled={submitPOMutation.isPending || !canSendPO}
+                          className={`flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50${!canSendPO ? ' pointer-events-none' : ''}`}
+                        >
+                          <Send className="h-4 w-4" />
+                          {t('einkauf.action.submit')}
+                        </button>
+                      </span>
+                    </TooltipTrigger>
+                    {!canSendPO && (
+                      <TooltipContent>{t('rbac.gate.sendDisabled')}</TooltipContent>
+                    )}
+                  </Tooltip>
+                )}
+                {receivable && canReceivePO && (
+                  <button
+                    onClick={() => onBookReceipt(order)}
+                    className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                  >
+                    <PackageCheck className="h-4 w-4" />
+                    {t('einkauf.action.bookReceipt')}
+                  </button>
+                )}
+                {canEditPO && (
+                  <button
+                    onClick={() => onEdit(order)}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {t('einkauf.action.edit')}
+                  </button>
+                )}
+                {canExportPO && (
+                  <button
+                    onClick={handleExportPdf}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <FileDown className="h-3.5 w-3.5" />
+                    {t('einkauf.action.exportPdf')}
+                  </button>
+                )}
+                {cancellable && canCancelPO && (
+                  <button
+                    onClick={() => onCancel(order)}
+                    className="ml-auto flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-error hover:bg-error-light transition-colors"
+                  >
+                    <Ban className="h-3.5 w-3.5" />
+                    {t('einkauf.action.cancel')}
+                  </button>
+                )}
+              </div>
+            </TooltipProvider>
+          )
+        })()
       }
     >
       {order && (
@@ -284,13 +329,15 @@ export function OrderDetailModal({
                   })}
                 </p>
               </div>
-              <button
-                onClick={() => handleSubmit(true)}
-                disabled={submitPOMutation.isPending}
-                className="shrink-0 rounded-lg bg-warning px-3 py-1.5 text-xs font-medium text-warning-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {t('einkauf.action.approve')}
-              </button>
+              {canApprovePO && (
+                <button
+                  onClick={() => handleSubmit(true)}
+                  disabled={submitPOMutation.isPending}
+                  className="shrink-0 rounded-lg bg-warning px-3 py-1.5 text-xs font-medium text-warning-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {t('einkauf.action.approve')}
+                </button>
+              )}
             </div>
           )}
 
@@ -498,6 +545,12 @@ export function SupplierDetailModal({
   onDeactivate,
 }: SupplierDetailModalProps) {
   const { t } = useTranslation()
+
+  // RBAC R-3 capability checks
+  const canEditSupplier = useHasCapability('einkauf:supplier:edit')
+  const canDeactivateSupplier = useHasCapability('einkauf:supplier:deactivate')
+  const canCreateRating = useHasCapability('einkauf:rating:create')
+
   const { data: ratingsData } = useSupplierRatings(supplier?.id ?? '')
   const ratings = ratingsData?.ratings ?? []
   const createRatingMutation = useCreateSupplierRating()
@@ -543,22 +596,26 @@ export function SupplierDetailModal({
       title={supplier?.name ?? ''}
       subtitle={supplier?.email}
       footer={
-        supplier ? (
+        supplier && (canEditSupplier || canDeactivateSupplier) ? (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onEdit(supplier)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              {t('einkauf.action.edit')}
-            </button>
-            <button
-              onClick={() => onDeactivate(supplier)}
-              className="ml-auto flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-error hover:bg-error-light transition-colors"
-            >
-              <Ban className="h-3.5 w-3.5" />
-              {t('einkauf.action.deactivate')}
-            </button>
+            {canEditSupplier && (
+              <button
+                onClick={() => onEdit(supplier)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {t('einkauf.action.edit')}
+              </button>
+            )}
+            {canDeactivateSupplier && (
+              <button
+                onClick={() => onDeactivate(supplier)}
+                className="ml-auto flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-error hover:bg-error-light transition-colors"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                {t('einkauf.action.deactivate')}
+              </button>
+            )}
           </div>
         ) : undefined
       }
@@ -611,7 +668,7 @@ export function SupplierDetailModal({
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {t('einkauf.detail.ratings')}
               </h4>
-              {!showRatingForm && (
+              {!showRatingForm && canCreateRating && (
                 <button
                   onClick={() => setShowRatingForm(true)}
                   className="text-xs text-primary hover:underline"
@@ -659,7 +716,7 @@ export function SupplierDetailModal({
               </div>
             )}
 
-            {showRatingForm && (
+            {showRatingForm && canCreateRating && (
               <div className="rounded-lg border border-border p-3 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
