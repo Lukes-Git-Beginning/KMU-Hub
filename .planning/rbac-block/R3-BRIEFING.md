@@ -1,8 +1,9 @@
 # R-3 Enforcement-Sweep — Terminal-Briefing (erstellt Session #15, 2026-07-18)
 
-> **⚡⚡⚡⚡⚡ UPDATE Session #20 (2026-07-19): BATCH 4 GEBAUT (schichten · fuhrpark · vermietung · rapporte · dialer) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #20. Nächstes Bau-Terminal: BATCH 5 = R-3-ABSCHLUSS (Arbeitspaket direkt hierunter). Konvention aus #16 gilt weiter, kein neues Gate.**
+> **✅✅✅ R-3 KOMPLETT (Session #21, 2026-07-19): BATCH 5 GEBAUT (berichte · formulare · automatisierung + Mini-Kataloge kommunikation/kalender/zeiterfassung/infrastructure; video + notifications bewusst Ebene-1-only) — alle 5 Batches durch, Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #21. Katalog ist damit für ALLE Module kuratiert oder bewusst leer.**
+> **NÄCHSTER SCHRITT: R-4 (HR-Datenkategorien-Tiefe, Personio-Recherche-Gate — Scope in KONZEPT §4)** → R-5 (Audit-Log-UI · Zentria-Setup-Zugang · 3 Branchen-Template-Sets, je Set mit Darien) → Sammel-Review (`hetzner-review-checklist.md`, Batch-1–5-Blöcke eingetragen). Dieses Briefing ist damit HISTORIE — R-4 bekommt ein eigenes Briefing/Paket.
 
-## Batch-5-Arbeitspaket (für das nächste Bau-Terminal, Stand nach #20 — LETZTER R-3-Batch)
+## Batch-5-Arbeitspaket — ✅ GEBAUT in Session #21 (Historie)
 
 **Scope: berichte · formulare · automatisierung + Standard-Rest-Sichtung (kommunikation/kalender/zeiterfassung/video/infrastructure/notifications).** Für die 3 Industry-Module gilt die volle Kuratierungs-Reihenfolge; für den Standard-Rest zuerst PRÜFEN, ob Ebene 1 (Modul-Sichtbarkeit) reicht — nur dort Mini-Kataloge anlegen, wo es echte Verwaltungs-Aktionen gibt (Kandidaten: kalender Booking-Pages/Meetings-Verwaltung, video Aufzeichnungen, kommunikation Kanal-Verwaltung, zeiterfassung Korrekturen/Freigaben — Inventar via Explore-Agents entscheidet).
 
