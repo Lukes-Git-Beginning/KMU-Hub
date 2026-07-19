@@ -1,4 +1,18 @@
-# RESUME — nächster Einstieg (Stand 2026-07-18, Session #15)
+# RESUME — nächster Einstieg (Stand 2026-07-19, Session #16)
+
+> **★★★★★ SESSION #16 (2026-07-19) — R-3 Recherche-Gate Batch 1 KOMPLETT, Bau-Freigabe erteilt. NEUES TERMINAL: HIER STARTEN (erst `git pull`). KEIN Code geändert — reine Planungs-Session.**
+>
+> 1. **Darien-Entscheid Einstieg:** R-1/R-2 ohne Review-Feedback freigegeben („Kein Feedback, direkt R-3") — das Review-Gate aus #15 ist damit ABGERÄUMT, O-0 (Onboarding) bleibt bis nach einem späteren RBAC-Review geparkt.
+> 2. **Recherche-Gate Batch 1 durchlaufen:** 3 parallele Web-Agents, 11 Produkte (Asana/monday/ClickUp · Confluence/Notion · Drive/SharePoint/Dropbox · Zoho/Pipedrive/HubSpot · lexoffice/sevdesk/Zoho Books). Kernbefund: Markt versteckt bei permanent fehlendem Recht fast ALLES (auch Erstellen/Bearbeiten — kein Produkt zeigt disabled-Delete); disabled+Tooltip nur für seltene delegierbare Aktionen; drittes Pattern „Wert sichtbar, Edit gesperrt" (monday/HubSpot); Read-only-Badge im Header (Asana/Google) statt Banner; Google-„You need access"-Seite = Marktlücke bei allen anderen.
+> 3. **4 gebündelte Fragen gestellt, ALLE 4 Empfehlungen von Darien bestätigt (verbindliche R-3-Konvention):** ① Markt-Hybrid: Default VERSTECKEN, Ausnahmen-Liste disabled+Tooltip (crm:import:run · finance:invoice:send/quote:send · documents:file:download) ② dezenter „Nur Ansicht"-Header-Chip (shared) wenn Rolle unter Vollzugriff ③ scope-own: Edit-Controls an fremden Objekten STILL verstecken (Objekt bleibt lesbar) ④ leichte shared „Kein Zugriff"-Seite an Modul-Routen statt Redirect.
+> 4. **Artefakte:** NEU `.planning/rbac-block/R3-RECHERCHE.md` (Synthese, 4 Entscheide, Umsetzungs-Regeln §3 fürs Bau-Terminal, Quellen) · `R3-BRIEFING.md` Kopf-Update (Gate erledigt, Konvention ersetzt §1.3). Katalog-Check: Batch-1-Module in `config/capability-catalog.ts` vollständig vor-kuratiert ✓.
+> 5. **Runs-Schätzung für Darien (gesamter RBAC-Block):** ~8–9 Bau-Runs verbleibend — R-3 ≈ 6–7 (Batch 1 Kern · Batch 2 team/dashboard-Ebene-2/settings · ~4–5 Branchen-Batches mit Katalog-Kuratierung) + R-4 (HR) 1 + R-5 (Audit/Zentria/Branchen-Sets) 1.
+> **★ NÄCHSTER SCHRITT: Bau-Terminal R-3 Batch 1 (work · documents · crm · finance · wiki) — DIREKT BAUEN, kein Gate mehr.** Reihenfolge: shared-Bausteine zuerst (RestrictedModeBadge + NoAccessView/Routen-Guard, R3-RECHERCHE §3.1), dann Modul für Modul laut `R3-BRIEFING.md` §1 (Arbeitsanweisung) + §4 (Stolpersteine: Drei-Stellen-Regel, loading=deny, QA zuerst als Vollzugriff). Gates wie immer: i18n ×4 · gescopter tsc (`tsconfig.rbaccheck.json` erweitern) · eslint --quiet · Screenshot-QA 2+ Rollen via Editor-Preview + Bilder ansehen · 1 Commit + Push pro Batch (Auto-Deploy scharf).
+>
+> ---
+> _(Historie #15 folgt)_
+
+# RESUME — Historie (Stand 2026-07-18, Session #15)
 
 > **★★★★★ SESSION #15 (2026-07-18) — RBAC-Block R-2 (Rollen-Baukasten) KOMPLETT. NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >
