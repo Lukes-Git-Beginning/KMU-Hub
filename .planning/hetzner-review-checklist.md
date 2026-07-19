@@ -25,6 +25,14 @@
   - Beträge-Maskierung `•••`: Rolle „Lager & Logistik" im Editor öffnen → Buchhaltung sichtbar + Rechnungen-Ansehen AN (amounts AUS lassen) → „Als Rolle anzeigen" → Buchhaltung: alle €-Werte als Punkte, Anzahl/Prozent normal.
   - Als **admin**: ALLES unverändert da (Regression).
   - ⚠ Bekannter Vorbestand (NICHT dieser Batch): Rechnungen-Liste zeigt 0,00 € je Zeile (Listen-API ohne Positionen) — separater Fix folgt.
+- [ ] **RBAC R-3 Batch 2 — team-Aktionen · dashboard Ebene-2 · Verwaltungs-Tabs** (Session #18). **Demo-Mode prüfen**, Werkzeuge wie Batch 1 (Editor-Preview + ProfileSwitcher). Achten auf:
+  - Als **Max (Extern)**: Dashboard zeigt NUR Projekt/Aufgaben/Dokumente-Karten, QuickActions nur „Neues Projekt/Dokument", keine Alert-Banner, kein Umsatz-Chart-Widget; Schnellaktionen-Widget ohne CRM-Buttons.
+  - Als **Sarah (Teamleiter)**: Team ohne „Mitarbeiter erstellen" + ohne Lohnvorbereitung-Tab, Anfragen-Tab MIT Genehmigen; Karten-Menü ohne „Deaktivieren"; Dashboard ohne Buchhaltungs-Karte.
+  - Als **Elena (Nur Lesen)**: fremdes Mitglieder-Profil = nur Übersicht-Tab mit Hinweis „Weitere Details sind für deine Rolle nicht sichtbar" (kein leeres weißes Modal, kein Dokumente-Tab).
+  - Als **Nina (HR-Admin)**: Verwaltung zeigt NUR Benutzer+Rollen (kein Lizenz/Branding/IT/Sicherheit/Abrechnung/Integrationen); Direkt-URL `/#/admin/license` springt auf Benutzer.
+  - Als **Thomas (IT-Admin)**: Verwaltung ohne Lizenz/Branding/Abrechnung; Sicherheit-Tab da, dort KEIN DSGVO/Auskunft-Sub-Tab (kein gdpr:execute); landet auf Audit-Log.
+  - Als **admin**: alle 8 Verwaltungs-Tabs + alle 10 Security-Sub-Tabs (Start = Audit-Log), Team-Payroll „Prüfen & freigeben" da (Regression).
+  - ⚠ Bekannte Nebenbefunde (NICHT dieser Batch): Benachrichtigungs-Widget zeigt extern CRM-Demo-Events (Seeds empfänger-agnostisch, → Luke-Paket) · Dashboard-Moduleinstellungen: 4 Widgets ohne Namens-Label (Vorbestand DashboardSettingsPanel).
 - [ ] **security / DSGVO** ✅ gemergt (`43fecf37`, S-1…S-5) — **Demo-Mode prüfbar** (reine FE/MSW-Arbeit). Hub `/admin/security` (10 Sub-Tabs). Achten auf: alle Seiten crashfrei, keine Raw-Keys (DE+EN), DSGVO-Flows durchklickbar — Audit (Filter/Export), DSAR Art.15 (Cross-Modul-Suche + Export), Export Art.15/20 (Genehmigen/Download + Frist), Erasure Art.17 (Preview/Execute + Legal-Hold-Hinweis), Retention (DACH-Fristen + Auto-Löschung-Toggle), Sessions (beenden), Vault, PW-Policy, IP-Access, 2FA. Sub-Bericht: `.planning/parallel-batch/qa-security.md`.
 - [ ] **zeiterfassung** (Main, echt-geschaltet) — siehe C.
 

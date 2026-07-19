@@ -9,7 +9,7 @@ import { Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Clock, Info } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 
 type Country = 'de' | 'at' | 'ch'
 
@@ -66,8 +66,7 @@ const RETENTION_DATA: Record<Country, RetentionEntry[]> = {
 
 export default function RetentionPolicyPage() {
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.roles.includes('admin')
+  const canManagePolicy = useHasCapability('security:policy:manage')
   const [country, setCountry] = useState<Country>('de')
   // Which categories have their automatic deletion rule paused (demo state).
   const [paused, setPaused] = useState<Set<string>>(new Set())
@@ -83,7 +82,7 @@ export default function RetentionPolicyPage() {
     })
   }, [])
 
-  if (!isAdmin) {
+  if (!canManagePolicy) {
     return <Navigate to="/" replace />
   }
 

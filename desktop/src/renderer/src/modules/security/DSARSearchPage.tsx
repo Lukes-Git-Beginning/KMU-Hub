@@ -25,7 +25,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 
 interface ModuleData {
@@ -97,8 +97,7 @@ function toPersonResult(p: BackendPerson): PersonResult {
 
 export default function DSARSearchPage() {
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.roles.includes('admin')
+  const canExecute = useHasCapability('security:gdpr:execute')
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
@@ -190,7 +189,7 @@ export default function DSARSearchPage() {
     toast.success(t('security.dsar.export.ready', { format, name: result.name }))
   }
 
-  if (!isAdmin) {
+  if (!canExecute) {
     return <Navigate to="/" replace />
   }
 

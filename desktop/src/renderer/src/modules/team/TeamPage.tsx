@@ -39,9 +39,9 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth'
 import { useCapabilitySet } from '@/hooks/useCapability'
 import { TEAM_TAB_CAPABILITY } from '@/config/capabilities'
+import { useTeamListCan } from './useTeamPermissions'
 import {
   useTeamStore,
   type Training,
@@ -174,12 +174,14 @@ export default function TeamPage() {
   const { data: employeesData, isLoading: employeesLoading } = useEmployees()
   const { data: pendingRequestsData } = useLeaveRequests({ status: 'pending' })
 
-  const user = useAuthStore((s) => s.user)
   // Personal pref: open at a fixed start tab (unless "last").
   const [tab, setTab] = useState<TabKey>(() => {
     const st = useTeamPrefsStore.getState().startTab
     return st !== 'last' ? (st as TabKey) : 'members'
   })
+  // RBAC: team list actions
+  const { canCreate, canDeactivate } = useTeamListCan()
+
   // If active tab gets restricted (role switch), fall back to 'members'
   const { has } = useCapabilitySet()
   const canSeeTab = (key: string) => {
@@ -286,14 +288,17 @@ export default function TeamPage() {
   const getEmployeeActions = (emp: EmployeeProfile): ActionItem[] => {
     const name = emp.userName ?? 'Unbekannt'
     const initials = getInitials(name)
+    const deactivateEntry: ActionItem[] = canDeactivate
+      ? (emp.status !== 'inactive'
+          ? [{ label: t('team.page.action.deactivate', { defaultValue: 'Deaktivieren' }), icon: UserX, onClick: () => setConfirmDeactivate(emp), variant: 'destructive' as const, separator: true }]
+          : [{ label: t('team.page.action.reactivate', { defaultValue: 'Aktivieren' }), icon: UserCheck, onClick: () => handleReactivate(emp), separator: true }])
+      : []
     return [
       { label: t('team.page.action.viewProfile'), onClick: () => setSelectedMemberId(emp.id) },
       { label: t('team.page.action.sendEmail'), icon: Mail, onClick: () => handleEmail(name, emp.userEmail) },
       { label: t('team.page.action.call'), icon: Phone, onClick: () => handleCall(name, initials) },
       { label: t('team.page.action.sendMessage'), icon: MessageSquare, onClick: () => handleMessage(name) },
-      ...(emp.status !== 'inactive'
-        ? [{ label: t('team.page.action.deactivate', { defaultValue: 'Deaktivieren' }), icon: UserX, onClick: () => setConfirmDeactivate(emp), variant: 'destructive' as const, separator: true }]
-        : [{ label: t('team.page.action.reactivate', { defaultValue: 'Aktivieren' }), icon: UserCheck, onClick: () => handleReactivate(emp), separator: true }]),
+      ...deactivateEntry,
     ]
   }
 
@@ -306,13 +311,15 @@ export default function TeamPage() {
         icon={Users}
         moduleId="team"
         actions={
-          <button
-            onClick={() => setShowCreateWizard(true)}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t('team.wizard.createEmployee')}
-          </button>
+          canCreate ? (
+            <button
+              onClick={() => setShowCreateWizard(true)}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              {t('team.wizard.createEmployee')}
+            </button>
+          ) : undefined
         }
         className="mb-6"
       />
@@ -424,7 +431,7 @@ export default function TeamPage() {
               icon={Users}
               title={t('team.page.noMembers')}
               description={search ? t('team.page.adjustSearch') : t('team.page.inviteToStart')}
-              action={search ? undefined : { label: t('team.wizard.createEmployee'), onClick: () => setShowCreateWizard(true) }}
+              action={search || !canCreate ? undefined : { label: t('team.wizard.createEmployee'), onClick: () => setShowCreateWizard(true) }}
             />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -486,6 +493,7 @@ export default function TeamPage() {
                 key={req.id}
                 request={req}
                 onApprove={() => setApprovalRequest(req)}
+                canApprove={has('team:absence:approve')}
               />
             ))
           )}
@@ -1053,7 +1061,7 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
   )
 }
 
-function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApprove: () => void }) {
+function LeaveRequestCard({ request, onApprove, canApprove }: { request: LeaveRequest; onApprove: () => void; canApprove: boolean }) {
   const { t, i18n } = useTranslation()
   const initials = request.employeeName
     ?.split(' ')
@@ -1095,7 +1103,7 @@ function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApp
         {request.reason && <p className="text-sm text-text-body">{request.reason}</p>}
       </div>
 
-      {request.status === 'pending' && (
+      {request.status === 'pending' && canApprove && (
         <button
           onClick={onApprove}
           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"

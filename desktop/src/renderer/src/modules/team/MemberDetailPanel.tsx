@@ -34,7 +34,7 @@ import {
 import { useUserModules } from '@/api/hooks/useModuleAssignments'
 import { useInsightSettings } from '@/api/hooks/useBilling'
 import { useNavigationStore } from '@/stores/navigation'
-import { useHasCapability } from '@/hooks/useCapability'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import { useModuleLeadsStore } from '@/stores/moduleLeads'
 import { LEADABLE_MODULES } from '@/lib/module-settings'
 import { DEFAULT_INSIGHT_SETTINGS } from '@/lib/pricing'
@@ -79,6 +79,10 @@ export function MemberDetailPanel({
   const { data: employee, isLoading } = useEmployee(memberId)
   const { data: balance } = useEmployeeLeaveBalance(employee?.userId ?? '')
   const { data: documents } = useEmployeeDocuments(memberId)
+
+  // RBAC: Edit-Button only when caller has team:employee:edit on this employee.
+  // scope=own → only the employee themselves may trigger; scope=team≈all (documented gap, R3-BRIEFING §1.4).
+  const canEditEmployee = useScopedCapability('team:employee:edit', employee?.userId)
 
   const fullName = employee
     ? (employee.userName ?? `${employee.department ?? t('team.member.employee')}`)
@@ -263,13 +267,15 @@ export function MemberDetailPanel({
           {/* Documents */}
           <DocumentsSection memberId={memberId} documents={documents ?? []} />
 
-          {/* Edit button */}
-          <button
-            onClick={onEdit}
-            className="w-full rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-          >
-            {t('team.detail.editProfile')}
-          </button>
+          {/* Edit button — only with team:employee:edit (scoped: own or team≈all) */}
+          {canEditEmployee && (
+            <button
+              onClick={onEdit}
+              className="w-full rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+            >
+              {t('team.detail.editProfile')}
+            </button>
+          )}
         </div>
       )}
     </DetailPanel>
@@ -292,6 +298,7 @@ export function DocumentsSection({
   const { t } = useTranslation()
   const { data: categories } = useDocumentCategories(memberId)
   const uploadMutation = useUploadEmployeeDocument()
+  const canUploadDoc = useHasCapability('team:documents:edit')
 
   const [expanded, setExpanded] = useState(false)
   const showContent = embedded || expanded
@@ -360,8 +367,8 @@ export function DocumentsSection({
             <p className="text-sm text-muted-foreground italic">{t('team.documents.noDocuments')}</p>
           )}
 
-          {/* Upload area */}
-          {!showUpload ? (
+          {/* Upload area — only with team:documents:edit */}
+          {!showUpload && canUploadDoc ? (
             <Button
               variant="outline"
               size="sm"
@@ -371,7 +378,7 @@ export function DocumentsSection({
               <Upload className="mr-1.5 h-3.5 w-3.5" />
               {t('team.documents.uploadDocument')}
             </Button>
-          ) : (
+          ) : showUpload && canUploadDoc ? (
             <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
               <div className="space-y-1">
                 <Label className="text-xs">{t('team.documents.category')}</Label>
@@ -437,7 +444,7 @@ export function DocumentsSection({
                 </Button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </section>

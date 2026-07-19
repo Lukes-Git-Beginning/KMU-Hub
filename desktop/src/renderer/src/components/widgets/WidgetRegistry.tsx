@@ -211,7 +211,10 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 4, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/MiniChart')),
     roles: ['admin', 'manager'],
-    // No module gate: mini-chart is a generic visualization utility
+    // Renders monthly revenue from useFinanceDashboard — finance data, not a
+    // generic utility (RBAC R-3: roles without finance visibility must not
+    // see revenue amounts).
+    module: 'finance',
   },
   'my-tasks': {
     id: 'my-tasks',

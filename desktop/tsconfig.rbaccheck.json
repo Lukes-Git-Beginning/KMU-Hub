@@ -108,6 +108,24 @@
     "src/renderer/src/modules/wiki/WikiEditor.tsx",
     "src/renderer/src/modules/wiki/WikiAttachments.tsx",
     "src/renderer/src/modules/wiki/WikiTemplateDialog.tsx",
-    "src/renderer/src/modules/wiki/WikiShareDialog.tsx"
+    "src/renderer/src/modules/wiki/WikiShareDialog.tsx",
+    "src/renderer/src/components/dashboard/ModulesGrid.tsx",
+    "src/renderer/src/components/dashboard/ProfileWidgetSuggestions.tsx",
+    "src/renderer/src/components/dashboard/QuickActionsBar.tsx",
+    "src/renderer/src/components/widgets/WidgetContainer.tsx",
+    "src/renderer/src/hooks/useAlerts.ts",
+    "src/renderer/src/modules/dashboard/widgets/CrossModuleOverview.tsx",
+    "src/renderer/src/modules/admin/tabs/SecurityAdminHubTab.tsx",
+    "src/renderer/src/modules/security/DSARSearchPage.tsx",
+    "src/renderer/src/modules/security/GDPRErasurePage.tsx",
+    "src/renderer/src/modules/security/GDPRExportPage.tsx",
+    "src/renderer/src/modules/security/IPAccessPage.tsx",
+    "src/renderer/src/modules/security/PasswordPolicyPage.tsx",
+    "src/renderer/src/modules/security/RetentionPolicyPage.tsx",
+    "src/renderer/src/modules/team/EmployeePayrollData.tsx",
+    "src/renderer/src/modules/team/HRApprovalDialog.tsx",
+    "src/renderer/src/modules/team/PayrollPrepPanel.tsx",
+    "src/renderer/src/modules/team/PersonnelDocuments.tsx",
+    "src/renderer/src/modules/team/useTeamPermissions.ts"
   ]
 }

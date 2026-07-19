@@ -4,8 +4,8 @@ import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Pencil, X } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useAuthStore } from '@/stores/auth'
 import { usePayrollMasterDataStore, isPayrollComplete } from '@/stores/payrollMasterData'
+import { useHasCapability } from '@/hooks/useCapability'
 import type { PayrollMasterData } from '@/stores/payrollMasterData'
 import { usePayrollSettingsStore } from '@/stores/payrollSettings'
 import {
@@ -35,18 +35,19 @@ export function EmployeePayrollData({
   embedded?: boolean
 }) {
   const { t } = useTranslation()
-  const viewer = useAuthStore((s) => s.user)
   const stored = usePayrollMasterDataStore((s) => s.data[employeeId])
   const save = usePayrollMasterDataStore((s) => s.set)
   const groups = usePayrollSettingsStore((s) => s.groups)
+
+  // RBAC R-3: salary data gated via capability (replaces legacy roles.some check).
+  const canView = useHasCapability('team:salary:view')
+  const canEdit = useHasCapability('team:salary:edit')
 
   const [expanded, setExpanded] = useState(false)
   const showContent = embedded || expanded
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<PayrollMasterData>({})
 
-  // hr_only — only HR/admin may see payroll master data.
-  const canView = viewer?.roles.some((r) => ['admin', 'hr'].includes(r))
   if (!canView) return null
 
   const complete = isPayrollComplete(stored)
@@ -92,25 +93,27 @@ export function EmployeePayrollData({
 
       {showContent && (
         <div className="space-y-3">
-          {/* Edit / Save toolbar */}
-          <div className="flex items-center justify-end gap-2">
-            {editing ? (
-              <>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={cancelEdit}>
-                  <X className="mr-1 h-3 w-3" />
-                  {t('common.cancel')}
+          {/* Edit / Save toolbar — only with team:salary:edit */}
+          {canEdit && (
+            <div className="flex items-center justify-end gap-2">
+              {editing ? (
+                <>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={cancelEdit}>
+                    <X className="mr-1 h-3 w-3" />
+                    {t('common.cancel')}
+                  </Button>
+                  <Button size="sm" className="h-7 text-xs" onClick={commit}>
+                    {t('common.save')}
+                  </Button>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={startEdit}>
+                  <Pencil className="mr-1 h-3 w-3" />
+                  {t('common.edit')}
                 </Button>
-                <Button size="sm" className="h-7 text-xs" onClick={commit}>
-                  {t('common.save')}
-                </Button>
-              </>
-            ) : (
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={startEdit}>
-                <Pencil className="mr-1 h-3 w-3" />
-                {t('common.edit')}
-              </Button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* DSGVO note */}
           <p className="rounded-md bg-secondary/40 px-2.5 py-1.5 text-[10px] leading-relaxed text-muted-foreground">

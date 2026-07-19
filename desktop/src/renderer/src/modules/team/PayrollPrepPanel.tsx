@@ -27,6 +27,7 @@ import { usePayrollMasterDataStore, missingRequiredFields } from '@/stores/payro
 import type { PayrollMasterData } from '@/stores/payrollMasterData'
 import { PayrollDeductionPreview } from './PayrollDeductionPreview'
 import { formatDate } from '@/lib/format'
+import { useHasCapability } from '@/hooks/useCapability'
 
 // Deterministic mock movement data per employee (stable across renders/QA).
 function hashStr(s: string): number {
@@ -101,6 +102,9 @@ export function PayrollPrepPanel() {
   const [period, setPeriod] = useState(months[0].value)
   const [groupId, setGroupId] = useState(groups[0]?.id ?? 'all')
   const [exporting, setExporting] = useState(false)
+  // Payroll run actions (freigeben/entsperren/export) require team:payroll:run.
+  // Viewers with only team:payroll:view may see the period list but not act.
+  const canRun = useHasCapability('team:payroll:run')
 
   // Reactive boolean selector — subscribing to s.locked so the Export button
   // appears immediately after approval (selecting the isLocked fn would not).
@@ -170,17 +174,23 @@ export function PayrollPrepPanel() {
           {locked ? (
             <>
               <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" />{t('team.payroll.run.locked')}</Badge>
-              <Button variant="outline" size="sm" onClick={() => unlock(period, groupId)}>{t('team.payroll.run.unlock')}</Button>
-              <Button size="sm" onClick={handleExport} disabled={exporting}>
-                {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                {t('team.payroll.run.export', { target: target.toUpperCase() })}
-              </Button>
+              {canRun && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => unlock(period, groupId)}>{t('team.payroll.run.unlock')}</Button>
+                  <Button size="sm" onClick={handleExport} disabled={exporting}>
+                    {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    {t('team.payroll.run.export', { target: target.toUpperCase() })}
+                  </Button>
+                </>
+              )}
             </>
           ) : (
-            <Button size="sm" onClick={() => lock(period, groupId)} disabled={rows.length === 0}>
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              {t('team.payroll.run.approve')}
-            </Button>
+            canRun && (
+              <Button size="sm" onClick={() => lock(period, groupId)} disabled={rows.length === 0}>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                {t('team.payroll.run.approve')}
+              </Button>
+            )
           )}
         </div>
       </div>

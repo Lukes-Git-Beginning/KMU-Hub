@@ -21,6 +21,8 @@ import { useDashboardStore, type WidgetId } from '@/stores/dashboard'
 import { useDashboardPrefsStore } from '@/stores/dashboardPrefs'
 import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
 import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { moduleViewKey, resolveModuleKey } from '@/config/capabilities'
 import { widgetList, widgetRegistry } from './WidgetRegistry'
 import { WidgetWrapper } from './WidgetWrapper'
 
@@ -97,8 +99,18 @@ export default function WidgetContainer() {
   // all module-gated widgets are shown rather than hiding the whole dashboard.
   // This is intentional and scoped to widget visibility only — not a global policy.
   const { flags, isLoading: flagsLoading, error: flagsError } = useFeatureFlags()
+  // Layer 3 — RBAC module visibility (R-3 dashboard level 2). Unlike the flag
+  // layer this is default-deny: while permissions load, module-bound widgets
+  // stay hidden (loading = deny convention).
+  const { has: hasCapability, ready: rbacReady } = useCapabilitySet()
+  const isWidgetRbacVisible = (moduleId: string | undefined): boolean => {
+    const rbacModule = resolveModuleKey(moduleId)
+    if (!rbacModule) return true // no module binding → ungated
+    return rbacReady && hasCapability(moduleViewKey(rbacModule))
+  }
   const isWidgetAllowed = (moduleId: string | undefined): boolean => {
     if (!moduleId) return true // No module gate → always available
+    if (!isWidgetRbacVisible(moduleId)) return false
     // DEV QA-override: respect __cosmi_qa_flags__ even in the fail-open path.
     if (import.meta.env.DEV) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,8 +142,25 @@ export default function WidgetContainer() {
   const rowHeight = density === 'compact' ? 64 : 80
   const gridMargin: [number, number] = density === 'compact' ? [12, 12] : [16, 16]
 
+  // Hide widgets whose module is currently disabled (flags) or not visible for
+  // the signed-in role (RBAC). The layout entry is intentionally kept in the
+  // store so the widget reappears without reconfiguration when the module is
+  // re-enabled / the role regains access.
+  const visibleActiveWidgets = activeWidgets.filter((widgetId) => {
+    const def = widgetRegistry[widgetId]
+    return def !== undefined && isWidgetAllowed(def.module)
+  })
+  // Only when filtering (not the user removing widgets) emptied the grid.
+  const allFilteredOut =
+    rbacReady && activeWidgets.length > 0 && visibleActiveWidgets.length === 0
+
   return (
     <div ref={containerRef} className="relative w-full">
+      {allFilteredOut && (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/50 px-6 py-10 text-center">
+          <p className="text-sm text-muted-foreground">{t('rbac.gate.dashboardEmpty')}</p>
+        </div>
+      )}
       <ReactGridLayout
         className="layout"
         layout={layouts}
@@ -145,21 +174,11 @@ export default function WidgetContainer() {
         margin={gridMargin}
         onLayoutChange={handleLayoutChange}
       >
-        {activeWidgets.map((widgetId) => {
-          const def = widgetRegistry[widgetId]
-          if (!def) return null
-
-          // Hide widgets whose module is currently disabled.
-          // The layout entry is intentionally kept in the store so the widget
-          // reappears without reconfiguration when the module is re-enabled.
-          if (!isWidgetAllowed(def.module)) return null
-
-          return (
-            <div key={widgetId}>
-              <WidgetWrapper widgetId={widgetId} isEditing={isEditing} />
-            </div>
-          )
-        })}
+        {visibleActiveWidgets.map((widgetId) => (
+          <div key={widgetId}>
+            <WidgetWrapper widgetId={widgetId} isEditing={isEditing} />
+          </div>
+        ))}
       </ReactGridLayout>
 
       {/* Floating add button -- visible in edit mode when widgets are available */}

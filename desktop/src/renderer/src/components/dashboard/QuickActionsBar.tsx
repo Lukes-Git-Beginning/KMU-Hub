@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { useProfileStore } from '../../stores/profile'
 import { getProfileById } from '../../config/business-profiles'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { moduleViewKey, type ModuleKey } from '@/config/capabilities'
 
 interface QuickAction {
   id: string
@@ -24,27 +26,31 @@ interface QuickAction {
   icon: React.ElementType
   route: string
   moduleId?: string
+  /** RBAC target module — action hidden without its level-1 visibility. */
+  rbacModule: ModuleKey
 }
 
 const allActions: QuickAction[] = [
-  { id: 'contact', labelKey: 'dashboard.quickActions.newContact', icon: UserPlus, route: '/kontakte' },
-  { id: 'invoice', labelKey: 'dashboard.quickActions.newInvoice', icon: Receipt, route: '/finanzen', moduleId: 'finanzen' },
-  { id: 'timer', labelKey: 'dashboard.quickActions.startTimer', icon: Timer, route: '/zeiterfassung', moduleId: 'zeiterfassung' },
-  { id: 'project', labelKey: 'dashboard.quickActions.newProject', icon: FolderPlus, route: '/work' },
-  { id: 'meeting', labelKey: 'dashboard.quickActions.newMeeting', icon: Video, route: '/meetings' },
-  { id: 'message', labelKey: 'dashboard.quickActions.newMessage', icon: MessageSquare, route: '/chat' },
-  { id: 'event', labelKey: 'dashboard.quickActions.newEvent', icon: CalendarPlus, route: '/calendar' },
-  { id: 'document', labelKey: 'dashboard.quickActions.newDocument', icon: FileText, route: '/dokumente' },
+  { id: 'contact', labelKey: 'dashboard.quickActions.newContact', icon: UserPlus, route: '/kontakte', rbacModule: 'crm' },
+  { id: 'invoice', labelKey: 'dashboard.quickActions.newInvoice', icon: Receipt, route: '/finanzen', moduleId: 'finanzen', rbacModule: 'finance' },
+  { id: 'timer', labelKey: 'dashboard.quickActions.startTimer', icon: Timer, route: '/zeiterfassung', moduleId: 'zeiterfassung', rbacModule: 'zeiterfassung' },
+  { id: 'project', labelKey: 'dashboard.quickActions.newProject', icon: FolderPlus, route: '/work', rbacModule: 'work' },
+  { id: 'meeting', labelKey: 'dashboard.quickActions.newMeeting', icon: Video, route: '/meetings', rbacModule: 'video' },
+  { id: 'message', labelKey: 'dashboard.quickActions.newMessage', icon: MessageSquare, route: '/chat', rbacModule: 'kommunikation' },
+  { id: 'event', labelKey: 'dashboard.quickActions.newEvent', icon: CalendarPlus, route: '/calendar', rbacModule: 'kalender' },
+  { id: 'document', labelKey: 'dashboard.quickActions.newDocument', icon: FileText, route: '/dokumente', rbacModule: 'documents' },
 ]
 
 export function QuickActionsBar() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { businessProfileId, devShowAllModules, enabledOptionalModules } = useProfileStore()
+  const { has: hasCapability, ready: rbacReady } = useCapabilitySet()
 
-  // Filter actions based on business profile
+  // Filter actions based on RBAC module visibility, then business profile
   const profile = businessProfileId ? getProfileById(businessProfileId) : null
   const visibleActions = allActions.filter((action) => {
+    if (!hasCapability(moduleViewKey(action.rbacModule))) return false
     if (!action.moduleId) return true
     if (devShowAllModules) return true
     if (!profile) return true
@@ -53,6 +59,8 @@ export function QuickActionsBar() {
     const isOptional = enabledOptionalModules.includes(action.moduleId)
     return isCore || isOptional
   })
+
+  if (!rbacReady || visibleActions.length === 0) return null
 
   return (
     <div className="grid auto-cols-fr grid-flow-col gap-3">

@@ -1,21 +1,19 @@
 /**
  * AdminHubPage — Tenant-weite Verwaltung.
  *
- * 4 Tabs: IT | Sicherheit | Abrechnung | Integrationen
- * Tab-Auswahl wird mit der URL synchronisiert:
- *   /admin/it          → tab=it
- *   /admin/security    → tab=security
- *   /admin/billing     → tab=billing
- *   /admin/integrations → tab=integrations
+ * 8 Tabs (users/roles/license/branding/it/security/billing/integrations),
+ * Tab-Auswahl mit der URL synchronisiert (/admin/<tab>).
  *
- * Gated: capability `admin:module:view` (admin / it_admin / hr_admin presets).
+ * Gated: hub entry via `admin:module:view`, each tab additionally via
+ * TAB_CAPABILITY (R-3 batch 2) — a role only sees the tabs it may manage;
+ * direct URLs to hidden tabs redirect to the first allowed one.
  */
 import { useEffect, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
-import { useAuthStore } from '@/stores/auth'
-import { useHasCapability } from '@/hooks/useCapability'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { moduleViewKey } from '@/config/capabilities'
 
 const UsersAdminHubTab = lazy(() => import('./users/UsersAdminHubTab'))
 const RolesBuilderTab = lazy(() => import('./roles/RolesBuilderTab'))
@@ -50,33 +48,33 @@ const TAB_TO_ROUTE: Record<AdminTab, string> = {
   integrations: '/admin/integrations',
 }
 
+/** Tab capability map — undefined means "no per-tab gate beyond module access". */
+const TAB_CAPABILITY: Partial<Record<AdminTab, string>> = {
+  users: 'admin:user:read',
+  roles: 'admin:role:read',
+  license: 'admin:license:manage',
+  branding: 'admin:branding:manage',
+  it: 'admin:it:manage',
+  security: moduleViewKey('security'),
+  billing: 'admin:license:manage',
+  integrations: 'admin:integrations:manage',
+}
+
 export default function AdminHubPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const user = useAuthStore((s) => s.user)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const canAccess = useHasCapability('admin:module:view')
+  const { has, ready } = useCapabilitySet()
+
+  const canAccessModule = has('admin:module:view')
 
   // Derive active tab from current pathname
-  const activeTab: AdminTab = ROUTE_TO_TAB[location.pathname] ?? 'it'
+  const requestedTab: AdminTab = ROUTE_TO_TAB[location.pathname] ?? 'it'
 
-  // Move focus to content region on tab switch (no-op when access is denied)
-  useEffect(() => {
-    if (!canAccess) return
-    contentRef.current?.focus()
-  }, [activeTab, canAccess])
-
-  if (!canAccess) {
-    return <Navigate to="/" replace />
-  }
-
-  const handleTabChange = (tab: AdminTab) => {
-    navigate(TAB_TO_ROUTE[tab])
-  }
-
-  const tabs: { key: AdminTab; labelKey: string }[] = [
+  // All tab definitions
+  const ALL_TABS: { key: AdminTab; labelKey: string }[] = [
     { key: 'users', labelKey: 'admin.hub.tabs.users' },
     { key: 'roles', labelKey: 'admin.hub.tabs.roles' },
     { key: 'license', labelKey: 'admin.hub.tabs.license' },
@@ -86,6 +84,44 @@ export default function AdminHubPage() {
     { key: 'billing', labelKey: 'admin.hub.tabs.billing' },
     { key: 'integrations', labelKey: 'admin.hub.tabs.integrations' },
   ]
+
+  // Filter to only tabs the user may see (pessimistic until ready)
+  const tabs = ready
+    ? ALL_TABS.filter((tab) => {
+        const cap = TAB_CAPABILITY[tab.key]
+        return cap ? has(cap) : true
+      })
+    : []
+
+  // Move focus to content region on tab switch (hook must be top-level, before early returns)
+  useEffect(() => {
+    if (ready) contentRef.current?.focus()
+  }, [requestedTab, ready])
+
+  // If not ready yet, do nothing — avoid redirect flicker
+  if (!ready) {
+    return <ModuleLoadingFallback />
+  }
+
+  if (!canAccessModule) {
+    return <Navigate to="/" replace />
+  }
+
+  // If the requested tab is not in the allowed list, redirect to first allowed
+  const firstAllowed = tabs[0]
+  const isRequestedAllowed = tabs.some((tab) => tab.key === requestedTab)
+  if (!isRequestedAllowed) {
+    if (!firstAllowed) {
+      return <Navigate to="/" replace />
+    }
+    return <Navigate to={TAB_TO_ROUTE[firstAllowed.key]} replace />
+  }
+
+  const activeTab = requestedTab
+
+  const handleTabChange = (tab: AdminTab) => {
+    navigate(TAB_TO_ROUTE[tab])
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

@@ -33,6 +33,8 @@ import { useInvoices } from '@/api/hooks/useFinance'
 import { useVertraegeStore } from '@/stores/vertraege'
 import { useUnreadCounts } from '@/api/hooks/useChannels'
 import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { moduleViewKey, type ModuleKey } from '@/config/capabilities'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 // ---------------------------------------------------------------------------
@@ -103,8 +105,14 @@ function CrossModuleOverview(_props: WidgetProps) {
   const { t } = useTranslation()
   const { flags, isLoading: flagsLoading, error: flagsError } = useFeatureFlags()
 
+  // RBAC module visibility per data row (R-3 dashboard level 2, default-deny)
+  const { has: hasCapability, ready: rbacReady } = useCapabilitySet()
+  const rbacVisible = (module: ModuleKey): boolean =>
+    rbacReady && hasCapability(moduleViewKey(module))
+
   // ── Tasks ────────────────────────────────────────────────────────────────
-  const tasksAllowed = isDashboardModuleAllowed('tasks', flags, flagsLoading, flagsError)
+  const tasksAllowed =
+    rbacVisible('work') && isDashboardModuleAllowed('tasks', flags, flagsLoading, flagsError)
   const { data: tasksData } = useMyTasks({ page_size: 50, include_completed: false })
   const openTaskCount = useMemo(() => {
     if (!tasksAllowed) return null
@@ -113,7 +121,8 @@ function CrossModuleOverview(_props: WidgetProps) {
   }, [tasksData, tasksAllowed])
 
   // ── Calendar events today ───────────────────────────────────────────────
-  const calendarAllowed = isDashboardModuleAllowed('calendar', flags, flagsLoading, flagsError)
+  const calendarAllowed =
+    rbacVisible('kalender') && isDashboardModuleAllowed('calendar', flags, flagsLoading, flagsError)
   const todayRange = useMemo(() => {
     const today = new Date()
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -133,7 +142,8 @@ function CrossModuleOverview(_props: WidgetProps) {
   }, [eventData, calendarAllowed])
 
   // ── Unread messages — proxy from store (kommunikation module = chat) ────
-  const chatAllowed = isDashboardModuleAllowed('chat', flags, flagsLoading, flagsError)
+  const chatAllowed =
+    rbacVisible('kommunikation') && isDashboardModuleAllowed('chat', flags, flagsLoading, flagsError)
   const { data: unreadData } = useUnreadCounts()
   const unreadCount = useMemo(() => {
     if (!chatAllowed) return null
@@ -142,7 +152,8 @@ function CrossModuleOverview(_props: WidgetProps) {
   }, [unreadData, chatAllowed])
 
   // ── Finance: overdue invoices ──────────────────────────────────────────
-  const financeAllowed = isDashboardModuleAllowed('finance', flags, flagsLoading, flagsError)
+  const financeAllowed =
+    rbacVisible('finance') && isDashboardModuleAllowed('finance', flags, flagsLoading, flagsError)
   const { data: invoicesData } = useInvoices(
     financeAllowed ? { status: 'overdue', page_size: 50 } : undefined,
   )
@@ -152,7 +163,8 @@ function CrossModuleOverview(_props: WidgetProps) {
   }, [invoicesData, financeAllowed])
 
   // ── Vertraege: expiring ────────────────────────────────────────────────
-  const vertraegeAllowed = isDashboardModuleAllowed('vertraege', flags, flagsLoading, flagsError)
+  const vertraegeAllowed =
+    rbacVisible('vertraege') && isDashboardModuleAllowed('vertraege', flags, flagsLoading, flagsError)
   const contracts = useVertraegeStore((s) => s.contracts)
   const expiringCount = useMemo(() => {
     if (!vertraegeAllowed) return null

@@ -17,6 +17,7 @@ import { useTenant } from '@/api/hooks/useBilling'
 import type { AdminUser, AdminUserStatus } from '@/api/admin-types'
 import type { Role } from '@/api/rbac-types'
 import { roleDisplayName } from '@/lib/rbac-format'
+import { useHasCapability } from '@/hooks/useCapability'
 import { InviteUserDialog } from './InviteUserDialog'
 import { UserDetailModal } from './UserDetailModal'
 import { ROLE_ORDER, STATUS_META, initials, formatRelative } from './presentation'
@@ -32,6 +33,7 @@ export default function UsersAdminHubTab() {
   const { data: users = [], isLoading } = useAdminUsers()
   const { data: allRoles = [] } = useRoles()
   const { data: tenant } = useTenant()
+  const canInvite = useHasCapability('admin:user:invite')
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -113,10 +115,12 @@ export default function UsersAdminHubTab() {
         </div>
         <div className="flex items-center gap-3">
           <SeatMeter used={seatsUsed} total={seatsTotal} label={t('admin.users.seats', { used: seatsUsed, total: seatsTotal })} />
-          <Button onClick={() => setInviteOpen(true)}>
-            <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            {t('admin.users.inviteCta')}
-          </Button>
+          {canInvite && (
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t('admin.users.inviteCta')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -187,7 +191,7 @@ export default function UsersAdminHubTab() {
             icon={Users}
             title={t('admin.users.empty.title')}
             description={search || statusFilter !== 'all' ? t('admin.users.empty.filtered') : t('admin.users.empty.description')}
-            action={search || statusFilter !== 'all' ? undefined : { label: t('admin.users.inviteCta'), onClick: () => setInviteOpen(true) }}
+            action={search || statusFilter !== 'all' || !canInvite ? undefined : { label: t('admin.users.inviteCta'), onClick: () => setInviteOpen(true) }}
           />
         ) : (
           <ul className="divide-y divide-border">

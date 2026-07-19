@@ -26,14 +26,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 import { useIPRules, useCreateIPRule, useDeleteIPRule } from '@/api/hooks/useSecurity'
 
 export default function IPAccessPage() {
   const { t } = useTranslation()
   const formatDate = useFormatDate()
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.roles.includes('admin')
+  const canManagePolicy = useHasCapability('security:policy:manage')
 
   const { data: rules, isLoading } = useIPRules()
   const createRule = useCreateIPRule()
@@ -83,7 +82,7 @@ export default function IPAccessPage() {
     })
   }, [deleteId, deleteRule, t])
 
-  if (!isAdmin) {
+  if (!canManagePolicy) {
     return <Navigate to="/" replace />
   }
 

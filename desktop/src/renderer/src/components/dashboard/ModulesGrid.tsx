@@ -23,6 +23,8 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/cn'
 import { isModuleAllowedForProfile, getProfileById } from '@/config/business-profiles'
 import { useProfileStore } from '@/stores/profile'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { moduleViewKey, resolveModuleKey } from '@/config/capabilities'
 import { navItems, moduleHsl, moduleHslBg } from '@/components/layout/sidebar/nav-items'
 
 type ViewState = 'minimized' | 'half' | 'full'
@@ -104,10 +106,23 @@ export function ModulesGrid() {
   const enableModule = useProfileStore((s) => s.enableModule)
   const disableModule = useProfileStore((s) => s.disableModule)
 
+  // RBAC module visibility (R-3 dashboard level 2) — applies on top of the
+  // business-profile filter and also to the dev-show-all override.
+  const { has: hasCapability, ready: rbacReady } = useCapabilitySet()
+  const isRbacVisible = (id: string): boolean => {
+    const rbacModule = resolveModuleKey(id)
+    return !rbacModule || hasCapability(moduleViewKey(rbacModule))
+  }
+
   const filteredModules = ALL_MODULES.filter((mod) => {
+    if (!isRbacVisible(mod.id)) return false
     if (devShowAll) return true
     return isModuleAllowedForProfile(mod.id, businessProfileId, enabledOptionals)
   })
+
+  // Nothing left for this role → drop the whole section (pure navigation, an
+  // empty grid or header-only block would just be noise).
+  if (!rbacReady || filteredModules.length === 0) return null
 
   const display =
     viewState === 'minimized'
@@ -228,6 +243,7 @@ export function ModulesGrid() {
         enabledOptionals={enabledOptionals}
         onEnable={enableModule}
         onDisable={disableModule}
+        isModuleVisible={isRbacVisible}
       />
     </div>
   )
@@ -240,6 +256,7 @@ function ManageModulesDialog({
   enabledOptionals,
   onEnable,
   onDisable,
+  isModuleVisible,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -247,16 +264,19 @@ function ManageModulesDialog({
   enabledOptionals: string[]
   onEnable: (id: string) => void
   onDisable: (id: string) => void
+  isModuleVisible: (id: string) => boolean
 }) {
   const { t } = useTranslation()
   const profile = businessProfileId ? getProfileById(businessProfileId as Parameters<typeof getProfileById>[0]) : null
 
-  const coreModules = profile
+  const coreModules = (profile
     ? ALL_MODULES.filter((m) => profile.defaultModules.includes(m.id))
     : ALL_MODULES
-  const optionalModules = profile
+  ).filter((m) => isModuleVisible(m.id))
+  const optionalModules = (profile
     ? ALL_MODULES.filter((m) => profile.optionalModules.includes(m.id))
     : []
+  ).filter((m) => isModuleVisible(m.id))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

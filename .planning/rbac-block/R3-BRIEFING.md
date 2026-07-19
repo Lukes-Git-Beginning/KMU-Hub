@@ -1,8 +1,10 @@
 # R-3 Enforcement-Sweep — Terminal-Briefing (erstellt Session #15, 2026-07-18)
 
-> **⚡⚡ UPDATE Session #17 (2026-07-19): BATCH 1 GEBAUT (work · documents · crm · finance · wiki) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #17. Shared-Bausteine stehen (RestrictedModeBadge, NoAccessView+ModuleGate an ALLEN Routen, useScopedCapability, ItemActions-title). Darien-Entscheid Session-Ende #17: KEIN Review-Gate zwischen Batches — alle Reviews gesammelt am Ende (`hetzner-review-checklist.md`). Nächstes Bau-Terminal: BATCH 2 DIREKT — Konvention aus #16 gilt für alle Batches, kein neues Gate.**
+> **⚡⚡⚡ UPDATE Session #18 (2026-07-19): BATCH 2 GEBAUT (team-Aktionen · dashboard Ebene-2 · admin/security-Tabs) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #18. Nächstes Bau-Terminal: BATCH 3+ (Branchen-Module, je Batch erst Katalog kuratieren + ROLE_DEFS-Grants nachziehen — §1 unten). Konvention aus #16 gilt weiter, kein neues Gate.**
 
-## Batch-2-Arbeitspaket (für das nächste Bau-Terminal, Stand nach #17)
+> **⚡⚡ UPDATE Session #17 (2026-07-19): BATCH 1 GEBAUT (work · documents · crm · finance · wiki) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #17. Shared-Bausteine stehen (RestrictedModeBadge, NoAccessView+ModuleGate an ALLEN Routen, useScopedCapability, ItemActions-title). Darien-Entscheid Session-Ende #17: KEIN Review-Gate zwischen Batches — alle Reviews gesammelt am Ende (`hetzner-review-checklist.md`).**
+
+## Batch-2-Arbeitspaket — ✅ GEBAUT in Session #18 (Historie)
 
 **Scope: team-Aktions-Rest · dashboard Ebene-2 · settings/security-Rest.** Gleiches Rezept wie Batch 1 (Inventar via Explore-Agents → bauen nach §1-Arbeitsanweisung + R3-RECHERCHE §3 → Gates → QA). Bekannte Startpunkte:
 

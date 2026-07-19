@@ -29,6 +29,7 @@ import {
 } from '@/api/hooks/hr-hooks'
 import { useUserModules } from '@/api/hooks/useModuleAssignments'
 import { useHasCapability } from '@/hooks/useCapability'
+import { useAuthStore } from '@/stores/auth'
 import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
 import { LEADABLE_MODULES } from '@/lib/module-settings'
@@ -69,6 +70,15 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
   const { data: balance } = useEmployeeLeaveBalance(employee?.userId ?? '')
   const { data: documents } = useEmployeeDocuments(memberId)
   const { data: userGrants = [] } = useUserModules(employee?.userId ?? '')
+
+  // RBAC: personal / job data visibility
+  const canViewPersonal = useHasCapability('team:data_personal:view')
+  const canViewJob = useHasCapability('team:data_job:view')
+  // team:documents:view gates the documents tab
+  const canViewDocuments = useHasCapability('team:documents:view')
+  // isSelf bypass: employee sees their own contact + job data regardless of capability
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
+  const isSelf = !!employee?.userId && employee.userId === currentUserId
 
   const fullName = employee
     ? (employee.userName ?? employee.department ?? t('team.member.employee'))
@@ -215,61 +225,73 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
           {canViewPayroll && (
             <TabsTrigger value="payroll">{t('team.payroll.masterData.title')}</TabsTrigger>
           )}
-          <TabsTrigger value="documents">{t('team.documents.title')}</TabsTrigger>
+          {canViewDocuments && (
+            <TabsTrigger value="documents">{t('team.documents.title')}</TabsTrigger>
+          )}
         </TabsList>
 
         {/* Overview */}
         <TabsContent value="overview" className="mt-0 flex-1 space-y-5 overflow-y-auto p-6">
-          {/* Contact */}
-          <section>
-            <SectionTitle>{t('team.detail.contact')}</SectionTitle>
-            <div className="space-y-2.5">
-              {employee.userEmail ? (
-                <InfoRow icon={Mail}>
-                  <a href={`mailto:${employee.userEmail}`} className="text-primary hover:underline">
-                    {employee.userEmail}
-                  </a>
-                </InfoRow>
-              ) : null}
-              {employee.emergencyContactPhone && (
-                <InfoRow icon={Phone}>
-                  {employee.emergencyContactPhone} ({t('team.detail.emergencyContact')}:{' '}
-                  {employee.emergencyContactName})
-                </InfoRow>
-              )}
-              {employee.addressCity && (
-                <InfoRow icon={MapPin}>
-                  {[employee.addressStreet, employee.addressPostalCode, employee.addressCity]
-                    .filter(Boolean)
-                    .join(', ')}
-                </InfoRow>
-              )}
-              {!employee.userEmail && !employee.emergencyContactPhone && !employee.addressCity && (
-                <p className="text-sm text-muted-foreground">{t('team.detail.noContactData')}</p>
-              )}
-            </div>
-          </section>
+          {/* Contact — visible with team:data_personal:view OR for the employee themselves (isSelf). */}
+          {(canViewPersonal || isSelf) && (
+            <section>
+              <SectionTitle>{t('team.detail.contact')}</SectionTitle>
+              <div className="space-y-2.5">
+                {employee.userEmail ? (
+                  <InfoRow icon={Mail}>
+                    <a href={`mailto:${employee.userEmail}`} className="text-primary hover:underline">
+                      {employee.userEmail}
+                    </a>
+                  </InfoRow>
+                ) : null}
+                {employee.emergencyContactPhone && (
+                  <InfoRow icon={Phone}>
+                    {employee.emergencyContactPhone} ({t('team.detail.emergencyContact')}:{' '}
+                    {employee.emergencyContactName})
+                  </InfoRow>
+                )}
+                {employee.addressCity && (
+                  <InfoRow icon={MapPin}>
+                    {[employee.addressStreet, employee.addressPostalCode, employee.addressCity]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </InfoRow>
+                )}
+                {!employee.userEmail && !employee.emergencyContactPhone && !employee.addressCity && (
+                  <p className="text-sm text-muted-foreground">{t('team.detail.noContactData')}</p>
+                )}
+              </div>
+            </section>
+          )}
 
-          <Separator />
+          {/* Separator only when BOTH sections are visible to avoid orphaned dividers. */}
+          {(canViewPersonal || isSelf) && (canViewJob || isSelf) && <Separator />}
 
-          {/* Employment */}
-          <section>
-            <SectionTitle>{t('team.detail.employment')}</SectionTitle>
-            <div className="space-y-2.5">
-              {employee.department && <InfoRow icon={Briefcase}>{employee.department}</InfoRow>}
-              {contractLabel && <InfoRow icon={Shield}>{contractLabel}</InfoRow>}
-              {employee.startDate && (
-                <InfoRow icon={Calendar}>
-                  {t('team.detail.since')} {formatDate(employee.startDate)} ({tenure})
-                </InfoRow>
-              )}
-              {employee.managerName && (
-                <InfoRow icon={Briefcase}>
-                  {t('team.detail.reportsTo')}: {employee.managerName}
-                </InfoRow>
-              )}
-            </div>
-          </section>
+          {/* Both data sections filtered → say so instead of an empty pane. */}
+          {!(canViewPersonal || isSelf) && !(canViewJob || isSelf) && (
+            <p className="text-sm text-muted-foreground">{t('rbac.gate.profileRestricted')}</p>
+          )}
+
+          {/* Employment — visible with team:data_job:view OR for the employee themselves (isSelf). */}
+          {(canViewJob || isSelf) && (
+            <section>
+              <SectionTitle>{t('team.detail.employment')}</SectionTitle>
+              <div className="space-y-2.5">
+                {employee.department && <InfoRow icon={Briefcase}>{employee.department}</InfoRow>}
+                {contractLabel && <InfoRow icon={Shield}>{contractLabel}</InfoRow>}
+                {employee.startDate && (
+                  <InfoRow icon={Calendar}>
+                    {t('team.detail.since')} {formatDate(employee.startDate)} ({tenure})
+                  </InfoRow>
+                )}
+                {employee.managerName && (
+                  <InfoRow icon={Briefcase}>
+                    {t('team.detail.reportsTo')}: {employee.managerName}
+                  </InfoRow>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Leave */}
           {balance && (
@@ -367,10 +389,12 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
           </TabsContent>
         )}
 
-        {/* Documents */}
-        <TabsContent value="documents" className="mt-0 flex-1 overflow-y-auto p-6">
-          <DocumentsSection memberId={memberId} documents={documents ?? []} embedded />
-        </TabsContent>
+        {/* Documents — tab only shown with team:documents:view */}
+        {canViewDocuments && (
+          <TabsContent value="documents" className="mt-0 flex-1 overflow-y-auto p-6">
+            <DocumentsSection memberId={memberId} documents={documents ?? []} embedded />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

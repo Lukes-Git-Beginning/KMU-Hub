@@ -28,6 +28,7 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
   const resendInvite = useResendInvite()
   const authUserId = useAuthStore((s) => s.user?.id)
   const canAssignRoles = useHasCapability('admin:role:assign')
+  const canDeactivate = useHasCapability('admin:user:deactivate')
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
 
   if (!user) return null
@@ -134,30 +135,32 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
                   {t('admin.users.detail.resendInvite')}
                 </Button>
               )}
-              {user.status === 'deactivated' ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setStatus('active', t('admin.users.detail.reactivated', { name: fullName }))}
-                  disabled={updateUser.isPending}
-                >
-                  <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  {t('admin.users.detail.reactivate')}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfirmDeactivate(true)}
-                  disabled={isSelf || updateUser.isPending}
-                  className="text-error hover:text-error"
-                >
-                  <UserX className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  {user.status === 'invited' ? t('admin.users.detail.revokeInvite') : t('admin.users.detail.deactivate')}
-                </Button>
+              {canDeactivate && (
+                user.status === 'deactivated' ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStatus('active', t('admin.users.detail.reactivated', { name: fullName }))}
+                    disabled={updateUser.isPending}
+                  >
+                    <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    {t('admin.users.detail.reactivate')}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmDeactivate(true)}
+                    disabled={isSelf || updateUser.isPending}
+                    className="text-error hover:text-error"
+                  >
+                    <UserX className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    {user.status === 'invited' ? t('admin.users.detail.revokeInvite') : t('admin.users.detail.deactivate')}
+                  </Button>
+                )
               )}
             </div>
-            {isSelf && (
+            {isSelf && canDeactivate && (
               <p className="text-xs text-muted-foreground">{t('admin.users.detail.selfAccessLocked')}</p>
             )}
           </section>

@@ -89,6 +89,18 @@ export const NAV_ITEM_MODULE: Record<string, ModuleKey> = {
 }
 
 /**
+ * Resolve a dashboard/nav surface id (widget module, module card, quick
+ * action) to its RBAC module key. Nav ids take precedence (tasks→work,
+ * chat→kommunikation, meetings→video); ids that already are module keys
+ * (e.g. `crm`) pass through. Unknown ids stay ungated (undefined).
+ */
+export function resolveModuleKey(id: string | undefined): ModuleKey | undefined {
+  if (!id) return undefined
+  if (id in NAV_ITEM_MODULE) return NAV_ITEM_MODULE[id]
+  return (MODULE_KEYS as readonly string[]).includes(id) ? (id as ModuleKey) : undefined
+}
+
+/**
  * Settings-page tab key → required capability (tabs without an entry are
  * visible to everyone: profile, appearance, language, security(personal),
  * notifications, about).

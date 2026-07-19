@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 import { usePreviewErasure, useExecuteErasure } from '@/api/hooks/useSecurity'
 
 type ModuleAction = 'anonymize' | 'delete' | 'retain'
@@ -47,8 +47,7 @@ const ACTION_BADGE: Record<ModuleAction, string> = {
 
 export default function GDPRErasurePage() {
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.roles.includes('admin')
+  const canExecute = useHasCapability('security:gdpr:execute')
 
   const previewErasure = usePreviewErasure()
   const executeErasure = useExecuteErasure()
@@ -164,7 +163,7 @@ export default function GDPRErasurePage() {
     ? previewData.reduce((sum, m) => sum + m.record_count, 0)
     : 0
 
-  if (!isAdmin) {
+  if (!canExecute) {
     return <Navigate to="/" replace />
   }
 

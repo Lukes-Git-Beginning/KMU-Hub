@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState, InlineStat } from '@/components/shared'
+import { useHasCapability } from '@/hooks/useCapability'
 import {
   Dialog,
   DialogContent,
@@ -92,6 +93,8 @@ const statusConfig: Record<DocStatus, { label: string; color: string; icon: type
 export function PersonnelDocuments() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const canViewDocs = useHasCapability('team:documents:view')
+  const canEditDocs = useHasCapability('team:documents:edit')
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<DocCategory | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<DocStatus | 'all'>('all')
@@ -236,13 +239,15 @@ export function PersonnelDocuments() {
           <option value="abgelaufen">{t('team.personnelDocs.statusExpired')}</option>
         </select>
 
-        <button
-          onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          <Upload className="h-4 w-4" />
-          {t('common.upload')}
-        </button>
+        {canEditDocs && (
+          <button
+            onClick={() => setShowUpload(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Upload className="h-4 w-4" />
+            {t('common.upload')}
+          </button>
+        )}
       </div>
 
       {/* Document List grouped by Employee */}
@@ -293,20 +298,24 @@ export function PersonnelDocuments() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => setPreviewDoc(doc)}
-                          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          title={t('team.personnelDocs.preview')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDownload(doc)}
-                          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          title={t('team.personnelDocs.download', { defaultValue: 'Download' })}
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
+                        {canViewDocs && (
+                          <button
+                            onClick={() => setPreviewDoc(doc)}
+                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                            title={t('team.personnelDocs.preview')}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canViewDocs && (
+                          <button
+                            onClick={() => handleDownload(doc)}
+                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                            title={t('team.personnelDocs.download', { defaultValue: 'Download' })}
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   )
@@ -346,19 +355,21 @@ export function PersonnelDocuments() {
                   <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">{t('team.personnelDocs.previewHint', { defaultValue: 'Im Produktivbetrieb wird hier das hinterlegte PDF angezeigt.' })}</p>
                 </div>
               </div>
-              <div className="flex justify-end border-t border-border px-5 py-3">
-                <button onClick={() => { handleDownload(previewDoc); }} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors">
-                  <Download className="h-3.5 w-3.5" />
-                  {t('team.personnelDocs.download', { defaultValue: 'Download' })}
-                </button>
-              </div>
+              {canViewDocs && (
+                <div className="flex justify-end border-t border-border px-5 py-3">
+                  <button onClick={() => { handleDownload(previewDoc) }} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors">
+                    <Download className="h-3.5 w-3.5" />
+                    {t('team.personnelDocs.download', { defaultValue: 'Download' })}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Upload Dialog */}
-      <Dialog open={showUpload} onOpenChange={(o) => { if (!o) { setShowUpload(false); setUploadFile(null) } }}>
+      {/* Upload Dialog — only reachable with team:documents:edit */}
+      <Dialog open={showUpload && canEditDocs} onOpenChange={(o) => { if (!o) { setShowUpload(false); setUploadFile(null) } }}>
         <DialogContent className="gap-0 p-0 max-w-md">
           <div className="p-6">
             <DialogHeader className="mb-4">

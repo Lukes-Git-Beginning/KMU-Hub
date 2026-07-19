@@ -26,7 +26,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 import { useGDPRExports, useApproveExport, useDenyExport } from '@/api/hooks/useSecurity'
 import { downloadGDPRExport } from '@/api/security-client'
 
@@ -50,8 +50,7 @@ const STATUS_BADGE: Record<string, { className: string; labelId: string }> = {
 export default function GDPRExportPage() {
   const { t } = useTranslation()
   const formatDate = useFormatDate()
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.roles.includes('admin')
+  const canExecute = useHasCapability('security:gdpr:execute')
 
   const { data: exports, isLoading } = useGDPRExports()
   const approveExport = useApproveExport()
@@ -125,7 +124,7 @@ export default function GDPRExportPage() {
     return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000))
   }
 
-  if (!isAdmin) {
+  if (!canExecute) {
     return <Navigate to="/" replace />
   }
 

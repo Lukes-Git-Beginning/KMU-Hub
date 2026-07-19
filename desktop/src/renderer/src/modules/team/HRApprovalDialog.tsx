@@ -14,6 +14,7 @@ import { Calendar, Clock, CheckCircle2, XCircle, AlertTriangle, Loader2 } from '
 import { useLeaveRequests, useApproveLeaveRequest, useRejectLeaveRequest } from '@/api/hooks/hr-hooks'
 import type { LeaveRequest } from '@/api/hr-types'
 import { formatDate } from '@/lib/format'
+import { useHasCapability } from '@/hooks/useCapability'
 
 const leaveTypeColors: Record<string, string> = {
   urlaub: 'bg-info-light text-info',
@@ -53,6 +54,7 @@ export function HRApprovalDialog({
 
   const approveMutation = useApproveLeaveRequest()
   const rejectMutation = useRejectLeaveRequest()
+  const canApprove = useHasCapability('team:absence:approve')
 
   // Check for overlapping requests when approving
   const { data: allPendingData } = useLeaveRequests({ status: 'approved' })
@@ -182,27 +184,31 @@ export function HRApprovalDialog({
           <Button variant="outline" onClick={() => { setComment(''); onOpenChange(false) }} className="flex-1" disabled={isPending}>
             {t('common.cancel')}
           </Button>
-          <Button
-            onClick={handleReject}
-            variant="outline"
-            className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10"
-            disabled={isPending}
-          >
-            {rejectMutation.isPending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <XCircle className="mr-1.5 h-4 w-4" />
-            )}
-            {t('team.approval.reject')}
-          </Button>
-          <Button onClick={handleApprove} className="flex-1 bg-success hover:bg-success/90 text-white" disabled={isPending}>
-            {approveMutation.isPending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="mr-1.5 h-4 w-4" />
-            )}
-            {t('team.approval.approve')}
-          </Button>
+          {canApprove && (
+            <>
+              <Button
+                onClick={handleReject}
+                variant="outline"
+                className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                disabled={isPending}
+              >
+                {rejectMutation.isPending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="mr-1.5 h-4 w-4" />
+                )}
+                {t('team.approval.reject')}
+              </Button>
+              <Button onClick={handleApprove} className="flex-1 bg-success hover:bg-success/90 text-white" disabled={isPending}>
+                {approveMutation.isPending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                )}
+                {t('team.approval.approve')}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

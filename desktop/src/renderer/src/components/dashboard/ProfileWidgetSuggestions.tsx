@@ -23,6 +23,9 @@ import { useProfileStore } from '../../stores/profile'
 import { useDashboardStore, type WidgetId } from '../../stores/dashboard'
 import { moduleHsl, moduleHslBg } from '../../components/layout/sidebar/nav-items'
 import type { BusinessProfileId } from '../../config/business-profiles'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { moduleViewKey, resolveModuleKey } from '@/config/capabilities'
+import { widgetRegistry } from '@/components/widgets/WidgetRegistry'
 
 interface WidgetSuggestion {
   id: string
@@ -70,10 +73,17 @@ export function ProfileWidgetSuggestions() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [allDismissed, setAllDismissed] = useState(false)
 
-  const suggestions = getSuggestionsForProfile(businessProfileId)
-  const visible = suggestions.filter((s) => !dismissed.has(s.id))
+  // RBAC: never suggest a widget whose module the role cannot see (R-3).
+  const { has: hasCapability, ready: rbacReady } = useCapabilitySet()
+  const isSuggestionVisible = (s: WidgetSuggestion): boolean => {
+    const rbacModule = resolveModuleKey(widgetRegistry[s.widgetId]?.module ?? s.moduleId)
+    return !rbacModule || hasCapability(moduleViewKey(rbacModule))
+  }
 
-  if (allDismissed || visible.length === 0 || !businessProfileId) return null
+  const suggestions = getSuggestionsForProfile(businessProfileId)
+  const visible = suggestions.filter((s) => !dismissed.has(s.id) && isSuggestionVisible(s))
+
+  if (!rbacReady || allDismissed || visible.length === 0 || !businessProfileId) return null
 
   return (
     <div className="mb-6">

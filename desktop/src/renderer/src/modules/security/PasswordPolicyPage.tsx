@@ -12,7 +12,7 @@ import { KeyRound, Save, Info, TestTube } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
-import { useAuthStore } from '@/stores/auth'
+import { useHasCapability } from '@/hooks/useCapability'
 import { usePasswordPolicy, useUpdatePasswordPolicy, useValidatePassword } from '@/api/hooks/useSecurity'
 
 /** Strength meter for password testing. */
@@ -45,8 +45,7 @@ function StrengthBar({ score }: { score: number }) {
 
 export default function PasswordPolicyPage() {
   const { t } = useTranslation()
-  const user = useAuthStore((s) => s.user)
-  const isAdmin = user?.roles.includes('admin')
+  const canManagePolicy = useHasCapability('security:policy:manage')
 
   const { data: policy, isLoading } = usePasswordPolicy()
   const updatePolicy = useUpdatePasswordPolicy()
@@ -124,7 +123,7 @@ export default function PasswordPolicyPage() {
       : policyStrength >= 50 ? { text: t('password.strength.moderate'), css: 'bg-warning-light text-warning' }
         : { text: t('password.strength.weak'), css: 'bg-error-light text-error' }
 
-  if (!isAdmin) {
+  if (!canManagePolicy) {
     return <Navigate to="/" replace />
   }
 

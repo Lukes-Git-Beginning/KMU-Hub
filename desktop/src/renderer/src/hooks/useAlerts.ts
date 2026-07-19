@@ -16,6 +16,8 @@ import { useVertraegeStore } from '@/stores/vertraege'
 import { useTickets } from '@/api/hooks/useHelpdesk'
 import { useInvoices } from '@/api/hooks/useFinance'
 import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { moduleViewKey, type ModuleKey } from '@/config/capabilities'
 
 export type AlertSeverity = 'warning' | 'critical' | 'info'
 
@@ -60,6 +62,10 @@ function isModuleAllowed(moduleId: string, flags: Record<string, boolean> | unde
 export function useAlerts(): DashboardAlert[] {
   const { flags, isLoading: flagsLoading, error: flagsError } = useFeatureFlags()
 
+  // RBAC module visibility (R-3 dashboard level 2) — default-deny on top of
+  // the fail-open flag layer: no `<module>:module:view` grant, no alert.
+  const { has: hasCapability, ready: rbacReady } = useCapabilitySet()
+
   // Store data
   const contracts = useVertraegeStore((s) => s.contracts)
 
@@ -73,8 +79,12 @@ export function useAlerts(): DashboardAlert[] {
   return useMemo(() => {
     const alerts: DashboardAlert[] = []
 
+    const rbacVisible = (module: ModuleKey): boolean =>
+      rbacReady && hasCapability(moduleViewKey(module))
+
     // ── Contracts: expiring ──────────────────────────────────────────────
-    const vertraegeAllowed = isModuleAllowed('vertraege', flags, flagsLoading, flagsError)
+    const vertraegeAllowed =
+      rbacVisible('vertraege') && isModuleAllowed('vertraege', flags, flagsLoading, flagsError)
     if (vertraegeAllowed) {
       const expiring = contracts.filter((c) => c.status === 'expiring')
       if (expiring.length > 0) {
@@ -91,7 +101,8 @@ export function useAlerts(): DashboardAlert[] {
     }
 
     // ── Finance: overdue invoices ─────────────────────────────────────────
-    const financeAllowed = isModuleAllowed('finance', flags, flagsLoading, flagsError)
+    const financeAllowed =
+      rbacVisible('finance') && isModuleAllowed('finance', flags, flagsLoading, flagsError)
     if (financeAllowed) {
       // Try API-fetched data first, fall back gracefully
       const overdueCount: number =
@@ -110,7 +121,8 @@ export function useAlerts(): DashboardAlert[] {
     }
 
     // ── Helpdesk: open/pending tickets (SLA breached = those with due_at in past)
-    const helpdeskAllowed = isModuleAllowed('helpdesk', flags, flagsLoading, flagsError)
+    const helpdeskAllowed =
+      rbacVisible('helpdesk') && isModuleAllowed('helpdesk', flags, flagsLoading, flagsError)
     if (helpdeskAllowed) {
       const now = Date.now()
       const allActiveTickets = [
@@ -134,5 +146,5 @@ export function useAlerts(): DashboardAlert[] {
     }
 
     return alerts
-  }, [contracts, openTicketsData, pendingTicketsData, invoicesData, flags, flagsLoading, flagsError])
+  }, [contracts, openTicketsData, pendingTicketsData, invoicesData, flags, flagsLoading, flagsError, hasCapability, rbacReady])
 }
