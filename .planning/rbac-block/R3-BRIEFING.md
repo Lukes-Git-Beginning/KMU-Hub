@@ -12,7 +12,23 @@
 
 **Bekannte modul-spezifische Startpunkte:** berichte: Berichte bauen/Block-Editor vs. ansehen, Exporte (Dokument-Engine-Basis — Phase A `shared/document`!) · formulare: Schema-Designer vs. Submissions ansehen/erfassen, Webhooks = Verwaltung · automatisierung: Flows anlegen/aktivieren vs. Ausführungs-Historie lesen. Owner-Felder prüfen (Muster Batch 3/4: wo Freitext/null → Gap notieren, KEINE scopeable-Keys).
 
-**QA:** Muster `scripts/qa-rbac-enforcement-b4.mjs` (admin-Regression je Modul + readonly-Chip + member + extern-NoAccess + Bilder ansehen; Switcher NUR von `/#/settings`; Labels exakt aus de.json; Nav-Link-Checks via `a[href="#/..."]` bei Router-Modulen).
+**Grants-Muster in `mocks/data/rbac.ts` (Batch 3/4 fortführen):** pro Modul `<MODUL>_ALL = catalogCapabilityKeys('<modul>')` + Read-Keys in eine neue `INDUSTRY_B5_READS`-Liste (Vorbild `INDUSTRY_B4_READS`, inkl. Privacy-Ausnahmen dokumentieren). admin bekommt `keys(<MODUL>_ALL)` für ALLE neuen Module (Default-Deny!), it_admin + readonly `keys(INDUSTRY_B5_READS)`, manager voll, member kuratierte Basics (berichte: Berichte aus Vorlagen erstellen? formulare: Submissions erfassen = Außendienst-Fall · automatisierung: eher NICHTS für member — Flows sind Verwaltung), extern nichts. Domänen-Frage mitdenken: automatisierung könnte it_admin VOLL bekommen (IT-Domäne, Muster helpdesk↔it_admin / schichten↔hr_admin) — beim Kuratieren entscheiden + im RESUME notieren.
+
+**Datei-Karte nach Batch 4 (Referenzen fürs Bau-Terminal):**
+| Zweck | Datei |
+|---|---|
+| Tab-Gating-Muster (TAB_CAPABILITY/visibleTabs/moduleEmpty/Badge) | `modules/inventar/InventarPage.tsx` |
+| own-Scope-Listen-Filter + Approve-UI im Detail-Modal | `modules/rapporte/RapportePage.tsx` + `ReportDetailModal.tsx` |
+| Router-Layout-Gating (Nav-Filter + Routen-Guard + ready-Guard + dyn. Index-Redirect) | `modules/dialer/DialerLayout.tsx` |
+| ItemActions per Spread konditional | `modules/vermietung/VermietungPage.tsx` (`getObjectActions`) |
+| Namen statt Roh-Ids | `displayUserName()` in `mocks/data/shared-ids.ts` |
+| i18n-Insert-Skript (ordnungserhaltend, Duplikate-sicher) | `scripts/i18n-rbac-r3b4.mjs` |
+| QA-Muster (14 Steps, Switcher via /#/settings, navLink-Helper) | `scripts/qa-rbac-enforcement-b4.mjs` |
+| Scoped-tsc-Gate | `tsconfig.rbaccheck.json` (um Batch-5-Dateien ERWEITERN, tsc 1× foreground; Batch-4-Stand: 202 Zeilen Alt-Baseline außerhalb der Batch-Dateien sind ok) |
+
+**QA:** Muster `scripts/qa-rbac-enforcement-b4.mjs` (admin-Regression je Modul + readonly-Chip + member + extern-NoAccess + Bilder ansehen; Switcher NUR von `/#/settings`; Labels exakt aus de.json; Nav-Link-Checks via `a[href="#/..."]` bei Router-Modulen). Dev-Server: nur EINER (`npm run dev`, Port 5173), Kill danach per PowerShell `Get-CimInstance Win32_Process`-Filter + `Stop-Process` (pkill greift nicht).
+
+**Standard-Gates am Ende:** i18n ×4 · scoped tsc · `eslint src/ --quiet` · Diff-Key-Check · QA + Bilder · 1 feat-Commit (Code) + 1 docs-Commit (RESUME-NEXT Top-Block #21, backend-gaps §RBAC Batch-5-Block, hetzner-review-checklist Batch-5-Block, dieses Briefing → Batch 5 auf Historie + R-4-Hinweis) + Push (⚠ Auto-Deploy scharf).
 
 **Danach:** R-4 (HR-Datenkategorien-Tiefe, Personio-Recherche-Gate) → R-5 (Audit-Log-UI · Zentria-Setup-Zugang · 3 Branchen-Template-Sets, je Set mit Darien) → Sammel-Review (`hetzner-review-checklist.md`).
 
