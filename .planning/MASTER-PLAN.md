@@ -221,12 +221,12 @@
 
 ### Welle R — RBAC / Berechtigungs-Baukasten (NEU, Darien 2026-07-16)  ·  ~12–16 Phasen  ·  R-3 gut parallel
 > **Konzept + Marktrecherche fertig:** `.planning/rbac-block/KONZEPT.md` (3 Reports: Personio/BambooHR · Odoo/weclapp/Zoho/monday · Entra/NIST/GDAP) + `CAPABILITY-KATALOG.md`. **Anspruch: Markt-Parität oder besser** (Differenzierer: IT-Admin ohne HR-Daten · befristete Rechte · GDAP-artiger Zentria-Zugang · „Effektive Rechte"-Transparenz · „Als Rolle anzeigen"-Preview). Ersetzt die alte „5-feste-Rollen"-Festlegung — Custom Roles tenant-scoped, Multi-Rollen pro Account, 3-Ebenen-Capability-Modell (Sichtbarkeit / Basis-Aktionen+Scope / Fein-Schalter pro Modul).
-- [ ] **R-1** Fundament: Contract (Role/RolePermissions/EffectivePermissions) · `useCapability` · dynamische Rollen · MSW `GET /me/permissions`
-- [ ] **R-2** Rollen-Baukasten (Admin-Hub): 2-Pane-Editor · Presets/Klonen/Vergleich · „Als Rolle anzeigen" · „Effektive Rechte" pro User · Guardrails-UI — löst A-2-Matrix ab
-- [ ] **R-3** Enforcement-Sweep über ALLE 32 Module (batch-weise à ~5, Katalog je Modul kuratieren → gaten → QA mit 2+ Rollen) — Start: work/dokumente/kontakte/finanzen/team/wiki/settings+security
+- [x] **R-1** Fundament: Contract (Role/RolePermissions/EffectivePermissions) · `useCapability` · dynamische Rollen · MSW `GET /me/permissions` — ✅ Session #14
+- [x] **R-2** Rollen-Baukasten (Admin-Hub): 2-Pane-Editor · Presets/Klonen/Vergleich · „Als Rolle anzeigen" · „Effektive Rechte" pro User · Guardrails-UI — löst A-2-Matrix ab — ✅ Session #15
+- [x] **R-3** Enforcement-Sweep über ALLE 32 Module (5 Batches, Katalog je Modul kuratiert → gegated → QA je Batch) — ✅ Sessions #17–#21, Katalog komplett
 - [ ] **R-4** HR-Seite (Team): Anlegen→Einladen→Rollen-Flow · Datenkategorien (Gehalt geschützt, auch vor IT-Admin) · Reporting-Line-Scope · Offboarding
 - [ ] **R-5** Audit-Log-UI · Zentria-Setup-Zugang (GDAP-light) · 3 Branchen-Template-Sets (Handwerk/Dienstleister/Handel)
-- [ ] **R-6** Über-Markt-Features: befristete Rechte mit Ablaufdatum · Vertretungsregelung · Gehalts-Feldgruppen (Grundgehalt≠Bonus) — Marktlücken lt. Recherche, bis 1.0
+- [ ] **R-6** Über-Markt-Features (nach Sammel-Review, bis 1.0): **Per-User-Overrides** (Darien-Entscheid 2026-07-19, VOLLE Variante inkl. Rechte-Entzug — Rollen-Editor-Toggle-Ansicht am User, ausgegraut solange Rolle führt, „Benutzerdefiniert"-Button schaltet editierbar; Paket + Recherche-Gate: `.planning/rbac-block/R6-USER-OVERRIDES-BRIEFING.md`) · befristete Rechte mit Ablaufdatum · Vertretungsregelung · Gehalts-Feldgruppen (Grundgehalt≠Bonus)
 - 🔴 **Luke-Paket parallel ab R-1:** backend-gaps.md §RBAC (roles.tenant_id, Rollen-CRUD/Matrix-API, Scope-Dimension, Guardrails serverseitig, `GET /me/permissions`, Audit-Events)
 
 ### Welle 3 — Onboarding / Info-Center (§1.2)  ·  ~7 Phasen  ·  eher seriell

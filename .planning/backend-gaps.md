@@ -45,6 +45,7 @@
 - 🟠 Permission-Cache/Propagation: Rollen-Änderung muss ohne Re-Login wirken (oder definierter Refresh).
 - 🟠 Zentria-Setup-Zugang (GDAP-light): Setup-Rolle mit Ablaufdatum + Audit-Sichtbarkeit für den Kunden.
 - ⚪ R-6 später: zeitlich befristete Rollen-Zuweisungen (`user_roles.expires_at`), Vertretungs-Delegation, Gehalts-Feldgruppen.
+- 🟠 **R-6 Per-User-Overrides — Design-Vormerkung (Darien-Entscheid 2026-07-19, VOLLE Variante inkl. Entzug):** Beim Grant-Datenmodell die Erweiterungsstelle von Anfang an mitdenken: `user_permission_overrides` (tenant_id, user_id, permission_key, **mode allow|deny**, scope, created_by, timestamps) als Schicht ÜBER der Rollen-Union — Resolution: Rollen-Union wie gehabt, danach Overrides anwenden (deny entfernt Key, allow setzt/erweitert Scope; Override gewinnt pro Key über alle Rollen). `GET /admin/users/{id}/permissions` liefert Override-Herkunft in `sources` mit; CRUD `PUT/DELETE /admin/users/{id}/overrides`; Guardrails serverseitig (Eskalations-Guard, Last-Admin, Selbst-Aussperrung) + Audit-Events pro Override-Änderung. FE-Paket + UI-Bild: `.planning/rbac-block/R6-USER-OVERRIDES-BRIEFING.md` (Umsetzung nach dem RBAC-Sammel-Review).
 
 **R-3 Batch 1 (FE-Enforcement work/documents/crm/finance/wiki, gebaut 2026-07-19) — Seed-Abgleich + neue Gaps:**
 
