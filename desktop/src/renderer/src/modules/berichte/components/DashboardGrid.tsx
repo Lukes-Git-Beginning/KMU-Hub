@@ -28,6 +28,9 @@ interface DashboardGridProps {
   onModuleFilterChange: (next: string) => void
   moduleOptions: { id: string; name: string }[]
   isLoading?: boolean
+  /** RBAC (R-3): hero charts follow module visibility (finance / helpdesk). */
+  showRevenueChart?: boolean
+  showTicketsChart?: boolean
 }
 
 /**
@@ -78,6 +81,8 @@ export function DashboardGrid({
   onModuleFilterChange,
   moduleOptions,
   isLoading,
+  showRevenueChart = true,
+  showTicketsChart = true,
 }: DashboardGridProps) {
   const { t, i18n } = useTranslation()
   const theme = useChartTheme()
@@ -96,16 +101,18 @@ export function DashboardGrid({
     [definitions],
   )
 
-  // Auto-load both hero charts once their definition resolves (no manual click).
+  // Auto-load both hero charts once their definition resolves (no manual
+  // click) — skipped entirely for roles without the source module (RBAC).
   useEffect(() => {
-    if (heroDef && !heroRun.data && !heroRun.isPending) heroRun.mutate({ definitionId: heroDef.id })
+    if (showRevenueChart && heroDef && !heroRun.data && !heroRun.isPending)
+      heroRun.mutate({ definitionId: heroDef.id })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroDef?.id])
+  }, [heroDef?.id, showRevenueChart])
   useEffect(() => {
-    if (ticketDef && !ticketRun.data && !ticketRun.isPending)
+    if (showTicketsChart && ticketDef && !ticketRun.data && !ticketRun.isPending)
       ticketRun.mutate({ definitionId: ticketDef.id })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketDef?.id])
+  }, [ticketDef?.id, showTicketsChart])
 
   const heroSeries = useMemo(() => {
     const result = heroRun.data?.result as ReportResult | undefined
@@ -199,7 +206,9 @@ export function DashboardGrid({
       </div>
 
       {/* Hero charts */}
+      {(showRevenueChart || showTicketsChart) && (
       <div className="grid grid-cols-1 gap-6 animate-fade-up lg:grid-cols-2" style={{ animationDelay: '200ms' }}>
+        {showRevenueChart && (
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
@@ -241,8 +250,10 @@ export function DashboardGrid({
             </div>
           )}
         </div>
+        )}
 
         {/* Secondary chart: open tickets per month (own definition) */}
+        {showTicketsChart && (
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
@@ -283,7 +294,9 @@ export function DashboardGrid({
             </div>
           )}
         </div>
+        )}
       </div>
+      )}
 
       {/* Drilldown modal */}
       <DetailModal

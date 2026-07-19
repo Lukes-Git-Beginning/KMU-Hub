@@ -9,6 +9,7 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useCapabilitySet } from '@/hooks/useCapability'
 import {
   Server,
   HardDrive,
@@ -109,6 +110,12 @@ type Tab = 'overview' | 'services' | 'backups' | 'storage' | 'security' | 'updat
 
 export default function InfrastrukturPage() {
   const { t } = useTranslation()
+  const { has: hasCap } = useCapabilitySet()
+  const canManageServices = hasCap('infrastructure:service:manage')
+  const canManageBackups = hasCap('infrastructure:backup:manage')
+  const canManageSecurity = hasCap('infrastructure:security:manage')
+  const canManageUpdates = hasCap('infrastructure:updates:manage')
+  const canExportLogs = hasCap('infrastructure:logs:export')
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showRestoreConfirm, setShowRestoreConfirm] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
@@ -176,19 +183,21 @@ export default function InfrastrukturPage() {
         {activeTab === 'overview' && <OverviewTab />}
         {activeTab === 'services' && (
           <ServicesTab
+            canManage={canManageServices}
             onRestart={(id) => setShowRestartConfirm(id)}
           />
         )}
         {activeTab === 'backups' && (
           <BackupsTab
+            canManage={canManageBackups}
             onRestore={(id) => setShowRestoreConfirm(id)}
             onDelete={(id) => setShowDeleteConfirm(id)}
           />
         )}
         {activeTab === 'storage' && <StorageTab />}
-        {activeTab === 'security' && <SecurityTab />}
-        {activeTab === 'updates' && <UpdatesTab />}
-        {activeTab === 'logs' && <LogsTab />}
+        {activeTab === 'security' && <SecurityTab canManage={canManageSecurity} />}
+        {activeTab === 'updates' && <UpdatesTab canManage={canManageUpdates} />}
+        {activeTab === 'logs' && <LogsTab canExport={canExportLogs} />}
       </div>
 
       {/* Confirm dialogs */}
@@ -308,7 +317,7 @@ function OverviewTab() {
 // ============================================================
 // Services Tab — Detailed service management
 // ============================================================
-function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
+function ServicesTab({ canManage, onRestart }: { canManage: boolean; onRestart: (id: string) => void }) {
   const { t } = useTranslation()
   const [expandedService, setExpandedService] = useState<string | null>(null)
 
@@ -319,10 +328,12 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
           <h2 className="text-base font-medium text-foreground">{t('admin.infra.services.title')}</h2>
           <p className="text-sm text-muted-foreground">{t('admin.infra.services.description')}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => toast.success(t('admin.infra.services.restartingAll'))}>
-          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          {t('admin.infra.services.restartAll')}
-        </Button>
+        {canManage && (
+          <Button variant="outline" size="sm" onClick={() => toast.success(t('admin.infra.services.restartingAll'))}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            {t('admin.infra.services.restartAll')}
+          </Button>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -371,20 +382,24 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => onRestart(svc.id)}>
-                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                      {t('admin.infra.services.restart')}
-                    </Button>
-                    {svc.status === 'running' ? (
-                      <Button size="sm" variant="outline" onClick={() => toast.info(t('admin.infra.services.stopping', { name: svc.name }))}>
-                        <Pause className="mr-1.5 h-3.5 w-3.5" />
-                        {t('admin.infra.services.stop')}
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => toast.success(t('admin.infra.services.starting', { name: svc.name }))}>
-                        <Play className="mr-1.5 h-3.5 w-3.5" />
-                        {t('admin.infra.services.start')}
-                      </Button>
+                    {canManage && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => onRestart(svc.id)}>
+                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                          {t('admin.infra.services.restart')}
+                        </Button>
+                        {svc.status === 'running' ? (
+                          <Button size="sm" variant="outline" onClick={() => toast.info(t('admin.infra.services.stopping', { name: svc.name }))}>
+                            <Pause className="mr-1.5 h-3.5 w-3.5" />
+                            {t('admin.infra.services.stop')}
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => toast.success(t('admin.infra.services.starting', { name: svc.name }))}>
+                            <Play className="mr-1.5 h-3.5 w-3.5" />
+                            {t('admin.infra.services.start')}
+                          </Button>
+                        )}
+                      </>
                     )}
                     <Button size="sm" variant="outline" onClick={() => toast.info(t('admin.infra.services.loadingLogs', { name: svc.name }))}>
                       <FileText className="mr-1.5 h-3.5 w-3.5" />
@@ -405,9 +420,11 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
 // Backups Tab — Schedule, history, restore
 // ============================================================
 function BackupsTab({
+  canManage,
   onRestore,
   onDelete,
 }: {
+  canManage: boolean
   onRestore: (id: string) => void
   onDelete: (id: string) => void
 }) {
@@ -425,7 +442,10 @@ function BackupsTab({
               <p className="text-sm text-foreground">{t('admin.infra.backups.automatic')}</p>
               <p className="text-xs text-muted-foreground">{t('admin.infra.backups.dailyAt')}</p>
             </div>
-            <Switch checked={autoBackup} onCheckedChange={setAutoBackup} />
+            {canManage
+              ? <Switch checked={autoBackup} onCheckedChange={setAutoBackup} />
+              : <span className="text-sm text-muted-foreground">{autoBackup ? t('admin.infra.statusActive') : t('admin.infra.statusStopped')}</span>
+            }
           </div>
           <div className="flex items-center justify-between">
             <div>
@@ -439,25 +459,29 @@ function BackupsTab({
               <p className="text-sm text-foreground">{t('admin.infra.backups.location')}</p>
               <p className="text-xs text-muted-foreground">/var/backups/cosmi/</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.info(t('admin.infra.backups.locationConfigOpening'))}>
-              <Settings className="mr-1.5 h-3.5 w-3.5" />
-              {t('admin.infra.backups.change')}
-            </Button>
+            {canManage && (
+              <Button variant="outline" size="sm" onClick={() => toast.info(t('admin.infra.backups.locationConfigOpening'))}>
+                <Settings className="mr-1.5 h-3.5 w-3.5" />
+                {t('admin.infra.backups.change')}
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Manual backup button */}
-      <div className="flex items-center gap-3">
-        <Button onClick={() => toast.success(t('admin.infra.backups.manualStarted'))}>
-          <Database className="mr-1.5 h-4 w-4" />
-          {t('admin.infra.backups.createNow')}
-        </Button>
-        <Button variant="outline" onClick={() => toast.info(t('admin.infra.backups.downloading'))}>
-          <Download className="mr-1.5 h-4 w-4" />
-          {t('admin.infra.backups.downloadLatest')}
-        </Button>
-      </div>
+      {/* Manual backup button — nur mit backup:manage */}
+      {canManage && (
+        <div className="flex items-center gap-3">
+          <Button onClick={() => toast.success(t('admin.infra.backups.manualStarted'))}>
+            <Database className="mr-1.5 h-4 w-4" />
+            {t('admin.infra.backups.createNow')}
+          </Button>
+          <Button variant="outline" onClick={() => toast.info(t('admin.infra.backups.downloading'))}>
+            <Download className="mr-1.5 h-4 w-4" />
+            {t('admin.infra.backups.downloadLatest')}
+          </Button>
+        </div>
+      )}
 
       {/* Backup history */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -476,35 +500,37 @@ function BackupsTab({
                   {backup.size} &middot; {backup.type === 'automatic' ? t('admin.infra.backups.typeAutomatic') : t('admin.infra.backups.typeManual')}
                 </p>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRestore(backup.id)}
-                  disabled={backup.status === 'failed'}
-                  title={t('admin.infra.backups.restoreButton')}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toast.info(t('admin.infra.backups.downloading'))}
-                  disabled={backup.status === 'failed'}
-                  title={t('common.download')}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDelete(backup.id)}
-                  title={t('common.delete')}
-                  className="text-muted-foreground hover:text-error"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              {canManage && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRestore(backup.id)}
+                    disabled={backup.status === 'failed'}
+                    title={t('admin.infra.backups.restoreButton')}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toast.info(t('admin.infra.backups.downloading'))}
+                    disabled={backup.status === 'failed'}
+                    title={t('common.download')}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDelete(backup.id)}
+                    title={t('common.delete')}
+                    className="text-muted-foreground hover:text-error"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -589,7 +615,7 @@ function StorageTab() {
 // ============================================================
 // Security Tab — SSL, firewall, encryption
 // ============================================================
-function SecurityTab() {
+function SecurityTab({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation()
   const [firewallEnabled, setFirewallEnabled] = useState(true)
   const [encryptionEnabled, setEncryptionEnabled] = useState(true)
@@ -626,10 +652,12 @@ function SecurityTab() {
             <p className="text-success">{t('admin.infra.statusActive')}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => toast.success(t('admin.infra.security.renewStarted'))}>
-          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-          {t('admin.infra.security.renewNow')}
-        </Button>
+        {canManage && (
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => toast.success(t('admin.infra.security.renewStarted'))}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            {t('admin.infra.security.renewNow')}
+          </Button>
+        )}
       </div>
 
       {/* Security toggles */}
@@ -641,7 +669,11 @@ function SecurityTab() {
             <p className="text-sm text-foreground">{t('admin.infra.security.firewall')}</p>
             <p className="text-xs text-muted-foreground">{t('admin.infra.security.firewallDescription')}</p>
           </div>
-          <Switch checked={firewallEnabled} onCheckedChange={(v) => { setFirewallEnabled(v); toast.success(v ? t('admin.infra.security.firewallEnabled') : t('admin.infra.security.firewallDisabled')) }} />
+          <Switch
+            checked={firewallEnabled}
+            disabled={!canManage}
+            onCheckedChange={canManage ? (v) => { setFirewallEnabled(v); toast.success(v ? t('admin.infra.security.firewallEnabled') : t('admin.infra.security.firewallDisabled')) } : undefined}
+          />
         </div>
 
         <div className="flex items-center justify-between py-2">
@@ -649,7 +681,11 @@ function SecurityTab() {
             <p className="text-sm text-foreground">{t('admin.infra.security.encryption')}</p>
             <p className="text-xs text-muted-foreground">{t('admin.infra.security.encryptionDescription')}</p>
           </div>
-          <Switch checked={encryptionEnabled} onCheckedChange={(v) => { setEncryptionEnabled(v); toast.success(v ? t('admin.infra.security.encryptionEnabled') : t('admin.infra.security.encryptionDisabled')) }} />
+          <Switch
+            checked={encryptionEnabled}
+            disabled={!canManage}
+            onCheckedChange={canManage ? (v) => { setEncryptionEnabled(v); toast.success(v ? t('admin.infra.security.encryptionEnabled') : t('admin.infra.security.encryptionDisabled')) } : undefined}
+          />
         </div>
 
         <div className="flex items-center justify-between py-2">
@@ -657,7 +693,11 @@ function SecurityTab() {
             <p className="text-sm text-foreground">{t('admin.infra.security.bruteForce')}</p>
             <p className="text-xs text-muted-foreground">{t('admin.infra.security.bruteForceDescription')}</p>
           </div>
-          <Switch checked={bruteForceProtection} onCheckedChange={(v) => { setBruteForceProtection(v); toast.success(v ? t('admin.infra.security.bruteForceEnabled') : t('admin.infra.security.bruteForceDisabled')) }} />
+          <Switch
+            checked={bruteForceProtection}
+            disabled={!canManage}
+            onCheckedChange={canManage ? (v) => { setBruteForceProtection(v); toast.success(v ? t('admin.infra.security.bruteForceEnabled') : t('admin.infra.security.bruteForceDisabled')) } : undefined}
+          />
         </div>
       </div>
 
@@ -702,7 +742,7 @@ function SecurityTab() {
 // ============================================================
 // Updates Tab — Version management
 // ============================================================
-function UpdatesTab() {
+function UpdatesTab({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-6">
@@ -733,7 +773,7 @@ function UpdatesTab() {
             <p className="text-sm text-foreground">{t('admin.infra.updates.autoUpdates')}</p>
             <p className="text-xs text-muted-foreground">{t('admin.infra.updates.autoUpdatesDescription')}</p>
           </div>
-          <Switch defaultChecked />
+          <Switch defaultChecked disabled={!canManage} />
         </div>
 
         <div className="flex items-center justify-between py-2">
@@ -741,7 +781,7 @@ function UpdatesTab() {
             <p className="text-sm text-foreground">{t('admin.infra.updates.notifications')}</p>
             <p className="text-xs text-muted-foreground">{t('admin.infra.updates.notificationsDescription')}</p>
           </div>
-          <Switch defaultChecked />
+          <Switch defaultChecked disabled={!canManage} />
         </div>
 
         <div className="flex items-center justify-between py-2">
@@ -749,15 +789,17 @@ function UpdatesTab() {
             <p className="text-sm text-foreground">{t('admin.infra.updates.betaVersions')}</p>
             <p className="text-xs text-muted-foreground">{t('admin.infra.updates.betaVersionsDescription')}</p>
           </div>
-          <Switch />
+          <Switch disabled={!canManage} />
         </div>
       </div>
 
-      {/* Update check */}
-      <Button onClick={() => toast.info(t('admin.infra.updates.searching'))}>
-        <RefreshCw className="mr-1.5 h-4 w-4" />
-        {t('admin.infra.updates.checkNow')}
-      </Button>
+      {/* Update check — nur mit updates:manage */}
+      {canManage && (
+        <Button onClick={() => toast.info(t('admin.infra.updates.searching'))}>
+          <RefreshCw className="mr-1.5 h-4 w-4" />
+          {t('admin.infra.updates.checkNow')}
+        </Button>
+      )}
 
       {/* Changelog */}
       <div className="rounded-xl border border-border bg-card p-5">
@@ -787,7 +829,7 @@ function UpdatesTab() {
 // ============================================================
 // Logs Tab — Filterable system log
 // ============================================================
-function LogsTab() {
+function LogsTab({ canExport }: { canExport: boolean }) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState<'all' | 'info' | 'warning' | 'error'>('all')
 
@@ -810,10 +852,12 @@ function LogsTab() {
           <p className="text-sm text-muted-foreground">{t('admin.infra.logs.description')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => toast.info(t('admin.infra.logs.exporting'))}>
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            {t('admin.infra.logs.export')}
-          </Button>
+          {canExport && (
+            <Button variant="outline" size="sm" onClick={() => toast.info(t('admin.infra.logs.exporting'))}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {t('admin.infra.logs.export')}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => toast.success(t('admin.infra.logs.refreshed'))}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
           </Button>

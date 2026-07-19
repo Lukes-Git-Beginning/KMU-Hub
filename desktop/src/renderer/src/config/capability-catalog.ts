@@ -71,15 +71,82 @@ export const MODULE_CATEGORY: Record<ModuleKey, ModuleCategory> = {
  */
 export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
   dashboard: [],
-  kommunikation: [],
   video: [],
-  kalender: [],
-  zeiterfassung: [],
-  infrastructure: [],
   notifications: [],
-  berichte: [],
-  formulare: [],
-  automatisierung: [],
+
+  // Batch-5 (R-3 close-out) — subjects mirror Luke's permission seeds where
+  // they exist: berichte `reports` PLURAL (000080), formulare
+  // `schemas`/`submissions` (000129; webhooks seeded in BE but the FE webhook
+  // UI is an unmounted stub → no key until it ships), automatisierung BE
+  // resource is `automations` WITHOUT module prefix (000129) — FE keys carry
+  // the module prefix, mapping noted in backend-gaps. datev/schedule/share and
+  // all mini-catalogue subjects below are FE-first (no BE seeds yet).
+
+  berichte: [
+    base('berichte:reports:read'),
+    base('berichte:reports:create'),
+    base('berichte:reports:edit', true),
+    base('berichte:reports:delete', true),
+    fine('berichte:reports:publish'),
+    fine('berichte:schedule:manage'),
+    fine('berichte:share:manage'),
+    base('berichte:datev:read'),
+    fine('berichte:export:run'),
+  ],
+
+  formulare: [
+    base('formulare:schemas:read'),
+    base('formulare:schemas:create'),
+    base('formulare:schemas:edit'),
+    base('formulare:schemas:delete'),
+    fine('formulare:schemas:publish'),
+    base('formulare:submissions:read'),
+    fine('formulare:submissions:write'),
+    fine('formulare:share:manage'),
+    fine('formulare:export:run'),
+  ],
+
+  automatisierung: [
+    base('automatisierung:automations:read'),
+    base('automatisierung:automations:create'),
+    base('automatisierung:automations:edit', true),
+    base('automatisierung:automations:delete', true),
+    fine('automatisierung:automations:toggle', true),
+    base('automatisierung:executions:read'),
+  ],
+
+  // Standard-module mini catalogues (batch 5): only genuine administration is
+  // gated — personal daily use (chatting, own calendar, clocking in/out,
+  // notifications) stays capability-free. video + notifications deliberately
+  // stay level-1 only (no management surfaces / all-personal actions).
+
+  kommunikation: [
+    fine('kommunikation:channel:manage'),
+    fine('kommunikation:team_inbox:manage'),
+    fine('kommunikation:routing:manage'),
+    fine('kommunikation:canned:manage'),
+    fine('kommunikation:webhook:manage'),
+  ],
+
+  kalender: [
+    fine('kalender:booking_page:manage'),
+    fine('kalender:category:manage'),
+  ],
+
+  zeiterfassung: [
+    fine('zeiterfassung:team:view'),
+    fine('zeiterfassung:week:approve'),
+    fine('zeiterfassung:corrections:approve'),
+    fine('zeiterfassung:export:run'),
+  ],
+
+  infrastructure: [
+    fine('infrastructure:service:manage'),
+    fine('infrastructure:backup:manage'),
+    fine('infrastructure:security:manage'),
+    fine('infrastructure:updates:manage'),
+    fine('infrastructure:logs:export'),
+  ],
 
   // Batch-3 industry modules — subjects mirror Luke's permission seeds
   // (000084/000185/000241 inventar, 000086/000209 einkauf, 000088/000191

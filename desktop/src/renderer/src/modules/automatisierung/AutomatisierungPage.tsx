@@ -6,7 +6,7 @@
  * - Vorlagen: template gallery with module/complexity grouping
  * - Protokoll: execution log viewer across all automations
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as Tabs from '@radix-ui/react-tabs'
 import * as Switch from '@radix-ui/react-switch'
@@ -29,14 +29,29 @@ import {
 } from '@/api/hooks/useAutomation'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
 import { useAutomatisierungPrefsStore } from '@/stores/automatisierungPrefs'
+import type { AutomatisierungStartTab } from '@/stores/automatisierungPrefs'
 import type { Automation } from '@/api/automation-types'
-import { EmptyState } from '@/components/shared/EmptyState'
+import { EmptyState, PageHeader } from '@/components/shared'
 import { EmptyAutomation } from '@/components/shared/illustrations'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
+import { useCapabilitySet, useScopedCapability } from '@/hooks/useCapability'
 import { AutomationWizard } from './AutomationWizard'
 import { AutomationEditor } from './AutomationEditor'
 import { AutomationDetailModal } from './AutomationDetailModal'
 import { TemplateGallery } from './TemplateGallery'
 import { ExecutionLogViewer } from './ExecutionLogViewer'
+
+// ---------------------------------------------------------------------------
+// Tab capability mapping (R-3)
+// ---------------------------------------------------------------------------
+
+type TabKey = AutomatisierungStartTab
+
+const TAB_CAPABILITY: Record<TabKey, string> = {
+  automations: 'automatisierung:automations:read',
+  templates: 'automatisierung:automations:create',
+  log: 'automatisierung:executions:read',
+}
 
 // ---------------------------------------------------------------------------
 // Stats bar
@@ -90,6 +105,9 @@ function AutomationRow({
   const enableMutation = useEnableAutomation()
   const disableMutation = useDisableAutomation()
 
+  // Scope-aware toggle: only own automations are toggleable when scope='own'
+  const canToggle = useScopedCapability('automatisierung:automations:toggle', automation.owner_id)
+
   const handleToggle = (checked: boolean) => {
     if (checked) {
       enableMutation.mutate(automation.id)
@@ -129,15 +147,22 @@ function AutomationRow({
         </span>
       </td>
       <td className="px-4 py-3">
-        <div onClick={(e) => e.stopPropagation()}>
-          <Switch.Root
-            checked={automation.is_active}
-            onCheckedChange={handleToggle}
-            className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors data-[state=checked]:bg-primary data-[state=unchecked]:bg-secondary"
-          >
-            <Switch.Thumb className="block h-4 w-4 rounded-full bg-white transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5 shadow-sm" />
-          </Switch.Root>
-        </div>
+        {canToggle && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Switch.Root
+              checked={automation.is_active}
+              onCheckedChange={handleToggle}
+              className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors data-[state=checked]:bg-primary data-[state=unchecked]:bg-secondary"
+            >
+              <Switch.Thumb className="block h-4 w-4 rounded-full bg-white transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5 shadow-sm" />
+            </Switch.Root>
+          </div>
+        )}
+        {!canToggle && (
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${automation.is_active ? 'bg-green-500' : 'bg-secondary'}`}
+          />
+        )}
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
         {automation.last_triggered_at ? (
@@ -170,9 +195,11 @@ function AutomationRow({
 function AutomationList({
   onNew,
   onOpen,
+  canCreate,
 }: {
   onNew: () => void
   onOpen: (a: Automation) => void
+  canCreate: boolean
 }) {
   const { t } = useTranslation()
   const { data, isLoading } = useAutomations()
@@ -192,7 +219,7 @@ function AutomationList({
         illustration={<EmptyAutomation />}
         title={t('automatisierung.empty.title')}
         description={t('automatisierung.empty.description')}
-        action={{ label: t('automatisierung.empty.action'), onClick: onNew }}
+        action={canCreate ? { label: t('automatisierung.empty.action'), onClick: onNew } : undefined}
       />
     )
   }
@@ -241,6 +268,30 @@ export default function AutomatisierungPage() {
     useAutomatisierungStore()
   const startTab = useAutomatisierungPrefsStore((s) => s.startTab)
 
+  // RBAC R-3 capability checks — all hooks BEFORE any early return
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canCreate = capHas('automatisierung:automations:create')
+
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+  // Stable string for effect dependency (avoids new array ref each render)
+  const visibleTabsKey = visibleTabs.join(',')
+
+  // Safe initial tab: resolve at render time against visible set
+  // (startTab from prefs might not be visible for this role)
+  const safeStartTab = visibleTabs.includes(startTab) ? startTab : (visibleTabs[0] ?? 'automations')
+  const [activeTab, setActiveTab] = useState<TabKey>(safeStartTab)
+
+  // Fallback effect: once caps load, redirect away from an invisible tab
+  useEffect(() => {
+    if (!capReady) return
+    const tabs = visibleTabsKey ? (visibleTabsKey.split(',') as TabKey[]) : []
+    if (tabs.length > 0 && !tabs.includes(activeTab)) {
+      setActiveTab(tabs[0])
+    }
+  }, [capReady, activeTab, visibleTabsKey])
+
   const handleNew = () => {
     resetDraft()
     setWizardOpen(true)
@@ -264,56 +315,99 @@ export default function AutomatisierungPage() {
     setWizardOpen(false)
   }
 
+  // moduleEmpty: caps loaded but no tab is visible at all
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('layout.navItems.automatisierung')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={Zap}
+          moduleId="automatisierung"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="automatisierung" />}
+        />
+        <EmptyState
+          illustration={<EmptyAutomation />}
+          title={t('rbac.gate.moduleEmpty')}
+          description={t('rbac.gate.noPermission')}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col overflow-hidden animate-fade-up">
       <StatsBar />
 
       <div className="flex-1 overflow-hidden">
-        <Tabs.Root defaultValue={startTab} className="flex h-full flex-col">
+        <Tabs.Root
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as TabKey)}
+          className="flex h-full flex-col"
+        >
           <div className="flex items-center justify-between border-b border-border px-6">
             <Tabs.List className="flex gap-4">
-              <Tabs.Trigger
-                value="automations"
-                className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
-              >
-                <Zap className="h-4 w-4" />
-                {t('automatisierung.tabs.myAutomations')}
-              </Tabs.Trigger>
-              <Tabs.Trigger
-                value="templates"
-                className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
-              >
-                <LayoutTemplate className="h-4 w-4" />
-                {t('automatisierung.tabs.templates')}
-              </Tabs.Trigger>
-              <Tabs.Trigger
-                value="log"
-                className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
-              >
-                <ScrollText className="h-4 w-4" />
-                {t('automatisierung.tabs.log')}
-              </Tabs.Trigger>
+              {visibleTabs.includes('automations') && (
+                <Tabs.Trigger
+                  value="automations"
+                  className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
+                >
+                  <Zap className="h-4 w-4" />
+                  {t('automatisierung.tabs.myAutomations')}
+                </Tabs.Trigger>
+              )}
+              {visibleTabs.includes('templates') && (
+                <Tabs.Trigger
+                  value="templates"
+                  className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
+                >
+                  <LayoutTemplate className="h-4 w-4" />
+                  {t('automatisierung.tabs.templates')}
+                </Tabs.Trigger>
+              )}
+              {visibleTabs.includes('log') && (
+                <Tabs.Trigger
+                  value="log"
+                  className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
+                >
+                  <ScrollText className="h-4 w-4" />
+                  {t('automatisierung.tabs.log')}
+                </Tabs.Trigger>
+              )}
             </Tabs.List>
-            <button
-              onClick={handleNew}
-              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t('automatisierung.newAutomation')}
-            </button>
+
+            <div className="flex items-center gap-2">
+              <RestrictedModeBadge module="automatisierung" />
+              {canCreate && (
+                <button
+                  onClick={handleNew}
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t('automatisierung.newAutomation')}
+                </button>
+              )}
+            </div>
           </div>
 
-          <Tabs.Content value="automations" className="flex-1 overflow-y-auto">
-            <AutomationList onNew={handleNew} onOpen={handleOpenDetail} />
-          </Tabs.Content>
+          {visibleTabs.includes('automations') && (
+            <Tabs.Content value="automations" className="flex-1 overflow-y-auto">
+              <AutomationList onNew={handleNew} onOpen={handleOpenDetail} canCreate={canCreate} />
+            </Tabs.Content>
+          )}
 
-          <Tabs.Content value="templates" className="flex-1 overflow-y-auto p-6">
-            <TemplateGallery />
-          </Tabs.Content>
+          {visibleTabs.includes('templates') && (
+            <Tabs.Content value="templates" className="flex-1 overflow-y-auto p-6">
+              <TemplateGallery />
+            </Tabs.Content>
+          )}
 
-          <Tabs.Content value="log" className="flex-1 overflow-y-auto p-6">
-            <ExecutionLogViewer />
-          </Tabs.Content>
+          {visibleTabs.includes('log') && (
+            <Tabs.Content value="log" className="flex-1 overflow-y-auto p-6">
+              <ExecutionLogViewer />
+            </Tabs.Content>
+          )}
         </Tabs.Root>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useCapabilitySet } from '@/hooks/useCapability'
 import { useCalendars, useEventCategories, useCreateEventCategory, useDeleteEventCategory } from '@/api/hooks/useCalendars'
 import { useEventsInRange, useCreateEvent, useUpdateEvent, useUpdateRecurringEvent, useDeleteEvent, useTaskDeadlines, useRSVPToEvent } from '@/api/hooks/useEvents'
 import { useHolidays } from '@/api/hooks/useHolidays'
@@ -331,7 +332,18 @@ function useWorkHours(): { startHour: number; endHour: number; hours: number[] }
 
 export default function KalenderPage() {
   const { t } = useTranslation()
+  const { has: hasCap, ready: capsReady } = useCapabilitySet()
+  const canManageBookingPage = hasCap('kalender:booking_page:manage')
+  const canManageCategory = hasCap('kalender:category:manage')
   const [topTab, setTopTab] = useState<TopTab>('kalender')
+
+  // Fallback: wenn caps geladen + kein booking_page:manage + aktiver Tab ist terminbuchung → zurück
+  useEffect(() => {
+    if (capsReady && !canManageBookingPage && topTab === 'terminbuchung') {
+      setTopTab('kalender')
+    }
+  }, [capsReady, canManageBookingPage, topTab])
+
   const calSettings = useSettingsStore((s) => s.calendar)
   const [view, setView] = useState<ViewMode>(calSettings.defaultView)
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -624,14 +636,16 @@ export default function KalenderPage() {
           <Calendar className="mr-1.5 inline h-4 w-4" />
           {t('kalender.tabs.calendar')}
         </button>
-        <button
-          onClick={() => setTopTab('terminbuchung')}
-          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'terminbuchung' ? 'font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          style={topTab === 'terminbuchung' ? { borderColor: moduleHsl('calendar'), color: moduleHsl('calendar') } : undefined}
-        >
-          <CalendarCheck className="mr-1.5 inline h-4 w-4" />
-          {t('kalender.tabs.booking')}
-        </button>
+        {canManageBookingPage && (
+          <button
+            onClick={() => setTopTab('terminbuchung')}
+            className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'terminbuchung' ? 'font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            style={topTab === 'terminbuchung' ? { borderColor: moduleHsl('calendar'), color: moduleHsl('calendar') } : undefined}
+          >
+            <CalendarCheck className="mr-1.5 inline h-4 w-4" />
+            {t('kalender.tabs.booking')}
+          </button>
+        )}
       </div>
 
       {/* Tab content */}
@@ -656,7 +670,7 @@ export default function KalenderPage() {
               onToday={goToToday}
               onNewEvent={() => handleOpenFullForm()}
               onOpenRooms={() => setShowRoomBooking(true)}
-              onOpenCategories={() => setShowCategoryManager(true)}
+              onOpenCategories={canManageCategory ? () => setShowCategoryManager(true) : undefined}
               onOpenCalendarBrowse={() => setShowCalendarBrowse(true)}
               onOpenSettings={() => setShowCalendarSettings(true)}
             />
@@ -1559,7 +1573,7 @@ function CalendarToolbar({
   onToday: () => void
   onNewEvent: () => void
   onOpenRooms: () => void
-  onOpenCategories: () => void
+  onOpenCategories?: () => void
   onOpenCalendarBrowse: () => void
   onOpenSettings: () => void
 }) {
@@ -1615,13 +1629,15 @@ function CalendarToolbar({
         >
           <Layers className="h-4 w-4" />
         </button>
-        <button
-          onClick={onOpenCategories}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title={t('kalender.toolbar.categories')}
-        >
-          <Settings2 className="h-4 w-4" />
-        </button>
+        {onOpenCategories !== undefined && (
+          <button
+            onClick={onOpenCategories}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title={t('kalender.toolbar.categories')}
+          >
+            <Settings2 className="h-4 w-4" />
+          </button>
+        )}
         <button
           onClick={onOpenSettings}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"

@@ -31,7 +31,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { useZeiterfassungPrefsStore } from '@/stores/zeiterfassungPrefs'
 import { STANDARD_DAILY_HOURS } from '@/lib/worktime'
-import { useIsModuleLead } from '@/hooks/useModuleSettings'
+import { useCapabilitySet } from '@/hooks/useCapability'
 import { ManualEntryDialog } from '@/modules/zeiterfassung/components/ManualEntryDialog'
 import { AuswertungenView } from '@/modules/zeiterfassung/components/AuswertungenView'
 import { TeamView } from '@/modules/zeiterfassung/components/TeamView'
@@ -62,13 +62,16 @@ function getArbZGColor(severity: string): string {
 
 export default function ZeiterfassungTab() {
   const { t } = useTranslation()
-  const isLead = useIsModuleLead('zeiterfassung')
+  const { has: hasCap, ready: capsReady } = useCapabilitySet()
+  const canViewTeam = hasCap('zeiterfassung:team:view')
+  const canApproveWeek = hasCap('zeiterfassung:week:approve')
+  const canApproveCorrections = hasCap('zeiterfassung:corrections:approve')
 
   const VIEWS: { key: ViewKey; label: string; icon: typeof Clock }[] = [
     { key: 'today', label: t('profil.zeiterfassung.viewToday'), icon: Clock },
     { key: 'week', label: t('profil.zeiterfassung.viewWeek'), icon: Calendar },
     { key: 'analytics', label: t('zeiterfassung.analytics.tab'), icon: BarChart3 },
-    ...(isLead ? [{ key: 'team' as const, label: t('zeiterfassung.team.tab'), icon: Users }] : []),
+    ...(canViewTeam ? [{ key: 'team' as const, label: t('zeiterfassung.team.tab'), icon: Users }] : []),
     { key: 'corrections', label: t('profil.zeiterfassung.viewCorrections'), icon: Edit3 },
   ]
 
@@ -82,6 +85,13 @@ export default function ZeiterfassungTab() {
   }
   const defaultView = useZeiterfassungPrefsStore((s) => s.defaultView)
   const [activeView, setActiveView] = useState<ViewKey>(defaultView)
+
+  // Fallback: wenn Caps geladen + kein team:view + aktiver Tab = team → zurück zu today
+  useEffect(() => {
+    if (capsReady && !canViewTeam && activeView === 'team') {
+      setActiveView('today')
+    }
+  }, [capsReady, canViewTeam, activeView])
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false)
   const [correctionEntryId, setCorrectionEntryId] = useState('')
@@ -315,11 +325,12 @@ export default function ZeiterfassungTab() {
           </div>
         )}
         {activeView === 'analytics' && <AuswertungenView />}
-        {activeView === 'team' && <TeamView />}
+        {activeView === 'team' && <TeamView canApproveWeek={canApproveWeek} />}
         {activeView === 'corrections' && (
           <CorrectionsView
             entries={entries}
             pendingEntries={pendingCorrections?.entries ?? []}
+            canApproveCorrections={canApproveCorrections}
             onRequestCorrection={(entryId) => {
               setCorrectionEntryId(entryId)
               setShowCorrectionDialog(true)
@@ -554,12 +565,14 @@ function WeeklyView({ summary }: { summary?: { weekStart: string; days: DailySum
 function CorrectionsView({
   entries,
   pendingEntries,
+  canApproveCorrections,
   onRequestCorrection,
   onApproveCorrection,
   isApproving,
 }: {
   entries: WorkTimeEntry[]
   pendingEntries: WorkTimeEntry[]
+  canApproveCorrections: boolean
   onRequestCorrection: (entryId: string) => void
   onApproveCorrection: (id: string) => void
   isApproving: boolean
@@ -572,8 +585,8 @@ function CorrectionsView({
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* Pending corrections for managers */}
-      {pendingEntries.length > 0 && (
+      {/* Pending corrections for managers — gated: corrections:approve only */}
+      {canApproveCorrections && pendingEntries.length > 0 && (
         <div>
           <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />

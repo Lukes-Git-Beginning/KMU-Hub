@@ -20,6 +20,9 @@ import type {
   ReportTemplate,
 } from '@/api/berichte-types'
 
+import { CURRENT_USER, IDS } from '../data/shared-ids'
+import { getDemoSessionUserId } from '../data/rbac'
+
 const API = API_BASE_URL
 const TENANT = 't-demo'
 
@@ -126,7 +129,9 @@ let DEMO_DOCUMENTS: ReportDocument[] = [
     description: 'Quartalsbericht Vertrieb: Pipeline, Umsatz und Empfehlungen.',
     module: 'crm',
     status: 'released',
-    created_by: 'u-demo',
+    // Real roster ids (RBAC R-3 batch 5): owners drive the reports:edit/delete
+    // own-scope — Sarah (manager) authored the released quarterly.
+    created_by: IDS.users.sarah,
     created_at: docAgo(14),
     updated_at: docAgo(2),
     released_at: docAgo(2),
@@ -194,7 +199,7 @@ let DEMO_DOCUMENTS: ReportDocument[] = [
     description: 'Management-Monatsbericht: Kennzahlen, Finanzen, Helpdesk.',
     module: 'finanzen',
     status: 'final',
-    created_by: 'u-demo',
+    created_by: CURRENT_USER.id,
     created_at: docAgo(6),
     updated_at: docAgo(1),
     released_at: null,
@@ -226,7 +231,8 @@ let DEMO_DOCUMENTS: ReportDocument[] = [
     description: 'Wöchentlicher Kurzbericht Support (Entwurf).',
     module: 'helpdesk',
     status: 'draft',
-    created_by: 'u-demo',
+    // Markus (member) owns the draft — the member edit-own demo case.
+    created_by: IDS.users.markus,
     created_at: docAgo(1),
     updated_at: docAgo(0),
     released_at: null,
@@ -618,7 +624,7 @@ export const berichteHandlers = [
       kind: 'custom',
       query_config: (body.query_config as ReportDefinition['query_config']) ?? {},
       default_format: (body.default_format as ReportDefinition['default_format']) ?? 'pdf',
-      created_by: 'u-demo',
+      created_by: getDemoSessionUserId(),
       is_published: body.is_published != null ? Boolean(body.is_published) : false,
       created_at: now,
       updated_at: now,
@@ -706,7 +712,9 @@ export const berichteHandlers = [
         template?.settings ??
         { showHeader: true, showFooter: true, showPageNumbers: true },
       template_id: (body.template_id as string | null) ?? null,
-      created_by: 'u-demo',
+      // Author = the signed-in demo account (BE will use the auth context) —
+      // otherwise a member could never edit their own fresh report (own scope).
+      created_by: getDemoSessionUserId(),
       created_at: now,
       updated_at: now,
       released_at: null,
@@ -841,7 +849,7 @@ export const berichteHandlers = [
       last_run_at: null,
       last_run_status: null,
       last_run_error: null,
-      created_by: null,
+      created_by: getDemoSessionUserId(),
       created_at: now,
       updated_at: now,
     }

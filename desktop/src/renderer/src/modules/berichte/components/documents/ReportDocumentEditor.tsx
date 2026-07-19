@@ -10,6 +10,7 @@ import {
 } from '@/api/hooks/useBerichte'
 import { Skeleton } from '@/components/shared'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import { formatDate } from '@/lib/format'
 import { ReportStatusBadge } from './ReportStatusBadge'
 import { DocumentBlockEditor, DocumentReader, type DocRow } from '@/components/shared/document'
@@ -80,6 +81,15 @@ function DocumentEditorInner({
   const createMutation = useCreateReportDocument()
   const locked = doc.status === 'released' || doc.status === 'archived'
 
+  // RBAC (R-3): edit is scopeable (own = author only, silently read-only on
+  // foreign documents); lifecycle is the publish fine switch.
+  const canEditDoc = useScopedCapability('berichte:reports:edit', doc.created_by)
+  const canPublish = useHasCapability('berichte:reports:publish')
+  const canSchedule = useHasCapability('berichte:schedule:manage')
+  const canShare = useHasCapability('berichte:share:manage')
+  const canDuplicate = useHasCapability('berichte:reports:create')
+  const editable = !locked && canEditDoc
+
   const [rows, setRows] = useState<ReportRow[]>(doc.rows)
   const [mode, setMode] = useState<'read' | 'edit'>(locked ? 'read' : initialMode)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -119,6 +129,7 @@ function DocumentEditorInner({
   // against the initial doc.rows reference skips the mount (StrictMode-safe).
   useEffect(() => {
     if (rows === doc.rows) return
+    if (!editable) return
     setSaveState('saving')
     const handle = setTimeout(() => {
       updateMutation.mutate({ id: doc.id, rows }, { onSuccess: () => setSaveState('saved') })
@@ -139,21 +150,27 @@ function DocumentEditorInner({
           <ArrowLeft className="h-4 w-4" />
         </button>
 
-        <input
-          defaultValue={doc.title}
-          onBlur={(e) => {
-            const value = e.target.value.trim()
-            if (value && value !== doc.title) {
-              setSaveState('saving')
-              updateMutation.mutate(
-                { id: doc.id, title: value },
-                { onSuccess: () => setSaveState('saved') },
-              )
-            }
-          }}
-          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-foreground transition-colors hover:border-border focus:border-border focus:outline-none focus:ring-2 focus:ring-focus-ring"
-          aria-label={t('berichte.docs.titleLabel')}
-        />
+        {editable ? (
+          <input
+            defaultValue={doc.title}
+            onBlur={(e) => {
+              const value = e.target.value.trim()
+              if (value && value !== doc.title) {
+                setSaveState('saving')
+                updateMutation.mutate(
+                  { id: doc.id, title: value },
+                  { onSuccess: () => setSaveState('saved') },
+                )
+              }
+            }}
+            className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-foreground transition-colors hover:border-border focus:border-border focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            aria-label={t('berichte.docs.titleLabel')}
+          />
+        ) : (
+          <span className="min-w-0 flex-1 truncate px-2 py-1 text-base font-semibold text-foreground">
+            {doc.title}
+          </span>
+        )}
 
         <ReportStatusBadge status={doc.status} />
 
@@ -163,8 +180,8 @@ function DocumentEditorInner({
           </span>
         )}
 
-        {/* Read / edit toggle (hidden while locked) */}
-        {!locked && (
+        {/* Read / edit toggle (hidden while locked or without edit-own) */}
+        {editable && (
           <div className="flex overflow-hidden rounded-lg border border-border">
             <button
               type="button"
@@ -186,7 +203,7 @@ function DocumentEditorInner({
         )}
 
         {/* Schedule — only meaningful once released; otherwise a guarded hint. */}
-        {mode === 'read' && (
+        {mode === 'read' && canSchedule && (
           <button
             type="button"
             onClick={() => doc.status === 'released' && setScheduleOpen(true)}
@@ -216,7 +233,7 @@ function DocumentEditorInner({
         )}
 
         {/* Share / distribute (R-5) — attach to task/contact, PDF, share link. */}
-        {mode === 'read' && <ShareActionsMenu doc={doc} />}
+        {mode === 'read' && canShare && <ShareActionsMenu doc={doc} />}
 
         {saveState === 'saving' ? (
           <span className="text-xs text-muted-foreground">{t('berichte.docs.saving')}</span>
@@ -236,11 +253,13 @@ function DocumentEditorInner({
           totalBlocks={totalBlocks}
           onTransition={transitionTo}
           onDuplicate={duplicate}
+          canPublish={canPublish}
+          canDuplicate={canDuplicate}
         />
       </header>
 
       <div className="report-doc-body flex-1 overflow-y-auto p-6">
-        {mode === 'edit' && !locked ? (
+        {mode === 'edit' && editable ? (
           <DocumentBlockEditor
             rows={rows as DocRow[]}
             onChange={(r) => setRows(r as ReportRow[])}
@@ -263,17 +282,22 @@ function DocumentEditorInner({
   )
 }
 
-/** Context-sensitive lifecycle controls in the editor header. */
+/** Context-sensitive lifecycle controls in the editor header (RBAC: lifecycle
+ *  transitions need reports:publish, duplicating needs reports:create). */
 function StatusActions({
   status,
   totalBlocks,
   onTransition,
   onDuplicate,
+  canPublish,
+  canDuplicate,
 }: {
   status: ReportDocStatus
   totalBlocks: number
   onTransition: (status: ReportDocStatus) => void
   onDuplicate: () => void
+  canPublish: boolean
+  canDuplicate: boolean
 }) {
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -281,6 +305,7 @@ function StatusActions({
     'flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50'
 
   if (status === 'draft') {
+    if (!canPublish) return null
     return (
       <button
         type="button"
@@ -296,6 +321,7 @@ function StatusActions({
   }
 
   if (status === 'final') {
+    if (!canPublish) return null
     return (
       <button type="button" onClick={() => onTransition('released')} className={primaryCls}>
         <Send className="h-3.5 w-3.5" />
@@ -305,6 +331,7 @@ function StatusActions({
   }
 
   // released / archived → secondary actions in a menu.
+  if (!canDuplicate && !(status === 'released' && canPublish)) return null
   return (
     <Popover open={menuOpen} onOpenChange={setMenuOpen}>
       <PopoverTrigger asChild>
@@ -317,18 +344,20 @@ function StatusActions({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-48 p-1" align="end" sideOffset={4}>
-        <button
-          type="button"
-          onClick={() => {
-            setMenuOpen(false)
-            onDuplicate()
-          }}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary"
-        >
-          <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-          {t('berichte.docs.lifecycle.duplicateDraft')}
-        </button>
-        {status === 'released' && (
+        {canDuplicate && (
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false)
+              onDuplicate()
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary"
+          >
+            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('berichte.docs.lifecycle.duplicateDraft')}
+          </button>
+        )}
+        {status === 'released' && canPublish && (
           <button
             type="button"
             onClick={() => {

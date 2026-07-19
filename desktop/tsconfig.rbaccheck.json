@@ -154,6 +154,26 @@
     "src/renderer/src/modules/dialer/CampaignListPage.tsx",
     "src/renderer/src/modules/dialer/CampaignDetailPage.tsx",
     "src/renderer/src/modules/dialer/components/CampaignCard.tsx",
-    "src/renderer/src/modules/dialer/components/ContactQueueTable.tsx"
+    "src/renderer/src/modules/dialer/components/ContactQueueTable.tsx",
+    "src/renderer/src/mocks/handlers/berichte.ts",
+    "src/renderer/src/modules/berichte/BerichtePage.tsx",
+    "src/renderer/src/modules/berichte/report-module-visibility.ts",
+    "src/renderer/src/modules/berichte/components/DashboardGrid.tsx",
+    "src/renderer/src/modules/berichte/components/DatevView.tsx",
+    "src/renderer/src/modules/berichte/components/PinnedReports.tsx",
+    "src/renderer/src/modules/berichte/components/ScheduleList.tsx",
+    "src/renderer/src/modules/berichte/components/documents/BerichtLibrary.tsx",
+    "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx",
+    "src/renderer/src/modules/formulare/FormularePage.tsx",
+    "src/renderer/src/modules/automatisierung/AutomatisierungPage.tsx",
+    "src/renderer/src/modules/automatisierung/AutomationDetailModal.tsx",
+    "src/renderer/src/modules/chat/channels/ChannelList.tsx",
+    "src/renderer/src/modules/kommunikation/KommunikationSettingsPanel.tsx",
+    "src/renderer/src/modules/kalender/KalenderPage.tsx",
+    "src/renderer/src/modules/profil/tabs/ZeiterfassungTab.tsx",
+    "src/renderer/src/modules/zeiterfassung/ZeiterfassungPage.tsx",
+    "src/renderer/src/modules/zeiterfassung/components/AuswertungenView.tsx",
+    "src/renderer/src/modules/zeiterfassung/components/TeamView.tsx",
+    "src/renderer/src/modules/admin/InfrastrukturPage.tsx"
   ]
 }

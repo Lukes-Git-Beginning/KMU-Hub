@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useHasCapability } from '@/hooks/useCapability'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
@@ -32,6 +33,7 @@ function hours(min: number): number {
 
 export function AuswertungenView() {
   const { t } = useTranslation()
+  const canExport = useHasCapability('zeiterfassung:export:run')
   const theme = useChartTheme()
   const [range, setRange] = useState<TimeAnalyticsRange>('week')
   const [showExport, setShowExport] = useState(false)
@@ -84,13 +86,15 @@ export function AuswertungenView() {
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">{t('zeiterfassung.analytics.title')}</h3>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowExport(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
-          >
-            <Download className="h-3.5 w-3.5" />
-            {t('zeiterfassung.export.action')}
-          </button>
+          {canExport && (
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t('zeiterfassung.export.action')}
+            </button>
+          )}
           <div className="flex rounded-lg border border-border p-0.5">
             {(['week', 'month'] as const).map((r) => (
               <button
@@ -108,7 +112,7 @@ export function AuswertungenView() {
         </div>
       </div>
 
-      <ExportDialog open={showExport} onOpenChange={setShowExport} />
+      {canExport && <ExportDialog open={showExport} onOpenChange={setShowExport} />}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

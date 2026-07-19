@@ -6,6 +6,7 @@ import type { ModuleSettingsSection } from '@/components/shared/ModuleSettingsSh
 import { useKommunikationPrefs, type MutableChannel } from '@/stores/kommunikationPrefs'
 import { usePresenceStore } from '@/stores/presence'
 import type { PresenceLevel } from '@/api/video-types'
+import { useHasCapability } from '@/hooks/useCapability'
 import { useTeamInboxes, useCreateTeamInbox } from '@/api/hooks/useInbox'
 import type { TeamInbox } from '@/api/inbox-types'
 import { TeamInboxSettings } from './TeamInboxSettings'
@@ -24,6 +25,13 @@ import { ChannelSettingsDialog } from './ChannelSettingsDialog'
  */
 export function KommunikationSettingsPanel() {
   const { t } = useTranslation()
+  // RBAC (R-3): management-only tenant sections are dropped entirely for
+  // roles without the key (no empty section shells — e.g. it_admin holds
+  // settings:tenant:manage + webhook:manage but none of the other keys).
+  const canRouting = useHasCapability('kommunikation:routing:manage')
+  const canChannels = useHasCapability('kommunikation:channel:manage')
+  const canCanned = useHasCapability('kommunikation:canned:manage')
+  const canWebhooks = useHasCapability('kommunikation:webhook:manage')
   const defaultBereich = useKommunikationPrefs((s) => s.defaultBereich)
   const setDefaultBereich = useKommunikationPrefs((s) => s.setDefaultBereich)
   const density = useKommunikationPrefs((s) => s.density)
@@ -114,38 +122,46 @@ export function KommunikationSettingsPanel() {
       icon: Users,
       children: <TeamInboxSection />,
     },
-    {
-      id: 'routing',
-      titleKey: 'kommunikation.settings.routing.title',
-      descriptionKey: 'kommunikation.settings.routing.desc',
-      scope: 'tenant',
-      icon: GitBranch,
-      children: <RoutingRulesEditor />,
-    },
-    {
-      id: 'channels',
-      titleKey: 'kommunikation.settings.channels.title',
-      descriptionKey: 'kommunikation.settings.channels.desc',
-      scope: 'tenant',
-      icon: Plug,
-      children: <ChannelsSection />,
-    },
-    {
-      id: 'canned',
-      titleKey: 'kommunikation.settings.canned.title',
-      descriptionKey: 'kommunikation.settings.canned.desc',
-      scope: 'tenant',
-      icon: MessageSquareReply,
-      children: <CannedResponseManager />,
-    },
-    {
-      id: 'webhooks',
-      titleKey: 'kommunikation.settings.webhooks.title',
-      descriptionKey: 'kommunikation.settings.webhooks.desc',
-      scope: 'tenant',
-      icon: Webhook,
-      children: <WebhookConfig />,
-    },
+    ...(canRouting
+      ? [{
+          id: 'routing',
+          titleKey: 'kommunikation.settings.routing.title',
+          descriptionKey: 'kommunikation.settings.routing.desc',
+          scope: 'tenant' as const,
+          icon: GitBranch,
+          children: <RoutingRulesEditor />,
+        }]
+      : []),
+    ...(canChannels
+      ? [{
+          id: 'channels',
+          titleKey: 'kommunikation.settings.channels.title',
+          descriptionKey: 'kommunikation.settings.channels.desc',
+          scope: 'tenant' as const,
+          icon: Plug,
+          children: <ChannelsSection />,
+        }]
+      : []),
+    ...(canCanned
+      ? [{
+          id: 'canned',
+          titleKey: 'kommunikation.settings.canned.title',
+          descriptionKey: 'kommunikation.settings.canned.desc',
+          scope: 'tenant' as const,
+          icon: MessageSquareReply,
+          children: <CannedResponseManager />,
+        }]
+      : []),
+    ...(canWebhooks
+      ? [{
+          id: 'webhooks',
+          titleKey: 'kommunikation.settings.webhooks.title',
+          descriptionKey: 'kommunikation.settings.webhooks.desc',
+          scope: 'tenant' as const,
+          icon: Webhook,
+          children: <WebhookConfig />,
+        }]
+      : []),
     {
       id: 'retention',
       titleKey: 'kommunikation.settings.retention.title',
@@ -177,12 +193,14 @@ export function KommunikationSettingsPanel() {
 
 function TeamInboxSection() {
   const { t } = useTranslation()
+  const canManageTeamInbox = useHasCapability('kommunikation:team_inbox:manage')
   const { data: teams, isLoading } = useTeamInboxes()
   const createTeam = useCreateTeamInbox()
   const [editingTeam, setEditingTeam] = useState<TeamInbox | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const openTeam = (team: TeamInbox) => {
+    if (!canManageTeamInbox) return
     setEditingTeam(team)
     setSettingsOpen(true)
   }
@@ -198,14 +216,16 @@ function TeamInboxSection() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">{t('kommunikation.teamInbox.listTitle')}</h3>
-        <button
-          onClick={handleCreate}
-          disabled={createTeam.isPending}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {t('kommunikation.teamInbox.create')}
-        </button>
+        {canManageTeamInbox && (
+          <button
+            onClick={handleCreate}
+            disabled={createTeam.isPending}
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {t('kommunikation.teamInbox.create')}
+          </button>
+        )}
       </div>
 
       <div className="space-y-1">
@@ -217,29 +237,53 @@ function TeamInboxSection() {
           </div>
         )}
         {teams?.map((team) => (
-          <button
-            key={team.id}
-            onClick={() => openTeam(team)}
-            className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left hover:bg-secondary/50 transition-colors"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Users className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground truncate">{team.name}</span>
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
-                  {team.assignment_mode === 'round_robin'
-                    ? t('kommunikation.inbox.roundRobin')
-                    : t('kommunikation.teamInbox.manual')}
-                </span>
+          canManageTeamInbox ? (
+            <button
+              key={team.id}
+              onClick={() => openTeam(team)}
+              className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left hover:bg-secondary/50 transition-colors"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Users className="h-4 w-4" />
               </div>
-              {team.description && (
-                <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>
-              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground truncate">{team.name}</span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
+                    {team.assignment_mode === 'round_robin'
+                      ? t('kommunikation.inbox.roundRobin')
+                      : t('kommunikation.teamInbox.manual')}
+                  </span>
+                </div>
+                {team.description && (
+                  <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>
+                )}
+              </div>
+              <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </button>
+          ) : (
+            <div
+              key={team.id}
+              className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2.5"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Users className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground truncate">{team.name}</span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
+                    {team.assignment_mode === 'round_robin'
+                      ? t('kommunikation.inbox.roundRobin')
+                      : t('kommunikation.teamInbox.manual')}
+                  </span>
+                </div>
+                {team.description && (
+                  <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>
+                )}
+              </div>
             </div>
-            <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </button>
+          )
         ))}
         {!isLoading && (!teams || teams.length === 0) && (
           <p className="py-4 text-center text-xs text-muted-foreground">
@@ -248,7 +292,9 @@ function TeamInboxSection() {
         )}
       </div>
 
-      <TeamInboxSettings team={editingTeam} open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {canManageTeamInbox && (
+        <TeamInboxSettings team={editingTeam} open={settingsOpen} onOpenChange={setSettingsOpen} />
+      )}
     </div>
   )
 }

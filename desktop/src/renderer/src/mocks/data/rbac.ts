@@ -91,6 +91,28 @@ const INDUSTRY_B4_READS = [
   'dialer:campaigns:read', 'dialer:calls:read',
 ]
 
+// R-3 batch 5 (close-out): berichte/formulare/automatisierung + the
+// standard-module mini catalogues (management-only keys, daily use stays free).
+const BERICHTE_ALL = catalogCapabilityKeys('berichte')
+const FORMULARE_ALL = catalogCapabilityKeys('formulare')
+const AUTOMATISIERUNG_ALL = catalogCapabilityKeys('automatisierung')
+const KOMMUNIKATION_MGMT = catalogCapabilityKeys('kommunikation')
+const KALENDER_MGMT = catalogCapabilityKeys('kalender')
+const ZEITERFASSUNG_MGMT = catalogCapabilityKeys('zeiterfassung')
+const INFRASTRUCTURE_MGMT = catalogCapabilityKeys('infrastructure')
+
+/**
+ * Read-level keys of the batch-5 modules. `berichte:datev:read` deliberately
+ * stays out — DATEV/BWA/SuSa is finance data; it goes only to admin and to
+ * readonly (the tax-advisor case), NOT to it_admin/manager (both deliberately
+ * have no finance access). Mirrors the fuhrpark:gps:read privacy exception.
+ */
+const INDUSTRY_B5_READS = [
+  'berichte:reports:read',
+  'formulare:schemas:read', 'formulare:submissions:read',
+  'automatisierung:automations:read', 'automatisierung:executions:read',
+]
+
 const ADMIN_SECURITY_ALL = [
   ...catalogCapabilityKeys('settings'),
   ...catalogCapabilityKeys('admin'),
@@ -124,6 +146,9 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       keys(VERTRAEGE_ALL), keys(HELPDESK_ALL),
       keys(SCHICHTEN_ALL), keys(FUHRPARK_ALL), keys(VERMIETUNG_ALL),
       keys(RAPPORTE_ALL), keys(DIALER_ALL),
+      keys(BERICHTE_ALL), keys(FORMULARE_ALL), keys(AUTOMATISIERUNG_ALL),
+      keys(KOMMUNIKATION_MGMT), keys(KALENDER_MGMT),
+      keys(ZEITERFASSUNG_MGMT), keys(INFRASTRUCTURE_MGMT),
     ),
   },
   // IT-Admin — full technical control, NO HR data categories, no finance
@@ -149,6 +174,11 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       keys(INDUSTRY_B3_READS),
       keys(HELPDESK_ALL),
       keys(INDUSTRY_B4_READS),
+      // Batch 5: automatisierung + infrastructure are IT domains → full
+      // (mirrors it_admin↔helpdesk); webhooks are technical integrations.
+      keys(INDUSTRY_B5_READS),
+      keys(AUTOMATISIERUNG_ALL), keys(INFRASTRUCTURE_MGMT),
+      keys(['kommunikation:webhook:manage']),
     ),
   },
   // HR-Admin — people management incl. protected data categories; assigns
@@ -163,6 +193,9 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       view([...STANDARD_MODULES, 'admin', 'schichten']),
       keys(TEAM_HR_ALL),
       keys(SCHICHTEN_ALL),
+      // Batch 5: zeiterfassung management (week/correction approvals, team
+      // view, payroll exports) is the HR domain — full, like schichten.
+      keys(ZEITERFASSUNG_MGMT),
       keys(['work:task:read', 'work:project:read', 'documents:file:read', 'documents:file:download',
         'documents:file:upload', 'wiki:article:read', 'wiki:article:create',
         'crm:contact:read']),
@@ -199,6 +232,15 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       // reports, manages fleet/rentals/campaigns incl. GPS insight).
       keys(SCHICHTEN_ALL), keys(FUHRPARK_ALL), keys(VERMIETUNG_ALL),
       keys(RAPPORTE_ALL), keys(DIALER_ALL),
+      // Batch 5: fully operative EXCEPT berichte:datev:read (finance data —
+      // manager deliberately has no finance access) and the technical
+      // kommunikation webhook config (admin/it_admin only). Leads team
+      // communication (channels, inboxes, routing, canned responses),
+      // approves time weeks/corrections, manages booking pages + categories.
+      keys(BERICHTE_ALL.filter((k) => k !== 'berichte:datev:read')),
+      keys(FORMULARE_ALL), keys(AUTOMATISIERUNG_ALL),
+      keys(ZEITERFASSUNG_MGMT), keys(KALENDER_MGMT),
+      keys(KOMMUNIKATION_MGMT.filter((k) => k !== 'kommunikation:webhook:manage')),
     ),
   },
   // Mitarbeiter — day-to-day work, own-scope editing, no management.
@@ -207,7 +249,11 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
     description: 'Day-to-day work with own-scope editing',
     color: 'hsl(142 71% 45%)',
     grants: merge(
-      view([...STANDARD_MODULES, ...INDUSTRY_MODULES]),
+      // Batch-5 curation: automatisierung is administration (flows can touch
+      // modules the member cannot see) — module hidden for members entirely
+      // instead of an empty default-deny shell. Personal automations stay a
+      // future option (owner_id is a real user id already).
+      view([...STANDARD_MODULES, ...INDUSTRY_MODULES.filter((m) => m !== 'automatisierung')]),
       keys(['work:task:read', 'work:task:create', 'work:task:be_assigned', 'work:task:comment',
         'work:project:read',
         'documents:file:read', 'documents:file:download', 'documents:file:upload',
@@ -249,6 +295,17 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'dialer:campaigns:read', 'dialer:calls:read', 'dialer:calls:write',
       ]),
       keys(['schichten:swap:read', 'schichten:swap:create', 'rapporte:report:read', 'rapporte:report:edit'], 'own'),
+      // Batch 5: reads business reports + creates own ones from templates,
+      // sees form submissions and triages them (field-service case, mirrors
+      // Luke's 000234 member grant), creates chat channels (Slack-style
+      // default). No form designer, no lifecycle, no schedules/shares, no
+      // DATEV, no time-tracking administration.
+      keys([
+        'berichte:reports:read', 'berichte:reports:create',
+        'formulare:schemas:read', 'formulare:submissions:read', 'formulare:submissions:write',
+        'kommunikation:channel:manage',
+      ]),
+      keys(['berichte:reports:edit'], 'own'),
     ),
   },
   // Nur-Lesen — audit/tax-advisor style visibility, zero mutations, no download.
@@ -266,6 +323,10 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       // Industry batch 3+4: reads only (audit/tax-advisor sees, never changes).
       keys([...INDUSTRY_B3_READS, 'helpdesk:ticket:read', 'helpdesk:stats:view']),
       keys(INDUSTRY_B4_READS),
+      // Batch 5: reads + DATEV view — the tax-advisor case (Elena) is exactly
+      // who BWA/SuSa exist for. No export (readonly never downloads), no
+      // zeiterfassung team view (foreign working hours stay HR-internal).
+      keys([...INDUSTRY_B5_READS, 'berichte:datev:read']),
     ),
   },
   // Aushilfe/Extern — Dariens Referenzfall: sees assigned work and documents,

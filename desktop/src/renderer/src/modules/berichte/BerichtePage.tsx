@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   BarChart3,
@@ -7,7 +7,10 @@ import {
   Landmark,
   Plus,
 } from 'lucide-react'
-import { PageHeader } from '@/components/shared'
+import { EmptyState, PageHeader } from '@/components/shared'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
+import { isReportModuleVisible } from './report-module-visibility'
 import {
   useCreateReportDocument,
   useDashboardKPIs,
@@ -47,7 +50,11 @@ export default function BerichtePage() {
   const schedulesQuery = useSchedules()
   const createDoc = useCreateReportDocument()
 
-  const kpis = kpisQuery.data?.kpis ?? []
+  // RBAC R-3 capability checks (default hidden per gating convention)
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canCreate = useHasCapability('berichte:reports:create')
+
+  const kpis = useMemo(() => kpisQuery.data?.kpis ?? [], [kpisQuery.data])
   const definitions = definitionsQuery.data?.definitions ?? []
   const schedules = useMemo(
     () => schedulesQuery.data?.schedules ?? [],
@@ -58,6 +65,40 @@ export default function BerichtePage() {
     () => schedules.filter((s) => s.active).length,
     [schedules],
   )
+
+  // RBAC tab gating (tab = read-key rule); while permissions load keep all
+  // tabs visible to avoid flicker (inventar pattern). DATEV is finance data —
+  // its own read key (admin + readonly/tax-advisor only).
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    dashboard: 'berichte:reports:read',
+    berichte: 'berichte:reports:read',
+    geplant: 'berichte:schedule:manage',
+    datev: 'berichte:datev:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
+
+  // Dashboard surfaces follow module visibility (batch-2 mini-chart lesson:
+  // no revenue KPIs for roles without the finance module).
+  const visibleKpis = useMemo(
+    () => kpis.filter((k) => isReportModuleVisible(capHas, capReady, String(k.module_id))),
+    [kpis, capHas, capReady],
+  )
+  const visibleModuleOptions = useMemo(
+    () => MODULE_OPTIONS.filter((m) => isReportModuleVisible(capHas, capReady, m.id)),
+    [capHas, capReady],
+  )
+  useEffect(() => {
+    if (!capReady) return
+    if (moduleFilter !== 'all' && !visibleModuleOptions.some((m) => m.id === moduleFilter)) {
+      setModuleFilter('all')
+    }
+  }, [capReady, moduleFilter, visibleModuleOptions])
 
   const openCreated = (id: string) => {
     setTab('berichte')
@@ -90,6 +131,24 @@ export default function BerichtePage() {
     )
   }
 
+  // Custom role with module visibility but no read grant on any tab: honest
+  // hint instead of an empty tab skeleton (rbac gating convention).
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('berichte.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={BarChart3}
+          moduleId="berichte"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="berichte" />}
+        />
+        <EmptyState icon={FileText} title={t('rbac.gate.moduleEmpty')} description={t('rbac.gate.noPermission')} />
+      </div>
+    )
+  }
+
   const tabs = [
     { key: 'dashboard' as const, label: t('berichte.tabs.dashboard'), icon: BarChart3 },
     { key: 'berichte' as const, label: t('berichte.tabs.berichte'), icon: FileText },
@@ -106,25 +165,30 @@ export default function BerichtePage() {
       <PageHeader
         title={t('berichte.page.title')}
         description={t('berichte.page.description', {
-          kpis: kpis.length,
+          kpis: visibleKpis.length,
           scheduled: activeScheduled,
         })}
         icon={BarChart3}
         moduleId="berichte"
         actions={
-          <button
-            onClick={handleNewReport}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-          >
-            <Plus className="h-4 w-4" />
-            {t('berichte.actions.neuerBericht')}
-          </button>
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="berichte" />
+            {canCreate && (
+              <button
+                onClick={handleNewReport}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+              >
+                <Plus className="h-4 w-4" />
+                {t('berichte.actions.neuerBericht')}
+              </button>
+            )}
+          </div>
         }
         className="mb-6"
       />
 
       <div className="mb-6 flex items-center gap-4 border-b border-border">
-        {tabs.map((tabItem) => (
+        {tabs.filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => (
           <button
             key={tabItem.key}
             onClick={() => setTab(tabItem.key)}
@@ -144,12 +208,14 @@ export default function BerichtePage() {
         <>
           <PinnedReports />
           <DashboardGrid
-            kpis={kpis}
+            kpis={visibleKpis}
             definitions={definitions}
             moduleFilter={moduleFilter}
             onModuleFilterChange={setModuleFilter}
-            moduleOptions={MODULE_OPTIONS}
+            moduleOptions={visibleModuleOptions}
             isLoading={kpisQuery.isLoading || definitionsQuery.isLoading}
+            showRevenueChart={isReportModuleVisible(capHas, capReady, 'finanzen')}
+            showTicketsChart={isReportModuleVisible(capHas, capReady, 'helpdesk')}
           />
         </>
       )}

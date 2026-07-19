@@ -3,6 +3,8 @@ import { Pin } from 'lucide-react'
 import type { ReportDefinition } from '@/api/berichte-types'
 import { isBuilderQuery } from '@/api/berichte-types'
 import { useDefinitions, useReportPreview } from '@/api/hooks/useBerichte'
+import { useCapabilitySet } from '@/hooks/useCapability'
+import { isReportModuleVisible } from '../report-module-visibility'
 import { ChartRenderer } from './charts/ChartRenderer'
 
 function PinnedReportCard({ def }: { def: ReportDefinition }) {
@@ -26,7 +28,11 @@ function PinnedReportCard({ def }: { def: ReportDefinition }) {
 export function PinnedReports() {
   const { t } = useTranslation()
   const { data } = useDefinitions({ kind: 'custom', is_published: true })
-  const pinned = (data?.definitions ?? []).filter((d) => isBuilderQuery(d.query_config))
+  // RBAC: pinned builder charts follow their source module's visibility.
+  const { has, ready } = useCapabilitySet()
+  const pinned = (data?.definitions ?? []).filter(
+    (d) => isBuilderQuery(d.query_config) && isReportModuleVisible(has, ready, String(d.module)),
+  )
   if (pinned.length === 0) return null
 
   return (

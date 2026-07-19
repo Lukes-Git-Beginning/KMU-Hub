@@ -10,6 +10,7 @@ import { Hash, Plus, Search, AtSign, Users, PenSquare, Bookmark, Inbox } from 'l
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
 import { usePresenceStore } from '@/stores/presence'
+import { useHasCapability } from '@/hooks/useCapability'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +40,7 @@ interface ChannelListProps {
 
 export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive, onToggleMentions, bookmarksActive, onToggleBookmarks, unreadActive, onToggleUnread }: ChannelListProps) {
   const { t } = useTranslation()
+  const canManageChannels = useHasCapability('kommunikation:channel:manage')
   const [filter, setFilter] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showNewDM, setShowNewDM] = useState(false)
@@ -136,14 +138,16 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {t('chat.channels.title')}
             </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => setShowCreateDialog(true)}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            {canManageChannels && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setShowCreateDialog(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
           <div className="space-y-0.5">
@@ -202,14 +206,16 @@ export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive
         </div>
       </ScrollArea>
 
-      <CreateChannelDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onCreated={(channelId) => {
-          setShowCreateDialog(false)
-          onSelectChannel(channelId)
-        }}
-      />
+      {canManageChannels && (
+        <CreateChannelDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onCreated={(channelId) => {
+            setShowCreateDialog(false)
+            onSelectChannel(channelId)
+          }}
+        />
+      )}
 
       <NewDMDialog
         open={showNewDM}

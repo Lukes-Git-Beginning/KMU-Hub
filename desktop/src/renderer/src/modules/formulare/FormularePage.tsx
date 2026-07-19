@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, type SyntheticEvent } from 'react'
+import { useState, useMemo, useCallback, useEffect, type SyntheticEvent } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import {
   DndContext,
@@ -117,6 +117,8 @@ import {
   type ActionItem,
   type SortDirection,
 } from '@/components/shared'
+import { useCapabilitySet, useHasCapability } from '@/hooks/useCapability'
+import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import {
   Dialog,
   DialogContent,
@@ -405,6 +407,30 @@ export default function FormularePage() {
   const { t } = useTranslation()
 
   // -------------------------------------------------------------------------
+  // RBAC capability checks (R-3) — ALL hooks before any early return
+  // -------------------------------------------------------------------------
+  const { has: capHas, ready: capReady } = useCapabilitySet()
+  const canSchemasRead    = useHasCapability('formulare:schemas:read')
+  const canSchemasCreate  = useHasCapability('formulare:schemas:create')
+  const canSchemasEdit    = useHasCapability('formulare:schemas:edit')
+  const canSchemasDelete  = useHasCapability('formulare:schemas:delete')
+  const canSchemasPublish = useHasCapability('formulare:schemas:publish')
+  const canSubsRead       = useHasCapability('formulare:submissions:read')
+  const canSubsWrite      = useHasCapability('formulare:submissions:write')
+  const canShareManage    = useHasCapability('formulare:share:manage')
+  const canExportRun      = useHasCapability('formulare:export:run')
+
+  // Tab gating: formulare+vorlagen need schemas:read, eingänge needs submissions:read
+  const TAB_CAPABILITY: Record<TabKey, string> = {
+    'formulare': 'formulare:schemas:read',
+    'eingänge': 'formulare:submissions:read',
+    'vorlagen': 'formulare:schemas:read',
+  }
+  const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
+    (key) => !capReady || capHas(TAB_CAPABILITY[key]),
+  )
+
+  // -------------------------------------------------------------------------
   // Server state (React Query)
   // -------------------------------------------------------------------------
 
@@ -514,6 +540,15 @@ export default function FormularePage() {
 
   // Tab & search — initial tab honours the personal default.
   const [tab, setTab] = useState<TabKey>(prefsDefaultTab)
+
+  // Fallback-Effect: if the currently active tab loses visibility (RBAC),
+  // switch to the first still-visible tab. Guard on `capReady` to avoid
+  // a premature redirect while permissions are still loading.
+  useEffect(() => {
+    if (!capReady) return
+    if (visibleTabs.length > 0 && !visibleTabs.includes(tab)) setTab(visibleTabs[0])
+  }, [capReady, visibleTabs, tab])
+
   const [search, setSearch] = useState('')
   // FT-4 — Formulare tab: status quick-filter (grid/list view via prefs above)
   const [formStatusFilter, setFormStatusFilter] = useState<'all' | FormSchema['status']>('all')
@@ -979,8 +1014,9 @@ export default function FormularePage() {
     )
   }
 
-  /** Status-dependent lifecycle entries for the actions dropdown. */
+  /** Status-dependent lifecycle entries — only when schemas:publish is granted. */
   const lifecycleItems = (schema: FormSchema): ActionItem[] => {
+    if (!canSchemasPublish) return []
     switch (schema.status) {
       case 'draft':
         return [
@@ -1031,52 +1067,73 @@ export default function FormularePage() {
 
   const getFormActions = useCallback(
     (schema: FormSchema): ActionItem[] => [
-      {
-        label: t('formulare.actions.bearbeiten'),
-        icon: Edit,
-        onClick: () => openEditor(schema),
-      },
-      {
-        label: t('formulare.actions.duplizieren'),
-        icon: Copy,
-        onClick: () => {
-          duplicateSchema.mutate(
-            { id: schema.id },
+      ...(canSchemasEdit
+        ? [
             {
-              onSuccess: () =>
-                toast.success(
-                  t('formulare.toast.dupliziert', { name: schema.title }),
-                ),
-              onError: (err) =>
-                toast.error(
-                  err instanceof Error ? err.message : t('common.error'),
-                ),
+              label: t('formulare.actions.bearbeiten'),
+              icon: Edit,
+              onClick: () => openEditor(schema),
             },
-          )
-        },
-      },
-      {
-        label: t('formulare.actions.teilen'),
-        icon: Share2,
-        onClick: () => requestShare(schema),
-        disabled: !isShareable(schema),
-      },
-      {
-        label: t('formulare.vorlagen.saveAsTemplate'),
-        icon: LayoutTemplate,
-        onClick: () => saveAsTemplate(schema),
-      },
+          ]
+        : []),
+      ...(canSchemasCreate
+        ? [
+            {
+              label: t('formulare.actions.duplizieren'),
+              icon: Copy,
+              onClick: () => {
+                duplicateSchema.mutate(
+                  { id: schema.id },
+                  {
+                    onSuccess: () =>
+                      toast.success(
+                        t('formulare.toast.dupliziert', { name: schema.title }),
+                      ),
+                    onError: (err) =>
+                      toast.error(
+                        err instanceof Error ? err.message : t('common.error'),
+                      ),
+                  },
+                )
+              },
+            },
+          ]
+        : []),
+      // Share opens the link-create dialog — that IS share management.
+      ...(canShareManage
+        ? [
+            {
+              label: t('formulare.actions.teilen'),
+              icon: Share2,
+              onClick: () => requestShare(schema),
+              disabled: !isShareable(schema),
+            },
+          ]
+        : []),
+      ...(canSchemasEdit
+        ? [
+            {
+              label: t('formulare.vorlagen.saveAsTemplate'),
+              icon: LayoutTemplate,
+              onClick: () => saveAsTemplate(schema),
+            },
+          ]
+        : []),
       ...lifecycleItems(schema),
-      {
-        separator: true,
-        label: t('common.delete'),
-        icon: Trash2,
-        variant: 'destructive',
-        onClick: () => setConfirmDelete(schema),
-      },
+      ...(canSchemasDelete
+        ? [
+            {
+              separator: true as const,
+              label: t('common.delete'),
+              icon: Trash2,
+              variant: 'destructive' as const,
+              onClick: () => setConfirmDelete(schema),
+            },
+          ]
+        : []),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, duplicateSchema, updateSchema, closeMessageInput],
+    [t, duplicateSchema, updateSchema, closeMessageInput, canSchemasEdit, canSchemasCreate, canSchemasDelete, canSchemasPublish],
   )
 
   const handleDeleteForm = (schema: FormSchema) => {
@@ -1654,6 +1711,27 @@ export default function FormularePage() {
           icon={FileText}
           title={t('common.errorTitle')}
           description={t('common.errorDescription')}
+        />
+      </div>
+    )
+  }
+
+  // moduleEmpty: no read right on any tab → honest empty state
+  if (capReady && visibleTabs.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <PageHeader
+          title={t('formulare.page.title')}
+          description={t('rbac.gate.moduleEmpty')}
+          icon={FileInput}
+          moduleId="formulare"
+          className="mb-6"
+          actions={<RestrictedModeBadge module="formulare" />}
+        />
+        <EmptyState
+          icon={FileText}
+          title={t('rbac.gate.moduleEmpty')}
+          description={t('rbac.gate.noPermission')}
         />
       </div>
     )
@@ -2552,16 +2630,21 @@ export default function FormularePage() {
         moduleId="formulare"
         className="mb-6"
         actions={
-          <button
-            onClick={() => {
-              resetNewFormDialog()
-              setShowNewFormDialog(true)
-            }}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t('formulare.actions.neuesFormular')}
-          </button>
+          <div className="flex items-center gap-2">
+            <RestrictedModeBadge module="formulare" />
+            {canSchemasCreate && (
+              <button
+                onClick={() => {
+                  resetNewFormDialog()
+                  setShowNewFormDialog(true)
+                }}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                {t('formulare.actions.neuesFormular')}
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -2637,7 +2720,7 @@ export default function FormularePage() {
               }),
             },
           ] as const
-        ).map((tabItem) => (
+        ).filter((tabItem) => visibleTabs.includes(tabItem.key)).map((tabItem) => (
           <button
             key={tabItem.key}
             onClick={() => {
@@ -2689,13 +2772,13 @@ export default function FormularePage() {
               icon={FileText}
               title={t('formulare.empty.noFormulare')}
               description={t('formulare.empty.createHint')}
-              action={{
+              action={canSchemasCreate ? {
                 label: t('formulare.empty.createLabel'),
                 onClick: () => {
                   resetNewFormDialog()
                   setShowNewFormDialog(true)
                 },
-              }}
+              } : undefined}
             />
           ) : (
             <>
@@ -3002,7 +3085,7 @@ export default function FormularePage() {
                           </span>
                         )}
                       </button>
-                      {schema.submissionCount > 0 && (
+                      {schema.submissionCount > 0 && canExportRun && (
                         <ExportMenu
                           schema={schema}
                           onExport={handleExportSubmissions}
@@ -3025,6 +3108,7 @@ export default function FormularePage() {
                         submissionStatusColors={submissionStatusColors}
                         formatDateTime={formatDateTime}
                         t={t}
+                        canWrite={canSubsWrite}
                       />
                     )}
                   </div>
@@ -3095,15 +3179,17 @@ export default function FormularePage() {
                     })}
                   </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleUseTemplate(tmpl)
-                    }}
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-                  >
-                    {t('formulare.vorlagen.verwenden')}
-                  </button>
+                  {canSchemasCreate && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleUseTemplate(tmpl)
+                      }}
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+                    >
+                      {t('formulare.vorlagen.verwenden')}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -3143,7 +3229,7 @@ export default function FormularePage() {
         footer={
           selectedSubmission ? (
             <div className="flex items-center gap-2">
-              {selectedSubmission.status === 'new' && (
+              {canSubsWrite && selectedSubmission.status === 'new' && (
                 <button
                   onClick={() => {
                     updateSubStatus.mutate(
@@ -3169,7 +3255,7 @@ export default function FormularePage() {
                   {t('formulare.submission.alsGelesenButton')}
                 </button>
               )}
-              {selectedSubmission.status !== 'archived' && (
+              {canSubsWrite && selectedSubmission.status !== 'archived' && (
                 <button
                   onClick={() => {
                     updateSubStatus.mutate(
@@ -3372,46 +3458,50 @@ export default function FormularePage() {
           selectedForm ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  onClick={() => {
-                    duplicateSchema.mutate(
-                      { id: selectedForm.id },
-                      {
-                        onSuccess: () => {
-                          toast.success(
-                            t('formulare.toast.dupliziert', {
-                              name: selectedForm.title,
-                            }),
-                          )
-                          setSelectedForm(null)
+                {canSchemasCreate && (
+                  <button
+                    onClick={() => {
+                      duplicateSchema.mutate(
+                        { id: selectedForm.id },
+                        {
+                          onSuccess: () => {
+                            toast.success(
+                              t('formulare.toast.dupliziert', {
+                                name: selectedForm.title,
+                              }),
+                            )
+                            setSelectedForm(null)
+                          },
+                          onError: (err) =>
+                            toast.error(
+                              err instanceof Error ? err.message : t('common.error'),
+                            ),
                         },
-                        onError: (err) =>
-                          toast.error(
-                            err instanceof Error ? err.message : t('common.error'),
-                          ),
-                      },
-                    )
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  {t('formulare.actions.duplizieren')}
-                </button>
-                <button
-                  onClick={() => requestShare(selectedForm)}
-                  disabled={!isShareable(selectedForm)}
-                  title={
-                    !isShareable(selectedForm)
-                      ? t('formulare.lifecycle.shareOnlyActive')
-                      : undefined
-                  }
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  {t('formulare.actions.teilen')}
-                </button>
-                {/* FD-0 — status-dependent lifecycle action */}
-                {selectedForm.status === 'draft' && (
+                      )
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    {t('formulare.actions.duplizieren')}
+                  </button>
+                )}
+                {canShareManage && (
+                  <button
+                    onClick={() => requestShare(selectedForm)}
+                    disabled={!isShareable(selectedForm)}
+                    title={
+                      !isShareable(selectedForm)
+                        ? t('formulare.lifecycle.shareOnlyActive')
+                        : undefined
+                    }
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    {t('formulare.actions.teilen')}
+                  </button>
+                )}
+                {/* FD-0 — status-dependent lifecycle action (schemas:publish required) */}
+                {canSchemasPublish && selectedForm.status === 'draft' && (
                   <button
                     onClick={() => publishForm(selectedForm)}
                     className="flex items-center gap-1.5 rounded-lg border border-success/30 bg-success-light px-2.5 py-1.5 text-xs font-medium text-success transition-colors hover:opacity-80"
@@ -3420,7 +3510,7 @@ export default function FormularePage() {
                     {t('formulare.lifecycle.publish')}
                   </button>
                 )}
-                {selectedForm.status === 'active' && (
+                {canSchemasPublish && selectedForm.status === 'active' && (
                   <button
                     onClick={() => openCloseDialog(selectedForm)}
                     className="flex items-center gap-1.5 rounded-lg border border-warning/30 bg-warning-light px-2.5 py-1.5 text-xs font-medium text-warning transition-colors hover:opacity-80"
@@ -3429,7 +3519,7 @@ export default function FormularePage() {
                     {t('formulare.lifecycle.close')}
                   </button>
                 )}
-                {selectedForm.status === 'closed' && (
+                {canSchemasPublish && selectedForm.status === 'closed' && (
                   <button
                     onClick={() => reopenForm(selectedForm)}
                     className="flex items-center gap-1.5 rounded-lg border border-success/30 bg-success-light px-2.5 py-1.5 text-xs font-medium text-success transition-colors hover:opacity-80"
@@ -3438,7 +3528,7 @@ export default function FormularePage() {
                     {t('formulare.lifecycle.reopen')}
                   </button>
                 )}
-                {selectedForm.status === 'archived' && (
+                {canSchemasPublish && selectedForm.status === 'archived' && (
                   <button
                     onClick={() => restoreForm(selectedForm)}
                     className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
@@ -3447,8 +3537,9 @@ export default function FormularePage() {
                     {t('formulare.lifecycle.restore')}
                   </button>
                 )}
-                {(selectedForm.status === 'active' ||
-                  selectedForm.status === 'closed') && (
+                {canSchemasPublish &&
+                  (selectedForm.status === 'active' ||
+                    selectedForm.status === 'closed') && (
                   <button
                     onClick={() => archiveForm(selectedForm)}
                     className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
@@ -3457,7 +3548,7 @@ export default function FormularePage() {
                     {t('formulare.actions.archivieren')}
                   </button>
                 )}
-                {selectedForm.submissionCount > 0 && (
+                {selectedForm.submissionCount > 0 && canExportRun && (
                   <ExportMenu
                     schema={selectedForm}
                     onExport={handleExportSubmissions}
@@ -3466,17 +3557,19 @@ export default function FormularePage() {
                     defaultFormat={prefsExportFormat}
                   />
                 )}
-                <button
-                  onClick={() => {
-                    const form = selectedForm
-                    setSelectedForm(null)
-                    setConfirmDelete(form)
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-error hover:bg-error-light transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {t('common.delete')}
-                </button>
+                {canSchemasDelete && (
+                  <button
+                    onClick={() => {
+                      const form = selectedForm
+                      setSelectedForm(null)
+                      setConfirmDelete(form)
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-error hover:bg-error-light transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {t('common.delete')}
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -3486,17 +3579,19 @@ export default function FormularePage() {
                   <Eye className="h-4 w-4" />
                   {t('formulare.editor.vorschau')}
                 </button>
-                <button
-                  onClick={() => {
-                    const form = selectedForm
-                    setSelectedForm(null)
-                    openEditor(form)
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-                >
-                  <Edit className="h-4 w-4" />
-                  {t('formulare.actions.bearbeiten')}
-                </button>
+                {canSchemasEdit && (
+                  <button
+                    onClick={() => {
+                      const form = selectedForm
+                      setSelectedForm(null)
+                      openEditor(form)
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                    {t('formulare.actions.bearbeiten')}
+                  </button>
+                )}
               </div>
             </div>
           ) : undefined
@@ -3504,42 +3599,55 @@ export default function FormularePage() {
       >
         {selectedForm && (
           <div className="space-y-5">
-            {/* FT-1 — tabs: Details / Eingänge (Verteilung added in FD-2) */}
-            <div className="flex items-center gap-4 border-b border-border">
-              {(
-                [
-                  { key: 'details' as const, label: t('formulare.detail.tabDetails') },
-                  {
-                    key: 'eingaenge' as const,
-                    label: t('formulare.detail.tabEingaenge', {
-                      count: selectedForm.submissionCount,
-                    }),
-                  },
-                  {
-                    key: 'auswertung' as const,
-                    label: t('formulare.detail.tabAuswertung'),
-                  },
-                  {
-                    key: 'verteilung' as const,
-                    label: t('formulare.detail.tabVerteilung', {
-                      count: shareLinkCount,
-                    }),
-                  },
-                ]
-              ).map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setFormDetailTab(tab.key)}
-                  className={`-mb-px border-b-2 px-1 pb-2 text-sm transition-colors ${
-                    formDetailTab === tab.key
-                      ? 'border-primary text-primary font-medium'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {/* FT-1 — tabs: Details / Eingänge / Auswertung / Verteilung.
+                RBAC: eingaenge+auswertung require submissions:read,
+                verteilung requires share:manage, details is always free. */}
+            {(() => {
+              const allDetailTabs = [
+                { key: 'details' as const, label: t('formulare.detail.tabDetails'), visible: true },
+                {
+                  key: 'eingaenge' as const,
+                  label: t('formulare.detail.tabEingaenge', { count: selectedForm.submissionCount }),
+                  visible: canSubsRead,
+                },
+                {
+                  key: 'auswertung' as const,
+                  label: t('formulare.detail.tabAuswertung'),
+                  visible: canSubsRead,
+                },
+                {
+                  key: 'verteilung' as const,
+                  label: t('formulare.detail.tabVerteilung', { count: shareLinkCount }),
+                  visible: canShareManage,
+                },
+              ].filter((dt) => dt.visible)
+              // If the active detail-tab is no longer visible, redirect to first visible.
+              const activeDetailTab = allDetailTabs.some((dt) => dt.key === formDetailTab)
+                ? formDetailTab
+                : (allDetailTabs[0]?.key ?? 'details')
+              // Sync state if needed (run outside render via a stable comparison).
+              if (activeDetailTab !== formDetailTab) {
+                // Use a microtask to avoid setState-in-render.
+                Promise.resolve().then(() => setFormDetailTab(activeDetailTab))
+              }
+              return (
+                <div className="flex items-center gap-4 border-b border-border">
+                  {allDetailTabs.map((dtTab) => (
+                    <button
+                      key={dtTab.key}
+                      onClick={() => setFormDetailTab(dtTab.key)}
+                      className={`-mb-px border-b-2 px-1 pb-2 text-sm transition-colors ${
+                        activeDetailTab === dtTab.key
+                          ? 'border-primary text-primary font-medium'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {dtTab.label}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()}
 
             {formDetailTab === 'details' && (
               <div className="space-y-5">
@@ -3645,7 +3753,7 @@ export default function FormularePage() {
             )}
 
             {/* FT-1 — submissions for this form, without leaving the modal */}
-            {formDetailTab === 'eingaenge' && (
+            {formDetailTab === 'eingaenge' && canSubsRead && (
               <div className="overflow-hidden rounded-lg border border-t-0 border-border">
                 <SubmissionsPanel
                   schemaId={selectedForm.id}
@@ -3657,12 +3765,13 @@ export default function FormularePage() {
                   submissionStatusColors={submissionStatusColors}
                   formatDateTime={formatDateTime}
                   t={t}
+                  canWrite={canSubsWrite}
                 />
               </div>
             )}
 
             {/* FT-3a — per-field evaluation dashboard for this form */}
-            {formDetailTab === 'auswertung' && (
+            {formDetailTab === 'auswertung' && canSubsRead && (
               <EvaluationPanel
                 schema={selectedForm}
                 formatDate={formatDate}
@@ -3671,7 +3780,7 @@ export default function FormularePage() {
             )}
 
             {/* FD-2 — distribution overview: shared links per form */}
-            {formDetailTab === 'verteilung' && (
+            {formDetailTab === 'verteilung' && canShareManage && (
               <ShareLinksPanel
                 schemaId={selectedForm.id}
                 canShare={isShareable(selectedForm)}
@@ -4082,36 +4191,42 @@ export default function FormularePage() {
           selectedTemplate ? (
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
+                {canSchemasEdit && (
+                  <button
+                    onClick={() => {
+                      const tmpl = selectedTemplate
+                      setSelectedTemplate(null)
+                      openEditor(tmpl)
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+                  >
+                    <Edit className="h-4 w-4" />
+                    {t('formulare.actions.bearbeiten')}
+                  </button>
+                )}
+                {canSchemasDelete && (
+                  <button
+                    onClick={() => setTemplateToDelete(selectedTemplate)}
+                    className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-2 text-sm text-destructive transition-colors hover:bg-error-light"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t('common.delete')}
+                  </button>
+                )}
+              </div>
+              {canSchemasCreate && (
                 <button
                   onClick={() => {
                     const tmpl = selectedTemplate
                     setSelectedTemplate(null)
-                    openEditor(tmpl)
+                    handleUseTemplate(tmpl)
                   }}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
                 >
-                  <Edit className="h-4 w-4" />
-                  {t('formulare.actions.bearbeiten')}
+                  <Copy className="h-4 w-4" />
+                  {t('formulare.vorlagen.verwenden')}
                 </button>
-                <button
-                  onClick={() => setTemplateToDelete(selectedTemplate)}
-                  className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-2 text-sm text-destructive transition-colors hover:bg-error-light"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {t('common.delete')}
-                </button>
-              </div>
-              <button
-                onClick={() => {
-                  const tmpl = selectedTemplate
-                  setSelectedTemplate(null)
-                  handleUseTemplate(tmpl)
-                }}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-              >
-                <Copy className="h-4 w-4" />
-                {t('formulare.vorlagen.verwenden')}
-              </button>
+              )}
             </div>
           ) : undefined
         }
@@ -4831,6 +4946,8 @@ interface SubmissionsPanelProps {
   submissionStatusColors: Record<FormSubmissionStatus, string>
   formatDateTime: (d: string) => string
   t: (key: string, opts?: Record<string, unknown>) => string
+  /** Gate: show write actions (mark read / archive) only when true. */
+  canWrite?: boolean
 }
 
 function SubmissionsPanel({
@@ -4841,6 +4958,7 @@ function SubmissionsPanel({
   submissionStatusColors,
   formatDateTime,
   t,
+  canWrite = false,
 }: SubmissionsPanelProps) {
   // Hits the warm cache populated by the page-level eager useQueries fetch.
   const { data, isLoading } = useSubmissions(schemaId)
@@ -5008,18 +5126,22 @@ function SubmissionsPanel({
                       icon: Eye,
                       onClick: () => onSelectSubmission(sub),
                     },
-                    {
-                      label: t('formulare.submission.alsGelesenMarkieren'),
-                      icon: Eye,
-                      onClick: () => onUpdateStatus(sub, 'read'),
-                      disabled: sub.status !== 'new',
-                    },
-                    {
-                      label: t('formulare.submission.archivieren'),
-                      icon: Archive,
-                      onClick: () => onUpdateStatus(sub, 'archived'),
-                      disabled: sub.status === 'archived',
-                    },
+                    ...(canWrite
+                      ? [
+                          {
+                            label: t('formulare.submission.alsGelesenMarkieren'),
+                            icon: Eye,
+                            onClick: () => onUpdateStatus(sub, 'read'),
+                            disabled: sub.status !== 'new',
+                          },
+                          {
+                            label: t('formulare.submission.archivieren'),
+                            icon: Archive,
+                            onClick: () => onUpdateStatus(sub, 'archived'),
+                            disabled: sub.status === 'archived',
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               </td>

@@ -4,6 +4,7 @@ import { BarChart3, Download, Loader2, Table2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ReportColumn, ReportDefinition } from '@/api/berichte-types'
 import { useExportReport, useRunReport } from '@/api/hooks/useBerichte'
+import { useHasCapability } from '@/hooks/useCapability'
 
 interface DatevViewProps {
   definitions: ReportDefinition[]
@@ -45,6 +46,9 @@ export function DatevView({ definitions }: DatevViewProps) {
   const { t } = useTranslation()
   const runMutation = useRunReport()
   const exportMutation = useExportReport()
+  // RBAC: viewing DATEV needs datev:read (tab gate); the CSV download is the
+  // export fine switch (readonly sees, never downloads).
+  const canExport = useHasCapability('berichte:export:run')
 
   const bwaDef = useMemo(() => findDefinition(definitions, 'datev_bwa'), [definitions])
   const susaDef = useMemo(() => findDefinition(definitions, 'datev_susa'), [definitions])
@@ -113,18 +117,20 @@ export function DatevView({ definitions }: DatevViewProps) {
             </button>
           ))}
         </div>
-        <button
-          onClick={handleExport}
-          disabled={!activeDef || exportMutation.isPending}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover disabled:opacity-60"
-        >
-          {exportMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-          {t('berichte.datev.export')}
-        </button>
+        {canExport && (
+          <button
+            onClick={handleExport}
+            disabled={!activeDef || exportMutation.isPending}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover disabled:opacity-60"
+          >
+            {exportMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {t('berichte.datev.export')}
+          </button>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">

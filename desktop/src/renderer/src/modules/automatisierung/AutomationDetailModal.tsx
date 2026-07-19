@@ -22,6 +22,7 @@ import {
 } from '@/api/hooks/useAutomation'
 import type { Automation } from '@/api/automation-types'
 import { DetailModal, ConfirmDialog } from '@/components/shared'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 
 const RUN_DOT: Record<string, string> = {
   completed: 'bg-green-500',
@@ -60,6 +61,12 @@ export function AutomationDetailModal({
   const deleteMutation = useDeleteAutomation()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const { data: execData } = useAutomationExecutions(automation?.id ?? '')
+
+  // RBAC R-3 — all hooks before early return (Rules of Hooks)
+  const canCreate = useHasCapability('automatisierung:automations:create')
+  const canEdit = useScopedCapability('automatisierung:automations:edit', automation?.owner_id)
+  const canDelete = useScopedCapability('automatisierung:automations:delete', automation?.owner_id)
+  const canToggle = useScopedCapability('automatisierung:automations:toggle', automation?.owner_id)
 
   const handleDuplicate = (a: Automation) => {
     createMutation.mutate({
@@ -120,28 +127,34 @@ export function AutomationDetailModal({
         automation && (
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => handleDuplicate(automation)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                {t('automatisierung.detail.duplicate')}
-              </button>
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {t('automatisierung.detail.delete')}
-              </button>
+              {canCreate && (
+                <button
+                  onClick={() => handleDuplicate(automation)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  {t('automatisierung.detail.duplicate')}
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('automatisierung.detail.delete')}
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => onEdit(automation)}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              {t('automatisierung.detail.edit')}
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => onEdit(automation)}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {t('automatisierung.detail.edit')}
+              </button>
+            )}
           </div>
         )
       }
@@ -199,13 +212,21 @@ export function AutomationDetailModal({
               <div className="flex items-center justify-between">
                 <dt className="text-muted-foreground">{t('common.status')}</dt>
                 <dd>
-                  <Switch.Root
-                    checked={automation.is_active}
-                    onCheckedChange={(c) => (c ? enableMutation.mutate(automation.id) : disableMutation.mutate(automation.id))}
-                    className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors data-[state=checked]:bg-primary data-[state=unchecked]:bg-secondary"
-                  >
-                    <Switch.Thumb className="block h-4 w-4 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5" />
-                  </Switch.Root>
+                  {canToggle ? (
+                    <Switch.Root
+                      checked={automation.is_active}
+                      onCheckedChange={(c) => (c ? enableMutation.mutate(automation.id) : disableMutation.mutate(automation.id))}
+                      className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors data-[state=checked]:bg-primary data-[state=unchecked]:bg-secondary"
+                    >
+                      <Switch.Thumb className="block h-4 w-4 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5" />
+                    </Switch.Root>
+                  ) : (
+                    <span
+                      className={`text-sm font-medium ${automation.is_active ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+                    >
+                      {automation.is_active ? t('automatisierung.detail.active') : t('automatisierung.detail.inactive')}
+                    </span>
+                  )}
                 </dd>
               </div>
             </dl>

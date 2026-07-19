@@ -31,6 +31,7 @@ import {
   SortMenu,
   type SortDirection,
 } from '@/components/shared'
+import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
 import { formatDate } from '@/lib/format'
 import { ReportStatusBadge } from './ReportStatusBadge'
 import { estimatePageCount } from './doc-utils'
@@ -71,6 +72,10 @@ export function BerichtLibrary({ onOpen, onNew, onNewFromTemplate }: BerichtLibr
   const [layout, setLayout] = useState<'grid' | 'list'>('grid')
   const [pendingDelete, setPendingDelete] = useState<ReportDocument | null>(null)
 
+  // RBAC (R-3): create covers blank/template/duplicate; delete is scopeable
+  // (own = author only) and checked per card.
+  const canCreate = useHasCapability('berichte:reports:create')
+
   const docs = useMemo(() => data?.documents ?? [], [data])
   const templates = templatesData?.templates ?? []
 
@@ -109,21 +114,24 @@ export function BerichtLibrary({ onOpen, onNew, onNewFromTemplate }: BerichtLibr
     setPendingDelete(null)
   }
 
-  function actionsFor(doc: ReportDocument) {
-    return [
-      { label: t('berichte.docs.open'), icon: FileText, onClick: () => onOpen(doc) },
-      { label: t('berichte.docs.duplicate'), icon: Copy, onClick: () => duplicate(doc) },
-      {
-        label: t('berichte.docs.delete'),
-        icon: Trash2,
-        onClick: () => setPendingDelete(doc),
-        variant: 'destructive' as const,
-      },
-    ]
-  }
-
   function Card({ doc }: { doc: ReportDocument }) {
     const pages = estimatePageCount(doc)
+    // Scope-own: delete disappears silently on foreign documents.
+    const canDeleteDoc = useScopedCapability('berichte:reports:delete', doc.created_by)
+    const actions = [
+      { label: t('berichte.docs.open'), icon: FileText, onClick: () => onOpen(doc) },
+      ...(canCreate
+        ? [{ label: t('berichte.docs.duplicate'), icon: Copy, onClick: () => duplicate(doc) }]
+        : []),
+      ...(canDeleteDoc
+        ? [{
+            label: t('berichte.docs.delete'),
+            icon: Trash2,
+            onClick: () => setPendingDelete(doc),
+            variant: 'destructive' as const,
+          }]
+        : []),
+    ]
     return (
       <div
         role="button"
@@ -139,7 +147,7 @@ export function BerichtLibrary({ onOpen, onNew, onNewFromTemplate }: BerichtLibr
           <div className="flex items-start justify-between gap-2">
             <h4 className="truncate text-sm font-medium text-foreground">{doc.title}</h4>
             <div onClick={(e) => e.stopPropagation()}>
-              <ItemActions items={actionsFor(doc)} />
+              <ItemActions items={actions} />
             </div>
           </div>
           {doc.description && (
@@ -165,7 +173,7 @@ export function BerichtLibrary({ onOpen, onNew, onNewFromTemplate }: BerichtLibr
   return (
     <div className="space-y-4">
       {/* Template picker — start a new report from a prebuilt structure */}
-      {templates.length > 0 && (
+      {canCreate && templates.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
             {t('berichte.docs.startFrom')}
@@ -285,7 +293,7 @@ export function BerichtLibrary({ onOpen, onNew, onNewFromTemplate }: BerichtLibr
           icon={FileText}
           title={t('berichte.docs.emptyTitle')}
           description={t('berichte.docs.emptyHint')}
-          action={{ label: t('berichte.actions.neuerBericht'), onClick: onNew }}
+          action={canCreate ? { label: t('berichte.actions.neuerBericht'), onClick: onNew } : undefined}
         />
       ) : (
         <div

@@ -20,7 +20,7 @@ const STATUS_TONE: Record<WeekStatus, string> = {
   rejected: 'bg-destructive/10 text-destructive',
 }
 
-export function TeamView() {
+export function TeamView({ canApproveWeek = false }: { canApproveWeek?: boolean }) {
   const { t } = useTranslation()
   const weekStart = currentWeekStart()
   const { data: rows, isLoading } = useTeamTime(weekStart)
@@ -100,7 +100,7 @@ export function TeamView() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {m.weekStatus === 'submitted' && (
+                    {canApproveWeek && m.weekStatus === 'submitted' && (
                       <div className="flex justify-end gap-1.5">
                         <button
                           onClick={() => approve.mutate({ employeeId: m.employeeId, weekStart })}
