@@ -1,6 +1,21 @@
 # R-3 Enforcement-Sweep — Terminal-Briefing (erstellt Session #15, 2026-07-18)
 
-> **⚡⚡⚡ UPDATE Session #18 (2026-07-19): BATCH 2 GEBAUT (team-Aktionen · dashboard Ebene-2 · admin/security-Tabs) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #18. Nächstes Bau-Terminal: BATCH 3+ (Branchen-Module, je Batch erst Katalog kuratieren + ROLE_DEFS-Grants nachziehen — §1 unten). Konvention aus #16 gilt weiter, kein neues Gate.**
+> **⚡⚡⚡ UPDATE Session #18 (2026-07-19): BATCH 2 GEBAUT (team-Aktionen · dashboard Ebene-2 · admin/security-Tabs) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #18. Nächstes Bau-Terminal: BATCH 3 (Arbeitspaket direkt hierunter). Konvention aus #16 gilt weiter, kein neues Gate.**
+
+## Batch-3-Arbeitspaket (für das nächste Bau-Terminal, Stand nach #18)
+
+**Scope: inventar · einkauf · produktion · vertraege · helpdesk** (Material-/Betriebs-Kette + die zwei Genehmigungs-/Vertrags-Module). Danach Batch 4 = schichten · fuhrpark · vermietung · rapporte · dialer, Batch 5 = berichte · formulare · automatisierung + Standard-Rest (kommunikation/kalender/zeiterfassung/video/infrastructure/notifications — teils reicht Ebene 1 bzw. Mini-Katalog).
+
+**⚠ Der eine Unterschied zu Batch 1/2: `CAPABILITY_CATALOG[modul]` ist für ALLE Batch-3-Module LEER.** Pro Modul gilt daher zwingend die Reihenfolge:
+1. **Katalog kuratieren:** Modul-UI sichten (Explore-Agent-Inventar wie gehabt), Basis-Aktionen (`base`, scopeable wo Owner-Feld existiert) + Fein-Schalter (`fine`) in `config/capability-catalog.ts` eintragen. Orientierung am Muster der Kern-Module (CRUD je Subjekt + export/import/settings/approve-artige fines).
+2. **ROLE_DEFS-Grants nachziehen** (`mocks/data/rbac.ts`): admin bekommt ALLE neuen Keys (sonst verschwinden die Aktionen für den Chef — Default-Deny!), manager/member/readonly sinnvoll kuratieren (Muster: manager voll operativ, member own/team-basics, readonly nur reads, extern nichts).
+3. **i18n `rbac.subject.<subject>` / `rbac.action.<action>` ×4** für jedes neue Segment (Drei-Stellen-Regel komplett: Katalog + Grants + i18n).
+4. **BE-Seed-Abgleich VOR dem Erfinden:** `backend/migrations/*permission*` — produktion (`produktion:bom`×write) und rapporte (`rapporte:approve`) u.a. haben BE-seitig SCHON feine Paare → gleiche Key-Namen verwenden, nicht doppelt erfinden; Lücken in backend-gaps §RBAC nachtragen.
+5. Dann gaten nach Konvention (§1-Arbeitsanweisung + R3-RECHERCHE §3) — Rezept, shared-Bausteine und QA-Muster wie Batch 1/2.
+
+**Bekannte modul-spezifische Startpunkte:** einkauf: Genehmigen/Senden (approvalThreshold!), Warenkorb, Lieferanten-Deaktivieren, Exporte · produktion: Statuswechsel (start/complete/cancel), QS-Prüfungen, Maschinen, Laufkarte-PDF · inventar: Buchungen/Korrekturen vs. Ansehen · vertraege: anlegen/kündigen/Erinnerungen vs. Laufzeiten sehen · helpdesk: Tickets zuweisen/schließen vs. eigene Tickets (scope-own-Kandidat: assignee/requester).
+
+**QA:** Muster `scripts/qa-rbac-enforcement-b2.mjs` + dessen Learnings (Switcher NUR von `/#/settings` aus öffnen — auf /admin/users sind User-Namen klickbare Zeilen; Panel-Toggle-Zustand prüfen statt blind klicken; Text-Checks präzise halten — Wörter wie „Buchhaltung" existieren auch als Abteilungsname → `getByRole('link'/'button')` statt Volltext). Mindestens: admin-Regression + readonly/extern-Preview je Modul + Bilder ansehen.
 
 > **⚡⚡ UPDATE Session #17 (2026-07-19): BATCH 1 GEBAUT (work · documents · crm · finance · wiki) — Details/QA/Funde im `RESUME-NEXT.md`-Top-Block #17. Shared-Bausteine stehen (RestrictedModeBadge, NoAccessView+ModuleGate an ALLEN Routen, useScopedCapability, ItemActions-title). Darien-Entscheid Session-Ende #17: KEIN Review-Gate zwischen Batches — alle Reviews gesammelt am Ende (`hetzner-review-checklist.md`).**
 
