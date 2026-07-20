@@ -41,7 +41,7 @@ import {
 import { toast } from 'sonner'
 import { useCapabilitySet } from '@/hooks/useCapability'
 import { TEAM_TAB_CAPABILITY } from '@/config/capabilities'
-import { useTeamListCan } from './useTeamPermissions'
+import { useTeamListCan, useDirectoryVisibility } from './useTeamPermissions'
 import {
   useTeamStore,
   type Training,
@@ -57,7 +57,8 @@ import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } f
 import { MemberProfileDialog } from './MemberProfileDialog'
 import { InviteMemberDialog } from './InviteMemberDialog'
 import { CreateEmployeeWizard } from './CreateEmployeeWizard'
-import { EditMemberDialog } from './EditMemberDialog'
+// EditMemberDialog: import removed — dead TeamPage wiring cleaned up in R-4.
+// The dialog file remains for use by MemberProfileContent (built by another agent).
 import { HRApprovalDialog } from './HRApprovalDialog'
 import { AbsenceCalendar } from './AbsenceCalendar'
 import { TimeCorrectionPanel } from './TimeCorrectionPanel'
@@ -66,6 +67,7 @@ import { PersonnelDocuments } from './PersonnelDocuments'
 import { OnboardingChecklist } from './OnboardingChecklist'
 import { OrgChart } from './OrgChart'
 import { SelfServiceView } from './SelfServiceView'
+import { ChangeRequestInbox } from './ChangeRequestInbox'
 import { DetailModal } from '@/components/shared/DetailModal'
 import { SortMenu, type SortDirection } from '@/components/shared/SortMenu'
 import { useTeamPrefsStore } from '@/stores/teamPrefs'
@@ -181,6 +183,8 @@ export default function TeamPage() {
   })
   // RBAC: team list actions
   const { canCreate, canDeactivate } = useTeamListCan()
+  // R-4: directory visibility (2-up/2-down neighbourhood without directory:full)
+  const { restricted: directoryRestricted, isVisible: isEmployeeVisible } = useDirectoryVisibility()
 
   // If active tab gets restricted (role switch), fall back to 'members'
   const { has } = useCapabilitySet()
@@ -194,8 +198,6 @@ export default function TeamPage() {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [showCreateWizard, setShowCreateWizard] = useState(false)
-  const [editMember, _setEditMember] = useState<EmployeeProfile | null>(null)
-  const [showEditDialog, setShowEditDialog] = useState(false)
   const [approvalRequest, setApprovalRequest] = useState<LeaveRequest | null>(null)
   const [confirmDeactivate, setConfirmDeactivate] = useState<EmployeeProfile | null>(null)
 
@@ -209,8 +211,17 @@ export default function TeamPage() {
   const pendingRequests = pendingRequestsData?.requests ?? []
   const pendingCount = pendingRequests.length
 
-  // Filter employees
-  const filteredEmployees = apiEmployees.filter((emp) => {
+  // R-4: Directory-visibility filter — applied BEFORE search to prevent leaking
+  // names/departments via the search counter. While the scope data is still
+  // loading (ready=false inside useDirectoryVisibility), isEmployeeVisible
+  // returns false → no flash of the full list.
+  const visibleEmployees = useMemo(
+    () => apiEmployees.filter((emp) => isEmployeeVisible(emp.userId ?? null)),
+    [apiEmployees, isEmployeeVisible],
+  )
+
+  // Filter employees (search applied on the directory-filtered list)
+  const filteredEmployees = visibleEmployees.filter((emp) => {
     if (!search) return true
     const q = search.toLowerCase()
     const name = (emp.userName ?? '').toLowerCase()
@@ -232,10 +243,10 @@ export default function TeamPage() {
     return arr
   }, [filteredEmployees, memberSortField, memberSortDir])
 
-  // Department counts from API data
+  // Department counts — based on visible employees only (no scope leak via stats)
   const deptCounts = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const emp of apiEmployees) {
+    for (const emp of visibleEmployees) {
       const dept = emp.department ?? 'Sonstige'
       counts.set(dept, (counts.get(dept) ?? 0) + 1)
     }
@@ -243,7 +254,7 @@ export default function TeamPage() {
       .map(([name, count]) => ({ name, count }))
       .filter((d) => d.count > 0)
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [apiEmployees])
+  }, [visibleEmployees])
 
   // Training computed values (still from Zustand mock)
    
@@ -307,7 +318,7 @@ export default function TeamPage() {
       {/* Header */}
       <PageHeader
         title={t('team.page.title', { defaultValue: 'Team' })}
-        description={t('team.page.headerDescription', { count: apiEmployees.length, pending: pendingCount })}
+        description={t('team.page.headerDescription', { count: visibleEmployees.length, pending: pendingCount })}
         icon={Users}
         moduleId="team"
         actions={
@@ -346,7 +357,7 @@ export default function TeamPage() {
           style={{ maskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)', WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)' }}
         >
           {([
-            { key: 'members' as const, label: t('team.page.tab.members', { count: apiEmployees.length }), icon: undefined },
+            { key: 'members' as const, label: t('team.page.tab.members', { count: visibleEmployees.length }), icon: undefined },
             { key: 'requests' as const, label: t('team.page.tab.requests', { count: pendingCount }), icon: undefined },
             { key: 'absences' as const, label: t('team.page.tab.absences'), icon: undefined },
             { key: 'korrekturen' as const, label: t('team.page.tab.corrections'), icon: Clock },
@@ -376,6 +387,12 @@ export default function TeamPage() {
       {/* Members Tab */}
       {effectiveTab === 'members' && (
         <>
+          {/* R-4: Restricted directory hint — shown when viewing neighbourhood only */}
+          {directoryRestricted && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              {t('team.directory.restrictedHint')}
+            </p>
+          )}
           <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -480,23 +497,31 @@ export default function TeamPage() {
 
       {/* Requests Tab -- uses TanStack Query */}
       {effectiveTab === 'requests' && (
-        <div className="space-y-3">
-          {pendingRequests.length === 0 ? (
-            <EmptyState
-              icon={Calendar}
-              title={t('team.page.noRequests')}
-              description={t('team.page.noRequestsDescription')}
-            />
-          ) : (
-            pendingRequests.map((req) => (
-              <LeaveRequestCard
-                key={req.id}
-                request={req}
-                onApprove={() => setApprovalRequest(req)}
-                canApprove={has('team:absence:approve')}
+        <div className="space-y-6">
+          {/* Leave requests */}
+          <div className="space-y-3">
+            {pendingRequests.length === 0 ? (
+              <EmptyState
+                icon={Calendar}
+                title={t('team.page.noRequests')}
+                description={t('team.page.noRequestsDescription')}
               />
-            ))
-          )}
+            ) : (
+              pendingRequests.map((req) => (
+                <LeaveRequestCard
+                  key={req.id}
+                  request={req}
+                  onApprove={() => setApprovalRequest(req)}
+                  canApprove={has('team:absence:approve')}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Profile change-request inbox (R-4 P3) — only rendered for HR/admin */}
+          <div className="border-t border-border pt-6">
+            <ChangeRequestInbox />
+          </div>
         </div>
       )}
 
@@ -703,8 +728,8 @@ export default function TeamPage() {
       {/* Invite Dialog (legacy, kept for quick invite) */}
       <InviteMemberDialog open={showInvite} onOpenChange={setShowInvite} />
 
-      {/* Edit Dialog (kept for Zustand members if needed) */}
-      <EditMemberDialog open={showEditDialog} onOpenChange={setShowEditDialog} member={editMember} />
+      {/* EditMemberDialog: the Zustand-based wiring was dead (R-4 cleanup).
+          The dialog file remains; a different agent rebuilds edit inside MemberProfileContent. */}
 
       {/* HR Approval Dialog -- now uses TanStack Query */}
       <HRApprovalDialog

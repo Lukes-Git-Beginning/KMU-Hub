@@ -19,6 +19,7 @@ import { useNavigationStore } from '@/stores/navigation'
 import type { EmployeeProfile } from '@/api/hr-types'
 import { EmptyState, InlineStat, SkeletonList } from '@/components/shared'
 import { DetailModal } from '@/components/shared/DetailModal'
+import { useDirectoryVisibility } from './useTeamPermissions'
 
 // ============================================================
 // Types
@@ -203,7 +204,16 @@ export function OrgChart() {
   const { startCall } = useMeetingsStore()
   const { setIntent } = useNavigationStore()
   const { data: employeesData, isLoading } = useEmployees()
-  const employees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
+  const allEmployees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
+
+  // R-4: Directory-visibility filter. Without `team:directory:full` only the
+  // 2-up/2-down neighbourhood is shown. While scope data is loading,
+  // isVisible returns false → empty chart (no flash of full tree).
+  const { restricted: directoryRestricted, isVisible: isEmployeeVisible } = useDirectoryVisibility()
+  const employees = useMemo(
+    () => allEmployees.filter((e) => isEmployeeVisible(e.userId ?? null)),
+    [allEmployees, isEmployeeVisible],
+  )
 
   const rootNodes = useMemo(() => buildOrgTree(employees), [employees])
   const allNodes = useMemo(() => flattenNodes(rootNodes), [rootNodes])
@@ -248,6 +258,13 @@ export function OrgChart() {
 
   return (
     <div className="space-y-4">
+      {/* R-4: Restricted directory hint */}
+      {directoryRestricted && (
+        <p className="text-xs text-muted-foreground">
+          {t('team.directory.restrictedHint')}
+        </p>
+      )}
+
       {/* KPI Row */}
       <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
         <InlineStat label={t('team.orgChart.totalEmployees')} value={totalEmployees} />

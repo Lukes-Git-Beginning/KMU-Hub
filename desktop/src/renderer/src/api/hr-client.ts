@@ -937,6 +937,16 @@ export const hrEmployeeApi = {
       `/api/v1/hr/employees/${id}/documents/categories`,
     )
   },
+
+  // R-4: Offboard endpoint — triggers the full cascade in MSW/backend
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async offboard(id: string, data: Record<string, unknown>) {
+    const raw = await request<{ employee: any }>(
+      `/api/v1/hr/employees/${id}/offboard`,
+      { method: 'POST', body: JSON.stringify(data) },
+    )
+    return { employee: adaptEmployee(raw.employee) }
+  },
 }
 
 // ---------------------------------------------------------------------------

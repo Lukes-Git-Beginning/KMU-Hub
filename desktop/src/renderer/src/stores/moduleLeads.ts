@@ -14,7 +14,7 @@ import type { SettingsModuleId } from '@/lib/module-settings'
  * 3-level hierarchy: tenant-default → Modul-Leiter override (tenant-wide) → user override.
  *
  * Admins are implicitly lead for every module (see useIsModuleLead). The flag is set
- * per-employee by an admin in the Team module (MemberDetailPanel).
+ * per-employee by an admin in the Team module (MemberProfileContent via ProfileSections).
  *
  * MOCK-FIRST: persisted to localStorage. Backend: `tenant_module_leads`
  * (tenant_id, user_id, module_id) — see .planning/backend-gaps.md.

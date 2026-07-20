@@ -7,6 +7,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { roleLabelKey, roleDescriptionKey } from '@/config/roles'
+import { useHasCapability, useCapabilitySet } from '@/hooks/useCapability'
 import {
   X,
   ChevronLeft,
@@ -515,7 +516,31 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
   const { t } = useTranslation()
   const [showPw, setShowPw] = useState(false)
 
+  // R-4 L7: Rollen-Schritt gaten — nur mit team:role:assign oder admin:role:assign
+  // darf der Anleger Rollen wählen. Andernfalls wird member fix gesetzt + Hinweis.
+  const canAssignHr = useHasCapability('team:role:assign')
+  const canAssignAdmin = useHasCapability('admin:role:assign')
+  const canAssignRoles = canAssignHr || canAssignAdmin
+
+  // Eskalations-Guard (R-2-Muster aus RoleEditorPage): nur Rollen anbieten,
+  // deren Capability-Keys der Anleger selbst besitzt.
+  // `ready` nutzen wir als pessimistischen Guard (leer bis geladen).
+  const { ready: selfReady } = useCapabilitySet()
+
+  // Filtere ROLE_OPTIONS nach dem, was der Anleger selbst hat (Eskalations-Guard).
+  // Vor dem Ready-State sind alle gesperrt (pessimistisch).
+  const availableRoles = useMemo(() => {
+    if (!selfReady || !canAssignRoles) return []
+    // Ein Anleger darf eine Rolle nur vergeben, wenn er selbst den passenden
+    // assign-Key hat. Admin-Rollen (admin, it_admin) nur mit admin:role:assign.
+    return ROLE_OPTIONS.filter((role) => {
+      if (role.id === 'admin' || role.id === 'it_admin') return canAssignAdmin
+      return true
+    })
+  }, [selfReady, canAssignRoles, canAssignAdmin])
+
   const toggleRole = (roleId: string) => {
+    if (!canAssignRoles) return
     if (form.roles.includes(roleId)) {
       if (form.roles.length === 1) return
       update(
@@ -592,43 +617,64 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
       </SectionCard>
 
       <SectionCard title={t('team.wizard.systemRoles')} icon={Shield}>
-        <p className="text-xs text-muted-foreground mb-3">
-          {t('team.wizard.rolesHint')}
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {ROLE_OPTIONS.map((role) => {
-            const RIcon = role.icon
-            const selected = form.roles.includes(role.id)
-            return (
-              <button
-                key={role.id}
-                onClick={() => toggleRole(role.id)}
-                className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-all ${
-                  selected
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                    : 'border-border hover:bg-secondary/50 hover:border-border'
-                }`}
-              >
-                <div
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
-                    selected
-                      ? 'bg-primary/15 text-primary'
-                      : 'bg-secondary text-muted-foreground'
-                  }`}
-                >
-                  <RIcon className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground leading-tight truncate">{t(role.labelKey)}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight truncate">{t(role.descKey)}</p>
-                </div>
-                {selected && (
-                  <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-primary" />
-                )}
-              </button>
-            )
-          })}
-        </div>
+        {canAssignRoles ? (
+          <>
+            <p className="text-xs text-muted-foreground mb-3">
+              {t('team.wizard.rolesHint')}
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {availableRoles.map((role) => {
+                const RIcon = role.icon
+                const selected = form.roles.includes(role.id)
+                return (
+                  <button
+                    key={role.id}
+                    onClick={() => toggleRole(role.id)}
+                    className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                      selected
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                        : 'border-border hover:bg-secondary/50 hover:border-border'
+                    }`}
+                  >
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+                        selected
+                          ? 'bg-primary/15 text-primary'
+                          : 'bg-secondary text-muted-foreground'
+                      }`}
+                    >
+                      <RIcon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground leading-tight truncate">{t(role.labelKey)}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight truncate">{t(role.descKey)}</p>
+                    </div>
+                    {selected && (
+                      <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-primary" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        ) : (
+          /* Kein team:role:assign / admin:role:assign → feste Default-Rolle member */
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5 rounded-lg border border-border bg-secondary/40 px-3 py-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <User className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-foreground leading-tight">{t(roleLabelKey('member'))}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{t(roleDescriptionKey('member'))}</p>
+              </div>
+              <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-primary" />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {t('team.wizard.rolesNoPermission')}
+            </p>
+          </div>
+        )}
       </SectionCard>
     </div>
   )

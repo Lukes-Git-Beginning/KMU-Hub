@@ -452,6 +452,8 @@ export interface UploadDocumentInput {
 export interface ListLeaveRequestsParams {
   status?: LeaveRequestStatus
   employee_id?: string
+  /** Auth-account user id filter (own requests in self-service). */
+  user_id?: string
   leave_type_id?: string
   start_date?: string
   end_date?: string

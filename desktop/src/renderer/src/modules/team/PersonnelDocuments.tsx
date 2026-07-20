@@ -15,10 +15,10 @@ import {
   FileCheck,
   FileLock2,
   X,
+  Info,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState, InlineStat } from '@/components/shared'
-import { useHasCapability } from '@/hooks/useCapability'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,10 @@ import {
 } from '@/components/ui/dialog'
 import { formatDate } from '@/lib/format'
 import { API_BASE_URL } from '@/lib/constants'
+import { useCapability } from '@/hooks/useCapability'
+import { useAuthStore } from '@/stores/auth'
+import { useEmployees } from '@/api/hooks/hr-hooks'
+import { useHrScopedCapability, useHrScope } from './useTeamPermissions'
 
 // ============================================================
 // Types
@@ -36,13 +40,18 @@ import { API_BASE_URL } from '@/lib/constants'
 
 type DocCategory = 'vertrag' | 'zeugnis' | 'zertifikat' | 'ausweis' | 'sonstiges'
 type DocStatus = 'aktuell' | 'bald_ablaufend' | 'abgelaufen'
+// HRDocumentCategory visibility levels (hr-types.ts:280)
+type DocVisibility = 'hr_only' | 'manager' | 'employee'
 
 interface PersonnelDocument {
   id: string
   employeeId: string
+  employeeUserId?: string
   employeeName: string
   title: string
   category: DocCategory
+  /** If present, gates visibility by role scope. Defaults to 'employee' when absent. */
+  visibility?: DocVisibility
   fileName: string
   fileSize: string
   uploadedAt: string
@@ -51,6 +60,7 @@ interface PersonnelDocument {
   status: DocStatus
   notes?: string
 }
+
 
 // ============================================================
 // Constants
@@ -93,8 +103,47 @@ const statusConfig: Record<DocStatus, { label: string; color: string; icon: type
 export function PersonnelDocuments() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const canViewDocs = useHasCapability('team:documents:view')
-  const canEditDocs = useHasCapability('team:documents:edit')
+  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
+
+  // Load the employee roster to resolve userId ↔ employeeId mappings.
+  const { data: employeesData } = useEmployees()
+  const employees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
+
+  // Selected employee whose Akte is shown. Null = none selected yet.
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
+
+  // For the selected employee, resolve their userId for HR scope checks.
+  const selectedEmployee = useMemo(
+    () => employees.find((e) => e.id === selectedEmployeeId) ?? null,
+    [employees, selectedEmployeeId],
+  )
+  const targetUserId = selectedEmployee?.userId ?? null
+
+  // HR scope checks — called unconditionally (Rules of Hooks).
+  const { ready: hrReady, isInTeamScope } = useHrScope()
+  const canViewAll = useHrScopedCapability('team:documents:view', targetUserId)
+  const canEditDocs = useHrScopedCapability('team:documents:edit', targetUserId)
+
+  // Determine visibility set from the raw grant scope (not the target-specific result).
+  // scope=all → hr_admin/admin: see all categories incl. hr_only
+  // scope=team → manager: see manager+employee
+  // scope=own → member: see employee only
+  const { scope: viewGrantScope } = useCapability('team:documents:view')
+  const viewerHasAllScope = viewGrantScope === 'all'
+
+  const allowedVisibilities = useMemo<Set<DocVisibility>>(() => {
+    if (!canViewAll) return new Set()
+    if (viewGrantScope === 'all') return new Set(['hr_only', 'manager', 'employee'])
+    if (viewGrantScope === 'own') return new Set(['employee'])
+    // scope=team (manager viewing a report)
+    return new Set(['manager', 'employee'])
+  }, [canViewAll, viewGrantScope])
+
+  // Visibility filter for employees the viewer may select an Akte for.
+  // Without directory:full we could restrict list, but PersonnelDocuments is
+  // already behind the personalakte tab (tab-gated). List all employees that
+  // the viewer has ANY documents:view grant for — we check per-row below.
+
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<DocCategory | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<DocStatus | 'all'>('all')
@@ -115,8 +164,19 @@ export function PersonnelDocuments() {
     },
   })
 
+  // Docs filtered by: employee scope + category visibility + search/category/status filters.
   const filteredDocs = useMemo(() => {
+    // If no employee is selected, show nothing — avoid leaking all employee data.
+    if (!selectedEmployeeId || !canViewAll) return []
+
     return documents.filter((doc) => {
+      // Restrict to selected employee's Akte.
+      if (doc.employeeId !== selectedEmployeeId) return false
+
+      // Category visibility gate.
+      const vis: DocVisibility = doc.visibility ?? 'employee'
+      if (!allowedVisibilities.has(vis)) return false
+
       if (categoryFilter !== 'all' && doc.category !== categoryFilter) return false
       if (statusFilter !== 'all' && doc.status !== statusFilter) return false
       if (search) {
@@ -125,7 +185,7 @@ export function PersonnelDocuments() {
       }
       return true
     })
-  }, [documents, search, categoryFilter, statusFilter])
+  }, [documents, selectedEmployeeId, canViewAll, allowedVisibilities, search, categoryFilter, statusFilter])
 
   const docsByEmployee = useMemo(() => {
     const map = new Map<string, PersonnelDocument[]>()
@@ -137,9 +197,31 @@ export function PersonnelDocuments() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
   }, [filteredDocs])
 
-  const totalDocs = documents.length
-  const expiredCount = documents.filter((d) => d.status === 'abgelaufen').length
-  const expiringCount = documents.filter((d) => d.status === 'bald_ablaufend').length
+  // KPI stats reference only the selected employee's visible docs.
+  const totalDocs = filteredDocs.length
+  const expiredCount = filteredDocs.filter((d) => d.status === 'abgelaufen').length
+  const expiringCount = filteredDocs.filter((d) => d.status === 'bald_ablaufend').length
+
+  // Upload category choices are also filtered by allowed visibility.
+  const uploadableCategories = useMemo<DocCategory[]>(() => {
+    // hr_only-level uploads require all-scope. For now, all DocCategory values
+    // are standard employee/manager level docs. We allow all categories that
+    // the viewer can edit.
+    if (!canEditDocs) return []
+    return Object.keys(categoryLabels) as DocCategory[]
+  }, [canEditDocs])
+
+  // Build selectable employee list: only employees where viewer has view grant.
+  // We filter by: self, descendants (team-scope), or all (all-scope).
+  // hrReady + isInTeamScope come from the useHrScope() call above.
+  const selectableEmployees = useMemo(() => {
+    if (!hrReady && !viewerHasAllScope) return []
+    return employees.filter((e) => {
+      if (!e.userId) return false
+      if (viewerHasAllScope) return true
+      return e.userId === currentUserId || isInTeamScope(e.userId)
+    })
+  }, [employees, hrReady, viewerHasAllScope, currentUserId, isInTeamScope])
 
   // Download a personnel document as a real (demo) blob.
   const handleDownload = (doc: PersonnelDocument) => {
@@ -188,142 +270,192 @@ export function PersonnelDocuments() {
 
   return (
     <div className="space-y-4">
-      {/* KPI Row */}
-      <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
-        <InlineStat label={t('team.personnelDocs.totalDocuments')} value={totalDocs} />
-        <InlineStat label={t('team.personnelDocs.employees')} value={new Set(documents.map((d) => d.employeeId)).size} />
-        <InlineStat
-          label={t('team.personnelDocs.expiringSoon')}
-          value={expiringCount}
-          accent={expiringCount > 0 ? 'warning' : 'default'}
-          icon={expiringCount > 0 ? Clock : undefined}
-        />
-        <InlineStat
-          label={t('team.personnelDocs.expired')}
-          value={expiredCount}
-          accent={expiredCount > 0 ? 'error' : 'default'}
-          icon={expiredCount > 0 ? AlertTriangle : undefined}
-        />
-      </dl>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder={t('team.personnelDocs.searchPlaceholder')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
-          />
+      {/* Employee selector — scoped to accessible Akten */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+            {t('team.personnelDocs.selectEmployee')}
+          </label>
+          <select
+            value={selectedEmployeeId ?? ''}
+            onChange={(e) => setSelectedEmployeeId(e.target.value || null)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          >
+            <option value="">{t('team.personnelDocs.selectEmployeePlaceholder')}</option>
+            {selectableEmployees.map((e) => (
+              <option key={e.id} value={e.id}>{e.userName ?? e.id}</option>
+            ))}
+          </select>
         </div>
 
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value as DocCategory | 'all')}
-          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
-        >
-          <option value="all">{t('team.personnelDocs.allCategories')}</option>
-          {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as DocStatus | 'all')}
-          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
-        >
-          <option value="all">{t('team.personnelDocs.allStatuses')}</option>
-          <option value="aktuell">{t('team.personnelDocs.statusCurrent')}</option>
-          <option value="bald_ablaufend">{t('team.personnelDocs.statusExpiringSoon')}</option>
-          <option value="abgelaufen">{t('team.personnelDocs.statusExpired')}</option>
-        </select>
-
-        {canEditDocs && (
-          <button
-            onClick={() => setShowUpload(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Upload className="h-4 w-4" />
-            {t('common.upload')}
-          </button>
+        {/* Scope hint for restricted viewers */}
+        {!viewerHasAllScope && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+            <span>{t('team.personnelDocs.scopeHint')}</span>
+          </div>
         )}
       </div>
 
-      {/* Document List grouped by Employee */}
-      {docsByEmployee.length === 0 ? (
+      {/* KPI Row — only shown when an employee is selected and visible */}
+      {selectedEmployeeId && canViewAll && (
+        <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
+          <InlineStat label={t('team.personnelDocs.totalDocuments')} value={totalDocs} />
+          <InlineStat
+            label={t('team.personnelDocs.expiringSoon')}
+            value={expiringCount}
+            accent={expiringCount > 0 ? 'warning' : 'default'}
+            icon={expiringCount > 0 ? Clock : undefined}
+          />
+          <InlineStat
+            label={t('team.personnelDocs.expired')}
+            value={expiredCount}
+            accent={expiredCount > 0 ? 'error' : 'default'}
+            icon={expiredCount > 0 ? AlertTriangle : undefined}
+          />
+        </dl>
+      )}
+
+      {/* Toolbar — only shown when an employee is selected */}
+      {selectedEmployeeId && canViewAll && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder={t('team.personnelDocs.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+          </div>
+
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as DocCategory | 'all')}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          >
+            <option value="all">{t('team.personnelDocs.allCategories')}</option>
+            {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as DocStatus | 'all')}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          >
+            <option value="all">{t('team.personnelDocs.allStatuses')}</option>
+            <option value="aktuell">{t('team.personnelDocs.statusCurrent')}</option>
+            <option value="bald_ablaufend">{t('team.personnelDocs.statusExpiringSoon')}</option>
+            <option value="abgelaufen">{t('team.personnelDocs.statusExpired')}</option>
+          </select>
+
+          {canEditDocs && (
+            <button
+              onClick={() => setShowUpload(true)}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Upload className="h-4 w-4" />
+              {t('common.upload')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* No employee selected — prompt */}
+      {!selectedEmployeeId && (
         <EmptyState
           icon={FolderOpen}
-          title={t('team.personnelDocs.noDocuments')}
-          description={search || categoryFilter !== 'all' ? t('team.personnelDocs.adjustFilters') : t('team.personnelDocs.uploadToStart')}
+          title={t('team.personnelDocs.noEmployeeSelected')}
+          description={t('team.personnelDocs.noEmployeeSelectedDesc')}
         />
-      ) : (
-        <div className="space-y-4">
-          {docsByEmployee.map(([name, docs]) => (
-            <div key={name} className="rounded-lg border border-border bg-card overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-secondary/30">
-                <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">{name}</span>
-                <span className="text-xs text-muted-foreground">({docs.length} {t('team.personnelDocs.documentsCount')})</span>
-              </div>
-              <div className="divide-y divide-border-muted">
-                {docs.map((doc) => {
-                  const CatIcon = categoryIcons[doc.category]
-                  const st = statusConfig[doc.status]
-                  const StIcon = st.icon
-                  return (
-                    <div key={doc.id} className="flex items-center gap-3 px-4 py-3 hover:bg-secondary/20 transition-colors">
-                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${categoryColors[doc.category]}`}>
-                        <CatIcon className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground truncate">{doc.title}</span>
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[doc.category]}`}>
-                            {categoryLabels[doc.category]}
-                          </span>
+      )}
+
+      {/* Employee selected but no grant */}
+      {selectedEmployeeId && !canViewAll && (
+        <EmptyState
+          icon={FolderOpen}
+          title={t('team.personnelDocs.noAccess')}
+          description={t('team.personnelDocs.noAccessDesc')}
+        />
+      )}
+
+      {/* Document List grouped by Employee */}
+      {selectedEmployeeId && canViewAll && (
+        docsByEmployee.length === 0 ? (
+          <EmptyState
+            icon={FolderOpen}
+            title={t('team.personnelDocs.noDocuments')}
+            description={search || categoryFilter !== 'all' ? t('team.personnelDocs.adjustFilters') : t('team.personnelDocs.uploadToStart')}
+          />
+        ) : (
+          <div className="space-y-4">
+            {docsByEmployee.map(([name, docs]) => (
+              <div key={name} className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-secondary/30">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">{name}</span>
+                  <span className="text-xs text-muted-foreground">({docs.length} {t('team.personnelDocs.documentsCount')})</span>
+                </div>
+                <div className="divide-y divide-border-muted">
+                  {docs.map((doc) => {
+                    const CatIcon = categoryIcons[doc.category]
+                    const st = statusConfig[doc.status]
+                    const StIcon = st.icon
+                    return (
+                      <div key={doc.id} className="flex items-center gap-3 px-4 py-3 hover:bg-secondary/20 transition-colors">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${categoryColors[doc.category]}`}>
+                          <CatIcon className="h-4 w-4" />
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                          <span>{doc.fileName} ({doc.fileSize})</span>
-                          <span>{t('team.personnelDocs.uploaded')}: {formatDate(doc.uploadedAt)}</span>
-                          {doc.expiresAt && (
-                            <span className={`flex items-center gap-1 ${st.color}`}>
-                              <StIcon className="h-3 w-3" />
-                              {t('team.personnelDocs.expires')}: {formatDate(doc.expiresAt)}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-foreground truncate">{doc.title}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[doc.category]}`}>
+                              {categoryLabels[doc.category]}
                             </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                            <span>{doc.fileName} ({doc.fileSize})</span>
+                            <span>{t('team.personnelDocs.uploaded')}: {formatDate(doc.uploadedAt)}</span>
+                            {doc.expiresAt && (
+                              <span className={`flex items-center gap-1 ${st.color}`}>
+                                <StIcon className="h-3 w-3" />
+                                {t('team.personnelDocs.expires')}: {formatDate(doc.expiresAt)}
+                              </span>
+                            )}
+                          </div>
+                          {doc.notes && (
+                            <p className="text-xs text-warning mt-1">{doc.notes}</p>
                           )}
                         </div>
-                        {doc.notes && (
-                          <p className="text-xs text-warning mt-1">{doc.notes}</p>
-                        )}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {canViewAll && (
+                            <button
+                              onClick={() => setPreviewDoc(doc)}
+                              className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                              title={t('team.personnelDocs.preview')}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          )}
+                          {canViewAll && (
+                            <button
+                              onClick={() => handleDownload(doc)}
+                              className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                              title={t('team.personnelDocs.download', { defaultValue: 'Download' })}
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {canViewDocs && (
-                          <button
-                            onClick={() => setPreviewDoc(doc)}
-                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                            title={t('team.personnelDocs.preview')}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canViewDocs && (
-                          <button
-                            onClick={() => handleDownload(doc)}
-                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                            title={t('team.personnelDocs.download', { defaultValue: 'Download' })}
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )
       )}
 
       {/* Preview Dialog */}
@@ -355,7 +487,7 @@ export function PersonnelDocuments() {
                   <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">{t('team.personnelDocs.previewHint', { defaultValue: 'Im Produktivbetrieb wird hier das hinterlegte PDF angezeigt.' })}</p>
                 </div>
               </div>
-              {canViewDocs && (
+              {canViewAll && (
                 <div className="flex justify-end border-t border-border px-5 py-3">
                   <button onClick={() => { handleDownload(previewDoc) }} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors">
                     <Download className="h-3.5 w-3.5" />
@@ -406,7 +538,7 @@ export function PersonnelDocuments() {
                   onChange={(e) => setUploadCategory(e.target.value as DocCategory)}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  {uploadableCategories.map((k) => <option key={k} value={k}>{categoryLabels[k]}</option>)}
                 </select>
               </div>
               <div>

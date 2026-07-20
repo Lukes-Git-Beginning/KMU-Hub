@@ -5,7 +5,12 @@
  * overview), text is readable (text-sm), and the dense/interactive areas
  * (payroll, documents) live in their own tabs. Rendered inside the in-app
  * profile window (MemberProfileDialog) and the deep-link route (MemberDetailPage).
+ *
+ * R-4: isSelf-Bypass removed; own-scope grants cover the member's own file.
+ * Per-drawer edit buttons (data_personal:edit / data_job:edit, scoped).
+ * Absence drawer (absence_data:view, scoped). Offboard via header actions menu.
  */
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -19,26 +24,38 @@ import {
   User,
   X,
   Loader2,
+  MoreVertical,
+  Pencil,
+  LogOut,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import {
   useEmployee,
   useEmployeeLeaveBalance,
-  useEmployeeDocuments,
 } from '@/api/hooks/hr-hooks'
 import { useUserModules } from '@/api/hooks/useModuleAssignments'
 import { useHasCapability } from '@/hooks/useCapability'
-import { useAuthStore } from '@/stores/auth'
 import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
 import { LEADABLE_MODULES } from '@/lib/module-settings'
-import { formatDate, formatRelativeTime } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { MODULE_DISPLAY_NAMES } from './ModuleAssignmentTab'
 import { EmployeePayrollData } from './EmployeePayrollData'
-import { DocumentsSection, EmployeeModuleLeadSection } from './MemberDetailPanel'
+import { DocumentsSection, EmployeeModuleLeadSection } from './ProfileSections'
 import { UserRolesSection } from '@/components/shared/rbac/UserRolesSection'
 import { useAdminUsers } from '@/api/hooks/useAdminUsers'
+import { useHrScopedCapability } from './useTeamPermissions'
+import { EditMemberDialog } from './EditMemberDialog'
+import { OffboardEmployeeDialog } from './OffboardEmployeeDialog'
+import { useOffboardEmployee } from '@/api/hooks/hr-hooks'
 
 function getTenure(joinDate: string): string {
   const join = new Date(joinDate)
@@ -61,24 +78,44 @@ interface MemberProfileContentProps {
 }
 
 export function MemberProfileContent({ memberId, onNavigateAway, onClose }: MemberProfileContentProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { startCall } = useMeetingsStore()
   const { setIntent } = useNavigationStore()
 
   const { data: employee, isLoading } = useEmployee(memberId)
   const { data: balance } = useEmployeeLeaveBalance(employee?.userId ?? '')
-  const { data: documents } = useEmployeeDocuments(memberId)
   const { data: userGrants = [] } = useUserModules(employee?.userId ?? '')
 
-  // RBAC: personal / job data visibility
-  const canViewPersonal = useHasCapability('team:data_personal:view')
-  const canViewJob = useHasCapability('team:data_job:view')
-  // team:documents:view gates the documents tab
-  const canViewDocuments = useHasCapability('team:documents:view')
-  // isSelf bypass: employee sees their own contact + job data regardless of capability
-  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
-  const isSelf = !!employee?.userId && employee.userId === currentUserId
+  // R-4: scope-aware drawer gates (isSelf-Bypass entfernt — own-scope Grants decken das)
+  const targetUserId = employee?.userId ?? null
+  const canViewPersonal = useHrScopedCapability('team:data_personal:view', targetUserId)
+  const canEditPersonal = useHrScopedCapability('team:data_personal:edit', targetUserId)
+  const canViewJob = useHrScopedCapability('team:data_job:view', targetUserId)
+  const canEditJob = useHrScopedCapability('team:data_job:edit', targetUserId)
+  const canViewAbsenceData = useHrScopedCapability('team:absence_data:view', targetUserId)
+  const canViewPayroll = useHasCapability('team:payroll:view')
+  const canOffboard = useHasCapability('team:employee:offboard')
+
+  // Roles section
+  const canAssignHr = useHasCapability('team:role:assign')
+  const canAssignIt = useHasCapability('admin:role:assign')
+  const showRoles = canAssignHr || canAssignIt
+  const { data: adminUsers = [] } = useAdminUsers()
+  const memberAccount = employee?.userId
+    ? adminUsers.find((u) => u.id === employee.userId)
+    : undefined
+
+  const canManageLeads = useHasCapability('admin:modules:manage')
+  const hasLeadable = userGrants.some((g) => LEADABLE_MODULES.includes(g.moduleId))
+  const showModuleLead = canManageLeads && hasLeadable && !!employee?.userId
+
+  // Edit dialogs
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [offboardOpen, setOffboardOpen] = useState(false)
+
+  // Offboard mutation (calls MSW handler POST /api/v1/hr/employees/:id/offboard)
+  const offboardMutation = useOffboardEmployee()
 
   const fullName = employee
     ? (employee.userName ?? employee.department ?? t('team.member.employee'))
@@ -86,7 +123,7 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
 
   const initials = fullName
     .split(' ')
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join('')
     .slice(0, 2)
     .toUpperCase()
@@ -102,20 +139,6 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
     ? t(CONTRACT_TYPE_KEYS[employee.contractType] ?? 'team.contractType.fullTime')
     : ''
   const tenure = employee ? getTenure(employee.startDate) : ''
-  const canViewPayroll = useHasCapability('team:payroll:view')
-  const canManageLeads = useHasCapability('admin:modules:manage')
-  const hasLeadable = userGrants.some((g) => LEADABLE_MODULES.includes(g.moduleId))
-  const showModuleLead = canManageLeads && hasLeadable && !!employee?.userId
-
-  // Roles & access (R-2): assignment lives HERE in the team module — HR's home
-  // turf (team:role:assign); IT admins carry admin:role:assign.
-  const canAssignHr = useHasCapability('team:role:assign')
-  const canAssignIt = useHasCapability('admin:role:assign')
-  const showRoles = canAssignHr || canAssignIt
-  const { data: adminUsers = [] } = useAdminUsers()
-  const memberAccount = employee?.userId
-    ? adminUsers.find((u) => u.id === employee.userId)
-    : undefined
 
   function goTo(path: string) {
     onNavigateAway?.()
@@ -133,6 +156,21 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
     goTo('/chat')
   }
 
+  function handleOffboardConfirm(data: {
+    lastWorkDay: string
+    exitDate: string
+    exitType: string
+    reason: string
+    backfill: boolean
+    successorUserId?: string
+  }) {
+    if (!employee) return
+    offboardMutation.mutate(
+      { id: employee.id, data },
+      { onSuccess: () => setOffboardOpen(false) },
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center py-16">
@@ -148,6 +186,8 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
     )
   }
 
+  const bothSectionsHidden = !canViewPersonal && !canViewJob
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Gradient header */}
@@ -162,6 +202,36 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
             <X className="h-4 w-4" />
           </button>
         )}
+
+        {/* Header actions menu (Austritt + ggf. weitere) */}
+        <div className="absolute right-12 top-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t('shared.actions')}
+                className="rounded-md p-1.5 text-primary-foreground/70 transition-colors hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              {/* Austritt — nur mit team:employee:offboard, nur im Profil */}
+              {canOffboard && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive gap-2"
+                    onClick={() => setOffboardOpen(true)}
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    {t('team.offboard.initiate')}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-primary-foreground/30 bg-primary-foreground/20 text-xl font-semibold text-primary-foreground">
@@ -225,17 +295,19 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
           {canViewPayroll && (
             <TabsTrigger value="payroll">{t('team.payroll.masterData.title')}</TabsTrigger>
           )}
-          {canViewDocuments && (
-            <TabsTrigger value="documents">{t('team.documents.title')}</TabsTrigger>
-          )}
         </TabsList>
 
         {/* Overview */}
         <TabsContent value="overview" className="mt-0 flex-1 space-y-5 overflow-y-auto p-6">
-          {/* Contact — visible with team:data_personal:view OR for the employee themselves (isSelf). */}
-          {(canViewPersonal || isSelf) && (
+
+          {/* Kontakt — data_personal:view (scoped) */}
+          {canViewPersonal && (
             <section>
-              <SectionTitle>{t('team.detail.contact')}</SectionTitle>
+              <SectionHeader
+                title={t('team.detail.contact')}
+                editLabel={canEditPersonal ? t('common.edit') : undefined}
+                onEdit={canEditPersonal ? () => setEditDialogOpen(true) : undefined}
+              />
               <div className="space-y-2.5">
                 {employee.userEmail ? (
                   <InfoRow icon={Mail}>
@@ -264,18 +336,21 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
             </section>
           )}
 
-          {/* Separator only when BOTH sections are visible to avoid orphaned dividers. */}
-          {(canViewPersonal || isSelf) && (canViewJob || isSelf) && <Separator />}
+          {canViewPersonal && canViewJob && <Separator />}
 
-          {/* Both data sections filtered → say so instead of an empty pane. */}
-          {!(canViewPersonal || isSelf) && !(canViewJob || isSelf) && (
+          {/* Beide Schubladen verborgen — Hinweis */}
+          {bothSectionsHidden && (
             <p className="text-sm text-muted-foreground">{t('rbac.gate.profileRestricted')}</p>
           )}
 
-          {/* Employment — visible with team:data_job:view OR for the employee themselves (isSelf). */}
-          {(canViewJob || isSelf) && (
+          {/* Beschäftigung — data_job:view (scoped) */}
+          {canViewJob && (
             <section>
-              <SectionTitle>{t('team.detail.employment')}</SectionTitle>
+              <SectionHeader
+                title={t('team.detail.employment')}
+                editLabel={canEditJob ? t('common.edit') : undefined}
+                onEdit={canEditJob ? () => setEditDialogOpen(true) : undefined}
+              />
               <div className="space-y-2.5">
                 {employee.department && <InfoRow icon={Briefcase}>{employee.department}</InfoRow>}
                 {contractLabel && <InfoRow icon={Shield}>{contractLabel}</InfoRow>}
@@ -293,12 +368,12 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
             </section>
           )}
 
-          {/* Leave */}
-          {balance && (
+          {/* Abwesenheiten-Schublade (Salden/Resturlaub/Historie) — absence_data:view (scoped) */}
+          {canViewAbsenceData && balance && (
             <>
               <Separator />
               <section>
-                <SectionTitle>{t('team.detail.leaveEntitlement')}</SectionTitle>
+                <SectionTitle>{t('team.detail.absenceData')}</SectionTitle>
                 <div className="rounded-lg border border-border bg-card p-4">
                   <div className="flex items-end gap-2">
                     <span className="text-3xl font-bold text-primary">{balance.remaining}</span>
@@ -328,7 +403,19 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
             </>
           )}
 
-          {/* Roles & access (HR assigns here; effective rights incl. union provenance) */}
+          {/* Dokumente (scoped via DocumentsSection) */}
+          {(canViewJob || canViewPersonal) && (
+            <>
+              <Separator />
+              <DocumentsSection
+                memberId={memberId}
+                targetUserId={targetUserId}
+                embedded
+              />
+            </>
+          )}
+
+          {/* Roles & access */}
           {showRoles && memberAccount && (
             <>
               <Separator />
@@ -359,13 +446,6 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
                       <span className="truncate font-medium text-foreground">
                         {MODULE_DISPLAY_NAMES[g.moduleId] ?? g.moduleId}
                       </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {g.lastActiveAt
-                          ? t('team.member.modules.lastUsed', {
-                              time: formatRelativeTime(g.lastActiveAt, i18n.language),
-                            })
-                          : t('team.member.modules.neverUsed')}
-                      </span>
                     </div>
                   ))}
                 </div>
@@ -382,29 +462,78 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
           )}
         </TabsContent>
 
-        {/* Payroll */}
+        {/* Payroll — tab only shown with team:payroll:view */}
         {canViewPayroll && (
           <TabsContent value="payroll" className="mt-0 flex-1 overflow-y-auto p-6">
-            <EmployeePayrollData employeeId={memberId} embedded />
-          </TabsContent>
-        )}
-
-        {/* Documents — tab only shown with team:documents:view */}
-        {canViewDocuments && (
-          <TabsContent value="documents" className="mt-0 flex-1 overflow-y-auto p-6">
-            <DocumentsSection memberId={memberId} documents={documents ?? []} embedded />
+            <EmployeePayrollData
+              employeeId={memberId}
+              targetUserId={targetUserId}
+              embedded
+            />
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Edit-Dialog (PersonalDaten + Beschäftigung) */}
+      <EditMemberDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        member={employee}
+      />
+
+      {/* Offboard-Dialog */}
+      {canOffboard && (
+        <OffboardEmployeeDialog
+          open={offboardOpen}
+          onOpenChange={setOffboardOpen}
+          employee={employee}
+          onConfirm={handleOffboardConfirm}
+          isPending={offboardMutation?.isPending ?? false}
+        />
+      )}
     </div>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Section helpers
+// ---------------------------------------------------------------------------
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
       {children}
     </h3>
+  )
+}
+
+/** Section header with optional edit-pencil icon */
+function SectionHeader({
+  title,
+  editLabel,
+  onEdit,
+}: {
+  title: string
+  editLabel?: string
+  onEdit?: () => void
+}) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h3>
+      {onEdit && editLabel && (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={editLabel}
+          className="flex items-center gap-1 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Pencil className="h-3 w-3" />
+          <span className="text-[10px]">{editLabel}</span>
+        </button>
+      )}
+    </div>
   )
 }
 

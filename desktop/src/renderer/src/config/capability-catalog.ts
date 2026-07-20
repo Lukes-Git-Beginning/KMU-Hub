@@ -362,17 +362,36 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
     base('team:employee:create'),
     base('team:employee:edit', true),
     fine('team:employee:deactivate'),
-    fine('team:data_personal:view'),
-    fine('team:data_personal:edit'),
-    fine('team:data_job:view'),
-    fine('team:data_job:edit'),
-    fine('team:salary:view'),
-    fine('team:salary:edit'),
-    fine('team:documents:view'),
-    fine('team:documents:edit'),
+    // R-4: full offboarding flow (dialog + cascade) — separate from the quick
+    // deactivate toggle; entry lives inside the profile edit area only.
+    fine('team:employee:offboard'),
+    // R-4: the five HR data drawers are scopeable — own = own file only,
+    // team = own + entire reporting line DOWN (never up), all = everyone.
+    // Resolved via useHrScopedCapability (modules/team/reporting-line.ts),
+    // NOT the generic useScopedCapability (where team≈all stays documented).
+    fine('team:data_personal:view', true),
+    fine('team:data_personal:edit', true),
+    fine('team:data_job:view', true),
+    fine('team:data_job:edit', true),
+    fine('team:salary:view', true),
+    fine('team:salary:edit', true),
+    fine('team:documents:view', true),
+    fine('team:documents:edit', true),
+    // Calendar board (who is away when) — deliberately NOT the drawer key:
+    // members keep scope all here so the planning board stays useful.
     base('team:absence:read', true),
+    // R-4: absence FILE drawer (balances, history in the profile) — scopeable,
+    // separate from the calendar board above.
+    fine('team:absence_data:view', true),
     fine('team:absence:approve'),
     fine('team:role:assign'),
+    // R-4: propose changes to OWN data (self-service request flow with HR
+    // approval). One curated key for all drawers; roles with direct edit
+    // rights bypass the proposal loop.
+    fine('team:self:propose'),
+    // R-4: see ALL employees in list/org chart. Without it the directory
+    // shows only the 2-up/2-down neighbourhood around the viewer.
+    fine('team:directory:full'),
     fine('team:training:manage'),
     fine('team:payroll:view'),
     fine('team:payroll:run'),

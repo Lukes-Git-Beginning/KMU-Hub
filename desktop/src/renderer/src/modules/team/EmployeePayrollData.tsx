@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { usePayrollMasterDataStore, isPayrollComplete } from '@/stores/payrollMasterData'
-import { useHasCapability } from '@/hooks/useCapability'
+import { useHrScopedCapability } from './useTeamPermissions'
 import type { PayrollMasterData } from '@/stores/payrollMasterData'
 import { usePayrollSettingsStore } from '@/stores/payrollSettings'
 import {
@@ -22,15 +22,26 @@ import type { EnumOption } from '@/lib/payroll-enums'
 /**
  * Lohn-Stammdaten (payroll master data) section for the employee detail panel.
  *
+ * R-4: scope-aware gate via useHrScopedCapability (own = eigenes Gehalt sehen,
+ * team/all = fremde Gehaltsdaten). Prop targetUserId is the auth userId of the
+ * employee whose record is shown (null while loading → pessimistic deny).
+ *
  * hr_only: visible to admin/hr roles only (besondere Personaldaten, DSGVO).
  * Collapsible, view + inline-edit, grouped by DATEV topic areas. Feeds the
  * Lohnvorbereitung. MOCK-FIRST overlay (payrollMasterData store) — see spec.
  */
 export function EmployeePayrollData({
   employeeId,
+  targetUserId = null,
   embedded = false,
 }: {
   employeeId: string
+  /**
+   * Auth userId of the employee being viewed.
+   * Used by useHrScopedCapability to resolve own/team/all scope.
+   * Pass null while the employee record is still loading.
+   */
+  targetUserId?: string | null
   /** When true, render content always-open without the collapse toggle. */
   embedded?: boolean
 }) {
@@ -39,9 +50,10 @@ export function EmployeePayrollData({
   const save = usePayrollMasterDataStore((s) => s.set)
   const groups = usePayrollSettingsStore((s) => s.groups)
 
-  // RBAC R-3: salary data gated via capability (replaces legacy roles.some check).
-  const canView = useHasCapability('team:salary:view')
-  const canEdit = useHasCapability('team:salary:edit')
+  // R-4: scope-aware salary gate — own = eigenes Gehalt (member-Standard),
+  // team/all = fremde Gehaltsdaten (nur hr_admin/admin).
+  const canView = useHrScopedCapability('team:salary:view', targetUserId)
+  const canEdit = useHrScopedCapability('team:salary:edit', targetUserId)
 
   const [expanded, setExpanded] = useState(false)
   const showContent = embedded || expanded

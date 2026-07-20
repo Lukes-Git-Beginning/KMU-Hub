@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
 import { EMPLOYEES, DEPARTMENTS, COMPANY } from '../mock-db'
 import { daysAgo, daysFromNow } from '../data/date-helpers'
+import { USER_ROLE_ASSIGNMENTS, getDemoSessionUserId } from '../data/rbac'
 
 const API = API_BASE_URL
 
@@ -16,10 +17,14 @@ const API = API_BASE_URL
  * seed sweep aligns mock-db, resolve userId by NAME against the shared ids so
  * roles (R-2), leave balances and module grants attach to the right person.
  */
-const NAME_TO_USER_ID: Record<string, string> = {
+export const NAME_TO_USER_ID: Record<string, string> = {
   'Stefan Vogel': IDS.users.stefan,
   'Markus Weber': IDS.users.markus,
   'Thomas Keller': IDS.users.thomas,
+  // R-4: real mock-db people mapped onto their role-assignment slots so the
+  // reporting-line QA cases exist (Thomas Meier = it_admin usr-e3 via
+  // fallback; Sarah Beck = the manager demo user).
+  'Sarah Beck': IDS.users.sarah,
   'Julia Hofmann': IDS.users.julia,
   'Laura Neumann': IDS.users.laura,
   'Felix Krause': IDS.users.felix,
@@ -39,6 +44,13 @@ const NAME_TO_USER_ID: Record<string, string> = {
 function toHrEmployee(e: (typeof EMPLOYEES)[number]) {
   const fullName = `${e.firstName} ${e.lastName}`
   const canonicalUserId = NAME_TO_USER_ID[fullName] ?? `usr-${e.id}`
+  // R-4: resolve the manager to the SAME canonical id space as userId —
+  // an index-based `usr-<managerId>` would break the reporting-line chain
+  // wherever NAME_TO_USER_ID remaps a person (e.g. Sarah Beck → usr-e7).
+  const manager = e.managerId ? EMPLOYEES.find((m) => m.id === e.managerId) : undefined
+  const managerUserId = manager
+    ? (NAME_TO_USER_ID[`${manager.firstName} ${manager.lastName}`] ?? `usr-${manager.id}`)
+    : null
   return {
     // canonical camelCase fields matching EmployeeProfile interface (hr-types.ts)
     id: `usr-${e.id}`,
@@ -52,7 +64,7 @@ function toHrEmployee(e: (typeof EMPLOYEES)[number]) {
     workDaysPerWeek: 5,
     annualLeaveDays: 30,
     startDate: e.joinDate,
-    managerUserId: e.managerId ? `usr-${e.managerId}` : null,
+    managerUserId,
     // additional fields used by team-module components
     firstName: e.firstName,
     lastName: e.lastName,
@@ -201,7 +213,12 @@ export const teamHandlers = [
 
   // Current user profile
   http.get(`${API}/api/v1/hr/employees/me`, () => {
-    const me = hrEmployees.find((e) => e.id === IDS.users.stefan)
+    // Session-aware (R-4): self-service must show the signed-in demo user's
+    // own file, not always Stefan's.
+    const sessionUserId = getDemoSessionUserId()
+    const me =
+      hrEmployees.find((e) => e.userId === sessionUserId) ??
+      hrEmployees.find((e) => e.id === IDS.users.stefan)
     return HttpResponse.json({ employee: me })
   }),
 
@@ -336,6 +353,58 @@ export const teamHandlers = [
     }
     personnelDocuments.unshift(doc)
     return HttpResponse.json({ document: doc }, { status: 201 })
+  }),
+
+  // ---------------------------------------------------------------------------
+  // R-4: Offboard employee — full cascade
+  // POST /api/v1/hr/employees/:id/offboard
+  // Body: { lastWorkDay, exitDate, exitType, reason?, backfill, successorUserId? }
+  // Cascade: HR-status inactive + AdminUser deactivated + USER_ROLE_ASSIGNMENTS leeren
+  //           + Nachfolger als neuer managerUserId aller Betroffenen
+  // ---------------------------------------------------------------------------
+  http.post(`${API}/api/v1/hr/employees/:id/offboard`, async ({ params, request }) => {
+    const emp = hrEmployees.find((e) => e.id === params.id) as Record<string, unknown> | undefined
+    if (!emp) {
+      return HttpResponse.json({ error: 'Employee not found' }, { status: 404 })
+    }
+
+    const body = (await request.json()) as {
+      lastWorkDay?: string
+      exitDate?: string
+      exitType?: string
+      reason?: string
+      backfill?: boolean
+      successorUserId?: string
+    }
+
+    // 1. HR-Status auf inactive setzen
+    emp.status = 'inactive'
+    emp.exitDate = body.exitDate ?? body.lastWorkDay
+    emp.exitType = body.exitType ?? 'resignation'
+
+    // 2. Rollen-Zuweisungen des Users entfernen (USER_ROLE_ASSIGNMENTS mutieren)
+    const offboardedUserId = String(emp.userId ?? '')
+    if (offboardedUserId && USER_ROLE_ASSIGNMENTS[offboardedUserId]) {
+      USER_ROLE_ASSIGNMENTS[offboardedUserId] = []
+    }
+
+    // 3. Admin-User deaktivieren (hrEmployees hat userId — suche per userId)
+    const adminEmp = hrEmployees.find((e) => e.userId === offboardedUserId) as Record<string, unknown> | undefined
+    if (adminEmp) {
+      adminEmp.accountStatus = 'deactivated'
+    }
+
+    // 4. Nachfolger als neuer managerUserId aller Betroffenen
+    if (body.successorUserId) {
+      const successor = body.successorUserId
+      for (const e of hrEmployees as Array<Record<string, unknown>>) {
+        if (e.managerUserId === offboardedUserId || e.managerUserId === String(params.id)) {
+          e.managerUserId = successor
+        }
+      }
+    }
+
+    return HttpResponse.json({ employee: emp })
   }),
 
   // HR settings

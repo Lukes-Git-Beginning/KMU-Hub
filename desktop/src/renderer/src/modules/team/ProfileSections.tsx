@@ -1,32 +1,25 @@
+/**
+ * Shared profile section components extracted from MemberDetailPanel (R-4 cleanup).
+ * DocumentsSection and EmployeeModuleLeadSection are rendered by MemberProfileContent.
+ * DocumentsSection is now scope-gated via useHrScopedCapability (R-4 §3.4).
+ */
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  Mail,
-  Phone,
-  MessageSquare,
-  Briefcase,
-  MapPin,
-  Calendar,
-  Shield,
-  PhoneCall,
-  Loader2,
-  FileText,
-  Upload,
   ChevronDown,
   ChevronUp,
+  FileText,
+  Upload,
+  Loader2,
   AlertTriangle,
   ArrowRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DetailPanel } from '@/components/shared'
 import { toast } from 'sonner'
 import { useUIStore } from '@/stores/ui'
 import {
-  useEmployee,
-  useEmployeeLeaveBalance,
   useEmployeeDocuments,
   useDocumentCategories,
   useUploadEmployeeDocument,
@@ -34,271 +27,45 @@ import {
 import { useUserModules } from '@/api/hooks/useModuleAssignments'
 import { useInsightSettings } from '@/api/hooks/useBilling'
 import { useNavigationStore } from '@/stores/navigation'
-import { useHasCapability, useScopedCapability } from '@/hooks/useCapability'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useHrScopedCapability } from './useTeamPermissions'
 import { useModuleLeadsStore } from '@/stores/moduleLeads'
 import { LEADABLE_MODULES } from '@/lib/module-settings'
 import { DEFAULT_INSIGHT_SETTINGS } from '@/lib/pricing'
 import { MODULE_DISPLAY_NAMES } from './ModuleAssignmentTab'
-import { EmployeePayrollData } from './EmployeePayrollData'
 import { formatRelativeTime, formatDate } from '@/lib/format'
-
-const contractTypeKeys: Record<string, string> = {
-  full_time: 'team.contractType.fullTime',
-  part_time: 'team.contractType.partTime',
-  mini_job:  'team.contractType.miniJob',
-  intern:    'team.contractType.internship',
-  temporary: 'team.contractType.temporary',
-  // legacy aliases — kept for any cached data still in transit
-  praktikum: 'team.contractType.internship',
-  freelance: 'team.contractType.temporary',
-}
-
-interface MemberDetailPanelProps {
-  memberId: string
-  memberName?: string
-  memberInitials?: string
-  onClose: () => void
-  onEmail: () => void
-  onCall: () => void
-  onMessage: () => void
-  onEdit: () => void
-}
-
-export function MemberDetailPanel({
-  memberId,
-  memberName,
-  memberInitials,
-  onClose,
-  onEmail,
-  onCall,
-  onMessage,
-  onEdit,
-}: MemberDetailPanelProps) {
-  const { t } = useTranslation()
-  const navigate = useNavigate()
-  const { data: employee, isLoading } = useEmployee(memberId)
-  const { data: balance } = useEmployeeLeaveBalance(employee?.userId ?? '')
-  const { data: documents } = useEmployeeDocuments(memberId)
-
-  // RBAC: Edit-Button only when caller has team:employee:edit on this employee.
-  // scope=own → only the employee themselves may trigger; scope=team≈all (documented gap, R3-BRIEFING §1.4).
-  const canEditEmployee = useScopedCapability('team:employee:edit', employee?.userId)
-
-  const fullName = employee
-    ? (employee.userName ?? `${employee.department ?? t('team.member.employee')}`)
-    : (memberName ?? t('common.loading'))
-
-  const initials = memberInitials ?? fullName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-
-  const tenure = employee ? getTenure(employee.startDate) : ''
-
-  return (
-    <DetailPanel
-      open
-      title={t('team.detail.title')}
-      onClose={onClose}
-      onExpand={() => {
-        navigate(`/team/member/${memberId}`)
-        onClose()
-      }}
-    >
-      {/* Header with gradient */}
-      <div className="relative -mx-5 -mt-1 mb-4">
-        <div
-          className="h-20 rounded-t-lg"
-          style={{
-            background: `linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 60%, #000) 100%)`,
-          }}
-        />
-        <div className="absolute -bottom-8 left-5 flex items-end gap-3">
-          <div className="relative">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-card bg-primary-light text-lg font-bold text-primary">
-              {initials}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="mt-6 flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="mt-6 space-y-4">
-          {/* Name & Role */}
-          <div>
-            <h3 className="text-base font-medium text-foreground">{fullName}</h3>
-            <p className="text-xs text-muted-foreground">{employee?.positionTitle ?? ''}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] text-muted-foreground">
-                {t(contractTypeKeys[employee?.contractType ?? ''] ?? employee?.contractType ?? '')}
-                {employee?.workDaysPerWeek ? ` · ${employee.workDaysPerWeek} ${t('team.detail.daysPerWeek')}` : ''}
-              </span>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex gap-2">
-            <button
-              onClick={onEmail}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-            >
-              <Mail className="h-3.5 w-3.5" />
-              E-Mail
-            </button>
-            <button
-              onClick={onCall}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-            >
-              <PhoneCall className="h-3.5 w-3.5" />
-              {t('team.detail.call')}
-            </button>
-            <button
-              onClick={onMessage}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              Chat
-            </button>
-          </div>
-
-          {/* Contact Info */}
-          {employee?.userEmail && (
-            <section className="space-y-2">
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('team.detail.contact')}</h4>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                  <a href={`mailto:${employee.userEmail}`} className="text-primary hover:underline">{employee.userEmail}</a>
-                </div>
-                {employee.emergencyContactPhone && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5 shrink-0" />
-                    <span>{employee.emergencyContactPhone} ({t('team.detail.emergencyContact')}: {employee.emergencyContactName})</span>
-                  </div>
-                )}
-                {employee.addressCity && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5 shrink-0" />
-                    <span>
-                      {[employee.addressStreet, employee.addressPostalCode, employee.addressCity].filter(Boolean).join(', ')}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* Employment */}
-          <section className="space-y-2">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('team.detail.employment')}</h4>
-            <div className="space-y-1.5 text-xs">
-              {employee?.department && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Briefcase className="h-3.5 w-3.5 shrink-0" />
-                  <span>{employee.department}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Shield className="h-3.5 w-3.5 shrink-0" />
-                <span>{t(contractTypeKeys[employee?.contractType ?? ''] ?? employee?.contractType ?? '')}</span>
-              </div>
-              {employee?.startDate && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5 shrink-0" />
-                  <span>{t('team.detail.since')} {formatDate(employee.startDate)} ({tenure})</span>
-                </div>
-              )}
-              {employee?.managerName && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Briefcase className="h-3.5 w-3.5 shrink-0" />
-                  <span>{t('team.detail.reportsTo')}: {employee.managerName}</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Leave Balance */}
-          {balance && (
-            <section className="space-y-2">
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('team.detail.leaveEntitlement')}</h4>
-              <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                <div className="flex items-end gap-2 mb-2">
-                  <span className="text-2xl font-bold text-primary">{balance.remaining}</span>
-                  <span className="text-sm text-muted-foreground mb-0.5">/ {balance.totalEntitlement} {t('team.detail.days')}</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-secondary overflow-hidden mb-2">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${Math.min(100, Math.round((balance.used / balance.totalEntitlement) * 100))}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>{balance.used} {t('team.detail.taken')}</span>
-                  {balance.carriedOver > 0 && (
-                    <span className={balance.carryoverExpired ? 'text-error' : ''}>
-                      {balance.carriedOver} {t('team.detail.carryover')}{balance.carryoverExpired ? ` (${t('team.detail.expired')})` : ''}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Module-Zuteilung */}
-          {employee?.userId && (
-            <EmployeeModulesSection
-              userId={employee.userId}
-              onManage={() => onEdit()}
-            />
-          )}
-
-          {/* Erweiterte Moduleinstellungen (Modul-Leiter) — admin/it only */}
-          {employee?.userId && <EmployeeModuleLeadSection userId={employee.userId} />}
-
-          {/* Lohn-Stammdaten (hr_only) */}
-          <EmployeePayrollData employeeId={memberId} />
-
-          {/* Documents */}
-          <DocumentsSection memberId={memberId} documents={documents ?? []} />
-
-          {/* Edit button — only with team:employee:edit (scoped: own or team≈all) */}
-          {canEditEmployee && (
-            <button
-              onClick={onEdit}
-              className="w-full rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
-            >
-              {t('team.detail.editProfile')}
-            </button>
-          )}
-        </div>
-      )}
-    </DetailPanel>
-  )
-}
 
 // ============================================================
 // Documents Section with upload
 // ============================================================
 export function DocumentsSection({
   memberId,
-  documents,
+  targetUserId,
   embedded = false,
 }: {
   memberId: string
-  documents: { id: string; fileName?: string; categoryName?: string; createdAt: string }[]
+  /** Auth userId of the employee — used for scope-aware gate. */
+  targetUserId: string | null | undefined
+  documents?: { id: string; fileName?: string; categoryName?: string; createdAt: string }[]
   /** When true, render content always-open without the collapse toggle. */
   embedded?: boolean
 }) {
   const { t } = useTranslation()
+  const { data: documents = [] } = useEmployeeDocuments(memberId)
   const { data: categories } = useDocumentCategories(memberId)
   const uploadMutation = useUploadEmployeeDocument()
-  const canUploadDoc = useHasCapability('team:documents:edit')
+
+  // R-4: scope-aware gate — only show documents drawer if the viewer has access
+  const canView = useHrScopedCapability('team:documents:view', targetUserId)
+  const canEdit = useHrScopedCapability('team:documents:edit', targetUserId)
+  // Payslip documents are salary data: a manager with documents:view (team)
+  // but no salary grant must never see them (R4-BRIEFING §0 — never salary).
+  const canViewSalaryDocs = useHrScopedCapability('team:salary:view', targetUserId)
+  const visibleDocuments = documents.filter((doc) => {
+    if (canViewSalaryDocs) return true
+    const cat = (doc as { categoryId?: string; categoryName?: string })
+    return cat.categoryId !== 'hrcat-payroll' && cat.categoryName !== 'Gehaltsabrechnungen'
+  })
 
   const [expanded, setExpanded] = useState(false)
   const showContent = embedded || expanded
@@ -307,12 +74,14 @@ export function DocumentsSection({
   const [notes, setNotes] = useState('')
   const [_fileName, setFileName] = useState('')
 
+  // Gate: hide entire section if no view access
+  if (!canView) return null
+
   const handleUpload = () => {
     if (!categoryId) {
       toast.error(t('team.documents.selectCategory'))
       return
     }
-    // In real app, fileId comes from a file upload service. Here we simulate.
     const mockFileId = `file-${Date.now()}`
     uploadMutation.mutate(
       {
@@ -343,17 +112,16 @@ export function DocumentsSection({
         className={`flex items-center gap-1 w-full text-left ${embedded ? 'cursor-default' : ''}`}
       >
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {t('team.documents.title')} ({documents.length})
+          {t('team.documents.title')} ({visibleDocuments.length})
         </h4>
         {!embedded && <Chevron className="h-3 w-3 text-muted-foreground ml-auto" />}
       </button>
 
       {showContent && (
         <div className="space-y-2">
-          {/* Document list */}
-          {documents.length > 0 ? (
+          {visibleDocuments.length > 0 ? (
             <div className="space-y-1">
-              {documents.map((doc) => (
+              {visibleDocuments.map((doc) => (
                 <div key={doc.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{doc.fileName ?? doc.categoryName ?? t('team.documents.document')}</span>
@@ -367,8 +135,8 @@ export function DocumentsSection({
             <p className="text-sm text-muted-foreground italic">{t('team.documents.noDocuments')}</p>
           )}
 
-          {/* Upload area — only with team:documents:edit */}
-          {!showUpload && canUploadDoc ? (
+          {/* Upload area — only with team:documents:edit (scoped) */}
+          {!showUpload && canEdit ? (
             <Button
               variant="outline"
               size="sm"
@@ -378,7 +146,7 @@ export function DocumentsSection({
               <Upload className="mr-1.5 h-3.5 w-3.5" />
               {t('team.documents.uploadDocument')}
             </Button>
-          ) : showUpload && canUploadDoc ? (
+          ) : showUpload && canEdit ? (
             <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
               <div className="space-y-1">
                 <Label className="text-xs">{t('team.documents.category')}</Label>
@@ -391,7 +159,6 @@ export function DocumentsSection({
                   {(categories ?? []).map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
-                  {/* Fallback categories if API not loaded */}
                   {!categories && (
                     <>
                       <option value="contract">Vertrag</option>
@@ -543,8 +310,7 @@ export function EmployeeModulesSection({
 }
 
 // ============================================================
-// Employee Module-Lead Section ("erweiterte Moduleinstellungen")
-// Admin/IT delegates tenant-wide settings rights per module.
+// Employee Module-Lead Section
 // ============================================================
 export function EmployeeModuleLeadSection({ userId }: { userId: string }) {
   const { t } = useTranslation()
@@ -553,10 +319,8 @@ export function EmployeeModuleLeadSection({ userId }: { userId: string }) {
   const toggleLead = useModuleLeadsStore((s) => s.toggleLead)
   const [expanded, setExpanded] = useState(false)
 
-  // Delegating Modul-Leiter rights is module administration (admin/it_admin).
   const canManage = useHasCapability('admin:modules:manage')
 
-  // Modules the employee has access to AND that expose tenant-wide settings.
   const leadable = userGrants
     .map((g) => g.moduleId)
     .filter((m) => LEADABLE_MODULES.includes(m))
@@ -614,15 +378,4 @@ export function EmployeeModuleLeadSection({ userId }: { userId: string }) {
       )}
     </section>
   )
-}
-
-function getTenure(joinDate: string): string {
-  const join = new Date(joinDate)
-  const now = new Date()
-  const months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth())
-  if (months < 1) return 'Neu'
-  if (months < 12) return `${months}M`
-  const years = Math.floor(months / 12)
-  const rem = months % 12
-  return rem > 0 ? `${years}J ${rem}M` : `${years}J`
 }

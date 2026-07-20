@@ -162,7 +162,9 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
       keys([
         'work:task:read', 'work:project:read', 'documents:file:read',
         'crm:contact:read', 'crm:deal:read', 'wiki:article:read',
-        'team:employee:read',
+        // R-4: account overview across the whole company (directory/org chart)
+        // — but still ZERO HR data drawers (the market-gap promise).
+        'team:employee:read', 'team:directory:full',
         'settings:personal:manage', 'settings:tenant:manage',
         'admin:module:view', 'admin:user:read', 'admin:user:invite', 'admin:user:deactivate',
         'admin:role:read', 'admin:role:create', 'admin:role:edit', 'admin:role:delete', 'admin:role:assign',
@@ -220,10 +222,17 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'wiki:article:read', 'wiki:article:create', 'wiki:article:publish', 'wiki:category:manage',
         'team:absence:read', 'team:absence:approve', 'team:corrections:manage',
         'team:training:manage', 'team:onboarding:manage',
+        // R-4: may propose changes to own data (Aushilfe/extern deliberately not).
+        'team:self:propose',
         'settings:personal:manage']),
       keys(['work:task:edit', 'work:task:delete', 'documents:file:edit',
         'crm:contact:create', 'crm:contact:edit', 'crm:deal:edit', 'crm:deal:delete',
-        'team:employee:read'], 'team'),
+        'team:employee:read',
+        // R-4 drawers, reporting-line scope: sees the files of the entire
+        // line BELOW (never up) — personal, job, documents, absence data.
+        // Deliberately NO salary (manager never sees pay).
+        'team:data_personal:view', 'team:data_job:view',
+        'team:documents:view', 'team:absence_data:view'], 'team'),
       keys(['wiki:article:edit'], 'own'),
       // Industry batch 3: fully operative (approves POs, runs production, manages helpdesk).
       keys(INVENTAR_ALL), keys(EINKAUF_ALL), keys(PRODUKTION_ALL),
@@ -260,8 +269,15 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'crm:contact:read', 'crm:deal:read',
         'wiki:article:read', 'wiki:article:create',
         'team:employee:read', 'team:absence:read',
+        // R-4: may propose changes to own data (self-service request flow).
+        'team:self:propose',
         'settings:personal:manage']),
-      keys(['work:task:edit', 'work:time:log', 'documents:file:edit', 'wiki:article:edit'], 'own'),
+      keys(['work:task:edit', 'work:time:log', 'documents:file:edit', 'wiki:article:edit',
+        // R-4 drawers, own scope: sees the OWN file — personal, job, own
+        // salary + payslips (Personio "All Employees" standard), own
+        // documents (category visibility filters on top), own absence data.
+        'team:data_personal:view', 'team:data_job:view', 'team:salary:view',
+        'team:documents:view', 'team:absence_data:view'], 'own'),
       keys(['crm:contact:create', 'crm:contact:edit'], 'team'),
       // Industry batch 3: operative basics — records stock movements, counts
       // stocktakes, drafts + receives POs, runs the shop floor (incl. the

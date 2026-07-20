@@ -14,12 +14,15 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
-  ChevronRight,
   Loader2,
   Eye,
   X,
+  Lock,
+  Pencil,
+  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDate } from '@/lib/format'
 import { InlineStat } from '@/components/shared'
 import {
@@ -37,6 +40,16 @@ import {
   useLeaveTypes,
   useCreateLeaveRequest,
 } from '@/api/hooks/hr-hooks'
+import {
+  useMyChangeRequests,
+  useCreateChangeRequest,
+  useCancelChangeRequest,
+  type CreateChangeRequestInput,
+} from '@/api/hr-change-requests'
+import { useHasCapability } from '@/hooks/useCapability'
+import { useAuthStore } from '@/stores/auth'
+import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
+import { API_BASE_URL } from '@/lib/constants'
 
 // ============================================================
 // Types
@@ -59,17 +72,33 @@ interface TimeAccount {
 }
 
 // ============================================================
-// Demo data without a backend yet (payroll + time account = Luke later)
+// Propose-able personal fields
 // ============================================================
 
-const SALARY_STATEMENTS: SalaryStatement[] = [
-  { id: 'ss-1', month: '2026-01', label: 'Januar 2026', gross: 7200, net: 4856 },
-  { id: 'ss-2', month: '2025-12', label: 'Dezember 2025', gross: 7200, net: 4856 },
-  { id: 'ss-3', month: '2025-11', label: 'November 2025', gross: 7200, net: 4856 },
-  { id: 'ss-4', month: '2025-10', label: 'Oktober 2025', gross: 7200, net: 4856 },
-  { id: 'ss-5', month: '2025-09', label: 'September 2025', gross: 7200, net: 4856 },
-  { id: 'ss-6', month: '2025-08', label: 'August 2025', gross: 7200, net: 4856 },
+interface ProposableField {
+  field: string
+  fieldLabel: string
+  icon: typeof Phone
+  labelKey: string
+  valueKey: keyof {
+    phone: string; mobile: string; addressCity: string; addressStreet: string;
+    addressPostalCode: string; emergencyContactName: string; emergencyContactPhone: string;
+  }
+}
+
+const PROPOSABLE_FIELDS: ProposableField[] = [
+  { field: 'phone', fieldLabel: 'Telefon', icon: Phone, labelKey: 'team.selfService.phoneLabel', valueKey: 'phone' },
+  { field: 'mobile', fieldLabel: 'Mobilnummer', icon: Phone, labelKey: 'team.selfService.mobile', valueKey: 'mobile' },
+  { field: 'addressStreet', fieldLabel: 'Straße', icon: MapPin, labelKey: 'team.selfService.addressStreet', valueKey: 'addressStreet' },
+  { field: 'addressCity', fieldLabel: 'Wohnort', icon: MapPin, labelKey: 'team.selfService.addressCity', valueKey: 'addressCity' },
+  { field: 'addressPostalCode', fieldLabel: 'PLZ', icon: MapPin, labelKey: 'team.selfService.addressPostalCode', valueKey: 'addressPostalCode' },
+  { field: 'emergencyContactName', fieldLabel: 'Notfallkontakt', icon: AlertTriangle, labelKey: 'team.selfService.emergencyContactName', valueKey: 'emergencyContactName' },
+  { field: 'emergencyContactPhone', fieldLabel: 'Notfalltelefon', icon: Phone, labelKey: 'team.selfService.emergencyContactPhone', valueKey: 'emergencyContactPhone' },
 ]
+
+// ============================================================
+// Static time account (backend later)
+// ============================================================
 
 const TIME_ACCOUNTS: TimeAccount[] = [
   { label: 'Überstunden (Monat)', hours: 4.5, type: 'positive' },
@@ -82,6 +111,7 @@ const requestStatusConfig: Record<string, { labelKey: string; color: string }> =
   pending: { labelKey: 'team.selfService.statusPending', color: 'bg-warning-light text-warning' },
   approved: { labelKey: 'team.selfService.statusApproved', color: 'bg-success-light text-success' },
   rejected: { labelKey: 'team.selfService.statusRejected', color: 'bg-error-light text-error' },
+  cancelled: { labelKey: 'team.selfService.statusCancelled', color: 'bg-secondary text-muted-foreground' },
 }
 
 const formatEUR = (amount: number) =>
@@ -94,24 +124,86 @@ function getInitials(name: string): string {
 }
 
 // ============================================================
+// Salary-statements hook (own endpoint)
+// ============================================================
+
+function useSalaryStatements(enabled: boolean) {
+  return useQuery({
+    queryKey: ['hr', 'employees', 'me', 'salary-statements'],
+    queryFn: () =>
+      authenticatedRequest<{ statements: SalaryStatement[] }>({
+        method: 'GET',
+        path: `${API_BASE_URL}/api/v1/hr/employees/me/salary-statements`,
+      }),
+    enabled,
+    select: (data) => data.statements ?? [],
+  })
+}
+
+// ============================================================
+// Propose-dialog state
+// ============================================================
+
+interface ProposeDialogState {
+  open: boolean
+  field: string
+  fieldLabel: string
+  oldValue: string
+}
+
+// ============================================================
 // Component
 // ============================================================
 
 export function SelfServiceView() {
   const { t } = useTranslation()
+  const qc = useQueryClient()
   const [tab, setTab] = useState<SelfServiceTab>('profil')
+
+  // Leave request dialog
   const [dialogOpen, setDialogOpen] = useState(false)
   const [formType, setFormType] = useState('')
   const [formStart, setFormStart] = useState('')
   const [formEnd, setFormEnd] = useState('')
   const [formReason, setFormReason] = useState('')
+
+  // Salary preview
   const [previewStatement, setPreviewStatement] = useState<SalaryStatement | null>(null)
 
+  // Propose-change dialog
+  const [proposeDialog, setProposeDialog] = useState<ProposeDialogState>({
+    open: false, field: '', fieldLabel: '', oldValue: '',
+  })
+  const [proposeNewValue, setProposeNewValue] = useState('')
+
+  // RBAC checks
+  const canPropose = useHasCapability('team:self:propose')
+  const canViewSalary = useHasCapability('team:salary:view')
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+
+  // Data
   const { data: self } = useSelfProfile()
   const { data: balance } = useLeaveBalance()
   const { data: leaveTypes } = useLeaveTypes()
   const { data: requestsData } = useLeaveRequests(self?.userId ? { user_id: self.userId } : undefined)
   const createRequest = useCreateLeaveRequest()
+
+  const { data: myChangeRequests = [] } = useMyChangeRequests()
+  const createChangeRequest = useCreateChangeRequest()
+  const cancelChangeRequest = useCancelChangeRequest()
+
+  const { data: salaryStatements = [] } = useSalaryStatements(canViewSalary)
+
+  // Build a set of fields with pending requests for lock-badge logic
+  const pendingFieldSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const cr of myChangeRequests) {
+      if (cr.status === 'pending' && cr.userId === (userId ?? self?.userId)) {
+        set.add(cr.field)
+      }
+    }
+    return set
+  }, [myChangeRequests, userId, self?.userId])
 
   const profile = useMemo(() => {
     const contractKey = {
@@ -126,7 +218,13 @@ export function SelfServiceView() {
       department: self?.department ?? '—',
       email: self?.userEmail ?? '—',
       phone: self?.phone ?? '—',
+      mobile: self?.mobile ?? '—',
       location: self?.location ?? self?.addressCity ?? '—',
+      addressStreet: self?.addressStreet ?? '—',
+      addressCity: self?.addressCity ?? '—',
+      addressPostalCode: self?.addressPostalCode ?? '—',
+      emergencyContactName: self?.emergencyContactName ?? '—',
+      emergencyContactPhone: self?.emergencyContactPhone ?? '—',
       joinDate: self?.startDate ?? '',
       manager: self?.managerName ?? '—',
       contractLabel: `${t(contractKey)}${self?.workload ? ` (${self.workload}%)` : ''}`,
@@ -134,7 +232,6 @@ export function SelfServiceView() {
     }
   }, [self, t])
 
-  // Build leave balance rows from the API shape (entitlement/taken/remaining/sick_days/special_leave).
   const balanceRows = useMemo(() => {
     const b = (balance ?? {}) as Record<string, number>
     const vacationTotal = b.entitlement ?? 30
@@ -148,7 +245,7 @@ export function SelfServiceView() {
   }, [balance, t])
 
   const requests = useMemo(() => {
-    const raw = (requestsData?.requests ?? []) as Array<Record<string, unknown>>
+    const raw = (requestsData?.requests ?? []) as unknown as Array<Record<string, unknown>>
     return raw.map((r) => ({
       id: String(r.id),
       type: String(r.type ?? r.leaveTypeName ?? '—'),
@@ -183,7 +280,39 @@ export function SelfServiceView() {
     )
   }
 
-  // Download a salary statement as a real (demo) text blob.
+  // Open the propose dialog for a specific field
+  const openProposeDialog = (field: ProposableField, currentValue: string) => {
+    if (pendingFieldSet.has(field.field)) return // already pending
+    setProposeDialog({
+      open: true,
+      field: field.field,
+      fieldLabel: field.fieldLabel,
+      oldValue: currentValue === '—' ? '' : currentValue,
+    })
+    setProposeNewValue('')
+  }
+
+  const submitPropose = () => {
+    if (!proposeNewValue.trim()) {
+      toast.error(t('team.selfService.proposeErrorEmpty'))
+      return
+    }
+    const payload: CreateChangeRequestInput = {
+      drawer: 'personal',
+      field: proposeDialog.field,
+      fieldLabel: proposeDialog.fieldLabel,
+      oldValue: proposeDialog.oldValue,
+      newValue: proposeNewValue.trim(),
+    }
+    createChangeRequest.mutate(payload, {
+      onSuccess: () => {
+        setProposeDialog((prev) => ({ ...prev, open: false }))
+        // Invalidate self-profile so pending badge shows
+        qc.invalidateQueries({ queryKey: ['hr', 'employees', 'me'] })
+      },
+    })
+  }
+
   const downloadStatement = (ss: SalaryStatement) => {
     const content =
       `${t('team.selfService.salaryStatements')}\n${ss.label}\n\n` +
@@ -254,39 +383,96 @@ export function SelfServiceView() {
         })}
       </div>
 
-      {/* Profile Tab */}
+      {/* ── Profile Tab ────────────────────────────────────────────────────────── */}
       {tab === 'profil' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-medium text-foreground mb-4">{t('team.selfService.personalData')}</h3>
-            <div className="space-y-3">
+
+            {/* Non-proposable info fields */}
+            <div className="space-y-3 mb-4">
               {[
-                { icon: User, label: t('team.selfService.name'), value: profile.name },
-                { icon: Mail, label: t('team.selfService.emailLabel'), value: profile.email },
-                { icon: Phone, label: t('team.selfService.phoneLabel'), value: profile.phone },
-                { icon: MapPin, label: t('team.member.location'), value: profile.location },
-                { icon: Building2, label: t('team.member.department'), value: profile.department },
-                { icon: Briefcase, label: t('team.member.contractType'), value: profile.contractLabel },
-                { icon: Calendar, label: t('team.selfService.joinDate'), value: profile.joinDate ? formatDate(profile.joinDate) : '—' },
-                { icon: User, label: t('team.selfService.manager'), value: profile.manager },
+                { icon: User,      label: t('team.selfService.name'),       value: profile.name },
+                { icon: Mail,      label: t('team.selfService.emailLabel'), value: profile.email },
+                { icon: Building2, label: t('team.member.department'),      value: profile.department },
+                { icon: Briefcase, label: t('team.member.contractType'),    value: profile.contractLabel },
+                { icon: Calendar,  label: t('team.selfService.joinDate'),   value: profile.joinDate ? formatDate(profile.joinDate) : '—' },
+                { icon: User,      label: t('team.selfService.manager'),    value: profile.manager },
               ].map((item) => {
                 const Icon = item.icon
                 return (
                   <div key={item.label} className="flex items-center gap-3">
                     <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-xs text-muted-foreground w-28">{item.label}</span>
+                    <span className="text-xs text-muted-foreground w-32 flex-shrink-0">{item.label}</span>
                     <span className="text-sm text-foreground">{item.value}</span>
                   </div>
                 )
               })}
             </div>
-            <button
-              onClick={() => toast.info(t('team.selfService.changeRequestInfo'))}
-              className="mt-4 flex items-center gap-1.5 text-xs text-primary hover:underline"
-            >
-              {t('team.selfService.requestChange')}
-              <ChevronRight className="h-3 w-3" />
-            </button>
+
+            {/* Proposable fields — editable (propose) or read-only depending on capability */}
+            <div className="border-t border-border pt-4 space-y-2">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">{t('team.selfService.editableFields')}</p>
+              {PROPOSABLE_FIELDS.map((pf) => {
+                const currentValue = String(profile[pf.valueKey as keyof typeof profile] ?? '—')
+                const isPending = pendingFieldSet.has(pf.field)
+                const pendingReq = isPending
+                  ? myChangeRequests.find((cr) => cr.field === pf.field && cr.status === 'pending')
+                  : undefined
+                const Icon = pf.icon
+
+                return (
+                  <div key={pf.field} className="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-secondary/30 transition-colors">
+                    <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground">{t(pf.labelKey)}</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-sm text-foreground truncate">
+                          {isPending ? (
+                            <span className="line-through text-muted-foreground">{currentValue}</span>
+                          ) : currentValue}
+                        </span>
+                        {isPending && pendingReq && (
+                          <span className="text-sm text-primary font-medium truncate">{pendingReq.newValue}</span>
+                        )}
+                      </div>
+                    </div>
+                    {canPropose ? (
+                      isPending ? (
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="flex items-center gap-1 rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning">
+                            <Lock className="h-3 w-3" />
+                            {t('team.changeRequest.pendingBadge')}
+                          </span>
+                          <button
+                            onClick={() => pendingReq && cancelChangeRequest.mutate(pendingReq.id)}
+                            className="rounded-md p-1 text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
+                            title={t('team.changeRequest.cancel')}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => openProposeDialog(pf, currentValue)}
+                          className="flex-shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-primary hover:bg-primary-light/40 transition-colors"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          {t('team.selfService.propose')}
+                        </button>
+                      )
+                    ) : null}
+                  </div>
+                )
+              })}
+
+              {!canPropose && (
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+                  {t('team.selfService.noProposehint')}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -336,7 +522,7 @@ export function SelfServiceView() {
         </div>
       )}
 
-      {/* Requests Tab */}
+      {/* ── Requests Tab ───────────────────────────────────────────────────────── */}
       {tab === 'antraege' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -387,62 +573,79 @@ export function SelfServiceView() {
         </div>
       )}
 
-      {/* Documents Tab */}
+      {/* ── Documents Tab (Salary Statements) ──────────────────────────────────── */}
       {tab === 'dokumente' && (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t('team.selfService.recentStatements')}</p>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/50">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('team.selfService.month')}</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('team.integration.gross')}</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('team.selfService.net')}</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('common.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {SALARY_STATEMENTS.map((ss) => (
-                    <tr
-                      key={ss.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setPreviewStatement(ss)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPreviewStatement(ss) } }}
-                      className="border-b border-border-muted hover:bg-secondary/20 cursor-pointer transition-colors focus:outline-none focus-visible:bg-secondary/30"
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground">{ss.label}</td>
-                      <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">{formatEUR(ss.gross)}</td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground tabular-nums">{formatEUR(ss.net)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setPreviewStatement(ss) }}
-                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                            title={t('team.selfService.preview', { defaultValue: 'Vorschau' })}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); downloadStatement(ss) }}
-                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                            title={t('team.selfService.download')}
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {!canViewSalary ? (
+            <div className="rounded-lg border border-dashed border-border py-12 text-center text-muted-foreground">
+              <Lock className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <p className="text-sm font-medium">{t('team.selfService.salaryNoAccess')}</p>
+              <p className="text-xs mt-1">{t('team.selfService.salaryNoAccessHint')}</p>
             </div>
-          </div>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">{t('team.selfService.recentStatements')}</p>
+              {salaryStatements.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border py-12 text-center text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">{t('team.selfService.noStatements')}</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-secondary/50">
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('team.selfService.month')}</th>
+                          <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('team.integration.gross')}</th>
+                          <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('team.selfService.net')}</th>
+                          <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('common.actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {salaryStatements.map((ss) => (
+                          <tr
+                            key={ss.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setPreviewStatement(ss)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPreviewStatement(ss) } }}
+                            className="border-b border-border-muted hover:bg-secondary/20 cursor-pointer transition-colors focus:outline-none focus-visible:bg-secondary/30"
+                          >
+                            <td className="px-4 py-3 font-medium text-foreground">{ss.label}</td>
+                            <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">{formatEUR(ss.gross)}</td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground tabular-nums">{formatEUR(ss.net)}</td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setPreviewStatement(ss) }}
+                                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                                  title={t('team.selfService.preview', { defaultValue: 'Vorschau' })}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); downloadStatement(ss) }}
+                                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                                  title={t('team.selfService.download')}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
-      {/* Time Account Tab */}
+      {/* ── Time Account Tab ────────────────────────────────────────────────────── */}
       {tab === 'zeitkonto' && (
         <div className="space-y-4">
           <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
@@ -482,7 +685,7 @@ export function SelfServiceView() {
         </div>
       )}
 
-      {/* New Request Dialog */}
+      {/* ── Leave Request Dialog ────────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -538,7 +741,41 @@ export function SelfServiceView() {
         </DialogContent>
       </Dialog>
 
-      {/* Salary Statement Preview Dialog */}
+      {/* ── Propose-Change Dialog ───────────────────────────────────────────────── */}
+      <Dialog open={proposeDialog.open} onOpenChange={(o) => setProposeDialog((prev) => ({ ...prev, open: o }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('team.changeRequest.proposeTitle', { field: proposeDialog.fieldLabel })}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {proposeDialog.oldValue && (
+              <div className="rounded-md bg-secondary/50 px-3 py-2 text-sm">
+                <span className="text-muted-foreground">{t('team.changeRequest.currentValue')}: </span>
+                <span className="text-foreground font-medium">{proposeDialog.oldValue}</span>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">{t('team.changeRequest.newValue')} *</label>
+              <Input
+                value={proposeNewValue}
+                onChange={(e) => setProposeNewValue(e.target.value)}
+                placeholder={t('team.changeRequest.newValuePlaceholder', { field: proposeDialog.fieldLabel })}
+                autoFocus
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{t('team.changeRequest.submitHint')}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProposeDialog((prev) => ({ ...prev, open: false }))}>{t('common.cancel')}</Button>
+            <Button onClick={submitPropose} disabled={createChangeRequest.isPending}>
+              {createChangeRequest.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {t('team.changeRequest.submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Salary Statement Preview Dialog ────────────────────────────────────── */}
       <Dialog open={!!previewStatement} onOpenChange={(o) => { if (!o) setPreviewStatement(null) }}>
         <DialogContent className="max-w-lg gap-0 p-0">
           {previewStatement && (

@@ -614,6 +614,32 @@ export function useUploadEmployeeDocument() {
   })
 }
 
+/**
+ * R-4: Offboard an employee — triggers the full cascade (status inactive,
+ * admin-account deactivated, roles revoked, seat freed, manager-reassign).
+ */
+export function useOffboardEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string
+      data: Record<string, unknown>
+    }) => hrEmployeeApi.offboard(id, data),
+    onSuccess: (_result, vars) => {
+      qc.invalidateQueries({ queryKey: ['hr', 'employees'] })
+      qc.invalidateQueries({ queryKey: hrKeys.employee(vars.id) })
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+      toast.success(i18next.t('api.hr.employee.offboarded'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.employee.error.offboard'))
+    },
+  })
+}
+
 export function useDocumentCategories(employeeId: string) {
   return useQuery({
     queryKey: hrKeys.documentCategories(employeeId),
