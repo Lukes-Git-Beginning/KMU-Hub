@@ -38,12 +38,14 @@ import { rbacHandlers } from './rbac'
 import { hrChangeRequestHandlers } from './hr-change-requests'
 import { vendorAccessHandlers } from './vendor-access'
 import { customizationHandlers } from './customization'
+import { customFieldHandlers } from './custom-fields'
 
 export const handlers = [
   ...hrChangeRequestHandlers,
   ...vendorAccessHandlers,
   ...rbacHandlers,
   ...customizationHandlers,
+  ...customFieldHandlers,
   ...authHandlers,
   ...crmHandlers,
   ...workHandlers,

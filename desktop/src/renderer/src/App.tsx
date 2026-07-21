@@ -56,6 +56,8 @@ const RoleEditorPage = lazy(() => import('@/modules/admin/roles/RoleEditorPage')
 // Per-user override editor (R-6) — full page under /admin/users/:userId/overrides
 const UserOverrideEditorPage = lazy(() => import('@/modules/admin/users/UserOverrideEditorPage'))
 
+// (AnpassungenHubPage entfernt — Anpassungen laufen jetzt als 9. AdminHubPage-Tab)
+
 // CalDAV admin page
 const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
 
@@ -295,6 +297,11 @@ const router = createHashRouter([
       { path: 'admin/integrations', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
       // Backwards-Compat: /einstellungen?tab=it-admin → /admin/it (via Settings redirect)
       // Backwards-Compat: /einstellungen?tab=billing → /admin/billing (via Settings redirect)
+
+      // Anpassungen-Hub (v1.1) — 9. AdminHubPage-Tab (Anpassungen)
+      // /admin/anpassungen und /admin/anpassungen/felder laufen jetzt über AdminHubPage
+      { path: 'admin/anpassungen', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/anpassungen/felder', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
 
       // CalDAV admin
       { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage, 'list', 'admin') },

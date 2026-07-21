@@ -23,8 +23,9 @@ const ITAdminHubTab = lazy(() => import('./tabs/ITAdminHubTab'))
 const SecurityAdminHubTab = lazy(() => import('./tabs/SecurityAdminHubTab'))
 const BillingAdminHubTab = lazy(() => import('./tabs/BillingAdminHubTab'))
 const IntegrationsAdminHubTab = lazy(() => import('./tabs/IntegrationsAdminHubTab'))
+const AnpassungenTab = lazy(() => import('./anpassungen/AnpassungenHubPage'))
 
-type AdminTab = 'users' | 'roles' | 'license' | 'branding' | 'it' | 'security' | 'billing' | 'integrations'
+type AdminTab = 'users' | 'roles' | 'license' | 'branding' | 'it' | 'security' | 'billing' | 'integrations' | 'anpassungen'
 
 const ROUTE_TO_TAB: Record<string, AdminTab> = {
   '/admin/users': 'users',
@@ -35,6 +36,8 @@ const ROUTE_TO_TAB: Record<string, AdminTab> = {
   '/admin/security': 'security',
   '/admin/billing': 'billing',
   '/admin/integrations': 'integrations',
+  '/admin/anpassungen': 'anpassungen',
+  '/admin/anpassungen/felder': 'anpassungen',
 }
 
 const TAB_TO_ROUTE: Record<AdminTab, string> = {
@@ -46,6 +49,7 @@ const TAB_TO_ROUTE: Record<AdminTab, string> = {
   security: '/admin/security',
   billing: '/admin/billing',
   integrations: '/admin/integrations',
+  anpassungen: '/admin/anpassungen',
 }
 
 /** Tab capability map — undefined means "no per-tab gate beyond module access". */
@@ -58,6 +62,7 @@ const TAB_CAPABILITY: Partial<Record<AdminTab, string>> = {
   security: moduleViewKey('security'),
   billing: 'admin:license:manage',
   integrations: 'admin:integrations:manage',
+  anpassungen: 'admin:customization:manage',
 }
 
 export default function AdminHubPage() {
@@ -83,6 +88,7 @@ export default function AdminHubPage() {
     { key: 'security', labelKey: 'admin.hub.tabs.security' },
     { key: 'billing', labelKey: 'admin.hub.tabs.billing' },
     { key: 'integrations', labelKey: 'admin.hub.tabs.integrations' },
+    { key: 'anpassungen', labelKey: 'admin.hub.tabs.customization' },
   ]
 
   // Filter to only tabs the user may see (pessimistic until ready)
@@ -175,6 +181,7 @@ export default function AdminHubPage() {
           {activeTab === 'security' && <SecurityAdminHubTab />}
           {activeTab === 'billing' && <BillingAdminHubTab />}
           {activeTab === 'integrations' && <IntegrationsAdminHubTab />}
+          {activeTab === 'anpassungen' && <AnpassungenTab />}
         </Suspense>
       </div>
     </div>

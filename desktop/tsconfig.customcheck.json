@@ -15,6 +15,13 @@
     "src/renderer/src/api/security-types.ts",
     "src/renderer/src/config/capability-catalog.ts",
     "src/renderer/src/config/capabilities.ts",
-    "src/renderer/src/lib/constants.ts"
+    "src/renderer/src/lib/constants.ts",
+    "src/renderer/src/mocks/data/custom-fields.ts",
+    "src/renderer/src/mocks/handlers/custom-fields.ts",
+    "src/renderer/src/api/hooks/useCustomFields.ts",
+    "src/renderer/src/modules/admin/anpassungen/AnpassungenHubPage.tsx",
+    "src/renderer/src/modules/admin/anpassungen/CustomFieldsTab.tsx",
+    "src/renderer/src/modules/admin/anpassungen/FieldEditorModal.tsx",
+    "src/renderer/src/modules/admin/AdminHubPage.tsx"
   ]
 }
