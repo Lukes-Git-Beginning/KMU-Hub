@@ -16,6 +16,8 @@
  *   vendor_access.declined | vendor_access.counter_proposed |
  *   vendor_access.granted | vendor_access.revoked | vendor_access.expired |
  *   vendor_access.completed | setting.changed
+ *   customization.label_set | customization.label_removed |
+ *   customization.valueset_updated                           (Customization v1.0)
  */
 import type { AuditEntry } from '@/api/security-types'
 import { getDemoSessionUserId } from './rbac'

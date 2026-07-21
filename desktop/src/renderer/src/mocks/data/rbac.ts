@@ -175,6 +175,8 @@ export const ROLE_DEFS: Record<RoleId, RoleDef> = {
         'admin:module:view', 'admin:user:read', 'admin:user:invite', 'admin:user:deactivate',
         'admin:role:read', 'admin:role:create', 'admin:role:edit', 'admin:role:delete', 'admin:role:assign',
         'admin:integrations:manage', 'admin:modules:manage', 'admin:it:manage', 'admin:ai:manage',
+        // Customization v1.0: IT domain — same rationale as admin:it:manage.
+        'admin:customization:manage',
         'mail:settings:manage',
         'security:module:view', 'security:audit:read', 'security:policy:manage',
       ]),

@@ -434,6 +434,9 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
     // R-6: set per-user permission overrides (allow/deny on top of roles).
     // admin-only by default; hr_admin keeps role:assign WITHOUT this.
     fine('admin:user_override:manage'),
+    // Customization v1.0: no-code config (labels, value-sets, custom fields).
+    // IT domain — it_admin gets this; hr_admin does NOT (it is not HR data).
+    fine('admin:customization:manage'),
   ],
 
   security: [

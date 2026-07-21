@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/api/customization-types.ts",
+    "src/renderer/src/mocks/data/customization.ts",
+    "src/renderer/src/mocks/handlers/customization.ts",
+    "src/renderer/src/mocks/handlers/index.ts",
+    "src/renderer/src/mocks/data/audit-events.ts",
+    "src/renderer/src/mocks/data/rbac.ts",
+    "src/renderer/src/mocks/data/shared-ids.ts",
+    "src/renderer/src/api/rbac-types.ts",
+    "src/renderer/src/api/security-types.ts",
+    "src/renderer/src/config/capability-catalog.ts",
+    "src/renderer/src/config/capabilities.ts",
+    "src/renderer/src/lib/constants.ts"
+  ]
+}
