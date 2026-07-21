@@ -87,11 +87,16 @@ Diese drei kollidieren garantiert bei parallelen Agenten. Die Hauptsession besit
 Reihenfolge ist bindend — spätere Phasen hängen an früheren.
 
 ### Phase 0 — Cross-cutting Foundations · **seriell** (Hauptsession oder 1 Agent)
-Zwei Dienste entsperren die meisten anderen Module. Bewusst NICHT parallel (beide sind geteilte Infrastruktur).
-- **0a — Generischer S3/MinIO-Upload-Service.** Ein Upload-Endpoint (multipart → presign → PUT → PATCH `*_url`) für Foto-/Datei-Anhänge. Entsperrt fuhrpark(Schaden)/inventar(Bewegung)/rapporte(Doku)/vermietung(Protokoll)/chat/profil-Avatar/admin-Branding. Presign-Infra existiert bereits (`1aef2f45`, `MINIO_PUBLIC_ENDPOINT`) — hier nur der generische, wiederverwendbare Wrapper + einheitliche Route.
-- **0b — Server-PDF-Service.** Ein Render-Dienst (chromedp/gotenberg headless → `application/pdf`) ersetzt die 4 Stubs/window.print (rapporte/vertraege/advisory/berichte). Token-geschützte Render-URL, Schriften eingebettet.
 
-> Grund für seriell: beides sind geteilte Bausteine, an denen Phase-3-Agenten andocken. Erst bauen, dann fächern.
+> **⚠ Reality-Check 2026-07-21 (Scouting):** Beide „Foundations" existieren bereits als wiederverwendbare Bausteine — Phase 0 ist viel kleiner als ursprünglich angenommen. **Keine neuen Services/Deps bauen** (Lean Sprosse 2 „schon im Codebase → wiederverwenden"):
+> - **PDF:** `maroto/v2` ist Dependency; zwei funktionierende reine-Go-Generatoren (`internal/biz/pdf/` für Rechnungen/Mahnungen/ZUGFeRD, `internal/berichte/export/pdf.go`). **KEIN chromedp/gotenberg.** Die „Stubs" (rapporte/vertraege/advisory) sind Module, die den Stack noch nicht adoptiert haben.
+> - **Upload:** `internal/chat/file/minio_store.go` = ausgereifte MinIO-Presign-Abstraktion (public/internal-Client, PUT/GET, Thumbnails); fuhrpark/einvoice/gobd/email/crm nutzen den Presign-→PUT-→PATCH-Flow bereits.
+
+Damit ist Phase 0 keine „Bau-Welle", sondern:
+- **0a — Upload:** Optional ein geteiltes `internal/storage/objectstore`-Package aus dem `chat/file`-MinIOStore extrahieren, damit avatar/branding/rapporte/inventar/vermietung nicht je neu implementieren. Nur bei echtem Bedarf — sonst am etablierten Presign-Muster andocken (kein Refactor der laufenden chat-Pfade ohne Grund).
+- **0b — PDF:** Erledigt-per-Adoption — die Stub-Module rendern via maroto wie `biz/pdf`. **✅ Erster Beweis geliefert (`1c639adf`):** CRM-Advisory-Protokoll-PDF (Geeignetheitserklärung, §64 WpHG) — das vorhandene `advisoryprotocol.Service.GeneratePDF` über eine neue `GenerateAdvisoryProtocolPDF`-gRPC-RPC exponiert, Gateway-501 ersetzt. Muster für die übrigen PDF-Stubs.
+
+> Konsequenz: Phase 0 ist praktisch schon größtenteils vorhanden. Der eigentliche seriell-kritische Vorlauf für die Enforcement-Wellen ist **Phase 1 (RBAC-Fundament)** — dort weitermachen.
 
 ### Phase 1 — RBAC-Fundament · **seriell** (ein kohärentes System, NICHT partitionierbar)
 Das Datenmodell + der Resolver sind EINE Einheit. Ein Agent (oder Hauptsession) baut sie am Stück. **Wahrscheinlich Proto-Touch an `auth.proto`** (`GetEffectivePermissions`-RPC) → als Proto-Vor-Welle behandeln.
