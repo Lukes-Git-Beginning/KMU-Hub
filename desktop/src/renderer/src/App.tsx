@@ -53,6 +53,9 @@ const AdminHubPage = lazy(() => import('@/modules/admin/AdminHubPage'))
 // Role builder editor (R-2) — full page under /admin/roles/:roleId
 const RoleEditorPage = lazy(() => import('@/modules/admin/roles/RoleEditorPage'))
 
+// Per-user override editor (R-6) — full page under /admin/users/:userId/overrides
+const UserOverrideEditorPage = lazy(() => import('@/modules/admin/users/UserOverrideEditorPage'))
+
 // CalDAV admin page
 const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
 
@@ -281,6 +284,7 @@ const router = createHashRouter([
 
       // Admin Hub — neue /admin/* Routen
       { path: 'admin/users', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/users/:userId/overrides', element: lazyRoute(UserOverrideEditorPage, 'adminhub', 'admin') },
       { path: 'admin/roles', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
       { path: 'admin/roles/:roleId', element: lazyRoute(RoleEditorPage, 'adminhub', 'admin') },
       { path: 'admin/license', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },

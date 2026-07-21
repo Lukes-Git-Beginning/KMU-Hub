@@ -14,15 +14,23 @@ import {
   fetchRolePermissions,
   fetchRoles,
   fetchUserEffectivePermissions,
+  fetchUserOverrides,
   putRolePermissions,
+  putUserOverrides,
   removeUserRole,
   updateRole,
 } from '@/api/rbac-client'
-import type { CreateRoleInput, UpdateRoleInput, UpdateRolePermissionsInput } from '@/api/rbac-types'
+import type {
+  CreateRoleInput,
+  UpdateRoleInput,
+  UpdateRolePermissionsInput,
+  UserOverrides,
+} from '@/api/rbac-types'
 
 const ROLES_KEY = ['rbac', 'roles'] as const
 const roleGrantsKey = (roleId: string) => ['rbac', 'roles', roleId, 'permissions'] as const
 const userPermissionsKey = (userId: string) => ['rbac', 'users', userId, 'permissions'] as const
+const userOverridesKey = (userId: string) => ['rbac', 'users', userId, 'overrides'] as const
 
 /** All tenant roles (7 presets + custom). */
 export function useRoles() {
@@ -43,6 +51,15 @@ export function useUserEffectivePermissions(userId: string | null) {
   return useQuery({
     queryKey: userPermissionsKey(userId ?? 'none'),
     queryFn: () => fetchUserEffectivePermissions(userId as string),
+    enabled: userId !== null,
+  })
+}
+
+/** Pure role-union baseline of an account (R-6 override editor inherited state). */
+export function useUserRoleBaseline(userId: string | null) {
+  return useQuery({
+    queryKey: [...userPermissionsKey(userId ?? 'none'), 'base'] as const,
+    queryFn: () => fetchUserEffectivePermissions(userId as string, { base: true }),
     enabled: userId !== null,
   })
 }
@@ -107,6 +124,31 @@ export function useRemoveUserRole() {
     onSuccess: (_roles, { userId }) => {
       void qc.invalidateQueries({ queryKey: userPermissionsKey(userId) })
       void qc.invalidateQueries({ queryKey: ROLES_KEY })
+      void qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+    },
+  })
+}
+
+// ── R-6 per-user overrides ──────────────────────────────────────────────────
+
+/** Current override map of an account (override editor). */
+export function useUserOverrides(userId: string | null) {
+  return useQuery({
+    queryKey: userOverridesKey(userId ?? 'none'),
+    queryFn: () => fetchUserOverrides(userId as string),
+    enabled: userId !== null,
+  })
+}
+
+/** Replace the override map of an account (save from the override editor). */
+export function useSetUserOverrides() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, overrides }: { userId: string; overrides: UserOverrides }) =>
+      putUserOverrides(userId, overrides),
+    onSuccess: (_ov, { userId }) => {
+      void qc.invalidateQueries({ queryKey: userOverridesKey(userId) })
+      void qc.invalidateQueries({ queryKey: userPermissionsKey(userId) })
       void qc.invalidateQueries({ queryKey: ['admin', 'users'] })
     },
   })

@@ -9,10 +9,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Check, ChevronDown, ShieldCheck } from 'lucide-react'
+import { Check, ChevronDown, ShieldCheck, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { DetailModal } from '@/components/shared'
+import { DetailModal, ConfirmDialog } from '@/components/shared'
 import { useRoles, useAssignUserRole, useRemoveUserRole, useUserEffectivePermissions } from '@/api/hooks/useRbacRoles'
 import { EffectivePermissionsView } from './EffectivePermissionsView'
 import { useAuthStore } from '@/stores/auth'
@@ -24,6 +24,7 @@ export function UserRolesSection({
   roleIds,
   editable,
   displayName,
+  hasOverrides = false,
 }: {
   userId: string
   /** Current role ids of the account (from AdminUser.roles / rolesForUser). */
@@ -32,6 +33,8 @@ export function UserRolesSection({
   editable: boolean
   /** Person name for the effective-rights modal title. */
   displayName: string
+  /** Whether the account carries per-user overrides (R-6 "Angepasst" badge). */
+  hasOverrides?: boolean
 }) {
   const { t } = useTranslation()
   const { data: roles = [] } = useRoles()
@@ -43,8 +46,18 @@ export function UserRolesSection({
   const isSelf = userId === authUserId
   const canEditHere = editable && !isSelf
 
+  // R-6: role changes on an account with overrides KEEP the overrides — but the
+  // admin confirms it first (Darien §0.1: never silently keep, never silently
+  // drop). The confirm gate only fires when overrides exist.
+  const [pendingRole, setPendingRole] = useState<{ roleId: string; assigned: boolean } | null>(null)
+
   const refreshIfSelf = () => {
     if (isSelf) void usePermissionsStore.getState().refresh()
+  }
+
+  const requestToggle = (roleId: string, currentlyAssigned: boolean) => {
+    if (hasOverrides) setPendingRole({ roleId, assigned: currentlyAssigned })
+    else toggleRole(roleId, currentlyAssigned)
   }
 
   const toggleRole = (roleId: string, currentlyAssigned: boolean) => {
@@ -93,6 +106,16 @@ export function UserRolesSection({
           )
         })}
 
+        {hasOverrides && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-info/40 bg-info-light px-2 py-0.5 text-[10px] font-medium text-info"
+            title={t('rbac.override.badgeHint')}
+          >
+            <SlidersHorizontal className="h-2.5 w-2.5" aria-hidden="true" />
+            {t('rbac.override.badge')}
+          </span>
+        )}
+
         {canEditHere && (
           <Popover>
             <PopoverTrigger asChild>
@@ -111,7 +134,7 @@ export function UserRolesSection({
                         type="button"
                         role="checkbox"
                         aria-checked={assigned}
-                        onClick={() => toggleRole(role.id, assigned)}
+                        onClick={() => requestToggle(role.id, assigned)}
                         className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                       >
                         <span
@@ -151,6 +174,19 @@ export function UserRolesSection({
         displayName={displayName}
         onClose={() => setEffectiveOpen(false)}
       />
+
+      {/* R-6: role change on an account with overrides — keep + confirm */}
+      <ConfirmDialog
+        open={pendingRole !== null}
+        onOpenChange={(o) => { if (!o) setPendingRole(null) }}
+        title={t('rbac.override.roleChangeTitle')}
+        description={t('rbac.override.roleChangeBody', { name: displayName })}
+        confirmLabel={t('rbac.override.roleChangeConfirm')}
+        onConfirm={() => {
+          if (pendingRole) toggleRole(pendingRole.roleId, pendingRole.assigned)
+          setPendingRole(null)
+        }}
+      />
     </div>
   )
 }
@@ -183,7 +219,11 @@ export function EffectivePermissionsModal({
           ))}
         </div>
       ) : (
-        <EffectivePermissionsView roles={permissions.roles} capabilities={permissions.capabilities} />
+        <EffectivePermissionsView
+          roles={permissions.roles}
+          capabilities={permissions.capabilities}
+          deniedByOverride={permissions.deniedByOverride}
+        />
       )}
     </DetailModal>
   )

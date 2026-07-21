@@ -19,6 +19,8 @@ export interface AdminUser {
    * single source in the mock layer is USER_ROLE_ASSIGNMENTS (mocks/data/rbac).
    */
   roles: string[]
+  /** Whether the account carries per-user permission overrides (R-6 "Angepasst" badge). */
+  hasOverrides?: boolean
   status: AdminUserStatus
   /** ISO timestamp of the last successful sign-in. `null` while invite is pending. */
   lastLoginAt: string | null

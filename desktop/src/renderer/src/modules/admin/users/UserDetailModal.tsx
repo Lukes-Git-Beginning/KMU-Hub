@@ -5,7 +5,7 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Mail, Send, UserCheck, UserX, Eye } from 'lucide-react'
+import { Mail, Send, UserCheck, UserX, Eye, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { DetailModal, ConfirmDialog } from '@/components/shared'
@@ -34,6 +34,7 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
   const canAssignRoles = useHasCapability('admin:role:assign')
   const canDeactivate = useHasCapability('admin:user:deactivate')
   const canImpersonate = useHasCapability('admin:impersonate:run')
+  const canEditOverrides = useHasCapability('admin:user_override:manage')
   const startViewAs = useViewAsStore((s) => s.startViewAs)
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
 
@@ -123,7 +124,21 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
               roleIds={user.roles}
               editable={canAssignRoles}
               displayName={fullName}
+              hasOverrides={user.hasOverrides}
             />
+            {canEditOverrides && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onClose()
+                  navigate(`/admin/users/${user.id}/overrides`)
+                }}
+              >
+                <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                {t('rbac.override.editAction')}
+              </Button>
+            )}
           </section>
 
           {/* Account meta */}

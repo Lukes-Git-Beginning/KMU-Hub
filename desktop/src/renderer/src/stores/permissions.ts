@@ -17,10 +17,10 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { CapabilityGrant, EffectivePermissions } from '@/api/rbac-types'
+import type { CapabilityGrant, DeniedByOverride, EffectivePermissions } from '@/api/rbac-types'
 import { fetchEffectivePermissions } from '@/api/rbac-client'
 import type { RoleId } from '@/config/roles'
-import { ROLE_DEFS, resolveCapabilities } from '@/mocks/data/rbac'
+import { ROLE_DEFS, applyUserOverrides, getUserOverrides, resolveCapabilities } from '@/mocks/data/rbac'
 import { useAuthStore } from '@/stores/auth'
 
 type PermissionsStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -37,6 +37,8 @@ interface PermissionsState {
   forUserId: string | null
   roles: EffectivePermissions['roles']
   capabilities: Record<string, CapabilityGrant>
+  /** Keys the roles grant but a deny override removed — for the own effective view (R-6). */
+  deniedByOverride: DeniedByOverride[]
   status: PermissionsStatus
   /** Session guard — initFromServer() runs once, refresh() forces. */
   serverInitialized: boolean
@@ -60,8 +62,12 @@ function toKnownRoleIds(roleNames: string[]): RoleId[] {
 }
 
 /** Local fallback resolution from the auth user's role names (pre-Luke backends). */
-function fallbackPermissions(roleNames: string[]): EffectivePermissions {
+function fallbackPermissions(userId: string, roleNames: string[]): EffectivePermissions {
   const roleIds = toKnownRoleIds(roleNames)
+  const { capabilities, deniedByOverride } = applyUserOverrides(
+    resolveCapabilities(roleIds),
+    getUserOverrides(userId),
+  )
   return {
     roles: roleIds.map((id) => ({
       id,
@@ -69,7 +75,9 @@ function fallbackPermissions(roleNames: string[]): EffectivePermissions {
       isSystem: true,
       color: ROLE_DEFS[id].color,
     })),
-    capabilities: resolveCapabilities(roleIds),
+    capabilities,
+    hasOverrides: deniedByOverride.length > 0 || Object.keys(getUserOverrides(userId)).length > 0,
+    deniedByOverride,
   }
 }
 
@@ -79,6 +87,7 @@ export const usePermissionsStore = create<PermissionsState>()(
       forUserId: null,
       roles: [],
       capabilities: {},
+      deniedByOverride: [],
       status: 'idle',
       serverInitialized: false,
       preview: null,
@@ -101,17 +110,19 @@ export const usePermissionsStore = create<PermissionsState>()(
             forUserId: user.id,
             roles: permissions.roles,
             capabilities: permissions.capabilities,
+            deniedByOverride: permissions.deniedByOverride ?? [],
             status: 'ready',
             serverInitialized: true,
           })
         } catch {
           // Endpoint missing (real backend pre-Luke) or offline — resolve
           // the preset grants locally so the app stays usable.
-          const fallback = fallbackPermissions(user.roles)
+          const fallback = fallbackPermissions(user.id, user.roles)
           set({
             forUserId: user.id,
             roles: fallback.roles,
             capabilities: fallback.capabilities,
+            deniedByOverride: fallback.deniedByOverride ?? [],
             status: 'ready',
             serverInitialized: true,
           })

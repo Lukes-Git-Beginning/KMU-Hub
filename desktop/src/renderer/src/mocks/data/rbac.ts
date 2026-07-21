@@ -12,8 +12,14 @@
  * new modules stay default-deny for every role until seeded here (and later
  * in Luke's permission seed migrations).
  */
-import type { CapabilityGrant, CapabilityScope, Role } from '@/api/rbac-types'
-import { SCOPE_ORDER } from '@/api/rbac-types'
+import type {
+  CapabilityGrant,
+  CapabilityScope,
+  DeniedByOverride,
+  Role,
+  UserOverrides,
+} from '@/api/rbac-types'
+import { OVERRIDE_SOURCE, SCOPE_ORDER } from '@/api/rbac-types'
 import type { RoleId } from '@/config/roles'
 import { MODULE_KEYS, moduleViewKey, type ModuleKey } from '@/config/capabilities'
 import { catalogCapabilityKeys } from '@/config/capability-catalog'
@@ -518,6 +524,48 @@ export function removeRoleFromUser(userId: string, roleId: string): string[] {
   return USER_ROLE_ASSIGNMENTS[userId] ?? []
 }
 
+// ── R-6 per-user overrides (mirrors Luke's user_permission_overrides) ────────
+
+/**
+ * Per-user capability overrides layered ON TOP of the role union. `deny`
+ * removes a key the roles grant; `allow` sets/raises it. The override wins per
+ * key over ALL roles (R6-Briefing §0). Mutable via the CRUD handlers in
+ * handlers/rbac.ts. One seed: Markus (member) gets project editing that his
+ * role withholds — the "Aushilfe darf ausnahmsweise in Projekte schreiben"
+ * reference case Darien named.
+ */
+export const USER_OVERRIDES: Record<string, UserOverrides> = {
+  [IDS.users.markus]: {
+    'work:project:edit': { mode: 'allow', scope: 'all' },
+  },
+}
+
+export function getUserOverrides(userId: string): UserOverrides {
+  return USER_OVERRIDES[userId] ?? {}
+}
+
+export function setUserOverrides(userId: string, overrides: UserOverrides): UserOverrides {
+  if (Object.keys(overrides).length === 0) {
+    delete USER_OVERRIDES[userId]
+    return {}
+  }
+  USER_OVERRIDES[userId] = { ...overrides }
+  return USER_OVERRIDES[userId]
+}
+
+export function clearUserOverrides(userId: string): void {
+  delete USER_OVERRIDES[userId]
+}
+
+export function userHasOverrides(userId: string): boolean {
+  return Object.keys(USER_OVERRIDES[userId] ?? {}).length > 0
+}
+
+/** Accounts that currently carry at least one override (list badge + filter). */
+export function usersWithOverrides(): string[] {
+  return Object.keys(USER_OVERRIDES).filter((id) => userHasOverrides(id))
+}
+
 /** Accounts currently holding a role (guardrails + member views). */
 export function membersOfRole(roleId: string): string[] {
   return Object.entries(USER_ROLE_ASSIGNMENTS)
@@ -552,6 +600,39 @@ export function resolveCapabilities(roleIds: string[]): Record<string, Capabilit
     }
   }
   return result
+}
+
+/**
+ * Apply a user's overrides ON TOP of the resolved role union (R-6). `deny`
+ * removes the key (and records it for the struck-through effective view);
+ * `allow` sets/raises it and tags the grant with the OVERRIDE_SOURCE sentinel.
+ * The override wins per key over the whole union. Returns the mutated map and
+ * the list of keys the roles granted but the override revoked.
+ *
+ * This is the single seam Luke mirrors server-side: role union first, then
+ * overrides (backend-gaps §RBAC R-6).
+ */
+export function applyUserOverrides(
+  resolved: Record<string, CapabilityGrant>,
+  overrides: UserOverrides,
+): { capabilities: Record<string, CapabilityGrant>; deniedByOverride: DeniedByOverride[] } {
+  const capabilities = { ...resolved }
+  const deniedByOverride: DeniedByOverride[] = []
+  for (const [key, override] of Object.entries(overrides)) {
+    const roleGrant = resolved[key]
+    if (override.mode === 'deny') {
+      if (roleGrant) {
+        deniedByOverride.push({ key, roleScope: roleGrant.scope, sources: roleGrant.sources })
+      }
+      delete capabilities[key]
+    } else {
+      // allow: set or raise; provenance keeps the roles that also grant it.
+      const sources = roleGrant ? [...roleGrant.sources] : []
+      if (!sources.includes(OVERRIDE_SOURCE)) sources.push(OVERRIDE_SOURCE)
+      capabilities[key] = { scope: override.scope, sources }
+    }
+  }
+  return { capabilities, deniedByOverride }
 }
 
 /** Role summary (id/name/isSystem/color) for effective-permission responses. */

@@ -7,9 +7,15 @@
  */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search } from 'lucide-react'
+import { Search, Ban } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import type { CapabilityGrant, CapabilityScope, EffectivePermissions } from '@/api/rbac-types'
+import type {
+  CapabilityGrant,
+  CapabilityScope,
+  DeniedByOverride,
+  EffectivePermissions,
+} from '@/api/rbac-types'
+import { OVERRIDE_SOURCE } from '@/api/rbac-types'
 import { SCOPE_BADGE_CLASS, roleDisplayName } from '@/lib/rbac-format'
 
 interface GrantRow {
@@ -19,14 +25,18 @@ interface GrantRow {
   isModuleVisibility: boolean
   scope: CapabilityScope
   sources: string[]
+  /** True for a role-granted key a deny override removed (struck-through). */
+  denied?: boolean
 }
 
 export function EffectivePermissionsView({
   roles,
   capabilities,
+  deniedByOverride = [],
 }: {
   roles: EffectivePermissions['roles']
   capabilities: Record<string, CapabilityGrant>
+  deniedByOverride?: DeniedByOverride[]
 }) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
@@ -42,6 +52,25 @@ export function EffectivePermissionsView({
         : `${t(`rbac.subject.${subject}`, { defaultValue: subject })} — ${t(`rbac.action.${action}`, { defaultValue: action })}`
       return { key, module, label, isModuleVisibility, scope: grant.scope, sources: grant.sources }
     })
+
+    // R-6: keys the roles granted but a deny override removed — shown struck
+    // through instead of silently dropped (the market gap, R6-RECHERCHE §1).
+    for (const denied of deniedByOverride) {
+      const [module, subject, action] = denied.key.split(':')
+      const isModuleVisibility = subject === 'module' && action === 'view'
+      const label = isModuleVisibility
+        ? t('rbac.effective.moduleVisible')
+        : `${t(`rbac.subject.${subject}`, { defaultValue: subject })} — ${t(`rbac.action.${action}`, { defaultValue: action })}`
+      rows.push({
+        key: denied.key,
+        module,
+        label,
+        isModuleVisibility,
+        scope: denied.roleScope,
+        sources: denied.sources,
+        denied: true,
+      })
+    }
 
     const q = query.trim().toLowerCase()
     const filtered = q
@@ -69,7 +98,7 @@ export function EffectivePermissionsView({
     return [...byModule.entries()].sort(([a], [b]) =>
       t(`rbac.module.${a}`, { defaultValue: a }).localeCompare(t(`rbac.module.${b}`, { defaultValue: b })),
     )
-  }, [capabilities, query, t])
+  }, [capabilities, deniedByOverride, query, t])
 
   return (
     <div className="space-y-4">
@@ -113,38 +142,65 @@ export function EffectivePermissionsView({
                 </span>
               </header>
               <ul className="divide-y divide-border">
-                {rows.map((row) => (
-                  <li key={row.key} className="flex items-center gap-3 px-4 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">{row.label}</span>
-                    {!row.isModuleVisibility && (
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${SCOPE_BADGE_CLASS[row.scope]}`}>
-                        {t(`rbac.scope.${row.scope}`)}
+                {rows.map((row) => {
+                  const hasOverrideSource = row.sources.includes(OVERRIDE_SOURCE)
+                  const roleSources = row.sources.filter((s) => s !== OVERRIDE_SOURCE)
+                  // Show provenance chips when multiple roles OR an override is involved.
+                  const showSources = multiRole || hasOverrideSource || row.denied
+                  return (
+                    <li key={`${row.key}${row.denied ? '-denied' : ''}`} className="flex items-center gap-3 px-4 py-2">
+                      <span
+                        className={`min-w-0 flex-1 truncate text-sm ${
+                          row.denied ? 'text-muted-foreground line-through' : 'text-foreground'
+                        }`}
+                      >
+                        {row.label}
                       </span>
-                    )}
-                    {multiRole && (
-                      <span className="flex shrink-0 items-center gap-1">
-                        {row.sources.map((src) => {
-                          const role = roles.find((r) => r.id === src)
-                          const label = role ? roleDisplayName(t, role) : src
-                          return (
-                            <span
-                              key={src}
-                              title={label}
-                              className="inline-flex items-center gap-1 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                            >
-                              <span
-                                className="h-1.5 w-1.5 rounded-full"
-                                style={{ background: role?.color ?? 'currentColor' }}
-                                aria-hidden="true"
-                              />
-                              {label}
+                      {!row.isModuleVisibility && !row.denied && (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${SCOPE_BADGE_CLASS[row.scope]}`}>
+                          {t(`rbac.scope.${row.scope}`)}
+                        </span>
+                      )}
+                      {showSources && (
+                        <span className="flex shrink-0 items-center gap-1">
+                          {row.denied ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-error-light px-1.5 py-0.5 text-[10px] font-medium text-error">
+                              <Ban className="h-2.5 w-2.5" aria-hidden="true" />
+                              {t('rbac.override.deniedSource')}
                             </span>
-                          )
-                        })}
-                      </span>
-                    )}
-                  </li>
-                ))}
+                          ) : (
+                            <>
+                              {hasOverrideSource && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-info-light px-1.5 py-0.5 text-[10px] font-medium text-info">
+                                  {t('rbac.override.source')}
+                                </span>
+                              )}
+                              {multiRole &&
+                                roleSources.map((src) => {
+                                  const role = roles.find((r) => r.id === src)
+                                  const label = role ? roleDisplayName(t, role) : src
+                                  return (
+                                    <span
+                                      key={src}
+                                      title={label}
+                                      className="inline-flex items-center gap-1 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                                    >
+                                      <span
+                                        className="h-1.5 w-1.5 rounded-full"
+                                        style={{ background: role?.color ?? 'currentColor' }}
+                                        aria-hidden="true"
+                                      />
+                                      {label}
+                                    </span>
+                                  )
+                                })}
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </section>
           ))}

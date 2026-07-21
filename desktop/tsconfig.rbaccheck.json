@@ -199,6 +199,12 @@
     "src/renderer/src/components/header/VendorAccessBadge.tsx",
     "src/renderer/src/components/layout/ViewAsBanner.tsx",
     "src/renderer/src/components/layout/Header.tsx",
-    "src/renderer/src/stores/viewAs.ts"
+    "src/renderer/src/stores/viewAs.ts",
+    "src/renderer/src/api/rbac-client.ts",
+    "src/renderer/src/api/hooks/useRbacRoles.ts",
+    "src/renderer/src/modules/admin/users/UserOverrideEditorPage.tsx",
+    "src/renderer/src/modules/admin/users/UsersAdminHubTab.tsx",
+    "src/renderer/src/components/shared/rbac/EffectivePermissionsView.tsx",
+    "src/renderer/src/modules/profil/tabs/BerechtigungenTab.tsx"
   ]
 }

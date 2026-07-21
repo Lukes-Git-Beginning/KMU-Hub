@@ -12,6 +12,7 @@ export default function BerechtigungenTab() {
   const { t } = useTranslation()
   const roles = usePermissionsStore((s) => s.roles)
   const capabilities = usePermissionsStore((s) => s.capabilities)
+  const deniedByOverride = usePermissionsStore((s) => s.deniedByOverride)
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-6">
@@ -23,7 +24,7 @@ export default function BerechtigungenTab() {
         <p className="text-xs text-muted-foreground">{t('rbac.effective.intro')}</p>
       </section>
 
-      <EffectivePermissionsView roles={roles} capabilities={capabilities} />
+      <EffectivePermissionsView roles={roles} capabilities={capabilities} deniedByOverride={deniedByOverride} />
     </div>
   )
 }

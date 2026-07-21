@@ -22,6 +22,7 @@ import type {
 import type { CapabilityScope } from '@/api/rbac-types'
 import {
   CUSTOM_ROLE_LIMIT,
+  applyUserOverrides,
   createCustomRole,
   customRoleCount,
   deleteCustomRole,
@@ -29,6 +30,7 @@ import {
   getCustomRole,
   getDemoSessionUserId,
   getRoleGrants,
+  getUserOverrides,
   isPresetRole,
   listRoles,
   membersOfRole,
@@ -38,9 +40,12 @@ import {
   rolesForUser,
   roleSummary,
   setCustomRoleGrants,
+  setUserOverrides,
   assignRoleToUser,
   updateCustomRole,
+  userHasOverrides,
 } from '../data/rbac'
+import type { CapabilityOverride, UpdateUserOverridesInput, UserOverridesResponse } from '@/api/rbac-types'
 
 import { writeAuditEvent } from '../data/audit-events'
 import { displayUserName } from '../data/shared-ids'
@@ -66,12 +71,21 @@ function grantsDelta(before: Record<string, string>, after: Record<string, strin
   return { oldChanged, newChanged }
 }
 
-function effectivePermissionsBody(userId: string): EffectivePermissionsResponse {
+function effectivePermissionsBody(userId: string, base = false): EffectivePermissionsResponse {
   const roleIds = rolesForUser(userId)
+  const roleUnion = resolveCapabilities(roleIds)
+  // `base=1` → the pure role union (grayed "inherited" baseline in the R-6
+  // override editor); default → overrides applied.
+  if (base) {
+    return { permissions: { roles: roleIds.map(roleSummary), capabilities: roleUnion } }
+  }
+  const { capabilities, deniedByOverride } = applyUserOverrides(roleUnion, getUserOverrides(userId))
   return {
     permissions: {
       roles: roleIds.map(roleSummary),
-      capabilities: resolveCapabilities(roleIds),
+      capabilities,
+      hasOverrides: userHasOverrides(userId),
+      deniedByOverride,
     },
   }
 }
@@ -87,9 +101,11 @@ export const rbacHandlers = [
   ),
 
   // Effective permissions of ANY account (admin/HR view in team + user detail).
-  http.get(`${API}/api/v1/admin/users/:userId/permissions`, ({ params }) =>
-    HttpResponse.json(effectivePermissionsBody(String(params.userId))),
-  ),
+  // `?base=1` returns the pure role union (R-6 override-editor baseline).
+  http.get(`${API}/api/v1/admin/users/:userId/permissions`, ({ params, request }) => {
+    const base = new URL(request.url).searchParams.get('base') === '1'
+    return HttpResponse.json(effectivePermissionsBody(String(params.userId), base))
+  }),
 
   // Role list (presets + tenant custom roles).
   http.get(`${API}/api/v1/admin/roles`, () => {
@@ -236,5 +252,69 @@ export const rbacHandlers = [
       })
     }
     return HttpResponse.json({ roles })
+  }),
+
+  // ── R-6 per-user overrides ────────────────────────────────────────────────
+
+  // Current override map of an account.
+  http.get(`${API}/api/v1/admin/users/:userId/overrides`, ({ params }) => {
+    const userId = String(params.userId)
+    const body: UserOverridesResponse = { userId, overrides: getUserOverrides(userId) }
+    return HttpResponse.json(body)
+  }),
+
+  // Replace the whole override map (empty map clears all overrides).
+  http.put(`${API}/api/v1/admin/users/:userId/overrides`, async ({ params, request }) => {
+    const userId = String(params.userId)
+    const input = (await request.json()) as UpdateUserOverridesInput
+    const before = getUserOverrides(userId)
+    const after = input?.overrides ?? {}
+    const saved = setUserOverrides(userId, after)
+
+    // One audit event per changed key: set (allow/deny added or changed) or
+    // removed (override dropped → key follows the roles again).
+    const allKeys = new Set([...Object.keys(before), ...Object.keys(after)])
+    for (const key of allKeys) {
+      const b = before[key] as CapabilityOverride | undefined
+      const a = after[key] as CapabilityOverride | undefined
+      const same = b && a && b.mode === a.mode && b.scope === a.scope
+      if (same) continue
+      if (a) {
+        writeAuditEvent({
+          action: 'permission.override_set',
+          target: displayUserName(userId),
+          targetType: 'user',
+          oldValue: b ? { key, mode: b.mode, scope: b.scope } : { key, mode: 'inherited' },
+          newValue: { key, mode: a.mode, scope: a.scope },
+        })
+      } else {
+        writeAuditEvent({
+          action: 'permission.override_removed',
+          target: displayUserName(userId),
+          targetType: 'user',
+          oldValue: b ? { key, mode: b.mode, scope: b.scope } : undefined,
+          newValue: { key, mode: 'inherited' },
+        })
+      }
+    }
+    const body: UserOverridesResponse = { userId, overrides: saved }
+    return HttpResponse.json(body)
+  }),
+
+  // Clear all overrides of an account (reset to pure role stand).
+  http.delete(`${API}/api/v1/admin/users/:userId/overrides`, ({ params }) => {
+    const userId = String(params.userId)
+    const before = getUserOverrides(userId)
+    setUserOverrides(userId, {})
+    if (Object.keys(before).length > 0) {
+      writeAuditEvent({
+        action: 'permission.override_removed',
+        target: displayUserName(userId),
+        targetType: 'user',
+        oldValue: { count: Object.keys(before).length },
+        newValue: { mode: 'inherited', all: true },
+      })
+    }
+    return new HttpResponse(null, { status: 204 })
   }),
 ]

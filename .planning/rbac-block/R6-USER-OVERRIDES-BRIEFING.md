@@ -1,7 +1,17 @@
 # R-6 Per-User-Overrides — Terminal-Briefing (erstellt Session #20-Nachgang, 2026-07-19)
 
-> **Status: GEPLANT, Umsetzung NACH dem RBAC-Sammel-Review** (Reihenfolge: R-4 → R-5 → Sammel-Review → dieses Paket). Darien-Entscheid vom 2026-07-19 liegt vor — Scope ist fix, das UI-Bild ist fix, offene Detailfragen gehen durchs Recherche-Gate + gebündelte Fragen.
-> **Ablauf zwingend: 1) Recherche-Gate → 2) gebündelte Fragen an Darien → 3) Darien-OK → 4) bauen → 5) Gates.**
+> **Status: IN UMSETZUNG (Session #24, 2026-07-21).** Recherche-Gate durchlaufen → `R6-RECHERCHE.md` (Markt-Kern, Ist-Analyse mit Pfaden, Bau-Schnitt). Gebündelte Fragen gestellt, ALLE 4 Empfehlungen bestätigt.
+
+## §0 Darien-Entscheide (2026-07-21, verbindlich)
+
+1. **Rollen-Wechsel:** Overrides werden BEHALTEN + Bestätigungs-Dialog beim Rollen-Wechsel (Liste der bestehenden Abweichungen, aktive Bestätigung) — nie stumm behalten (Salesforce-Zombie), nie stumm verwerfen.
+2. **Ebene 1 JA:** Overrides dürfen auch Modul-Sichtbarkeit schalten (voller Editor-Umfang, keine Ebenen-Ausnahme).
+3. **Berechtigung:** eigener Katalog-Key `admin:user_override:manage` (fine, admin-only per Default; hr_admin behält role:assign OHNE Feinjustieren).
+4. **Transparenz:** „Angepasst"-Badge in der Benutzerliste + Filter „Nur angepasste Benutzer". KEIN eigener Report in 1.0.
+
+**Ohne Frage gesetzt (technisch zwingend, mit Darien geteilt):** Override gewinnt IMMER pro Key über die gesamte Rollen-Union (auch Scope-Absenkung) · nicht überschriebene Keys folgen LIVE den Rollen · Deny-Darstellung = durchgestrichen + „persönlich entzogen" (nie stilles Weglassen) · Guardrails aus §3 = Pflicht.
+
+> **Ablauf zwingend: 1) Recherche-Gate → 2) gebündelte Fragen an Darien → 3) Darien-OK → 4) bauen → 5) Gates.** [1–3 erledigt, §0 oben.]
 
 ## 1 · Was Darien entschieden hat (verbindlich)
 

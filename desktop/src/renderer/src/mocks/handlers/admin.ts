@@ -16,7 +16,7 @@ import { API_BASE_URL } from '@/lib/constants'
 import type { AdminUser, AdminUserStatus, TenantModule } from '@/api/admin-types'
 import { seedAdminUsers, type AdminUserRecord } from '../data/admin-users'
 import { seedTenantModules } from '../data/admin-license'
-import { USER_ROLE_ASSIGNMENTS, getRoleGrants, rolesForUser, roleSummary } from '../data/rbac'
+import { USER_ROLE_ASSIGNMENTS, getRoleGrants, rolesForUser, roleSummary, userHasOverrides } from '../data/rbac'
 import { writeAuditEvent } from '../data/audit-events'
 
 const API = API_BASE_URL
@@ -27,7 +27,11 @@ const API = API_BASE_URL
 let adminUsers: AdminUserRecord[] = seedAdminUsers()
 const tenantModules: TenantModule[] = seedTenantModules()
 
-const withRoles = (u: AdminUserRecord): AdminUser => ({ ...u, roles: rolesForUser(u.id) })
+const withRoles = (u: AdminUserRecord): AdminUser => ({
+  ...u,
+  roles: rolesForUser(u.id),
+  hasOverrides: userHasOverrides(u.id),
+})
 
 const validRoles = (roles: unknown): string[] =>
   Array.isArray(roles) ? roles.filter((r): r is string => typeof r === 'string' && Boolean(getRoleGrants(r))) : []

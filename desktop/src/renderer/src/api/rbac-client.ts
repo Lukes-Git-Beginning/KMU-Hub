@@ -18,6 +18,9 @@ import type {
   RolesResponse,
   UpdateRoleInput,
   UpdateRolePermissionsInput,
+  UpdateUserOverridesInput,
+  UserOverrides,
+  UserOverridesResponse,
   UserRolesResponse,
 } from '@/api/rbac-types'
 
@@ -31,11 +34,18 @@ export async function fetchEffectivePermissions(): Promise<EffectivePermissions>
   return resp.permissions
 }
 
-/** Resolved effective permissions of ANY account (admin/HR audit view). */
-export async function fetchUserEffectivePermissions(userId: string): Promise<EffectivePermissions> {
+/**
+ * Resolved effective permissions of ANY account (admin/HR audit view).
+ * `base: true` returns the pure role union without per-user overrides (the
+ * grayed "inherited" baseline in the R-6 override editor).
+ */
+export async function fetchUserEffectivePermissions(
+  userId: string,
+  opts?: { base?: boolean },
+): Promise<EffectivePermissions> {
   const resp = await authenticatedRequest<EffectivePermissionsResponse>({
     method: 'GET',
-    path: `/api/v1/admin/users/${userId}/permissions`,
+    path: `/api/v1/admin/users/${userId}/permissions${opts?.base ? '?base=1' : ''}`,
   })
   if (!resp?.permissions) throw new Error('empty permissions response')
   return resp.permissions
@@ -120,4 +130,29 @@ export async function removeUserRole(userId: string, roleId: string): Promise<st
     path: `/api/v1/users/${userId}/roles/${roleId}`,
   })
   return resp?.roles ?? []
+}
+
+// ── R-6 per-user overrides ──────────────────────────────────────────────────
+
+/** Current override map of an account (capability key → allow/deny + scope). */
+export async function fetchUserOverrides(userId: string): Promise<UserOverrides> {
+  const resp = await authenticatedRequest<UserOverridesResponse>({
+    method: 'GET',
+    path: `/api/v1/admin/users/${userId}/overrides`,
+  })
+  return resp?.overrides ?? {}
+}
+
+/** Replace the whole override map of an account (empty map clears all). */
+export async function putUserOverrides(
+  userId: string,
+  overrides: UserOverrides,
+): Promise<UserOverrides> {
+  const body: UpdateUserOverridesInput = { overrides }
+  const resp = await authenticatedRequest<UserOverridesResponse>({
+    method: 'PUT',
+    path: `/api/v1/admin/users/${userId}/overrides`,
+    body,
+  })
+  return resp?.overrides ?? {}
 }

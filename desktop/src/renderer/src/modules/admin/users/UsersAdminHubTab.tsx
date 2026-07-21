@@ -8,7 +8,7 @@
  */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, UserPlus, Users } from 'lucide-react'
+import { Search, UserPlus, Users, SlidersHorizontal } from 'lucide-react'
 import { SortMenu, EmptyState, type SortDirection, type SortFieldOption } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import { useAdminUsers } from '@/api/hooks/useAdminUsers'
@@ -37,6 +37,7 @@ export default function UsersAdminHubTab() {
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [onlyOverrides, setOnlyOverrides] = useState(false)
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDirection>('asc')
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -72,6 +73,7 @@ export default function UsersAdminHubTab() {
     const q = search.trim().toLowerCase()
     const filtered = users.filter((u) => {
       if (statusFilter !== 'all' && u.status !== statusFilter) return false
+      if (onlyOverrides && !u.hasOverrides) return false
       if (!q) return true
       return (
         `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
@@ -103,7 +105,9 @@ export default function UsersAdminHubTab() {
       }
     }
     return [...filtered].sort(cmp)
-  }, [users, search, statusFilter, sortField, sortDir, i18n.language])
+  }, [users, search, statusFilter, onlyOverrides, sortField, sortDir, i18n.language])
+
+  const overrideCount = useMemo(() => users.filter((u) => u.hasOverrides).length, [users])
 
   return (
     <div className="px-6 py-6">
@@ -159,6 +163,24 @@ export default function UsersAdminHubTab() {
             className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           />
         </div>
+
+        {/* Only accounts with per-user overrides (R-6) */}
+        {overrideCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setOnlyOverrides((v) => !v)}
+            aria-pressed={onlyOverrides}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              onlyOverrides
+                ? 'border-info/40 bg-info-light text-info'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('rbac.override.filterOnly')}
+            <span className="tabular-nums">{overrideCount}</span>
+          </button>
+        )}
 
         <div className="ml-auto">
           <SortMenu
@@ -221,8 +243,8 @@ export default function UsersAdminHubTab() {
                       </div>
                     </div>
 
-                    {/* Roles (multi-role chips, +n overflow) */}
-                    <RoleChipCell roleIds={u.roles} roles={allRoles} />
+                    {/* Roles (multi-role chips, +n overflow) + "Angepasst" badge */}
+                    <RoleChipCell roleIds={u.roles} roles={allRoles} hasOverrides={u.hasOverrides} />
 
                     {/* Status */}
                     <div>
@@ -250,8 +272,16 @@ export default function UsersAdminHubTab() {
   )
 }
 
-/** Role cell: up to two chips with role color, "+n" for the rest. */
-function RoleChipCell({ roleIds, roles }: { roleIds: string[]; roles: Role[] }) {
+/** Role cell: up to two chips with role color, "+n" for the rest, "Angepasst" badge. */
+function RoleChipCell({
+  roleIds,
+  roles,
+  hasOverrides = false,
+}: {
+  roleIds: string[]
+  roles: Role[]
+  hasOverrides?: boolean
+}) {
   const { t } = useTranslation()
   const shown = roleIds.slice(0, 2)
   const rest = roleIds.length - shown.length
@@ -276,6 +306,15 @@ function RoleChipCell({ roleIds, roles }: { roleIds: string[]; roles: Role[] }) 
       {rest > 0 && (
         <span className="rounded-full bg-secondary/60 px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
           +{rest}
+        </span>
+      )}
+      {hasOverrides && (
+        <span
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-info-light px-1.5 py-0.5 text-[10px] font-medium text-info"
+          title={t('rbac.override.badgeHint')}
+        >
+          <SlidersHorizontal className="h-2.5 w-2.5" aria-hidden="true" />
+          {t('rbac.override.badge')}
         </span>
       )}
     </div>

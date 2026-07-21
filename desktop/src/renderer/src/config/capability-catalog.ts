@@ -431,6 +431,9 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
     fine('admin:it:manage'),
     fine('admin:ai:manage'),
     fine('admin:impersonate:run'),
+    // R-6: set per-user permission overrides (allow/deny on top of roles).
+    // admin-only by default; hr_admin keeps role:assign WITHOUT this.
+    fine('admin:user_override:manage'),
   ],
 
   security: [

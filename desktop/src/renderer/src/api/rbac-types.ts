@@ -19,14 +19,33 @@ export type CapabilityScope = 'own' | 'team' | 'all'
 /** Scope width order for union resolution: all > team > own. */
 export const SCOPE_ORDER: Record<CapabilityScope, number> = { own: 0, team: 1, all: 2 }
 
+/** Provenance sentinel for a grant that a per-user override contributed (R-6). */
+export const OVERRIDE_SOURCE = 'override' as const
+
 /**
  * One resolved grant of the effective permission set.
  * `sources` carries the role ids the grant derives from — the "Effektive
  * Rechte" provenance no competitor ships (KONZEPT §3, Multi-Rollen-Union).
+ * An `allow` override adds the `OVERRIDE_SOURCE` sentinel to `sources`.
  */
 export interface CapabilityGrant {
   scope: CapabilityScope
   /** Role ids (Role.id) this grant originates from — union provenance. */
+  sources: string[]
+}
+
+/**
+ * A key the role union WOULD have granted but a per-user `deny` override
+ * removed (R-6). Carried alongside the resolved capabilities so the effective
+ * view can render it struck-through with "persönlich entzogen" provenance
+ * instead of silently dropping it (the market gap — see R6-RECHERCHE §1).
+ */
+export interface DeniedByOverride {
+  /** Full capability key (`resource:action`). */
+  key: string
+  /** Scope the role union would have granted (for the struck-through label). */
+  roleScope: CapabilityScope
+  /** Role ids that granted it before the override — kept for provenance. */
   sources: string[]
 }
 
@@ -57,6 +76,10 @@ export interface EffectivePermissions {
   roles: Array<Pick<Role, 'id' | 'name' | 'isSystem' | 'color'>>
   /** Flat map: full capability key (`resource:action`) → grant. Missing key = denied (default-deny). */
   capabilities: Record<string, CapabilityGrant>
+  /** Whether this account carries any per-user override (drives the "Angepasst" badge). R-6. */
+  hasOverrides?: boolean
+  /** Keys the roles granted but a deny override removed — for the struck-through effective view. R-6. */
+  deniedByOverride?: DeniedByOverride[]
 }
 
 export interface EffectivePermissionsResponse {
@@ -113,4 +136,33 @@ export interface AssignRoleInput {
 /** Role ids an account holds after an assignment mutation. */
 export interface UserRolesResponse {
   roles: string[]
+}
+
+// ── R-6 per-user permission overrides ───────────────────────────────────────
+
+/** An override either grants a key (with a scope) or revokes it entirely. */
+export type OverrideMode = 'allow' | 'deny'
+
+/**
+ * A single per-user override. `deny` removes the key from the effective set
+ * regardless of the roles; `allow` sets/raises it to `scope`. The override
+ * wins per key over the entire role union (R6-Briefing §0).
+ */
+export interface CapabilityOverride {
+  mode: OverrideMode
+  /** Target scope for `allow`; ignored (but stored) for `deny`. */
+  scope: CapabilityScope
+}
+
+/** A user's override map: capability key → override. Missing key = follows roles live. */
+export type UserOverrides = Record<string, CapabilityOverride>
+
+/** `PUT /admin/users/{id}/overrides` body — replaces the whole map. */
+export interface UpdateUserOverridesInput {
+  overrides: UserOverrides
+}
+
+export interface UserOverridesResponse {
+  userId: string
+  overrides: UserOverrides
 }
