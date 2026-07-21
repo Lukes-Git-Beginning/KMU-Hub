@@ -6,11 +6,16 @@
  *
  * initI18n is idempotent (checks i18n.isInitialized internally), so calling
  * it during render is safe and ensures i18n is ready before the first paint.
+ *
+ * v1.2: useLabelOverlayBootstrap() spielt tenant/vendor-Label-Overrides
+ * nach dem Locale-Sync via i18next.addResourceBundle() ein. Idempotent,
+ * bei Fehler kein Crash (silent fail wenn MSW noch nicht bereit).
  */
 import { useEffect, useMemo, type ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { useLocale } from '@/hooks/useLocale'
 import { i18n, initI18n } from '@/i18n/i18n'
+import { useLabelOverlayBootstrap } from '@/i18n/useLabelOverlay'
 
 interface I18nProviderProps {
   children: ReactNode
@@ -32,6 +37,10 @@ export function I18nProvider({ children }: I18nProviderProps) {
       i18n.changeLanguage(locale)
     }
   }, [locale])
+
+  // v1.2: Bootstrap tenant/vendor label overrides after locale sync.
+  // Re-runs on locale change to merge overrides for the new language.
+  useLabelOverlayBootstrap(locale)
 
   return (
     <I18nextProvider i18n={i18n}>

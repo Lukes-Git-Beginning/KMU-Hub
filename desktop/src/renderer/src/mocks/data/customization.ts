@@ -49,7 +49,8 @@ export function activeConfigLayer(): ConfigLayer {
  *   - rbac.module.* keys = module display names in the permission editor
  *   - crm.contacts.title / crm.companies.title / crm.deals.title = object headings
  *   - work.tasks.title / work.projects.title = work object headings
- *   - nav.crm / nav.work = sidebar labels
+ *   - layout.navItems.* = sidebar nav labels (the keys the left nav ACTUALLY
+ *     renders via nav-items.ts — nav.crm/nav.work were dead keys, no consumer)
  */
 export const LABEL_WHITELIST: string[] = [
   // Module names (shown in nav, settings, RBAC editor)
@@ -73,11 +74,15 @@ export const LABEL_WHITELIST: string[] = [
   'crm.deals.title',
   'work.tasks.title',
   'work.projects.title',
-  // Sidebar nav labels (affect the left-nav chip label)
-  'nav.crm',
-  'nav.work',
-  // Admin panel itself
-  'nav.admin.label',
+  // Sidebar nav labels — the keys the left nav actually renders (nav-items.ts).
+  // Renaming these is the most visible customization (e.g. "Kontakte"→"Patienten").
+  'layout.navItems.contacts',
+  'layout.navItems.projects',
+  'layout.navItems.tasks',
+  'layout.navItems.team',
+  'layout.navItems.finance',
+  'layout.navItems.helpdesk',
+  'layout.navItems.admin',
 ]
 
 // Internal type for locale → key → value overlay maps.
@@ -93,25 +98,25 @@ export const VENDOR_LABELS: LocaleLabelMap = {
     'crm.contacts.title': 'Patienten',
     'crm.companies.title': 'Praxen',
     'rbac.module.crm': 'Patientenverwaltung',
-    'nav.crm': 'Patienten',
+    'layout.navItems.contacts': 'Patienten',
   },
   en: {
     'crm.contacts.title': 'Patients',
     'crm.companies.title': 'Practices',
     'rbac.module.crm': 'Patient Management',
-    'nav.crm': 'Patients',
+    'layout.navItems.contacts': 'Patients',
   },
   fr: {
     'crm.contacts.title': 'Patients',
     'crm.companies.title': 'Cabinets',
     'rbac.module.crm': 'Gestion des patients',
-    'nav.crm': 'Patients',
+    'layout.navItems.contacts': 'Patients',
   },
   it: {
     'crm.contacts.title': 'Pazienti',
     'crm.companies.title': 'Studi',
     'rbac.module.crm': 'Gestione pazienti',
-    'nav.crm': 'Pazienti',
+    'layout.navItems.contacts': 'Pazienti',
   },
 }
 

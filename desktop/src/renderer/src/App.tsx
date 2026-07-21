@@ -298,10 +298,11 @@ const router = createHashRouter([
       // Backwards-Compat: /einstellungen?tab=it-admin → /admin/it (via Settings redirect)
       // Backwards-Compat: /einstellungen?tab=billing → /admin/billing (via Settings redirect)
 
-      // Anpassungen-Hub (v1.1) — 9. AdminHubPage-Tab (Anpassungen)
-      // /admin/anpassungen und /admin/anpassungen/felder laufen jetzt über AdminHubPage
+      // Anpassungen-Hub (v1.1 + v1.2) — 9. AdminHubPage-Tab (Anpassungen)
+      // /admin/anpassungen, /admin/anpassungen/felder, /admin/anpassungen/begriffe
       { path: 'admin/anpassungen', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
       { path: 'admin/anpassungen/felder', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
+      { path: 'admin/anpassungen/begriffe', element: lazyRoute(AdminHubPage, 'adminhub', 'admin') },
 
       // CalDAV admin
       { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage, 'list', 'admin') },

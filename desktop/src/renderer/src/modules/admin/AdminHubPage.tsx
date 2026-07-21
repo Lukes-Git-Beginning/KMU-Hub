@@ -38,6 +38,7 @@ const ROUTE_TO_TAB: Record<string, AdminTab> = {
   '/admin/integrations': 'integrations',
   '/admin/anpassungen': 'anpassungen',
   '/admin/anpassungen/felder': 'anpassungen',
+  '/admin/anpassungen/begriffe': 'anpassungen',
 }
 
 const TAB_TO_ROUTE: Record<AdminTab, string> = {

@@ -24,29 +24,32 @@ import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import { useCapabilitySet } from '@/hooks/useCapability'
 
 const CustomFieldsTab = lazy(() => import('./CustomFieldsTab'))
+const BegriffeTab = lazy(() => import('./BegriffeTab'))
 
-type AnpassungenSubTab = 'felder'
-// v1.2: | 'begriffe'
-// v1.3: | 'begriffe' | 'wertelisten'
+type AnpassungenSubTab = 'felder' | 'begriffe'
+// v1.3: | 'wertelisten'
 
 /** Pathname → Sub-Tab-Schlüssel (für Deep-Links via URL). */
 const ROUTE_TO_SUBTAB: Record<string, AnpassungenSubTab> = {
   '/admin/anpassungen/felder': 'felder',
+  '/admin/anpassungen/begriffe': 'begriffe',
 }
 
 /** Sub-Tab → Route (für navigate bei Tab-Wechsel). */
 const SUBTAB_TO_ROUTE: Record<AnpassungenSubTab, string> = {
   felder: '/admin/anpassungen/felder',
+  begriffe: '/admin/anpassungen/begriffe',
 }
 
 /** Capability gate per Sub-Tab. undefined = kein zusätzliches Gate. */
 const SUBTAB_CAPABILITY: Partial<Record<AnpassungenSubTab, string>> = {
   felder: 'admin:customization:manage',
+  begriffe: 'admin:customization:manage',
 }
 
 const ALL_SUB_TABS: { key: AnpassungenSubTab; labelKey: string }[] = [
   { key: 'felder', labelKey: 'customization.hub.tabs.felder' },
-  // v1.2: { key: 'begriffe', labelKey: 'customization.hub.tabs.begriffe' },
+  { key: 'begriffe', labelKey: 'customization.hub.tabs.begriffe' },
   // v1.3: { key: 'wertelisten', labelKey: 'customization.hub.tabs.wertelisten' },
 ]
 
@@ -124,6 +127,7 @@ export default function AnpassungenTab() {
       >
         <Suspense fallback={<ModuleLoadingFallback />}>
           {effectiveSubTab === 'felder' && <CustomFieldsTab />}
+          {effectiveSubTab === 'begriffe' && <BegriffeTab />}
         </Suspense>
       </div>
     </div>
