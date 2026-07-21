@@ -37,6 +37,10 @@ export function useAuditLog(filter: AuditFilter) {
   return useQuery({
     queryKey: ['audit', filter],
     queryFn: () => listAuditEntries(filter),
+    // R-5: RBAC/vendor mutations append live events handler-side without
+    // invalidating this key — an audit trail must never serve a stale cache.
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 

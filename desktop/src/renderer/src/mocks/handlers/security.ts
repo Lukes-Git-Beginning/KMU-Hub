@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
 import { daysAgo, hoursAgo, minutesAgo, daysFromNow } from '../data/date-helpers'
+import { listLiveAuditEvents } from '../data/audit-events'
 
 const API = API_BASE_URL
 
@@ -211,7 +212,8 @@ export const securityHandlers = [
     const userId = url.searchParams.get('user_id')
     const result = url.searchParams.get('result')
 
-    let filtered = [...auditLogs]
+    // Live R-5 events (session mutations) are newer than every seed → prepend.
+    let filtered = [...listLiveAuditEvents(), ...auditLogs]
     if (action) {
       filtered = filtered.filter((e) => e.action === action)
     }
@@ -341,13 +343,14 @@ export const securityHandlers = [
   // Export audit log (CSV / JSON blob)
   http.get(`${API}/api/v1/security/audit/export`, ({ request }) => {
     const format = new URL(request.url).searchParams.get('format') || 'csv'
+    const exportLogs = [...listLiveAuditEvents(), ...auditLogs]
     if (format === 'json') {
-      return new HttpResponse(JSON.stringify(auditLogs, null, 2), {
+      return new HttpResponse(JSON.stringify(exportLogs, null, 2), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
     const header = 'timestamp,user,action,target,target_type,ip_address,result'
-    const rows = auditLogs.map(
+    const rows = exportLogs.map(
       (e) => `${e.timestamp},"${e.user_name}",${e.action},"${e.target}",${e.target_type},${e.ip_address},${e.result}`,
     )
     return new HttpResponse([header, ...rows].join('\n'), {

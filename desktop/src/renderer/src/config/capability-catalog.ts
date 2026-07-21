@@ -437,6 +437,10 @@ export const CAPABILITY_CATALOG: Record<ModuleKey, CapabilityDef[]> = {
     fine('security:audit:read'),
     fine('security:policy:manage'),
     fine('security:gdpr:execute'),
+    // R-5: vendor (Zentria) access management — approve/decline/revoke the
+    // GDAP-light relationship. admin-only by default (ADMIN_SECURITY_ALL);
+    // it_admin lists its security keys explicitly and does NOT get this.
+    fine('security:vendor_access:manage'),
   ],
 }
 

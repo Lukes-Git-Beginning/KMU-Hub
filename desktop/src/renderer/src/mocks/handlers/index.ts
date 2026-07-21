@@ -36,9 +36,11 @@ import { formulareHandlers } from './formulare'
 import { adminHandlers } from './admin'
 import { rbacHandlers } from './rbac'
 import { hrChangeRequestHandlers } from './hr-change-requests'
+import { vendorAccessHandlers } from './vendor-access'
 
 export const handlers = [
   ...hrChangeRequestHandlers,
+  ...vendorAccessHandlers,
   ...rbacHandlers,
   ...authHandlers,
   ...crmHandlers,

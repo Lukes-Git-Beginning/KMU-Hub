@@ -1,9 +1,10 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { IDS } from '../data/shared-ids'
+import { IDS, displayUserName } from '../data/shared-ids'
 import { EMPLOYEES, DEPARTMENTS, COMPANY } from '../mock-db'
 import { daysAgo, daysFromNow } from '../data/date-helpers'
-import { USER_ROLE_ASSIGNMENTS, getDemoSessionUserId } from '../data/rbac'
+import { USER_ROLE_ASSIGNMENTS, getDemoSessionUserId, roleSummary } from '../data/rbac'
+import { writeAuditEvent } from '../data/audit-events'
 
 const API = API_BASE_URL
 
@@ -384,9 +385,21 @@ export const teamHandlers = [
 
     // 2. Rollen-Zuweisungen des Users entfernen (USER_ROLE_ASSIGNMENTS mutieren)
     const offboardedUserId = String(emp.userId ?? '')
+    const rolesBefore = (USER_ROLE_ASSIGNMENTS[offboardedUserId] ?? []).map((r) => roleSummary(r).name)
     if (offboardedUserId && USER_ROLE_ASSIGNMENTS[offboardedUserId]) {
       USER_ROLE_ASSIGNMENTS[offboardedUserId] = []
     }
+    writeAuditEvent({
+      action: 'user.offboarded',
+      target: displayUserName(offboardedUserId) || String(emp.name ?? params.id),
+      targetType: 'user',
+      oldValue: { status: 'active', roles: rolesBefore },
+      newValue: { status: 'inactive', roles: [] },
+      extraDetails: {
+        exit_type: String(body.exitType ?? 'resignation'),
+        ...(body.successorUserId ? { successor: displayUserName(body.successorUserId) } : {}),
+      },
+    })
 
     // 3. Admin-User deaktivieren (hrEmployees hat userId — suche per userId)
     const adminEmp = hrEmployees.find((e) => e.userId === offboardedUserId) as Record<string, unknown> | undefined

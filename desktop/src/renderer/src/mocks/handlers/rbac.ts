@@ -42,10 +42,29 @@ import {
   updateCustomRole,
 } from '../data/rbac'
 
+import { writeAuditEvent } from '../data/audit-events'
+import { displayUserName } from '../data/shared-ids'
+
 const API = API_BASE_URL
 
 const error = (code: string, status: number) =>
   HttpResponse.json({ error: code }, { status })
+
+/** Role display names for audit old/new snapshots (ids are wire detail). */
+const roleNames = (roleIds: string[]) => roleIds.map((id) => roleSummary(id).name)
+
+/** Reduce two grant maps to the keys that actually changed (delta panel). */
+function grantsDelta(before: Record<string, string>, after: Record<string, string>) {
+  const oldChanged: Record<string, string> = {}
+  const newChanged: Record<string, string> = {}
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (before[key] !== after[key]) {
+      oldChanged[key] = before[key] ?? 'none'
+      newChanged[key] = after[key] ?? 'none'
+    }
+  }
+  return { oldChanged, newChanged }
+}
 
 function effectivePermissionsBody(userId: string): EffectivePermissionsResponse {
   const roleIds = rolesForUser(userId)
@@ -100,6 +119,12 @@ export const rbacHandlers = [
     if (customRoleCount() >= CUSTOM_ROLE_LIMIT) return error('role_limit_reached', 409)
     if (roleNameExists(input.name)) return error('role_name_exists', 409)
     const def = createCustomRole(input)
+    writeAuditEvent({
+      action: 'role.definition_created',
+      target: def.name,
+      targetType: 'role',
+      newValue: { name: def.name, based_on: roleSummary(input.basedOn).name },
+    })
     return HttpResponse.json({ role: roleFromList(def.id) }, { status: 201 })
   }),
 
@@ -112,7 +137,19 @@ export const rbacHandlers = [
     if (input.name !== undefined && roleNameExists(input.name, roleId)) {
       return error('role_name_exists', 409)
     }
+    const metaBefore = getCustomRole(roleId)
+    const oldMeta = metaBefore
+      ? { name: metaBefore.name, description: metaBefore.description }
+      : undefined
     updateCustomRole(roleId, input)
+    const metaAfter = getCustomRole(roleId)
+    writeAuditEvent({
+      action: 'role.definition_updated',
+      target: metaAfter?.name ?? roleId,
+      targetType: 'role',
+      oldValue: oldMeta,
+      newValue: metaAfter ? { name: metaAfter.name, description: metaAfter.description } : undefined,
+    })
     return HttpResponse.json({ role: roleFromList(roleId) })
   }),
 
@@ -122,7 +159,14 @@ export const rbacHandlers = [
     if (isPresetRole(roleId)) return error('preset_immutable', 403)
     if (!getCustomRole(roleId)) return error('not_found', 404)
     if (membersOfRole(roleId).length > 0) return error('role_has_members', 409)
+    const deletedName = getCustomRole(roleId)?.name ?? roleId
     deleteCustomRole(roleId)
+    writeAuditEvent({
+      action: 'role.definition_deleted',
+      target: deletedName,
+      targetType: 'role',
+      oldValue: { name: deletedName },
+    })
     return new HttpResponse(null, { status: 204 })
   }),
 
@@ -135,7 +179,19 @@ export const rbacHandlers = [
     const grants: Record<string, CapabilityScope> = Object.fromEntries(
       Object.entries(input?.grants ?? {}).map(([key, g]) => [key, g.scope]),
     )
+    const grantsBefore = { ...(getRoleGrants(roleId) ?? {}) } as Record<string, string>
     setCustomRoleGrants(roleId, grants)
+    const { oldChanged, newChanged } = grantsDelta(grantsBefore, grants)
+    if (Object.keys(newChanged).length > 0) {
+      writeAuditEvent({
+        action: 'role.definition_updated',
+        target: getCustomRole(roleId)?.name ?? roleId,
+        targetType: 'role',
+        oldValue: oldChanged,
+        newValue: newChanged,
+        extraDetails: { changed_grants: Object.keys(newChanged).length },
+      })
+    }
     const body: RolePermissionsResponse = { roleId, grants: input?.grants ?? {} }
     return HttpResponse.json(body)
   }),
@@ -145,7 +201,18 @@ export const rbacHandlers = [
     const userId = String(params.userId)
     const input = (await request.json()) as AssignRoleInput
     if (!input?.roleId || !getRoleGrants(input.roleId)) return error('not_found', 404)
+    const rolesBefore = rolesForUser(userId)
     const roles = assignRoleToUser(userId, input.roleId)
+    if (!rolesBefore.includes(input.roleId)) {
+      writeAuditEvent({
+        action: 'role.assigned',
+        target: displayUserName(userId),
+        targetType: 'user',
+        oldValue: { roles: roleNames(rolesBefore) },
+        newValue: { roles: roleNames(roles) },
+        extraDetails: { role: roleSummary(input.roleId).name },
+      })
+    }
     return HttpResponse.json({ roles })
   }),
 
@@ -156,7 +223,18 @@ export const rbacHandlers = [
     if (roleId === 'admin' && rolesForUser(userId).includes('admin') && fullAccessHolderCount() <= 1) {
       return error('last_admin', 409)
     }
+    const rolesBefore = rolesForUser(userId)
     const roles = removeRoleFromUser(userId, roleId)
+    if (rolesBefore.includes(roleId)) {
+      writeAuditEvent({
+        action: 'role.revoked',
+        target: displayUserName(userId),
+        targetType: 'user',
+        oldValue: { roles: roleNames(rolesBefore) },
+        newValue: { roles: roleNames(roles) },
+        extraDetails: { role: roleSummary(roleId).name },
+      })
+    }
     return HttpResponse.json({ roles })
   }),
 ]

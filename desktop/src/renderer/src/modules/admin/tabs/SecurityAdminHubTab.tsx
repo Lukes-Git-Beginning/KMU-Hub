@@ -11,6 +11,7 @@
  */
 import { useEffect, useRef, lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router-dom'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import { useCapabilitySet } from '@/hooks/useCapability'
 import { PrivacyAdminTab } from './security/PrivacyAdminTab'
@@ -25,6 +26,7 @@ const GDPRErasurePage = lazy(() => import('@/modules/security/GDPRErasurePage'))
 const DSARSearchPage = lazy(() => import('@/modules/security/DSARSearchPage'))
 const RetentionPolicyPage = lazy(() => import('@/modules/security/RetentionPolicyPage'))
 const PasswordPolicyPage = lazy(() => import('@/modules/security/PasswordPolicyPage'))
+const VendorAccessPage = lazy(() => import('@/modules/security/VendorAccessPage'))
 
 type SecuritySubTab =
   | 'audit'
@@ -37,6 +39,7 @@ type SecuritySubTab =
   | 'vault'
   | 'privacy'
   | 'ai'
+  | 'vendor-access'
 
 /** Capability required per sub-tab. Tabs without an entry are ungated (self-service). */
 const SUB_TAB_CAPABILITY: Partial<Record<SecuritySubTab, string>> = {
@@ -49,6 +52,7 @@ const SUB_TAB_CAPABILITY: Partial<Record<SecuritySubTab, string>> = {
   vault: 'security:policy:manage',
   privacy: 'security:policy:manage',
   ai: 'admin:ai:manage',
+  'vendor-access': 'security:vendor_access:manage',
   // sessions: no gate — self-service (own sessions only)
 }
 
@@ -63,17 +67,25 @@ const ALL_SUB_TABS: { key: SecuritySubTab; labelKey: string }[] = [
   { key: 'vault', labelKey: 'admin.security.tabs.vault' },
   { key: 'privacy', labelKey: 'admin.security.tabs.privacy' },
   { key: 'ai', labelKey: 'admin.security.tabs.ai' },
+  { key: 'vendor-access', labelKey: 'admin.security.tabs.vendorAccess' },
 ]
 
 export default function SecurityAdminHubTab() {
   const { t } = useTranslation()
   const { has, ready } = useCapabilitySet()
   const contentRef = useRef<HTMLDivElement>(null)
+  const location = useLocation()
+
+  // Deep-link support: ?subtab=vendor-access navigates directly to a sub-tab.
+  // Parsed once on mount; user choices afterwards take priority.
+  const subtabParam = new URLSearchParams(location.search).get('subtab') as SecuritySubTab | null
 
   // null = no explicit user choice yet → first allowed tab once ready.
   // (Initialising with a concrete tab before `ready` would freeze the
   // pessimistic pre-ready list — admin would land on "Sessions".)
-  const [activeSubTab, setActiveSubTab] = useState<SecuritySubTab | null>(null)
+  const [activeSubTab, setActiveSubTab] = useState<SecuritySubTab | null>(
+    subtabParam ?? null,
+  )
 
   const subTabs = ready
     ? ALL_SUB_TABS.filter((tab) => {
@@ -147,6 +159,7 @@ export default function SecurityAdminHubTab() {
           {effectiveSubTab === 'vault' && <VaultPage />}
           {effectiveSubTab === 'privacy' && <PrivacyAdminTab />}
           {effectiveSubTab === 'ai' && <AIGovernanceAdminTab />}
+          {effectiveSubTab === 'vendor-access' && <VendorAccessPage />}
         </Suspense>
       </div>
     </div>

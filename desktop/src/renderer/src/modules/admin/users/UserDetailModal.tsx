@@ -5,15 +5,18 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Mail, Send, UserCheck, UserX } from 'lucide-react'
+import { Mail, Send, UserCheck, UserX, Eye } from 'lucide-react'
 import { toast } from 'sonner'
+import { useNavigate } from 'react-router-dom'
 import { DetailModal, ConfirmDialog } from '@/components/shared'
 import { Button } from '@/components/ui/button'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, type User } from '@/stores/auth'
 import type { AdminUser } from '@/api/admin-types'
 import { useUpdateAdminUser, useResendInvite } from '@/api/hooks/useAdminUsers'
 import { useHasCapability } from '@/hooks/useCapability'
 import { UserRolesSection } from '@/components/shared/rbac/UserRolesSection'
+import { useViewAsStore } from '@/stores/viewAs'
+import { rolesForUser } from '@/mocks/data/rbac'
 import { STATUS_META, initials, formatRelative } from './presentation'
 
 interface UserDetailModalProps {
@@ -24,16 +27,39 @@ interface UserDetailModalProps {
 
 export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const updateUser = useUpdateAdminUser()
   const resendInvite = useResendInvite()
   const authUserId = useAuthStore((s) => s.user?.id)
   const canAssignRoles = useHasCapability('admin:role:assign')
   const canDeactivate = useHasCapability('admin:user:deactivate')
+  const canImpersonate = useHasCapability('admin:impersonate:run')
+  const startViewAs = useViewAsStore((s) => s.startViewAs)
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
 
   if (!user) return null
 
   const isSelf = user.id === authUserId
+
+  // Guardrail: View-as not allowed on admins or self
+  const targetRoles = rolesForUser(user.id)
+  const targetIsAdmin = targetRoles.includes('admin')
+  const canViewAs = canImpersonate && !isSelf && !targetIsAdmin
+
+  const handleViewAs = () => {
+    // Build a minimal User object from the AdminUser for the session switch
+    const targetUser: User = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      roles: targetRoles,
+      avatarUrl: null,
+    }
+    startViewAs(targetUser)
+    onClose()
+    navigate('/')
+  }
   const status = STATUS_META[user.status]
   const StatusIcon = status.icon
   const fullName = `${user.firstName} ${user.lastName}`
@@ -129,6 +155,12 @@ export function UserDetailModal({ user, open, onClose }: UserDetailModalProps) {
               {t('admin.users.detail.accessSection')}
             </h3>
             <div className="flex flex-wrap gap-2">
+              {canViewAs && (
+                <Button variant="outline" size="sm" onClick={handleViewAs}>
+                  <Eye className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('rbac.viewAs.action')}
+                </Button>
+              )}
               {user.status === 'invited' && (
                 <Button variant="outline" size="sm" onClick={handleResend} disabled={resendInvite.isPending}>
                   <Send className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />

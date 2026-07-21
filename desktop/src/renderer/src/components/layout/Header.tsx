@@ -21,6 +21,7 @@ import {
   HeaderWidgetSlots,
   ConnectionStatusIndicator,
 } from '@/components/header'
+import { VendorAccessBadge } from '@/components/header/VendorAccessBadge'
 
 export function Header() {
   const { t } = useTranslation()
@@ -65,6 +66,9 @@ export function Header() {
 
       {/* Right: controls */}
       <div className="flex shrink-0 min-w-0 items-center gap-[8px] md:gap-[12px]">
+        {/* Vendor access badge — visible only with capability + active/pending request */}
+        <VendorAccessBadge />
+
         {/* Unified work clock (HR-API backed: clock-in/out, break, saldo) */}
         <div className="hidden lg:block">
           <WorkClockWidget />

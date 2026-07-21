@@ -42,6 +42,9 @@ import { roleDescriptionKey } from '@/config/roles'
 import { STATUS_META, initials } from '../users/presentation'
 import CloneRoleDialog from './CloneRoleDialog'
 import RoleCompareModal from './RoleCompareModal'
+import { RolesAuditTab } from './RolesAuditTab'
+
+type RolesSubTab = 'overview' | 'protocol'
 
 export default function RolesBuilderTab() {
   const { t } = useTranslation()
@@ -51,7 +54,9 @@ export default function RolesBuilderTab() {
   const deleteRole = useDeleteRole()
   const canCreate = useHasCapability('admin:role:create')
   const canDelete = useHasCapability('admin:role:delete')
+  const canViewAudit = useHasCapability('security:audit:read')
 
+  const [activeSubTab, setActiveSubTab] = useState<RolesSubTab>('overview')
   const [cloneBase, setCloneBase] = useState<Role | null>(null)
   const [cloneOpen, setCloneOpen] = useState(false)
   const [membersRole, setMembersRole] = useState<Role | null>(null)
@@ -119,7 +124,49 @@ export default function RolesBuilderTab() {
   const membersOf = (role: Role) => users.filter((u) => u.roles.includes(role.id))
 
   return (
-    <div className="px-6 py-6">
+    <div className="flex flex-col">
+      {/* Sub-Tab-Bar: Übersicht | Protokoll (nur wenn audit:read) */}
+      {canViewAudit && (
+        <div
+          role="tablist"
+          aria-label={t('rbac.builder.title')}
+          className="flex gap-0 border-b border-border px-6"
+        >
+          <button
+            role="tab"
+            aria-selected={activeSubTab === 'overview'}
+            onClick={() => setActiveSubTab('overview')}
+            className={[
+              'px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+              activeSubTab === 'overview'
+                ? 'border-primary text-primary font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            ].join(' ')}
+          >
+            {t('rbac.builder.subTab.overview')}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeSubTab === 'protocol'}
+            onClick={() => setActiveSubTab('protocol')}
+            className={[
+              'px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+              activeSubTab === 'protocol'
+                ? 'border-primary text-primary font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            ].join(' ')}
+          >
+            {t('rbac.builder.subTab.protocol')}
+          </button>
+        </div>
+      )}
+
+      {/* Protokoll-Tab-Inhalt */}
+      {activeSubTab === 'protocol' && canViewAudit && <RolesAuditTab />}
+
+      {/* Übersicht-Tab-Inhalt */}
+      {(activeSubTab === 'overview' || !canViewAudit) && (
+      <div className="px-6 py-6">
       {/* Header + actions */}
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -262,6 +309,8 @@ export default function RolesBuilderTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
+      )}
     </div>
   )
 }

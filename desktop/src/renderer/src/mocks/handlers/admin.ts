@@ -16,7 +16,8 @@ import { API_BASE_URL } from '@/lib/constants'
 import type { AdminUser, AdminUserStatus, TenantModule } from '@/api/admin-types'
 import { seedAdminUsers, type AdminUserRecord } from '../data/admin-users'
 import { seedTenantModules } from '../data/admin-license'
-import { USER_ROLE_ASSIGNMENTS, getRoleGrants, rolesForUser } from '../data/rbac'
+import { USER_ROLE_ASSIGNMENTS, getRoleGrants, rolesForUser, roleSummary } from '../data/rbac'
+import { writeAuditEvent } from '../data/audit-events'
 
 const API = API_BASE_URL
 
@@ -78,6 +79,12 @@ export const adminHandlers = [
     }
     adminUsers = [record, ...adminUsers]
     USER_ROLE_ASSIGNMENTS[record.id] = roles.length > 0 ? roles : ['member']
+    writeAuditEvent({
+      action: 'user.invited',
+      target: `${record.firstName} ${record.lastName}`,
+      targetType: 'user',
+      newValue: { email, roles: (USER_ROLE_ASSIGNMENTS[record.id] ?? []).map((r) => roleSummary(r).name) },
+    })
     return HttpResponse.json({ user: withRoles(record) }, { status: 201 })
   }),
 
@@ -100,14 +107,39 @@ export const adminHandlers = [
     const user = adminUsers.find((u) => u.id === id)
     if (!user) return HttpResponse.json({ error: 'not_found' }, { status: 404 })
 
+    const displayName = `${user.firstName} ${user.lastName}`
     if (patch.roles !== undefined) {
+      const rolesBefore = rolesForUser(id)
       const roles = validRoles(patch.roles)
       USER_ROLE_ASSIGNMENTS[id] = roles.length > 0 ? roles : ['member']
+      const rolesAfter = USER_ROLE_ASSIGNMENTS[id] ?? []
+      const added = rolesAfter.filter((r) => !rolesBefore.includes(r))
+      const removed = rolesBefore.filter((r) => !rolesAfter.includes(r))
+      const names = (ids: string[]) => ids.map((r) => roleSummary(r).name)
+      if (added.length > 0 || removed.length > 0) {
+        writeAuditEvent({
+          action: added.length > 0 ? 'role.assigned' : 'role.revoked',
+          target: displayName,
+          targetType: 'user',
+          oldValue: { roles: names(rolesBefore) },
+          newValue: { roles: names(rolesAfter) },
+        })
+      }
     }
     if (patch.status && ['active', 'invited', 'deactivated'].includes(patch.status)) {
+      const statusBefore = user.status
       user.status = patch.status
       // Reactivating a never-logged-in invite keeps lastLoginAt null; an active
       // account that gets reactivated keeps its prior login timestamp.
+      if (statusBefore !== patch.status && (patch.status === 'deactivated' || statusBefore === 'deactivated')) {
+        writeAuditEvent({
+          action: patch.status === 'deactivated' ? 'user.deactivated' : 'user.reactivated',
+          target: displayName,
+          targetType: 'user',
+          oldValue: { status: statusBefore },
+          newValue: { status: patch.status },
+        })
+      }
     }
     return HttpResponse.json({ user: withRoles(user) })
   }),

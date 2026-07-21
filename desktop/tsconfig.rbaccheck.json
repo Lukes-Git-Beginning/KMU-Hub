@@ -182,6 +182,23 @@
     "src/renderer/src/modules/zeiterfassung/ZeiterfassungPage.tsx",
     "src/renderer/src/modules/zeiterfassung/components/AuswertungenView.tsx",
     "src/renderer/src/modules/zeiterfassung/components/TeamView.tsx",
-    "src/renderer/src/modules/admin/InfrastrukturPage.tsx"
+    "src/renderer/src/modules/admin/InfrastrukturPage.tsx",
+    "src/renderer/src/mocks/data/audit-events.ts",
+    "src/renderer/src/mocks/handlers/security.ts",
+    "src/renderer/src/modules/security/AuditLogPage.tsx",
+    "src/renderer/src/api/security-types.ts",
+    "src/renderer/src/api/security-client.ts",
+    "src/renderer/src/api/hooks/useSecurity.ts",
+    "src/renderer/src/api/vendor-access-types.ts",
+    "src/renderer/src/api/vendor-access.ts",
+    "src/renderer/src/mocks/handlers/vendor-access.ts",
+    "src/renderer/src/mocks/data/industry-role-templates.ts",
+    "src/renderer/src/modules/security/VendorAccessPage.tsx",
+    "src/renderer/src/modules/security/AuditEventDetailModal.tsx",
+    "src/renderer/src/modules/admin/roles/RolesAuditTab.tsx",
+    "src/renderer/src/components/header/VendorAccessBadge.tsx",
+    "src/renderer/src/components/layout/ViewAsBanner.tsx",
+    "src/renderer/src/components/layout/Header.tsx",
+    "src/renderer/src/stores/viewAs.ts"
   ]
 }

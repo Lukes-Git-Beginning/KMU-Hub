@@ -3,6 +3,7 @@
  *
  * Displays a searchable, filterable table of all security-relevant actions.
  * Supports CSV/JSON export and integrity verification of the audit chain.
+ * Clicking a row opens AuditEventDetailModal with full details incl. delta panel.
  */
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -29,7 +30,8 @@ import {
   useExportAuditLog,
   useVerifyAuditChain,
 } from '@/api/hooks/useSecurity'
-import type { AuditFilter, AuditExportFormat } from '@/api/security-types'
+import type { AuditFilter, AuditExportFormat, AuditEntry } from '@/api/security-types'
+import { AuditEventDetailModal, getActionLabel } from './AuditEventDetailModal'
 
 const PAGE_SIZE = 25
 
@@ -49,6 +51,7 @@ export default function AuditLogPage() {
   const [actionFilter, setActionFilter] = useState('')
   const [resultFilter, setResultFilter] = useState<'all' | 'success' | 'failure'>('all')
   const [page, setPage] = useState(0)
+  const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null)
 
   const filter: AuditFilter = useMemo(() => ({
     date_from: dateFrom || undefined,
@@ -166,6 +169,11 @@ export default function AuditLogPage() {
           </button>
         </div>
       </div>
+
+      {/* Retention-Hinweis */}
+      <p className="mb-4 text-xs text-muted-foreground">
+        {t('rbac.audit.retentionNote')}
+      </p>
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-end gap-3 mb-4">
@@ -289,7 +297,16 @@ export default function AuditLogPage() {
               {entries.map((entry) => (
                 <tr
                   key={entry.id}
-                  className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedEntry(entry)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedEntry(entry)
+                    }
+                  }}
+                  className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
                 >
                   <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
                     {formatDate(entry.timestamp, {
@@ -305,7 +322,7 @@ export default function AuditLogPage() {
                     {entry.user_name || entry.user_id}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-foreground">
-                    {entry.action}
+                    {getActionLabel(t, entry.action)}
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
                     {entry.target_type && (
@@ -362,6 +379,12 @@ export default function AuditLogPage() {
           </div>
         </div>
       )}
+
+      {/* Detail-Modal */}
+      <AuditEventDetailModal
+        entry={selectedEntry}
+        onClose={() => setSelectedEntry(null)}
+      />
     </div>
   )
 }

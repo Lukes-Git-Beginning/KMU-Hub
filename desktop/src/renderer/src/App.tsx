@@ -28,6 +28,7 @@ import { useLaunchStore } from '@/stores/launch'
 import { DEMO_PROFILES } from '@/mocks/data/rbac'
 import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
 import { PermissionPreviewBanner } from '@/components/layout/PermissionPreviewBanner'
+import { ViewAsBanner } from '@/components/layout/ViewAsBanner'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { NoAccessView } from '@/components/shared/rbac/NoAccessView'
@@ -418,6 +419,7 @@ export default function App() {
           <NotificationToast />
           <OfflineBanner />
           <PermissionPreviewBanner />
+          <ViewAsBanner />
           <IdleLock />
           {/* Dev profile switcher — re-enabled for the RBAC R-block: switching
               presets (incl. Aushilfe/Extern + multi-role combo) is the primary
