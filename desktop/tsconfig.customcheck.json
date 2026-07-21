@@ -4,6 +4,7 @@
     "src/renderer/src/global.d.ts",
     "src/renderer/src/vite-env.d.ts",
     "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/i18n/i18n.ts",
     "src/renderer/src/api/customization-types.ts",
     "src/renderer/src/mocks/data/customization.ts",
     "src/renderer/src/mocks/handlers/customization.ts",
