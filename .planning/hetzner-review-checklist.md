@@ -1,15 +1,36 @@
-# Hetzner-Review-Checkliste (Cosmi-exe, app.zentria.tech)
+# Team-Review-Agenda (Cosmi-exe, app.zentria.tech)
 
-> **Zweck:** Darien prüft Änderungen hands-on auf der über Hetzner laufenden Cosmi-exe, parallel während Main + Sub weiterbauen.
-> **Ablauf:** Alles geht auf `main`. Hier sammeln sich konkrete „klick hier → erwarte das"-Items. Abgehakt = von Darien geprüft + ok.
-> **⚡ Darien-Entscheid 2026-07-19: SAMMEL-REVIEW AM ENDE** — es gibt keine Zwischen-Reviews mehr; diese Liste sammelt ALLE Review-Items (RBAC-Batches, Modul-Reviews, Rest) und wird nach Abschluss der Bau-Strecke in einem Rutsch abgearbeitet.
-> **Stand:** 2026-07-19.
+> **Zweck:** EIN großer **Team-Review (Darien + Luke + Nico)** über den kompletten Bau-Stand — hands-on auf der über Hetzner laufenden Cosmi-exe.
+> **Ablauf:** Alles geht auf `main`. Hier sammeln sich konkrete „klick hier → erwarte das"-Items. Abgehakt = vom zuständigen Reviewer geprüft + ok.
+> **⚡ Darien-Entscheid 2026-07-19: SAMMEL-REVIEW AM ENDE** — keine Zwischen-Reviews; diese Liste sammelt ALLE Review-Items (RBAC-Batches, Modul-Reviews, Rest) und wird nach Abschluss der Bau-Strecke in einem Rutsch abgearbeitet.
+> **⚡ Darien-Entscheide 2026-07-21 (Team-Review-Rahmen, siehe §0):** ① **Scope = ALLES** (alle Module, alle Bereiche inkl. settings, kompletter RBAC-Block R-1…R-6). ② **Split nach Modulen/Bereichen** auf die drei — nicht nach Kompetenz-Achse. ③ **Umgebung = Hetzner-Live**, erst NACH Lukes RBAC-Backend-Deploy. ④ **Self-Service-Customization-Tool ist NICHT Teil dieses Reviews** (noch nicht gebaut — eigener Bau-Block, spätere Runde).
+> **Stand:** 2026-07-21.
+
+## 0 · Team-Review — Rahmen (Darien 2026-07-21)
+
+### 🚧 GATE (Vorbedingung — Review startet NICHT vorher)
+Der komplette **RBAC-Block ist auf Hetzner-Live derzeit unsichtbar**: das Prod-Backend hat den **`permissions`-Endpoint noch nicht**, FE fällt dann auf Preset-Auflösung zurück. Vor dem Team-Review muss **Luke** liefern:
+1. **RBAC-Backend deployen** — `permissions`-Endpoint + Enforcement (backend-gaps §RBAC R-3…R-6), sonst zeigen alle Rollen/Overrides/Vendor-Flows nichts Echtes.
+2. **Prod-Demo-Seed** einspielen — sonst sind FE-mock-Module im Live-Mode leer (treffen echtes BE ohne Daten).
+3. **Backend-Fixes deployen** — `9dfcf89e` (dialer recent-calls) + `b7242926` (hr correction_reason), s. Abschnitt C.
+> ⏳ **Folge:** Solange dieser Gate offen ist, ist das Team-Review **blockiert**. Der aktive nächste Bau-Schritt (Darien) ist daher das **Self-Service-Customization-Tool** (frisches Terminal); das Review läuft, sobald Luke deployt hat.
+
+### 👥 Reviewer-Zuständigkeiten (Vorschlag — beim Kickoff final zuweisen)
+Jeder reviewt seine Module/Bereiche komplett durch (alle Personas, tote Buttons, leere Zustände, Raw-Keys, `{{var}}`, Detail-Modals, Sortierung, Moduleinstellungen). Streitfälle → kurzer Sync.
+
+| Reviewer | Module / Bereiche |
+|----------|-------------------|
+| **Darien** (UX/Design/Daily-Use) | kontakte · dashboard · work · dokumente · kalender · profil · mails · kommunikation · wiki · **Moduleinstellungen (alle Module, Querschnitt)** |
+| **Luke** (Backend/Daten/Security) | finanzen/Buchhaltung · team/HR (R-4) · Verwaltung/admin (R-6 Overrides) · security/DSGVO (R-5 Audit/Vendor/View-as/Templates) · zeiterfassung · dialer · **RBAC-Enforcement-Gesamtlogik + alle „Luke-Paket"-Nebenbefunde** |
+| **Nico** (Polish/Branchen-Module) | inventar · einkauf · produktion · vertraege · helpdesk · schichten · fuhrpark · vermietung · rapporte · formulare · automatisierung · berichte |
+
+> RBAC greift quer über alle Module — jeder prüft die RBAC-Personas (Elena/Max/Markus/Sarah/Nina/Thomas/admin) **in seinen** Modulen. Die RBAC-Batch-Blöcke (Abschnitt B) sind die dazu passenden „klick hier"-Szenarien.
 
 ## ✅ Voraussetzungen geklärt (Darien, 2026-06-24)
 1. **Deploy:** macht **Luke** (irgendwann). Push auf `main` ≠ sofort live → Änderungen erscheinen auf Hetzner erst nach Lukes Deploy.
 2. **Mode: LIVE** (echtes Prod-Backend, kein MSW).
    - **Folge A:** Backend-Echt-Schaltungen (dialer/dashboard/HR) sind nach Lukes Deploy prüfbar — zeigen **echte Prod-Daten** (ohne Prod-Seed ggf. leer, nicht kaputt).
-   - **Folge B (wichtig):** **FE-mock-Module zeigen im Live-Mode NICHT ihre MSW-Demodaten** — sie treffen das echte Backend. Module mit fehlendem Backend (🔒, z. B. **security/DSGVO**) sind auf Hetzner-Live **erst prüfbar, wenn Luke das Backend gebaut hat**. Bis dahin: reine FE/UX-Reviews dieser Module besser lokal.
+   - **Folge B (wichtig):** **FE-mock-Module zeigen im Live-Mode NICHT ihre MSW-Demodaten** — sie treffen das echte Backend. Module mit fehlendem Backend (🔒, z. B. **security/DSGVO** und der **gesamte RBAC-Block**) sind auf Hetzner-Live **erst prüfbar, wenn Luke das Backend gebaut hat** (→ Gate §0). Bis dahin: reine FE/UX-Reviews dieser Module besser lokal.
 
 ---
 
@@ -52,6 +73,29 @@
   - Als **admin**: berichte alle 4 Tabs + Editor-Lifecycle (Als fertig markieren → Freigeben → Archivieren) + Zeitpläne + Teilen · formulare Lifecycle/Share/Export · automatisierung Toggles + „Neue Automatisierung" · zeiterfassung Team-View + Export · Infrastruktur-Aktionen (Regression).
   - Als **Max (Extern)**: Deep-Links `/#/berichte`, `/#/formulare` → „Kein Zugriff"-Seite.
   - ⚠ Bekannte Nebenbefunde: berichte-Untertitel nennt Zeitplan-Anzahl auch ohne schedule:manage (Kosmetik) · Kanal-Anlegen im Chat jetzt hinter channel:manage (admin/manager/member — readonly/extern sehen das „+" nicht mehr) · Report-Builder (ReportBuilderShell) ist nirgends gemountet (Vorbestand, toter Code).
+- [ ] **RBAC R-4 — HR-Datenkategorien-Tiefe (5 Schubladen × Zugriffsebene × Scope)** (Session #22). **Demo-Mode prüfen** (Editor-Preview + ProfileSwitcher unten rechts). Das ist die HR-Feinsteuerung: Personalakte in 5 Schubladen (Persönlich/Job/Gehalt/Dokumente/Abwesenheiten), Akten-Scope, Self-Service-Vorschläge, Offboarding-Kaskade. Achten auf:
+  - Als **Sarah (Teamleiter/manager)**: sieht **Tims Akte OHNE Gehalts-Schublade** (nur Persönlich/Job/Dokumente/Abwesenheiten) · **Stefans Akte ist ganz zu** (nicht in ihrer Linie) · **Jonas tauct gar nicht in ihrer Personen-Liste auf** (Scope = eigene Linie 2 rauf/2 runter + Geschwister, nicht die ganze Firma) · Profil-Doku-Sektion zeigt KEINE Gehaltsabrechnungs-PDFs (hinter salary:view).
+  - Als **Thomas (IT-Admin)**: sieht die **volle Mitarbeiter-Liste** (team:directory:full), aber beim Öffnen einer Akte **„Weitere Details sind für deine Rolle nicht sichtbar"** statt HR-Feldern (Marktlücken-USP — Verzeichnis ohne HR-Inhalt).
+  - Als **Markus/Stefan (member)**: **Self-Service** — eigene Stammdaten ändern geht als **Vorschlag mit „Änderung ausstehend"-Lock** (nicht direkt), eigene **echte Gehaltsabrechnungen (9.800 €)** sichtbar; Aushilfe/extern haben KEIN Self-Service (`team:self:propose` fehlt).
+  - Als **Nina (HR-Admin)**: **Anfragen-Inbox** zeigt Self-Service-Vorschläge als **Alt→Neu-Karte** (z. B. Markus) zum Genehmigen/Ablehnen.
+  - Als **admin**: **Offboarding-Dialog** — Mitarbeiter-Profil → Austritt = **2-Schritt-Bestätigung** (kein One-Click), bei Führungskraft **Warnung + Pflicht-Nachfolger** (z. B. Jonas-Warnung „X unterstellte Mitarbeiter"), Kaskade sichtbar. Profil-**Bearbeiten** funktioniert (Sektions-Edit, war vorher tot verdrahtet).
+  - Als **Max (Extern)**: `/#/team`-HR-Tiefe = NoAccess.
+  - ⚠ Bekannte Nebenbefunde (Luke-Paket): Personalakte-Doku-Seeds sind für ALLE identisch (Tim zeigt Stefans Arbeitsvertrag) · Anfragen-Tab zeigt teils „Unbekannt"-Requester · Seed-Kollisionen (usr-e6/e9/e14/e16) · Trainings-Tab-Template-Keys treffen camelCase nicht (defaultValue deckt nur DE).
+- [ ] **RBAC R-5 — Audit-Log-Live · Zentria-Setup-Zugang (GDAP-light) · Branchen-Templates · View-as** (Session #24, Teil 1). **Demo-Mode prüfen**. Vier Bausteine, alle unter Verwaltung → Sicherheit bzw. Rollen. Achten auf:
+  - **Audit-Log-Live** (Sicherheit → Audit): Rolle im Editor ändern (z. B. „Team Lead" → Read Only) → im Audit-Log erscheint **live** ein Eintrag mit **Alt/Neu-Delta-Panel** („VORHER Team Lead → NACHHER Team Lead, Read Only"), Retention-Zeile „24 Monate, unveränderlich". Im **Rollen-Modul** gibt es einen vorgefilterten **„Protokoll"-Sub-Tab** (nur role.*/permission.*-Events, gleiche Quelle).
+  - **Zentria-Setup-Zugang** (Sicherheit → Anbieter-Zugriff / GDAP): Zentria stellt eine Zugriffs-Anfrage (Kunde wählt KEINE Laufzeit — Zentria setzt Dauer, **Hard-Cap 30 Tage**) mit **Anlass + Ticket-Ref (#4711) + Scope als Bereichs-Auswahl** und **auto-generierten „Zugriff auf / KEIN Zugriff auf"-Listen** (Default-Preset „Setup-Standard" = alles außer HR/Lohn). Bei **sensiblen Bereichen (HR/Lohn) Pflicht-Checkbox** — Bestätigen-Button bleibt disabled ohne Haken. Kunde kann **Terminvorschlag** zurücksenden (Banner). **Header-Badge** „noch X Tage" mit Deep-Link zur Verwaltung; **Entzug** landet im Verlauf + im Audit-Log.
+  - **Branchen-Templates** (Rollen → „Aus Vorlage"): Galerie mit 3 Sets (Handwerk/Dienstleister/Handel, 12 Rollen). Vorlage wählen (z. B. „Monteur/Geselle") → **Pre-Fill in den NORMALEN Erstell-Dialog**, alles editierbar, wird eine **Custom-Rolle** (System-Rollen unangetastet).
+  - **View-as** (Benutzer-Detail → „Als Benutzer anzeigen"): admin sieht die App aus Sicht eines Users, **z-71-Banner + Verlassen**, Audit-Event; **Guardrail**: nicht auf sich selbst, nicht auf Admins.
+  - Als **Elena (readonly) / Max (extern)**: **kein** Anbieter-Zugriff-Badge, kein View-as, NoAccess auf die Verwaltungs-Flächen.
+  - ⚠ Backend offen (Luke-Paket): Audit-Write als Middleware an allen Mutations-Routen + old/new-JSONB · vendor_access-Tabellen + Status-Maschine v3 + 30-Tage-Cap + Expiry-Job + 422-sensitive_ack · Impersonation-Token mit Guardrails · Partner-Portal/Ticket-Kopplung = späteres Deliverable.
+- [ ] **RBAC R-6 — Per-User-Overrides (echter Entzug pro Benutzer, allow + deny)** (Session #24, Teil 2). **Demo-Mode prüfen**. **Alleinstellungs-Feature** — kein Wettbewerber am Markt kann echten per-User-Entzug (Odoo/Google rein additiv, Salesforce nur innerhalb einer Gruppe). Einstieg: Benutzer-Detail → „Berechtigungen anpassen" (Route `/admin/users/:id/overrides`). Achten auf:
+  - **Seed-Fall Markus** hat einen Allow-Override `work:project:edit`, den seine Rolle NICHT gibt → in der Benutzerliste **„Angepasst"-Badge**, Filter **„Nur angepasste"** zeigt nur Markus.
+  - **Editor** (dediziert, Zwei-Pane wie Rollen-Editor): jede Zeile **TRI-STATE** — Geerbt (grau, folgt Rolle) / Erlaubt (grün) / Entzogen (rot, durchgestrichen). Read-only bis Schalter **„Benutzerdefiniert"** an. Toggle-Zyklus Geerbt↔Override, Reset pro Zeile + „Alle zurücksetzen", Staged-Footer.
+  - **Speichern** → in der **Effektiv-Ansicht** (eigenes Profil + Admin-Modal) erscheinen entzogene Rechte **durchgestrichen mit „Persönlich entzogen"**, gesetzte mit **„Persönlich"-Chip**.
+  - **Rollen-Wechsel bei vorhandenen Overrides** → **Bestätigungs-Dialog** „trotz Anpassungen" (Overrides bleiben erhalten, werden nie stumm verworfen).
+  - **„Alle zurücksetzen"** → Badge/Filter verschwinden (hasOverrides = false).
+  - Rechte-Prüfung: Override-Editor nur für **admin** (`admin:user_override:manage`); **Nina (hr_admin)** darf Rollen zuweisen, aber **NICHT** Overrides bearbeiten.
+  - ⚠ Backend offen (Luke-Paket): user_permission_overrides-Tabelle · Resolution Rollen-Union → Overrides (deny/allow, Override gewinnt pro Key) · hasOverrides + deniedByOverride + `?base=1`-Param · Audit override_set/removed · Overrides dürfen auch die Modul-Sichtbarkeit (Ebene 1) schalten.
 - [ ] **security / DSGVO** ✅ gemergt (`43fecf37`, S-1…S-5) — **Demo-Mode prüfbar** (reine FE/MSW-Arbeit). Hub `/admin/security` (10 Sub-Tabs). Achten auf: alle Seiten crashfrei, keine Raw-Keys (DE+EN), DSGVO-Flows durchklickbar — Audit (Filter/Export), DSAR Art.15 (Cross-Modul-Suche + Export), Export Art.15/20 (Genehmigen/Download + Frist), Erasure Art.17 (Preview/Execute + Legal-Hold-Hinweis), Retention (DACH-Fristen + Auto-Löschung-Toggle), Sessions (beenden), Vault, PW-Policy, IP-Access, 2FA. Sub-Bericht: `.planning/parallel-batch/qa-security.md`.
 - [ ] **zeiterfassung** (Main, echt-geschaltet) — siehe C.
 
