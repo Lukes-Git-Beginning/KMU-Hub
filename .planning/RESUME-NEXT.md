@@ -1,4 +1,20 @@
-# RESUME — nächster Einstieg (Stand 2026-07-21, Session #24)
+# RESUME — nächster Einstieg (Stand 2026-07-21, Session #25)
+
+> **★★★★★ SESSION #25 (2026-07-21) — RBAC-TEAM-REVIEW-AGENDA AUFBEREITET + SELF-SERVICE-CUSTOMIZATION-BLOCK GESTARTET (Recherche→Konzept→v1.0→v1.1→v1.2). NEUES TERMINAL: erst `git pull`.**
+>
+> **Teil A — Team-Review-Agenda:** `hetzner-review-checklist.md` zur **Team-Agenda (Darien+Luke+Nico)** aufbereitet: R-4/R-5/R-6-Blöcke in Abschnitt B eingetragen (gleiches „klick hier"-Format), neuer §0 mit Split-Tabelle (Darien Daily-Use+Settings · Luke Finanzen/HR/Security+RBAC-Enforcement · Nico Branchen-Module) + **GATE**: Review startet NICHT vor Lukes RBAC-Backend-Deploy (permissions-Endpoint fehlt in Prod → RBAC auf Hetzner-Live unsichtbar) + Prod-Seed + BE-Fixes `9dfcf89e`/`b7242926`. Scope=ALLES, Umgebung=Hetzner-Live-nach-Deploy. Commit `e00680c7`. **→ Team-Review ist auf Luke geblockt.**
+>
+> **Teil B — Customization-Block („Anpassungen", das No-Code-Massanfertigungs-Tool, ein Tool für Kunde+Zentria-Onboarding):** Recherche-Gate (6 Agents: 3× Codebase-Ist `IST-A/B/C.md` + 3× Markt `MARKT-A/B/C.md`) → **KONZEPT.md = SSOT** (6 Eckpfeiler entschieden: v1=Fundament-Trio Custom-Fields+Labels+Value-Sets · Progressive Disclosure · Vendor→Tenant-Overlay-Schichten · zentrale Fläche+Modul-Schnellzugriffe · Overlay-only Update-Sicherheit · Branchen-Vorlagen). Commit `bde649b6`. **Kern-Architektur = R-6-Overlay-Muster (Code-Default ⊕ vendor ⊕ tenant, tenant gewinnt, Provenance mitgeführt).**
+> - **v1.0 ✅ fertig+verifiziert** (`a43bffcb`): Overlay-Fundament — `customization-types.ts`, `mocks/data/customization.ts` (`resolveLabelOverrides`/`resolveValueSet` + `base=1`), MSW-Handler, RBAC-Key `admin:customization:manage` (admin+it_admin), Audit, i18n ×4, Smoke 12/12.
+> - **v1.1 ✅ fertig+verifiziert** (`2bdd3407`): vereinheitlichter **Custom-Fields-Editor** (5 Entitäten work_task+crm_contact/company/deal/activity, 9 Feldtypen, Progressive Disclosure, Soft-Delete-Schutz) + **„Anpassungen"-Hub als 9. Admin-Tab** (`/admin/anpassungen`, konsistent mit AdminHubPage-Tabs). Screenshots angesehen: sauber, Du-Form, kein Doppel-Header.
+> - **v1.2 ⚠️ gebaut, 1 KRITISCHER offener Punkt** (`a57e11d7`): **Label-Editor** („Begriffe"-Tab, Provenance-Badges, Reset, Sprach-Wahl). 2 verifizierte Fixes von mir (Default-Anzeige-Snapshot in `useLabelOverlay.captureDefaults`/`getLabelDefault`; tote Whitelist-Keys `nav.*` → echte `layout.navItems.*`). **⚠️ OFFEN: globale Live-Wirkung der Overrides greift NUR bei direktem `t()`, NICHT bei useMemo-gecachten Flächen (Sidebar `useFilteredNavItems`) — `changeLanguage(sameLocale)` erzeugt kein neues `t`. Details+Fix-Optionen in `BUILD-PROGRESS.md` §v1.2. Playwright kann Live-Wirkung nicht reproduzieren → headed-Browser/Darien-Review nötig.**
+>
+> **★ NÄCHSTER SCHRITT:** (1) **v1.2 Live-Wirkungs-Fix** (globaler overlay-version-State in useMemo-Deps ODER Overlays synchron vor erstem Render mergen — durchdacht, headed verifizieren) → (2) **v1.3 Value-Sets-Editor** (3. Tab „Wertelisten", nutzt v1.0 `resolveValueSet`, Referenz-Auflösung in ≥1 Modul) → (3) **v1.4 „Anpassungen"-Hub-Politur** (Modul-Schnellzugriffe in ModuleSettingsShell, Template-Stub, Vendor/Tenant-Herkunfts-Banner). SSOT: `customization-block/KONZEPT.md` + `BUILD-PROGRESS.md`. **Parallel geblockt:** RBAC-Team-Review wartet auf Luke-Deploy. Untracked belassen: flags.yml + qa-dialer-callflow.mjs. Nachgelagert: Passwort-Manager, O-0 Onboarding.
+>
+> ---
+> _(Historie #24 folgt)_
+
+# RESUME — Historie (Stand 2026-07-21, Session #24)
 
 > **★★★★★ SESSION #24 TEIL 2 (2026-07-21) — RBAC R-6 PER-USER-OVERRIDES KOMPLETT GEBAUT + QA (VOLLE Variante allow+deny). Recherche-Gate + 4 Darien-Entscheide + Fundament + Editor + Run-2 + Gates + 9-Steps-QA ALL PASS. NEUES TERMINAL: HIER STARTEN (erst `git pull`).**
 >
