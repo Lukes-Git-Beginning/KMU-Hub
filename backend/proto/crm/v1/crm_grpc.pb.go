@@ -19,80 +19,81 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CRMService_CreateCustomField_FullMethodName        = "/crm.v1.CRMService/CreateCustomField"
-	CRMService_GetCustomField_FullMethodName           = "/crm.v1.CRMService/GetCustomField"
-	CRMService_ListCustomFields_FullMethodName         = "/crm.v1.CRMService/ListCustomFields"
-	CRMService_UpdateCustomField_FullMethodName        = "/crm.v1.CRMService/UpdateCustomField"
-	CRMService_DeleteCustomField_FullMethodName        = "/crm.v1.CRMService/DeleteCustomField"
-	CRMService_CreateTag_FullMethodName                = "/crm.v1.CRMService/CreateTag"
-	CRMService_GetTag_FullMethodName                   = "/crm.v1.CRMService/GetTag"
-	CRMService_ListTags_FullMethodName                 = "/crm.v1.CRMService/ListTags"
-	CRMService_UpdateTag_FullMethodName                = "/crm.v1.CRMService/UpdateTag"
-	CRMService_DeleteTag_FullMethodName                = "/crm.v1.CRMService/DeleteTag"
-	CRMService_CreateContact_FullMethodName            = "/crm.v1.CRMService/CreateContact"
-	CRMService_GetContact_FullMethodName               = "/crm.v1.CRMService/GetContact"
-	CRMService_ListContacts_FullMethodName             = "/crm.v1.CRMService/ListContacts"
-	CRMService_UpdateContact_FullMethodName            = "/crm.v1.CRMService/UpdateContact"
-	CRMService_DeleteContact_FullMethodName            = "/crm.v1.CRMService/DeleteContact"
-	CRMService_AddContactTags_FullMethodName           = "/crm.v1.CRMService/AddContactTags"
-	CRMService_RemoveContactTags_FullMethodName        = "/crm.v1.CRMService/RemoveContactTags"
-	CRMService_ImportContactsCSV_FullMethodName        = "/crm.v1.CRMService/ImportContactsCSV"
-	CRMService_ImportContactsVCard_FullMethodName      = "/crm.v1.CRMService/ImportContactsVCard"
-	CRMService_ExportContactsCSV_FullMethodName        = "/crm.v1.CRMService/ExportContactsCSV"
-	CRMService_ExportContactsVCard_FullMethodName      = "/crm.v1.CRMService/ExportContactsVCard"
-	CRMService_PreviewImportCSV_FullMethodName         = "/crm.v1.CRMService/PreviewImportCSV"
-	CRMService_UpdateContactVisibility_FullMethodName  = "/crm.v1.CRMService/UpdateContactVisibility"
-	CRMService_CreateCompany_FullMethodName            = "/crm.v1.CRMService/CreateCompany"
-	CRMService_GetCompany_FullMethodName               = "/crm.v1.CRMService/GetCompany"
-	CRMService_ListCompanies_FullMethodName            = "/crm.v1.CRMService/ListCompanies"
-	CRMService_UpdateCompany_FullMethodName            = "/crm.v1.CRMService/UpdateCompany"
-	CRMService_DeleteCompany_FullMethodName            = "/crm.v1.CRMService/DeleteCompany"
-	CRMService_GetCompanyContacts_FullMethodName       = "/crm.v1.CRMService/GetCompanyContacts"
-	CRMService_CreatePipelineStage_FullMethodName      = "/crm.v1.CRMService/CreatePipelineStage"
-	CRMService_GetPipelineStage_FullMethodName         = "/crm.v1.CRMService/GetPipelineStage"
-	CRMService_ListPipelineStages_FullMethodName       = "/crm.v1.CRMService/ListPipelineStages"
-	CRMService_UpdatePipelineStage_FullMethodName      = "/crm.v1.CRMService/UpdatePipelineStage"
-	CRMService_DeletePipelineStage_FullMethodName      = "/crm.v1.CRMService/DeletePipelineStage"
-	CRMService_ReorderPipelineStages_FullMethodName    = "/crm.v1.CRMService/ReorderPipelineStages"
-	CRMService_CreateDeal_FullMethodName               = "/crm.v1.CRMService/CreateDeal"
-	CRMService_GetDeal_FullMethodName                  = "/crm.v1.CRMService/GetDeal"
-	CRMService_ListDeals_FullMethodName                = "/crm.v1.CRMService/ListDeals"
-	CRMService_UpdateDeal_FullMethodName               = "/crm.v1.CRMService/UpdateDeal"
-	CRMService_DeleteDeal_FullMethodName               = "/crm.v1.CRMService/DeleteDeal"
-	CRMService_MoveDealToStage_FullMethodName          = "/crm.v1.CRMService/MoveDealToStage"
-	CRMService_CreateActivity_FullMethodName           = "/crm.v1.CRMService/CreateActivity"
-	CRMService_GetActivity_FullMethodName              = "/crm.v1.CRMService/GetActivity"
-	CRMService_ListActivities_FullMethodName           = "/crm.v1.CRMService/ListActivities"
-	CRMService_UpdateActivity_FullMethodName           = "/crm.v1.CRMService/UpdateActivity"
-	CRMService_DeleteActivity_FullMethodName           = "/crm.v1.CRMService/DeleteActivity"
-	CRMService_CompleteActivity_FullMethodName         = "/crm.v1.CRMService/CompleteActivity"
-	CRMService_Search_FullMethodName                   = "/crm.v1.CRMService/Search"
-	CRMService_CreateSavedFilter_FullMethodName        = "/crm.v1.CRMService/CreateSavedFilter"
-	CRMService_GetSavedFilter_FullMethodName           = "/crm.v1.CRMService/GetSavedFilter"
-	CRMService_ListSavedFilters_FullMethodName         = "/crm.v1.CRMService/ListSavedFilters"
-	CRMService_UpdateSavedFilter_FullMethodName        = "/crm.v1.CRMService/UpdateSavedFilter"
-	CRMService_DeleteSavedFilter_FullMethodName        = "/crm.v1.CRMService/DeleteSavedFilter"
-	CRMService_GetPipelineReport_FullMethodName        = "/crm.v1.CRMService/GetPipelineReport"
-	CRMService_GetConversionReport_FullMethodName      = "/crm.v1.CRMService/GetConversionReport"
-	CRMService_GetActivityReport_FullMethodName        = "/crm.v1.CRMService/GetActivityReport"
-	CRMService_FindContactDuplicates_FullMethodName    = "/crm.v1.CRMService/FindContactDuplicates"
-	CRMService_MergeContacts_FullMethodName            = "/crm.v1.CRMService/MergeContacts"
-	CRMService_FindCompanyDuplicates_FullMethodName    = "/crm.v1.CRMService/FindCompanyDuplicates"
-	CRMService_MergeCompanies_FullMethodName           = "/crm.v1.CRMService/MergeCompanies"
-	CRMService_GetContactTimeline_FullMethodName       = "/crm.v1.CRMService/GetContactTimeline"
-	CRMService_GetContactConsents_FullMethodName       = "/crm.v1.CRMService/GetContactConsents"
-	CRMService_GrantConsent_FullMethodName             = "/crm.v1.CRMService/GrantConsent"
-	CRMService_RevokeConsent_FullMethodName            = "/crm.v1.CRMService/RevokeConsent"
-	CRMService_GetConsentHistory_FullMethodName        = "/crm.v1.CRMService/GetConsentHistory"
-	CRMService_RequestDeletion_FullMethodName          = "/crm.v1.CRMService/RequestDeletion"
-	CRMService_ProcessDeletion_FullMethodName          = "/crm.v1.CRMService/ProcessDeletion"
-	CRMService_CreateAdvisoryProtocol_FullMethodName   = "/crm.v1.CRMService/CreateAdvisoryProtocol"
-	CRMService_GetAdvisoryProtocol_FullMethodName      = "/crm.v1.CRMService/GetAdvisoryProtocol"
-	CRMService_ListAdvisoryProtocols_FullMethodName    = "/crm.v1.CRMService/ListAdvisoryProtocols"
-	CRMService_UpdateAdvisoryProtocol_FullMethodName   = "/crm.v1.CRMService/UpdateAdvisoryProtocol"
-	CRMService_DeleteAdvisoryProtocol_FullMethodName   = "/crm.v1.CRMService/DeleteAdvisoryProtocol"
-	CRMService_HandOverAdvisoryProtocol_FullMethodName = "/crm.v1.CRMService/HandOverAdvisoryProtocol"
-	CRMService_GetReferralReport_FullMethodName        = "/crm.v1.CRMService/GetReferralReport"
+	CRMService_CreateCustomField_FullMethodName           = "/crm.v1.CRMService/CreateCustomField"
+	CRMService_GetCustomField_FullMethodName              = "/crm.v1.CRMService/GetCustomField"
+	CRMService_ListCustomFields_FullMethodName            = "/crm.v1.CRMService/ListCustomFields"
+	CRMService_UpdateCustomField_FullMethodName           = "/crm.v1.CRMService/UpdateCustomField"
+	CRMService_DeleteCustomField_FullMethodName           = "/crm.v1.CRMService/DeleteCustomField"
+	CRMService_CreateTag_FullMethodName                   = "/crm.v1.CRMService/CreateTag"
+	CRMService_GetTag_FullMethodName                      = "/crm.v1.CRMService/GetTag"
+	CRMService_ListTags_FullMethodName                    = "/crm.v1.CRMService/ListTags"
+	CRMService_UpdateTag_FullMethodName                   = "/crm.v1.CRMService/UpdateTag"
+	CRMService_DeleteTag_FullMethodName                   = "/crm.v1.CRMService/DeleteTag"
+	CRMService_CreateContact_FullMethodName               = "/crm.v1.CRMService/CreateContact"
+	CRMService_GetContact_FullMethodName                  = "/crm.v1.CRMService/GetContact"
+	CRMService_ListContacts_FullMethodName                = "/crm.v1.CRMService/ListContacts"
+	CRMService_UpdateContact_FullMethodName               = "/crm.v1.CRMService/UpdateContact"
+	CRMService_DeleteContact_FullMethodName               = "/crm.v1.CRMService/DeleteContact"
+	CRMService_AddContactTags_FullMethodName              = "/crm.v1.CRMService/AddContactTags"
+	CRMService_RemoveContactTags_FullMethodName           = "/crm.v1.CRMService/RemoveContactTags"
+	CRMService_ImportContactsCSV_FullMethodName           = "/crm.v1.CRMService/ImportContactsCSV"
+	CRMService_ImportContactsVCard_FullMethodName         = "/crm.v1.CRMService/ImportContactsVCard"
+	CRMService_ExportContactsCSV_FullMethodName           = "/crm.v1.CRMService/ExportContactsCSV"
+	CRMService_ExportContactsVCard_FullMethodName         = "/crm.v1.CRMService/ExportContactsVCard"
+	CRMService_PreviewImportCSV_FullMethodName            = "/crm.v1.CRMService/PreviewImportCSV"
+	CRMService_UpdateContactVisibility_FullMethodName     = "/crm.v1.CRMService/UpdateContactVisibility"
+	CRMService_CreateCompany_FullMethodName               = "/crm.v1.CRMService/CreateCompany"
+	CRMService_GetCompany_FullMethodName                  = "/crm.v1.CRMService/GetCompany"
+	CRMService_ListCompanies_FullMethodName               = "/crm.v1.CRMService/ListCompanies"
+	CRMService_UpdateCompany_FullMethodName               = "/crm.v1.CRMService/UpdateCompany"
+	CRMService_DeleteCompany_FullMethodName               = "/crm.v1.CRMService/DeleteCompany"
+	CRMService_GetCompanyContacts_FullMethodName          = "/crm.v1.CRMService/GetCompanyContacts"
+	CRMService_CreatePipelineStage_FullMethodName         = "/crm.v1.CRMService/CreatePipelineStage"
+	CRMService_GetPipelineStage_FullMethodName            = "/crm.v1.CRMService/GetPipelineStage"
+	CRMService_ListPipelineStages_FullMethodName          = "/crm.v1.CRMService/ListPipelineStages"
+	CRMService_UpdatePipelineStage_FullMethodName         = "/crm.v1.CRMService/UpdatePipelineStage"
+	CRMService_DeletePipelineStage_FullMethodName         = "/crm.v1.CRMService/DeletePipelineStage"
+	CRMService_ReorderPipelineStages_FullMethodName       = "/crm.v1.CRMService/ReorderPipelineStages"
+	CRMService_CreateDeal_FullMethodName                  = "/crm.v1.CRMService/CreateDeal"
+	CRMService_GetDeal_FullMethodName                     = "/crm.v1.CRMService/GetDeal"
+	CRMService_ListDeals_FullMethodName                   = "/crm.v1.CRMService/ListDeals"
+	CRMService_UpdateDeal_FullMethodName                  = "/crm.v1.CRMService/UpdateDeal"
+	CRMService_DeleteDeal_FullMethodName                  = "/crm.v1.CRMService/DeleteDeal"
+	CRMService_MoveDealToStage_FullMethodName             = "/crm.v1.CRMService/MoveDealToStage"
+	CRMService_CreateActivity_FullMethodName              = "/crm.v1.CRMService/CreateActivity"
+	CRMService_GetActivity_FullMethodName                 = "/crm.v1.CRMService/GetActivity"
+	CRMService_ListActivities_FullMethodName              = "/crm.v1.CRMService/ListActivities"
+	CRMService_UpdateActivity_FullMethodName              = "/crm.v1.CRMService/UpdateActivity"
+	CRMService_DeleteActivity_FullMethodName              = "/crm.v1.CRMService/DeleteActivity"
+	CRMService_CompleteActivity_FullMethodName            = "/crm.v1.CRMService/CompleteActivity"
+	CRMService_Search_FullMethodName                      = "/crm.v1.CRMService/Search"
+	CRMService_CreateSavedFilter_FullMethodName           = "/crm.v1.CRMService/CreateSavedFilter"
+	CRMService_GetSavedFilter_FullMethodName              = "/crm.v1.CRMService/GetSavedFilter"
+	CRMService_ListSavedFilters_FullMethodName            = "/crm.v1.CRMService/ListSavedFilters"
+	CRMService_UpdateSavedFilter_FullMethodName           = "/crm.v1.CRMService/UpdateSavedFilter"
+	CRMService_DeleteSavedFilter_FullMethodName           = "/crm.v1.CRMService/DeleteSavedFilter"
+	CRMService_GetPipelineReport_FullMethodName           = "/crm.v1.CRMService/GetPipelineReport"
+	CRMService_GetConversionReport_FullMethodName         = "/crm.v1.CRMService/GetConversionReport"
+	CRMService_GetActivityReport_FullMethodName           = "/crm.v1.CRMService/GetActivityReport"
+	CRMService_FindContactDuplicates_FullMethodName       = "/crm.v1.CRMService/FindContactDuplicates"
+	CRMService_MergeContacts_FullMethodName               = "/crm.v1.CRMService/MergeContacts"
+	CRMService_FindCompanyDuplicates_FullMethodName       = "/crm.v1.CRMService/FindCompanyDuplicates"
+	CRMService_MergeCompanies_FullMethodName              = "/crm.v1.CRMService/MergeCompanies"
+	CRMService_GetContactTimeline_FullMethodName          = "/crm.v1.CRMService/GetContactTimeline"
+	CRMService_GetContactConsents_FullMethodName          = "/crm.v1.CRMService/GetContactConsents"
+	CRMService_GrantConsent_FullMethodName                = "/crm.v1.CRMService/GrantConsent"
+	CRMService_RevokeConsent_FullMethodName               = "/crm.v1.CRMService/RevokeConsent"
+	CRMService_GetConsentHistory_FullMethodName           = "/crm.v1.CRMService/GetConsentHistory"
+	CRMService_RequestDeletion_FullMethodName             = "/crm.v1.CRMService/RequestDeletion"
+	CRMService_ProcessDeletion_FullMethodName             = "/crm.v1.CRMService/ProcessDeletion"
+	CRMService_CreateAdvisoryProtocol_FullMethodName      = "/crm.v1.CRMService/CreateAdvisoryProtocol"
+	CRMService_GetAdvisoryProtocol_FullMethodName         = "/crm.v1.CRMService/GetAdvisoryProtocol"
+	CRMService_ListAdvisoryProtocols_FullMethodName       = "/crm.v1.CRMService/ListAdvisoryProtocols"
+	CRMService_UpdateAdvisoryProtocol_FullMethodName      = "/crm.v1.CRMService/UpdateAdvisoryProtocol"
+	CRMService_DeleteAdvisoryProtocol_FullMethodName      = "/crm.v1.CRMService/DeleteAdvisoryProtocol"
+	CRMService_HandOverAdvisoryProtocol_FullMethodName    = "/crm.v1.CRMService/HandOverAdvisoryProtocol"
+	CRMService_GenerateAdvisoryProtocolPDF_FullMethodName = "/crm.v1.CRMService/GenerateAdvisoryProtocolPDF"
+	CRMService_GetReferralReport_FullMethodName           = "/crm.v1.CRMService/GetReferralReport"
 )
 
 // CRMServiceClient is the client API for CRMService service.
@@ -187,6 +188,7 @@ type CRMServiceClient interface {
 	UpdateAdvisoryProtocol(ctx context.Context, in *UpdateAdvisoryProtocolRequest, opts ...grpc.CallOption) (*UpdateAdvisoryProtocolResponse, error)
 	DeleteAdvisoryProtocol(ctx context.Context, in *DeleteAdvisoryProtocolRequest, opts ...grpc.CallOption) (*DeleteAdvisoryProtocolResponse, error)
 	HandOverAdvisoryProtocol(ctx context.Context, in *HandOverAdvisoryProtocolRequest, opts ...grpc.CallOption) (*HandOverAdvisoryProtocolResponse, error)
+	GenerateAdvisoryProtocolPDF(ctx context.Context, in *GenerateAdvisoryProtocolPDFRequest, opts ...grpc.CallOption) (*GenerateAdvisoryProtocolPDFResponse, error)
 	GetReferralReport(ctx context.Context, in *GetReferralReportRequest, opts ...grpc.CallOption) (*GetReferralReportResponse, error)
 }
 
@@ -928,6 +930,16 @@ func (c *cRMServiceClient) HandOverAdvisoryProtocol(ctx context.Context, in *Han
 	return out, nil
 }
 
+func (c *cRMServiceClient) GenerateAdvisoryProtocolPDF(ctx context.Context, in *GenerateAdvisoryProtocolPDFRequest, opts ...grpc.CallOption) (*GenerateAdvisoryProtocolPDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateAdvisoryProtocolPDFResponse)
+	err := c.cc.Invoke(ctx, CRMService_GenerateAdvisoryProtocolPDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *cRMServiceClient) GetReferralReport(ctx context.Context, in *GetReferralReportRequest, opts ...grpc.CallOption) (*GetReferralReportResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetReferralReportResponse)
@@ -1030,6 +1042,7 @@ type CRMServiceServer interface {
 	UpdateAdvisoryProtocol(context.Context, *UpdateAdvisoryProtocolRequest) (*UpdateAdvisoryProtocolResponse, error)
 	DeleteAdvisoryProtocol(context.Context, *DeleteAdvisoryProtocolRequest) (*DeleteAdvisoryProtocolResponse, error)
 	HandOverAdvisoryProtocol(context.Context, *HandOverAdvisoryProtocolRequest) (*HandOverAdvisoryProtocolResponse, error)
+	GenerateAdvisoryProtocolPDF(context.Context, *GenerateAdvisoryProtocolPDFRequest) (*GenerateAdvisoryProtocolPDFResponse, error)
 	GetReferralReport(context.Context, *GetReferralReportRequest) (*GetReferralReportResponse, error)
 	mustEmbedUnimplementedCRMServiceServer()
 }
@@ -1259,6 +1272,9 @@ func (UnimplementedCRMServiceServer) DeleteAdvisoryProtocol(context.Context, *De
 }
 func (UnimplementedCRMServiceServer) HandOverAdvisoryProtocol(context.Context, *HandOverAdvisoryProtocolRequest) (*HandOverAdvisoryProtocolResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method HandOverAdvisoryProtocol not implemented")
+}
+func (UnimplementedCRMServiceServer) GenerateAdvisoryProtocolPDF(context.Context, *GenerateAdvisoryProtocolPDFRequest) (*GenerateAdvisoryProtocolPDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateAdvisoryProtocolPDF not implemented")
 }
 func (UnimplementedCRMServiceServer) GetReferralReport(context.Context, *GetReferralReportRequest) (*GetReferralReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReferralReport not implemented")
@@ -2598,6 +2614,24 @@ func _CRMService_HandOverAdvisoryProtocol_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CRMService_GenerateAdvisoryProtocolPDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateAdvisoryProtocolPDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).GenerateAdvisoryProtocolPDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_GenerateAdvisoryProtocolPDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).GenerateAdvisoryProtocolPDF(ctx, req.(*GenerateAdvisoryProtocolPDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CRMService_GetReferralReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetReferralReportRequest)
 	if err := dec(in); err != nil {
@@ -2914,6 +2948,10 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HandOverAdvisoryProtocol",
 			Handler:    _CRMService_HandOverAdvisoryProtocol_Handler,
+		},
+		{
+			MethodName: "GenerateAdvisoryProtocolPDF",
+			Handler:    _CRMService_GenerateAdvisoryProtocolPDF_Handler,
 		},
 		{
 			MethodName: "GetReferralReport",

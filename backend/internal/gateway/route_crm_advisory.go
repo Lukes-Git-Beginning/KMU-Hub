@@ -321,21 +321,27 @@ func (c *CRMRoutes) HandleHandOverAdvisoryProtocol(w http.ResponseWriter, r *htt
 }
 
 // HandleAdvisoryProtocolPDF GET /api/v1/advisory-protocols/{id}/pdf
-// Returns a server-generated PDF binary for archival and printing.
-// The PDF is generated on-demand from the stored protocol data.
+// Returns a server-generated PDF binary (Geeignetheitserklärung) for archival and
+// printing. Rendered on-demand from the stored protocol data by the CRM service.
 func (c *CRMRoutes) HandleAdvisoryProtocolPDF(w http.ResponseWriter, r *http.Request) {
-	// Note: PDF generation requires the CRM service to have the advisoryProtocolService
-	// configured AND access to contact/company names. The gateway fetches the protocol
-	// via gRPC, then requests the PDF binary from a dedicated gRPC streaming call.
-	//
-	// For now we return a stub that signals "not yet available in gateway" — the FE
-	// uses window.print() (browser PDF) as its primary PDF path, which does NOT
-	// require this endpoint. This endpoint is for server-side archiving only.
-	//
-	// TODO: wire GeneratePDF once a dedicated gRPC streaming RPC is added, or expose
-	// via a dedicated PDF service. The CRM service already has the logic in
-	// internal/crm/advisoryprotocol/service.go#GeneratePDF.
-	response.Error(w, http.StatusNotImplemented, "server-side PDF generation: use browser print for now")
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GenerateAdvisoryProtocolPDF(r.Context(), &crmv1.GenerateAdvisoryProtocolPDFRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondPDF(w, resp.PdfData, resp.Filename)
 }
 
 // HandleReferralReport GET /api/v1/contacts/referral-report

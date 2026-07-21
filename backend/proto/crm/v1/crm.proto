@@ -107,6 +107,7 @@ service CRMService {
   rpc UpdateAdvisoryProtocol(UpdateAdvisoryProtocolRequest) returns (UpdateAdvisoryProtocolResponse);
   rpc DeleteAdvisoryProtocol(DeleteAdvisoryProtocolRequest) returns (DeleteAdvisoryProtocolResponse);
   rpc HandOverAdvisoryProtocol(HandOverAdvisoryProtocolRequest) returns (HandOverAdvisoryProtocolResponse);
+  rpc GenerateAdvisoryProtocolPDF(GenerateAdvisoryProtocolPDFRequest) returns (GenerateAdvisoryProtocolPDFResponse);
   rpc GetReferralReport(GetReferralReportRequest) returns (GetReferralReportResponse);
 }
 
@@ -1216,6 +1217,11 @@ message DeleteAdvisoryProtocolRequest { string id = 1; }
 message DeleteAdvisoryProtocolResponse { bool ok = 1; }
 message HandOverAdvisoryProtocolRequest { string id = 1; }
 message HandOverAdvisoryProtocolResponse { AdvisoryProtocolProto protocol = 1; }
+message GenerateAdvisoryProtocolPDFRequest { string id = 1; }
+message GenerateAdvisoryProtocolPDFResponse {
+  bytes pdf_data = 1;
+  string filename = 2;
+}
 
 message ReferralReportEntry {
   string referrer_id = 1;

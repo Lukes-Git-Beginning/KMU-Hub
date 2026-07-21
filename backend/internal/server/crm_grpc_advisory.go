@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -151,6 +153,51 @@ func (s *CRMGRPCServer) HandOverAdvisoryProtocol(ctx context.Context, req *crmv1
 		return nil, mapCRMError(err)
 	}
 	return &crmv1.HandOverAdvisoryProtocolResponse{Protocol: toAdvisoryProto(p)}, nil
+}
+
+// GenerateAdvisoryProtocolPDF renders a protocol as a server-side PDF
+// (Geeignetheitserklärung) for archiving and printing. It reuses the existing
+// maroto renderer in advisoryprotocol.Service.GeneratePDF — no new dependency —
+// and resolves the party names from the contact record for the document header.
+func (s *CRMGRPCServer) GenerateAdvisoryProtocolPDF(ctx context.Context, req *crmv1.GenerateAdvisoryProtocolPDFRequest) (*crmv1.GenerateAdvisoryProtocolPDFResponse, error) {
+	if s.advisoryProtocolService == nil {
+		return nil, status.Error(codes.Unavailable, "advisory protocol service not configured")
+	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	p, err := s.advisoryProtocolService.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	// Resolve denormalized party names for the header. Best-effort: a missing or
+	// unreadable contact must not block archiving of an already-finalized protocol.
+	var contactName, companyName string
+	if s.contactService != nil {
+		if c, cErr := s.contactService.GetByID(ctx, p.ContactID, tenantID); cErr == nil {
+			contactName = strings.TrimSpace(c.FirstName + " " + c.LastName)
+			if c.CompanyName != nil {
+				companyName = *c.CompanyName
+			}
+		}
+	}
+
+	pdfBytes, err := s.advisoryProtocolService.GeneratePDF(ctx, p, contactName, companyName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "generate advisory protocol pdf: "+err.Error())
+	}
+
+	return &crmv1.GenerateAdvisoryProtocolPDFResponse{
+		PdfData:  pdfBytes,
+		Filename: fmt.Sprintf("Beratungsprotokoll_%s.pdf", id.String()[:8]),
+	}, nil
 }
 
 func (s *CRMGRPCServer) GetReferralReport(ctx context.Context, _ *crmv1.GetReferralReportRequest) (*crmv1.GetReferralReportResponse, error) {
