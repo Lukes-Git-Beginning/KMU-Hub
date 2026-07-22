@@ -1,72 +1,31 @@
 /**
- * AnpassungenTab — Sub-Tab-Inhalt für „Anpassungen" im AdminHubPage.
+ * AnpassungenTab — the "Anpassungen" tab in AdminHubPage: the entry into the
+ * module editor.
  *
- * Eingehängt als 9. Tab unter /admin/anpassungen (+ /admin/anpassungen/felder).
- * AdminHubPage liefert den übergeordneten „Verwaltung"-Header + die Top-Tab-Leiste.
- * Diese Komponente beginnt direkt mit der Sub-Tab-Leiste — identisch zu SecurityAdminHubTab.
+ * The old inline Felder/Begriffe admin lists (v1.1/v1.2) were removed — after the
+ * re-scoping, customization happens ONLY inside the module editor, not on the
+ * live admin surface (Darien 2026-07-22: "die Felder machen in Cosmi keinen Sinn,
+ * sind nur im Baukasten-Editor"). E-4 turns this launch grid into the full module
+ * gallery (status/preview, editable manifest per module).
  *
- * Gated auf `admin:customization:manage` — nur admin + it_admin haben diesen Key.
- * Das Gate wird von AdminHubPage bereits via TAB_CAPABILITY geprüft; hier nur
- * pessimistisches ready-Guard + Sub-Tab-Filterung.
- *
- * Sub-Tabs:
- *   v1.1 Felder (CustomFieldsTab)
- *   v1.2 Begriffe — hier als Kommentar-Slot vorbereitet
- *   v1.3 Wertelisten — hier als Kommentar-Slot vorbereitet
- *
- * URL-Sync: /admin/anpassungen/felder setzt activeSubTab='felder' via ?subtab-Param
- * oder Pathname-Matching (ROUTE_TO_SUBTAB). Weitere Sub-Tabs nach demselben Muster.
+ * Gated on `admin:customization:manage` (admin + it_admin) via AdminHubPage.
  */
-import { useEffect, useRef, lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Contact, LifeBuoy, Wand2 } from 'lucide-react'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import { useCapabilitySet } from '@/hooks/useCapability'
 import { EDITOR_MODULES } from './editor/editorModules'
 
-const CustomFieldsTab = lazy(() => import('./CustomFieldsTab'))
-const BegriffeTab = lazy(() => import('./BegriffeTab'))
-
 /** Lucide icon per editor-module (matches EditorModuleDef.icon). */
 const MODULE_ICON = { contact: Contact, lifeBuoy: LifeBuoy } as const
 
-type AnpassungenSubTab = 'felder' | 'begriffe'
-// v1.3: | 'wertelisten'
-
-/** Pathname → Sub-Tab-Schlüssel (für Deep-Links via URL). */
-const ROUTE_TO_SUBTAB: Record<string, AnpassungenSubTab> = {
-  '/admin/anpassungen/felder': 'felder',
-  '/admin/anpassungen/begriffe': 'begriffe',
-}
-
-/** Sub-Tab → Route (für navigate bei Tab-Wechsel). */
-const SUBTAB_TO_ROUTE: Record<AnpassungenSubTab, string> = {
-  felder: '/admin/anpassungen/felder',
-  begriffe: '/admin/anpassungen/begriffe',
-}
-
-/** Capability gate per Sub-Tab. undefined = kein zusätzliches Gate. */
-const SUBTAB_CAPABILITY: Partial<Record<AnpassungenSubTab, string>> = {
-  felder: 'admin:customization:manage',
-  begriffe: 'admin:customization:manage',
-}
-
-const ALL_SUB_TABS: { key: AnpassungenSubTab; labelKey: string }[] = [
-  { key: 'felder', labelKey: 'customization.hub.tabs.felder' },
-  { key: 'begriffe', labelKey: 'customization.hub.tabs.begriffe' },
-  // v1.3: { key: 'wertelisten', labelKey: 'customization.hub.tabs.wertelisten' },
-]
-
 export default function AnpassungenTab() {
   const { t } = useTranslation()
-  const { has, ready } = useCapabilitySet()
-  const contentRef = useRef<HTMLDivElement>(null)
-  const location = useLocation()
+  const { ready } = useCapabilitySet()
   const navigate = useNavigate()
 
-  // Temporary editor launch (E-2b). E-4 replaces this strip with the full module
-  // gallery. Opens the editor in its own OS window (web fallback: same-window route).
+  // Open the editor in its own OS window (web fallback: same-window route).
   const openEditor = (key: string): void => {
     if (window.electronAPI?.editor) {
       void window.electronAPI.editor.openWindow(key)
@@ -75,116 +34,42 @@ export default function AnpassungenTab() {
     }
   }
 
-  // Deep-Link-Support: Pathname-Matching für /admin/anpassungen/felder etc.
-  const pathnameTab = ROUTE_TO_SUBTAB[location.pathname] ?? null
-
-  // null = noch keine explizite Auswahl → erster erlaubter Tab nach ready.
-  const [activeSubTab, setActiveSubTab] = useState<AnpassungenSubTab | null>(pathnameTab)
-
-  const subTabs = ready
-    ? ALL_SUB_TABS.filter((tab) => {
-        const cap = SUBTAB_CAPABILITY[tab.key]
-        return cap ? has(cap) : true
-      })
-    : []
-
-  const isActiveAllowed = activeSubTab !== null && subTabs.some((tab) => tab.key === activeSubTab)
-  const effectiveSubTab: AnpassungenSubTab =
-    isActiveAllowed && activeSubTab !== null ? activeSubTab : (subTabs[0]?.key ?? 'felder')
-
-  useEffect(() => {
-    contentRef.current?.focus()
-  }, [effectiveSubTab])
-
-  const handleSubTabChange = (tab: AnpassungenSubTab) => {
-    setActiveSubTab(tab)
-    navigate(SUBTAB_TO_ROUTE[tab])
-  }
-
   if (!ready) return <ModuleLoadingFallback />
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Modul-Editor-Einstieg (E-2, temporär — E-4 wird die volle Galerie). */}
-      <div className="shrink-0 border-b border-border bg-muted/20 px-6 py-4">
-        <div className="mb-2.5 flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent-1)]/10 text-[var(--accent-1)]">
-            <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </div>
-          <h2 className="text-sm font-semibold text-foreground">
-            {t('customization.editor.launch.title')}
-          </h2>
-          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-            {t('customization.editor.launch.beta')}
-          </span>
+    <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
+      <div className="mb-2.5 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-1)]/10 text-[var(--accent-1)]">
+          <Wand2 className="h-4 w-4" aria-hidden="true" />
         </div>
-        <p className="mb-3 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-          {t('customization.editor.launch.subtitle')}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {EDITOR_MODULES.map((mod) => {
-            const Icon = MODULE_ICON[mod.icon]
-            return (
-              <button
-                key={mod.key}
-                type="button"
-                onClick={() => openEditor(mod.key)}
-                className="group flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-2.5 text-left transition-colors hover:border-[var(--accent-1)]/40 hover:bg-[var(--accent-1)]/5"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-[var(--accent-1)]/10 group-hover:text-[var(--accent-1)]">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{t(mod.titleKey)}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {t('customization.editor.launch.open')}
-                  </p>
-                </div>
-              </button>
-            )
-          })}
-        </div>
+        <h2 className="text-base font-semibold text-foreground">{t('customization.editor.launch.title')}</h2>
+        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+          {t('customization.editor.launch.beta')}
+        </span>
       </div>
-
-      {/* Sub-Tab-Leiste — direkt beginnend, kein Doppel-Header */}
-      <div
-        role="tablist"
-        aria-label={t('admin.hub.tabs.customization')}
-        className="shrink-0 flex gap-0 px-6 pt-4 border-b border-border overflow-x-auto touch-manipulation"
-      >
-        {subTabs.map((tab) => (
-          <button
-            key={tab.key}
-            id={`anpassungen-subtab-${tab.key}`}
-            role="tab"
-            aria-selected={effectiveSubTab === tab.key}
-            aria-controls={`anpassungen-panel-${tab.key}`}
-            onClick={() => handleSubTabChange(tab.key)}
-            className={[
-              'whitespace-nowrap px-3 py-2 text-sm border-b-2 -mb-px transition-colors',
-              effectiveSubTab === tab.key
-                ? 'border-primary text-primary font-medium'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
-            ].join(' ')}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
-
-      {/* Sub-Tab-Inhalt */}
-      <div
-        ref={contentRef}
-        tabIndex={-1}
-        id={`anpassungen-panel-${effectiveSubTab}`}
-        role="tabpanel"
-        aria-labelledby={`anpassungen-subtab-${effectiveSubTab}`}
-        className="flex-1 overflow-y-auto outline-none"
-      >
-        <Suspense fallback={<ModuleLoadingFallback />}>
-          {effectiveSubTab === 'felder' && <CustomFieldsTab />}
-          {effectiveSubTab === 'begriffe' && <BegriffeTab />}
-        </Suspense>
+      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        {t('customization.editor.launch.subtitle')}
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {EDITOR_MODULES.map((mod) => {
+          const Icon = MODULE_ICON[mod.icon]
+          return (
+            <button
+              key={mod.key}
+              type="button"
+              onClick={() => openEditor(mod.key)}
+              className="group flex items-center gap-3 rounded-xl border bg-background px-4 py-3.5 text-left transition-colors hover:border-[var(--accent-1)]/40 hover:bg-[var(--accent-1)]/5"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-[var(--accent-1)]/10 group-hover:text-[var(--accent-1)]">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">{t(mod.titleKey)}</p>
+                <p className="truncate text-xs text-muted-foreground">{t('customization.editor.launch.open')}</p>
+              </div>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
