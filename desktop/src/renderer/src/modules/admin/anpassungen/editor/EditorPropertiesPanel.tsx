@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { MousePointerClick, Type, ListChecks, SquareStack } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { EditorSection } from './EditorTrioNav'
+import { BegriffePanel } from './BegriffePanel'
 
 const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; descKey: string }> = {
   felder: {
@@ -31,8 +32,10 @@ const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; 
 
 export function EditorPropertiesPanel({
   section,
+  moduleKey,
 }: {
   section: EditorSection | null
+  moduleKey: string
 }): React.ReactElement {
   const { t } = useTranslation()
 
@@ -61,9 +64,13 @@ export function EditorPropertiesPanel({
         </div>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t(meta.descKey)}</p>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>
-      </div>
+      {section === 'begriffe' ? (
+        <BegriffePanel moduleKey={moduleKey} />
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>
+        </div>
+      )}
     </aside>
   )
 }

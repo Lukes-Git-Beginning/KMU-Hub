@@ -11778,5 +11778,8 @@
   "customization.editor.launch.beta": "Bêta",
   "customization.editor.launch.subtitle": "Ouvre un module dans l’éditeur pour personnaliser ses champs, termes et listes de valeurs — en aperçu, sans toucher au système en production.",
   "customization.editor.launch.open": "Ouvrir l’éditeur",
-  "customization.editor.unknownModule": "Module introuvable."
+  "customization.editor.unknownModule": "Module introuvable.",
+  "customization.editor.begriffe.reset": "Réinitialiser",
+  "customization.editor.begriffe.standardHint": "Défaut : {value}",
+  "customization.labels.provenance.draft": "Brouillon"
 }

@@ -372,7 +372,7 @@ export default function HelpdeskPage() {
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
       <PageHeader
-        title="Helpdesk"
+        title={t('rbac.module.helpdesk')}
         description={t('helpdesk.header.description', { openCount: openTickets.length, articleCount: kbArticles.length })}
         icon={LifeBuoy}
         moduleId="helpdesk"

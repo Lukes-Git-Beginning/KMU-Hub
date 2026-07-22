@@ -11812,5 +11812,8 @@
   "customization.editor.launch.beta": "Beta",
   "customization.editor.launch.subtitle": "Open a module in the editor to customize its fields, terms and value lists — as a preview, without touching the live system.",
   "customization.editor.launch.open": "Open editor",
-  "customization.editor.unknownModule": "Module not found."
+  "customization.editor.unknownModule": "Module not found.",
+  "customization.editor.begriffe.reset": "Reset",
+  "customization.editor.begriffe.standardHint": "Default: {value}",
+  "customization.labels.provenance.draft": "Draft"
 }

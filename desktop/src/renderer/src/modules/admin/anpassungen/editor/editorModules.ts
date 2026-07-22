@@ -19,6 +19,11 @@ export interface EditorModuleDef {
   previewPath: string
   /** Lucide icon name rendered on the gallery tile (resolved in the gallery). */
   icon: 'contact' | 'lifeBuoy'
+  /**
+   * LABEL_WHITELIST keys this module exposes in the Begriffe editor. The first
+   * key is the module title (wired into the module header for live preview).
+   */
+  labelKeys: string[]
   /** The module page rendered read-only in the sandbox canvas. */
   Component: LazyExoticComponent<ComponentType<unknown>>
 }
@@ -29,6 +34,13 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     titleKey: 'rbac.module.crm',
     previewPath: '/kontakte',
     icon: 'contact',
+    labelKeys: [
+      'rbac.module.crm',
+      'layout.navItems.contacts',
+      'crm.contacts.title',
+      'crm.companies.title',
+      'crm.deals.title',
+    ],
     Component: lazy(() => import('@/modules/kontakte/KontaktePage')) as EditorModuleDef['Component'],
   },
   {
@@ -36,6 +48,7 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     titleKey: 'rbac.module.helpdesk',
     previewPath: '/helpdesk',
     icon: 'lifeBuoy',
+    labelKeys: ['rbac.module.helpdesk', 'layout.navItems.helpdesk'],
     Component: lazy(() => import('@/modules/helpdesk/HelpdeskPage')) as EditorModuleDef['Component'],
   },
 ]

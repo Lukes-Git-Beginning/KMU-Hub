@@ -128,7 +128,7 @@ function EditorLayout({
         <div className="min-w-0 flex-1">
           <ModuleSandbox module={module} />
         </div>
-        {!previewOnly && <EditorPropertiesPanel section={activeSection} />}
+        {!previewOnly && <EditorPropertiesPanel section={activeSection} moduleKey={module.key} />}
       </div>
 
       {/* ── Commit footer (48px) ───────────────────────────────────────── */}

@@ -22,7 +22,7 @@ import type {
   ValueSet,
 } from '@/api/customization-types'
 import { i18n } from '@/i18n/i18n'
-import { applyLabelOverlay, restoreLabelOverlay } from '@/i18n/useLabelOverlay'
+import { restoreLabelOverlay } from '@/i18n/useLabelOverlay'
 import { resolveLabelOverrides } from '@/mocks/data/customization'
 
 type DraftValueSets = Record<string, Omit<ValueSet, 'layer'>>
@@ -121,11 +121,24 @@ export function DraftConfigProvider({
   const touchedKeysRef = useRef<Set<string>>(new Set())
 
   // Live label preview: re-apply the merged (tenant ⊕ draft) overlay whenever the
-  // draft labels change. Modules read t() from the shared instance, so this makes
-  // the preview update instantly (ICU-Live-Fix carries the re-render).
+  // draft labels change. Modules read t() from the shared instance, so the preview
+  // updates via the ICU-Live-Fix. DEBOUNCED: applyLabelOverlay triggers a global
+  // re-render (the whole sandbox module) — firing it per keystroke would lag
+  // typing. The input reads the draft state synchronously, so it stays responsive;
+  // only the preview trails by ~120ms.
   useEffect(() => {
     for (const key of Object.keys(state.labels[locale] ?? {})) touchedKeysRef.current.add(key)
-    applyLabelOverlay(locale, resolveLabelOverrides(locale, false, state.labels))
+    const id = setTimeout(() => {
+      // Scrub every touched key to its default first, then re-apply the current
+      // overlay — otherwise a key reset back to default keeps its stale override
+      // in the bundle (applyLabelOverlay only writes non-default keys).
+      restoreLabelOverlay(
+        locale,
+        Array.from(touchedKeysRef.current),
+        resolveLabelOverrides(locale, false, state.labels),
+      )
+    }, 120)
+    return () => clearTimeout(id)
   }, [state.labels, locale])
 
   // On unmount: scrub the touched keys back to their default, then re-apply the
