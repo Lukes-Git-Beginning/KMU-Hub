@@ -11834,5 +11834,12 @@
   "customization.editor.deploy.cancel": "Abbrechen",
   "customization.editor.deploy.confirmNow": "Jetzt übernehmen",
   "customization.editor.deploy.confirmScheduled": "Rollout planen",
-  "customization.editor.deploy.toastScheduled": "Rollout geplant."
+  "customization.editor.deploy.toastScheduled": "Rollout geplant.",
+  "customization.fields.entity.helpdesk_ticket": "Tickets",
+  "customization.editor.felder.badgeNew": "Neu",
+  "customization.editor.felder.badgeChanged": "Geändert",
+  "customization.editor.felder.removedTitle": "Wird entfernt",
+  "customization.editor.felder.restore": "Wiederherstellen",
+  "customization.editor.felder.stagedHint": "Feld-Änderungen gehen erst beim Übernehmen live.",
+  "customization.editor.begriffe.noneForModule": "Für dieses Modul gibt es aktuell keine anpassbaren Begriffe. Passe stattdessen Wertelisten oder Felder an."
 }

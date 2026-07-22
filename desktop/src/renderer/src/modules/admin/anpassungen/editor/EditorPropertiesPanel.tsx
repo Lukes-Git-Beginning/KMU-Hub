@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { EditorSection } from './EditorTrioNav'
 import { BegriffePanel } from './BegriffePanel'
 import { WertelistenPanel } from './WertelistenPanel'
+import { FelderPanel } from './FelderPanel'
 
 const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; descKey: string }> = {
   felder: {
@@ -69,6 +70,8 @@ export function EditorPropertiesPanel({
         <BegriffePanel moduleKey={moduleKey} />
       ) : section === 'wertelisten' ? (
         <WertelistenPanel moduleKey={moduleKey} />
+      ) : section === 'felder' ? (
+        <FelderPanel moduleKey={moduleKey} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>

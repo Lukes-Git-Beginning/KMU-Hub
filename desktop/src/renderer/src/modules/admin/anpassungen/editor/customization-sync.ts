@@ -14,6 +14,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { CustomizationDraftPayload } from '@/api/customization-types'
 import { applyDraftToTenant, resolveLabelOverrides } from '@/mocks/data/customization'
+import { applyDraftCustomFields } from '@/mocks/data/custom-fields'
 import { applyLabelOverlay } from '@/i18n/useLabelOverlay'
 import { i18n } from '@/i18n/i18n'
 
@@ -51,9 +52,12 @@ export function useCustomizationSyncListener(): void {
     const onMessage = (e: MessageEvent<DeployMessage>): void => {
       if (e.data?.type !== 'deployed') return
       applyDraftToTenant(e.data.payload)
+      // Custom fields live in their own store (E-3c) — apply the snapshot here too.
+      applyDraftCustomFields(e.data.payload.customFields ?? {})
       // Live label refresh (sidebar, headings) — direct i18n overlay, no query.
       applyLabelOverlay(e.data.locale, resolveLabelOverrides(e.data.locale))
-      // Value-set-driven UI refreshes on refetch.
+      // Value-set- and field-driven UI refreshes on refetch (the 'customization'
+      // predicate below also matches the ['customization','fields',…] query keys).
       void queryClient.invalidateQueries({
         predicate: (q) => {
           const key = JSON.stringify(q.queryKey).toLowerCase()

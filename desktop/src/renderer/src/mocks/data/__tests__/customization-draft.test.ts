@@ -22,6 +22,11 @@ import {
   saveDraft,
   scheduleDraft,
 } from '@/mocks/data/customization-drafts'
+import {
+  listCustomFields,
+  resetCustomFieldsStore,
+  type CustomFieldDefinition,
+} from '@/mocks/data/custom-fields'
 import type { CustomizationDraftPayload } from '@/api/customization-types'
 
 // Keep every test isolated from the shared, seed-mutated tenant layer.
@@ -31,6 +36,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   restoreTenant(pristine)
+  resetCustomFieldsStore()
 })
 
 describe('resolveLabelOverrides — draft is the 4th layer', () => {
@@ -115,6 +121,56 @@ describe('draft lifecycle', () => {
       valueSets: {},
     })
     expect(res.labelCount).toBe(1)
+  })
+})
+
+describe('draft custom fields (E-3c snapshot-diff)', () => {
+  const ENTITY = 'helpdesk_ticket'
+  const fieldsPayload = (fields: CustomFieldDefinition[]): CustomizationDraftPayload => ({
+    labels: {},
+    valueSets: {},
+    customFields: { [ENTITY]: fields },
+  })
+
+  it('deploy creates a staged new field with a real store id', () => {
+    const baseline = listCustomFields(ENTITY)
+    const draftField: CustomFieldDefinition = {
+      id: 'draft_abc123', entity: ENTITY, key: 'draft_x', label: 'Rückrufwunsch',
+      type: 'boolean', required: false, options: [], visible: true, order: baseline.length, inUse: false,
+    }
+    commitDraftNow({ moduleKey: 'helpdesk', name: 'Add field', payload: fieldsPayload([...baseline, draftField]), mode: 'now' })
+
+    const after = listCustomFields(ENTITY)
+    expect(after).toHaveLength(baseline.length + 1)
+    const created = after.find((f) => f.label === 'Rückrufwunsch')
+    expect(created).toBeDefined()
+    expect(created?.id.startsWith('draft_')).toBe(false) // got a real cf_ id
+  })
+
+  it('deploy updates a changed field and deletes a removed one', () => {
+    const baseline = listCustomFields(ENTITY)
+    const desired = baseline
+      .filter((f) => f.key !== 'escalation_reason') // remove one
+      .map((f) => (f.key === 'sla_tier' ? { ...f, label: 'Service-Level' } : f)) // change one
+    commitDraftNow({ moduleKey: 'helpdesk', name: 'Edit fields', payload: fieldsPayload(desired), mode: 'now' })
+
+    const after = listCustomFields(ENTITY)
+    expect(after.find((f) => f.key === 'escalation_reason')).toBeUndefined()
+    expect(after.find((f) => f.key === 'sla_tier')?.label).toBe('Service-Level')
+  })
+
+  it('rollback restores the field store to before the deploy', () => {
+    const baseline = listCustomFields(ENTITY)
+    const draftField: CustomFieldDefinition = {
+      id: 'draft_zzz', entity: ENTITY, key: 'draft_y', label: 'Temp-Feld',
+      type: 'text', required: false, options: [], visible: true, order: baseline.length, inUse: false,
+    }
+    const draft = commitDraftNow({ moduleKey: 'helpdesk', name: 'Add + rollback', payload: fieldsPayload([...baseline, draftField]), mode: 'now' })
+    expect(listCustomFields(ENTITY)).toHaveLength(baseline.length + 1)
+
+    rollbackDeploy(draft.id)
+    expect(listCustomFields(ENTITY)).toHaveLength(baseline.length)
+    expect(listCustomFields(ENTITY).find((f) => f.label === 'Temp-Feld')).toBeUndefined()
   })
 })
 

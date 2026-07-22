@@ -39,6 +39,8 @@
     "src/renderer/src/modules/admin/anpassungen/editor/customization-sync.ts",
     "src/renderer/src/modules/admin/anpassungen/editor/BegriffePanel.tsx",
     "src/renderer/src/modules/admin/anpassungen/editor/WertelistenPanel.tsx",
-    "src/renderer/src/modules/admin/anpassungen/editor/DeployDialog.tsx"
+    "src/renderer/src/modules/admin/anpassungen/editor/FelderPanel.tsx",
+    "src/renderer/src/modules/admin/anpassungen/editor/DeployDialog.tsx",
+    "src/renderer/src/mocks/data/__tests__/customization-draft.test.ts"
   ]
 }

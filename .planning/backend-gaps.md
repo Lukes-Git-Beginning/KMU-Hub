@@ -253,6 +253,16 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - mails: Exchange/EWS, PGP/S-MIME
 - formulare: öffentlicher Submit-Endpoint (IsPublic-Flag da), File-Upload-Feldtyp, Submission-Mail
 
+## 🟠 Modul-Editor / Customization (FE Mock-First, „Anpassungen"-Block, ab 2026-07-22)
+
+FE baut den No-Code-Massanfertigungs-Editor mock-first (Overlay-Prinzip wie R-6). Luke-Seite, wenn der FE-Editor review-reif ist:
+- **`tenant_customization_drafts`**-Tabelle (sparse `payload` = nur Abweichungen: labels + value-sets + **customFields**; Status-Maschine `draft→scheduled→live→superseded`, `scheduled_at`) + Promotion-**Cron** (steht heute als `runDueScheduledDeploys()`-Mock; terminiertes Deployment = USP). Deploy-Modi now/scheduled/draft.
+- **Draft-Overlay serverseitig** nur innerhalb der Editor-Session (4. Schicht über tenant, gewinnt) — Resolver `resolveLabelOverrides(locale, base?, draftOverlay?)` / `resolveValueSet(id, base?, draftOverlay?)` ist die FE-Referenz.
+- **Rollback** modul-granular: Snapshot VOR Promotion (tenant-Overlay **+ Custom-Field-Store**), Restore setzt beides zurück. Audit `customization.deploy_live/deploy_scheduled/rolled_back/draft_saved/draft_deleted`.
+- **E-3c Custom-Fields im Draft (Snapshot-Diff):** Felder haben eigene BE-Persistenz (`work_custom_field_definitions` + CRM `custom_field_definitions`), liegen NICHT im Overlay. Der Draft trägt pro Entity die **Soll-Feldliste**; Deploy diff't gegen den Live-Store → create/update/delete. Serverseitig gleich: Draft-Feldintent sammeln, bei Promotion transaktional anwenden. **NEU additiv: FE-Mock hat jetzt eine `helpdesk_ticket`-Entity** (3 Seed-Felder) — reine FE-Erweiterung, Lukes bestehende Tabellen unberührt; BE = neue additive Entity-Familie (nichts migrieren, bis Helpdesk-Felder scharf).
+- **★ Regel Modul-Namen sind unveränderlich (Darien 2026-07-22):** nur INHALT ist anpassbar (Objekt-/Datensatz-Begriffe, Felder). Sidebar-Nav (`layout.navItems.*`) + Modul-Name (`rbac.module.*`) sind KEINE anpassbaren Keys — aus der LABEL_WHITELIST entfernt. Serverseitig: diese Key-Präfixe nie in den Override-Layer aufnehmen.
+- **Editierbares Manifest pro Modul** (Vendor-Ebene, welche Module editierbar sind) — später, vor Galerie-Ausbau (E-4).
+
 ---
 
 # Welle 2 — System, Produktivität, Finanzen, Automatisierung, Video

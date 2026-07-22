@@ -11834,5 +11834,12 @@
   "customization.editor.deploy.cancel": "Cancel",
   "customization.editor.deploy.confirmNow": "Apply now",
   "customization.editor.deploy.confirmScheduled": "Schedule rollout",
-  "customization.editor.deploy.toastScheduled": "Rollout scheduled."
+  "customization.editor.deploy.toastScheduled": "Rollout scheduled.",
+  "customization.fields.entity.helpdesk_ticket": "Tickets",
+  "customization.editor.felder.badgeNew": "New",
+  "customization.editor.felder.badgeChanged": "Changed",
+  "customization.editor.felder.removedTitle": "Being removed",
+  "customization.editor.felder.restore": "Restore",
+  "customization.editor.felder.stagedHint": "Field changes only go live once you apply them.",
+  "customization.editor.begriffe.noneForModule": "This module has no customizable terms yet. Adjust value lists or fields instead."
 }

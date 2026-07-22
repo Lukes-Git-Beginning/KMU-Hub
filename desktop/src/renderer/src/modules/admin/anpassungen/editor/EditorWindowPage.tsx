@@ -46,7 +46,10 @@ export default function EditorWindowPage(): React.ReactElement {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <EditorWorkspace module={module} onClose={close} />
+      {/* key by module → a module switch always mounts a clean editor session
+          (fresh draft state + entity selection). In production each module opens
+          its own OS window, but this keeps same-window switches correct too. */}
+      <EditorWorkspace key={module.key} module={module} onClose={close} />
     </div>
   )
 }

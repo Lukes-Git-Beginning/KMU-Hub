@@ -19,7 +19,12 @@
  * and will be unified in v1.1. This file covers only:
  *   B · Label-Overrides (Terminologie / Whitelist-Keys)
  *   M · Value-Sets      (Wertelisten / Status-Sets)
+ *
+ * Custom Fields (Dimension A) join the draft payload in E-3c via DraftCustomFieldMap
+ * — they keep their own store (mocks/data/custom-fields), the draft only carries a
+ * per-entity snapshot for deploy.
  */
+import type { DraftCustomFieldMap } from '@/mocks/data/custom-fields'
 
 // ── Overlay layer ────────────────────────────────────────────────────────────
 
@@ -172,6 +177,13 @@ export interface CustomizationDraftPayload {
   labels: LocaleLabelMap
   /** Value-set overrides by set id (layer omitted — promotes to tenant on deploy). */
   valueSets: Record<string, Omit<ValueSet, 'layer'>>
+  /**
+   * Custom-field snapshots by entity (E-3c): the desired full field list for a
+   * touched entity. Optional — omitted when a draft has no field changes, so
+   * existing draft producers stay valid. Fields live outside the tenant overlay
+   * (own store), so deploy diffs this snapshot against the live field store.
+   */
+  customFields?: DraftCustomFieldMap
 }
 
 /**

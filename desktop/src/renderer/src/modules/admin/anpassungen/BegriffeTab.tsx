@@ -52,27 +52,9 @@ interface LabelGroup {
   keys: string[]
 }
 
+// Module identity (rbac.module.* / layout.navItems.*) is immutable now
+// (Darien 2026-07-22) — only content/object headings remain editable here.
 const LABEL_GROUPS: LabelGroup[] = [
-  {
-    key: 'modules',
-    labelKey: 'customization.labels.group.modules',
-    keys: [
-      'rbac.module.crm',
-      'rbac.module.work',
-      'rbac.module.helpdesk',
-      'rbac.module.finance',
-      'rbac.module.wiki',
-      'rbac.module.team',
-      'rbac.module.berichte',
-      'rbac.module.formulare',
-      'rbac.module.dialer',
-      'rbac.module.schichten',
-      'rbac.module.zeiterfassung',
-      'rbac.module.vertraege',
-      'rbac.module.inventar',
-      'rbac.module.einkauf',
-    ],
-  },
   {
     key: 'objects',
     labelKey: 'customization.labels.group.objects',
@@ -82,19 +64,6 @@ const LABEL_GROUPS: LabelGroup[] = [
       'crm.deals.title',
       'work.tasks.title',
       'work.projects.title',
-    ],
-  },
-  {
-    key: 'navigation',
-    labelKey: 'customization.labels.group.navigation',
-    keys: [
-      'layout.navItems.contacts',
-      'layout.navItems.projects',
-      'layout.navItems.tasks',
-      'layout.navItems.team',
-      'layout.navItems.finance',
-      'layout.navItems.helpdesk',
-      'layout.navItems.admin',
     ],
   },
 ]

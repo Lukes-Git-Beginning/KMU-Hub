@@ -21,6 +21,7 @@ import type {
   LocaleLabelMap,
   ValueSet,
 } from '@/api/customization-types'
+import type { CustomFieldDefinition, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
 import { i18n } from '@/i18n/i18n'
 import { restoreLabelOverlay } from '@/i18n/useLabelOverlay'
 import { resolveLabelOverrides } from '@/mocks/data/customization'
@@ -30,6 +31,7 @@ type DraftValueSets = Record<string, Omit<ValueSet, 'layer'>>
 interface DraftState {
   labels: LocaleLabelMap
   valueSets: DraftValueSets
+  customFields: DraftCustomFieldMap
 }
 
 type DraftAction =
@@ -37,6 +39,8 @@ type DraftAction =
   | { type: 'resetLabel'; locale: string; key: string }
   | { type: 'setValueSet'; id: string; set: Omit<ValueSet, 'layer'> }
   | { type: 'resetValueSet'; id: string }
+  | { type: 'setEntityFields'; entity: string; fields: CustomFieldDefinition[] }
+  | { type: 'resetEntityFields'; entity: string }
   | { type: 'reset' }
   | { type: 'load'; payload: CustomizationDraftPayload }
 
@@ -58,12 +62,20 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
       delete next[action.id]
       return { ...state, valueSets: next }
     }
+    case 'setEntityFields':
+      return { ...state, customFields: { ...state.customFields, [action.entity]: action.fields } }
+    case 'resetEntityFields': {
+      const next = { ...state.customFields }
+      delete next[action.entity]
+      return { ...state, customFields: next }
+    }
     case 'reset':
-      return { labels: {}, valueSets: {} }
+      return { labels: {}, valueSets: {}, customFields: {} }
     case 'load':
       return {
         labels: structuredClone(action.payload.labels),
         valueSets: structuredClone(action.payload.valueSets),
+        customFields: structuredClone(action.payload.customFields ?? {}),
       }
   }
 }
@@ -76,14 +88,20 @@ export interface DraftConfigContextValue {
   moduleKey: string
   labels: LocaleLabelMap
   valueSets: DraftValueSets
+  /** Per-entity desired field lists staged in the draft (E-3c). */
+  customFields: DraftCustomFieldMap
   /** Whether the draft has any change vs. the live tenant layer. */
   isDirty: boolean
-  /** Total touched entries (labels + value-sets) for the footer counter. */
+  /** Total touched entries (labels + value-sets + field entities) for the footer counter. */
   changeCount: number
   setDraftLabel: (locale: string, key: string, value: string) => void
   resetDraftLabel: (locale: string, key: string) => void
   setDraftValueSet: (id: string, set: Omit<ValueSet, 'layer'>) => void
   resetDraftValueSet: (id: string) => void
+  /** Stage the full desired field list for an entity (E-3c). */
+  setDraftEntityFields: (entity: string, fields: CustomFieldDefinition[]) => void
+  /** Drop the staged field snapshot for an entity (back to the live baseline). */
+  resetDraftEntityFields: (entity: string) => void
   resetAll: () => void
   /** Build the sparse payload for save/deploy. */
   buildPayload: () => CustomizationDraftPayload
@@ -112,8 +130,12 @@ export function DraftConfigProvider({
   const [state, dispatch] = useReducer(
     reducer,
     initialPayload
-      ? { labels: structuredClone(initialPayload.labels), valueSets: structuredClone(initialPayload.valueSets) }
-      : { labels: {}, valueSets: {} },
+      ? {
+          labels: structuredClone(initialPayload.labels),
+          valueSets: structuredClone(initialPayload.valueSets),
+          customFields: structuredClone(initialPayload.customFields ?? {}),
+        }
+      : { labels: {}, valueSets: {}, customFields: {} },
   )
 
   // Every i18n key we ever wrote to the global bundle — scrubbed on unmount so a
@@ -152,21 +174,30 @@ export function DraftConfigProvider({
   }, [locale])
 
   const value = useMemo<DraftConfigContextValue>(() => {
-    const changeCount = countLabels(state.labels) + Object.keys(state.valueSets).length
+    const changeCount =
+      countLabels(state.labels) +
+      Object.keys(state.valueSets).length +
+      Object.keys(state.customFields).length
     return {
       moduleKey,
       labels: state.labels,
       valueSets: state.valueSets,
+      customFields: state.customFields,
       isDirty: changeCount > 0,
       changeCount,
       setDraftLabel: (l, key, val) => dispatch({ type: 'setLabel', locale: l, key, value: val }),
       resetDraftLabel: (l, key) => dispatch({ type: 'resetLabel', locale: l, key }),
       setDraftValueSet: (id, set) => dispatch({ type: 'setValueSet', id, set }),
       resetDraftValueSet: (id) => dispatch({ type: 'resetValueSet', id }),
+      setDraftEntityFields: (entity, fields) => dispatch({ type: 'setEntityFields', entity, fields }),
+      resetDraftEntityFields: (entity) => dispatch({ type: 'resetEntityFields', entity }),
       resetAll: () => dispatch({ type: 'reset' }),
       buildPayload: () => ({
         labels: structuredClone(state.labels),
         valueSets: structuredClone(state.valueSets),
+        ...(Object.keys(state.customFields).length > 0 && {
+          customFields: structuredClone(state.customFields),
+        }),
       }),
       loadDraft: (payload) => dispatch({ type: 'load', payload }),
     }

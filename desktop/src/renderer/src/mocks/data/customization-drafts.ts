@@ -23,16 +23,28 @@ import type {
 } from '@/api/customization-types'
 import { writeAuditEvent } from './audit-events'
 import { applyDraftToTenant, restoreTenant, snapshotTenant, type TenantSnapshot } from './customization'
+import {
+  applyDraftCustomFields,
+  restoreCustomFields,
+  snapshotCustomFields,
+} from './custom-fields'
+import type { CustomFieldDefinition } from './custom-fields'
 import { getDemoSessionUserId } from './rbac'
 
 let draftSeq = 0
 const drafts: CustomizationDraft[] = []
 
 /**
- * Rollback snapshots keyed by draft id: the tenant state that existed BEFORE
- * this draft went live. Restoring it undoes exactly this deploy.
+ * Rollback snapshots keyed by draft id: the state that existed BEFORE this draft
+ * went live. Restoring it undoes exactly this deploy. Captures both the tenant
+ * overlay (labels + value-sets) AND the custom-field store (E-3c: fields have
+ * their own store, outside the overlay).
  */
-const rollbackSnapshots: Record<string, TenantSnapshot> = {}
+interface DeploySnapshot {
+  tenant: TenantSnapshot
+  fields: CustomFieldDefinition[]
+}
+const rollbackSnapshots: Record<string, DeploySnapshot> = {}
 
 function newId(): string {
   draftSeq += 1
@@ -42,12 +54,17 @@ function newId(): string {
 function summarize(payload: CustomizationDraftPayload): {
   labelCount: number
   valueSetCount: number
+  fieldEntityCount: number
 } {
   const labelCount = Object.values(payload.labels).reduce(
     (acc, map) => acc + Object.keys(map).length,
     0,
   )
-  return { labelCount, valueSetCount: Object.keys(payload.valueSets).length }
+  return {
+    labelCount,
+    valueSetCount: Object.keys(payload.valueSets).length,
+    fieldEntityCount: Object.keys(payload.customFields ?? {}).length,
+  }
 }
 
 // ── Reads ──────────────────────────────────────────────────────────────────────
@@ -114,8 +131,8 @@ export function deleteDraft(id: string): void {
 // ── Promote (draft → live) ───────────────────────────────────────────────────
 
 function promote(draft: CustomizationDraft): void {
-  // Snapshot the tenant layer BEFORE applying, so we can roll this deploy back.
-  rollbackSnapshots[draft.id] = snapshotTenant()
+  // Snapshot tenant overlay + field store BEFORE applying, so we can roll back.
+  rollbackSnapshots[draft.id] = { tenant: snapshotTenant(), fields: snapshotCustomFields() }
 
   // Any previously-live draft for the same module becomes superseded.
   for (const d of drafts) {
@@ -126,6 +143,7 @@ function promote(draft: CustomizationDraft): void {
   }
 
   const applied = applyDraftToTenant(draft.payload)
+  const fieldCount = applyDraftCustomFields(draft.payload.customFields ?? {})
   draft.status = 'live'
   draft.scheduledAt = undefined
   draft.updatedAt = new Date().toISOString()
@@ -134,7 +152,7 @@ function promote(draft: CustomizationDraft): void {
     action: 'customization.deploy_live',
     target: draft.name,
     targetType: 'customization_draft',
-    newValue: { moduleKey: draft.moduleKey, ...applied },
+    newValue: { moduleKey: draft.moduleKey, ...applied, fieldCount },
   })
 }
 
@@ -205,7 +223,8 @@ export function rollbackDeploy(id: string): void {
   const snap = rollbackSnapshots[id]
   if (!draft || !snap) return
 
-  restoreTenant(snap)
+  restoreTenant(snap.tenant)
+  restoreCustomFields(snap.fields)
   draft.status = 'superseded'
   draft.updatedAt = new Date().toISOString()
   delete rollbackSnapshots[id]

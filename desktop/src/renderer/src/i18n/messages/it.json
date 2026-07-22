@@ -11800,5 +11800,12 @@
   "customization.editor.deploy.cancel": "Annulla",
   "customization.editor.deploy.confirmNow": "Applica adesso",
   "customization.editor.deploy.confirmScheduled": "Pianifica il rilascio",
-  "customization.editor.deploy.toastScheduled": "Rilascio pianificato."
+  "customization.editor.deploy.toastScheduled": "Rilascio pianificato.",
+  "customization.fields.entity.helpdesk_ticket": "Ticket",
+  "customization.editor.felder.badgeNew": "Nuovo",
+  "customization.editor.felder.badgeChanged": "Modificato",
+  "customization.editor.felder.removedTitle": "In rimozione",
+  "customization.editor.felder.restore": "Ripristina",
+  "customization.editor.felder.stagedHint": "Le modifiche ai campi diventano attive solo dopo l’applicazione.",
+  "customization.editor.begriffe.noneForModule": "Questo modulo non ha ancora termini personalizzabili. Modifica invece gli elenchi di valori o i campi."
 }

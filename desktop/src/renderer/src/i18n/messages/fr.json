@@ -11800,5 +11800,12 @@
   "customization.editor.deploy.cancel": "Annuler",
   "customization.editor.deploy.confirmNow": "Appliquer maintenant",
   "customization.editor.deploy.confirmScheduled": "Planifier le déploiement",
-  "customization.editor.deploy.toastScheduled": "Déploiement planifié."
+  "customization.editor.deploy.toastScheduled": "Déploiement planifié.",
+  "customization.fields.entity.helpdesk_ticket": "Tickets",
+  "customization.editor.felder.badgeNew": "Nouveau",
+  "customization.editor.felder.badgeChanged": "Modifié",
+  "customization.editor.felder.removedTitle": "Sera supprimé",
+  "customization.editor.felder.restore": "Restaurer",
+  "customization.editor.felder.stagedHint": "Les modifications de champs ne sont actives qu’après application.",
+  "customization.editor.begriffe.noneForModule": "Ce module n’a pas encore de termes personnalisables. Modifie plutôt les listes de valeurs ou les champs."
 }

@@ -42,80 +42,55 @@ export function activeConfigLayer(): ConfigLayer {
 
 /**
  * Curated whitelist of i18n keys that tenants/vendors may override in v1.
- * Rule: only high-visibility, low-risk keys (module/object names that KMUs
- * rename for their domain). NOT all 7 221 keys — see KONZEPT §2-B.
+ *
+ * ★ RULE (Darien 2026-07-22): MODULE NAMES ARE IMMUTABLE. The sidebar nav and
+ * the module display name (rbac.module.* / layout.navItems.*) are the product's
+ * stable anchors — support, docs, training and screenshots depend on them, and a
+ * renamable module name drifts into "the same module under three names". Only
+ * CONTENT terminology *inside* a module is customizable (object headings, record
+ * nouns, categories, field labels — e.g. "Kunden" → "Patienten"). So the
+ * whitelist contains object/content headings only, never module/nav identity.
  *
  * Verified against de.json (all keys exist in the static bundles):
- *   - rbac.module.* keys = module display names in the permission editor
  *   - crm.contacts.title / crm.companies.title / crm.deals.title = object headings
  *   - work.tasks.title / work.projects.title = work object headings
- *   - layout.navItems.* = sidebar nav labels (the keys the left nav ACTUALLY
- *     renders via nav-items.ts — nav.crm/nav.work were dead keys, no consumer)
  */
 export const LABEL_WHITELIST: string[] = [
-  // Module names (shown in nav, settings, RBAC editor)
-  'rbac.module.crm',
-  'rbac.module.work',
-  'rbac.module.helpdesk',
-  'rbac.module.finance',
-  'rbac.module.wiki',
-  'rbac.module.team',
-  'rbac.module.berichte',
-  'rbac.module.formulare',
-  'rbac.module.dialer',
-  'rbac.module.schichten',
-  'rbac.module.zeiterfassung',
-  'rbac.module.vertraege',
-  'rbac.module.inventar',
-  'rbac.module.einkauf',
-  // Object/entity names (headings inside modules — the most-renamed terms)
+  // Object/content headings inside modules — the domain nouns KMUs rebrand
+  // (e.g. a practice renames "Kontakte" → "Patienten"). Module identity (the
+  // sidebar nav + rbac.module.* display name) stays fixed and is NOT listed here.
   'crm.contacts.title',
   'crm.companies.title',
   'crm.deals.title',
   'work.tasks.title',
   'work.projects.title',
-  // Sidebar nav labels — the keys the left nav actually renders (nav-items.ts).
-  // Renaming these is the most visible customization (e.g. "Kontakte"→"Patienten").
-  'layout.navItems.contacts',
-  'layout.navItems.projects',
-  'layout.navItems.tasks',
-  'layout.navItems.team',
-  'layout.navItems.finance',
-  'layout.navItems.helpdesk',
-  'layout.navItems.admin',
 ]
 
 // LocaleLabelMap (locale → key → value) is defined in customization-types.ts.
 
 /**
  * Vendor layer seeds: Zentria sets these during onboarding for a healthcare
- * demo tenant — demonstrates that "Kontakte" → "Patienten" etc. comes from
- * the vendor layer (provenance = 'vendor'), so the tenant can still override.
+ * demo tenant — demonstrates that CONTENT terminology ("Kontakte" → "Patienten"
+ * etc.) comes from the vendor layer (provenance = 'vendor'), so the tenant can
+ * still override. Module IDENTITY (nav + rbac.module.*) is intentionally NOT
+ * seeded here — module names stay fixed (see LABEL_WHITELIST rule).
  */
 export const VENDOR_LABELS: LocaleLabelMap = {
   de: {
     'crm.contacts.title': 'Patienten',
     'crm.companies.title': 'Praxen',
-    'rbac.module.crm': 'Patientenverwaltung',
-    'layout.navItems.contacts': 'Patienten',
   },
   en: {
     'crm.contacts.title': 'Patients',
     'crm.companies.title': 'Practices',
-    'rbac.module.crm': 'Patient Management',
-    'layout.navItems.contacts': 'Patients',
   },
   fr: {
     'crm.contacts.title': 'Patients',
     'crm.companies.title': 'Cabinets',
-    'rbac.module.crm': 'Gestion des patients',
-    'layout.navItems.contacts': 'Patients',
   },
   it: {
     'crm.contacts.title': 'Pazienti',
     'crm.companies.title': 'Studi',
-    'rbac.module.crm': 'Gestione pazienti',
-    'layout.navItems.contacts': 'Pazienti',
   },
 }
 

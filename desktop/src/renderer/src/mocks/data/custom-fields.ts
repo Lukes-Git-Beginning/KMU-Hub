@@ -22,13 +22,22 @@ import { writeAuditEvent } from './audit-events'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-/** The 5 entities that support custom fields in v1.1. */
+/**
+ * The entities that support custom fields.
+ *
+ * `helpdesk_ticket` (added in E-3c, Modul-Editor v1) is an ADDITIVE FE-mock
+ * entity so the Helpdesk pilot module has a real Felder panel — it does NOT
+ * touch Luke's existing tables (work_custom_field_definitions /
+ * custom_field_definitions). BE-side it is a future additive entity family,
+ * documented in backend-gaps §Customization (nothing to migrate now).
+ */
 export type CustomFieldEntity =
   | 'work_task'
   | 'crm_contact'
   | 'crm_company'
   | 'crm_deal'
   | 'crm_activity'
+  | 'helpdesk_ticket'
 
 /**
  * The 9 canonical field types (aligned with BE work_custom_field_definitions).
@@ -271,6 +280,44 @@ const SEED_FIELDS: CustomFieldDefinition[] = [
     order: 1,
     inUse: false,
   },
+
+  // ── helpdesk_ticket (E-3c pilot; additive FE-mock, see type note) ──────────
+  {
+    id: 'cf_ht_001',
+    entity: 'helpdesk_ticket',
+    key: 'sla_tier',
+    label: 'SLA-Stufe',
+    type: 'select',
+    required: false,
+    options: ['Standard', 'Priorität', 'Kritisch'],
+    visible: true,
+    order: 0,
+    inUse: true,
+  },
+  {
+    id: 'cf_ht_002',
+    entity: 'helpdesk_ticket',
+    key: 'escalation_reason',
+    label: 'Eskalationsgrund',
+    type: 'text',
+    required: false,
+    options: [],
+    visible: true,
+    order: 1,
+    inUse: false,
+  },
+  {
+    id: 'cf_ht_003',
+    entity: 'helpdesk_ticket',
+    key: 'contact_channel',
+    label: 'Kontaktkanal',
+    type: 'select',
+    required: false,
+    options: ['E-Mail', 'Telefon', 'Chat', 'Vor Ort'],
+    visible: true,
+    order: 2,
+    inUse: false,
+  },
 ]
 
 // ── Runtime state (mutable) ───────────────────────────────────────────────────
@@ -402,4 +449,96 @@ export function reorderCustomFields(entity: CustomFieldEntity, orderedIds: strin
 /** Reset the store to seed data (used by QA scripts). */
 export function resetCustomFieldsStore(): void {
   store = structuredClone(SEED_FIELDS)
+}
+
+// ── Draft promotion (Modul-Editor v1, E-3c) ────────────────────────────────────
+//
+// Custom fields live in their own store (own BE persistence), OUTSIDE the tenant
+// overlay in customization.ts. So the editor stages field changes as a per-entity
+// SNAPSHOT (the desired full field list for a touched entity) and, on deploy,
+// diffs the snapshot against the live store — the same mental model as value-sets
+// (draft holds the full set), just against a CRUD store instead of an overlay map.
+
+/** A per-entity map of the desired full field list (only touched entities present). */
+export type DraftCustomFieldMap = Record<string, CustomFieldDefinition[]>
+
+/** Whether a persisted field (real store id) differs from its desired snapshot. */
+function fieldChanged(a: CustomFieldDefinition, b: CustomFieldDefinition): boolean {
+  return (
+    a.label !== b.label ||
+    a.type !== b.type ||
+    a.required !== b.required ||
+    a.visible !== b.visible ||
+    a.order !== b.order ||
+    JSON.stringify(a.options) !== JSON.stringify(b.options) ||
+    JSON.stringify(a.validation ?? null) !== JSON.stringify(b.validation ?? null) ||
+    (a.defaultValue ?? '') !== (b.defaultValue ?? '')
+  )
+}
+
+/**
+ * Apply a draft's field snapshot to the live store by diffing per entity:
+ *   - desired field whose id is NOT in the store  → create (draft/temp id dropped)
+ *   - desired field present but changed           → update
+ *   - store field for the entity absent from desired → delete
+ * Returns the number of field-level changes applied (for the deploy summary).
+ */
+export function applyDraftCustomFields(fieldsByEntity: DraftCustomFieldMap): number {
+  let fieldCount = 0
+  for (const [entity, desired] of Object.entries(fieldsByEntity)) {
+    const current = store.filter((f) => f.entity === (entity as CustomFieldEntity))
+    const desiredIds = new Set(desired.map((f) => f.id))
+
+    // Creates + updates
+    desired.forEach((field, idx) => {
+      const existing = store.find((f) => f.id === field.id)
+      if (!existing) {
+        const created = createCustomField({
+          entity: entity as CustomFieldEntity,
+          label: field.label,
+          type: field.type,
+          required: field.required,
+          options: field.options,
+          validation: field.validation,
+          defaultValue: field.defaultValue,
+          visible: field.visible,
+        })
+        // Preserve the draft-intended order.
+        const created2 = store.find((f) => f.id === created.id)
+        if (created2) created2.order = idx
+        fieldCount += 1
+      } else if (fieldChanged(existing, { ...field, order: idx })) {
+        updateCustomField(field.id, {
+          label: field.label,
+          type: field.type,
+          required: field.required,
+          options: field.options,
+          validation: field.validation,
+          defaultValue: field.defaultValue,
+          visible: field.visible,
+        })
+        existing.order = idx
+        fieldCount += 1
+      }
+    })
+
+    // Deletes (baseline field removed in the draft)
+    for (const f of current) {
+      if (!desiredIds.has(f.id)) {
+        deleteCustomField(f.id)
+        fieldCount += 1
+      }
+    }
+  }
+  return fieldCount
+}
+
+/** Snapshot the whole field store (call BEFORE promoting a draft, for rollback). */
+export function snapshotCustomFields(): CustomFieldDefinition[] {
+  return structuredClone(store)
+}
+
+/** Restore a previously captured field snapshot (rollback). */
+export function restoreCustomFields(snap: CustomFieldDefinition[]): void {
+  store = structuredClone(snap)
 }

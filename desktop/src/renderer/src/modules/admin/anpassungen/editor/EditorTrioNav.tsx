@@ -33,11 +33,11 @@ export function EditorTrioNav({
   onSelect: (section: EditorSection) => void
 }): React.ReactElement {
   const { t } = useTranslation()
-  const { labels, valueSets } = useDraftConfig()
+  const { labels, valueSets, customFields } = useDraftConfig()
 
   const labelCount = Object.values(labels).reduce((acc, m) => acc + Object.keys(m).length, 0)
   const counts: Record<EditorSection, number> = {
-    felder: 0, // custom-field drafts wire up in E-3
+    felder: Object.keys(customFields).length,
     begriffe: labelCount,
     wertelisten: Object.keys(valueSets).length,
   }
