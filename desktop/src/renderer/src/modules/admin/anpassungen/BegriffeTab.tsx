@@ -128,6 +128,10 @@ function ProvenanceBadge({ provenance }: { provenance: ConfigProvenance }) {
       labelKey: 'customization.labels.provenance.tenant',
       className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
     },
+    draft: {
+      labelKey: 'customization.labels.provenance.draft',
+      className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    },
   }[provenance]
 
   return (

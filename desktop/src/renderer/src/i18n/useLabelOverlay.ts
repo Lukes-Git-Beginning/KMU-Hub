@@ -98,6 +98,31 @@ export function applyLabelOverlay(locale: string, labels: ResolvedLabelMap): voi
 }
 
 /**
+ * Editor-Only: entfernt Draft-Overrides wieder aus dem globalen i18n-Bundle.
+ *
+ * Der Editor schreibt Draft-Labels via applyLabelOverlay() ins GLOBALE Bundle
+ * für die Live-Vorschau (R-1 in IST-EDITOR: kontaminiert den Live-Hintergrund,
+ * solange der Editor offen ist). Beim Schließen ohne Commit müssen genau die
+ * angefassten Draft-Keys auf ihren echten Code-Default zurückgesetzt werden —
+ * ein reines Re-Apply der tenant-Labels würde einen draft-only-Key (nicht im
+ * tenant-Overlay) NICHT löschen, weil addResourceBundle nur mitgelieferte Keys
+ * setzt. Deshalb erst die Scrub-Keys auf ihren Default zurückschreiben, dann
+ * das persistente (tenant/vendor) Overlay erneut anwenden.
+ */
+export function restoreLabelOverlay(
+  locale: string,
+  scrubKeys: string[],
+  resolved: ResolvedLabelMap,
+): void {
+  if (scrubKeys.length > 0) {
+    const resets: Record<string, string> = {}
+    for (const key of scrubKeys) resets[key] = getLabelDefault(locale, key)
+    i18n.addResourceBundle(locale, 'translation', resets, true, true)
+  }
+  applyLabelOverlay(locale, resolved)
+}
+
+/**
  * Lädt Label-Overrides für eine Locale vom Mock-Endpoint und spielt sie ein.
  * Gibt bei Fehler still auf (kein throw).
  */

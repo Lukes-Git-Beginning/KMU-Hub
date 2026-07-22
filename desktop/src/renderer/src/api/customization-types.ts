@@ -32,12 +32,14 @@
 export type ConfigLayer = 'vendor' | 'tenant'
 
 /**
- * Where a resolved value originates. Three values matching the three strata:
+ * Where a resolved value originates. Four strata, low → high priority:
  *   'default' — the code-bundled fallback (nothing stored in overlay).
  *   'vendor'  — Zentria set it during onboarding; the customer has not overridden it.
- *   'tenant'  — the customer set it (always wins).
+ *   'tenant'  — the customer set it (live for all users).
+ *   'draft'   — an in-editor change, only visible inside the editor sandbox until
+ *               it is committed/deployed into the tenant layer. Always wins.
  */
-export type ConfigProvenance = 'default' | 'vendor' | 'tenant'
+export type ConfigProvenance = 'default' | 'vendor' | 'tenant' | 'draft'
 
 // ── B · Label-Overrides (Terminologie) ───────────────────────────────────────
 
@@ -50,6 +52,9 @@ export type ConfigProvenance = 'default' | 'vendor' | 'tenant'
  * without a rebuild. Only LABEL_WHITELIST keys may appear here.
  */
 export type LabelOverrideMap = Record<string, string>
+
+/** A locale-scoped overlay map: locale → (i18n key → override text). Sparse. */
+export type LocaleLabelMap = Record<string, LabelOverrideMap>
 
 /**
  * A label override resolved to its effective value plus where it came from.
@@ -153,4 +158,68 @@ export interface ValueSetsResponse {
 /** Response envelope for GET /customization/value-sets/:id */
 export interface ValueSetResponse {
   valueSet: ResolvedValueSet
+}
+
+// ── Draft & Deployment (Modul-Editor v1) ──────────────────────────────────────
+
+/**
+ * The sparse content of an editor draft — only the deviations, mirroring the
+ * overlay principle. Applied as the 4th layer on top of the tenant layer while
+ * the editor is open, and merged into the tenant layer on commit/deploy.
+ */
+export interface CustomizationDraftPayload {
+  /** Label overrides: locale → key → value. */
+  labels: LocaleLabelMap
+  /** Value-set overrides by set id (layer omitted — promotes to tenant on deploy). */
+  valueSets: Record<string, Omit<ValueSet, 'layer'>>
+}
+
+/**
+ * Lifecycle of a saved editor draft (Change-Management für Config).
+ *   'draft'      — work in progress, affects no user.
+ *   'scheduled'  — approved for a future tenant-wide rollout at `scheduledAt`.
+ *   'live'       — promoted into the tenant layer (its changes are effective).
+ *   'superseded' — replaced by a newer live version (retained for rollback).
+ */
+export type DraftStatus = 'draft' | 'scheduled' | 'live' | 'superseded'
+
+/** A persisted editor draft (saved blueprint or scheduled rollout). */
+export interface CustomizationDraft {
+  id: string
+  /** Which module this draft targets (v1 pilot: 'kontakte' | 'helpdesk'). */
+  moduleKey: string
+  /** Human name for the draft list (e.g. "Praxis-Umbau Q3"). */
+  name: string
+  status: DraftStatus
+  /** ISO timestamp for a scheduled rollout; set only when status='scheduled'. */
+  scheduledAt?: string
+  payload: CustomizationDraftPayload
+  createdAt: string
+  updatedAt: string
+  /** Actor id who created the draft. */
+  createdBy: string
+}
+
+/** How the editor commit dialog resolves the current draft. */
+export type DeployMode = 'now' | 'scheduled' | 'draft'
+
+/** Body for POST /customization/drafts (save-as-draft). */
+export interface SaveDraftInput {
+  /** Present when updating an existing draft. */
+  id?: string
+  moduleKey: string
+  name: string
+  payload: CustomizationDraftPayload
+}
+
+/** Body for POST /customization/drafts/deploy — apply now, schedule, or keep as draft. */
+export interface DeployDraftInput {
+  moduleKey: string
+  name: string
+  payload: CustomizationDraftPayload
+  mode: DeployMode
+  /** Required when mode='scheduled' (ISO date-time). */
+  scheduledAt?: string
+  /** Optional in-app announcement banner text for affected users. */
+  announcement?: string
 }

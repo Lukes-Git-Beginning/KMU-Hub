@@ -18,6 +18,9 @@
  *   vendor_access.completed | setting.changed
  *   customization.label_set | customization.label_removed |
  *   customization.valueset_updated                           (Customization v1.0)
+ *   customization.draft_saved | customization.draft_deleted |
+ *   customization.deploy_live | customization.deploy_scheduled |
+ *   customization.rolled_back                                 (Modul-Editor v1)
  */
 import type { AuditEntry } from '@/api/security-types'
 import { getDemoSessionUserId } from './rbac'

@@ -29,3 +29,32 @@
 
 ## Nächste Stufen = UI-Editoren (visuell + Screenshot-QA-pflichtig)
 v1.1–v1.4 bauen sichtbare Oberflächen → Standard-Gate inkl. Playwright-Screenshot-QA + Bilder ansehen. Jede Stufe: Agent-Bau + Review + i18n ×4 + scoped tsc + eslint + Screenshot-QA + 1 Commit.
+
+---
+
+# NEU-AUSRICHTUNG: Modul-Editor (ab Session #26, 2026-07-22)
+
+> **v1.3/v1.4 der alten Roadmap SUPERSEDED.** Darien-Richtung nach v1.0–v1.2: die Admin-Listen sind zu mager + modul-entkoppelt. Neu = **modul-zentrischer edit-in-place-Editor im eigenen Fenster** (Sandbox, isoliert vom Live). Recherche-Gate durchlaufen (`IST-EDITOR.md` + `MARKT-EDITOR.md` + `DRAFT-DEPLOY.md`), 4 Entscheide gefallen. **SSOT = `EDITOR-KONZEPT.md`.** Das Fundament v1.0–v1.2 BLEIBT die Maschinerie (Resolver, ICU-Live-Fix, Custom-Fields, Value-Sets, Audit, RBAC-Key); nur die UX wird neu.
+
+**4 Entscheide (Darien 2026-07-22):** ① In-App-Overlay (self-contained für späteren Fenster-Umzug) ② nur Trio-Panel v1, Layout = Stufe 2 ③ Terminierung gleich in v1 (Job gemockt, Luke-Cron) ④ 2 Pilot-Module (Kontakte + Helpdesk).
+
+## Editor-Bau-Phasen
+
+| Phase | Inhalt | Status | Commit |
+|---|---|---|---|
+| **E-1 Fundament** | Draft-Schicht (4. Overlay-Ebene) im Resolver · `DraftConfigProvider` · Drafts-Store (save/deploy/schedule/rollback + Scheduler-Mock) · Audit-Actions | ✅ **fertig + verifiziert** | (dieser Commit) |
+| **E-2 EditorFrame** | Overlay-Rahmen (self-contained: Sandbox-QueryClient + MemoryRouter + Provider) · Toolbar · Amber-Draft-Banner · Drei-Panel · Commit-Footer | ⏳ offen | — |
+| **E-3 Trio-Panel** | `CustomFieldsTab`+`BegriffeTab` integrieren (modul-gefiltert) · `ValueSetsTab` neu · Live-Preview-Verdrahtung | ⏳ offen | — |
+| **E-4 Modul-Galerie** | `AnpassungenHubPage` → Kacheln (Kontakte + Helpdesk) · editierbares Manifest pro Modul (Vendor-Ebene) | ⏳ offen | — |
+| **E-5 Deploy** | Übernehmen-Dropdown (Jetzt/Terminiert/Entwurf) · Deploy-Dialog + DatePicker + Ankündigung · Entwurf-Liste · Rollback | ⏳ offen | — |
+
+### E-1 — Verifikations-Nachweis
+- **Typen (`api/customization-types.ts`):** `ConfigProvenance` +`'draft'` (4. Stufe, gewinnt) · `LocaleLabelMap` exportiert · `CustomizationDraft`/`CustomizationDraftPayload`/`DraftStatus`(draft→scheduled→live→superseded)/`DeployMode`/`SaveDraftInput`/`DeployDraftInput`.
+- **Resolver (`mocks/data/customization.ts`):** `resolveLabelOverrides(locale, base?, draftOverlay?)` + `resolveValueSet(id, base?, draftOverlay?)` — draft-Schicht gewinnt per Key/Option über tenant. Neu: `applyDraftToTenant()` (Promotion in tenant-Layer, nur Whitelist-Keys, zählt Applied) · `snapshotTenant()`/`restoreTenant()` (Rollback-Basis) · `TenantSnapshot`-Typ.
+- **Drafts-Store (`mocks/data/customization-drafts.ts`, neu):** `saveDraft` (Blueprint, kein Impact) · `commitDraftNow`/`scheduleDraft`/`deployDraft` (3-Wege) · `promote()` (snapshot→apply→live, altes live→superseded) · `runDueScheduledDeploys()` (Scheduler-Mock, steht für Lukes Cron) · `rollbackDeploy()`/`canRollback()` · Audit `draft_saved/draft_deleted/deploy_live/deploy_scheduled/rolled_back`.
+- **Provider (`modules/admin/anpassungen/editor/DraftConfigProvider.tsx`, neu):** React-Context+Reducer, hält Draft-Session-State, `setDraftLabel/resetDraftLabel/setDraftValueSet/resetDraftValueSet/resetAll/buildPayload/loadDraft`, `isDirty`+`changeCount`. Live-Preview: `applyLabelOverlay(resolveLabelOverrides(locale, false, draftLabels))` bei jeder Änderung. **R-1-Scrub:** beim Unmount `restoreLabelOverlay(locale, touchedKeys, resolveLabelOverrides(locale))` → Draft-only-Keys zurück auf Default (verhindert Live-Kontamination).
+- **i18n-Helfer (`i18n/useLabelOverlay.ts`):** `restoreLabelOverlay(locale, scrubKeys, resolved)` neu (setzt Scrub-Keys auf `getLabelDefault`, re-applied dann das persistente Overlay).
+- **BegriffeTab:** `draft`-Provenance-Badge (amber) ergänzt (Folge der Typ-Erweiterung).
+- **Gates:** scoped tsc (`tsconfig.customcheck.json` +2 Dateien) **0 Fehler in allen E-1-Dateien** (11 Rest = Alt-Baseline sanitize/automation/crm/finance/hr) · `eslint` clean · **vitest `customization-draft.test.ts` 9/9 PASS** (draft>tenant-Merge, draft>default, base ignoriert draft, Value-Set-Draft-Option+Name, saveDraft-kein-Impact, commitDraftNow-Promotion, rollback-Restore, applyDraftToTenant-Whitelist-Filter, Scheduler due-vs-future).
+- **E-1 hat KEINE UI** → statt Playwright ein Logik-Vitest. Screenshot-QA ab E-2 (EditorFrame sichtbar).
+- **Luke-Paket (backend-gaps, nach FE-Bau):** `tenant_customization_drafts`-Tabelle (sparse, `scheduled_at`, Status-Maschine) · Promotion-Cron · Draft-Overlay serverseitig (nur Editor-Session) · Rollback modul-granular · Audit an Deploy-Routen · editierbares Manifest pro Modul.

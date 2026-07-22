@@ -27,6 +27,8 @@
     "src/renderer/src/i18n/useLabelOverlay.ts",
     "src/renderer/src/i18n/index.tsx",
     "src/renderer/src/api/hooks/useLabelOverrides.ts",
-    "src/renderer/src/modules/admin/anpassungen/BegriffeTab.tsx"
+    "src/renderer/src/modules/admin/anpassungen/BegriffeTab.tsx",
+    "src/renderer/src/mocks/data/customization-drafts.ts",
+    "src/renderer/src/modules/admin/anpassungen/editor/DraftConfigProvider.tsx"
   ]
 }

@@ -14,7 +14,7 @@
 import type {
   ConfigLayer,
   ConfigProvenance,
-  LabelOverrideMap,
+  LocaleLabelMap,
   ResolvedLabel,
   ResolvedLabelMap,
   ResolvedValueSet,
@@ -85,8 +85,7 @@ export const LABEL_WHITELIST: string[] = [
   'layout.navItems.admin',
 ]
 
-// Internal type for locale → key → value overlay maps.
-type LocaleLabelMap = Record<string, LabelOverrideMap>
+// LocaleLabelMap (locale → key → value) is defined in customization-types.ts.
 
 /**
  * Vendor layer seeds: Zentria sets these during onboarding for a healthcare
@@ -155,7 +154,11 @@ const tenantLabels: LocaleLabelMap = structuredClone(TENANT_LABELS)
  * base=true → returns only the code default level (empty overlay), used by
  * future editors to show the "vanilla Cosmi" baseline (mirrors ?base=1 in R-6).
  */
-export function resolveLabelOverrides(locale: string, base = false): ResolvedLabelMap {
+export function resolveLabelOverrides(
+  locale: string,
+  base = false,
+  draftOverlay?: LocaleLabelMap,
+): ResolvedLabelMap {
   const result: ResolvedLabelMap = {}
 
   for (const key of LABEL_WHITELIST) {
@@ -166,6 +169,13 @@ export function resolveLabelOverrides(locale: string, base = false): ResolvedLab
 
     if (base) {
       result[key] = defaultEntry
+      continue
+    }
+
+    // draft wins over tenant (4th layer, only supplied inside the editor sandbox).
+    const draftValue = draftOverlay?.[locale]?.[key]
+    if (draftValue !== undefined) {
+      result[key] = { key, value: draftValue, provenance: 'draft' }
       continue
     }
 
@@ -340,7 +350,11 @@ const tenantValueSets: Record<string, ValueSet> = structuredClone(TENANT_VALUE_S
  * an id, it replaces the vendor/default option. Options only in vendor carry
  * provenance='vendor'; only in default carry provenance='default'.
  */
-export function resolveValueSet(id: string, base = false): ResolvedValueSet | null {
+export function resolveValueSet(
+  id: string,
+  base = false,
+  draftOverlay?: Record<string, Omit<ValueSet, 'layer'>>,
+): ResolvedValueSet | null {
   const def = DEFAULT_VALUE_SETS[id]
   if (!def) return null
 
@@ -353,7 +367,7 @@ export function resolveValueSet(id: string, base = false): ResolvedValueSet | nu
     }
   }
 
-  // Build a merged option map: default → vendor → tenant
+  // Build a merged option map: default → vendor → tenant → draft
   const merged: Record<string, ResolvedValueSetOption> = {}
 
   for (const opt of def.options) {
@@ -374,11 +388,26 @@ export function resolveValueSet(id: string, base = false): ResolvedValueSet | nu
     }
   }
 
-  // Determine set-level name + provenance
+  // draft wins per option (4th layer, only supplied inside the editor sandbox).
+  const draftSet = draftOverlay?.[id]
+  if (draftSet) {
+    for (const opt of draftSet.options) {
+      merged[opt.id] = { ...opt, provenance: 'draft' }
+    }
+  }
+
+  // Determine set-level name + provenance (draft > tenant > vendor > default)
+  const draftName = draftSet?.name
   const tenantName = tenantSet?.name
   const vendorName = vendorSet?.name
-  const effectiveName = tenantName ?? vendorName ?? def.name
-  const nameProvenance: ConfigProvenance = tenantName ? 'tenant' : vendorName ? 'vendor' : 'default'
+  const effectiveName = draftName ?? tenantName ?? vendorName ?? def.name
+  const nameProvenance: ConfigProvenance = draftName
+    ? 'draft'
+    : tenantName
+      ? 'tenant'
+      : vendorName
+        ? 'vendor'
+        : 'default'
 
   return {
     id,
@@ -469,4 +498,57 @@ export function clearAllCustomization(layer: ConfigLayer): void {
     for (const k of Object.keys(tenantLabels)) delete tenantLabels[k]
     for (const k of Object.keys(tenantValueSets)) delete tenantValueSets[k]
   }
+}
+
+// ── Draft promotion (Modul-Editor v1) ─────────────────────────────────────────
+
+/** A full clone of the tenant layer — used to roll back a deployed draft. */
+export interface TenantSnapshot {
+  labels: LocaleLabelMap
+  valueSets: Record<string, ValueSet>
+}
+
+/** Snapshot the current tenant layer (call BEFORE promoting a draft, for rollback). */
+export function snapshotTenant(): TenantSnapshot {
+  return {
+    labels: structuredClone(tenantLabels),
+    valueSets: structuredClone(tenantValueSets),
+  }
+}
+
+/** Restore a previously captured tenant snapshot (rollback). */
+export function restoreTenant(snap: TenantSnapshot): void {
+  for (const k of Object.keys(tenantLabels)) delete tenantLabels[k]
+  Object.assign(tenantLabels, structuredClone(snap.labels))
+  for (const k of Object.keys(tenantValueSets)) delete tenantValueSets[k]
+  Object.assign(tenantValueSets, structuredClone(snap.valueSets))
+}
+
+/**
+ * Merge a draft payload into the tenant layer (commit / scheduled-deploy
+ * promotion). Sparse: only the payload's deviations are written. The caller
+ * writes the audit event with the draft context. Returns applied counts for
+ * the summary. Only LABEL_WHITELIST keys are honoured.
+ */
+export function applyDraftToTenant(payload: {
+  labels: LocaleLabelMap
+  valueSets: Record<string, Omit<ValueSet, 'layer'>>
+}): { labelCount: number; valueSetCount: number } {
+  let labelCount = 0
+  for (const [locale, map] of Object.entries(payload.labels)) {
+    tenantLabels[locale] ??= {}
+    for (const [key, value] of Object.entries(map)) {
+      if (!LABEL_WHITELIST.includes(key)) continue
+      tenantLabels[locale][key] = value
+      labelCount += 1
+    }
+  }
+
+  let valueSetCount = 0
+  for (const [id, set] of Object.entries(payload.valueSets)) {
+    tenantValueSets[id] = { ...set, layer: 'tenant' }
+    valueSetCount += 1
+  }
+
+  return { labelCount, valueSetCount }
 }
