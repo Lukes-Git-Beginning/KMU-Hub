@@ -12,9 +12,10 @@
  */
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { CustomizationDraftPayload } from '@/api/customization-types'
+import type { CustomizationDraftPayload, CustomizationDraft } from '@/api/customization-types'
 import { applyDraftToTenant, resolveLabelOverrides } from '@/mocks/data/customization'
 import { applyDraftCustomFields } from '@/mocks/data/custom-fields'
+import { ingestRemoteDraft, type DeploySnapshot } from '@/mocks/data/customization-drafts'
 import { applyLabelOverlay } from '@/i18n/useLabelOverlay'
 import { i18n } from '@/i18n/i18n'
 
@@ -24,7 +25,20 @@ interface DeployMessage {
   type: 'deployed'
   payload: CustomizationDraftPayload
   locale: string
+  /** The draft record + rollback snapshot, mirrored so the main-window hub can
+      list and roll back a deploy done in the editor window (mock; Luke's DB
+      replaces this with a shared table + refetch). */
+  draft?: CustomizationDraft
+  snapshot?: DeploySnapshot
 }
+
+/** A draft saved/scheduled in the editor window, mirrored for the hub list. */
+interface DraftMirrorMessage {
+  type: 'draft-mirror'
+  draft: CustomizationDraft
+}
+
+type ChannelMessage = DeployMessage | DraftMirrorMessage
 
 let channel: BroadcastChannel | null = null
 function getChannel(): BroadcastChannel | null {
@@ -33,9 +47,19 @@ function getChannel(): BroadcastChannel | null {
   return channel
 }
 
-/** Editor window → tell other windows a deploy landed (with the payload). */
-export function publishCustomizationDeploy(payload: CustomizationDraftPayload): void {
-  const msg: DeployMessage = { type: 'deployed', payload, locale: i18n.language }
+/** Editor window → tell other windows a deploy landed (payload + draft mirror). */
+export function publishCustomizationDeploy(
+  payload: CustomizationDraftPayload,
+  draft?: CustomizationDraft,
+  snapshot?: DeploySnapshot,
+): void {
+  const msg: DeployMessage = { type: 'deployed', payload, locale: i18n.language, draft, snapshot }
+  getChannel()?.postMessage(msg)
+}
+
+/** Editor window → mirror a saved/scheduled draft (no live apply) to the hub. */
+export function publishDraftMirror(draft: CustomizationDraft): void {
+  const msg: DraftMirrorMessage = { type: 'draft-mirror', draft }
   getChannel()?.postMessage(msg)
 }
 
@@ -49,21 +73,32 @@ export function useCustomizationSyncListener(): void {
   useEffect(() => {
     const ch = getChannel()
     if (!ch) return
-    const onMessage = (e: MessageEvent<DeployMessage>): void => {
-      if (e.data?.type !== 'deployed') return
-      applyDraftToTenant(e.data.payload)
-      // Custom fields live in their own store (E-3c) — apply the snapshot here too.
-      applyDraftCustomFields(e.data.payload.customFields ?? {})
-      // Live label refresh (sidebar, headings) — direct i18n overlay, no query.
-      applyLabelOverlay(e.data.locale, resolveLabelOverrides(e.data.locale))
-      // Value-set- and field-driven UI refreshes on refetch (the 'customization'
-      // predicate below also matches the ['customization','fields',…] query keys).
+    const refresh = (): void => {
       void queryClient.invalidateQueries({
         predicate: (q) => {
           const key = JSON.stringify(q.queryKey).toLowerCase()
           return key.includes('customization') || key.includes('label') || key.includes('valueset')
         },
       })
+    }
+    const onMessage = (e: MessageEvent<ChannelMessage>): void => {
+      if (e.data?.type === 'draft-mirror') {
+        // Saved/scheduled draft — list it in the hub, no live apply.
+        ingestRemoteDraft(e.data.draft)
+        refresh()
+        return
+      }
+      if (e.data?.type !== 'deployed') return
+      applyDraftToTenant(e.data.payload)
+      // Custom fields live in their own store (E-3c) — apply the snapshot here too.
+      applyDraftCustomFields(e.data.payload.customFields ?? {})
+      // Mirror the draft record + rollback snapshot so the hub can list/roll it back.
+      if (e.data.draft) ingestRemoteDraft(e.data.draft, e.data.snapshot)
+      // Live label refresh (sidebar, headings) — direct i18n overlay, no query.
+      applyLabelOverlay(e.data.locale, resolveLabelOverrides(e.data.locale))
+      // Value-set-, field- and draft-list-driven UI refreshes on refetch (the
+      // 'customization' predicate also matches ['customization','fields'|'drafts',…]).
+      refresh()
     }
     ch.addEventListener('message', onMessage)
     return () => ch.removeEventListener('message', onMessage)

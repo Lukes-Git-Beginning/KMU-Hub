@@ -19,6 +19,7 @@ import { X, Undo2, Redo2, Eye, EyeOff, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import { saveDraft } from '@/mocks/data/customization-drafts'
+import { publishDraftMirror } from './customization-sync'
 import { DraftConfigProvider, useDraftConfig } from './DraftConfigProvider'
 import { EditorTrioNav, type EditorSection } from './EditorTrioNav'
 import { EditorPropertiesPanel } from './EditorPropertiesPanel'
@@ -57,7 +58,8 @@ function EditorLayout({
   const draftName = t('customization.editor.draftName', { module: moduleName })
 
   const handleSaveDraft = (): void => {
-    saveDraft({ moduleKey: module.key, name: draftName, payload: buildPayload() })
+    const d = saveDraft({ moduleKey: module.key, name: draftName, payload: buildPayload() })
+    publishDraftMirror(d)
     toast.success(t('customization.editor.toast.draftSaved'))
   }
 

@@ -14,8 +14,8 @@ import { Zap, CalendarClock, Users } from 'lucide-react'
 import { DetailModal } from '@/components/shared/DetailModal'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
-import { deployDraft } from '@/mocks/data/customization-drafts'
-import { publishCustomizationDeploy } from './customization-sync'
+import { deployDraft, getDeploySnapshot } from '@/mocks/data/customization-drafts'
+import { publishCustomizationDeploy, publishDraftMirror } from './customization-sync'
 import type { CustomizationDraftPayload } from '@/api/customization-types'
 
 /** Next morning at 06:00, formatted for <input type="datetime-local">. */
@@ -56,18 +56,20 @@ export function DeployDialog({
     const payload = buildPayload()
     if (mode === 'scheduled') {
       const iso = new Date(scheduledAt).toISOString()
-      deployDraft({ moduleKey, name: draftName, payload, mode: 'scheduled', scheduledAt: iso, announcement: announcement || undefined })
+      const d = deployDraft({ moduleKey, name: draftName, payload, mode: 'scheduled', scheduledAt: iso, announcement: announcement || undefined })
+      publishDraftMirror(d)
       toast.success(t('customization.editor.deploy.toastScheduled'))
     } else {
-      deployDraft({ moduleKey, name: draftName, payload, mode: 'now', announcement: announcement || undefined })
-      publishCustomizationDeploy(payload)
+      const d = deployDraft({ moduleKey, name: draftName, payload, mode: 'now', announcement: announcement || undefined })
+      publishCustomizationDeploy(payload, d, getDeploySnapshot(d.id))
       toast.success(t('customization.editor.toast.applied'))
     }
     onDeployed()
   }
 
   const saveDraft = (): void => {
-    deployDraft({ moduleKey, name: draftName, payload: buildPayload(), mode: 'draft' })
+    const d = deployDraft({ moduleKey, name: draftName, payload: buildPayload(), mode: 'draft' })
+    publishDraftMirror(d)
     toast.success(t('customization.editor.toast.draftSaved'))
     onDeployed()
   }

@@ -1,29 +1,68 @@
 /**
- * AnpassungenTab — the "Anpassungen" tab in AdminHubPage: the entry into the
- * module editor.
+ * AnpassungenTab — the "Anpassungen" tab in AdminHubPage: the module-editor hub.
  *
- * The old inline Felder/Begriffe admin lists (v1.1/v1.2) were removed — after the
- * re-scoping, customization happens ONLY inside the module editor, not on the
- * live admin surface (Darien 2026-07-22: "die Felder machen in Cosmi keinen Sinn,
- * sind nur im Baukasten-Editor"). E-4 turns this launch grid into the full module
- * gallery (status/preview, editable manifest per module).
+ * E-4 module gallery: one card per editable module (fixed module name + what is
+ * customizable: Begriffe / Wertelisten / Felder counts + a live status badge).
+ * E-5b rollouts list: saved drafts + scheduled rollouts + live deploys with
+ * 1-click rollback. Both read the drafts store via a React Query keyed on
+ * 'customization', which the cross-window sync listener invalidates when a deploy
+ * lands from the editor window (mock; Luke's shared DB replaces the mirror).
+ *
+ * Customization happens ONLY inside the module editor (Darien 2026-07-22) — this
+ * hub launches it and manages the change-management around it.
  *
  * Gated on `admin:customization:manage` (admin + it_admin) via AdminHubPage.
  */
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { Contact, LifeBuoy, Wand2 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Contact, LifeBuoy, Wand2, RotateCcw, Trash2, PencilLine, Clock, CircleDot } from 'lucide-react'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import { useCapabilitySet } from '@/hooks/useCapability'
-import { EDITOR_MODULES } from './editor/editorModules'
+import { i18n } from '@/i18n/i18n'
+import { applyLabelOverlay } from '@/i18n/useLabelOverlay'
+import { resolveLabelOverrides } from '@/mocks/data/customization'
+import {
+  listDrafts,
+  rollbackDeploy,
+  canRollback,
+  deleteDraft,
+} from '@/mocks/data/customization-drafts'
+import type { CustomizationDraft, DraftStatus } from '@/api/customization-types'
+import { EDITOR_MODULES, type EditorModuleDef } from './editor/editorModules'
 
 /** Lucide icon per editor-module (matches EditorModuleDef.icon). */
 const MODULE_ICON = { contact: Contact, lifeBuoy: LifeBuoy } as const
+
+const STATUS_STYLE: Record<DraftStatus, string> = {
+  draft: 'bg-muted text-muted-foreground',
+  scheduled: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  live: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  superseded: 'bg-muted text-muted-foreground/70',
+}
 
 export default function AnpassungenTab() {
   const { t } = useTranslation()
   const { ready } = useCapabilitySet()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const { data: drafts = [] } = useQuery({
+    queryKey: ['customization', 'drafts'],
+    queryFn: () => listDrafts(),
+    // The drafts store is mutated by deploys in the editor window; the sync
+    // broadcast can be missed while the hub is unmounted, so always refetch on
+    // mount (matches the R-5 audit-log freshness fix).
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
+
+  const refresh = (): void => {
+    void queryClient.invalidateQueries({
+      predicate: (q) => JSON.stringify(q.queryKey).toLowerCase().includes('customization'),
+    })
+  }
 
   // Open the editor in its own OS window (web fallback: same-window route).
   const openEditor = (key: string): void => {
@@ -34,10 +73,28 @@ export default function AnpassungenTab() {
     }
   }
 
+  const handleRollback = (draft: CustomizationDraft): void => {
+    rollbackDeploy(draft.id)
+    // Revert the live overlay in THIS window (sidebar/headings) + refetch data.
+    applyLabelOverlay(i18n.language, resolveLabelOverrides(i18n.language))
+    refresh()
+    toast.success(t('customization.editor.rollouts.rolledBack'))
+  }
+
+  const handleDelete = (draft: CustomizationDraft): void => {
+    deleteDraft(draft.id)
+    refresh()
+    toast.success(t('customization.editor.rollouts.deleted'))
+  }
+
+  const fmtDate = (iso?: string): string =>
+    iso ? new Date(iso).toLocaleString(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }) : ''
+
   if (!ready) return <ModuleLoadingFallback />
 
   return (
     <div className="flex h-full flex-col overflow-y-auto px-6 py-6">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="mb-2.5 flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-1)]/10 text-[var(--accent-1)]">
           <Wand2 className="h-4 w-4" aria-hidden="true" />
@@ -47,30 +104,154 @@ export default function AnpassungenTab() {
           {t('customization.editor.launch.beta')}
         </span>
       </div>
-      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+      <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
         {t('customization.editor.launch.subtitle')}
       </p>
+
+      {/* ── E-4 Module gallery ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {EDITOR_MODULES.map((mod) => {
-          const Icon = MODULE_ICON[mod.icon]
-          return (
-            <button
-              key={mod.key}
-              type="button"
-              onClick={() => openEditor(mod.key)}
-              className="group flex items-center gap-3 rounded-xl border bg-background px-4 py-3.5 text-left transition-colors hover:border-[var(--accent-1)]/40 hover:bg-[var(--accent-1)]/5"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-[var(--accent-1)]/10 group-hover:text-[var(--accent-1)]">
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{t(mod.titleKey)}</p>
-                <p className="truncate text-xs text-muted-foreground">{t('customization.editor.launch.open')}</p>
-              </div>
-            </button>
-          )
-        })}
+        {EDITOR_MODULES.map((mod) => (
+          <ModuleCard
+            key={mod.key}
+            mod={mod}
+            drafts={drafts.filter((d) => d.moduleKey === mod.key)}
+            onOpen={() => openEditor(mod.key)}
+          />
+        ))}
+      </div>
+
+      {/* ── E-5b Rollouts & drafts ──────────────────────────────────────── */}
+      <div className="mt-8">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">{t('customization.editor.rollouts.title')}</h3>
+        {drafts.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border px-5 py-8 text-center">
+            <Clock className="mx-auto h-6 w-6 text-muted-foreground/25" aria-hidden="true" />
+            <p className="mt-2 text-sm text-muted-foreground">{t('customization.editor.rollouts.empty')}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {drafts.map((d) => {
+              const mod = EDITOR_MODULES.find((m) => m.key === d.moduleKey)
+              return (
+                <div
+                  key={d.id}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5"
+                >
+                  <CircleDot className={`h-3.5 w-3.5 shrink-0 ${STATUS_STYLE[d.status].split(' ').find((c) => c.startsWith('text-')) ?? ''}`} aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">{d.name}</span>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${STATUS_STYLE[d.status]}`}>
+                        {t(`customization.editor.rollouts.status.${d.status}`)}
+                      </span>
+                    </div>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {mod ? t(mod.titleKey) : d.moduleKey}
+                      {d.status === 'scheduled' && d.scheduledAt
+                        ? ` · ${t('customization.editor.rollouts.scheduledFor', { date: fmtDate(d.scheduledAt) })}`
+                        : ` · ${fmtDate(d.updatedAt)}`}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    {d.status === 'live' && canRollback(d.id) && (
+                      <button
+                        type="button"
+                        onClick={() => handleRollback(d)}
+                        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                        {t('customization.editor.rollouts.rollback')}
+                      </button>
+                    )}
+                    {d.status === 'draft' && (
+                      <button
+                        type="button"
+                        onClick={() => openEditor(d.moduleKey)}
+                        aria-label={t('customization.editor.rollouts.reopen')}
+                        title={t('customization.editor.rollouts.reopen')}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      >
+                        <PencilLine className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    )}
+                    {(d.status === 'draft' || d.status === 'scheduled') && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(d)}
+                        aria-label={t('common.delete')}
+                        title={t('common.delete')}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+// ── Module gallery card (E-4) ───────────────────────────────────────────────────
+
+function ModuleCard({
+  mod,
+  drafts,
+  onOpen,
+}: {
+  mod: EditorModuleDef
+  drafts: CustomizationDraft[]
+  onOpen: () => void
+}): React.ReactElement {
+  const { t } = useTranslation()
+  const Icon = MODULE_ICON[mod.icon]
+
+  // Live status: scheduled rollout > active (live) customization > standard.
+  const scheduled = drafts.some((d) => d.status === 'scheduled')
+  const live = drafts.some((d) => d.status === 'live')
+  const status = scheduled ? 'scheduled' : live ? 'customized' : 'standard'
+  const statusStyle =
+    status === 'scheduled'
+      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+      : status === 'customized'
+        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+        : 'bg-muted text-muted-foreground'
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group flex flex-col gap-2.5 rounded-xl border bg-background px-4 py-3.5 text-left transition-colors hover:border-[var(--accent-1)]/40 hover:bg-[var(--accent-1)]/5"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-[var(--accent-1)]/10 group-hover:text-[var(--accent-1)]">
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{t(mod.titleKey)}</p>
+          <p className="truncate text-xs text-muted-foreground">{t('customization.editor.launch.open')}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusStyle}`}>
+          {t(`customization.editor.status.${status}`)}
+        </span>
+      </div>
+      {/* What is customizable in this module (the manifest, at a glance). */}
+      <div className="flex flex-wrap gap-1.5">
+        <DimensionChip label={t('customization.editor.gallery.terms', { count: mod.labelKeys.length })} />
+        <DimensionChip label={t('customization.editor.gallery.valueSets', { count: mod.valueSetIds.length })} />
+        <DimensionChip label={t('customization.editor.gallery.fields', { count: mod.fieldEntities.length })} />
+      </div>
+    </button>
+  )
+}
+
+function DimensionChip({ label }: { label: string }): React.ReactElement {
+  return (
+    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{label}</span>
   )
 }

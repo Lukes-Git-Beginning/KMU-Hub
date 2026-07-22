@@ -11807,5 +11807,22 @@
   "customization.editor.felder.removedTitle": "In rimozione",
   "customization.editor.felder.restore": "Ripristina",
   "customization.editor.felder.stagedHint": "Le modifiche ai campi diventano attive solo dopo l’applicazione.",
-  "customization.editor.begriffe.noneForModule": "Questo modulo non ha ancora termini personalizzabili. Modifica invece gli elenchi di valori o i campi."
+  "customization.editor.begriffe.noneForModule": "Questo modulo non ha ancora termini personalizzabili. Modifica invece gli elenchi di valori o i campi.",
+  "customization.editor.gallery.terms": "{count, plural, one {# termine} other {# termini}}",
+  "customization.editor.gallery.valueSets": "{count, plural, one {# elenco valori} other {# elenchi valori}}",
+  "customization.editor.gallery.fields": "{count, plural, one {# tipo di campo} other {# tipi di campo}}",
+  "customization.editor.status.customized": "Personalizzato",
+  "customization.editor.status.scheduled": "Rollout pianificato",
+  "customization.editor.status.standard": "Predefinito",
+  "customization.editor.rollouts.title": "Rollout e bozze",
+  "customization.editor.rollouts.empty": "Ancora nessuna bozza o rollout.",
+  "customization.editor.rollouts.status.draft": "Bozza",
+  "customization.editor.rollouts.status.scheduled": "Pianificato",
+  "customization.editor.rollouts.status.live": "Attivo",
+  "customization.editor.rollouts.status.superseded": "Sostituito",
+  "customization.editor.rollouts.scheduledFor": "Pianificato per {date}",
+  "customization.editor.rollouts.rollback": "Ripristina",
+  "customization.editor.rollouts.reopen": "Apri",
+  "customization.editor.rollouts.rolledBack": "Ripristinato.",
+  "customization.editor.rollouts.deleted": "Bozza eliminata."
 }

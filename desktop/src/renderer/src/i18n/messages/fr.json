@@ -11807,5 +11807,22 @@
   "customization.editor.felder.removedTitle": "Sera supprimé",
   "customization.editor.felder.restore": "Restaurer",
   "customization.editor.felder.stagedHint": "Les modifications de champs ne sont actives qu’après application.",
-  "customization.editor.begriffe.noneForModule": "Ce module n’a pas encore de termes personnalisables. Modifie plutôt les listes de valeurs ou les champs."
+  "customization.editor.begriffe.noneForModule": "Ce module n’a pas encore de termes personnalisables. Modifie plutôt les listes de valeurs ou les champs.",
+  "customization.editor.gallery.terms": "{count, plural, one {# terme} other {# termes}}",
+  "customization.editor.gallery.valueSets": "{count, plural, one {# liste de valeurs} other {# listes de valeurs}}",
+  "customization.editor.gallery.fields": "{count, plural, one {# type de champ} other {# types de champ}}",
+  "customization.editor.status.customized": "Personnalisé",
+  "customization.editor.status.scheduled": "Déploiement planifié",
+  "customization.editor.status.standard": "Par défaut",
+  "customization.editor.rollouts.title": "Déploiements et brouillons",
+  "customization.editor.rollouts.empty": "Aucun brouillon ni déploiement pour l’instant.",
+  "customization.editor.rollouts.status.draft": "Brouillon",
+  "customization.editor.rollouts.status.scheduled": "Planifié",
+  "customization.editor.rollouts.status.live": "En ligne",
+  "customization.editor.rollouts.status.superseded": "Remplacé",
+  "customization.editor.rollouts.scheduledFor": "Planifié pour {date}",
+  "customization.editor.rollouts.rollback": "Annuler",
+  "customization.editor.rollouts.reopen": "Ouvrir",
+  "customization.editor.rollouts.rolledBack": "Annulé.",
+  "customization.editor.rollouts.deleted": "Brouillon supprimé."
 }

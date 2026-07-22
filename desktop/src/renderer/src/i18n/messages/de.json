@@ -11841,5 +11841,22 @@
   "customization.editor.felder.removedTitle": "Wird entfernt",
   "customization.editor.felder.restore": "Wiederherstellen",
   "customization.editor.felder.stagedHint": "Feld-Änderungen gehen erst beim Übernehmen live.",
-  "customization.editor.begriffe.noneForModule": "Für dieses Modul gibt es aktuell keine anpassbaren Begriffe. Passe stattdessen Wertelisten oder Felder an."
+  "customization.editor.begriffe.noneForModule": "Für dieses Modul gibt es aktuell keine anpassbaren Begriffe. Passe stattdessen Wertelisten oder Felder an.",
+  "customization.editor.gallery.terms": "{count, plural, one {# Begriff} other {# Begriffe}}",
+  "customization.editor.gallery.valueSets": "{count, plural, one {# Werteliste} other {# Wertelisten}}",
+  "customization.editor.gallery.fields": "{count, plural, one {# Feld-Typ} other {# Feld-Typen}}",
+  "customization.editor.status.customized": "Angepasst",
+  "customization.editor.status.scheduled": "Rollout geplant",
+  "customization.editor.status.standard": "Standard",
+  "customization.editor.rollouts.title": "Rollouts & Entwürfe",
+  "customization.editor.rollouts.empty": "Noch keine Entwürfe oder Rollouts.",
+  "customization.editor.rollouts.status.draft": "Entwurf",
+  "customization.editor.rollouts.status.scheduled": "Geplant",
+  "customization.editor.rollouts.status.live": "Live",
+  "customization.editor.rollouts.status.superseded": "Ersetzt",
+  "customization.editor.rollouts.scheduledFor": "Geplant für {date}",
+  "customization.editor.rollouts.rollback": "Zurückrollen",
+  "customization.editor.rollouts.reopen": "Öffnen",
+  "customization.editor.rollouts.rolledBack": "Zurückgerollt.",
+  "customization.editor.rollouts.deleted": "Entwurf gelöscht."
 }

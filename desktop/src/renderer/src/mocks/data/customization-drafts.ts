@@ -40,7 +40,7 @@ const drafts: CustomizationDraft[] = []
  * overlay (labels + value-sets) AND the custom-field store (E-3c: fields have
  * their own store, outside the overlay).
  */
-interface DeploySnapshot {
+export interface DeploySnapshot {
   tenant: TenantSnapshot
   fields: CustomFieldDefinition[]
 }
@@ -77,6 +77,36 @@ export function listDrafts(moduleKey?: string): CustomizationDraft[] {
 
 export function getDraft(id: string): CustomizationDraft | undefined {
   return drafts.find((d) => d.id === id)
+}
+
+// ── Cross-window mirror (mock only; Luke's shared DB replaces this) ─────────────
+//
+// The editor runs in its own OS window (own JS heap → own drafts store). So the
+// Anpassungen hub in the MAIN window mirrors draft records (and, for deploys, the
+// rollback snapshot) via the customization-sync BroadcastChannel — otherwise the
+// rollout list would be empty in the main window. With Luke's backend this is a
+// plain refetch of a shared table.
+
+/** The rollback snapshot captured when a draft went live (for mirroring). */
+export function getDeploySnapshot(id: string): DeploySnapshot | undefined {
+  return rollbackSnapshots[id]
+}
+
+/**
+ * Upsert a draft record (and optional rollback snapshot) that was created in
+ * another window. Pure mirror: no tenant mutation, no audit — the originating
+ * window already did those; this only makes the record visible/rollback-able here.
+ */
+export function ingestRemoteDraft(draft: CustomizationDraft, snapshot?: DeploySnapshot): void {
+  const idx = drafts.findIndex((d) => d.id === draft.id)
+  if (idx >= 0) drafts[idx] = draft
+  else drafts.unshift(draft)
+  if (snapshot) rollbackSnapshots[draft.id] = snapshot
+  if (draft.status === 'live') {
+    for (const d of drafts) {
+      if (d.id !== draft.id && d.moduleKey === draft.moduleKey && d.status === 'live') d.status = 'superseded'
+    }
+  }
 }
 
 // ── Save (blueprint, affects no user) ───────────────────────────────────────────
