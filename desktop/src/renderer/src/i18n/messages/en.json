@@ -11815,5 +11815,11 @@
   "customization.editor.unknownModule": "Module not found.",
   "customization.editor.begriffe.reset": "Reset",
   "customization.editor.begriffe.standardHint": "Default: {value}",
-  "customization.labels.provenance.draft": "Draft"
+  "customization.labels.provenance.draft": "Draft",
+  "customization.editor.wertelisten.setNameLabel": "List name",
+  "customization.editor.wertelisten.toggleHidden": "Toggle visibility",
+  "customization.editor.wertelisten.optionActive": "Visible",
+  "customization.editor.wertelisten.optionHidden": "Hidden — existing data is kept",
+  "customization.editor.wertelisten.colorLabel": "Choose colour",
+  "customization.editor.wertelisten.preview": "Preview"
 }

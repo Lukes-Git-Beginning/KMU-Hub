@@ -1,0 +1,166 @@
+/**
+ * WertelistenPanel (Modul-Editor v1, E-3b) — the module-scoped value-set editor
+ * inside the properties panel. Edits (set name, option labels, colors, soft-
+ * delete) write to the DRAFT layer via setDraftValueSet, so they show in the
+ * in-panel chip preview immediately and only go live on "Übernehmen".
+ *
+ * In-module live preview (status/priority chips in the module) is deferred to the
+ * module-consumption round (BUILD-PROGRESS architecture fork, editor-first
+ * decision 2026-07-22) — the module doesn't read the resolver yet, so the panel
+ * carries its own preview.
+ */
+import { useTranslation } from 'react-i18next'
+import { RotateCcw, EyeOff } from 'lucide-react'
+import { resolveValueSet } from '@/mocks/data/customization'
+import type { ResolvedValueSet, ValueSetOption } from '@/api/customization-types'
+import { getEditorModule } from './editorModules'
+import { useDraftConfig } from './DraftConfigProvider'
+
+/** Cosmi status palette (HSL) — the swatches offered for option colors. */
+const SWATCHES = [
+  'hsl(215 16% 47%)',
+  'hsl(217 91% 60%)',
+  'hsl(38 92% 50%)',
+  'hsl(25 95% 53%)',
+  'hsl(142 71% 45%)',
+  'hsl(0 72% 51%)',
+]
+
+const PROVENANCE_STYLE: Record<string, string> = {
+  vendor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  tenant: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  draft: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+}
+
+/** Strip resolver-only provenance to the editable ValueSet shape. */
+function toEditable(resolved: ResolvedValueSet): {
+  id: string
+  name: string
+  options: ValueSetOption[]
+} {
+  return {
+    id: resolved.id,
+    name: resolved.name,
+    options: resolved.options.map(({ id, label, color, order, active }) => ({ id, label, color, order, active })),
+  }
+}
+
+function ValueSetEditor({ id }: { id: string }): React.ReactElement | null {
+  const { t } = useTranslation()
+  const { valueSets: draftSets, setDraftValueSet, resetDraftValueSet } = useDraftConfig()
+  const resolved = resolveValueSet(id, false, draftSets)
+  if (!resolved) return null
+
+  const editable = toEditable(resolved)
+  const isDraft = resolved.provenance === 'draft'
+  const commit = (next: typeof editable): void => setDraftValueSet(id, next)
+
+  const patchOption = (optId: string, patch: Partial<ValueSetOption>): void => {
+    commit({ ...editable, options: editable.options.map((o) => (o.id === optId ? { ...o, ...patch } : o)) })
+  }
+
+  return (
+    <div className="rounded-lg border bg-card">
+      {/* Set header: name + provenance + reset */}
+      <div className="flex items-center gap-2 border-b px-3 py-2.5">
+        <input
+          value={editable.name}
+          onChange={(e) => commit({ ...editable, name: e.target.value })}
+          aria-label={t('customization.editor.wertelisten.setNameLabel')}
+          className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-sm font-medium outline-none focus:border-primary"
+        />
+        {resolved.provenance !== 'default' && (
+          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${PROVENANCE_STYLE[resolved.provenance] ?? ''}`}>
+            {t(`customization.labels.provenance.${resolved.provenance}`)}
+          </span>
+        )}
+        {isDraft && (
+          <button
+            type="button"
+            onClick={() => resetDraftValueSet(id)}
+            aria-label={t('customization.editor.begriffe.reset')}
+            title={t('customization.editor.begriffe.reset')}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
+      {/* Options */}
+      <div className="flex flex-col gap-2 px-3 py-2.5">
+        {editable.options.map((opt) => (
+          <div key={opt.id} className={`rounded-md border px-2.5 py-2 ${opt.active ? 'bg-background' : 'bg-muted/40'}`}>
+            <div className="flex items-center gap-2">
+              <span
+                className="h-3.5 w-3.5 shrink-0 rounded-full border"
+                style={{ backgroundColor: opt.color ?? 'transparent' }}
+                aria-hidden="true"
+              />
+              <input
+                value={opt.label}
+                onChange={(e) => patchOption(opt.id, { label: e.target.value })}
+                className={`h-7 min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 text-sm outline-none focus:border-border focus:bg-background ${opt.active ? '' : 'text-muted-foreground line-through'}`}
+              />
+              <button
+                type="button"
+                onClick={() => patchOption(opt.id, { active: !opt.active })}
+                aria-pressed={!opt.active}
+                aria-label={t('customization.editor.wertelisten.toggleHidden')}
+                title={t(opt.active ? 'customization.editor.wertelisten.optionActive' : 'customization.editor.wertelisten.optionHidden')}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors hover:bg-secondary ${opt.active ? 'text-muted-foreground/50' : 'text-amber-600 dark:text-amber-400'}`}
+              >
+                <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </div>
+            {/* Colour swatches */}
+            <div className="mt-1.5 flex items-center gap-1 pl-5">
+              {SWATCHES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => patchOption(opt.id, { color: c })}
+                  aria-label={t('customization.editor.wertelisten.colorLabel')}
+                  className={`h-4 w-4 rounded-full border transition-transform hover:scale-110 ${opt.color === c ? 'ring-2 ring-foreground/40 ring-offset-1 ring-offset-background' : ''}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* In-panel preview (chips) — the module doesn't render the resolver yet. */}
+      <div className="border-t px-3 py-2.5">
+        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('customization.editor.wertelisten.preview')}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {editable.options
+            .filter((o) => o.active)
+            .map((o) => (
+              <span
+                key={o.id}
+                className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]"
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: o.color ?? 'transparent' }} aria-hidden="true" />
+                {o.label}
+              </span>
+            ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function WertelistenPanel({ moduleKey }: { moduleKey: string }): React.ReactElement {
+  const module = getEditorModule(moduleKey)
+  const ids = module?.valueSetIds ?? []
+  return (
+    <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+      {ids.map((id) => (
+        <ValueSetEditor key={id} id={id} />
+      ))}
+    </div>
+  )
+}

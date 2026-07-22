@@ -11781,5 +11781,11 @@
   "customization.editor.unknownModule": "Module introuvable.",
   "customization.editor.begriffe.reset": "Réinitialiser",
   "customization.editor.begriffe.standardHint": "Défaut : {value}",
-  "customization.labels.provenance.draft": "Brouillon"
+  "customization.labels.provenance.draft": "Brouillon",
+  "customization.editor.wertelisten.setNameLabel": "Nom de la liste",
+  "customization.editor.wertelisten.toggleHidden": "Basculer la visibilité",
+  "customization.editor.wertelisten.optionActive": "Visible",
+  "customization.editor.wertelisten.optionHidden": "Masqué — les données existantes sont conservées",
+  "customization.editor.wertelisten.colorLabel": "Choisir la couleur",
+  "customization.editor.wertelisten.preview": "Aperçu"
 }

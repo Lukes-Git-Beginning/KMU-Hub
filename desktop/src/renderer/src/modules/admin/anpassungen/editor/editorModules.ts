@@ -24,6 +24,8 @@ export interface EditorModuleDef {
    * key is the module title (wired into the module header for live preview).
    */
   labelKeys: string[]
+  /** Value-set ids this module exposes in the Wertelisten editor. */
+  valueSetIds: string[]
   /** The module page rendered read-only in the sandbox canvas. */
   Component: LazyExoticComponent<ComponentType<unknown>>
 }
@@ -41,6 +43,7 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
       'crm.companies.title',
       'crm.deals.title',
     ],
+    valueSetIds: ['deal_stages'],
     Component: lazy(() => import('@/modules/kontakte/KontaktePage')) as EditorModuleDef['Component'],
   },
   {
@@ -49,6 +52,7 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     previewPath: '/helpdesk',
     icon: 'lifeBuoy',
     labelKeys: ['rbac.module.helpdesk', 'layout.navItems.helpdesk'],
+    valueSetIds: ['ticket_priority'],
     Component: lazy(() => import('@/modules/helpdesk/HelpdeskPage')) as EditorModuleDef['Component'],
   },
 ]

@@ -11781,5 +11781,11 @@
   "customization.editor.unknownModule": "Modulo non trovato.",
   "customization.editor.begriffe.reset": "Ripristina",
   "customization.editor.begriffe.standardHint": "Predefinito: {value}",
-  "customization.labels.provenance.draft": "Bozza"
+  "customization.labels.provenance.draft": "Bozza",
+  "customization.editor.wertelisten.setNameLabel": "Nome dell’elenco",
+  "customization.editor.wertelisten.toggleHidden": "Attiva/disattiva visibilità",
+  "customization.editor.wertelisten.optionActive": "Visibile",
+  "customization.editor.wertelisten.optionHidden": "Nascosto — i dati esistenti vengono mantenuti",
+  "customization.editor.wertelisten.colorLabel": "Scegli colore",
+  "customization.editor.wertelisten.preview": "Anteprima"
 }
