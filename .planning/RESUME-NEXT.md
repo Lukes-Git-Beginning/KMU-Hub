@@ -1,4 +1,12 @@
-# RESUME — nächster Einstieg (Stand 2026-07-22, Session #27)
+# RESUME — nächster Einstieg (Stand 2026-07-22, Session #27b — EDITOR-PIVOT)
+
+> **★★★★★ EDITOR-PIVOT (Darien-Feedback 2026-07-22, VERBINDLICH — überschreibt „Editor funktional komplett"): Das Trio-Seiten-Panel ist abgekoppelt.** Darien: „ich kann das nicht anklicken und weiter bearbeiten" + „ich habe Eskalationsgrund rechts als Feld, sehe aber keinen Eskalationsgrund im Modul" + „im Helpdesk kann ich Wissensdatenbank/Statistik/Ticket-Infos nicht anpassen, nur 2 Sachen und kaum zuordnen was ich ändere". **Neue Richtung: EDIT-IN-PLACE.** Vorschau wird **begehbar** (Tabs/Detail-Modals sind state-basiert → funktionieren ohne die Seite zu verlassen), anpassbare Elemente sind **im Bild anklickbar → inline umbenennen/bearbeiten, genau wo sie leben** (inkl. Detail-Ansicht + Custom-Fields). Panel schrumpft auf „Neu anlegen" + Kontext-Inspektor.
+> **★ 1. Scheibe GEBAUT+QA+GEPUSHT (`08f2480e`):** `components/customization/EditorSurface.tsx` = `EditorSurface`-Context + **`EditableText`**-Primitive (live-App: plain `t(key)`; im Sandbox: hover-Rahmen + Klick→Inline-Rename→Draft, live). ModuleSandbox begehbar (pointer-events an) + stellt Surface bereit. DraftConfigProvider wendet rohe Draft-Labels an (instrumentierte Keys außerhalb LABEL_WHITELIST previewen live). **„Instrumentierung IST die Whitelist."** Proof: Kontakte-Kategorien (`kontakte.category.*`) instrumentiert → **„Kunden" im Modul anklicken → inline „Patienten" → live** (amber Ring). QA `qa-editor-inplace.mjs` 4/4 + Bilder. Pilot = Kontakte (rendert Custom-Fields im Detail schon — Helpdesk müsste man erst bauen).
+> **★ NÄCHSTE SCHRITTE (Pivot fortsetzen, auf Darien-Freigabe der Richtung warten):** Kontakte weiter instrumentieren — Titel/Tabs (Leads/Unternehmen/Deals-Wrapper finden) + **Kontakt-Detail-Modal: Feld-Labels + Custom-Fields inline editierbar** (= Antwort auf „Eskalationsgrund unsichtbar"). Chrome aufräumen (Panel→„Neu anlegen"+Inspektor, redundanten Empty-State ersetzen). DANN Muster über andere Module ausrollen (das ist die neue Form der Modul-Konsum-Runde: instrumentieren + rendern statt nur konsumieren). ⚠ Deploy honoriert nur Whitelist → instrumentierte Keys dort ergänzen ODER `applyDraftToTenant` auf instrumentierte Keys öffnen. **Darien reviewt LOKAL.**
+>
+> ---
+
+# RESUME — Historie (Stand 2026-07-22, Session #27)
 
 > **★★★★★ SESSION #27 (2026-07-22) — MODUL-EDITOR FUNKTIONAL KOMPLETT: E-3c Felder (Trio komplett) + Modul-Identität-Regel + E-4 Galerie + E-5b Rollout-Liste/Rollback. Gebaut+QA. NEUES TERMINAL: erst `git pull`.**
 >
