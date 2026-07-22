@@ -1,4 +1,19 @@
-# RESUME — nächster Einstieg (Stand 2026-07-21, Session #25)
+# RESUME — nächster Einstieg (Stand 2026-07-22, Session #26)
+
+> **★★★★★ SESSION #26 (2026-07-22) — MODUL-EDITOR: RECHERCHE-GATE + KONZEPT GELOCKT + E-1 FUNDAMENT GEBAUT+VERIFIZIERT+GEPUSHT. NEUES TERMINAL: erst `git pull`.**
+>
+> **Recherche-Gate (3 parallele Agents):** `IST-EDITOR.md` (Codebase-Machbarkeit — edit-in-place realistisch; **Kernbefund: Datenschicht trägt, aber es gibt KEINE Field-Registry → Module rendern Felder hart im JSX → echtes DOM-Anklicken = grüne Wiese = Stufe 2; deshalb v1 = Trio-Property-Panel + Live-Vorschau daneben, kein DOM-Overlay**) · `MARKT-EDITOR.md` (UX/Visual: Odoo Studio/Salesforce/ServiceNow/Webflow/Framer/Retool + Cosmi-Wireframe: Drei-Panel, Amber-Draft-Banner = was Odoo fehlt) · `DRAFT-DEPLOY.md` (draft→scheduled→live→superseded; terminiertes Deploy = Marktlücke, keiner kann's nativ). **Verifiziert: `createHashRouter`+`MemoryRouter`-Isolationspfad real.**
+> **4 Darien-Entscheide (gelockt, SSOT `.planning/customization-block/EDITOR-KONZEPT.md`):** ① In-App-Overlay v1 (self-contained für späteren echten-Fenster-Umzug) ② nur Trio-Panel v1, Layout=Stufe 2 ③ Terminierung gleich in v1 (Job gemockt, Luke-Cron) ④ 2 Pilot-Module (Kontakte+Helpdesk).
+> **Bau-Roadmap (5 Phasen, BUILD-PROGRESS.md §Neu-Ausrichtung):** E-1 Fundament ✅ · E-2 EditorFrame · E-3 Trio-Panel · E-4 Modul-Galerie · E-5 Deploy.
+> - **E-1 ✅ fertig+verifiziert+gepusht** (`9ff6b5f1`, docs `fe1ecca3`): Draft = 4. Overlay-Schicht (`resolveLabelOverrides/resolveValueSet` +`draftOverlay`-Param, draft gewinnt, Provenance `'draft'`) · `applyDraftToTenant`+`snapshotTenant`/`restoreTenant` · Drafts-Store `customization-drafts.ts` (save/deployNow/schedule/rollback, Scheduler-Mock `runDueScheduledDeploys`, Audit `draft_saved/deploy_live/deploy_scheduled/rolled_back`) · `DraftConfigProvider.tsx` (Session-State + Live-Preview + R-1-Unmount-Scrub `restoreLabelOverlay`) · BegriffeTab amber `draft`-Badge. **Gates: scoped tsc 0 Fehler (11 Rest = Alt-Baseline), eslint clean, vitest `customization-draft.test.ts` 9/9 PASS.** E-1 = keine UI → Logik-Vitest statt Playwright.
+>
+> **★ NÄCHSTER SCHRITT: E-2 EditorFrame** (SSOT `EDITOR-KONZEPT.md` §4 + Wireframe §2) — Overlay-Rahmen auf DetailModal-Basis, **self-contained** (Sandbox-QueryClient + MemoryRouter + `DraftConfigProvider` als eigener Provider-Baum, damit späterer Fenster-Umzug nur Mount-Point-Wechsel ist) · 48px-Toolbar (Modul-Name/Undo-Redo/Preview-Toggle) · Amber-Draft-Banner · Drei-Panel-Layout (260px Trio-Nav / Canvas-Sandbox / Eigenschaften) · Commit-Footer. **Ab E-2 UI sichtbar → Standard-Gate mit Playwright-Screenshot-QA + Bilder ansehen.** Model-Routing: UI-Phasen (E-2…E-5) = Sonnet-geeignet. Untracked belassen: flags.yml, qa-dialer-callflow.mjs, .qa-screenshots/, qa-customization-v12-*.mjs.
+> **★ Parallel geblockt (unverändert):** RBAC-Team-Review wartet auf Lukes RBAC-Backend-Deploy (`hetzner-review-checklist.md`). Nachgelagert: Passwort-Manager, O-0 Onboarding.
+>
+> ---
+> _(Historie #25 folgt)_
+
+# RESUME — Historie (Stand 2026-07-21, Session #25)
 
 > **★★★★★ SESSION #25 (2026-07-21) — RBAC-TEAM-REVIEW-AGENDA AUFBEREITET + SELF-SERVICE-CUSTOMIZATION-BLOCK GESTARTET (Recherche→Konzept→v1.0→v1.1→v1.2). NEUES TERMINAL: erst `git pull`.**
 >
