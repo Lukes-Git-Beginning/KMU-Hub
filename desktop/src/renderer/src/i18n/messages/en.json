@@ -11811,5 +11811,6 @@
   "customization.editor.launch.title": "Module editor",
   "customization.editor.launch.beta": "Beta",
   "customization.editor.launch.subtitle": "Open a module in the editor to customize its fields, terms and value lists — as a preview, without touching the live system.",
-  "customization.editor.launch.open": "Open editor"
+  "customization.editor.launch.open": "Open editor",
+  "customization.editor.unknownModule": "Module not found."
 }

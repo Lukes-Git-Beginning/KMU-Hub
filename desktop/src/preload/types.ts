@@ -57,6 +57,11 @@ export interface ElectronAPI {
     openWindow: () => Promise<void>
   }
 
+  /** Module editor: open the customization editor for a module in its own window */
+  editor: {
+    openWindow: (moduleKey: string) => Promise<void>
+  }
+
   /**
    * Screenshare: enumerate capture sources for the in-call source-picker (Wave 4.1).
    * Returns all available screens and windows with thumbnail previews.

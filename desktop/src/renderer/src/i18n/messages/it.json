@@ -11777,5 +11777,6 @@
   "customization.editor.launch.title": "Editor del modulo",
   "customization.editor.launch.beta": "Beta",
   "customization.editor.launch.subtitle": "Apri un modulo nell’editor per personalizzare campi, termini ed elenchi di valori — in anteprima, senza toccare il sistema attivo.",
-  "customization.editor.launch.open": "Apri l’editor"
+  "customization.editor.launch.open": "Apri l’editor",
+  "customization.editor.unknownModule": "Modulo non trovato."
 }

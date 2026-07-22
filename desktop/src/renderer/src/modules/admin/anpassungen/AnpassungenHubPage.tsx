@@ -23,7 +23,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Contact, LifeBuoy, Wand2 } from 'lucide-react'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import { useCapabilitySet } from '@/hooks/useCapability'
-import { EditorFrame } from './editor/EditorFrame'
 import { EDITOR_MODULES } from './editor/editorModules'
 
 const CustomFieldsTab = lazy(() => import('./CustomFieldsTab'))
@@ -66,9 +65,15 @@ export default function AnpassungenTab() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Temporary editor launch (E-2). E-4 replaces this strip with the full module
-  // gallery; the EditorFrame + module registry stay.
-  const [editorModuleKey, setEditorModuleKey] = useState<string | null>(null)
+  // Temporary editor launch (E-2b). E-4 replaces this strip with the full module
+  // gallery. Opens the editor in its own OS window (web fallback: same-window route).
+  const openEditor = (key: string): void => {
+    if (window.electronAPI?.editor) {
+      void window.electronAPI.editor.openWindow(key)
+    } else {
+      navigate(`/editor-window?module=${encodeURIComponent(key)}`)
+    }
+  }
 
   // Deep-Link-Support: Pathname-Matching für /admin/anpassungen/felder etc.
   const pathnameTab = ROUTE_TO_SUBTAB[location.pathname] ?? null
@@ -123,7 +128,7 @@ export default function AnpassungenTab() {
               <button
                 key={mod.key}
                 type="button"
-                onClick={() => setEditorModuleKey(mod.key)}
+                onClick={() => openEditor(mod.key)}
                 className="group flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-2.5 text-left transition-colors hover:border-[var(--accent-1)]/40 hover:bg-[var(--accent-1)]/5"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-[var(--accent-1)]/10 group-hover:text-[var(--accent-1)]">
@@ -181,12 +186,6 @@ export default function AnpassungenTab() {
           {effectiveSubTab === 'begriffe' && <BegriffeTab />}
         </Suspense>
       </div>
-
-      <EditorFrame
-        open={editorModuleKey !== null}
-        moduleKey={editorModuleKey}
-        onClose={() => setEditorModuleKey(null)}
-      />
     </div>
   )
 }

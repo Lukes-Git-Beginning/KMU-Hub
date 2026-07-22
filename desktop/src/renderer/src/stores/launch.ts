@@ -85,6 +85,7 @@ const GUEST_BOOT_ROUTES = new Set([
   '/flyin-preview',
   '/compose-window',
   '/employee-wizard-window',
+  '/editor-window',
 ])
 
 function bootHashPath(): string {

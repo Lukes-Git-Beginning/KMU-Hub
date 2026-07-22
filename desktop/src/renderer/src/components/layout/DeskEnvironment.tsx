@@ -8,6 +8,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
 import { useSettingsStore } from '@/stores/settings'
 import { useHydrateModuleSettings } from '@/hooks/useHydrateModuleSettings'
+import { useCustomizationSyncListener } from '@/modules/admin/anpassungen/editor/customization-sync'
 import { AppShell } from './AppShell'
 
 // Background gradient presets
@@ -63,6 +64,9 @@ export function DeskEnvironment() {
 
   // Hydrate backend-persisted module preferences once after login (X-4).
   useHydrateModuleSettings()
+
+  // Converge live when the module editor (own window) deploys a customization.
+  useCustomizationSyncListener()
 
   // Sync .dark class on <html>
   useEffect(() => {

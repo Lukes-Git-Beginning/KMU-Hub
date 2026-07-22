@@ -44,6 +44,10 @@ const api: ElectronAPI = {
     openWindow: () => ipcRenderer.invoke('employee-wizard:open-window')
   },
 
+  editor: {
+    openWindow: (moduleKey: string) => ipcRenderer.invoke('editor:open-window', moduleKey)
+  },
+
   screenshare: {
     getSources: () => ipcRenderer.invoke('screenshare:get-sources'),
     setSource: (sourceId: string) => ipcRenderer.invoke('screenshare:set-source', sourceId)
