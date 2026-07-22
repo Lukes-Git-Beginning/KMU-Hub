@@ -18,13 +18,16 @@
  * Labels update live because the module reads t() from the shared i18n instance,
  * which the DraftConfigProvider re-overlays on every draft change (ICU-Live-Fix).
  */
-import { Component, Suspense, useState } from 'react'
+import { Component, Suspense, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { EyeOff } from 'lucide-react'
 import { STALE_TIME } from '@/lib/constants'
+import { i18n } from '@/i18n/i18n'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
+import { EditorSurfaceProvider, type EditorSurfaceValue } from '@/components/customization/EditorSurface'
+import { useDraftConfig } from './DraftConfigProvider'
 import type { EditorModuleDef } from './editorModules'
 
 class SandboxErrorBoundary extends Component<
@@ -42,6 +45,7 @@ class SandboxErrorBoundary extends Component<
 
 export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNode {
   const { t } = useTranslation()
+  const { labels, setDraftLabel } = useDraftConfig()
   const [sandboxClient] = useState(
     () =>
       new QueryClient({
@@ -51,6 +55,17 @@ export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNod
       }),
   )
   const { Component: ModulePage } = module
+
+  // Edit-in-place surface: EditableText elements inside the module become
+  // click-to-rename, writing to the draft in the active locale.
+  const surface = useMemo<EditorSurfaceValue>(
+    () => ({
+      editing: true,
+      setLabel: (key, value) => setDraftLabel(i18n.language, key, value),
+      isDraft: (key) => Boolean(labels[i18n.language]?.[key]),
+    }),
+    [labels, setDraftLabel],
+  )
 
   const fallback = (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -67,16 +82,16 @@ export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNod
           {t('customization.editor.previewLabel')}
         </span>
       </div>
-      <div
-        // View-only: the canvas is a preview; edits happen in the trio panel (v1).
-        className="pointer-events-none min-h-full select-none [&_*]:!cursor-default"
-        aria-hidden="true"
-      >
+      <div className="min-h-full">
+        {/* Navigable preview: you walk the real module (state-based tabs + detail
+            modals work) and edit EditableText elements in place. */}
         <SandboxErrorBoundary fallback={fallback}>
           <QueryClientProvider client={sandboxClient}>
-            <Suspense fallback={<ModuleLoadingFallback />}>
-              <ModulePage />
-            </Suspense>
+            <EditorSurfaceProvider value={surface}>
+              <Suspense fallback={<ModuleLoadingFallback />}>
+                <ModulePage />
+              </Suspense>
+            </EditorSurfaceProvider>
           </QueryClientProvider>
         </SandboxErrorBoundary>
       </div>

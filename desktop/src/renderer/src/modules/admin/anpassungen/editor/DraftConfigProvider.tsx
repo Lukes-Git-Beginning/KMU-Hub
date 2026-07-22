@@ -159,6 +159,11 @@ export function DraftConfigProvider({
         Array.from(touchedKeysRef.current),
         resolveLabelOverrides(locale, false, state.labels),
       )
+      // Edit-in-place: EditableText can target ANY i18n key, not only the curated
+      // LABEL_WHITELIST (which resolveLabelOverrides is limited to). Apply the raw
+      // draft labels directly so those inline edits preview live too. The ICU-Live-
+      // Fix (bindI18nStore 'added') re-renders the module on this merge.
+      i18n.addResourceBundle(locale, 'translation', state.labels[locale] ?? {}, true, true)
     }, 120)
     return () => clearTimeout(id)
   }, [state.labels, locale])

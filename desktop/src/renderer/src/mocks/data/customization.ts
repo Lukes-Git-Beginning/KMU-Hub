@@ -64,6 +64,12 @@ export const LABEL_WHITELIST: string[] = [
   'crm.deals.title',
   'work.tasks.title',
   'work.projects.title',
+  // Edit-in-place instrumented content (Kontakte pilot) — record-noun categories
+  // a practice rebrands (Kunden → Patienten). Instrumented via <EditableText>.
+  'kontakte.category.all',
+  'kontakte.category.employee',
+  'kontakte.category.customers',
+  'kontakte.category.partner',
 ]
 
 // LocaleLabelMap (locale → key → value) is defined in customization-types.ts.

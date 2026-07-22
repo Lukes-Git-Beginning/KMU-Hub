@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { EditableText } from '@/components/customization/EditorSurface'
 import {
   Search,
   Plus,
@@ -157,11 +158,11 @@ export default function KontaktePage() {
   const sortFieldLabel = (f: SortField) =>
     f === 'name' ? t('kontakte.sort.name') : f === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact')
 
-  const categories: { key: CategoryFilter; label: string; icon: typeof User; count: number }[] = [
-    { key: 'all', label: t('kontakte.category.all'), icon: Users, count: contacts.length },
-    { key: 'employee', label: t('kontakte.category.employee'), icon: User, count: contacts.filter((c) => c.category === 'employee').length },
-    { key: 'customer', label: t('kontakte.category.customers'), icon: Briefcase, count: contacts.filter((c) => c.category === 'customer').length },
-    { key: 'partner', label: t('kontakte.category.partner'), icon: Building2, count: contacts.filter((c) => c.category === 'partner').length },
+  const categories: { key: CategoryFilter; labelKey: string; icon: typeof User; count: number }[] = [
+    { key: 'all', labelKey: 'kontakte.category.all', icon: Users, count: contacts.length },
+    { key: 'employee', labelKey: 'kontakte.category.employee', icon: User, count: contacts.filter((c) => c.category === 'employee').length },
+    { key: 'customer', labelKey: 'kontakte.category.customers', icon: Briefcase, count: contacts.filter((c) => c.category === 'customer').length },
+    { key: 'partner', labelKey: 'kontakte.category.partner', icon: Building2, count: contacts.filter((c) => c.category === 'partner').length },
   ]
 
   const handleCreateSubmit = async (data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => {
@@ -328,7 +329,7 @@ export default function KontaktePage() {
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">{cat.label}</span>
+                <EditableText as="span" dkey={cat.labelKey} className="flex-1 text-left" />
                 <span className="text-xs text-muted-foreground badge-accent">{cat.count}</span>
               </button>
             )
