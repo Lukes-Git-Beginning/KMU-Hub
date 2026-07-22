@@ -20,11 +20,17 @@
 import { useEffect, useRef, lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Contact, LifeBuoy, Wand2 } from 'lucide-react'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import { useCapabilitySet } from '@/hooks/useCapability'
+import { EditorFrame } from './editor/EditorFrame'
+import { EDITOR_MODULES } from './editor/editorModules'
 
 const CustomFieldsTab = lazy(() => import('./CustomFieldsTab'))
 const BegriffeTab = lazy(() => import('./BegriffeTab'))
+
+/** Lucide icon per editor-module (matches EditorModuleDef.icon). */
+const MODULE_ICON = { contact: Contact, lifeBuoy: LifeBuoy } as const
 
 type AnpassungenSubTab = 'felder' | 'begriffe'
 // v1.3: | 'wertelisten'
@@ -60,6 +66,10 @@ export default function AnpassungenTab() {
   const location = useLocation()
   const navigate = useNavigate()
 
+  // Temporary editor launch (E-2). E-4 replaces this strip with the full module
+  // gallery; the EditorFrame + module registry stay.
+  const [editorModuleKey, setEditorModuleKey] = useState<string | null>(null)
+
   // Deep-Link-Support: Pathname-Matching für /admin/anpassungen/felder etc.
   const pathnameTab = ROUTE_TO_SUBTAB[location.pathname] ?? null
 
@@ -90,6 +100,47 @@ export default function AnpassungenTab() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Modul-Editor-Einstieg (E-2, temporär — E-4 wird die volle Galerie). */}
+      <div className="shrink-0 border-b border-border bg-muted/20 px-6 py-4">
+        <div className="mb-2.5 flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent-1)]/10 text-[var(--accent-1)]">
+            <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </div>
+          <h2 className="text-sm font-semibold text-foreground">
+            {t('customization.editor.launch.title')}
+          </h2>
+          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+            {t('customization.editor.launch.beta')}
+          </span>
+        </div>
+        <p className="mb-3 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+          {t('customization.editor.launch.subtitle')}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {EDITOR_MODULES.map((mod) => {
+            const Icon = MODULE_ICON[mod.icon]
+            return (
+              <button
+                key={mod.key}
+                type="button"
+                onClick={() => setEditorModuleKey(mod.key)}
+                className="group flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-2.5 text-left transition-colors hover:border-[var(--accent-1)]/40 hover:bg-[var(--accent-1)]/5"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-[var(--accent-1)]/10 group-hover:text-[var(--accent-1)]">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{t(mod.titleKey)}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {t('customization.editor.launch.open')}
+                  </p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Sub-Tab-Leiste — direkt beginnend, kein Doppel-Header */}
       <div
         role="tablist"
@@ -130,6 +181,12 @@ export default function AnpassungenTab() {
           {effectiveSubTab === 'begriffe' && <BegriffeTab />}
         </Suspense>
       </div>
+
+      <EditorFrame
+        open={editorModuleKey !== null}
+        moduleKey={editorModuleKey}
+        onClose={() => setEditorModuleKey(null)}
+      />
     </div>
   )
 }

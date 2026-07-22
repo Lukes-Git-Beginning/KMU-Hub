@@ -29,6 +29,11 @@
     "src/renderer/src/api/hooks/useLabelOverrides.ts",
     "src/renderer/src/modules/admin/anpassungen/BegriffeTab.tsx",
     "src/renderer/src/mocks/data/customization-drafts.ts",
-    "src/renderer/src/modules/admin/anpassungen/editor/DraftConfigProvider.tsx"
+    "src/renderer/src/modules/admin/anpassungen/editor/DraftConfigProvider.tsx",
+    "src/renderer/src/modules/admin/anpassungen/editor/editorModules.ts",
+    "src/renderer/src/modules/admin/anpassungen/editor/ModuleSandbox.tsx",
+    "src/renderer/src/modules/admin/anpassungen/editor/EditorTrioNav.tsx",
+    "src/renderer/src/modules/admin/anpassungen/editor/EditorPropertiesPanel.tsx",
+    "src/renderer/src/modules/admin/anpassungen/editor/EditorFrame.tsx"
   ]
 }
