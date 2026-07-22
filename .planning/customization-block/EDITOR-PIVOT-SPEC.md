@@ -29,3 +29,16 @@ Der Sandbox rendert aktuell nur `KontaktePage` (den „Kontakte"-Unterreiter), N
 6. Danach Muster über andere Module ausrollen
 
 Jede Stufe: bauen → i18n ×4 → scoped tsc → eslint → Playwright-Screenshot-QA (Bilder ansehen) → Commit.
+
+## Aufwands-Schätzung (Darien-Frage 2026-07-22) — FRISCHES TERMINAL
+
+**Zwei Teile:**
+- **A · Editor-Motor (einmalig): ~5 Schritte** — R2 (Modul-Root+Tabs), R1-Mutations-Guard, R4 Tab-Sichtbarkeit-Datenmodell, R4 Toggle-UI+Modul-Konsum, Chrome+EditableText-Ausbau (Felder/Werte, nicht nur Labels).
+- **B · Pro Modul instrumentieren (skaliert):** ~15 Module mit anpassbarem Inhalt (NICHT alle 32). Reich (CRM-Pilot/Work/Finanzen/Team-HR) ~1,5 · Mittel (Helpdesk/Kalender/Dokumente/Berichte/Formulare/Zeiterfassung) ~1 · Dünn (Inventar/Einkauf/Verträge/Wiki) ~0,5. → **~15–18 Schritte**, Kontakte-Pilot ~2–3 davon. Ab Pilot **parallelisierbar per Sub-Agents** (mechanisches Markieren).
+- **Backend (Luke, parallel): ~3** · **übergreifendes QA/Polish: ~2**.
+
+**Summe ganzer Rollout: ~25–30 FE-Schritte + Lukes Backend.** ★ Die ersten **~8–10** (Motor + Kontakte-Pilot + Top-5-Kernmodule) = schon das echte vorzeigbare Werkzeug; der dünne Rest rollt inkrementell danach.
+
+**★ 1. SCHRITT im neuen Terminal = Modul-Audit** (welches Modul welche Tabs/Details/Felder wert ist → präzisiert die Zahl + priorisiert den Rollout). Danach A (Motor) → Kontakte-Pilot komplett → Top-Kernmodule → Rest.
+
+**Bereits erledigt (dieses Terminal):** Edit-in-place-Primitive (`EditableText`/`EditorSurface`), begehbare Sandbox, Draft-Raw-Label-Preview, Kontakte-Kategorien instrumentiert (Proof), R1-Nav-Sperre (`useBlocker`). SSOT für den Bau = diese Datei.
