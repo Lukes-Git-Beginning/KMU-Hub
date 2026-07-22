@@ -11821,5 +11821,18 @@
   "customization.editor.wertelisten.optionActive": "Sichtbar",
   "customization.editor.wertelisten.optionHidden": "Ausgeblendet — bestehende Daten bleiben erhalten",
   "customization.editor.wertelisten.colorLabel": "Farbe wählen",
-  "customization.editor.wertelisten.preview": "Vorschau"
+  "customization.editor.wertelisten.preview": "Vorschau",
+  "customization.editor.deploy.title": "Änderungen übernehmen",
+  "customization.editor.deploy.affects": "Betrifft alle Nutzer eurer Firma.",
+  "customization.editor.deploy.modeNow": "Jetzt",
+  "customization.editor.deploy.modeNowHint": "Sofort für alle live.",
+  "customization.editor.deploy.modeScheduled": "Terminiert",
+  "customization.editor.deploy.modeScheduledHint": "An einem festen Tag ausrollen.",
+  "customization.editor.deploy.scheduleLabel": "Datum & Uhrzeit",
+  "customization.editor.deploy.announceLabel": "Ankündigung (optional)",
+  "customization.editor.deploy.announcePlaceholder": "z. B. Neue Begriffe ab Montag",
+  "customization.editor.deploy.cancel": "Abbrechen",
+  "customization.editor.deploy.confirmNow": "Jetzt übernehmen",
+  "customization.editor.deploy.confirmScheduled": "Rollout planen",
+  "customization.editor.deploy.toastScheduled": "Rollout geplant."
 }

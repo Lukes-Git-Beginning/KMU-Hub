@@ -18,12 +18,12 @@ import { toast } from 'sonner'
 import { X, Undo2, Redo2, Eye, EyeOff, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
-import { commitDraftNow, saveDraft } from '@/mocks/data/customization-drafts'
+import { saveDraft } from '@/mocks/data/customization-drafts'
 import { DraftConfigProvider, useDraftConfig } from './DraftConfigProvider'
 import { EditorTrioNav, type EditorSection } from './EditorTrioNav'
 import { EditorPropertiesPanel } from './EditorPropertiesPanel'
 import { ModuleSandbox } from './ModuleSandbox'
-import { publishCustomizationDeploy } from './customization-sync'
+import { DeployDialog } from './DeployDialog'
 import type { EditorModuleDef } from './editorModules'
 
 export function EditorWorkspace({
@@ -51,6 +51,7 @@ function EditorLayout({
   const { isDirty, changeCount, buildPayload } = useDraftConfig()
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
   const [previewOnly, setPreviewOnly] = useState(false)
+  const [deployOpen, setDeployOpen] = useState(false)
 
   const moduleName = t(module.titleKey)
   const draftName = t('customization.editor.draftName', { module: moduleName })
@@ -58,15 +59,6 @@ function EditorLayout({
   const handleSaveDraft = (): void => {
     saveDraft({ moduleKey: module.key, name: draftName, payload: buildPayload() })
     toast.success(t('customization.editor.toast.draftSaved'))
-  }
-
-  const handleApply = (): void => {
-    // E-5 replaces this with the deploy dialog (now / scheduled / draft).
-    const payload = buildPayload()
-    commitDraftNow({ moduleKey: module.key, name: draftName, payload, mode: 'now' })
-    publishCustomizationDeploy(payload) // tell the main window to converge live
-    toast.success(t('customization.editor.toast.applied'))
-    onClose()
   }
 
   return (
@@ -140,12 +132,22 @@ function EditorLayout({
           <Button variant="outline" size="sm" className="h-8" disabled={!isDirty} onClick={handleSaveDraft}>
             {t('customization.editor.footer.saveDraft')}
           </Button>
-          <Button size="sm" className="h-8 gap-1.5" disabled={!isDirty} onClick={handleApply}>
+          <Button size="sm" className="h-8 gap-1.5" disabled={!isDirty} onClick={() => setDeployOpen(true)}>
             {t('customization.editor.footer.apply')}
             <ChevronDown className="h-3.5 w-3.5 opacity-80" aria-hidden="true" />
           </Button>
         </div>
       </div>
+
+      <DeployDialog
+        open={deployOpen}
+        onClose={() => setDeployOpen(false)}
+        moduleKey={module.key}
+        draftName={draftName}
+        changeCount={changeCount}
+        buildPayload={buildPayload}
+        onDeployed={onClose}
+      />
     </div>
   )
 }

@@ -38,6 +38,7 @@
     "src/renderer/src/modules/admin/anpassungen/editor/EditorWindowPage.tsx",
     "src/renderer/src/modules/admin/anpassungen/editor/customization-sync.ts",
     "src/renderer/src/modules/admin/anpassungen/editor/BegriffePanel.tsx",
-    "src/renderer/src/modules/admin/anpassungen/editor/WertelistenPanel.tsx"
+    "src/renderer/src/modules/admin/anpassungen/editor/WertelistenPanel.tsx",
+    "src/renderer/src/modules/admin/anpassungen/editor/DeployDialog.tsx"
   ]
 }
