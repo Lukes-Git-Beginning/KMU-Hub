@@ -1,4 +1,15 @@
-# RESUME — nächster Einstieg (Stand 2026-07-22, Session #26)
+# RESUME — nächster Einstieg (Stand 2026-07-22, Session #27)
+
+> **★★★★★ SESSION #27 (2026-07-22) — MODUL-EDITOR E-3c FELDER-PANEL (Trio komplett) + MODUL-IDENTITÄT-REGEL gebaut+QA+gepusht (`83b045b5`). NEUES TERMINAL: erst `git pull`.**
+>
+> **E-3c ✅ (Felder = 3. Trio-Panel):** Custom-Fields **draft-konsistent** (Darien-Entscheid): Draft trägt pro Entity die Soll-Feldliste, Deploy diff't gegen Live-Store (create/update/delete) → Felder fahren dieselben Deploy/Schedule/Rollback-Schienen wie Begriffe/Wertelisten. `FelderPanel.tsx` (Entity-Umschalter, Neu/Geändert-Badges, Anlegen/Bearbeiten via wiederverwendetem `FieldEditorModal`, inUse-Konsequenz beim Entfernen + Restore-Sektion, Per-Entity-Reset). Datenschicht: `applyDraftCustomFields`/`snapshotCustomFields`/`restoreCustomFields` + **NEU additive `helpdesk_ticket`-Entity** (3 Seeds, Lukes Tabellen unberührt). `customFields?` in Payload/Provider/Deploy/Rollback/Sync. Gates: vitest **12/12** (+3 Feld-Tests), scoped tsc 0 Fehler, eslint clean, **Playwright `qa-editor-e3c.mjs` 8/8 + Bilder angesehen**.
+> **★ MODUL-IDENTITÄT-REGEL (Darien 2026-07-22, Option 1 gewählt) — WICHTIG:** Modul-Namen sind **unveränderlich**, nur INHALT anpassbar. Darien sah im Live-Build „Patienten" in der Sidebar → Bug in v1.0-Vendor-Seed (benannte `rbac.module.crm`→„Patientenverwaltung" + `layout.navItems.contacts`→„Patienten"). Fix: `rbac.module.*` + `layout.navItems.*` aus `LABEL_WHITELIST` + Vendor-Seed raus → **Sidebar bleibt „Kontakte", Editor-Titel „Kontakte bearbeiten"**. Content bleibt anpassbar (Objekt-Headings `crm.contacts.title` etc.). Grenze gewählt: **Option 1 = alles IM Modul anpassbar** (auch Objekt-Tabs), nur Sidebar-Nav + Modul-Name fix. `editorModules.labelKeys` content-only (helpdesk=[] → BegriffePanel-Empty-State). `EditorWindowPage` bekam `key={module.key}` (sauberer Modul-Wechsel-Remount). backend-gaps §Modul-Editor eingetragen (inkl. Regel: diese Key-Präfixe nie in den Override-Layer).
+> **★ NÄCHSTE SCHRITTE (offen, editor-first):** **E-4** Modul-Galerie (`AnpassungenHubPage` Kacheln → echte Galerie mit Status/Vorschau, editierbares Manifest pro Modul = Vendor-Ebene) · **E-5b** Entwurf-Liste + Rollback-UI (`listDrafts`/`rollbackDeploy`/`canRollback` existieren, Rollback deckt jetzt auch Felder). **Danach: Modul-Konsum-Runde** (Module lesen die Schicht → volle Live-Vorschau, mit Luke; Finding-1-Refinement aus #26: pro Modul nur vorkommende Begriffe zeigen). **Parallel geblockt:** RBAC-Team-Review wartet auf Lukes RBAC-Backend-Deploy. Untracked belassen: flags.yml, qa-dialer-callflow.mjs, .qa-screenshots/.
+>
+> ---
+> _(Historie #26 folgt)_
+
+# RESUME — Historie (Stand 2026-07-22, Session #26)
 
 > **★★★★★ SESSION #26 (2026-07-22) — MODUL-EDITOR: RECHERCHE-GATE + KONZEPT GELOCKT + E-1 FUNDAMENT GEBAUT+VERIFIZIERT+GEPUSHT. NEUES TERMINAL: erst `git pull`.**
 >
