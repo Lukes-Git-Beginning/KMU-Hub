@@ -12,8 +12,9 @@
  * panels (trio-nav · module preview · properties) · commit footer. Trio-panel
  * editing + deploy dialog arrive in E-3 / E-5.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
 import { X, Undo2, Redo2, Eye, EyeOff, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,16 @@ function EditorLayout({
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
   const [previewOnly, setPreviewOnly] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
+
+  // Editor is for editing, not using: block any in-module action that navigates
+  // away (email → /mails, call → /chat, out-linking rows). State-based navigation
+  // inside the module (tab switch, detail modal) does not route, so it is
+  // unaffected. In Electron the editor closes via window.close (not the router),
+  // so this never traps the close.
+  const blocker = useBlocker(true)
+  useEffect(() => {
+    if (blocker.state === 'blocked') blocker.reset()
+  }, [blocker])
 
   const moduleName = t(module.titleKey)
   const draftName = t('customization.editor.draftName', { module: moduleName })
