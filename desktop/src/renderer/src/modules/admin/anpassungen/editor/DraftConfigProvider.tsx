@@ -19,6 +19,7 @@ import type { ReactElement, ReactNode } from 'react'
 import type {
   CustomizationDraftPayload,
   LocaleLabelMap,
+  ModuleAreasOverlay,
   ValueSet,
 } from '@/api/customization-types'
 import type { CustomFieldDefinition, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
@@ -32,6 +33,7 @@ interface DraftState {
   labels: LocaleLabelMap
   valueSets: DraftValueSets
   customFields: DraftCustomFieldMap
+  moduleAreas: ModuleAreasOverlay
 }
 
 type DraftAction =
@@ -41,6 +43,7 @@ type DraftAction =
   | { type: 'resetValueSet'; id: string }
   | { type: 'setEntityFields'; entity: string; fields: CustomFieldDefinition[] }
   | { type: 'resetEntityFields'; entity: string }
+  | { type: 'setModuleArea'; moduleKey: string; areaKey: string; enabled: boolean }
   | { type: 'reset' }
   | { type: 'load'; payload: CustomizationDraftPayload }
 
@@ -69,13 +72,18 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
       delete next[action.entity]
       return { ...state, customFields: next }
     }
+    case 'setModuleArea': {
+      const moduleMap = { ...(state.moduleAreas[action.moduleKey] ?? {}), [action.areaKey]: action.enabled }
+      return { ...state, moduleAreas: { ...state.moduleAreas, [action.moduleKey]: moduleMap } }
+    }
     case 'reset':
-      return { labels: {}, valueSets: {}, customFields: {} }
+      return { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {} }
     case 'load':
       return {
         labels: structuredClone(action.payload.labels),
         valueSets: structuredClone(action.payload.valueSets),
         customFields: structuredClone(action.payload.customFields ?? {}),
+        moduleAreas: structuredClone(action.payload.moduleAreas ?? {}),
       }
   }
 }
@@ -84,12 +92,18 @@ function countLabels(labels: LocaleLabelMap): number {
   return Object.values(labels).reduce((acc, map) => acc + Object.keys(map).length, 0)
 }
 
+function countAreas(moduleAreas: ModuleAreasOverlay): number {
+  return Object.values(moduleAreas).reduce((acc, map) => acc + Object.keys(map).length, 0)
+}
+
 export interface DraftConfigContextValue {
   moduleKey: string
   labels: LocaleLabelMap
   valueSets: DraftValueSets
   /** Per-entity desired field lists staged in the draft (E-3c). */
   customFields: DraftCustomFieldMap
+  /** Module-area visibility overrides staged in the draft (R4). */
+  moduleAreas: ModuleAreasOverlay
   /** Whether the draft has any change vs. the live tenant layer. */
   isDirty: boolean
   /** Total touched entries (labels + value-sets + field entities) for the footer counter. */
@@ -102,6 +116,8 @@ export interface DraftConfigContextValue {
   setDraftEntityFields: (entity: string, fields: CustomFieldDefinition[]) => void
   /** Drop the staged field snapshot for an entity (back to the live baseline). */
   resetDraftEntityFields: (entity: string) => void
+  /** Toggle one module sub-area (tab/section) on or off in the draft (R4). */
+  setDraftModuleArea: (moduleKey: string, areaKey: string, enabled: boolean) => void
   resetAll: () => void
   /** Build the sparse payload for save/deploy. */
   buildPayload: () => CustomizationDraftPayload
@@ -134,8 +150,9 @@ export function DraftConfigProvider({
           labels: structuredClone(initialPayload.labels),
           valueSets: structuredClone(initialPayload.valueSets),
           customFields: structuredClone(initialPayload.customFields ?? {}),
+          moduleAreas: structuredClone(initialPayload.moduleAreas ?? {}),
         }
-      : { labels: {}, valueSets: {}, customFields: {} },
+      : { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {} },
   )
 
   // Every i18n key we ever wrote to the global bundle — scrubbed on unmount so a
@@ -182,12 +199,14 @@ export function DraftConfigProvider({
     const changeCount =
       countLabels(state.labels) +
       Object.keys(state.valueSets).length +
-      Object.keys(state.customFields).length
+      Object.keys(state.customFields).length +
+      countAreas(state.moduleAreas)
     return {
       moduleKey,
       labels: state.labels,
       valueSets: state.valueSets,
       customFields: state.customFields,
+      moduleAreas: state.moduleAreas,
       isDirty: changeCount > 0,
       changeCount,
       setDraftLabel: (l, key, val) => dispatch({ type: 'setLabel', locale: l, key, value: val }),
@@ -196,12 +215,17 @@ export function DraftConfigProvider({
       resetDraftValueSet: (id) => dispatch({ type: 'resetValueSet', id }),
       setDraftEntityFields: (entity, fields) => dispatch({ type: 'setEntityFields', entity, fields }),
       resetDraftEntityFields: (entity) => dispatch({ type: 'resetEntityFields', entity }),
+      setDraftModuleArea: (mk, areaKey, enabled) =>
+        dispatch({ type: 'setModuleArea', moduleKey: mk, areaKey, enabled }),
       resetAll: () => dispatch({ type: 'reset' }),
       buildPayload: () => ({
         labels: structuredClone(state.labels),
         valueSets: structuredClone(state.valueSets),
         ...(Object.keys(state.customFields).length > 0 && {
           customFields: structuredClone(state.customFields),
+        }),
+        ...(countAreas(state.moduleAreas) > 0 && {
+          moduleAreas: structuredClone(state.moduleAreas),
         }),
       }),
       loadDraft: (payload) => dispatch({ type: 'load', payload }),

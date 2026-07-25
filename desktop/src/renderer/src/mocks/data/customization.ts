@@ -15,6 +15,8 @@ import type {
   ConfigLayer,
   ConfigProvenance,
   LocaleLabelMap,
+  ModuleAreaMap,
+  ModuleAreasOverlay,
   ResolvedLabel,
   ResolvedLabelMap,
   ResolvedValueSet,
@@ -458,16 +460,42 @@ export function upsertValueSetOption(
   })
 }
 
+// ── R4 · Module-area visibility (tab/section on-off per tenant) ────────────────
+
+// Sparse overlays: only areas explicitly turned OFF are stored. Empty = all on.
+const vendorModuleAreas: ModuleAreasOverlay = {}
+const tenantModuleAreas: ModuleAreasOverlay = {}
+
+/**
+ * Resolve which sub-areas of a module are enabled. Merged default(all-on) ⊕ vendor
+ * ⊕ tenant ⊕ draft. Returns only the EXPLICIT settings — a consumer treats a
+ * missing areaKey as enabled: `resolveModuleAreas(m)[area] !== false`.
+ */
+export function resolveModuleAreas(
+  moduleKey: string,
+  base = false,
+  draftOverlay?: ModuleAreasOverlay,
+): ModuleAreaMap {
+  if (base) return {}
+  return {
+    ...(vendorModuleAreas[moduleKey] ?? {}),
+    ...(tenantModuleAreas[moduleKey] ?? {}),
+    ...(draftOverlay?.[moduleKey] ?? {}),
+  }
+}
+
 // ── Aggregate helpers ─────────────────────────────────────────────────────────
 
-/** Whether any customization (labels or value-sets) exists for this tenant. */
+/** Whether any customization (labels, value-sets or hidden areas) exists. */
 export function hasCustomization(): boolean {
   const anyLabels =
     Object.values(vendorLabels).some((m) => Object.keys(m).length > 0) ||
     Object.values(tenantLabels).some((m) => Object.keys(m).length > 0)
   const anyValueSets =
     Object.keys(vendorValueSets).length > 0 || Object.keys(tenantValueSets).length > 0
-  return anyLabels || anyValueSets
+  const anyAreas =
+    Object.keys(vendorModuleAreas).length > 0 || Object.keys(tenantModuleAreas).length > 0
+  return anyLabels || anyValueSets || anyAreas
 }
 
 /** Reset all customization data for a layer (rollback / "zurücksetzen"). */
@@ -475,9 +503,11 @@ export function clearAllCustomization(layer: ConfigLayer): void {
   if (layer === 'vendor') {
     for (const k of Object.keys(vendorLabels)) delete vendorLabels[k]
     for (const k of Object.keys(vendorValueSets)) delete vendorValueSets[k]
+    for (const k of Object.keys(vendorModuleAreas)) delete vendorModuleAreas[k]
   } else {
     for (const k of Object.keys(tenantLabels)) delete tenantLabels[k]
     for (const k of Object.keys(tenantValueSets)) delete tenantValueSets[k]
+    for (const k of Object.keys(tenantModuleAreas)) delete tenantModuleAreas[k]
   }
 }
 
@@ -487,6 +517,7 @@ export function clearAllCustomization(layer: ConfigLayer): void {
 export interface TenantSnapshot {
   labels: LocaleLabelMap
   valueSets: Record<string, ValueSet>
+  moduleAreas: ModuleAreasOverlay
 }
 
 /** Snapshot the current tenant layer (call BEFORE promoting a draft, for rollback). */
@@ -494,6 +525,7 @@ export function snapshotTenant(): TenantSnapshot {
   return {
     labels: structuredClone(tenantLabels),
     valueSets: structuredClone(tenantValueSets),
+    moduleAreas: structuredClone(tenantModuleAreas),
   }
 }
 
@@ -503,6 +535,8 @@ export function restoreTenant(snap: TenantSnapshot): void {
   Object.assign(tenantLabels, structuredClone(snap.labels))
   for (const k of Object.keys(tenantValueSets)) delete tenantValueSets[k]
   Object.assign(tenantValueSets, structuredClone(snap.valueSets))
+  for (const k of Object.keys(tenantModuleAreas)) delete tenantModuleAreas[k]
+  Object.assign(tenantModuleAreas, structuredClone(snap.moduleAreas ?? {}))
 }
 
 /**
@@ -514,7 +548,8 @@ export function restoreTenant(snap: TenantSnapshot): void {
 export function applyDraftToTenant(payload: {
   labels: LocaleLabelMap
   valueSets: Record<string, Omit<ValueSet, 'layer'>>
-}): { labelCount: number; valueSetCount: number } {
+  moduleAreas?: ModuleAreasOverlay
+}): { labelCount: number; valueSetCount: number; areaCount: number } {
   let labelCount = 0
   for (const [locale, map] of Object.entries(payload.labels)) {
     tenantLabels[locale] ??= {}
@@ -531,5 +566,11 @@ export function applyDraftToTenant(payload: {
     valueSetCount += 1
   }
 
-  return { labelCount, valueSetCount }
+  let areaCount = 0
+  for (const [moduleKey, areaMap] of Object.entries(payload.moduleAreas ?? {})) {
+    tenantModuleAreas[moduleKey] = { ...(tenantModuleAreas[moduleKey] ?? {}), ...areaMap }
+    areaCount += Object.keys(areaMap).length
+  }
+
+  return { labelCount, valueSetCount, areaCount }
 }

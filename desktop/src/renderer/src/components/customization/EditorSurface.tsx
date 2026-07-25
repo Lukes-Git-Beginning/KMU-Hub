@@ -19,8 +19,8 @@ import type { ElementType, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib'
-import { resolveValueSet } from '@/mocks/data/customization'
-import type { ResolvedValueSet, ValueSet } from '@/api/customization-types'
+import { resolveValueSet, resolveModuleAreas } from '@/mocks/data/customization'
+import type { ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet } from '@/api/customization-types'
 
 export interface EditorSurfaceValue {
   /** True only inside the editor sandbox. */
@@ -31,6 +31,8 @@ export interface EditorSurfaceValue {
   isDraft: (key: string) => boolean
   /** Draft value-sets staged in the editor — previewed live by modules that consume them. */
   valueSets: Record<string, Omit<ValueSet, 'layer'>>
+  /** Draft module-area visibility overrides — previewed live (tabs/sections on-off). */
+  moduleAreas: ModuleAreasOverlay
 }
 
 const noop = (): void => {}
@@ -39,6 +41,7 @@ const EditorSurfaceContext = createContext<EditorSurfaceValue>({
   setLabel: noop,
   isDraft: () => false,
   valueSets: {},
+  moduleAreas: {},
 })
 
 export function useEditorSurface(): EditorSurfaceValue {
@@ -198,4 +201,19 @@ export function useModuleValueSet(id: string): ResolvedValueSet | null {
   const { editing, valueSets } = useEditorSurface()
   const draftOverlay = editing ? valueSets : undefined
   return useMemo(() => resolveValueSet(id, false, draftOverlay), [id, editing, draftOverlay])
+}
+
+/**
+ * Resolve which sub-areas (tabs/sections) of a module are enabled (R4). Returns
+ * the merged explicit map — a consumer treats a missing key as enabled:
+ * `useModuleAreas('helpdesk')[areaKey] !== false`. In the editor the staged draft
+ * is layered on top so toggling a tab off hides it live in the preview.
+ */
+export function useModuleAreas(moduleKey: string): ModuleAreaMap {
+  const { editing, moduleAreas } = useEditorSurface()
+  const draftOverlay = editing ? moduleAreas : undefined
+  return useMemo(
+    () => resolveModuleAreas(moduleKey, false, draftOverlay),
+    [moduleKey, editing, draftOverlay],
+  )
 }

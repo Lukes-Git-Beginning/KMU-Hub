@@ -11826,5 +11826,13 @@
   "customization.editor.rollouts.rolledBack": "Annulé.",
   "customization.editor.rollouts.deleted": "Brouillon supprimé.",
   "helpdesk.tabs.ticketsLabel": "Tickets",
-  "customization.editor.actionBlocked": "Désactivé dans l’éditeur — ici tu personnalises seulement le module."
+  "customization.editor.actionBlocked": "Désactivé dans l’éditeur — ici tu personnalises seulement le module.",
+  "customization.editor.nav.areas": "Zones",
+  "customization.editor.props.areasDesc": "Afficher ou masquer les onglets et sections du module pour ce client.",
+  "customization.editor.bereiche.empty": "Ce module n’a aucune zone activable.",
+  "customization.editor.bereiche.hint": "Masque les onglets dont ce client n’a pas besoin — les données sont conservées.",
+  "customization.editor.bereiche.visible": "Visible",
+  "customization.editor.bereiche.hidden": "Masqué",
+  "customization.editor.bereiche.show": "Afficher {area}",
+  "customization.editor.bereiche.hide": "Masquer {area}"
 }

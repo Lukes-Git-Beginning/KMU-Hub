@@ -31,6 +31,12 @@ export interface EditorModuleDef {
   valueSetIds: string[]
   /** Custom-field entities this module exposes in the Felder editor (E-3c). */
   fieldEntities: CustomFieldEntity[]
+  /**
+   * Toggleable sub-areas (tabs/sections) this module exposes in the Bereiche
+   * editor (R4). `key` matches the module's own area/tab key; `labelKey` is an
+   * i18n key for the display name. Empty → module has no on/off areas.
+   */
+  areas: { key: string; labelKey: string }[]
   /** The module page rendered read-only in the sandbox canvas. */
   Component: LazyExoticComponent<ComponentType<unknown>>
 }
@@ -48,6 +54,9 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     ],
     valueSetIds: ['deal_stages'],
     fieldEntities: ['crm_contact', 'crm_company', 'crm_deal', 'crm_activity'],
+    // CRM sub-tabs are router-based (blocked in the editor) → area toggles deferred
+    // until the router-sandbox path is built (see MODUL-AUDIT).
+    areas: [],
     Component: lazy(() => import('@/modules/kontakte/KontaktePage')) as EditorModuleDef['Component'],
   },
   {
@@ -60,6 +69,12 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     labelKeys: [],
     valueSetIds: ['ticket_priority'],
     fieldEntities: ['helpdesk_ticket'],
+    // State-based tabs → toggleable in the editor (R4).
+    areas: [
+      { key: 'tickets', labelKey: 'helpdesk.tabs.ticketsLabel' },
+      { key: 'wissensdatenbank', labelKey: 'helpdesk.tabs.knowledgeBase' },
+      { key: 'statistik', labelKey: 'helpdesk.tabs.statistics' },
+    ],
     Component: lazy(() => import('@/modules/helpdesk/HelpdeskPage')) as EditorModuleDef['Component'],
   },
 ]

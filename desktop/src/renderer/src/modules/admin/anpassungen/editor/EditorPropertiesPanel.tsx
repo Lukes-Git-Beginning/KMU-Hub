@@ -7,12 +7,13 @@
  * BegriffeTab / ValueSetsTab, module-filtered + draft-wired) below the intro.
  */
 import { useTranslation } from 'react-i18next'
-import { MousePointerClick, Type, ListChecks, SquareStack } from 'lucide-react'
+import { MousePointerClick, Type, ListChecks, SquareStack, Layers } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { EditorSection } from './EditorTrioNav'
 import { BegriffePanel } from './BegriffePanel'
 import { WertelistenPanel } from './WertelistenPanel'
 import { FelderPanel } from './FelderPanel'
+import { BereichePanel } from './BereichePanel'
 
 const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; descKey: string }> = {
   felder: {
@@ -29,6 +30,11 @@ const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; 
     icon: ListChecks,
     titleKey: 'customization.editor.nav.valueSets',
     descKey: 'customization.editor.props.valueSetsDesc',
+  },
+  bereiche: {
+    icon: Layers,
+    titleKey: 'customization.editor.nav.areas',
+    descKey: 'customization.editor.props.areasDesc',
   },
 }
 
@@ -72,6 +78,8 @@ export function EditorPropertiesPanel({
         <WertelistenPanel moduleKey={moduleKey} />
       ) : section === 'felder' ? (
         <FelderPanel moduleKey={moduleKey} />
+      ) : section === 'bereiche' ? (
+        <BereichePanel moduleKey={moduleKey} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>

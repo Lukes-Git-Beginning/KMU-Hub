@@ -13,7 +13,7 @@
 | **Motor: R1-Nav** | `useBlocker(true)` in EditorWorkspace | ✅ (Session #27b) | `6511254b` |
 | **P1** | Motor: EditableText `interactive`-Modus (Doppelklick-Rename für Reiter) + `useEditorGuard` (Mutationen no-op). Helpdesk instrumentiert: Reiter, Tabellen-Header, Statistik-Labels/Überschriften, Detail-Sektionen/Meta, KB-Badges. | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
 | **P2** | Wertelisten-Konsum: Helpdesk liest `ticket_priority` via `useModuleValueSet` (Motor: Draft-Wertelisten über EditorSurface in die Sandbox) → Wertelisten-Panel wirkt LIVE im Modul. _(Custom-Fields-Labels-in-place vertagt — Felder-Panel deckt Feld-CRUD; „Label im Detail klicken→editieren" = späterer Polish.)_ | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
-| **P3** | R4 Tab-Sichtbarkeit (`moduleAreas`-Dimension ins Draft/Deploy, Modul liest sie, Editor-Toggle) | ⏳ offen | — |
+| **P3** | R4 Tab-Sichtbarkeit: neue Dimension `moduleAreas` (Typen→Resolver→Draft→Deploy→Rollback), Helpdesk liest sie (`useModuleAreas`), Editor-„Bereiche"-Panel mit Ein/Aus-Schaltern | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
 | **P4** | Chrome: Trio-Panel → Kontext-Inspektor + „Neu anlegen" | ⏳ offen | — |
 | **Rollout** | ~14 Module instrumentieren (Rich zuerst: finanzen/inventar/einkauf/vertraege/produktion/vermietung/formulare/work), ab Pilot per Sub-Agents parallelisierbar | ⏳ offen | — |
 
@@ -27,6 +27,12 @@
 - **Konsum:** `HelpdeskPage` baut `priorityLabels` aus `useModuleValueSet('ticket_priority')` (Fallback i18n) — Tabellen-Chips, Detail-Badge, Stats-Balken, Filter-Optionen, Neu-Ticket-Radio. **Erstes Modul überhaupt, das die Customization-Schicht liest** (schließt den „Konsum-Gap" für Priorität).
 - **Gates:** scoped tsc 0 Fehler (EditorSurface/ModuleSandbox/HelpdeskPage/WertelistenPanel) · eslint clean · **QA `qa-editor-helpdesk-p2.mjs` 4/4 + Bild angesehen**: Panel zeigt Tenant „Rückfrage" ✓ Option „Mittel"→„Standard" → Tabellen-Chips LIVE „Standard" ✓ 0 pageerrors ✓.
 - **Nebeneffekt (gewollt):** Live-Helpdesk zeigt jetzt die Tenant-Werteliste (low = „Rückfrage", Seed-Demodaten) statt der i18n-Enums — Beweis dass der Konsum end-to-end greift. Falls Standard gewünscht: Tenant-Seed in `customization.ts` entfernen.
+
+### P3 — Verifikations-Nachweis
+- **Neue Dimension `moduleAreas`** (moduleKey → areaKey → enabled, sparse, absent = an): Typen (`ModuleAreaMap`/`ModuleAreasOverlay` + Payload) · Resolver `resolveModuleAreas(moduleKey, base?, draftOverlay?)` (default-all-on ⊕ vendor ⊕ tenant ⊕ draft) · Draft-State + `setDraftModuleArea` + changeCount + buildPayload · **Deploy + Rollback** (applyDraftToTenant/snapshotTenant/restoreTenant erweitert → fährt dieselben Schienen wie Labels/Wertelisten/Felder) · `hasCustomization`/`clearAllCustomization`.
+- **Motor + Konsum:** `EditorSurfaceValue.moduleAreas` + Hook `useModuleAreas(moduleKey)`; `ModuleSandbox` reicht Draft durch. `EditorModuleDef.areas` (Helpdesk = 3 Reiter; Kontakte = [] router-blockiert). Helpdesk filtert `visibleTabs` zusätzlich per `areaEnabled[key] !== false` (RBAC ∧ Bereich).
+- **Editor-UI:** 4. Trio-Sektion „Bereiche" (`EditorTrioNav` + `EditorPropertiesPanel`) + neues `BereichePanel.tsx` (Ein/Aus-Schalter pro Reiter, Sichtbar/Ausgeblendet, Empty-State für Module ohne Areas).
+- **Gates:** scoped tsc 0 Fehler (alle 10 P3-Dateien) · eslint clean · vitest 12/12 (Draft-Store) · i18n +8 ×4 · **QA `qa-editor-helpdesk-p3.mjs` 4/4 + Bild angesehen**: Bereiche-Panel 3 Schalter ✓ „Statistik" ausblenden → Reiter live weg aus der Modul-Leiste ✓ 0 pageerrors ✓.
 
 ## v1 — Fundament-Trio (Overlay-basiert)
 

@@ -68,7 +68,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard, useModuleValueSet } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas } from '@/components/customization/EditorSurface'
 import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { useAuthStore } from '@/stores/auth'
@@ -247,8 +247,13 @@ export default function HelpdeskPage() {
     wissensdatenbank: null,
     statistik: 'helpdesk:stats:view',
   }
+  // R4: tenant can hide whole tabs via the editor (moduleAreas). A tab shows only
+  // when RBAC-visible AND its area is enabled.
+  const areaEnabled = useModuleAreas('helpdesk')
   const visibleTabs = (Object.keys(TAB_CAPABILITY) as TabKey[]).filter(
-    (key) => !capReady || TAB_CAPABILITY[key] === null || capHas(TAB_CAPABILITY[key] as string),
+    (key) =>
+      (!capReady || TAB_CAPABILITY[key] === null || capHas(TAB_CAPABILITY[key] as string)) &&
+      areaEnabled[key] !== false,
   )
   useEffect(() => {
     if (!capReady) return

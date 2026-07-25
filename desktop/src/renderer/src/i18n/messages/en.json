@@ -11860,5 +11860,13 @@
   "customization.editor.rollouts.rolledBack": "Rolled back.",
   "customization.editor.rollouts.deleted": "Draft deleted.",
   "helpdesk.tabs.ticketsLabel": "Tickets",
-  "customization.editor.actionBlocked": "Disabled in the editor — here you only customize the module."
+  "customization.editor.actionBlocked": "Disabled in the editor — here you only customize the module.",
+  "customization.editor.nav.areas": "Areas",
+  "customization.editor.props.areasDesc": "Show or hide the module’s tabs and sections for this tenant.",
+  "customization.editor.bereiche.empty": "This module has no toggleable areas.",
+  "customization.editor.bereiche.hint": "Hide tabs this tenant does not need — the data is kept.",
+  "customization.editor.bereiche.visible": "Visible",
+  "customization.editor.bereiche.hidden": "Hidden",
+  "customization.editor.bereiche.show": "Show {area}",
+  "customization.editor.bereiche.hide": "Hide {area}"
 }

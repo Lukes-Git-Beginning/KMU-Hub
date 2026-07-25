@@ -132,6 +132,20 @@ export interface ResolvedValueSet {
   provenance: ConfigProvenance
 }
 
+// ── Module-area visibility (R4: tab/section on-off per tenant) ─────────────────
+
+/**
+ * Which sub-areas (tabs/sections) of ONE module are enabled for the tenant.
+ * Sparse: only areas explicitly turned OFF are stored (absent = enabled). This
+ * lets updates ship new areas that are on by default while a tenant can hide the
+ * ones it does not use (e.g. a helpdesk without a knowledge base).
+ *   areaKey → enabled
+ */
+export type ModuleAreaMap = Record<string, boolean>
+
+/** Module-area overlay across modules: moduleKey → (areaKey → enabled). */
+export type ModuleAreasOverlay = Record<string, ModuleAreaMap>
+
 // ── API input/output shapes ───────────────────────────────────────────────────
 
 /** Body for PUT /customization/labels — replaces/adds keys for one locale. */
@@ -184,6 +198,11 @@ export interface CustomizationDraftPayload {
    * (own store), so deploy diffs this snapshot against the live field store.
    */
   customFields?: DraftCustomFieldMap
+  /**
+   * Module-area visibility overrides (R4): moduleKey → areaKey → enabled. Sparse;
+   * omitted when a draft toggles no areas, so existing draft producers stay valid.
+   */
+  moduleAreas?: ModuleAreasOverlay
 }
 
 /**

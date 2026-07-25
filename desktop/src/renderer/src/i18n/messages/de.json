@@ -11860,5 +11860,13 @@
   "customization.editor.rollouts.rolledBack": "Zurückgerollt.",
   "customization.editor.rollouts.deleted": "Entwurf gelöscht.",
   "helpdesk.tabs.ticketsLabel": "Tickets",
-  "customization.editor.actionBlocked": "Im Editor deaktiviert — hier passt du das Modul nur an."
+  "customization.editor.actionBlocked": "Im Editor deaktiviert — hier passt du das Modul nur an.",
+  "customization.editor.nav.areas": "Bereiche",
+  "customization.editor.props.areasDesc": "Reiter und Bereiche des Moduls für diesen Mandanten ein- oder ausblenden.",
+  "customization.editor.bereiche.empty": "Dieses Modul hat keine ein-/ausblendbaren Bereiche.",
+  "customization.editor.bereiche.hint": "Blende Reiter aus, die dieser Mandant nicht braucht — die Daten bleiben erhalten.",
+  "customization.editor.bereiche.visible": "Sichtbar",
+  "customization.editor.bereiche.hidden": "Ausgeblendet",
+  "customization.editor.bereiche.show": "{area} einblenden",
+  "customization.editor.bereiche.hide": "{area} ausblenden"
 }
