@@ -45,7 +45,7 @@ class SandboxErrorBoundary extends Component<
 
 export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNode {
   const { t } = useTranslation()
-  const { labels, setDraftLabel } = useDraftConfig()
+  const { labels, setDraftLabel, valueSets } = useDraftConfig()
   const [sandboxClient] = useState(
     () =>
       new QueryClient({
@@ -63,8 +63,9 @@ export function ModuleSandbox({ module }: { module: EditorModuleDef }): ReactNod
       editing: true,
       setLabel: (key, value) => setDraftLabel(i18n.language, key, value),
       isDraft: (key) => Boolean(labels[i18n.language]?.[key]),
+      valueSets,
     }),
-    [labels, setDraftLabel],
+    [labels, setDraftLabel, valueSets],
   )
 
   const fallback = (

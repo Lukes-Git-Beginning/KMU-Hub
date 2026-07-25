@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Motor: R1-Nav** | `useBlocker(true)` in EditorWorkspace | ✅ (Session #27b) | `6511254b` |
 | **P1** | Motor: EditableText `interactive`-Modus (Doppelklick-Rename für Reiter) + `useEditorGuard` (Mutationen no-op). Helpdesk instrumentiert: Reiter, Tabellen-Header, Statistik-Labels/Überschriften, Detail-Sektionen/Meta, KB-Badges. | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
-| **P2** | Wertelisten-Konsum (`resolveValueSet('ticket_priority')` im Modul) + Custom-Fields-Labels im Detail editierbar | ⏳ offen | — |
+| **P2** | Wertelisten-Konsum: Helpdesk liest `ticket_priority` via `useModuleValueSet` (Motor: Draft-Wertelisten über EditorSurface in die Sandbox) → Wertelisten-Panel wirkt LIVE im Modul. _(Custom-Fields-Labels-in-place vertagt — Felder-Panel deckt Feld-CRUD; „Label im Detail klicken→editieren" = späterer Polish.)_ | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
 | **P3** | R4 Tab-Sichtbarkeit (`moduleAreas`-Dimension ins Draft/Deploy, Modul liest sie, Editor-Toggle) | ⏳ offen | — |
 | **P4** | Chrome: Trio-Panel → Kontext-Inspektor + „Neu anlegen" | ⏳ offen | — |
 | **Rollout** | ~14 Module instrumentieren (Rich zuerst: finanzen/inventar/einkauf/vertraege/produktion/vermietung/formulare/work), ab Pilot per Sub-Agents parallelisierbar | ⏳ offen | — |
@@ -21,6 +21,12 @@
 - **Dateien:** `components/customization/EditorSurface.tsx` (+`interactive`-Prop, +`useEditorGuard`), `modules/helpdesk/HelpdeskPage.tsx` (Instrumentierung + Guards), `scripts/i18n-editor-pivot-p1.mjs` (+2 Keys ×4: `helpdesk.tabs.ticketsLabel`, `customization.editor.actionBlocked`), `tsconfig.customcheck.json` (+HelpdeskPage).
 - **Gates:** scoped tsc **0 Fehler in EditorSurface + HelpdeskPage** (Rest = Alt-Baseline in mocks/handlers + sanitize, transitiv) · `eslint` beide Dateien clean · i18n +2 ×4 (echte fr/it, Du-Form) · **QA `qa-editor-helpdesk-p1.mjs` 6/6 PASS, 0 pageerrors, Bilder angesehen**: Reiter begehbar (Einfach-Klick) ✓ Tabellen-Header „Betreff"→„Anliegen" live + amber Ring + Zähler ✓ Reiter „Statistik"→„Auswertung" per Doppelklick ✓ „Neues Ticket" → Guard-Toast „Im Editor deaktiviert", Dialog bleibt zu ✓ keine rohen Keys ✓.
 - **Muster für Rollout:** statische Labels → `<EditableText dkey=… />` (Einfach-Klick-Rename); Labels in Controls (Reiter/Karten) → `interactive` (Einfach-Klick navigiert, Doppelklick benennt um); Mutationen/rausführende Aktionen → `guard(handler)`; State-Navigation (Reiter/Detail öffnen) bleibt ungeguarded (begehbar).
+
+### P2 — Verifikations-Nachweis
+- **Motor:** `EditorSurfaceValue.valueSets` (Draft-Wertelisten) + Hook `useModuleValueSet(id)` (`resolveValueSet(id, false, draftOverlay)` — live Layer default⊕vendor⊕tenant, im Editor + Draft). `ModuleSandbox` reicht `valueSets` aus `useDraftConfig` in die Surface. WertelistenPanel-Doc aktualisiert (Module konsumieren jetzt).
+- **Konsum:** `HelpdeskPage` baut `priorityLabels` aus `useModuleValueSet('ticket_priority')` (Fallback i18n) — Tabellen-Chips, Detail-Badge, Stats-Balken, Filter-Optionen, Neu-Ticket-Radio. **Erstes Modul überhaupt, das die Customization-Schicht liest** (schließt den „Konsum-Gap" für Priorität).
+- **Gates:** scoped tsc 0 Fehler (EditorSurface/ModuleSandbox/HelpdeskPage/WertelistenPanel) · eslint clean · **QA `qa-editor-helpdesk-p2.mjs` 4/4 + Bild angesehen**: Panel zeigt Tenant „Rückfrage" ✓ Option „Mittel"→„Standard" → Tabellen-Chips LIVE „Standard" ✓ 0 pageerrors ✓.
+- **Nebeneffekt (gewollt):** Live-Helpdesk zeigt jetzt die Tenant-Werteliste (low = „Rückfrage", Seed-Demodaten) statt der i18n-Enums — Beweis dass der Konsum end-to-end greift. Falls Standard gewünscht: Tenant-Seed in `customization.ts` entfernen.
 
 ## v1 — Fundament-Trio (Overlay-basiert)
 

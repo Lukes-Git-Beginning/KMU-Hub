@@ -4,10 +4,9 @@
  * delete) write to the DRAFT layer via setDraftValueSet, so they show in the
  * in-panel chip preview immediately and only go live on "Übernehmen".
  *
- * In-module live preview (status/priority chips in the module) is deferred to the
- * module-consumption round (BUILD-PROGRESS architecture fork, editor-first
- * decision 2026-07-22) — the module doesn't read the resolver yet, so the panel
- * carries its own preview.
+ * Modules that consume the resolver (via useModuleValueSet) now preview these
+ * edits live in the canvas itself (Helpdesk pilot, P2); the in-panel chip preview
+ * below stays as a compact overview and for modules not yet wired.
  */
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, EyeOff } from 'lucide-react'

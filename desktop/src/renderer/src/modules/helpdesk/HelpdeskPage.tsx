@@ -68,7 +68,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet } from '@/components/customization/EditorSurface'
 import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { useAuthStore } from '@/stores/auth'
@@ -185,9 +185,17 @@ export default function HelpdeskPage() {
     weekly_breakdown: [],
   }
 
+  // Priority labels come from the customizable value-set (ticket_priority) so the
+  // Wertelisten editor drives them; fall back to the i18n enum when an option is
+  // missing. The editor sandbox layers the draft on top → live preview.
+  const priorityValueSet = useModuleValueSet('ticket_priority')
+  const psetLabel = (id: string): string | undefined =>
+    priorityValueSet?.options.find((o) => o.id === id)?.label
   const priorityLabels: Record<string, string> = {
-    low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
-    high: t('helpdesk.priority.high'), critical: t('helpdesk.priority.critical'),
+    low: psetLabel('low') ?? t('helpdesk.priority.low'),
+    medium: psetLabel('medium') ?? t('helpdesk.priority.medium'),
+    high: psetLabel('high') ?? t('helpdesk.priority.high'),
+    critical: psetLabel('critical') ?? t('helpdesk.priority.critical'),
   }
   const statusLabels: Record<string, string> = {
     open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),
@@ -469,10 +477,10 @@ export default function HelpdeskPage() {
             <div className="relative">
               <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
                 <option value="all">{t('helpdesk.filter.allPriorities')}</option>
-                <option value="critical">{t('helpdesk.priority.critical')}</option>
-                <option value="high">{t('helpdesk.priority.high')}</option>
-                <option value="medium">{t('helpdesk.priority.medium')}</option>
-                <option value="low">{t('helpdesk.priority.low')}</option>
+                <option value="critical">{priorityLabels.critical}</option>
+                <option value="high">{priorityLabels.high}</option>
+                <option value="medium">{priorityLabels.medium}</option>
+                <option value="low">{priorityLabels.low}</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
@@ -825,6 +833,7 @@ function TicketDetailPanel({
 }) {
   const { t } = useTranslation()
   const guard = useEditorGuard()
+  const priorityValueSet = useModuleValueSet('ticket_priority')
 
   // RBAC R-3: agent-action gating — ticket:edit scope=own → only when assigned to me
   const canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)
@@ -835,9 +844,13 @@ function TicketDetailPanel({
   const [aiSuggestionLoading, setAISuggestionLoading] = useState(false)
   const aiHelpdeskEnabled = useAIStore((s) => s.isModuleEnabled('helpdesk'))
 
+  const psetLabel = (id: string): string | undefined =>
+    priorityValueSet?.options.find((o) => o.id === id)?.label
   const priorityLabels: Record<string, string> = {
-    low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
-    high: t('helpdesk.priority.high'), critical: t('helpdesk.priority.critical'),
+    low: psetLabel('low') ?? t('helpdesk.priority.low'),
+    medium: psetLabel('medium') ?? t('helpdesk.priority.medium'),
+    high: psetLabel('high') ?? t('helpdesk.priority.high'),
+    critical: psetLabel('critical') ?? t('helpdesk.priority.critical'),
   }
   const statusLabels: Record<string, string> = {
     open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),

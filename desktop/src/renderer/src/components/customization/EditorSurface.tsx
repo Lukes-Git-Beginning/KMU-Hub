@@ -14,11 +14,13 @@
  * "What is editable" = "what is wrapped in EditableText" — the instrumentation is
  * the whitelist, which scales far better than a central key array.
  */
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 import type { ElementType, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib'
+import { resolveValueSet } from '@/mocks/data/customization'
+import type { ResolvedValueSet, ValueSet } from '@/api/customization-types'
 
 export interface EditorSurfaceValue {
   /** True only inside the editor sandbox. */
@@ -27,6 +29,8 @@ export interface EditorSurfaceValue {
   setLabel: (key: string, value: string) => void
   /** Whether this key currently carries an unsaved draft edit. */
   isDraft: (key: string) => boolean
+  /** Draft value-sets staged in the editor — previewed live by modules that consume them. */
+  valueSets: Record<string, Omit<ValueSet, 'layer'>>
 }
 
 const noop = (): void => {}
@@ -34,6 +38,7 @@ const EditorSurfaceContext = createContext<EditorSurfaceValue>({
   editing: false,
   setLabel: noop,
   isDraft: () => false,
+  valueSets: {},
 })
 
 export function useEditorSurface(): EditorSurfaceValue {
@@ -180,4 +185,17 @@ export function useEditorGuard(): <A extends unknown[]>(
       }
       fn(...args)
     }
+}
+
+/**
+ * Resolve a customizable value-set (status/priority/type chips) for a module.
+ * In the live app it resolves the persisted layers (default ⊕ vendor ⊕ tenant);
+ * inside the editor sandbox the staged draft is layered on top so edits in the
+ * Wertelisten panel preview live. Modules render option labels/colors from this
+ * instead of hardcoded i18n enums → the customization actually reaches the UI.
+ */
+export function useModuleValueSet(id: string): ResolvedValueSet | null {
+  const { editing, valueSets } = useEditorSurface()
+  const draftOverlay = editing ? valueSets : undefined
+  return useMemo(() => resolveValueSet(id, false, draftOverlay), [id, editing, draftOverlay])
 }
