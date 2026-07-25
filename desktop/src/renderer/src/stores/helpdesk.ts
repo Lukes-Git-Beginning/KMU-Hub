@@ -74,7 +74,19 @@ export const MOCK_CUSTOM_FIELD_DEFS: CustomFieldDef[] = [
 export const DEMO_TICKET_CUSTOM_FIELDS: Record<string, Record<string, string>> = {
   'hd-tk-001': { sla_tier: 'Priorität', contact_channel: 'Telefon' },
   'hd-tk-002': { sla_tier: 'Kritisch', escalation_reason: 'Wiederholter VPN-Ausfall im Aussendienst', contact_channel: 'E-Mail' },
+  'hd-tk-003': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-004': { sla_tier: 'Standard', contact_channel: 'Chat' },
+  'hd-tk-005': { sla_tier: 'Standard', contact_channel: 'Vor Ort' },
   'hd-tk-006': { sla_tier: 'Kritisch', escalation_reason: 'Rechnungslauf blockiert – Monatsabschluss gefährdet', contact_channel: 'Vor Ort' },
+  'hd-tk-007': { sla_tier: 'Priorität', contact_channel: 'Telefon' },
+  'hd-tk-008': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-009': { sla_tier: 'Kritisch', escalation_reason: 'Backup-Job schlägt seit 3 Tagen fehl', contact_channel: 'E-Mail' },
+  'hd-tk-010': { sla_tier: 'Priorität', escalation_reason: 'Mitarbeiter kommt nicht ins Büro', contact_channel: 'Vor Ort' },
+  'hd-tk-011': { sla_tier: 'Standard', contact_channel: 'Telefon' },
+  'hd-tk-012': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-013': { sla_tier: 'Priorität', contact_channel: 'Chat' },
+  'hd-tk-014': { sla_tier: 'Kritisch', escalation_reason: 'Möglicher Malware-Befall – Arbeitsplatz isoliert', contact_channel: 'Telefon' },
+  'hd-tk-015': { sla_tier: 'Standard', contact_channel: 'Vor Ort' },
 }
 
 // ---------------------------------------------------------------------------

@@ -11850,5 +11850,6 @@
   "helpdesk.newTicket.selectPlaceholder": "Seleziona…",
   "customization.editor.felder.intro": "I campi aggiuntivi sono campi personalizzati che compaiono nel dettaglio e nel modulo di creazione.",
   "helpdesk.kb.titlePlaceholder": "Titolo dell'articolo",
-  "helpdesk.kb.newArticleTitle": "Nuovo articolo"
+  "helpdesk.kb.newArticleTitle": "Nuovo articolo",
+  "helpdesk.ticket.customFieldPlaceholder": "Inserisci un valore…"
 }

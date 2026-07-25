@@ -247,11 +247,19 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
                 className="group flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 transition-colors hover:border-primary/40 hover:bg-accent/40"
               >
                 <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm ${field.visible ? 'text-foreground' : 'text-muted-foreground line-through'}`}
-                >
-                  {field.label}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate text-sm ${field.visible ? 'text-foreground' : 'text-muted-foreground line-through'}`}>
+                    {field.label}
+                  </p>
+                  {/* Type + options → makes clear WHAT the field is (e.g. a
+                      dropdown with these options), not just its name. */}
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {t(`customization.fields.type.${field.type}`)}
+                    {(field.type === 'select' || field.type === 'multi_select') && field.options.length > 0 && (
+                      <span className="text-muted-foreground/70"> · {field.options.join(', ')}</span>
+                    )}
+                  </p>
+                </div>
 
                 {field.required && (
                   <span className="shrink-0 rounded bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary">

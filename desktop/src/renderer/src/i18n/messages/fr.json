@@ -11850,5 +11850,6 @@
   "helpdesk.newTicket.selectPlaceholder": "Veuillez sélectionner…",
   "customization.editor.felder.intro": "Les champs supplémentaires sont vos propres champs qui apparaissent dans le détail et le formulaire de création du module.",
   "helpdesk.kb.titlePlaceholder": "Titre de l'article",
-  "helpdesk.kb.newArticleTitle": "Nouvel article"
+  "helpdesk.kb.newArticleTitle": "Nouvel article",
+  "helpdesk.ticket.customFieldPlaceholder": "Saisir une valeur…"
 }

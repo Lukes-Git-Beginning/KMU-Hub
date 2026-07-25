@@ -11884,5 +11884,6 @@
   "helpdesk.newTicket.selectPlaceholder": "Bitte wählen…",
   "customization.editor.felder.intro": "Zusatzfelder sind eigene Felder, die im Detail und im Anlege-Formular des Moduls erscheinen.",
   "helpdesk.kb.titlePlaceholder": "Titel des Artikels",
-  "helpdesk.kb.newArticleTitle": "Neuer Artikel"
+  "helpdesk.kb.newArticleTitle": "Neuer Artikel",
+  "helpdesk.ticket.customFieldPlaceholder": "Wert eingeben…"
 }

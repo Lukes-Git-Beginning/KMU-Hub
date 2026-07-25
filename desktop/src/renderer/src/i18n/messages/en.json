@@ -11884,5 +11884,6 @@
   "helpdesk.newTicket.selectPlaceholder": "Please select…",
   "customization.editor.felder.intro": "Extra fields are your own fields that appear in the module's detail and creation form.",
   "helpdesk.kb.titlePlaceholder": "Article title",
-  "helpdesk.kb.newArticleTitle": "New article"
+  "helpdesk.kb.newArticleTitle": "New article",
+  "helpdesk.ticket.customFieldPlaceholder": "Enter a value…"
 }
