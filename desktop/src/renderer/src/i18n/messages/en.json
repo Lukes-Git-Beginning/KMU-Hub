@@ -5014,7 +5014,7 @@
   "helpdesk.ticket.changeStatus": "Change status",
   "helpdesk.ticket.contact": "Contact",
   "helpdesk.ticket.created": "Created",
-  "helpdesk.ticket.customFields": "Custom fields",
+  "helpdesk.ticket.customFields": "Extra fields",
   "helpdesk.ticket.description": "Description",
   "helpdesk.ticket.escalate": "Escalate",
   "helpdesk.ticket.escalateError": "Escalation failed.",
@@ -11794,7 +11794,7 @@
   "customization.editor.previewUnavailable": "Preview unavailable",
   "customization.editor.sandboxBanner": "Draft — you’re editing a copy. Changes go live for everyone only after you apply them.",
   "customization.editor.nav.label": "Customize",
-  "customization.editor.nav.fields": "Fields",
+  "customization.editor.nav.fields": "Extra fields",
   "customization.editor.nav.terms": "Terms",
   "customization.editor.nav.valueSets": "Value lists",
   "customization.editor.props.empty": "Pick Fields, Terms or Value lists on the left to customize this module.",
@@ -11880,5 +11880,7 @@
   "customization.editor.wertelisten.reassignTitle": "Remove “{option}”",
   "customization.editor.wertelisten.reassignBody": "Existing records with this value will be changed to:",
   "customization.editor.wertelisten.reassignConfirm": "Remove",
-  "customization.editor.wertelisten.removedTitle": "Removed"
+  "customization.editor.wertelisten.removedTitle": "Removed",
+  "helpdesk.newTicket.selectPlaceholder": "Please select…",
+  "customization.editor.felder.intro": "Extra fields are your own fields that appear in the module's detail and creation form."
 }

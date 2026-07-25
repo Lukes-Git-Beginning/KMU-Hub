@@ -4984,7 +4984,7 @@
   "helpdesk.ticket.changeStatus": "Changer le statut",
   "helpdesk.ticket.contact": "Contact",
   "helpdesk.ticket.created": "Créé",
-  "helpdesk.ticket.customFields": "Champs personnalisés",
+  "helpdesk.ticket.customFields": "Champs supplémentaires",
   "helpdesk.ticket.description": "Description",
   "helpdesk.ticket.escalate": "Escalader",
   "helpdesk.ticket.escalateError": "Échec de l'escalade.",
@@ -11760,7 +11760,7 @@
   "customization.editor.previewUnavailable": "Aperçu indisponible",
   "customization.editor.sandboxBanner": "Brouillon — tu modifies une copie. Les changements ne seront actifs pour tous qu’après leur application.",
   "customization.editor.nav.label": "Personnaliser",
-  "customization.editor.nav.fields": "Champs",
+  "customization.editor.nav.fields": "Champs supplémentaires",
   "customization.editor.nav.terms": "Termes",
   "customization.editor.nav.valueSets": "Listes de valeurs",
   "customization.editor.props.empty": "Choisis Champs, Termes ou Listes de valeurs à gauche pour personnaliser ce module.",
@@ -11846,5 +11846,7 @@
   "customization.editor.wertelisten.reassignTitle": "Retirer « {option} »",
   "customization.editor.wertelisten.reassignBody": "Les enregistrements existants avec cette valeur passeront à :",
   "customization.editor.wertelisten.reassignConfirm": "Retirer",
-  "customization.editor.wertelisten.removedTitle": "Retiré"
+  "customization.editor.wertelisten.removedTitle": "Retiré",
+  "helpdesk.newTicket.selectPlaceholder": "Veuillez sélectionner…",
+  "customization.editor.felder.intro": "Les champs supplémentaires sont vos propres champs qui apparaissent dans le détail et le formulaire de création du module."
 }

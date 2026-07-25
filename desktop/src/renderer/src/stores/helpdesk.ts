@@ -52,12 +52,30 @@ export interface CustomFieldDef {
   options?: string[]
 }
 
+/** @deprecated Legacy 5.13 mock set — superseded by the customization-layer
+ *  `helpdesk_ticket` custom fields (mocks/data/custom-fields.ts), which the editor
+ *  edits and the detail now renders via `useModuleCustomFields`. Kept only for any
+ *  remaining references; do not use for the ticket detail. */
 export const MOCK_CUSTOM_FIELD_DEFS: CustomFieldDef[] = [
   { id: 'cf-1', name: 'Gerätetyp', type: 'dropdown', options: ['Laptop', 'Desktop', 'Drucker', 'Telefon', 'Monitor', 'Netzwerk', 'Server', 'Sonstiges'] },
   { id: 'cf-2', name: 'Raumnummer', type: 'text' },
   { id: 'cf-3', name: 'Remotezugriff erlaubt', type: 'checkbox' },
   { id: 'cf-4', name: 'Geschätzter Aufwand (h)', type: 'number' },
 ]
+
+/**
+ * Demo custom-field VALUES per ticket, keyed by the customization field `key`
+ * (mocks/data/custom-fields.ts → helpdesk_ticket: sla_tier / escalation_reason /
+ * contact_channel). The wire Ticket type is backend-aligned and carries no custom
+ * fields yet (backend-gaps §Customization: create/update must persist them), so
+ * this display-layer overlay seeds a few tickets with realistic values and is
+ * extended in-memory when a ticket is created with custom-field inputs (G2).
+ */
+export const DEMO_TICKET_CUSTOM_FIELDS: Record<string, Record<string, string>> = {
+  'hd-tk-001': { sla_tier: 'Priorität', contact_channel: 'Telefon' },
+  'hd-tk-002': { sla_tier: 'Kritisch', escalation_reason: 'Wiederholter VPN-Ausfall im Aussendienst', contact_channel: 'E-Mail' },
+  'hd-tk-006': { sla_tier: 'Kritisch', escalation_reason: 'Rechnungslauf blockiert – Monatsabschluss gefährdet', contact_channel: 'Vor Ort' },
+}
 
 // ---------------------------------------------------------------------------
 // Canned Responses (5.6)

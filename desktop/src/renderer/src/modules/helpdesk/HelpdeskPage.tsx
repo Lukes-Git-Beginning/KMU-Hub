@@ -29,7 +29,7 @@ import { toast } from 'sonner'
 import {
   slaLabel,
   MOCK_CATEGORIES,
-  MOCK_CUSTOM_FIELD_DEFS,
+  DEMO_TICKET_CUSTOM_FIELDS,
 } from '@/stores/helpdesk'
 import {
   useTickets,
@@ -68,7 +68,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields } from '@/components/customization/EditorSurface'
 import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { useAuthStore } from '@/stores/auth'
@@ -184,6 +184,9 @@ export default function HelpdeskPage() {
   // live app — the real record migration runs on deploy in the backend).
   const statusMigration = useValueSetMigration('ticket_status')
   const priorityMigration = useValueSetMigration('ticket_priority')
+  // Custom-field values for tickets created this session (keyed by ticket id) —
+  // display-layer overlay merged in the `tickets` memo (wire has no custom fields).
+  const [createdCustomFields, setCreatedCustomFields] = useState<Record<string, Record<string, string>>>({})
   const rawTickets: DisplayTicket[] = useMemo(
     () => (ticketsResponse?.tickets ?? []).map(wireTicketToDisplay),
     [ticketsResponse],
@@ -194,8 +197,11 @@ export default function HelpdeskPage() {
         ...tk,
         status: (statusMigration[tk.status] ?? tk.status) as DisplayTicket['status'],
         priority: (priorityMigration[tk.priority] ?? tk.priority) as DisplayTicket['priority'],
+        // Custom-field values live in a display-layer demo overlay (wire type has
+        // none yet — backend-gaps §Customization); merged so the detail renders them.
+        customFields: DEMO_TICKET_CUSTOM_FIELDS[tk.id] ?? createdCustomFields[tk.id] ?? tk.customFields,
       })),
-    [rawTickets, statusMigration, priorityMigration],
+    [rawTickets, statusMigration, priorityMigration, createdCustomFields],
   )
 
   // Ticket mutations
@@ -225,6 +231,9 @@ export default function HelpdeskPage() {
   // when an option is missing. The editor sandbox layers the draft on top → live.
   const priorityValueSet = useModuleValueSet('ticket_priority')
   const statusValueSet = useModuleValueSet('ticket_status')
+  // Tenant-defined custom fields for tickets — rendered as inputs in the new-ticket
+  // dialog so values can be captured on creation (draft ⊕ live; previews in editor).
+  const ticketFieldDefs = useModuleCustomFields('helpdesk_ticket')
   const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
   const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
   const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
@@ -276,6 +285,8 @@ export default function HelpdeskPage() {
   const [ntAssignee, setNtAssignee] = useState('Marco Hartmann')
   const [ntContact, setNtContact] = useState('')
   const [ntCategory, setNtCategory] = useState<string>('Sonstiges')
+  // Custom-field values entered in the new-ticket dialog (keyed by field.key).
+  const [ntCustomFields, setNtCustomFields] = useState<Record<string, string>>({})
 
   // KB article detail
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null)
@@ -357,11 +368,17 @@ export default function HelpdeskPage() {
   const handleOpenNewTicket = () => {
     setNtSubject(''); setNtDescription(''); setNtPriority('medium')
     setNtAssignee('Marco Hartmann'); setNtContact(''); setNtCategory('Sonstiges')
+    setNtCustomFields({})
     setNewTicketOpen(true)
   }
 
   const handleSaveNewTicket = () => {
     if (!ntSubject.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
+    // Only carry non-empty custom values (backend-gaps §Customization: the wire
+    // create body must eventually persist these; for now stashed display-side).
+    const enteredFields = Object.fromEntries(
+      Object.entries(ntCustomFields).filter(([, v]) => v !== undefined && v !== ''),
+    )
     createTicketMut.mutate(
       {
         subject: ntSubject.trim(),
@@ -369,7 +386,10 @@ export default function HelpdeskPage() {
         assignee_id: ntAssignee || undefined,
       },
       {
-        onSuccess: () => {
+        onSuccess: (created) => {
+          if (created?.id && Object.keys(enteredFields).length > 0) {
+            setCreatedCustomFields((m) => ({ ...m, [created.id]: enteredFields }))
+          }
           toast.success(t('helpdesk.newTicket.created', { subject: ntSubject.trim() }))
           setNewTicketOpen(false)
         },
@@ -816,6 +836,44 @@ export default function HelpdeskPage() {
                 <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.contact')}</label>
                 <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder={t('helpdesk.newTicket.contactPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
+              {/* Zusatzfelder — tenant-defined custom fields as inputs (G2). */}
+              {ticketFieldDefs.length > 0 && (
+                <div className="space-y-3 border-t border-border pt-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('helpdesk.ticket.customFields')}</p>
+                  {ticketFieldDefs.map((def) => {
+                    const val = ntCustomFields[def.key] ?? ''
+                    const setVal = (v: string) => setNtCustomFields((m) => ({ ...m, [def.key]: v }))
+                    return (
+                      <div key={def.id}>
+                        <label className="mb-1.5 block text-xs font-medium text-foreground">
+                          {def.label}{def.required && <span className="text-destructive"> *</span>}
+                        </label>
+                        {def.type === 'boolean' ? (
+                          <label className="flex items-center gap-2 text-sm text-foreground">
+                            <input type="checkbox" checked={val === 'true'} onChange={(e) => setVal(e.target.checked ? 'true' : 'false')} className="h-4 w-4 rounded border-border" />
+                            {val === 'true' ? t('common.yes') : t('common.no')}
+                          </label>
+                        ) : def.type === 'select' && def.options.length > 0 ? (
+                          <div className="relative">
+                            <select value={val} onChange={(e) => setVal(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
+                              <option value="">{t('helpdesk.newTicket.selectPlaceholder')}</option>
+                              {def.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <input
+                            type={def.type === 'number' ? 'number' : def.type === 'email' ? 'email' : def.type === 'url' ? 'url' : def.type === 'date' ? 'date' : 'text'}
+                            value={val}
+                            onChange={(e) => setVal(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             <DialogFooter className="px-6 py-4 border-t border-border">
               <button onClick={() => setNewTicketOpen(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
@@ -871,6 +929,9 @@ function TicketDetailPanel({
   const guard = useEditorGuard()
   const priorityValueSet = useModuleValueSet('ticket_priority')
   const statusValueSet = useModuleValueSet('ticket_status')
+  // Custom "Zusatzfelder": the tenant-defined helpdesk_ticket fields (draft ⊕ live).
+  // Editing/adding one in the Felder panel previews live here (G2).
+  const customFieldDefs = useModuleCustomFields('helpdesk_ticket')
 
   // RBAC R-3: agent-action gating — ticket:edit scope=own → only when assigned to me
   const canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)
@@ -1063,21 +1124,26 @@ function TicketDetailPanel({
           <p className="text-sm text-foreground leading-relaxed">{ticket.description}</p>
         </div>
 
-        {/* Custom Fields (5.13) */}
-        {ticket.customFields && Object.keys(ticket.customFields).length > 0 && (
+        {/* Zusatzfelder — tenant-defined custom fields (customization layer). Shows
+            ALL defined fields, even empty ones (placeholder), so renaming/adding a
+            field in the editor's Felder panel is visible here in context (G2). */}
+        {customFieldDefs.length > 0 && (
           <div>
             <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
               <Settings2 className="h-3 w-3" /> <EditableText as="span" dkey="helpdesk.ticket.customFields" />
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              {MOCK_CUSTOM_FIELD_DEFS.map((def) => {
-                const val = ticket.customFields?.[def.name]
-                if (val === undefined) return null
+              {customFieldDefs.map((def) => {
+                const raw = ticket.customFields?.[def.key]
+                const hasVal = raw !== undefined && raw !== null && raw !== ''
+                const display = def.type === 'boolean'
+                  ? (raw ? t('common.yes') : t('common.no'))
+                  : String(raw ?? '')
                 return (
                   <div key={def.id} className="rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5">
-                    <p className="text-[10px] text-muted-foreground">{def.name}</p>
-                    <p className="text-xs font-medium text-foreground">
-                      {def.type === 'checkbox' ? (val ? t('common.yes') : t('common.no')) : String(val)}
+                    <p className="text-[10px] text-muted-foreground">{def.label}</p>
+                    <p className={`text-xs font-medium ${hasVal ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                      {hasVal ? display : '—'}
                     </p>
                   </div>
                 )

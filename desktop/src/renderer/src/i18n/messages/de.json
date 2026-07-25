@@ -5014,7 +5014,7 @@
   "helpdesk.ticket.changeStatus": "Status ändern",
   "helpdesk.ticket.contact": "Kontakt",
   "helpdesk.ticket.created": "Erstellt",
-  "helpdesk.ticket.customFields": "Benutzerdefinierte Felder",
+  "helpdesk.ticket.customFields": "Zusatzfelder",
   "helpdesk.ticket.description": "Beschreibung",
   "helpdesk.ticket.escalate": "Eskalieren",
   "helpdesk.ticket.escalateError": "Eskalation fehlgeschlagen.",
@@ -11794,7 +11794,7 @@
   "customization.editor.previewUnavailable": "Vorschau nicht verfügbar",
   "customization.editor.sandboxBanner": "Entwurf — du bearbeitest eine Kopie. Änderungen werden erst nach dem Übernehmen für alle live.",
   "customization.editor.nav.label": "Anpassen",
-  "customization.editor.nav.fields": "Felder",
+  "customization.editor.nav.fields": "Zusatzfelder",
   "customization.editor.nav.terms": "Begriffe",
   "customization.editor.nav.valueSets": "Wertelisten",
   "customization.editor.props.empty": "Wähle links Felder, Begriffe oder Wertelisten, um dieses Modul anzupassen.",
@@ -11880,5 +11880,7 @@
   "customization.editor.wertelisten.reassignTitle": "„{option}\" entfernen",
   "customization.editor.wertelisten.reassignBody": "Bestehende Einträge mit diesem Wert werden geändert auf:",
   "customization.editor.wertelisten.reassignConfirm": "Entfernen",
-  "customization.editor.wertelisten.removedTitle": "Entfernt"
+  "customization.editor.wertelisten.removedTitle": "Entfernt",
+  "helpdesk.newTicket.selectPlaceholder": "Bitte wählen…",
+  "customization.editor.felder.intro": "Zusatzfelder sind eigene Felder, die im Detail und im Anlege-Formular des Moduls erscheinen."
 }

@@ -190,6 +190,11 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
 
   return (
     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+      {/* Intro: explain what custom fields are and where they surface (G2). */}
+      <p className="rounded-lg bg-secondary/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+        {t('customization.editor.felder.intro')}
+      </p>
+
       {/* Header: count + create + reset */}
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-foreground">

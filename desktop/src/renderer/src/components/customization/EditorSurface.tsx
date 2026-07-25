@@ -20,7 +20,9 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib'
 import { resolveValueSet, resolveModuleAreas } from '@/mocks/data/customization'
+import { useCustomFields } from '@/api/hooks/useCustomFields'
 import type { ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet, ValueSetMigrations } from '@/api/customization-types'
+import type { CustomFieldDefinition, CustomFieldEntity, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
 
 export interface EditorSurfaceValue {
   /** True only inside the editor sandbox. */
@@ -35,6 +37,8 @@ export interface EditorSurfaceValue {
   moduleAreas: ModuleAreasOverlay
   /** Draft record migrations for deleted value-set options — previewed live (R4b). */
   valueSetMigrations: ValueSetMigrations
+  /** Draft per-entity custom-field snapshots — previewed live by modules that render custom fields (G2). */
+  customFields: DraftCustomFieldMap
 }
 
 const noop = (): void => {}
@@ -45,6 +49,7 @@ const EditorSurfaceContext = createContext<EditorSurfaceValue>({
   valueSets: {},
   moduleAreas: {},
   valueSetMigrations: {},
+  customFields: {},
 })
 
 export function useEditorSurface(): EditorSurfaceValue {
@@ -231,4 +236,23 @@ const EMPTY_MIGRATION: Record<string, string> = {}
 export function useValueSetMigration(setId: string): Record<string, string> {
   const { editing, valueSetMigrations } = useEditorSurface()
   return editing ? (valueSetMigrations[setId] ?? EMPTY_MIGRATION) : EMPTY_MIGRATION
+}
+
+/**
+ * Resolve the effective custom-field list for an entity (G2). In the live app it
+ * returns the persisted definitions (React Query); inside the editor sandbox the
+ * staged draft snapshot is layered on top, so adding/renaming a field in the
+ * Felder panel previews live in the module's detail/create forms. A module renders
+ * its "Zusatzfelder" section from this instead of a hardcoded list → custom fields
+ * actually reach the UI (edit-in-place consistency). Only visible fields are
+ * returned, sorted by display order.
+ */
+export function useModuleCustomFields(entity: CustomFieldEntity): CustomFieldDefinition[] {
+  const { editing, customFields } = useEditorSurface()
+  const { data: live } = useCustomFields(entity)
+  const draftSnapshot = editing ? customFields[entity] : undefined
+  return useMemo(() => {
+    const list = draftSnapshot ?? live ?? []
+    return [...list].filter((f) => f.visible).sort((a, b) => a.order - b.order)
+  }, [draftSnapshot, live])
 }
