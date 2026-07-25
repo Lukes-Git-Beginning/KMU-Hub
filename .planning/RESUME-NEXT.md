@@ -1,4 +1,14 @@
-# RESUME — nächster Einstieg (Stand 2026-07-25, Session #28 — EDITOR-PIVOT: PILOT=HELPDESK KOMPLETT P1–P4)
+# RESUME — nächster Einstieg (Stand 2026-07-25, Session #29 — EDITOR-PIVOT: HELPDESK-PILOT KOMPLETT inkl. G2+G3)
+
+> **★★★★★ SESSION #29 (2026-07-25) — G2 (Zusatzfelder edit-in-place) + G3 (KB auf Block-Engine) GEBAUT+QA+COMMIT. Damit ist der HELPDESK-PILOT vollständig (P1–P4 + F1/F2 + G1–G3). 12 Commits lokal auf main, NICHT gepusht (Darien reviewt lokal). NEUES TERMINAL: erst `git pull`.**
+>
+> **★ G2 ✅ (Commit `1d70503b`):** Konsum-Hook `useModuleCustomFields(entity)` (Draft ⊕ live) + `EditorSurface`/`ModuleSandbox` tragen `customFields`. Ticket-Detail „Zusatzfelder"-Sektion (alle def. Felder, leere „—") statt totem `MOCK_CUSTOM_FIELD_DEFS`. Neu-Dialog zeigt Felder als Inputs (Werte → Session-Overlay `createdCustomFields`). Demo-Werte auf 3 Seeds (`DEMO_TICKET_CUSTOM_FIELDS`). Nav „Felder"→„Zusatzfelder" + Sektionsheading vereinheitlicht + Intro-Zeile. **Edit-in-place bewiesen** (Panel-Rename → Detail live). Gates: scoped tsc 0 · eslint clean · i18n +2 ×4 +2 Overrides · QA `qa-editor-helpdesk-g2.mjs` 6/6 + Bilder.
+> **★ G3 ✅ (Commit `a3f971eb`):** KB auf shared Block-Engine. `helpdesk/kb-blocks.ts` = eigene Registry (shared Core+Special toggle/code/simpletable/quote, NICHT Wiki-Overrides wg. Wiki-Store-Kopplung). Editor→`DocumentBlockEditor`, Viewer→`DocumentReader`. Adapter `kbContentToRows`/`kbRowsToContent`: neue Artikel = Block-JSON, Legacy-HTML/Text → 1 Text-Block gewrappt. `kbContentPreview` (kein JSON in Karten). Titel editierbar + „Neuer Artikel" (öffnet im Block-Editor). Gates: scoped tsc 0 · eslint clean · i18n +2 ×4 · QA `qa-editor-helpdesk-g3.mjs` 5/5 + Bilder.
+> **★★ NÄCHSTER SCHRITT = EDITOR-ROLLOUT (Rich-Module), Plan `.planning/customization-block/NEXT-TERMINAL-PLAN.md` §Rollout.** ⚠ **VOR dem ersten Rollout-Modul: `VsChip` (aktuell lokal in `HelpdeskPage.tsx`) nach `components/shared/` heben.** Reihenfolge (MODUL-AUDIT): finanzen, inventar, einkauf, vertraege, produktion, vermietung, formulare, work → dann Medium (kalender, zeiterfassung, rapporte, fuhrpark). Pro Modul: `editorModules`-Eintrag + Instrumentierung (statisch→`EditableText`, Control→`interactive`, Chips→`useModuleValueSet`+`VsChip`, Tabs→`areas`+`useModuleAreas`, Felder→`useModuleCustomFields`, Löschen→`valueSetMigrations`, Mutation→`guard`). Ab Pilot per Sub-Agents parallelisierbar. Kontakte = Router-Sonderweg (separat). **Darien-Entscheid offen: Rollout jetzt starten ODER erst G2+G3+Editor lokal reviewen (Push=Hetzner-Deploy).**
+>
+> ---
+
+# RESUME — Historie (Stand 2026-07-25, Session #28 — EDITOR-PIVOT: PILOT=HELPDESK KOMPLETT P1–P4)
 
 > **★★★★★ SESSION #28 (2026-07-25) — MODUL-AUDIT + PILOT-ENTSCHEIDUNG (HELPDESK) + HELPDESK-PILOT P1–P4 GEBAUT+QA+COMMIT (noch nicht gepusht). NEUES TERMINAL: erst `git pull`.**
 >
