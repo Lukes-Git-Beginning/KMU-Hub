@@ -67,7 +67,7 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
     // No customizable CONTENT heading whitelisted for helpdesk yet — its editor
     // value in v1 is Wertelisten (priorities) + Felder. Module name stays fixed.
     labelKeys: [],
-    valueSetIds: ['ticket_priority'],
+    valueSetIds: ['ticket_priority', 'ticket_status'],
     fieldEntities: ['helpdesk_ticket'],
     // State-based tabs → toggleable in the editor (R4).
     areas: [

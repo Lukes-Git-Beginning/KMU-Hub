@@ -40,6 +40,17 @@
 
 **★ HELPDESK-PILOT KOMPLETT (P1–P4).** Muster steht für den Rollout über die Rich-Module (finanzen, inventar, einkauf, vertraege, produktion, vermietung, formulare, work), ab hier per Sub-Agents parallelisierbar.
 
+### Feedback-Runde (Darien lokal-Review, 2026-07-25) — F1 + F2
+
+| # | Feedback | Lösung | Status |
+|---|---|---|---|
+| **F1** | Farbe einer Werteliste-Option (z.B. „Kritisch" auf orange) wirkte NICHT im Modul (nur Label kam durch, Farbe hartkodiert) | Modul rendert Chips via neue `VsChip` mit Inline-Farbe aus der Werteliste (`color-mix` Tint), Fallback Tailwind → Umfärben wirkt live | ✅ |
+| **F2** | Status (Offen/In Bearbeitung/…) nirgends bearbeitbar — nur Priorität war Werteliste | `ticket_status`-Value-Set (5 Status + Farben) + in helpdesk `valueSetIds` registriert; Modul konsumiert Label+Farbe (Tabelle/Detail/Statistik/Filter/Status-Dropdown, Picker iterieren aktive Optionen); **„+ Neue Option" im Wertelisten-Panel** (add für Priorität+Status) | ✅ |
+
+- **Markt-Recherche (Darien-Wunsch):** Custom-Status ist Standard (Zendesk/Freshservice/Desk365) — anlegen/umbenennen/umfärben/ordnen/deaktivieren; neue Status mappen intern auf System-Kategorie (offen/gelöst/geschlossen) für SLA-Logik. **Entscheidung: gehört in die Editor-Wertelisten** (ein Tool, konsistent), nicht separate Settings. Neue Status default = „offen-artig" (sichere Semantik); feinere Kategorie-Zuordnung + getrennte Agent/Kunde-Labels = späterer Ausbau.
+- **Gates:** scoped tsc 0 Fehler · eslint clean · i18n +2 ×4 · **QA `qa-editor-helpdesk-f1f2.mjs` 6/6 + Bilder angesehen**: 2 Wertelisten je „Neue Option" ✓ Chip trägt Inline-Farbe aus Set ✓ Status „Offen"→„Neu" live (5 Chips) ✓ „Kritisch" auf grün umgefärbt → Chip live grün ✓ 0 pageerrors ✓.
+- **Rollout-Konsequenz:** dasselbe Muster (Status+jede Status-artige Liste als Value-Set, Chips via `VsChip`, Picker iterieren aktive Optionen) gilt für ALLE Module — `VsChip` beim Rollout nach `shared/` heben.
+
 ## v1 — Fundament-Trio (Overlay-basiert)
 
 | Stufe | Inhalt | Status | Commit |

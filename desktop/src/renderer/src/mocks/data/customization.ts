@@ -270,6 +270,17 @@ const DEFAULT_VALUE_SETS: Record<string, Omit<ValueSet, 'layer'>> = {
       { id: 'critical', label: 'Kritisch', color: 'hsl(0 72% 51%)', order: 3, active: true },
     ],
   },
+  ticket_status: {
+    id: 'ticket_status',
+    name: 'Ticket-Status',
+    options: [
+      { id: 'open', label: 'Offen', color: 'hsl(38 92% 50%)', order: 0, active: true },
+      { id: 'in_progress', label: 'In Bearbeitung', color: 'hsl(217 91% 60%)', order: 1, active: true },
+      { id: 'waiting', label: 'Wartend', color: 'hsl(215 16% 47%)', order: 2, active: true },
+      { id: 'resolved', label: 'Gelöst', color: 'hsl(142 71% 45%)', order: 3, active: true },
+      { id: 'closed', label: 'Geschlossen', color: 'hsl(215 16% 47%)', order: 4, active: true },
+    ],
+  },
   project_status: {
     id: 'project_status',
     name: 'Projekt-Status',

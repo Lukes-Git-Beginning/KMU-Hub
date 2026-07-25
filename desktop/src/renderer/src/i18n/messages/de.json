@@ -11873,5 +11873,7 @@
   "customization.editor.inspector.subtitle": "Änderungen bleiben ein Entwurf, bis du sie übernimmst.",
   "customization.editor.inspector.step1": "Klick im Modul direkt auf einen Text — Spalten, Überschriften, Feld-Namen — um ihn umzubenennen.",
   "customization.editor.inspector.step2": "Reiter benennst du per Doppelklick um.",
-  "customization.editor.inspector.step3": "Links: Felder anlegen, Wertelisten pflegen und Bereiche ein- oder ausblenden."
+  "customization.editor.inspector.step3": "Links: Felder anlegen, Wertelisten pflegen und Bereiche ein- oder ausblenden.",
+  "customization.editor.wertelisten.addOption": "Neue Option",
+  "customization.editor.wertelisten.newOption": "Neue Option"
 }

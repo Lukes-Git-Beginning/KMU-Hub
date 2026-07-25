@@ -11873,5 +11873,7 @@
   "customization.editor.inspector.subtitle": "Changes stay a draft until you apply them.",
   "customization.editor.inspector.step1": "Click any text in the module — columns, headings, field names — to rename it.",
   "customization.editor.inspector.step2": "Rename tabs with a double click.",
-  "customization.editor.inspector.step3": "On the left: add fields, manage value lists, and show or hide areas."
+  "customization.editor.inspector.step3": "On the left: add fields, manage value lists, and show or hide areas.",
+  "customization.editor.wertelisten.addOption": "Add option",
+  "customization.editor.wertelisten.newOption": "New option"
 }

@@ -136,6 +136,26 @@ const categoryColors: Record<string, string> = {
   Sonstiges: 'bg-secondary text-muted-foreground',
 }
 
+/**
+ * A status/priority chip coloured from the customizable value-set. When the
+ * value-set option carries a colour we tint the pill with it (so recolouring in
+ * the Wertelisten editor shows live); otherwise we fall back to the semantic
+ * Tailwind class. Keeps one look whether or not a tenant has customised colours.
+ */
+function VsChip({ label, color, fallbackClass, className = '' }: {
+  label: string; color?: string; fallbackClass?: string; className?: string
+}) {
+  const base = 'inline-block rounded-full px-2 py-0.5 text-[10px] font-medium'
+  if (color) {
+    return (
+      <span className={`${base} ${className}`} style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>
+        {label}
+      </span>
+    )
+  }
+  return <span className={`${base} ${fallbackClass ?? ''} ${className}`}>{label}</span>
+}
+
 // ---------------------------------------------------------------------------
 // KB Article bodies
 // ---------------------------------------------------------------------------
@@ -185,22 +205,30 @@ export default function HelpdeskPage() {
     weekly_breakdown: [],
   }
 
-  // Priority labels come from the customizable value-set (ticket_priority) so the
-  // Wertelisten editor drives them; fall back to the i18n enum when an option is
-  // missing. The editor sandbox layers the draft on top → live preview.
+  // Priority AND status labels + colours come from the customizable value-sets
+  // (ticket_priority / ticket_status) so the Wertelisten editor drives label,
+  // colour, order and add/remove; fall back to the i18n enum + Tailwind class
+  // when an option is missing. The editor sandbox layers the draft on top → live.
   const priorityValueSet = useModuleValueSet('ticket_priority')
-  const psetLabel = (id: string): string | undefined =>
-    priorityValueSet?.options.find((o) => o.id === id)?.label
+  const statusValueSet = useModuleValueSet('ticket_status')
+  const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
+  const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
+  const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
+  const statusColorOf = (id: string): string | undefined => statusBy.get(id)?.color
+  const activePriorityOptions = (priorityValueSet?.options ?? []).filter((o) => o.active)
+  const activeStatusOptions = (statusValueSet?.options ?? []).filter((o) => o.active)
   const priorityLabels: Record<string, string> = {
-    low: psetLabel('low') ?? t('helpdesk.priority.low'),
-    medium: psetLabel('medium') ?? t('helpdesk.priority.medium'),
-    high: psetLabel('high') ?? t('helpdesk.priority.high'),
-    critical: psetLabel('critical') ?? t('helpdesk.priority.critical'),
+    low: prioBy.get('low')?.label ?? t('helpdesk.priority.low'),
+    medium: prioBy.get('medium')?.label ?? t('helpdesk.priority.medium'),
+    high: prioBy.get('high')?.label ?? t('helpdesk.priority.high'),
+    critical: prioBy.get('critical')?.label ?? t('helpdesk.priority.critical'),
   }
   const statusLabels: Record<string, string> = {
-    open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),
-    waiting: t('helpdesk.status.waiting'), resolved: t('helpdesk.status.resolved'),
-    closed: t('helpdesk.status.closed'),
+    open: statusBy.get('open')?.label ?? t('helpdesk.status.open'),
+    in_progress: statusBy.get('in_progress')?.label ?? t('helpdesk.status.inProgress'),
+    waiting: statusBy.get('waiting')?.label ?? t('helpdesk.status.waiting'),
+    resolved: statusBy.get('resolved')?.label ?? t('helpdesk.status.resolved'),
+    closed: statusBy.get('closed')?.label ?? t('helpdesk.status.closed'),
   }
 
   // RBAC R-3 capability checks (default hidden per gating convention)
@@ -469,11 +497,7 @@ export default function HelpdeskPage() {
             <div className="relative">
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
                 <option value="all">{t('helpdesk.filter.allStatuses')}</option>
-                <option value="open">{t('helpdesk.status.open')}</option>
-                <option value="in_progress">{t('helpdesk.status.inProgress')}</option>
-                <option value="waiting">{t('helpdesk.status.waiting')}</option>
-                <option value="resolved">{t('helpdesk.status.resolved')}</option>
-                <option value="closed">{t('helpdesk.status.closed')}</option>
+                {activeStatusOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
@@ -482,10 +506,7 @@ export default function HelpdeskPage() {
             <div className="relative">
               <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
                 <option value="all">{t('helpdesk.filter.allPriorities')}</option>
-                <option value="critical">{priorityLabels.critical}</option>
-                <option value="high">{priorityLabels.high}</option>
-                <option value="medium">{priorityLabels.medium}</option>
-                <option value="low">{priorityLabels.low}</option>
+                {activePriorityOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
@@ -565,14 +586,10 @@ export default function HelpdeskPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[ticket.priority]}`}>
-                          {priorityLabels[ticket.priority]}
-                        </span>
+                        <VsChip label={priorityLabels[ticket.priority]} color={priorityColorOf(ticket.priority)} fallbackClass={priorityColors[ticket.priority]} />
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[ticket.status]}`}>
-                          {statusLabels[ticket.status]}
-                        </span>
+                        <VsChip label={statusLabels[ticket.status]} color={statusColorOf(ticket.status)} fallbackClass={statusColors[ticket.status]} />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{ticket.assignedTo}</td>
                       <td className="px-4 py-3">
@@ -676,12 +693,12 @@ export default function HelpdeskPage() {
             <div className="rounded-lg border border-border bg-card p-4">
               <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byStatus" /></h3>
               <div className="space-y-2">
-                {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => {
-                  const count = tickets.filter((t) => t.status === s).length
+                {activeStatusOptions.map((o) => {
+                  const count = tickets.filter((t) => t.status === o.id).length
                   const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
                   return (
-                    <div key={s} className="flex items-center gap-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium w-28 text-center ${statusColors[s]}`}>{statusLabels[s]}</span>
+                    <div key={o.id} className="flex items-center gap-3">
+                      <VsChip label={o.label} color={o.color} fallbackClass={statusColors[o.id]} className="w-28 text-center" />
                       <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
                         <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
                       </div>
@@ -694,12 +711,12 @@ export default function HelpdeskPage() {
             <div className="rounded-lg border border-border bg-card p-4">
               <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byPriority" /></h3>
               <div className="space-y-2">
-                {(['critical', 'high', 'medium', 'low'] as DisplayTicket['priority'][]).map((p) => {
-                  const count = tickets.filter((t) => t.priority === p).length
+                {activePriorityOptions.map((o) => {
+                  const count = tickets.filter((t) => t.priority === o.id).length
                   const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
                   return (
-                    <div key={p} className="flex items-center gap-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium w-28 text-center ${priorityColors[p]}`}>{priorityLabels[p]}</span>
+                    <div key={o.id} className="flex items-center gap-3">
+                      <VsChip label={o.label} color={o.color} fallbackClass={priorityColors[o.id]} className="w-28 text-center" />
                       <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
                         <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
                       </div>
@@ -839,6 +856,7 @@ function TicketDetailPanel({
   const { t } = useTranslation()
   const guard = useEditorGuard()
   const priorityValueSet = useModuleValueSet('ticket_priority')
+  const statusValueSet = useModuleValueSet('ticket_status')
 
   // RBAC R-3: agent-action gating — ticket:edit scope=own → only when assigned to me
   const canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)
@@ -849,18 +867,23 @@ function TicketDetailPanel({
   const [aiSuggestionLoading, setAISuggestionLoading] = useState(false)
   const aiHelpdeskEnabled = useAIStore((s) => s.isModuleEnabled('helpdesk'))
 
-  const psetLabel = (id: string): string | undefined =>
-    priorityValueSet?.options.find((o) => o.id === id)?.label
+  const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
+  const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
+  const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
+  const statusColorOf = (id: string): string | undefined => statusBy.get(id)?.color
+  const activeStatusOptions = (statusValueSet?.options ?? []).filter((o) => o.active)
   const priorityLabels: Record<string, string> = {
-    low: psetLabel('low') ?? t('helpdesk.priority.low'),
-    medium: psetLabel('medium') ?? t('helpdesk.priority.medium'),
-    high: psetLabel('high') ?? t('helpdesk.priority.high'),
-    critical: psetLabel('critical') ?? t('helpdesk.priority.critical'),
+    low: prioBy.get('low')?.label ?? t('helpdesk.priority.low'),
+    medium: prioBy.get('medium')?.label ?? t('helpdesk.priority.medium'),
+    high: prioBy.get('high')?.label ?? t('helpdesk.priority.high'),
+    critical: prioBy.get('critical')?.label ?? t('helpdesk.priority.critical'),
   }
   const statusLabels: Record<string, string> = {
-    open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),
-    waiting: t('helpdesk.status.waiting'), resolved: t('helpdesk.status.resolved'),
-    closed: t('helpdesk.status.closed'),
+    open: statusBy.get('open')?.label ?? t('helpdesk.status.open'),
+    in_progress: statusBy.get('in_progress')?.label ?? t('helpdesk.status.inProgress'),
+    waiting: statusBy.get('waiting')?.label ?? t('helpdesk.status.waiting'),
+    resolved: statusBy.get('resolved')?.label ?? t('helpdesk.status.resolved'),
+    closed: statusBy.get('closed')?.label ?? t('helpdesk.status.closed'),
   }
 
   const handleAISuggestion = () => {
@@ -926,8 +949,8 @@ function TicketDetailPanel({
 
   const headerBadge = (
     <div className="flex items-center gap-1.5">
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[ticket.priority]}`}>{priorityLabels[ticket.priority]}</span>
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[ticket.status]}`}>{statusLabels[ticket.status]}</span>
+      <VsChip label={priorityLabels[ticket.priority]} color={priorityColorOf(ticket.priority)} fallbackClass={priorityColors[ticket.priority]} />
+      <VsChip label={statusLabels[ticket.status]} color={statusColorOf(ticket.status)} fallbackClass={statusColors[ticket.status]} />
     </div>
   )
 
@@ -1125,16 +1148,16 @@ function TicketDetailPanel({
               <div className="relative">
                 <button onClick={() => setStatusDropdownOpen(!statusDropdownOpen)} className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                   <span className="flex items-center gap-2">
-                    <span className={`inline-block h-2 w-2 rounded-full ${statusColors[ticket.status].split(' ')[0]}`} />
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: statusColorOf(ticket.status) }} />
                     {statusLabels[ticket.status]}
                   </span>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
                 {statusDropdownOpen && (
                   <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-border bg-card py-1 shadow-lg">
-                    {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => (
-                      <button key={s} onClick={() => { onStatusChange(s); setStatusDropdownOpen(false) }} className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-secondary ${ticket.status === s ? 'text-primary font-medium' : 'text-foreground'}`}>
-                        <span className={`inline-block h-2 w-2 rounded-full ${statusColors[s].split(' ')[0]}`} />{statusLabels[s]}
+                    {activeStatusOptions.map((o) => (
+                      <button key={o.id} onClick={() => { onStatusChange(o.id as DisplayTicket['status']); setStatusDropdownOpen(false) }} className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-secondary ${ticket.status === o.id ? 'text-primary font-medium' : 'text-foreground'}`}>
+                        <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: o.color }} />{o.label}
                       </button>
                     ))}
                   </div>

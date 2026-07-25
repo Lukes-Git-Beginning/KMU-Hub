@@ -9,7 +9,7 @@
  * below stays as a compact overview and for modules not yet wired.
  */
 import { useTranslation } from 'react-i18next'
-import { RotateCcw, EyeOff } from 'lucide-react'
+import { RotateCcw, EyeOff, Plus } from 'lucide-react'
 import { resolveValueSet } from '@/mocks/data/customization'
 import type { ResolvedValueSet, ValueSetOption } from '@/api/customization-types'
 import { getEditorModule } from './editorModules'
@@ -56,6 +56,18 @@ function ValueSetEditor({ id }: { id: string }): React.ReactElement | null {
 
   const patchOption = (optId: string, patch: Partial<ValueSetOption>): void => {
     commit({ ...editable, options: editable.options.map((o) => (o.id === optId ? { ...o, ...patch } : o)) })
+  }
+
+  const addOption = (): void => {
+    const order = editable.options.reduce((max, o) => Math.max(max, o.order), -1) + 1
+    const id = `opt-${Date.now().toString(36)}`
+    commit({
+      ...editable,
+      options: [
+        ...editable.options,
+        { id, label: t('customization.editor.wertelisten.newOption'), color: SWATCHES[1], order, active: true },
+      ],
+    })
   }
 
   return (
@@ -127,6 +139,14 @@ function ValueSetEditor({ id }: { id: string }): React.ReactElement | null {
             </div>
           </div>
         ))}
+        <button
+          type="button"
+          onClick={addOption}
+          className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+          {t('customization.editor.wertelisten.addOption')}
+        </button>
       </div>
 
       {/* In-panel preview (chips) — the module doesn't render the resolver yet. */}

@@ -11839,5 +11839,7 @@
   "customization.editor.inspector.subtitle": "Les modifications restent un brouillon jusqu’à ce que tu les appliques.",
   "customization.editor.inspector.step1": "Clique sur un texte du module — colonnes, titres, noms de champs — pour le renommer.",
   "customization.editor.inspector.step2": "Renomme les onglets par un double clic.",
-  "customization.editor.inspector.step3": "À gauche : ajoute des champs, gère les listes de valeurs et affiche ou masque des zones."
+  "customization.editor.inspector.step3": "À gauche : ajoute des champs, gère les listes de valeurs et affiche ou masque des zones.",
+  "customization.editor.wertelisten.addOption": "Ajouter une option",
+  "customization.editor.wertelisten.newOption": "Nouvelle option"
 }
