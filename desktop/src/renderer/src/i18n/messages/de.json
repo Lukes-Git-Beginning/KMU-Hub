@@ -11882,5 +11882,7 @@
   "customization.editor.wertelisten.reassignConfirm": "Entfernen",
   "customization.editor.wertelisten.removedTitle": "Entfernt",
   "helpdesk.newTicket.selectPlaceholder": "Bitte wählen…",
-  "customization.editor.felder.intro": "Zusatzfelder sind eigene Felder, die im Detail und im Anlege-Formular des Moduls erscheinen."
+  "customization.editor.felder.intro": "Zusatzfelder sind eigene Felder, die im Detail und im Anlege-Formular des Moduls erscheinen.",
+  "helpdesk.kb.titlePlaceholder": "Titel des Artikels",
+  "helpdesk.kb.newArticleTitle": "Neuer Artikel"
 }

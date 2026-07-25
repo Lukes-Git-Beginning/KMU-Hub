@@ -11848,5 +11848,7 @@
   "customization.editor.wertelisten.reassignConfirm": "Rimuovi",
   "customization.editor.wertelisten.removedTitle": "Rimosso",
   "helpdesk.newTicket.selectPlaceholder": "Seleziona…",
-  "customization.editor.felder.intro": "I campi aggiuntivi sono campi personalizzati che compaiono nel dettaglio e nel modulo di creazione."
+  "customization.editor.felder.intro": "I campi aggiuntivi sono campi personalizzati che compaiono nel dettaglio e nel modulo di creazione.",
+  "helpdesk.kb.titlePlaceholder": "Titolo dell'articolo",
+  "helpdesk.kb.newArticleTitle": "Nuovo articolo"
 }

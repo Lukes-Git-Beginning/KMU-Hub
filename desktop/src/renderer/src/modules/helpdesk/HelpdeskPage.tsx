@@ -42,6 +42,7 @@ import {
   useMergeTickets,
   useAddMessage,
   useKBArticles,
+  useCreateKBArticle,
   useUpdateKBArticle,
   useHelpdeskStats,
 } from '@/api/hooks/useHelpdesk'
@@ -64,7 +65,8 @@ import {
 import { CSATWidget, CSATAggregate } from './CSATWidget'
 import { CannedResponsesPanel } from './CannedResponsesPanel'
 import { CannedResponsePicker } from './CannedResponsePicker'
-import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
+import { DocumentBlockEditor, DocumentReader, isDocEmpty, type DocRow } from '@/components/shared/document'
+import { kbBlockRegistry, kbContentToRows, kbRowsToContent, kbContentPreview } from './kb-blocks'
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
@@ -74,7 +76,6 @@ import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadg
 import { useAuthStore } from '@/stores/auth'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
-import { sanitizeHtml } from '@/lib/sanitize'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | DisplayTicket['status']
@@ -290,6 +291,10 @@ export default function HelpdeskPage() {
 
   // KB article detail
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null)
+  // Track a just-created article so it opens straight in the block editor.
+  const [newArticleEditId, setNewArticleEditId] = useState<string | null>(null)
+  const createKBArticle = useCreateKBArticle()
+  const canManageKb = useHasCapability('helpdesk:kb:manage')
 
   // Dialogs (5.6) — business hours + routing now live in the settings panel (H-6)
   const [cannedResponsesOpen, setCannedResponsesOpen] = useState(false)
@@ -439,6 +444,18 @@ export default function HelpdeskPage() {
 
   const handleTicketRowClick = (id: string) => {
     setSelectedTicketId(id); setReplyText(''); setShowInternalNotes(false)
+  }
+
+  const handleCreateKBArticle = () => {
+    createKBArticle.mutate(
+      { title: t('helpdesk.kb.newArticleTitle'), category: 'Allgemein', content: '', status: 'draft' },
+      {
+        onSuccess: (created) => {
+          if (created?.id) { setNewArticleEditId(created.id); setSelectedArticleId(created.id) }
+        },
+        onError: () => toast.error(t('common.errorGeneric')),
+      },
+    )
   }
 
   const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all'
@@ -655,14 +672,28 @@ export default function HelpdeskPage() {
       {tab === 'wissensdatenbank' && (
         <div className="animate-fade-up">
           {selectedArticle ? (
-            <KBArticleDetail key={selectedArticle.id} article={selectedArticle} onBack={() => setSelectedArticleId(null)} />
+            <KBArticleDetail
+              key={selectedArticle.id}
+              article={selectedArticle}
+              startEditing={selectedArticle.id === newArticleEditId}
+              onBack={() => { setSelectedArticleId(null); setNewArticleEditId(null) }}
+            />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <>
+              {canManageKb && kbArticles.length > 0 && (
+                <div className="mb-4 flex justify-end">
+                  <button onClick={guard(handleCreateKBArticle)} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
+                    <Plus className="h-4 w-4" />{t('helpdesk.kb.newArticle')}
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {kbArticles.length === 0 ? (
                 <div className="col-span-full">
                   <EmptyState
                     illustration={<EmptyHelpdesk />}
                     title={t('helpdesk.kb.noArticles')}
+                    action={canManageKb ? { label: t('helpdesk.kb.newArticle'), onClick: guard(handleCreateKBArticle) } : undefined}
                   />
                 </div>
               ) : (
@@ -677,14 +708,15 @@ export default function HelpdeskPage() {
                       )}
                     </div>
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium mb-2 ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
-                    <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{article.content}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{kbContentPreview(article.content || KB_BODIES[article.id] || '')}</p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span>{formatDate(article.updated_at)}</span>
                     </div>
                   </button>
                 ))
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1290,22 +1322,28 @@ function TicketDetailPanel({
   )
 }
 
-function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () => void }) {
+function KBArticleDetail({ article, onBack, startEditing = false }: { article: KBArticle; onBack: () => void; startEditing?: boolean }) {
   const { t } = useTranslation()
   const guard = useEditorGuard()
   const canManageKbArticle = useHasCapability('helpdesk:kb:manage')
   const updateKBArticle = useUpdateKBArticle()
-  const fallback = article.content || KB_BODIES[article.id] || t('helpdesk.kb.noContent')
-  // Saved rich-text body (HTML from the editor); fallback covers seed articles.
-  const savedBody = article.content
-  const [editing, setEditing] = useState(false)
-  const [editContent, setEditContent] = useState(
-    () => fallback.split('\n\n').map((p) => `<p>${p}</p>`).join(''),
+  // KB articles are authored/read on the shared block-document engine (G3). Legacy
+  // HTML/plain-text seeds are wrapped into a single text block by the adapter, so
+  // they open cleanly and can be enriched with structural blocks.
+  const [editing, setEditing] = useState(startEditing)
+  const [title, setTitle] = useState(article.title)
+  const [rows, setRows] = useState<DocRow[]>(() =>
+    kbContentToRows(article.content || KB_BODIES[article.id] || ''),
   )
+  const viewRows = useMemo(
+    () => kbContentToRows(article.content || KB_BODIES[article.id] || ''),
+    [article.content, article.id],
+  )
+  const viewEmpty = isDocEmpty(viewRows)
 
   const handleSaveBody = () => {
     updateKBArticle.mutate(
-      { id: article.id, content: editContent },
+      { id: article.id, title: title.trim() || article.title, content: kbRowsToContent(rows) },
       {
         onSuccess: () => {
           setEditing(false)
@@ -1326,8 +1364,18 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
       <div className="rounded-lg border border-border bg-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground mb-2">{article.title}</h2>
+          <div className="min-w-0 flex-1">
+            {editing ? (
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={t('helpdesk.kb.titlePlaceholder')}
+                aria-label={t('helpdesk.kb.titlePlaceholder')}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-lg font-semibold text-foreground mb-2 focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            ) : (
+              <h2 className="text-lg font-semibold text-foreground mb-2">{article.title}</h2>
+            )}
             <div className="flex items-center gap-3">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
               {article.status === 'published' ? (
@@ -1345,7 +1393,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+                  <button onClick={() => { setEditing(false); setTitle(article.title); setRows(kbContentToRows(article.content || KB_BODIES[article.id] || '')) }} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
                   <button onClick={guard(handleSaveBody)} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
                 </div>
               )}
@@ -1355,26 +1403,14 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
         <div className="border-t border-border mb-4" />
 
-        {/* Body — TipTap in edit mode (5.14) */}
+        {/* Body — shared block-document engine (G3): edit via DocumentBlockEditor,
+            read via DocumentReader. */}
         {editing ? (
-          <RichTextEditor
-            content={editContent}
-            onChange={setEditContent}
-            placeholder={t('helpdesk.kb.articleContentPlaceholder')}
-            showToolbar
-            minHeight="200px"
-          />
-        ) : savedBody ? (
-          <div
-            className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(savedBody) }}
-          />
+          <DocumentBlockEditor rows={rows} onChange={setRows} registry={kbBlockRegistry} widthClass="max-w-none" />
+        ) : viewEmpty ? (
+          <p className="text-sm text-muted-foreground">{t('helpdesk.kb.noContent')}</p>
         ) : (
-          <div className="prose prose-sm max-w-none">
-            {fallback.split('\n\n').map((paragraph, i) => (
-              <p key={i} className="text-sm text-foreground leading-relaxed mb-3">{paragraph}</p>
-            ))}
-          </div>
+          <DocumentReader rows={viewRows} registry={kbBlockRegistry} />
         )}
 
         <div className="border-t border-border mt-6 pt-4 flex items-center justify-between">
