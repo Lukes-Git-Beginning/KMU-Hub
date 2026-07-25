@@ -11834,5 +11834,10 @@
   "customization.editor.bereiche.visible": "Visibile",
   "customization.editor.bereiche.hidden": "Nascosto",
   "customization.editor.bereiche.show": "Mostra {area}",
-  "customization.editor.bereiche.hide": "Nascondi {area}"
+  "customization.editor.bereiche.hide": "Nascondi {area}",
+  "customization.editor.inspector.title": "Come personalizzare",
+  "customization.editor.inspector.subtitle": "Le modifiche restano una bozza finché non le applichi.",
+  "customization.editor.inspector.step1": "Clicca un testo nel modulo — colonne, titoli, nomi dei campi — per rinominarlo.",
+  "customization.editor.inspector.step2": "Rinomina le schede con un doppio clic.",
+  "customization.editor.inspector.step3": "A sinistra: aggiungi campi, gestisci gli elenchi valori e mostra o nascondi le aree."
 }

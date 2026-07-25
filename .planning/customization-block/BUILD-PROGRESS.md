@@ -14,7 +14,7 @@
 | **P1** | Motor: EditableText `interactive`-Modus (Doppelklick-Rename für Reiter) + `useEditorGuard` (Mutationen no-op). Helpdesk instrumentiert: Reiter, Tabellen-Header, Statistik-Labels/Überschriften, Detail-Sektionen/Meta, KB-Badges. | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
 | **P2** | Wertelisten-Konsum: Helpdesk liest `ticket_priority` via `useModuleValueSet` (Motor: Draft-Wertelisten über EditorSurface in die Sandbox) → Wertelisten-Panel wirkt LIVE im Modul. _(Custom-Fields-Labels-in-place vertagt — Felder-Panel deckt Feld-CRUD; „Label im Detail klicken→editieren" = späterer Polish.)_ | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
 | **P3** | R4 Tab-Sichtbarkeit: neue Dimension `moduleAreas` (Typen→Resolver→Draft→Deploy→Rollback), Helpdesk liest sie (`useModuleAreas`), Editor-„Bereiche"-Panel mit Ein/Aus-Schaltern | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
-| **P4** | Chrome: Trio-Panel → Kontext-Inspektor + „Neu anlegen" | ⏳ offen | — |
+| **P4** | Chrome: leerer Properties-Zustand → selbsterklärender Kontext-Inspektor „So passt du an" (Klick→umbenennen · Doppelklick→Reiter · links Felder/Wertelisten/Bereiche) | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
 | **Rollout** | ~14 Module instrumentieren (Rich zuerst: finanzen/inventar/einkauf/vertraege/produktion/vermietung/formulare/work), ab Pilot per Sub-Agents parallelisierbar | ⏳ offen | — |
 
 ### P1 — Verifikations-Nachweis
@@ -33,6 +33,12 @@
 - **Motor + Konsum:** `EditorSurfaceValue.moduleAreas` + Hook `useModuleAreas(moduleKey)`; `ModuleSandbox` reicht Draft durch. `EditorModuleDef.areas` (Helpdesk = 3 Reiter; Kontakte = [] router-blockiert). Helpdesk filtert `visibleTabs` zusätzlich per `areaEnabled[key] !== false` (RBAC ∧ Bereich).
 - **Editor-UI:** 4. Trio-Sektion „Bereiche" (`EditorTrioNav` + `EditorPropertiesPanel`) + neues `BereichePanel.tsx` (Ein/Aus-Schalter pro Reiter, Sichtbar/Ausgeblendet, Empty-State für Module ohne Areas).
 - **Gates:** scoped tsc 0 Fehler (alle 10 P3-Dateien) · eslint clean · vitest 12/12 (Draft-Store) · i18n +8 ×4 · **QA `qa-editor-helpdesk-p3.mjs` 4/4 + Bild angesehen**: Bereiche-Panel 3 Schalter ✓ „Statistik" ausblenden → Reiter live weg aus der Modul-Leiste ✓ 0 pageerrors ✓.
+
+### P4 — Verifikations-Nachweis
+- **Kontext-Inspektor:** Der leere Properties-Zustand (Default, wenn keine Trio-Sektion gewählt) ist jetzt ein selbsterklärender Guide „So passt du an" (3 nummerierte Schritte mit Accent-Icons + Entwurf-Subtitle) statt „wähle links…" — passt zur Edit-in-place-Primärinteraktion. `customization.editor.props.empty` dadurch tot (belassen). Selektions-reaktiver Per-Element-Inspektor = späterer Ausbau.
+- **Gates:** scoped tsc 0 Fehler (EditorPropertiesPanel) · eslint clean · i18n +5 ×4 · **QA `qa-editor-helpdesk-p4.mjs` 2/2 + Bild angesehen**: „So passt du an" + 3 Schritte ✓ keine rohen Keys, 0 pageerrors ✓.
+
+**★ HELPDESK-PILOT KOMPLETT (P1–P4).** Muster steht für den Rollout über die Rich-Module (finanzen, inventar, einkauf, vertraege, produktion, vermietung, formulare, work), ab hier per Sub-Agents parallelisierbar.
 
 ## v1 — Fundament-Trio (Overlay-basiert)
 
