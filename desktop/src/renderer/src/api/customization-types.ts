@@ -146,6 +146,14 @@ export type ModuleAreaMap = Record<string, boolean>
 /** Module-area overlay across modules: moduleKey → (areaKey → enabled). */
 export type ModuleAreasOverlay = Record<string, ModuleAreaMap>
 
+/**
+ * Value-set option removals that need existing records migrated (R4b). When an
+ * admin deletes an in-use option, records carrying it must move to another option
+ * — captured here so deploy can UPDATE the records (backend) and the editor can
+ * preview the remap live. Shape: setId → (removedOptionId → targetOptionId).
+ */
+export type ValueSetMigrations = Record<string, Record<string, string>>
+
 // ── API input/output shapes ───────────────────────────────────────────────────
 
 /** Body for PUT /customization/labels — replaces/adds keys for one locale. */
@@ -203,6 +211,12 @@ export interface CustomizationDraftPayload {
    * omitted when a draft toggles no areas, so existing draft producers stay valid.
    */
   moduleAreas?: ModuleAreasOverlay
+  /**
+   * Record migrations for deleted value-set options (R4b): setId → removedId →
+   * targetId. Deploy applies these as record UPDATEs; the editor previews the
+   * remap live. Optional — omitted when no option was deleted-with-reassign.
+   */
+  valueSetMigrations?: ValueSetMigrations
 }
 
 /**

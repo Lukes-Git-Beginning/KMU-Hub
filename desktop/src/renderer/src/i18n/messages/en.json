@@ -11875,5 +11875,10 @@
   "customization.editor.inspector.step2": "Rename tabs with a double click.",
   "customization.editor.inspector.step3": "On the left: add fields, manage value lists, and show or hide areas.",
   "customization.editor.wertelisten.addOption": "Add option",
-  "customization.editor.wertelisten.newOption": "New option"
+  "customization.editor.wertelisten.newOption": "New option",
+  "customization.editor.wertelisten.deleteOption": "Delete “{option}”",
+  "customization.editor.wertelisten.reassignTitle": "Remove “{option}”",
+  "customization.editor.wertelisten.reassignBody": "Existing records with this value will be changed to:",
+  "customization.editor.wertelisten.reassignConfirm": "Remove",
+  "customization.editor.wertelisten.removedTitle": "Removed"
 }

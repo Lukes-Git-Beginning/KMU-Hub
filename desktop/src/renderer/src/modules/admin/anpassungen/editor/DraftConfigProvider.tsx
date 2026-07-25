@@ -21,6 +21,7 @@ import type {
   LocaleLabelMap,
   ModuleAreasOverlay,
   ValueSet,
+  ValueSetMigrations,
 } from '@/api/customization-types'
 import type { CustomFieldDefinition, DraftCustomFieldMap } from '@/mocks/data/custom-fields'
 import { i18n } from '@/i18n/i18n'
@@ -34,6 +35,7 @@ interface DraftState {
   valueSets: DraftValueSets
   customFields: DraftCustomFieldMap
   moduleAreas: ModuleAreasOverlay
+  valueSetMigrations: ValueSetMigrations
 }
 
 type DraftAction =
@@ -44,6 +46,8 @@ type DraftAction =
   | { type: 'setEntityFields'; entity: string; fields: CustomFieldDefinition[] }
   | { type: 'resetEntityFields'; entity: string }
   | { type: 'setModuleArea'; moduleKey: string; areaKey: string; enabled: boolean }
+  | { type: 'setValueSetMigration'; setId: string; fromId: string; toId: string }
+  | { type: 'clearValueSetMigration'; setId: string; fromId: string }
   | { type: 'reset' }
   | { type: 'load'; payload: CustomizationDraftPayload }
 
@@ -63,7 +67,9 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
     case 'resetValueSet': {
       const next = { ...state.valueSets }
       delete next[action.id]
-      return { ...state, valueSets: next }
+      const nextMig = { ...state.valueSetMigrations }
+      delete nextMig[action.id]
+      return { ...state, valueSets: next, valueSetMigrations: nextMig }
     }
     case 'setEntityFields':
       return { ...state, customFields: { ...state.customFields, [action.entity]: action.fields } }
@@ -76,14 +82,27 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
       const moduleMap = { ...(state.moduleAreas[action.moduleKey] ?? {}), [action.areaKey]: action.enabled }
       return { ...state, moduleAreas: { ...state.moduleAreas, [action.moduleKey]: moduleMap } }
     }
+    case 'setValueSetMigration': {
+      const setMap = { ...(state.valueSetMigrations[action.setId] ?? {}), [action.fromId]: action.toId }
+      return { ...state, valueSetMigrations: { ...state.valueSetMigrations, [action.setId]: setMap } }
+    }
+    case 'clearValueSetMigration': {
+      const setMap = { ...(state.valueSetMigrations[action.setId] ?? {}) }
+      delete setMap[action.fromId]
+      const nextMig = { ...state.valueSetMigrations }
+      if (Object.keys(setMap).length > 0) nextMig[action.setId] = setMap
+      else delete nextMig[action.setId]
+      return { ...state, valueSetMigrations: nextMig }
+    }
     case 'reset':
-      return { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {} }
+      return { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {}, valueSetMigrations: {} }
     case 'load':
       return {
         labels: structuredClone(action.payload.labels),
         valueSets: structuredClone(action.payload.valueSets),
         customFields: structuredClone(action.payload.customFields ?? {}),
         moduleAreas: structuredClone(action.payload.moduleAreas ?? {}),
+        valueSetMigrations: structuredClone(action.payload.valueSetMigrations ?? {}),
       }
   }
 }
@@ -104,6 +123,8 @@ export interface DraftConfigContextValue {
   customFields: DraftCustomFieldMap
   /** Module-area visibility overrides staged in the draft (R4). */
   moduleAreas: ModuleAreasOverlay
+  /** Staged record migrations for deleted value-set options (R4b). */
+  valueSetMigrations: ValueSetMigrations
   /** Whether the draft has any change vs. the live tenant layer. */
   isDirty: boolean
   /** Total touched entries (labels + value-sets + field entities) for the footer counter. */
@@ -118,6 +139,10 @@ export interface DraftConfigContextValue {
   resetDraftEntityFields: (entity: string) => void
   /** Toggle one module sub-area (tab/section) on or off in the draft (R4). */
   setDraftModuleArea: (moduleKey: string, areaKey: string, enabled: boolean) => void
+  /** Record that a deleted option's records move to another option (R4b). */
+  setDraftValueSetMigration: (setId: string, fromId: string, toId: string) => void
+  /** Undo a staged option deletion/migration (restore). */
+  clearDraftValueSetMigration: (setId: string, fromId: string) => void
   resetAll: () => void
   /** Build the sparse payload for save/deploy. */
   buildPayload: () => CustomizationDraftPayload
@@ -151,8 +176,9 @@ export function DraftConfigProvider({
           valueSets: structuredClone(initialPayload.valueSets),
           customFields: structuredClone(initialPayload.customFields ?? {}),
           moduleAreas: structuredClone(initialPayload.moduleAreas ?? {}),
+          valueSetMigrations: structuredClone(initialPayload.valueSetMigrations ?? {}),
         }
-      : { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {} },
+      : { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {}, valueSetMigrations: {} },
   )
 
   // Every i18n key we ever wrote to the global bundle — scrubbed on unmount so a
@@ -207,6 +233,7 @@ export function DraftConfigProvider({
       valueSets: state.valueSets,
       customFields: state.customFields,
       moduleAreas: state.moduleAreas,
+      valueSetMigrations: state.valueSetMigrations,
       isDirty: changeCount > 0,
       changeCount,
       setDraftLabel: (l, key, val) => dispatch({ type: 'setLabel', locale: l, key, value: val }),
@@ -217,6 +244,10 @@ export function DraftConfigProvider({
       resetDraftEntityFields: (entity) => dispatch({ type: 'resetEntityFields', entity }),
       setDraftModuleArea: (mk, areaKey, enabled) =>
         dispatch({ type: 'setModuleArea', moduleKey: mk, areaKey, enabled }),
+      setDraftValueSetMigration: (setId, fromId, toId) =>
+        dispatch({ type: 'setValueSetMigration', setId, fromId, toId }),
+      clearDraftValueSetMigration: (setId, fromId) =>
+        dispatch({ type: 'clearValueSetMigration', setId, fromId }),
       resetAll: () => dispatch({ type: 'reset' }),
       buildPayload: () => ({
         labels: structuredClone(state.labels),
@@ -226,6 +257,9 @@ export function DraftConfigProvider({
         }),
         ...(countAreas(state.moduleAreas) > 0 && {
           moduleAreas: structuredClone(state.moduleAreas),
+        }),
+        ...(Object.keys(state.valueSetMigrations).length > 0 && {
+          valueSetMigrations: structuredClone(state.valueSetMigrations),
         }),
       }),
       loadDraft: (payload) => dispatch({ type: 'load', payload }),

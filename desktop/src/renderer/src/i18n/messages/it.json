@@ -11841,5 +11841,10 @@
   "customization.editor.inspector.step2": "Rinomina le schede con un doppio clic.",
   "customization.editor.inspector.step3": "A sinistra: aggiungi campi, gestisci gli elenchi valori e mostra o nascondi le aree.",
   "customization.editor.wertelisten.addOption": "Aggiungi opzione",
-  "customization.editor.wertelisten.newOption": "Nuova opzione"
+  "customization.editor.wertelisten.newOption": "Nuova opzione",
+  "customization.editor.wertelisten.deleteOption": "Elimina «{option}»",
+  "customization.editor.wertelisten.reassignTitle": "Rimuovi «{option}»",
+  "customization.editor.wertelisten.reassignBody": "I record esistenti con questo valore verranno cambiati in:",
+  "customization.editor.wertelisten.reassignConfirm": "Rimuovi",
+  "customization.editor.wertelisten.removedTitle": "Rimosso"
 }

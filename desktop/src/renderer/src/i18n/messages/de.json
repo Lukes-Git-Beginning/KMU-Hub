@@ -11875,5 +11875,10 @@
   "customization.editor.inspector.step2": "Reiter benennst du per Doppelklick um.",
   "customization.editor.inspector.step3": "Links: Felder anlegen, Wertelisten pflegen und Bereiche ein- oder ausblenden.",
   "customization.editor.wertelisten.addOption": "Neue Option",
-  "customization.editor.wertelisten.newOption": "Neue Option"
+  "customization.editor.wertelisten.newOption": "Neue Option",
+  "customization.editor.wertelisten.deleteOption": "„{option}\" löschen",
+  "customization.editor.wertelisten.reassignTitle": "„{option}\" entfernen",
+  "customization.editor.wertelisten.reassignBody": "Bestehende Einträge mit diesem Wert werden geändert auf:",
+  "customization.editor.wertelisten.reassignConfirm": "Entfernen",
+  "customization.editor.wertelisten.removedTitle": "Entfernt"
 }

@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib'
 import { resolveValueSet, resolveModuleAreas } from '@/mocks/data/customization'
-import type { ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet } from '@/api/customization-types'
+import type { ModuleAreaMap, ModuleAreasOverlay, ResolvedValueSet, ValueSet, ValueSetMigrations } from '@/api/customization-types'
 
 export interface EditorSurfaceValue {
   /** True only inside the editor sandbox. */
@@ -33,6 +33,8 @@ export interface EditorSurfaceValue {
   valueSets: Record<string, Omit<ValueSet, 'layer'>>
   /** Draft module-area visibility overrides — previewed live (tabs/sections on-off). */
   moduleAreas: ModuleAreasOverlay
+  /** Draft record migrations for deleted value-set options — previewed live (R4b). */
+  valueSetMigrations: ValueSetMigrations
 }
 
 const noop = (): void => {}
@@ -42,6 +44,7 @@ const EditorSurfaceContext = createContext<EditorSurfaceValue>({
   isDraft: () => false,
   valueSets: {},
   moduleAreas: {},
+  valueSetMigrations: {},
 })
 
 export function useEditorSurface(): EditorSurfaceValue {
@@ -216,4 +219,16 @@ export function useModuleAreas(moduleKey: string): ModuleAreaMap {
     () => resolveModuleAreas(moduleKey, false, draftOverlay),
     [moduleKey, editing, draftOverlay],
   )
+}
+
+/**
+ * The staged record-migration map for one value-set (R4b): removedOptionId →
+ * targetOptionId. Only populated inside the editor sandbox; a module remaps record
+ * values through it so deleting-with-reassign previews live. Empty in the live app
+ * (the real migration runs on deploy in the backend).
+ */
+const EMPTY_MIGRATION: Record<string, string> = {}
+export function useValueSetMigration(setId: string): Record<string, string> {
+  const { editing, valueSetMigrations } = useEditorSurface()
+  return editing ? (valueSetMigrations[setId] ?? EMPTY_MIGRATION) : EMPTY_MIGRATION
 }

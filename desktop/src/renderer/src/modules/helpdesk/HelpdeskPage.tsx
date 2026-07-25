@@ -68,7 +68,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
-import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas } from '@/components/customization/EditorSurface'
+import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration } from '@/components/customization/EditorSurface'
 import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { useAuthStore } from '@/stores/auth'
@@ -179,9 +179,23 @@ export default function HelpdeskPage() {
 
   // API hooks — Tickets (core data)
   const { data: ticketsResponse, isLoading: ticketsLoading, error: ticketsError } = useTickets()
-  const tickets: DisplayTicket[] = useMemo(
+  // Editor draft may delete a status/priority and reassign its records; remap the
+  // display values through that migration so the preview is honest (empty in the
+  // live app — the real record migration runs on deploy in the backend).
+  const statusMigration = useValueSetMigration('ticket_status')
+  const priorityMigration = useValueSetMigration('ticket_priority')
+  const rawTickets: DisplayTicket[] = useMemo(
     () => (ticketsResponse?.tickets ?? []).map(wireTicketToDisplay),
     [ticketsResponse],
+  )
+  const tickets: DisplayTicket[] = useMemo(
+    () =>
+      rawTickets.map((tk) => ({
+        ...tk,
+        status: (statusMigration[tk.status] ?? tk.status) as DisplayTicket['status'],
+        priority: (priorityMigration[tk.priority] ?? tk.priority) as DisplayTicket['priority'],
+      })),
+    [rawTickets, statusMigration, priorityMigration],
   )
 
   // Ticket mutations

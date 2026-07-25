@@ -51,6 +51,16 @@
 - **Gates:** scoped tsc 0 Fehler · eslint clean · i18n +2 ×4 · **QA `qa-editor-helpdesk-f1f2.mjs` 6/6 + Bilder angesehen**: 2 Wertelisten je „Neue Option" ✓ Chip trägt Inline-Farbe aus Set ✓ Status „Offen"→„Neu" live (5 Chips) ✓ „Kritisch" auf grün umgefärbt → Chip live grün ✓ 0 pageerrors ✓.
 - **Rollout-Konsequenz:** dasselbe Muster (Status+jede Status-artige Liste als Value-Set, Chips via `VsChip`, Picker iterieren aktive Optionen) gilt für ALLE Module — `VsChip` beim Rollout nach `shared/` heben.
 
+### Feedback-Runde 2 (Darien lokal-Review, 2026-07-25) — G1 (G2/G3 offen)
+
+| # | Feedback | Lösung | Status |
+|---|---|---|---|
+| **G1** | Optionen konnte man nur hinzufügen/deaktivieren, nicht löschen; und Löschen einer in-Benutzung-Option muss Bestand migrieren | Neue Dimension `valueSetMigrations` (setId→removedId→targetId, Typen/Draft/Surface/Payload). Trash-Button pro Option: Basis-Option → Reassignment-Karte („Einträge ändern auf: …") → `active:false` (Overlay behält Code-Default, kann nicht hart droppen) + Migration; Draft-neue Option → hart löschbar. „Entfernt"-Sektion (→ Ziel, Wiederherstellen). **Modul remappt Datensätze live** über die Migration (ehrliche Vorschau); echte Record-UPDATEs = Deploy/Backend. | ✅ |
+| **G2** | „Felder" im Editor unklar — man sieht nicht, was man anpasst (Felder erscheinen nicht in der Vorschau) | **Untersucht:** FelderPanel ist voller CRUD, aber Custom-Fields rendern nur im Ticket-Detail wenn Werte da sind → abgekoppelt. Vorschlag an Darien: Felder edit-in-place im Detail sichtbar machen. **Offen (Darien-Entscheid).** | ⏳ |
+| **G3** | KB-Einträge (Wissensdatenbank) sollen die Block-Dokument-Engine nutzen (wie Wiki/Berichte) | **Offen** — `shared/document`-Ist + KB prüfen, Scope vorlegen. | ⏳ |
+
+- **G1-Gates:** scoped tsc 0 Fehler · eslint clean · vitest 12/12 · i18n +5 ×4 · **QA `qa-editor-helpdesk-g1.mjs` 5/5 + Bilder**: Trash→Reassignment-Karte ✓ „In Bearbeitung"→„Offen" migriert live (6 Tickets, Chips weg, aus Hauptliste raus) ✓ neue Option direkt löschbar ✓ 0 pageerrors ✓. **backend-gaps: Record-Migration bei Deploy (UPDATE … SET status=target WHERE status=removed).**
+
 ## v1 — Fundament-Trio (Overlay-basiert)
 
 | Stufe | Inhalt | Status | Commit |
