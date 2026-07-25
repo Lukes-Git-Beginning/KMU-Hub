@@ -11824,5 +11824,7 @@
   "customization.editor.rollouts.rollback": "Annuler",
   "customization.editor.rollouts.reopen": "Ouvrir",
   "customization.editor.rollouts.rolledBack": "Annulé.",
-  "customization.editor.rollouts.deleted": "Brouillon supprimé."
+  "customization.editor.rollouts.deleted": "Brouillon supprimé.",
+  "helpdesk.tabs.ticketsLabel": "Tickets",
+  "customization.editor.actionBlocked": "Désactivé dans l’éditeur — ici tu personnalises seulement le module."
 }

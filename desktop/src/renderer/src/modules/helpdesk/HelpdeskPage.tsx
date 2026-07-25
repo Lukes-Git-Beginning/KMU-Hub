@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -67,6 +68,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
+import { EditableText, useEditorGuard } from '@/components/customization/EditorSurface'
 import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { useAuthStore } from '@/stores/auth'
@@ -152,6 +154,8 @@ const KB_BODIES: Record<string, string> = {
 
 export default function HelpdeskPage() {
   const { t } = useTranslation()
+  // Editor sandbox: mutating/out-navigating actions become no-ops (R-1).
+  const guard = useEditorGuard()
 
   // API hooks — Tickets (core data)
   const { data: ticketsResponse, isLoading: ticketsLoading, error: ticketsError } = useTickets()
@@ -390,7 +394,7 @@ export default function HelpdeskPage() {
             )}
             {canCreateTicket && (
               <button
-                onClick={handleOpenNewTicket}
+                onClick={guard(handleOpenNewTicket)}
                 className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Plus className="h-4 w-4" />
@@ -402,21 +406,24 @@ export default function HelpdeskPage() {
         className="mb-6"
       />
 
-      {/* Tabs */}
+      {/* Tabs — labels are edit-in-place (interactive: single click switches the tab,
+          double click renames it). The Tickets counter renders separately so the
+          noun stays renamable. */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
-        {([
-          { key: 'tickets' as const, label: t('helpdesk.tabs.tickets', { count: openTickets.length }) },
-          { key: 'wissensdatenbank' as const, label: t('helpdesk.tabs.knowledgeBase') },
-          { key: 'statistik' as const, label: t('helpdesk.tabs.statistics') },
-        ]).filter((item) => !capReady || visibleTabs.includes(item.key)).map((t) => (
+        {(([
+          { key: 'tickets', dkey: 'helpdesk.tabs.ticketsLabel', count: openTickets.length },
+          { key: 'wissensdatenbank', dkey: 'helpdesk.tabs.knowledgeBase' },
+          { key: 'statistik', dkey: 'helpdesk.tabs.statistics' },
+        ] as { key: TabKey; dkey: string; count?: number }[]).filter((item) => !capReady || visibleTabs.includes(item.key))).map((item) => (
           <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setSelectedTicketId(null); setSelectedArticleId(null) }}
+            key={item.key}
+            onClick={() => { setTab(item.key); setSelectedTicketId(null); setSelectedArticleId(null) }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === item.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.label}
+            <EditableText as="span" dkey={item.dkey} interactive />
+            {item.count !== undefined && <span className="ml-1">({item.count})</span>}
           </button>
         ))}
       </div>
@@ -504,14 +511,14 @@ export default function HelpdeskPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.ticketNr')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.subject')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.category')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.priority')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.ticketNr" /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.subject" /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.category" /></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.priority" /></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('common.status')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.assignedTo')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.assignedTo" /></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><AbbrTooltip term="SLA" /></th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.createdAt')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><EditableText as="span" dkey="helpdesk.table.createdAt" /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -571,7 +578,7 @@ export default function HelpdeskPage() {
                 illustration={<EmptyHelpdesk />}
                 title={t('helpdesk.empty.noTickets')}
                 description={hasActiveFilters || search ? t('helpdesk.empty.adjustFilters') : t('helpdesk.empty.createTicket')}
-                action={!hasActiveFilters && !search && canCreateTicket ? { label: t('helpdesk.empty.createFirstTicket'), onClick: handleOpenNewTicket } : undefined}
+                action={!hasActiveFilters && !search && canCreateTicket ? { label: t('helpdesk.empty.createFirstTicket'), onClick: guard(handleOpenNewTicket) } : undefined}
               />
             )}
           </div>
@@ -624,16 +631,16 @@ export default function HelpdeskPage() {
       {tab === 'statistik' && (
         <div className="animate-fade-up">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={AlertCircle} label={t('helpdesk.stats.openTickets')} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />
-            <StatCard icon={Clock} label={t('helpdesk.stats.avgResponseTime')} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />
-            <StatCard icon={CheckCircle2} label={t('helpdesk.stats.resolvedThisWeek')} value={stats.resolved_this_week} iconColor="text-success" iconBg="bg-success-light" />
-            <StatCard icon={BarChart3} label={t('helpdesk.stats.customerSatisfaction')} value={stats.customer_satisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
+            <StatCard icon={AlertCircle} label={<EditableText dkey="helpdesk.stats.openTickets" />} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />
+            <StatCard icon={Clock} label={<EditableText dkey="helpdesk.stats.avgResponseTime" />} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />
+            <StatCard icon={CheckCircle2} label={<EditableText dkey="helpdesk.stats.resolvedThisWeek" />} value={stats.resolved_this_week} iconColor="text-success" iconBg="bg-success-light" />
+            <StatCard icon={BarChart3} label={<EditableText dkey="helpdesk.stats.customerSatisfaction" />} value={stats.customer_satisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Bar Chart */}
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-sm font-medium text-foreground mb-4">{t('helpdesk.stats.ticketsPerDay')}</h3>
+              <h3 className="text-sm font-medium text-foreground mb-4"><EditableText as="span" dkey="helpdesk.stats.ticketsPerDay" /></h3>
               <div className="flex items-end gap-3 h-40">
                 {stats.weekly_breakdown.map((day) => {
                   const maxCount = Math.max(...stats.weekly_breakdown.map((d) => d.count), 1)
@@ -654,7 +661,7 @@ export default function HelpdeskPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byStatus')}</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byStatus" /></h3>
               <div className="space-y-2">
                 {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => {
                   const count = tickets.filter((t) => t.status === s).length
@@ -672,7 +679,7 @@ export default function HelpdeskPage() {
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byPriority')}</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byPriority" /></h3>
               <div className="space-y-2">
                 {(['critical', 'high', 'medium', 'low'] as DisplayTicket['priority'][]).map((p) => {
                   const count = tickets.filter((t) => t.priority === p).length
@@ -704,8 +711,8 @@ export default function HelpdeskPage() {
           onReplyChange={setReplyText}
           showInternalNotes={showInternalNotes}
           onToggleInternal={setShowInternalNotes}
-          onSendReply={handleSendReply}
-          onStatusChange={handleStatusChange}
+          onSendReply={guard(handleSendReply)}
+          onStatusChange={guard(handleStatusChange)}
           onClose={() => setSelectedTicketId(null)}
           assignTicketMut={assignTicketMut}
           updateTicketMut={updateTicketMut}
@@ -768,7 +775,7 @@ export default function HelpdeskPage() {
             </div>
             <DialogFooter className="px-6 py-4 border-t border-border">
               <button onClick={() => setNewTicketOpen(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
-              <button onClick={handleSaveNewTicket} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('helpdesk.newTicket.createButton')}</button>
+              <button onClick={guard(handleSaveNewTicket)} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('helpdesk.newTicket.createButton')}</button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -784,7 +791,7 @@ export default function HelpdeskPage() {
 // ============================================================
 
 function StatCard({ icon: Icon, label, value, iconColor, iconBg }: {
-  icon: typeof AlertCircle; label: string; value: string | number; iconColor: string; iconBg: string
+  icon: typeof AlertCircle; label: ReactNode; value: string | number; iconColor: string; iconBg: string
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
@@ -817,6 +824,7 @@ function TicketDetailPanel({
   mergeTicketsMut: ReturnType<typeof useMergeTickets>
 }) {
   const { t } = useTranslation()
+  const guard = useEditorGuard()
 
   // RBAC R-3: agent-action gating — ticket:edit scope=own → only when assigned to me
   const canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)
@@ -925,7 +933,7 @@ function TicketDetailPanel({
         <div className="flex-1" />
         {aiHelpdeskEnabled && (
           <button
-            onClick={handleAISuggestion}
+            onClick={guard(handleAISuggestion)}
             disabled={aiSuggestionLoading}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
           >
@@ -996,7 +1004,7 @@ function TicketDetailPanel({
 
         {/* Description */}
         <div>
-          <h4 className="text-xs font-medium text-muted-foreground mb-1">{t('helpdesk.ticket.description')}</h4>
+          <h4 className="text-xs font-medium text-muted-foreground mb-1"><EditableText as="span" dkey="helpdesk.ticket.description" /></h4>
           <p className="text-sm text-foreground leading-relaxed">{ticket.description}</p>
         </div>
 
@@ -1004,7 +1012,7 @@ function TicketDetailPanel({
         {ticket.customFields && Object.keys(ticket.customFields).length > 0 && (
           <div>
             <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-              <Settings2 className="h-3 w-3" /> {t('helpdesk.ticket.customFields')}
+              <Settings2 className="h-3 w-3" /> <EditableText as="span" dkey="helpdesk.ticket.customFields" />
             </h4>
             <div className="grid grid-cols-2 gap-2">
               {MOCK_CUSTOM_FIELD_DEFS.map((def) => {
@@ -1026,19 +1034,19 @@ function TicketDetailPanel({
         {/* Meta info */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.contact')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.contact" /></p>
             <div className="flex items-center gap-1.5 text-sm text-foreground"><User className="h-3.5 w-3.5 text-muted-foreground" />{ticket.contactName}</div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.assignedTo')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.assignedTo" /></p>
             <div className="flex items-center gap-1.5 text-sm text-foreground"><User className="h-3.5 w-3.5 text-muted-foreground" />{ticket.assignedTo}</div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.created')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.created" /></p>
             <p className="text-sm text-foreground">{new Date(ticket.createdAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.updated')}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5"><EditableText as="span" dkey="helpdesk.ticket.updated" /></p>
             <p className="text-sm text-foreground">{new Date(ticket.updatedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
@@ -1047,14 +1055,14 @@ function TicketDetailPanel({
         {canEditTicket && (
           <>
             <div className="rounded-lg border border-border bg-secondary/20 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('helpdesk.ticket.actions')}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2"><EditableText as="span" dkey="helpdesk.ticket.actions" /></p>
               <div className="flex flex-wrap items-center gap-2">
                 {/* Assign */}
                 <div className="relative">
                   <select
                     aria-label={t('helpdesk.ticket.assign')}
                     value={ticket.assignedTo}
-                    onChange={(e) => handleAssign(e.target.value)}
+                    onChange={(e) => guard(handleAssign)(e.target.value)}
                     className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
                   >
                     {!HELPDESK_AGENTS.includes(ticket.assignedTo as (typeof HELPDESK_AGENTS)[number]) && (
@@ -1068,7 +1076,7 @@ function TicketDetailPanel({
 
                 {/* Escalate */}
                 <button
-                  onClick={handleEscalate}
+                  onClick={guard(handleEscalate)}
                   disabled={ticket.priority === 'critical'}
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -1081,7 +1089,7 @@ function TicketDetailPanel({
                     aria-label={t('helpdesk.ticket.mergeInto')}
                     value=""
                     disabled={mergeTargets.length === 0}
-                    onChange={(e) => { if (e.target.value) handleMerge(e.target.value) }}
+                    onChange={(e) => { if (e.target.value) guard(handleMerge)(e.target.value) }}
                     className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <option value="">{mergeTargets.length === 0 ? t('helpdesk.ticket.mergeNoTarget') : t('helpdesk.ticket.mergeInto')}</option>
@@ -1095,7 +1103,7 @@ function TicketDetailPanel({
 
             {/* Status change */}
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('helpdesk.ticket.changeStatus')}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5"><EditableText as="span" dkey="helpdesk.ticket.changeStatus" /></p>
               <div className="relative">
                 <button onClick={() => setStatusDropdownOpen(!statusDropdownOpen)} className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                   <span className="flex items-center gap-2">
@@ -1163,6 +1171,7 @@ function TicketDetailPanel({
 
 function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () => void }) {
   const { t } = useTranslation()
+  const guard = useEditorGuard()
   const canManageKbArticle = useHasCapability('helpdesk:kb:manage')
   const updateKBArticle = useUpdateKBArticle()
   const fallback = article.content || KB_BODIES[article.id] || t('helpdesk.kb.noContent')
@@ -1201,22 +1210,22 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             <div className="flex items-center gap-3">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
               {article.status === 'published' ? (
-                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.published')}</span>
+                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium"><EditableText as="span" dkey="helpdesk.kb.published" /></span>
               ) : (
-                <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.draft')}</span>
+                <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium"><EditableText as="span" dkey="helpdesk.kb.draft" /></span>
               )}
             </div>
           </div>
           {canManageKbArticle && (
             <div className="flex items-center gap-2">
               {!editing ? (
-                <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                <button onClick={guard(() => setEditing(true))} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
                   <Pencil className="h-3 w-3" />{t('common.edit')}
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
-                  <button onClick={handleSaveBody} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
+                  <button onClick={guard(handleSaveBody)} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
                 </div>
               )}
             </div>
@@ -1251,7 +1260,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
           <p className="text-xs text-muted-foreground">
             {t('helpdesk.kb.lastUpdated')}: {formatDate(article.updated_at, { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
-          <button onClick={() => toast.info(t('helpdesk.kb.feedbackSent'))} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
+          <button onClick={guard(() => toast.info(t('helpdesk.kb.feedbackSent')))} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
             {t('helpdesk.kb.wasHelpful')}
           </button>
         </div>

@@ -42,6 +42,7 @@
     "src/renderer/src/modules/admin/anpassungen/editor/FelderPanel.tsx",
     "src/renderer/src/components/customization/EditorSurface.tsx",
     "src/renderer/src/modules/admin/anpassungen/editor/DeployDialog.tsx",
+    "src/renderer/src/modules/helpdesk/HelpdeskPage.tsx",
     "src/renderer/src/mocks/data/__tests__/customization-draft.test.ts"
   ]
 }

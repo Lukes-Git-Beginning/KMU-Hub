@@ -3,6 +3,25 @@
 > SSOT-Konzept: `KONZEPT.md`. Recherche: `IST-A/B/C.md` + `MARKT-A/B/C.md`.
 > Stand: 2026-07-21 (Session #25).
 
+## Editor-Pivot — Rollout (ab Session #28, 2026-07-25)
+
+> Spec = `EDITOR-PIVOT-SPEC.md`, Modul-Audit = `MODUL-AUDIT.md`. **Pilot = Helpdesk** (Darien 2026-07-25, weil state-basiert → sofort begehbar; Kontakte ist router-blockiert → Sonderweg später).
+> Kern-Befund Audit: nur `kontakte` + `dialer` sind router-basiert; ~14 lohnende Module state-basiert → R2 dort geschenkt.
+
+| Phase | Inhalt | Status | Commit |
+|---|---|---|---|
+| **Motor: R1-Nav** | `useBlocker(true)` in EditorWorkspace | ✅ (Session #27b) | `6511254b` |
+| **P1** | Motor: EditableText `interactive`-Modus (Doppelklick-Rename für Reiter) + `useEditorGuard` (Mutationen no-op). Helpdesk instrumentiert: Reiter, Tabellen-Header, Statistik-Labels/Überschriften, Detail-Sektionen/Meta, KB-Badges. | ✅ **fertig + verifiziert** | _(dieser Commit)_ |
+| **P2** | Wertelisten-Konsum (`resolveValueSet('ticket_priority')` im Modul) + Custom-Fields-Labels im Detail editierbar | ⏳ offen | — |
+| **P3** | R4 Tab-Sichtbarkeit (`moduleAreas`-Dimension ins Draft/Deploy, Modul liest sie, Editor-Toggle) | ⏳ offen | — |
+| **P4** | Chrome: Trio-Panel → Kontext-Inspektor + „Neu anlegen" | ⏳ offen | — |
+| **Rollout** | ~14 Module instrumentieren (Rich zuerst: finanzen/inventar/einkauf/vertraege/produktion/vermietung/formulare/work), ab Pilot per Sub-Agents parallelisierbar | ⏳ offen | — |
+
+### P1 — Verifikations-Nachweis
+- **Dateien:** `components/customization/EditorSurface.tsx` (+`interactive`-Prop, +`useEditorGuard`), `modules/helpdesk/HelpdeskPage.tsx` (Instrumentierung + Guards), `scripts/i18n-editor-pivot-p1.mjs` (+2 Keys ×4: `helpdesk.tabs.ticketsLabel`, `customization.editor.actionBlocked`), `tsconfig.customcheck.json` (+HelpdeskPage).
+- **Gates:** scoped tsc **0 Fehler in EditorSurface + HelpdeskPage** (Rest = Alt-Baseline in mocks/handlers + sanitize, transitiv) · `eslint` beide Dateien clean · i18n +2 ×4 (echte fr/it, Du-Form) · **QA `qa-editor-helpdesk-p1.mjs` 6/6 PASS, 0 pageerrors, Bilder angesehen**: Reiter begehbar (Einfach-Klick) ✓ Tabellen-Header „Betreff"→„Anliegen" live + amber Ring + Zähler ✓ Reiter „Statistik"→„Auswertung" per Doppelklick ✓ „Neues Ticket" → Guard-Toast „Im Editor deaktiviert", Dialog bleibt zu ✓ keine rohen Keys ✓.
+- **Muster für Rollout:** statische Labels → `<EditableText dkey=… />` (Einfach-Klick-Rename); Labels in Controls (Reiter/Karten) → `interactive` (Einfach-Klick navigiert, Doppelklick benennt um); Mutationen/rausführende Aktionen → `guard(handler)`; State-Navigation (Reiter/Detail öffnen) bleibt ungeguarded (begehbar).
+
 ## v1 — Fundament-Trio (Overlay-basiert)
 
 | Stufe | Inhalt | Status | Commit |

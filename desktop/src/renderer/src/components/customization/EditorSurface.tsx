@@ -17,6 +17,7 @@
 import { createContext, useContext, useState } from 'react'
 import type { ElementType, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { cn } from '@/lib'
 
 export interface EditorSurfaceValue {
@@ -52,16 +53,24 @@ export function EditorSurfaceProvider({
 /**
  * A single customizable label. Renders `t(dkey)`; inside the editor sandbox it is
  * click-to-rename in place. Drop-in for `{t('some.key')}` in a module.
+ *
+ * `interactive` — set when the label ALSO sits inside a control (a tab button, a
+ * clickable card). Then a single click falls through to that control (so the
+ * preview stays navigable) and renaming happens on double-click. Static labels
+ * (table headers, section titles) leave it off → single click renames.
  */
 export function EditableText({
   dkey,
   as: As = 'span',
   className,
+  interactive = false,
 }: {
   dkey: string
   /** Element to render as (default span). */
   as?: ElementType
   className?: string
+  /** The label is nested in a clickable control → single click navigates, double click renames. */
+  interactive?: boolean
 }): ReactElement {
   const { t } = useTranslation()
   const { editing, setLabel, isDraft } = useEditorSurface()
@@ -99,6 +108,29 @@ export function EditableText({
     )
   }
 
+  // Nested in a control: don't hijack the single click (let the tab/card do its
+  // job) — edit on double click instead.
+  if (interactive) {
+    return (
+      <As
+        onDoubleClick={(e: React.MouseEvent) => {
+          e.stopPropagation()
+          e.preventDefault()
+          setActive(true)
+        }}
+        title="Doppelklick zum Umbenennen"
+        className={cn(
+          'rounded-[4px] transition-shadow',
+          'hover:ring-2 hover:ring-[var(--accent-1)]/40',
+          isDraft(dkey) && 'ring-1 ring-amber-500/50',
+          className,
+        )}
+      >
+        {text}
+      </As>
+    )
+  }
+
   return (
     <As
       role="button"
@@ -126,4 +158,26 @@ export function EditableText({
       {text}
     </As>
   )
+}
+
+/**
+ * Guard event handlers so they no-op inside the editor sandbox — the editor is for
+ * customizing a module, not operating it (R-1). In the live app (no surface) the
+ * handler runs unchanged. Mutating/out-navigating actions (create, delete, send,
+ * assign, escalate…) wrap their handler in this; state-only navigation (tab
+ * switch, open a detail) stays unwrapped so the preview remains walkable.
+ */
+export function useEditorGuard(): <A extends unknown[]>(
+  fn: (...args: A) => void,
+) => (...args: A) => void {
+  const { editing } = useEditorSurface()
+  const { t } = useTranslation()
+  return <A extends unknown[]>(fn: (...args: A) => void) =>
+    (...args: A): void => {
+      if (editing) {
+        toast.info(t('customization.editor.actionBlocked'), { id: 'cosmi-editor-action-blocked' })
+        return
+      }
+      fn(...args)
+    }
 }

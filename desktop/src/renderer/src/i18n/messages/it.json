@@ -11824,5 +11824,7 @@
   "customization.editor.rollouts.rollback": "Ripristina",
   "customization.editor.rollouts.reopen": "Apri",
   "customization.editor.rollouts.rolledBack": "Ripristinato.",
-  "customization.editor.rollouts.deleted": "Bozza eliminata."
+  "customization.editor.rollouts.deleted": "Bozza eliminata.",
+  "helpdesk.tabs.ticketsLabel": "Ticket",
+  "customization.editor.actionBlocked": "Disattivato nell’editor — qui personalizzi solo il modulo."
 }

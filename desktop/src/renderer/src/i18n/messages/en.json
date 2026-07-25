@@ -11858,5 +11858,7 @@
   "customization.editor.rollouts.rollback": "Roll back",
   "customization.editor.rollouts.reopen": "Open",
   "customization.editor.rollouts.rolledBack": "Rolled back.",
-  "customization.editor.rollouts.deleted": "Draft deleted."
+  "customization.editor.rollouts.deleted": "Draft deleted.",
+  "helpdesk.tabs.ticketsLabel": "Tickets",
+  "customization.editor.actionBlocked": "Disabled in the editor — here you only customize the module."
 }
