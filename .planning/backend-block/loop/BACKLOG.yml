@@ -744,6 +744,85 @@ units:
       - Test pinnt, dass ein fremder Tenant weder liest noch schreibt
       - go build/vet/lint/test gruen
 
+  - id: p3-zeiterfassung-break-tenant
+    phase: 3
+    service: zeiterfassung
+    model: sonnet
+    deps: [p3-zeiterfassung-tenant-scope]
+    status: done   # Iteration 23 — INSERT-Wiring nachgeholt, vier Break-Queries gescoped
+    scope: >
+      Migration 000230 hat hr_break_entries um tenant_id UUID NOT NULL
+      erweitert; PostgresBreakRepo.Create hat die Spalte nie gelernt und
+      models.HRBreakEntry trug gar kein Feld dafuer. Gegen echtes Postgres
+      scheitert damit JEDER StartBreak an der NOT-NULL-Constraint — "Pause
+      starten" ist tot, nicht degradiert. Dieselben vier Queries laufen
+      ausserdem ohne tenant_id-Praedikat, darunter der Update-Pfad beim
+      Pausenende.
+    sources:
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+      - backend/internal/models/hr.go
+      - backend/migrations/000230_rls_wiki_hr_child_tables.up.sql
+    notes: >
+      ERLEDIGT Iteration 23. Kein Deploy-Hazard: keine Migration (die Spalte
+      liegt seit 000230), keine Proto-Aenderung, keine neue Route.
+      Entscheidungen: (a) `models.HRBreakEntry` bekommt `TenantID` statt eines
+      zusaetzlichen Repo-Parameters bei Create/Update — die Zeile traegt den
+      Tenant, zwei Wahrheiten fuer denselben Wert driften auseinander (gleiche
+      Begruendung wie Iteration 22 bei Update/ApproveCorrection). Die beiden
+      Lesepfade nehmen tenantID als Parameter. (b) `StartBreak` liest den
+      Tenant von `shift.TenantID`, nicht vom Funktionsparameter: die Pause
+      haengt an der Schicht, und `GetActiveShift` hat die Schicht bereits
+      tenant-gescoped geholt. (c) Wire-Shape unveraendert — `toProtoBreakEntry`
+      mappt tenant_id nicht, das Feld geht nicht ueber die Leitung; darum keine
+      openapi.yaml-Aenderung. (d) Der Mock im Service-Test filtert jetzt
+      ebenfalls auf tenantID: ein Service, der die Weitergabe vergisst, wuerde
+      sonst hier gruen aussehen und in Produktion uuid.Nil in die Query
+      schreiben.
+    done_when:
+      - Create schreibt tenant_id, StartBreak funktioniert gegen echte DB
+      - GetActiveBreak, Update, ListByWorkTimeEntry tenant-gescoped
+      - Test pinnt Persistenz und Fremd-Tenant-Isolation gegen echtes Postgres
+      - go build/vet/lint/test gruen
+
+  # --- querschnitt: FE ruft Pfade, die es serverseitig nicht gibt -----------
+
+  - id: p3-route-path-drift-triage
+    phase: 3
+    service: querschnitt
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Ein Abgleich aller `/api/v1/*`-Literale in desktop/src/renderer (ohne
+      mocks/) gegen die Pfade in backend/api/openapi.yaml ergibt 145 Treffer,
+      die serverseitig keine Entsprechung haben. Der Rohbefund ist NICHT die
+      Befundliste — er enthaelt viel Rauschen: BASE-Prefix-Konstanten
+      (`/api/v1/finance`, `/api/v1/berichte`), abgeschnittene Template-Literale
+      (`/api/v1/email/messages/${qs`), Testfixtures (`/api/v1/contacts/ct-001`).
+      Erster Schritt ist Triage: Rauschen aussortieren, den Rest in
+      "Tippfehler im FE-Pfad" und "Route fehlt serverseitig komplett" trennen.
+      Nur die zweite Gruppe ist Backend-Arbeit und gehoert dann als je eigene
+      Unit in dieses Backlog.
+    sources:
+      - backend/api/openapi.yaml
+      - desktop/src/renderer/src/api/
+    notes: >
+      Aufgefallen Iteration 23 (Queue war leer, darum ein Suchlauf statt einer
+      Unit). Ein belegter Einzelfall aus der ersten Gruppe: finance-client.ts
+      ruft `POST /api/v1/finance/invoices/{id}/mark-paid`, die Route heisst
+      `/pay` (route_biz.go:82, so auch in openapi.yaml) — "Als bezahlt
+      markieren" ist gegen echtes BE ein 404. Der Backend-Pfad passt zum Stil
+      der Nachbarn (`/send`, `/cancel`), der schlanke Fix ist die FE-Zeile.
+      Ganze Bereiche der zweiten Gruppe: admin/roles, admin/users,
+      customization/fields, email/rules, email/labels, caldav — vor dem Bauen
+      pruefen, ob das ueberhaupt gewollter Scope ist oder totes FE.
+      TestOpenAPIRouteDrift garantiert, dass openapi.yaml die Gateway-Routen
+      vollstaendig spiegelt; die Spec ist als Referenz also belastbar.
+    done_when:
+      - Rauschen aussortiert, Restliste nach Ursache getrennt
+      - Fehlende Backend-Routen als je eigene Unit im Backlog
+      - Reine FE-Pfad-Tippfehler als Liste im Journal (FE ist nicht Loop-Scope)
+
   # --- admin ----------------------------------------------------------------
 
   - id: p3-admin-invite-flow

@@ -1725,3 +1725,102 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     diesem Journal ist die naechstbeste Quelle fuer Units.
 
 - iteration 22 commit: `9f2045c9`
+
+## Iteration 23 — 2026-07-27 — p3-zeiterfassung-break-tenant
+
+- verify-vorspann (Iteration 22, `9f2045c9`): gruen. Alle Queries in
+  `PostgresWorkTimeRepo` tragen ein `tenant_id`-Praedikat (nachgezaehlt: 11
+  WHERE-Klauseln, plus das dynamische `WHERE %s` in `List`, das die Bedingung
+  ab repository-Zeile 184 anhaengt), keine `OR TRUE`-Reste aus der
+  Falsifikation im Tree, `go build ./...` gruen. Keine Migration, kein Proto,
+  keine Route — nichts nachzutragen.
+  - **eine Korrektur an der Journal-Notiz von Iteration 22:**
+    `GetWorkTimeStatus` ist *nicht* ohne Aufrufer. Die Route existiert
+    (`route_hr.go:93`, `GET /hr/time/status` mit `RequirePermission("hr",
+    "read")`) samt Handler `HandleGetWorkTimeStatus`. Kein toter Code, hier ist
+    nichts zu entscheiden.
+- neue Unit angelegt, weil die Queue wieder leer war (`p3-berichte-share-token`
+  haengt unveraendert an dem blockierten `p3-berichte-server-pdf`). Genommen
+  wurde der erste offene Punkt aus Iteration 22: `hr_break_entries` ohne
+  Tenant-Praedikat. Beim Nachsehen war der Befund deutlich groesser als notiert.
+- **der eigentliche Fund — "Pause starten" ist gegen echtes Backend tot, nicht
+  ungenau.** Migration 000230 hat `hr_break_entries` um `tenant_id UUID NOT
+  NULL` erweitert (kein Default, kein Trigger). `PostgresBreakRepo.Create` hat
+  die Spalte nie gelernt, und `models.HRBreakEntry` hatte gar kein Feld dafuer.
+  Gegen die laufende DB verifiziert, bevor irgendetwas geaendert wurde:
+  `INSERT INTO hr_break_entries (id, work_time_entry_id, start_time,
+  created_at) …` → `ERROR: null value in column "tenant_id" of relation
+  "hr_break_entries" violates not-null constraint`. Jeder `StartBreak` laeuft
+  in genau diesen INSERT. Prod-Migrationskopf liegt bei 242+, die Constraint
+  ist dort also scharf.
+  Das ist exakt die Klasse aus der Memory-Regel "NULLABLE tenant_id Pre-RLS
+  Audit": Schema-NOT-NULL gesetzt, Repo-INSERT-Wiring nicht nachgezogen. Der
+  Grund, warum es niemandem auffiel: der Service-Test benutzte einen Mock ohne
+  Datenbank, und im MSW-Mock des FE funktioniert die Pause.
+- ausserdem gefixt (die urspruenglich notierte Haelfte): `GetActiveBreak`,
+  `Update` und `ListByWorkTimeEntry` filterten nur auf `work_time_entry_id`.
+- entscheidungen:
+  - **`TenantID` wandert ins Model, nicht als Parameter an Create/Update.** Die
+    Zeile traegt den Tenant; ein zusaetzlicher Parameter waere eine zweite
+    Wahrheit fuer denselben Wert. Gleiche Begruendung wie Iteration 22 bei
+    `Update`/`ApproveCorrection`. Die beiden reinen Lesepfade nehmen `tenantID`
+    dagegen als Parameter — sie haben keine Zeile, von der sie ihn lesen
+    koennten.
+  - **`StartBreak` nimmt `shift.TenantID`, nicht den Funktionsparameter.** Die
+    Pause haengt an der Schicht, und `GetActiveShift` hat die Schicht bereits
+    tenant-gescoped geholt. Beide Werte sind hier identisch; die Schicht ist
+    die naehere Quelle.
+  - **Wire-Shape unveraendert, mit Beleg:** `toProtoBreakEntry`
+    (`hr_grpc.go:1609`) mappt Id/WorkTimeEntryId/StartTime/EndTime/
+    DurationMinutes — `tenant_id` geht nicht ueber die Leitung. Also kein
+    Proto-Regen, kein `openapi.yaml`-Eintrag, kein FE-Typ betroffen.
+  - **Der Mock filtert jetzt auch auf tenantID.** Vorher haette ein Service,
+    der die Weitergabe vergisst, im Unit-Test gruen ausgesehen und in
+    Produktion `uuid.Nil` in die Query geschrieben. Der Umbau hat prompt
+    `TestClockOut_TenHoursWithManualBreak_AutoDeducts15Min` rot gemacht, weil
+    dessen Fixture einen Break ohne Tenant direkt in die Map legte — die
+    Fixture ist nachgezogen, nicht der Filter aufgeweicht.
+  - **Kein Deploy-Hazard:** keine Migration (die Spalte liegt seit 000230),
+    kein Proto, keine neue Route, keine `config.RequireX`.
+- falsifikation (Beweis, dass die vier neuen Tests greifen): jedes Praedikat
+  einzeln aufgeweicht und gegen echtes Postgres laufen lassen —
+  `tenant_id` aus dem INSERT entfernt → `TestBreakCreate_WritesTenant` faellt;
+  `OR TRUE` in GetActiveBreak / Update / List → der jeweils zugehoerige Test
+  faellt. Alle vier: FAILS (good). Tree danach byteweise wiederhergestellt
+  (Skript prueft `restored: True`), Hilfsskripte geloescht.
+- gate (auf dem finalen Tree, nach dem letzten Edit): `go build ./...` ok |
+  `go vet ./...` ok | golangci-lint `./internal/biz/hr/... ./internal/models/...`
+  0 issues | `go test ./internal/biz/hr/timetracking/... ./internal/server/...
+  ./internal/gateway/... ./internal/models/...` ok | 4 DB-Tests einzeln
+  verifiziert PASS (nicht geskippt) | keine Migration, kein Proto-Regen
+- **vorbestehend rot, nicht von dieser Unit:** `internal/biz/hr`
+  (`TestTenantIsolation_HR_Standard`, `TestTenantIsolation_HR_DocCategories_
+  PerTenant`, `TestHRRoleBased_DocumentAccess_DB`). Diesmal nicht angenommen,
+  sondern per `git stash -u` auf dem unveraenderten Tree gegengeprueft:
+  identische Fehler, identische Tabellen. Ursache bleibt die lokale
+  `deploy/docker/.env` mit der Superuser-Rolle `kmuhub` (`rolbypassrls = t`,
+  gegen `pg_roles` verifiziert) statt `kmuhub_app` (`f`/`f`).
+  Nachtrag zu Lukes offenem Punkt: ein Umstellen der `.env` reicht nicht, das
+  lokale `kmuhub_app` hat nicht das Migrations-Placeholder-Passwort
+  (`change-me-via-alter-role` → SASL-Auth abgelehnt). Es braucht ein
+  `ALTER ROLE kmuhub_app PASSWORD …` plus den passenden `DATABASE_URL` —
+  bewusst nicht getan, das ist Lukes lokale DB.
+- offen / fuer Luke:
+  - **Route-Pfad-Drift, neu vermessen.** Alle `/api/v1/*`-Literale in
+    `desktop/src/renderer` (ohne `mocks/`) gegen die Pfade in `openapi.yaml`:
+    145 ohne serverseitige Entsprechung. Der Rohbefund ist noch keine
+    Befundliste (Prefix-Konstanten, abgeschnittene Template-Literale,
+    Testfixtures sind mit drin) — als Unit `p3-route-path-drift-triage`
+    eingetragen, damit die Queue nicht wieder leerlaeuft. Ein belegter
+    Einzelfall daraus: `finance-client.ts:229` ruft `mark-paid`, die Route
+    heisst `/pay` (`route_biz.go:82`) → 404 gegen echtes BE.
+  - **`hr_break_entries` ist damit erledigt** und faellt aus der offen-Liste.
+  - Unveraendert offen aus frueheren Iterationen: HR-Status als Enum-Zahl gegen
+    den String-lesenden FE-Adapter; Rollen-Eskalation beim Einladen ungeprueft
+    (RBAC-Phase 1); Modul-Aktivierung wird nicht durchgesetzt (Iteration 20);
+    `platform_admin` haelt niemand (Iteration 21);
+    `idx_hr_work_time_entries_active` ohne `tenant_id` (kein Befund, nur
+    notiert).
+  - Naechste freie Unit: **`p3-route-path-drift-triage`** (neu, todo).
+    `p3-berichte-share-token` haengt weiter am blockierten
+    `p3-berichte-server-pdf`.

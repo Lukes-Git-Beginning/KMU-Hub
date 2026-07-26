@@ -189,7 +189,13 @@ func (m *mockBreakRepo) Create(_ context.Context, entry *models.HRBreakEntry) er
 	return nil
 }
 
-func (m *mockBreakRepo) GetActiveBreak(_ context.Context, _ uuid.UUID) (*models.HRBreakEntry, error) {
+// GetActiveBreak filters on the tenant the caller passed, not just on the
+// entry id — otherwise a service that forgets to pass one would still look
+// correct here while writing uuid.Nil into the query in production.
+func (m *mockBreakRepo) GetActiveBreak(_ context.Context, tenantID, _ uuid.UUID) (*models.HRBreakEntry, error) {
+	if m.activeBreak != nil && m.activeBreak.TenantID != tenantID {
+		return nil, nil
+	}
 	return m.activeBreak, nil
 }
 
@@ -201,10 +207,10 @@ func (m *mockBreakRepo) Update(_ context.Context, entry *models.HRBreakEntry) er
 	return nil
 }
 
-func (m *mockBreakRepo) ListByWorkTimeEntry(_ context.Context, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
+func (m *mockBreakRepo) ListByWorkTimeEntry(_ context.Context, tenantID, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
 	var result []*models.HRBreakEntry
 	for _, b := range m.breaks {
-		if b.WorkTimeEntryID == workTimeEntryID {
+		if b.TenantID == tenantID && b.WorkTimeEntryID == workTimeEntryID {
 			result = append(result, b)
 		}
 	}
@@ -373,6 +379,7 @@ func TestClockOut_TenHoursWithManualBreak_AutoDeducts15Min(t *testing.T) {
 	breakEnd := tenHoursAgo.Add(4*time.Hour + 30*time.Minute)
 	breakEntry := &models.HRBreakEntry{
 		ID:              uuid.New(),
+		TenantID:        tenantID,
 		WorkTimeEntryID: entry.ID,
 		StartTime:       tenHoursAgo.Add(4 * time.Hour),
 		EndTime:         &breakEnd,
@@ -408,6 +415,9 @@ func TestStartBreak_EndBreak_Lifecycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, breakEntry)
 	assert.Nil(t, breakEntry.EndTime)
+	// hr_break_entries.tenant_id is NOT NULL since migration 000230; a break
+	// created without one does not reach the database at all.
+	assert.Equal(t, tenantID, breakEntry.TenantID)
 
 	// Can't start another break
 	_, err = svc.StartBreak(ctx, tenantID, employeeID)

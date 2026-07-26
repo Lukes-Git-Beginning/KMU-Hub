@@ -206,6 +206,7 @@ type HRWorkTimeEntry struct {
 // HRBreakEntry represents a break period within a work time entry.
 type HRBreakEntry struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	WorkTimeEntryID uuid.UUID  `json:"work_time_entry_id"`
 	StartTime       time.Time  `json:"start_time"`
 	EndTime         *time.Time `json:"end_time,omitempty"`

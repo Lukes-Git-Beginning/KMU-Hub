@@ -576,22 +576,22 @@ func NewPostgresBreakRepo(pool *pgxpool.Pool) *PostgresBreakRepo {
 
 func (r *PostgresBreakRepo) Create(ctx context.Context, entry *models.HRBreakEntry) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO hr_break_entries (id, work_time_entry_id, start_time, end_time, duration_minutes, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		entry.ID, entry.WorkTimeEntryID, entry.StartTime, entry.EndTime, entry.DurationMinutes, entry.CreatedAt,
+		`INSERT INTO hr_break_entries (id, tenant_id, work_time_entry_id, start_time, end_time, duration_minutes, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		entry.ID, entry.TenantID, entry.WorkTimeEntryID, entry.StartTime, entry.EndTime, entry.DurationMinutes, entry.CreatedAt,
 	)
 	return err
 }
 
-func (r *PostgresBreakRepo) GetActiveBreak(ctx context.Context, workTimeEntryID uuid.UUID) (*models.HRBreakEntry, error) {
+func (r *PostgresBreakRepo) GetActiveBreak(ctx context.Context, tenantID, workTimeEntryID uuid.UUID) (*models.HRBreakEntry, error) {
 	entry := &models.HRBreakEntry{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
+		`SELECT id, tenant_id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
 		FROM hr_break_entries
-		WHERE work_time_entry_id = $1 AND end_time IS NULL
+		WHERE tenant_id = $2 AND work_time_entry_id = $1 AND end_time IS NULL
 		LIMIT 1`,
-		workTimeEntryID,
-	).Scan(&entry.ID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime, &entry.DurationMinutes, &entry.CreatedAt)
+		workTimeEntryID, tenantID,
+	).Scan(&entry.ID, &entry.TenantID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime, &entry.DurationMinutes, &entry.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -603,19 +603,19 @@ func (r *PostgresBreakRepo) GetActiveBreak(ctx context.Context, workTimeEntryID 
 
 func (r *PostgresBreakRepo) Update(ctx context.Context, entry *models.HRBreakEntry) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE hr_break_entries SET end_time = $2, duration_minutes = $3 WHERE id = $1`,
-		entry.ID, entry.EndTime, entry.DurationMinutes,
+		`UPDATE hr_break_entries SET end_time = $2, duration_minutes = $3 WHERE id = $1 AND tenant_id = $4`,
+		entry.ID, entry.EndTime, entry.DurationMinutes, entry.TenantID,
 	)
 	return err
 }
 
-func (r *PostgresBreakRepo) ListByWorkTimeEntry(ctx context.Context, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
+func (r *PostgresBreakRepo) ListByWorkTimeEntry(ctx context.Context, tenantID, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
+		`SELECT id, tenant_id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
 		FROM hr_break_entries
-		WHERE work_time_entry_id = $1
+		WHERE tenant_id = $2 AND work_time_entry_id = $1
 		ORDER BY start_time ASC`,
-		workTimeEntryID,
+		workTimeEntryID, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -626,7 +626,7 @@ func (r *PostgresBreakRepo) ListByWorkTimeEntry(ctx context.Context, workTimeEnt
 	for rows.Next() {
 		entry := &models.HRBreakEntry{}
 		if scanErr := rows.Scan(
-			&entry.ID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime,
+			&entry.ID, &entry.TenantID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime,
 			&entry.DurationMinutes, &entry.CreatedAt,
 		); scanErr != nil {
 			return nil, scanErr

@@ -68,11 +68,14 @@ type WorkTimeRepository interface {
 }
 
 // BreakRepository defines the interface for break entry persistence.
+// Every method is tenant-scoped: Create and Update read the tenant off the
+// entry, the read paths take it as a parameter. work_time_entry_id alone would
+// only be scoped as long as the caller resolved the shift correctly first.
 type BreakRepository interface {
 	Create(ctx context.Context, entry *models.HRBreakEntry) error
-	GetActiveBreak(ctx context.Context, workTimeEntryID uuid.UUID) (*models.HRBreakEntry, error)
+	GetActiveBreak(ctx context.Context, tenantID, workTimeEntryID uuid.UUID) (*models.HRBreakEntry, error)
 	Update(ctx context.Context, entry *models.HRBreakEntry) error
-	ListByWorkTimeEntry(ctx context.Context, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error)
+	ListByWorkTimeEntry(ctx context.Context, tenantID, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error)
 }
 
 // WorkTimeFilter contains filtering options for listing work time entries.

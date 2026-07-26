@@ -191,7 +191,7 @@ func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) 
 	now := time.Now()
 
 	// End any active break first
-	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, entry.ID)
+	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, entry.ID)
 	if breakErr == nil && activeBreak != nil {
 		duration := int(now.Sub(activeBreak.StartTime).Minutes())
 		activeBreak.EndTime = &now
@@ -205,7 +205,7 @@ func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) 
 	totalWorkedMinutes := int(now.Sub(entry.ClockIn).Minutes())
 
 	// Get manual breaks for this shift, sum break_minutes
-	breaks, breakListErr := s.breakRepo.ListByWorkTimeEntry(ctx, entry.ID)
+	breaks, breakListErr := s.breakRepo.ListByWorkTimeEntry(ctx, tenantID, entry.ID)
 	manualBreakMinutes := 0
 	if breakListErr == nil {
 		for _, b := range breaks {
@@ -266,7 +266,7 @@ func (s *Service) StartBreak(ctx context.Context, tenantID, employeeID uuid.UUID
 	}
 
 	// Check no active break
-	existingBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, shift.ID)
+	existingBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, shift.ID)
 	if breakErr != nil {
 		return nil, breakErr
 	}
@@ -277,6 +277,7 @@ func (s *Service) StartBreak(ctx context.Context, tenantID, employeeID uuid.UUID
 	now := time.Now()
 	breakEntry := &models.HRBreakEntry{
 		ID:              uuid.New(),
+		TenantID:        shift.TenantID,
 		WorkTimeEntryID: shift.ID,
 		StartTime:       now,
 		CreatedAt:       now,
@@ -305,7 +306,7 @@ func (s *Service) EndBreak(ctx context.Context, tenantID, employeeID uuid.UUID) 
 		return nil, ErrNotClockedIn
 	}
 
-	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, shift.ID)
+	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, shift.ID)
 	if breakErr != nil {
 		return nil, breakErr
 	}
@@ -323,7 +324,7 @@ func (s *Service) EndBreak(ctx context.Context, tenantID, employeeID uuid.UUID) 
 	}
 
 	// Update shift's total break_minutes (sum of all completed breaks)
-	breaks, listErr := s.breakRepo.ListByWorkTimeEntry(ctx, shift.ID)
+	breaks, listErr := s.breakRepo.ListByWorkTimeEntry(ctx, tenantID, shift.ID)
 	if listErr == nil {
 		totalBreak := 0
 		for _, b := range breaks {
@@ -358,7 +359,7 @@ func (s *Service) GetActiveShift(ctx context.Context, tenantID, employeeID uuid.
 		return nil, nil, nil
 	}
 
-	breaks, breakErr := s.breakRepo.ListByWorkTimeEntry(ctx, shift.ID)
+	breaks, breakErr := s.breakRepo.ListByWorkTimeEntry(ctx, tenantID, shift.ID)
 	if breakErr != nil {
 		slog.Warn("failed to list breaks for active shift",
 			"work_time_entry_id", shift.ID,
@@ -982,7 +983,7 @@ func (s *Service) GetWorkTimeStatus(ctx context.Context, tenantID, employeeID uu
 		status.CurrentShiftStart = &shift.ClockIn
 
 		// Check for active break
-		activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, shift.ID)
+		activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, shift.ID)
 		if breakErr == nil && activeBreak != nil {
 			status.IsOnBreak = true
 			status.CurrentBreakStart = &activeBreak.StartTime
