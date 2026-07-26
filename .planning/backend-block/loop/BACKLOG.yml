@@ -182,7 +182,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       31 security-Endpoints fehlen in backend/api/openapi.yaml (X-3-Spec-Luecke).
       Nachziehen und dabei Pfade und Response-Shapes gegen die tatsaechliche
@@ -193,9 +193,8 @@ units:
       - backend/api/openapi.yaml
       - backend/internal/gateway/route_security.go
     notes: >
-      CI hat einen openapi-validate-Job — der ist hier der eigentliche Gate.
-      Findest du beim Abgleich eine echte Pfad- oder Shape-Abweichung zwischen
-      Spec und Code, dokumentier sie im Journal statt sie still zu glaetten.
+      War bei Backlog-Erstellung bereits erledigt (Commit 56ea3ebe,
+      2026-06-25, vor backend-gaps.md-Audit) — siehe Iteration 6 im Journal.
     done_when:
       - Alle 31 Endpoints in der Spec
       - Spec validiert lokal

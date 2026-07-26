@@ -273,3 +273,63 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   tatsaechliche lokale Passwort in GATE-COMMANDS.md dokumentieren — sonst
   bleibt jede zukuenftige `*_DB`-Testverifikation in diesem Loop auf den
   manuellen psql-`SET ROLE`-Umweg angewiesen.
+
+## Iteration 6 — p3-security-openapi — done — 2026-07-26 20:35
+
+- commit: -
+- verify vorgaenger: sauber. Letzter Commit (`e787e737`) war reines
+  BACKLOG/JOURNAL-Docs, keine Code-Aenderung — Verify-Vorspann entfaellt.
+- gebaut: nichts — Unit war bereits vollstaendig umgesetzt, lange bevor
+  backend-gaps.md/BACKLOG.yml geschrieben wurden. Der Gaps-Eintrag ("KEINER
+  der 31 security/auth-Endpoints ist in openapi.yaml dokumentiert, Spec endet
+  bei auth/reset-password") stammt aus einem Stand vor Commit `56ea3ebe`
+  (2026-06-25, "feat(security): add retention-policies + document
+  security/auth OpenAPI"), der genau diese Luecke geschlossen hat.
+- Vollstaendigen Soll/Ist-Abgleich gemacht statt dem Gaps-Text zu vertrauen:
+  - Alle 25 `/api/v1/security/*`-Routen aus `route_security.go`
+    (`RegisterRoutes`) UND alle 12 `/api/v1/auth/2fa/*`+`/auth/sessions*`-
+    Routen aus `route_auth.go` (37 Endpoints gesamt, nicht 31 — der Gaps-Text
+    zaehlt offenbar veraltet oder ungenau) sind in `openapi.yaml` vorhanden,
+    inklusive aller HTTP-Methoden pro Pfad (kein Pfad mit fehlendem Verb).
+  - `npx @apidevtools/swagger-cli validate backend/api/openapi.yaml` →
+    `is valid`.
+  - `go test ./internal/gateway/... -run TestOpenAPIRouteDrift -v` → PASS,
+    "checked 656 registered routes against 711 documented paths". Der Test
+    prueft registered ⊆ documented (Kommentar im Test bestaetigt das explizit)
+    — 711 > 656 ist also kein Befund, sondern erwartete Ueberdeckung
+    (Caldav/WS/Plugin-Routen sind dokumentiert, aber ausserhalb des
+    RouteRegistrar-Walks).
+  - Shape-Abgleich Code-vs-Spec fuer die security-kritischen/atypischen Faelle
+    manuell verifiziert (nicht nur "Pfad existiert"):
+    - `HandleDSARSearch` baut bewusst eine flache `{results:[{...,
+      modules:[{module,columns,records:[{k:v}]}]}]}`-JSON statt den
+      genesteten Proto-Typ durchzureichen (Kommentar im Code begruendet das:
+      FE braucht records als flache key→value-Objekte) — `DSARSearchResponse`
+      /`DSARPerson`/`DSARModule` in der Spec bilden exakt diese Form ab, Feld
+      fuer Feld deckungsgleich.
+    - Vault: `ListVaultSecrets` liefert nur Metadaten (kein `decrypted_value`
+      im `VaultSecret`-Proto-Typ), nur `GetVaultSecret` (Single, admin-only,
+      per `keyName`) traegt `decrypted_value` — Spec trennt das korrekt in
+      `ListVaultSecretsResponse` (nur `secrets` ohne Klartext) vs.
+      `VaultSecretValueResponse` (mit Klartext). Kein Leck ueber den
+      List-Pfad.
+    - Audit/IP-Rules/Retention-Policies: Listen-Wrapper-Feldnamen sind
+      domain-spezifisch (`entries`+`total`, `rules` ohne `total`, `policies`
+      ohne `total`) statt des generischen `{items,total}`-Musters aus
+      CLAUDE.md — das ist Bestand seit der urspruenglichen Proto-Definition
+      und spiegelt sich 1:1 in der Spec; kein Drift zwischen Code und Spec,
+      aber eine Abweichung vom generischen Namensmuster. Kein Refactor
+      innerhalb dieser Unit, da das FE (mock-first) exakt gegen diese
+      Feldnamen gebaut ist und ein Rename ein eigener, separat zu planender
+      Breaking-Change waere.
+  Fazit: keine echte Pfad- oder Shape-Drift gefunden. Unit auf `done` gesetzt
+  mit Begruendung in BACKLOG.yml, damit keine spaetere Iteration hier nochmal
+  ansetzt und nichts zu bauen findet.
+- gate: swagger-cli validate ok | go test (TestOpenAPIRouteDrift +
+  TestOpenAPIRouteDriftParserSanity) ok | kein Code geaendert -> build/vet/
+  lint/weitere Tests nicht erneut noetig
+- offen: Gaps-Dokument zaehlt "31" security/auth-Endpoints, tatsaechlich sind
+  es 37 (25 security + 12 auth 2FA/sessions) — vermutlich ein veralteter
+  Zaehlstand aus einer frueheren Iteration von backend-gaps.md. Kein
+  Handlungsbedarf, nur fuer Luke als Hinweis, falls das Dokument nochmal als
+  Zaehlbasis fuer andere Units herangezogen wird.
