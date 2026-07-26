@@ -465,6 +465,23 @@ func (s *EinkaufGRPCServer) SubmitPO(ctx context.Context, req *einkaufv1.SubmitP
 	return &einkaufv1.POResponse{Po: poToProto(po)}, nil
 }
 
+func (s *EinkaufGRPCServer) CancelPO(ctx context.Context, req *einkaufv1.CancelPORequest) (*einkaufv1.POResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	poID, err := uuid.Parse(req.GetPoId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid po_id: %v", err)
+	}
+
+	po, err := s.svc.CancelPO(ctx, tenantID, poID)
+	if err != nil {
+		return nil, mapEinkaufError(err)
+	}
+	return &einkaufv1.POResponse{Po: poToProto(po)}, nil
+}
+
 func (s *EinkaufGRPCServer) ReceiveGoods(ctx context.Context, req *einkaufv1.ReceiveGoodsRequest) (*einkaufv1.POResponse, error) {
 	tenantID, err := uuid.Parse(req.GetTenantId())
 	if err != nil {
@@ -644,6 +661,8 @@ func mapEinkaufError(err error) error {
 	case errors.Is(err, einkauf.ErrPONotSubmittable):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, einkauf.ErrPONotReceivable):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, einkauf.ErrPONotCancellable):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, einkauf.ErrInvalidQuantity):
 		return status.Error(codes.InvalidArgument, err.Error())

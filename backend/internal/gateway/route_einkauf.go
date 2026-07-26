@@ -69,6 +69,7 @@ func (er *EinkaufRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 
 				// Workflow
 				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/submit", er.HandleSubmitPO)
+				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/cancel", er.HandleCancelPO)
 				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/receive", er.HandleReceiveGoods)
 				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/partial-receive", er.HandlePartialReceive)
 				r.With(middleware.RequirePermission("einkauf:po", "read")).Post("/export", er.HandleExportPO)
@@ -525,6 +526,34 @@ func (er *EinkaufRoutes) HandleSubmitPO(w http.ResponseWriter, r *http.Request) 
 	}
 
 	resp, err := client.SubmitPO(r.Context(), &einkaufv1.SubmitPORequest{
+		TenantId: tenantID.String(),
+		PoId:     id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (er *EinkaufRoutes) HandleCancelPO(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := er.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, er.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.CancelPO(r.Context(), &einkaufv1.CancelPORequest{
 		TenantId: tenantID.String(),
 		PoId:     id,
 	})

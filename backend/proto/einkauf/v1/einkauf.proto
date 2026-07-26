@@ -29,6 +29,7 @@ service EinkaufService {
 
   // Workflows
   rpc SubmitPO(SubmitPORequest) returns (POResponse);
+  rpc CancelPO(CancelPORequest) returns (POResponse);
   rpc ReceiveGoods(ReceiveGoodsRequest) returns (POResponse);
   rpc PartialReceive(PartialReceiveRequest) returns (POResponse);
   rpc ExportPO(ExportPORequest) returns (ExportPOResponse);
@@ -273,6 +274,11 @@ message POLineResponse {
 // ============================================================================
 
 message SubmitPORequest {
+  string tenant_id = 1;
+  string po_id = 2;
+}
+
+message CancelPORequest {
   string tenant_id = 1;
   string po_id = 2;
 }

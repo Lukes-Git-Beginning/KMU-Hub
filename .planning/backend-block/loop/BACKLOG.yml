@@ -43,7 +43,7 @@ units:
     service: einkauf
     model: sonnet
     deps: [p3-einkauf-total-amount]
-    status: todo
+    status: done
     scope: >
       POST /pos/{id}/cancel fehlt komplett — UpdatePOInput traegt kein
       Status-Feld, es gibt keinen Cancel-Uebergang. Endpoint mit Status-Guard

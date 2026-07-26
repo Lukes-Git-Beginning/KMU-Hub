@@ -579,6 +579,27 @@ func (s *Service) SubmitPO(ctx context.Context, tenantID, poID uuid.UUID) (*Purc
 	return po, nil
 }
 
+// CancelPO cancels an open purchase order. Only PO statuses that precede any
+// goods receipt (draft, submitted, sent) are cancellable — once receiving has
+// started the order must be handled through the receive/close workflow instead.
+func (s *Service) CancelPO(ctx context.Context, tenantID, poID uuid.UUID) (*PurchaseOrder, error) {
+	po, err := s.repo.GetPO(ctx, tenantID, poID)
+	if err != nil {
+		return nil, err
+	}
+	if po.Status != POStatusDraft && po.Status != POStatusSubmitted && po.Status != POStatusSent {
+		return nil, ErrPONotCancellable
+	}
+
+	if err := s.repo.UpdatePOStatus(ctx, tenantID, poID, POStatusCancelled); err != nil {
+		return nil, fmt.Errorf("cancel po: %w", err)
+	}
+
+	po.Status = POStatusCancelled
+	slog.Info("einkauf po cancelled", "po_id", poID, "tenant_id", tenantID)
+	return po, nil
+}
+
 // ReceiveGoods marks all lines as fully received and transitions the PO to
 // received status. If an InventarAdjuster is configured, it also increments
 // the inventar stock level for each line's SKU by the ordered quantity.

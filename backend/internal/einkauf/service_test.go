@@ -578,6 +578,52 @@ func TestService_SubmitPO_NonDraftRejected(t *testing.T) {
 }
 
 // ============================================================================
+// CancelPO Tests
+// ============================================================================
+
+func TestService_CancelPO_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+
+	for _, status := range []POStatus{POStatusDraft, POStatusSubmitted, POStatusSent} {
+		po := addPO(repo, tenantID, s.ID, "PO-CANCEL-"+string(status), status)
+
+		result, err := svc.CancelPO(context.Background(), tenantID, po.ID)
+
+		require.NoError(t, err)
+		assert.Equal(t, POStatusCancelled, result.Status)
+	}
+}
+
+func TestService_CancelPO_NotCancellableRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+
+	for _, status := range []POStatus{POStatusPartiallyReceived, POStatusReceived, POStatusClosed, POStatusCancelled} {
+		po := addPO(repo, tenantID, s.ID, "PO-NOCANCEL-"+string(status), status)
+
+		_, err := svc.CancelPO(context.Background(), tenantID, po.ID)
+
+		assert.ErrorIs(t, err, ErrPONotCancellable)
+	}
+}
+
+func TestService_CancelPO_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.CancelPO(context.Background(), uuid.New(), uuid.New())
+
+	assert.ErrorIs(t, err, ErrPONotFound)
+}
+
+// ============================================================================
 // ReceiveGoods Tests
 // ============================================================================
 

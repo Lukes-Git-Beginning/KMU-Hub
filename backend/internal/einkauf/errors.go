@@ -11,6 +11,7 @@ var (
 	ErrPONotDraft          = errors.New("einkauf purchase order must be in draft status for this operation")
 	ErrPONotSubmittable    = errors.New("einkauf purchase order has no lines and cannot be submitted")
 	ErrPONotReceivable     = errors.New("einkauf purchase order cannot receive goods in its current status")
+	ErrPONotCancellable    = errors.New("einkauf purchase order cannot be cancelled in its current status")
 	ErrInvalidQuantity     = errors.New("einkauf invalid quantity: must be >= 0")
 	ErrExceedsOrderedQty   = errors.New("einkauf received quantity exceeds ordered quantity")
 

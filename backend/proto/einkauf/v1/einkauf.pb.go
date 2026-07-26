@@ -1962,6 +1962,58 @@ func (x *SubmitPORequest) GetPoId() string {
 	return ""
 }
 
+type CancelPORequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	PoId          string                 `protobuf:"bytes,2,opt,name=po_id,json=poId,proto3" json:"po_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelPORequest) Reset() {
+	*x = CancelPORequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelPORequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelPORequest) ProtoMessage() {}
+
+func (x *CancelPORequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelPORequest.ProtoReflect.Descriptor instead.
+func (*CancelPORequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *CancelPORequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CancelPORequest) GetPoId() string {
+	if x != nil {
+		return x.PoId
+	}
+	return ""
+}
+
 type ReceiveGoodsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -1972,7 +2024,7 @@ type ReceiveGoodsRequest struct {
 
 func (x *ReceiveGoodsRequest) Reset() {
 	*x = ReceiveGoodsRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[27]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1984,7 +2036,7 @@ func (x *ReceiveGoodsRequest) String() string {
 func (*ReceiveGoodsRequest) ProtoMessage() {}
 
 func (x *ReceiveGoodsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[27]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1997,7 +2049,7 @@ func (x *ReceiveGoodsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReceiveGoodsRequest.ProtoReflect.Descriptor instead.
 func (*ReceiveGoodsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{27}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ReceiveGoodsRequest) GetTenantId() string {
@@ -2024,7 +2076,7 @@ type PartialReceiveItem struct {
 
 func (x *PartialReceiveItem) Reset() {
 	*x = PartialReceiveItem{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[28]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2036,7 +2088,7 @@ func (x *PartialReceiveItem) String() string {
 func (*PartialReceiveItem) ProtoMessage() {}
 
 func (x *PartialReceiveItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[28]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2049,7 +2101,7 @@ func (x *PartialReceiveItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartialReceiveItem.ProtoReflect.Descriptor instead.
 func (*PartialReceiveItem) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{28}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *PartialReceiveItem) GetLineId() string {
@@ -2077,7 +2129,7 @@ type PartialReceiveRequest struct {
 
 func (x *PartialReceiveRequest) Reset() {
 	*x = PartialReceiveRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[29]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2089,7 +2141,7 @@ func (x *PartialReceiveRequest) String() string {
 func (*PartialReceiveRequest) ProtoMessage() {}
 
 func (x *PartialReceiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[29]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2102,7 +2154,7 @@ func (x *PartialReceiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartialReceiveRequest.ProtoReflect.Descriptor instead.
 func (*PartialReceiveRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{29}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *PartialReceiveRequest) GetTenantId() string {
@@ -2137,7 +2189,7 @@ type ExportPORequest struct {
 
 func (x *ExportPORequest) Reset() {
 	*x = ExportPORequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[30]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2149,7 +2201,7 @@ func (x *ExportPORequest) String() string {
 func (*ExportPORequest) ProtoMessage() {}
 
 func (x *ExportPORequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[30]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2162,7 +2214,7 @@ func (x *ExportPORequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportPORequest.ProtoReflect.Descriptor instead.
 func (*ExportPORequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{30}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ExportPORequest) GetTenantId() string {
@@ -2197,7 +2249,7 @@ type ExportPOResponse struct {
 
 func (x *ExportPOResponse) Reset() {
 	*x = ExportPOResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[31]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2209,7 +2261,7 @@ func (x *ExportPOResponse) String() string {
 func (*ExportPOResponse) ProtoMessage() {}
 
 func (x *ExportPOResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[31]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2222,7 +2274,7 @@ func (x *ExportPOResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportPOResponse.ProtoReflect.Descriptor instead.
 func (*ExportPOResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{31}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ExportPOResponse) GetPayload() []byte {
@@ -2267,7 +2319,7 @@ type CatalogItem struct {
 
 func (x *CatalogItem) Reset() {
 	*x = CatalogItem{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[32]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2279,7 +2331,7 @@ func (x *CatalogItem) String() string {
 func (*CatalogItem) ProtoMessage() {}
 
 func (x *CatalogItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[32]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2292,7 +2344,7 @@ func (x *CatalogItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogItem.ProtoReflect.Descriptor instead.
 func (*CatalogItem) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{32}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *CatalogItem) GetId() string {
@@ -2404,7 +2456,7 @@ type SupplierRating struct {
 
 func (x *SupplierRating) Reset() {
 	*x = SupplierRating{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[33]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2416,7 +2468,7 @@ func (x *SupplierRating) String() string {
 func (*SupplierRating) ProtoMessage() {}
 
 func (x *SupplierRating) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[33]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2429,7 +2481,7 @@ func (x *SupplierRating) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SupplierRating.ProtoReflect.Descriptor instead.
 func (*SupplierRating) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{33}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *SupplierRating) GetId() string {
@@ -2524,7 +2576,7 @@ type FrameworkContract struct {
 
 func (x *FrameworkContract) Reset() {
 	*x = FrameworkContract{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[34]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2536,7 +2588,7 @@ func (x *FrameworkContract) String() string {
 func (*FrameworkContract) ProtoMessage() {}
 
 func (x *FrameworkContract) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[34]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2549,7 +2601,7 @@ func (x *FrameworkContract) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrameworkContract.ProtoReflect.Descriptor instead.
 func (*FrameworkContract) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{34}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *FrameworkContract) GetId() string {
@@ -2668,7 +2720,7 @@ type FrameworkContractItem struct {
 
 func (x *FrameworkContractItem) Reset() {
 	*x = FrameworkContractItem{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[35]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2680,7 +2732,7 @@ func (x *FrameworkContractItem) String() string {
 func (*FrameworkContractItem) ProtoMessage() {}
 
 func (x *FrameworkContractItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[35]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2693,7 +2745,7 @@ func (x *FrameworkContractItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrameworkContractItem.ProtoReflect.Descriptor instead.
 func (*FrameworkContractItem) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{35}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *FrameworkContractItem) GetId() string {
@@ -2784,7 +2836,7 @@ type FrameworkContractCall struct {
 
 func (x *FrameworkContractCall) Reset() {
 	*x = FrameworkContractCall{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[36]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2796,7 +2848,7 @@ func (x *FrameworkContractCall) String() string {
 func (*FrameworkContractCall) ProtoMessage() {}
 
 func (x *FrameworkContractCall) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[36]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2809,7 +2861,7 @@ func (x *FrameworkContractCall) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrameworkContractCall.ProtoReflect.Descriptor instead.
 func (*FrameworkContractCall) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{36}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *FrameworkContractCall) GetId() string {
@@ -2897,7 +2949,7 @@ type ListCatalogItemsRequest struct {
 
 func (x *ListCatalogItemsRequest) Reset() {
 	*x = ListCatalogItemsRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[37]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2909,7 +2961,7 @@ func (x *ListCatalogItemsRequest) String() string {
 func (*ListCatalogItemsRequest) ProtoMessage() {}
 
 func (x *ListCatalogItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[37]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2922,7 +2974,7 @@ func (x *ListCatalogItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCatalogItemsRequest.ProtoReflect.Descriptor instead.
 func (*ListCatalogItemsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{37}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListCatalogItemsRequest) GetTenantId() string {
@@ -2984,7 +3036,7 @@ type ListCatalogItemsResponse struct {
 
 func (x *ListCatalogItemsResponse) Reset() {
 	*x = ListCatalogItemsResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[38]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2996,7 +3048,7 @@ func (x *ListCatalogItemsResponse) String() string {
 func (*ListCatalogItemsResponse) ProtoMessage() {}
 
 func (x *ListCatalogItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[38]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3009,7 +3061,7 @@ func (x *ListCatalogItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCatalogItemsResponse.ProtoReflect.Descriptor instead.
 func (*ListCatalogItemsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{38}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListCatalogItemsResponse) GetItems() []*CatalogItem {
@@ -3036,7 +3088,7 @@ type GetCatalogItemRequest struct {
 
 func (x *GetCatalogItemRequest) Reset() {
 	*x = GetCatalogItemRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[39]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3048,7 +3100,7 @@ func (x *GetCatalogItemRequest) String() string {
 func (*GetCatalogItemRequest) ProtoMessage() {}
 
 func (x *GetCatalogItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[39]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3061,7 +3113,7 @@ func (x *GetCatalogItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCatalogItemRequest.ProtoReflect.Descriptor instead.
 func (*GetCatalogItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{39}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetCatalogItemRequest) GetTenantId() string {
@@ -3087,7 +3139,7 @@ type CatalogItemResponse struct {
 
 func (x *CatalogItemResponse) Reset() {
 	*x = CatalogItemResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[40]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3099,7 +3151,7 @@ func (x *CatalogItemResponse) String() string {
 func (*CatalogItemResponse) ProtoMessage() {}
 
 func (x *CatalogItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[40]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3112,7 +3164,7 @@ func (x *CatalogItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogItemResponse.ProtoReflect.Descriptor instead.
 func (*CatalogItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{40}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *CatalogItemResponse) GetItem() *CatalogItem {
@@ -3140,7 +3192,7 @@ type CreateCatalogItemRequest struct {
 
 func (x *CreateCatalogItemRequest) Reset() {
 	*x = CreateCatalogItemRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[41]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3152,7 +3204,7 @@ func (x *CreateCatalogItemRequest) String() string {
 func (*CreateCatalogItemRequest) ProtoMessage() {}
 
 func (x *CreateCatalogItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[41]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3165,7 +3217,7 @@ func (x *CreateCatalogItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCatalogItemRequest.ProtoReflect.Descriptor instead.
 func (*CreateCatalogItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{41}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *CreateCatalogItemRequest) GetTenantId() string {
@@ -3256,7 +3308,7 @@ type UpdateCatalogItemRequest struct {
 
 func (x *UpdateCatalogItemRequest) Reset() {
 	*x = UpdateCatalogItemRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[42]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3268,7 +3320,7 @@ func (x *UpdateCatalogItemRequest) String() string {
 func (*UpdateCatalogItemRequest) ProtoMessage() {}
 
 func (x *UpdateCatalogItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[42]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3281,7 +3333,7 @@ func (x *UpdateCatalogItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCatalogItemRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCatalogItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{42}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *UpdateCatalogItemRequest) GetTenantId() string {
@@ -3364,7 +3416,7 @@ type DeleteCatalogItemRequest struct {
 
 func (x *DeleteCatalogItemRequest) Reset() {
 	*x = DeleteCatalogItemRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[43]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3376,7 +3428,7 @@ func (x *DeleteCatalogItemRequest) String() string {
 func (*DeleteCatalogItemRequest) ProtoMessage() {}
 
 func (x *DeleteCatalogItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[43]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3389,7 +3441,7 @@ func (x *DeleteCatalogItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCatalogItemRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCatalogItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{43}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *DeleteCatalogItemRequest) GetTenantId() string {
@@ -3414,7 +3466,7 @@ type DeleteCatalogItemResponse struct {
 
 func (x *DeleteCatalogItemResponse) Reset() {
 	*x = DeleteCatalogItemResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[44]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3426,7 +3478,7 @@ func (x *DeleteCatalogItemResponse) String() string {
 func (*DeleteCatalogItemResponse) ProtoMessage() {}
 
 func (x *DeleteCatalogItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[44]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3439,7 +3491,7 @@ func (x *DeleteCatalogItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCatalogItemResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCatalogItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{44}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{45}
 }
 
 type ListSupplierRatingsRequest struct {
@@ -3452,7 +3504,7 @@ type ListSupplierRatingsRequest struct {
 
 func (x *ListSupplierRatingsRequest) Reset() {
 	*x = ListSupplierRatingsRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[45]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3464,7 +3516,7 @@ func (x *ListSupplierRatingsRequest) String() string {
 func (*ListSupplierRatingsRequest) ProtoMessage() {}
 
 func (x *ListSupplierRatingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[45]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3477,7 +3529,7 @@ func (x *ListSupplierRatingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSupplierRatingsRequest.ProtoReflect.Descriptor instead.
 func (*ListSupplierRatingsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{45}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListSupplierRatingsRequest) GetTenantId() string {
@@ -3503,7 +3555,7 @@ type ListSupplierRatingsResponse struct {
 
 func (x *ListSupplierRatingsResponse) Reset() {
 	*x = ListSupplierRatingsResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[46]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3515,7 +3567,7 @@ func (x *ListSupplierRatingsResponse) String() string {
 func (*ListSupplierRatingsResponse) ProtoMessage() {}
 
 func (x *ListSupplierRatingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[46]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3528,7 +3580,7 @@ func (x *ListSupplierRatingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSupplierRatingsResponse.ProtoReflect.Descriptor instead.
 func (*ListSupplierRatingsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{46}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListSupplierRatingsResponse) GetRatings() []*SupplierRating {
@@ -3552,7 +3604,7 @@ type CreateSupplierRatingRequest struct {
 
 func (x *CreateSupplierRatingRequest) Reset() {
 	*x = CreateSupplierRatingRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[47]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3564,7 +3616,7 @@ func (x *CreateSupplierRatingRequest) String() string {
 func (*CreateSupplierRatingRequest) ProtoMessage() {}
 
 func (x *CreateSupplierRatingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[47]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3577,7 +3629,7 @@ func (x *CreateSupplierRatingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSupplierRatingRequest.ProtoReflect.Descriptor instead.
 func (*CreateSupplierRatingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{47}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CreateSupplierRatingRequest) GetTenantId() string {
@@ -3631,7 +3683,7 @@ type SupplierRatingResponse struct {
 
 func (x *SupplierRatingResponse) Reset() {
 	*x = SupplierRatingResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[48]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3643,7 +3695,7 @@ func (x *SupplierRatingResponse) String() string {
 func (*SupplierRatingResponse) ProtoMessage() {}
 
 func (x *SupplierRatingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[48]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3656,7 +3708,7 @@ func (x *SupplierRatingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SupplierRatingResponse.ProtoReflect.Descriptor instead.
 func (*SupplierRatingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{48}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *SupplierRatingResponse) GetRating() *SupplierRating {
@@ -3676,7 +3728,7 @@ type DeleteSupplierRatingRequest struct {
 
 func (x *DeleteSupplierRatingRequest) Reset() {
 	*x = DeleteSupplierRatingRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[49]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3688,7 +3740,7 @@ func (x *DeleteSupplierRatingRequest) String() string {
 func (*DeleteSupplierRatingRequest) ProtoMessage() {}
 
 func (x *DeleteSupplierRatingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[49]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3701,7 +3753,7 @@ func (x *DeleteSupplierRatingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSupplierRatingRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSupplierRatingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{49}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *DeleteSupplierRatingRequest) GetTenantId() string {
@@ -3726,7 +3778,7 @@ type DeleteSupplierRatingResponse struct {
 
 func (x *DeleteSupplierRatingResponse) Reset() {
 	*x = DeleteSupplierRatingResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[50]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3738,7 +3790,7 @@ func (x *DeleteSupplierRatingResponse) String() string {
 func (*DeleteSupplierRatingResponse) ProtoMessage() {}
 
 func (x *DeleteSupplierRatingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[50]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3751,7 +3803,7 @@ func (x *DeleteSupplierRatingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSupplierRatingResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSupplierRatingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{50}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{51}
 }
 
 type ListFrameworkContractsRequest struct {
@@ -3767,7 +3819,7 @@ type ListFrameworkContractsRequest struct {
 
 func (x *ListFrameworkContractsRequest) Reset() {
 	*x = ListFrameworkContractsRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[51]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3779,7 +3831,7 @@ func (x *ListFrameworkContractsRequest) String() string {
 func (*ListFrameworkContractsRequest) ProtoMessage() {}
 
 func (x *ListFrameworkContractsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[51]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3792,7 +3844,7 @@ func (x *ListFrameworkContractsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFrameworkContractsRequest.ProtoReflect.Descriptor instead.
 func (*ListFrameworkContractsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{51}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ListFrameworkContractsRequest) GetTenantId() string {
@@ -3840,7 +3892,7 @@ type ListFrameworkContractsResponse struct {
 
 func (x *ListFrameworkContractsResponse) Reset() {
 	*x = ListFrameworkContractsResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[52]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3852,7 +3904,7 @@ func (x *ListFrameworkContractsResponse) String() string {
 func (*ListFrameworkContractsResponse) ProtoMessage() {}
 
 func (x *ListFrameworkContractsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[52]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3865,7 +3917,7 @@ func (x *ListFrameworkContractsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFrameworkContractsResponse.ProtoReflect.Descriptor instead.
 func (*ListFrameworkContractsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{52}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ListFrameworkContractsResponse) GetContracts() []*FrameworkContract {
@@ -3892,7 +3944,7 @@ type GetFrameworkContractRequest struct {
 
 func (x *GetFrameworkContractRequest) Reset() {
 	*x = GetFrameworkContractRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[53]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3904,7 +3956,7 @@ func (x *GetFrameworkContractRequest) String() string {
 func (*GetFrameworkContractRequest) ProtoMessage() {}
 
 func (x *GetFrameworkContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[53]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3917,7 +3969,7 @@ func (x *GetFrameworkContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFrameworkContractRequest.ProtoReflect.Descriptor instead.
 func (*GetFrameworkContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{53}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetFrameworkContractRequest) GetTenantId() string {
@@ -3943,7 +3995,7 @@ type FrameworkContractResponse struct {
 
 func (x *FrameworkContractResponse) Reset() {
 	*x = FrameworkContractResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[54]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3955,7 +4007,7 @@ func (x *FrameworkContractResponse) String() string {
 func (*FrameworkContractResponse) ProtoMessage() {}
 
 func (x *FrameworkContractResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[54]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3968,7 +4020,7 @@ func (x *FrameworkContractResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrameworkContractResponse.ProtoReflect.Descriptor instead.
 func (*FrameworkContractResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{54}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *FrameworkContractResponse) GetContract() *FrameworkContract {
@@ -3995,7 +4047,7 @@ type CreateFrameworkContractRequest struct {
 
 func (x *CreateFrameworkContractRequest) Reset() {
 	*x = CreateFrameworkContractRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[55]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4007,7 +4059,7 @@ func (x *CreateFrameworkContractRequest) String() string {
 func (*CreateFrameworkContractRequest) ProtoMessage() {}
 
 func (x *CreateFrameworkContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[55]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4020,7 +4072,7 @@ func (x *CreateFrameworkContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFrameworkContractRequest.ProtoReflect.Descriptor instead.
 func (*CreateFrameworkContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{55}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *CreateFrameworkContractRequest) GetTenantId() string {
@@ -4104,7 +4156,7 @@ type UpdateFrameworkContractRequest struct {
 
 func (x *UpdateFrameworkContractRequest) Reset() {
 	*x = UpdateFrameworkContractRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[56]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4116,7 +4168,7 @@ func (x *UpdateFrameworkContractRequest) String() string {
 func (*UpdateFrameworkContractRequest) ProtoMessage() {}
 
 func (x *UpdateFrameworkContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[56]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4129,7 +4181,7 @@ func (x *UpdateFrameworkContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateFrameworkContractRequest.ProtoReflect.Descriptor instead.
 func (*UpdateFrameworkContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{56}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *UpdateFrameworkContractRequest) GetTenantId() string {
@@ -4212,7 +4264,7 @@ type DeleteFrameworkContractRequest struct {
 
 func (x *DeleteFrameworkContractRequest) Reset() {
 	*x = DeleteFrameworkContractRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[57]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4224,7 +4276,7 @@ func (x *DeleteFrameworkContractRequest) String() string {
 func (*DeleteFrameworkContractRequest) ProtoMessage() {}
 
 func (x *DeleteFrameworkContractRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[57]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4237,7 +4289,7 @@ func (x *DeleteFrameworkContractRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFrameworkContractRequest.ProtoReflect.Descriptor instead.
 func (*DeleteFrameworkContractRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{57}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *DeleteFrameworkContractRequest) GetTenantId() string {
@@ -4262,7 +4314,7 @@ type DeleteFrameworkContractResponse struct {
 
 func (x *DeleteFrameworkContractResponse) Reset() {
 	*x = DeleteFrameworkContractResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[58]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4274,7 +4326,7 @@ func (x *DeleteFrameworkContractResponse) String() string {
 func (*DeleteFrameworkContractResponse) ProtoMessage() {}
 
 func (x *DeleteFrameworkContractResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[58]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4287,7 +4339,7 @@ func (x *DeleteFrameworkContractResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFrameworkContractResponse.ProtoReflect.Descriptor instead.
 func (*DeleteFrameworkContractResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{58}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{59}
 }
 
 type CreateContractItemRequest struct {
@@ -4304,7 +4356,7 @@ type CreateContractItemRequest struct {
 
 func (x *CreateContractItemRequest) Reset() {
 	*x = CreateContractItemRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[59]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4316,7 +4368,7 @@ func (x *CreateContractItemRequest) String() string {
 func (*CreateContractItemRequest) ProtoMessage() {}
 
 func (x *CreateContractItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[59]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4329,7 +4381,7 @@ func (x *CreateContractItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateContractItemRequest.ProtoReflect.Descriptor instead.
 func (*CreateContractItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{59}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *CreateContractItemRequest) GetTenantId() string {
@@ -4388,7 +4440,7 @@ type UpdateContractItemRequest struct {
 
 func (x *UpdateContractItemRequest) Reset() {
 	*x = UpdateContractItemRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[60]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4400,7 +4452,7 @@ func (x *UpdateContractItemRequest) String() string {
 func (*UpdateContractItemRequest) ProtoMessage() {}
 
 func (x *UpdateContractItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[60]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4413,7 +4465,7 @@ func (x *UpdateContractItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateContractItemRequest.ProtoReflect.Descriptor instead.
 func (*UpdateContractItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{60}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *UpdateContractItemRequest) GetTenantId() string {
@@ -4467,7 +4519,7 @@ type ContractItemResponse struct {
 
 func (x *ContractItemResponse) Reset() {
 	*x = ContractItemResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[61]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4479,7 +4531,7 @@ func (x *ContractItemResponse) String() string {
 func (*ContractItemResponse) ProtoMessage() {}
 
 func (x *ContractItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[61]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4492,7 +4544,7 @@ func (x *ContractItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContractItemResponse.ProtoReflect.Descriptor instead.
 func (*ContractItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{61}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ContractItemResponse) GetItem() *FrameworkContractItem {
@@ -4512,7 +4564,7 @@ type DeleteContractItemRequest struct {
 
 func (x *DeleteContractItemRequest) Reset() {
 	*x = DeleteContractItemRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[62]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4524,7 +4576,7 @@ func (x *DeleteContractItemRequest) String() string {
 func (*DeleteContractItemRequest) ProtoMessage() {}
 
 func (x *DeleteContractItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[62]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4537,7 +4589,7 @@ func (x *DeleteContractItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContractItemRequest.ProtoReflect.Descriptor instead.
 func (*DeleteContractItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{62}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *DeleteContractItemRequest) GetTenantId() string {
@@ -4562,7 +4614,7 @@ type DeleteContractItemResponse struct {
 
 func (x *DeleteContractItemResponse) Reset() {
 	*x = DeleteContractItemResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[63]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4574,7 +4626,7 @@ func (x *DeleteContractItemResponse) String() string {
 func (*DeleteContractItemResponse) ProtoMessage() {}
 
 func (x *DeleteContractItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[63]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4587,7 +4639,7 @@ func (x *DeleteContractItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContractItemResponse.ProtoReflect.Descriptor instead.
 func (*DeleteContractItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{63}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{64}
 }
 
 type CreateContractCallRequest struct {
@@ -4604,7 +4656,7 @@ type CreateContractCallRequest struct {
 
 func (x *CreateContractCallRequest) Reset() {
 	*x = CreateContractCallRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[64]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4616,7 +4668,7 @@ func (x *CreateContractCallRequest) String() string {
 func (*CreateContractCallRequest) ProtoMessage() {}
 
 func (x *CreateContractCallRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[64]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4629,7 +4681,7 @@ func (x *CreateContractCallRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateContractCallRequest.ProtoReflect.Descriptor instead.
 func (*CreateContractCallRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{64}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *CreateContractCallRequest) GetTenantId() string {
@@ -4683,7 +4735,7 @@ type ContractCallResponse struct {
 
 func (x *ContractCallResponse) Reset() {
 	*x = ContractCallResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[65]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4695,7 +4747,7 @@ func (x *ContractCallResponse) String() string {
 func (*ContractCallResponse) ProtoMessage() {}
 
 func (x *ContractCallResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[65]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4708,7 +4760,7 @@ func (x *ContractCallResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContractCallResponse.ProtoReflect.Descriptor instead.
 func (*ContractCallResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{65}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ContractCallResponse) GetCall() *FrameworkContractCall {
@@ -4728,7 +4780,7 @@ type ListContractCallsRequest struct {
 
 func (x *ListContractCallsRequest) Reset() {
 	*x = ListContractCallsRequest{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[66]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4740,7 +4792,7 @@ func (x *ListContractCallsRequest) String() string {
 func (*ListContractCallsRequest) ProtoMessage() {}
 
 func (x *ListContractCallsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[66]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4753,7 +4805,7 @@ func (x *ListContractCallsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContractCallsRequest.ProtoReflect.Descriptor instead.
 func (*ListContractCallsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{66}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ListContractCallsRequest) GetTenantId() string {
@@ -4779,7 +4831,7 @@ type ListContractCallsResponse struct {
 
 func (x *ListContractCallsResponse) Reset() {
 	*x = ListContractCallsResponse{}
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[67]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4791,7 +4843,7 @@ func (x *ListContractCallsResponse) String() string {
 func (*ListContractCallsResponse) ProtoMessage() {}
 
 func (x *ListContractCallsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[67]
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4804,7 +4856,7 @@ func (x *ListContractCallsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContractCallsResponse.ProtoReflect.Descriptor instead.
 func (*ListContractCallsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{67}
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ListContractCallsResponse) GetCalls() []*FrameworkContractCall {
@@ -5029,6 +5081,9 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\x0ePOLineResponse\x12&\n" +
 	"\x04line\x18\x01 \x01(\v2\x12.einkauf.v1.POLineR\x04line\"C\n" +
 	"\x0fSubmitPORequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x13\n" +
+	"\x05po_id\x18\x02 \x01(\tR\x04poId\"C\n" +
+	"\x0fCancelPORequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x13\n" +
 	"\x05po_id\x18\x02 \x01(\tR\x04poId\"G\n" +
 	"\x13ReceiveGoodsRequest\x12\x1b\n" +
@@ -5330,7 +5385,7 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\vcontract_id\x18\x02 \x01(\tR\n" +
 	"contractId\"T\n" +
 	"\x19ListContractCallsResponse\x127\n" +
-	"\x05calls\x18\x01 \x03(\v2!.einkauf.v1.FrameworkContractCallR\x05calls2\xe3\x18\n" +
+	"\x05calls\x18\x01 \x03(\v2!.einkauf.v1.FrameworkContractCallR\x05calls2\xa4\x19\n" +
 	"\x0eEinkaufService\x12Q\n" +
 	"\x0eCreateSupplier\x12!.einkauf.v1.CreateSupplierRequest\x1a\x1c.einkauf.v1.SupplierResponse\x12Q\n" +
 	"\x0eUpdateSupplier\x12!.einkauf.v1.UpdateSupplierRequest\x1a\x1c.einkauf.v1.SupplierResponse\x12W\n" +
@@ -5346,7 +5401,8 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\fUpdatePOLine\x12\x1f.einkauf.v1.UpdatePOLineRequest\x1a\x1a.einkauf.v1.POLineResponse\x12Q\n" +
 	"\fDeletePOLine\x12\x1f.einkauf.v1.DeletePOLineRequest\x1a .einkauf.v1.DeletePOLineResponse\x12N\n" +
 	"\vListPOLines\x12\x1e.einkauf.v1.ListPOLinesRequest\x1a\x1f.einkauf.v1.ListPOLinesResponse\x12?\n" +
-	"\bSubmitPO\x12\x1b.einkauf.v1.SubmitPORequest\x1a\x16.einkauf.v1.POResponse\x12G\n" +
+	"\bSubmitPO\x12\x1b.einkauf.v1.SubmitPORequest\x1a\x16.einkauf.v1.POResponse\x12?\n" +
+	"\bCancelPO\x12\x1b.einkauf.v1.CancelPORequest\x1a\x16.einkauf.v1.POResponse\x12G\n" +
 	"\fReceiveGoods\x12\x1f.einkauf.v1.ReceiveGoodsRequest\x1a\x16.einkauf.v1.POResponse\x12K\n" +
 	"\x0ePartialReceive\x12!.einkauf.v1.PartialReceiveRequest\x1a\x16.einkauf.v1.POResponse\x12E\n" +
 	"\bExportPO\x12\x1b.einkauf.v1.ExportPORequest\x1a\x1c.einkauf.v1.ExportPOResponse\x12]\n" +
@@ -5381,7 +5437,7 @@ func file_proto_einkauf_v1_einkauf_proto_rawDescGZIP() []byte {
 	return file_proto_einkauf_v1_einkauf_proto_rawDescData
 }
 
-var file_proto_einkauf_v1_einkauf_proto_msgTypes = make([]protoimpl.MessageInfo, 68)
+var file_proto_einkauf_v1_einkauf_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_proto_einkauf_v1_einkauf_proto_goTypes = []any{
 	(*Supplier)(nil),                        // 0: einkauf.v1.Supplier
 	(*PurchaseOrder)(nil),                   // 1: einkauf.v1.PurchaseOrder
@@ -5410,100 +5466,101 @@ var file_proto_einkauf_v1_einkauf_proto_goTypes = []any{
 	(*ListPOLinesResponse)(nil),             // 24: einkauf.v1.ListPOLinesResponse
 	(*POLineResponse)(nil),                  // 25: einkauf.v1.POLineResponse
 	(*SubmitPORequest)(nil),                 // 26: einkauf.v1.SubmitPORequest
-	(*ReceiveGoodsRequest)(nil),             // 27: einkauf.v1.ReceiveGoodsRequest
-	(*PartialReceiveItem)(nil),              // 28: einkauf.v1.PartialReceiveItem
-	(*PartialReceiveRequest)(nil),           // 29: einkauf.v1.PartialReceiveRequest
-	(*ExportPORequest)(nil),                 // 30: einkauf.v1.ExportPORequest
-	(*ExportPOResponse)(nil),                // 31: einkauf.v1.ExportPOResponse
-	(*CatalogItem)(nil),                     // 32: einkauf.v1.CatalogItem
-	(*SupplierRating)(nil),                  // 33: einkauf.v1.SupplierRating
-	(*FrameworkContract)(nil),               // 34: einkauf.v1.FrameworkContract
-	(*FrameworkContractItem)(nil),           // 35: einkauf.v1.FrameworkContractItem
-	(*FrameworkContractCall)(nil),           // 36: einkauf.v1.FrameworkContractCall
-	(*ListCatalogItemsRequest)(nil),         // 37: einkauf.v1.ListCatalogItemsRequest
-	(*ListCatalogItemsResponse)(nil),        // 38: einkauf.v1.ListCatalogItemsResponse
-	(*GetCatalogItemRequest)(nil),           // 39: einkauf.v1.GetCatalogItemRequest
-	(*CatalogItemResponse)(nil),             // 40: einkauf.v1.CatalogItemResponse
-	(*CreateCatalogItemRequest)(nil),        // 41: einkauf.v1.CreateCatalogItemRequest
-	(*UpdateCatalogItemRequest)(nil),        // 42: einkauf.v1.UpdateCatalogItemRequest
-	(*DeleteCatalogItemRequest)(nil),        // 43: einkauf.v1.DeleteCatalogItemRequest
-	(*DeleteCatalogItemResponse)(nil),       // 44: einkauf.v1.DeleteCatalogItemResponse
-	(*ListSupplierRatingsRequest)(nil),      // 45: einkauf.v1.ListSupplierRatingsRequest
-	(*ListSupplierRatingsResponse)(nil),     // 46: einkauf.v1.ListSupplierRatingsResponse
-	(*CreateSupplierRatingRequest)(nil),     // 47: einkauf.v1.CreateSupplierRatingRequest
-	(*SupplierRatingResponse)(nil),          // 48: einkauf.v1.SupplierRatingResponse
-	(*DeleteSupplierRatingRequest)(nil),     // 49: einkauf.v1.DeleteSupplierRatingRequest
-	(*DeleteSupplierRatingResponse)(nil),    // 50: einkauf.v1.DeleteSupplierRatingResponse
-	(*ListFrameworkContractsRequest)(nil),   // 51: einkauf.v1.ListFrameworkContractsRequest
-	(*ListFrameworkContractsResponse)(nil),  // 52: einkauf.v1.ListFrameworkContractsResponse
-	(*GetFrameworkContractRequest)(nil),     // 53: einkauf.v1.GetFrameworkContractRequest
-	(*FrameworkContractResponse)(nil),       // 54: einkauf.v1.FrameworkContractResponse
-	(*CreateFrameworkContractRequest)(nil),  // 55: einkauf.v1.CreateFrameworkContractRequest
-	(*UpdateFrameworkContractRequest)(nil),  // 56: einkauf.v1.UpdateFrameworkContractRequest
-	(*DeleteFrameworkContractRequest)(nil),  // 57: einkauf.v1.DeleteFrameworkContractRequest
-	(*DeleteFrameworkContractResponse)(nil), // 58: einkauf.v1.DeleteFrameworkContractResponse
-	(*CreateContractItemRequest)(nil),       // 59: einkauf.v1.CreateContractItemRequest
-	(*UpdateContractItemRequest)(nil),       // 60: einkauf.v1.UpdateContractItemRequest
-	(*ContractItemResponse)(nil),            // 61: einkauf.v1.ContractItemResponse
-	(*DeleteContractItemRequest)(nil),       // 62: einkauf.v1.DeleteContractItemRequest
-	(*DeleteContractItemResponse)(nil),      // 63: einkauf.v1.DeleteContractItemResponse
-	(*CreateContractCallRequest)(nil),       // 64: einkauf.v1.CreateContractCallRequest
-	(*ContractCallResponse)(nil),            // 65: einkauf.v1.ContractCallResponse
-	(*ListContractCallsRequest)(nil),        // 66: einkauf.v1.ListContractCallsRequest
-	(*ListContractCallsResponse)(nil),       // 67: einkauf.v1.ListContractCallsResponse
-	(*timestamppb.Timestamp)(nil),           // 68: google.protobuf.Timestamp
+	(*CancelPORequest)(nil),                 // 27: einkauf.v1.CancelPORequest
+	(*ReceiveGoodsRequest)(nil),             // 28: einkauf.v1.ReceiveGoodsRequest
+	(*PartialReceiveItem)(nil),              // 29: einkauf.v1.PartialReceiveItem
+	(*PartialReceiveRequest)(nil),           // 30: einkauf.v1.PartialReceiveRequest
+	(*ExportPORequest)(nil),                 // 31: einkauf.v1.ExportPORequest
+	(*ExportPOResponse)(nil),                // 32: einkauf.v1.ExportPOResponse
+	(*CatalogItem)(nil),                     // 33: einkauf.v1.CatalogItem
+	(*SupplierRating)(nil),                  // 34: einkauf.v1.SupplierRating
+	(*FrameworkContract)(nil),               // 35: einkauf.v1.FrameworkContract
+	(*FrameworkContractItem)(nil),           // 36: einkauf.v1.FrameworkContractItem
+	(*FrameworkContractCall)(nil),           // 37: einkauf.v1.FrameworkContractCall
+	(*ListCatalogItemsRequest)(nil),         // 38: einkauf.v1.ListCatalogItemsRequest
+	(*ListCatalogItemsResponse)(nil),        // 39: einkauf.v1.ListCatalogItemsResponse
+	(*GetCatalogItemRequest)(nil),           // 40: einkauf.v1.GetCatalogItemRequest
+	(*CatalogItemResponse)(nil),             // 41: einkauf.v1.CatalogItemResponse
+	(*CreateCatalogItemRequest)(nil),        // 42: einkauf.v1.CreateCatalogItemRequest
+	(*UpdateCatalogItemRequest)(nil),        // 43: einkauf.v1.UpdateCatalogItemRequest
+	(*DeleteCatalogItemRequest)(nil),        // 44: einkauf.v1.DeleteCatalogItemRequest
+	(*DeleteCatalogItemResponse)(nil),       // 45: einkauf.v1.DeleteCatalogItemResponse
+	(*ListSupplierRatingsRequest)(nil),      // 46: einkauf.v1.ListSupplierRatingsRequest
+	(*ListSupplierRatingsResponse)(nil),     // 47: einkauf.v1.ListSupplierRatingsResponse
+	(*CreateSupplierRatingRequest)(nil),     // 48: einkauf.v1.CreateSupplierRatingRequest
+	(*SupplierRatingResponse)(nil),          // 49: einkauf.v1.SupplierRatingResponse
+	(*DeleteSupplierRatingRequest)(nil),     // 50: einkauf.v1.DeleteSupplierRatingRequest
+	(*DeleteSupplierRatingResponse)(nil),    // 51: einkauf.v1.DeleteSupplierRatingResponse
+	(*ListFrameworkContractsRequest)(nil),   // 52: einkauf.v1.ListFrameworkContractsRequest
+	(*ListFrameworkContractsResponse)(nil),  // 53: einkauf.v1.ListFrameworkContractsResponse
+	(*GetFrameworkContractRequest)(nil),     // 54: einkauf.v1.GetFrameworkContractRequest
+	(*FrameworkContractResponse)(nil),       // 55: einkauf.v1.FrameworkContractResponse
+	(*CreateFrameworkContractRequest)(nil),  // 56: einkauf.v1.CreateFrameworkContractRequest
+	(*UpdateFrameworkContractRequest)(nil),  // 57: einkauf.v1.UpdateFrameworkContractRequest
+	(*DeleteFrameworkContractRequest)(nil),  // 58: einkauf.v1.DeleteFrameworkContractRequest
+	(*DeleteFrameworkContractResponse)(nil), // 59: einkauf.v1.DeleteFrameworkContractResponse
+	(*CreateContractItemRequest)(nil),       // 60: einkauf.v1.CreateContractItemRequest
+	(*UpdateContractItemRequest)(nil),       // 61: einkauf.v1.UpdateContractItemRequest
+	(*ContractItemResponse)(nil),            // 62: einkauf.v1.ContractItemResponse
+	(*DeleteContractItemRequest)(nil),       // 63: einkauf.v1.DeleteContractItemRequest
+	(*DeleteContractItemResponse)(nil),      // 64: einkauf.v1.DeleteContractItemResponse
+	(*CreateContractCallRequest)(nil),       // 65: einkauf.v1.CreateContractCallRequest
+	(*ContractCallResponse)(nil),            // 66: einkauf.v1.ContractCallResponse
+	(*ListContractCallsRequest)(nil),        // 67: einkauf.v1.ListContractCallsRequest
+	(*ListContractCallsResponse)(nil),       // 68: einkauf.v1.ListContractCallsResponse
+	(*timestamppb.Timestamp)(nil),           // 69: google.protobuf.Timestamp
 }
 var file_proto_einkauf_v1_einkauf_proto_depIdxs = []int32{
-	68, // 0: einkauf.v1.Supplier.created_at:type_name -> google.protobuf.Timestamp
-	68, // 1: einkauf.v1.Supplier.updated_at:type_name -> google.protobuf.Timestamp
-	68, // 2: einkauf.v1.PurchaseOrder.order_date:type_name -> google.protobuf.Timestamp
-	68, // 3: einkauf.v1.PurchaseOrder.expected_delivery_date:type_name -> google.protobuf.Timestamp
-	68, // 4: einkauf.v1.PurchaseOrder.created_at:type_name -> google.protobuf.Timestamp
-	68, // 5: einkauf.v1.PurchaseOrder.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 0: einkauf.v1.Supplier.created_at:type_name -> google.protobuf.Timestamp
+	69, // 1: einkauf.v1.Supplier.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 2: einkauf.v1.PurchaseOrder.order_date:type_name -> google.protobuf.Timestamp
+	69, // 3: einkauf.v1.PurchaseOrder.expected_delivery_date:type_name -> google.protobuf.Timestamp
+	69, // 4: einkauf.v1.PurchaseOrder.created_at:type_name -> google.protobuf.Timestamp
+	69, // 5: einkauf.v1.PurchaseOrder.updated_at:type_name -> google.protobuf.Timestamp
 	2,  // 6: einkauf.v1.PurchaseOrder.lines:type_name -> einkauf.v1.POLine
-	68, // 7: einkauf.v1.POLine.created_at:type_name -> google.protobuf.Timestamp
-	68, // 8: einkauf.v1.POLine.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 7: einkauf.v1.POLine.created_at:type_name -> google.protobuf.Timestamp
+	69, // 8: einkauf.v1.POLine.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 9: einkauf.v1.SupplierResponse.supplier:type_name -> einkauf.v1.Supplier
 	0,  // 10: einkauf.v1.ListSuppliersResponse.suppliers:type_name -> einkauf.v1.Supplier
-	68, // 11: einkauf.v1.CreatePORequest.order_date:type_name -> google.protobuf.Timestamp
-	68, // 12: einkauf.v1.CreatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
-	68, // 13: einkauf.v1.UpdatePORequest.order_date:type_name -> google.protobuf.Timestamp
-	68, // 14: einkauf.v1.UpdatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
+	69, // 11: einkauf.v1.CreatePORequest.order_date:type_name -> google.protobuf.Timestamp
+	69, // 12: einkauf.v1.CreatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
+	69, // 13: einkauf.v1.UpdatePORequest.order_date:type_name -> google.protobuf.Timestamp
+	69, // 14: einkauf.v1.UpdatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
 	1,  // 15: einkauf.v1.POResponse.po:type_name -> einkauf.v1.PurchaseOrder
-	68, // 16: einkauf.v1.ListPOsRequest.date_from:type_name -> google.protobuf.Timestamp
-	68, // 17: einkauf.v1.ListPOsRequest.date_to:type_name -> google.protobuf.Timestamp
+	69, // 16: einkauf.v1.ListPOsRequest.date_from:type_name -> google.protobuf.Timestamp
+	69, // 17: einkauf.v1.ListPOsRequest.date_to:type_name -> google.protobuf.Timestamp
 	1,  // 18: einkauf.v1.ListPOsResponse.pos:type_name -> einkauf.v1.PurchaseOrder
 	2,  // 19: einkauf.v1.ListPOLinesResponse.lines:type_name -> einkauf.v1.POLine
 	2,  // 20: einkauf.v1.POLineResponse.line:type_name -> einkauf.v1.POLine
-	28, // 21: einkauf.v1.PartialReceiveRequest.items:type_name -> einkauf.v1.PartialReceiveItem
-	68, // 22: einkauf.v1.CatalogItem.created_at:type_name -> google.protobuf.Timestamp
-	68, // 23: einkauf.v1.CatalogItem.updated_at:type_name -> google.protobuf.Timestamp
-	68, // 24: einkauf.v1.SupplierRating.rated_at:type_name -> google.protobuf.Timestamp
-	68, // 25: einkauf.v1.SupplierRating.created_at:type_name -> google.protobuf.Timestamp
-	68, // 26: einkauf.v1.SupplierRating.updated_at:type_name -> google.protobuf.Timestamp
-	68, // 27: einkauf.v1.FrameworkContract.start_date:type_name -> google.protobuf.Timestamp
-	68, // 28: einkauf.v1.FrameworkContract.end_date:type_name -> google.protobuf.Timestamp
-	68, // 29: einkauf.v1.FrameworkContract.created_at:type_name -> google.protobuf.Timestamp
-	68, // 30: einkauf.v1.FrameworkContract.updated_at:type_name -> google.protobuf.Timestamp
-	35, // 31: einkauf.v1.FrameworkContract.items:type_name -> einkauf.v1.FrameworkContractItem
-	68, // 32: einkauf.v1.FrameworkContractItem.created_at:type_name -> google.protobuf.Timestamp
-	68, // 33: einkauf.v1.FrameworkContractItem.updated_at:type_name -> google.protobuf.Timestamp
-	68, // 34: einkauf.v1.FrameworkContractCall.called_at:type_name -> google.protobuf.Timestamp
-	68, // 35: einkauf.v1.FrameworkContractCall.created_at:type_name -> google.protobuf.Timestamp
-	68, // 36: einkauf.v1.FrameworkContractCall.updated_at:type_name -> google.protobuf.Timestamp
-	32, // 37: einkauf.v1.ListCatalogItemsResponse.items:type_name -> einkauf.v1.CatalogItem
-	32, // 38: einkauf.v1.CatalogItemResponse.item:type_name -> einkauf.v1.CatalogItem
-	33, // 39: einkauf.v1.ListSupplierRatingsResponse.ratings:type_name -> einkauf.v1.SupplierRating
-	33, // 40: einkauf.v1.SupplierRatingResponse.rating:type_name -> einkauf.v1.SupplierRating
-	34, // 41: einkauf.v1.ListFrameworkContractsResponse.contracts:type_name -> einkauf.v1.FrameworkContract
-	34, // 42: einkauf.v1.FrameworkContractResponse.contract:type_name -> einkauf.v1.FrameworkContract
-	68, // 43: einkauf.v1.CreateFrameworkContractRequest.start_date:type_name -> google.protobuf.Timestamp
-	68, // 44: einkauf.v1.CreateFrameworkContractRequest.end_date:type_name -> google.protobuf.Timestamp
-	68, // 45: einkauf.v1.UpdateFrameworkContractRequest.start_date:type_name -> google.protobuf.Timestamp
-	68, // 46: einkauf.v1.UpdateFrameworkContractRequest.end_date:type_name -> google.protobuf.Timestamp
-	35, // 47: einkauf.v1.ContractItemResponse.item:type_name -> einkauf.v1.FrameworkContractItem
-	36, // 48: einkauf.v1.ContractCallResponse.call:type_name -> einkauf.v1.FrameworkContractCall
-	36, // 49: einkauf.v1.ListContractCallsResponse.calls:type_name -> einkauf.v1.FrameworkContractCall
+	29, // 21: einkauf.v1.PartialReceiveRequest.items:type_name -> einkauf.v1.PartialReceiveItem
+	69, // 22: einkauf.v1.CatalogItem.created_at:type_name -> google.protobuf.Timestamp
+	69, // 23: einkauf.v1.CatalogItem.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 24: einkauf.v1.SupplierRating.rated_at:type_name -> google.protobuf.Timestamp
+	69, // 25: einkauf.v1.SupplierRating.created_at:type_name -> google.protobuf.Timestamp
+	69, // 26: einkauf.v1.SupplierRating.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 27: einkauf.v1.FrameworkContract.start_date:type_name -> google.protobuf.Timestamp
+	69, // 28: einkauf.v1.FrameworkContract.end_date:type_name -> google.protobuf.Timestamp
+	69, // 29: einkauf.v1.FrameworkContract.created_at:type_name -> google.protobuf.Timestamp
+	69, // 30: einkauf.v1.FrameworkContract.updated_at:type_name -> google.protobuf.Timestamp
+	36, // 31: einkauf.v1.FrameworkContract.items:type_name -> einkauf.v1.FrameworkContractItem
+	69, // 32: einkauf.v1.FrameworkContractItem.created_at:type_name -> google.protobuf.Timestamp
+	69, // 33: einkauf.v1.FrameworkContractItem.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 34: einkauf.v1.FrameworkContractCall.called_at:type_name -> google.protobuf.Timestamp
+	69, // 35: einkauf.v1.FrameworkContractCall.created_at:type_name -> google.protobuf.Timestamp
+	69, // 36: einkauf.v1.FrameworkContractCall.updated_at:type_name -> google.protobuf.Timestamp
+	33, // 37: einkauf.v1.ListCatalogItemsResponse.items:type_name -> einkauf.v1.CatalogItem
+	33, // 38: einkauf.v1.CatalogItemResponse.item:type_name -> einkauf.v1.CatalogItem
+	34, // 39: einkauf.v1.ListSupplierRatingsResponse.ratings:type_name -> einkauf.v1.SupplierRating
+	34, // 40: einkauf.v1.SupplierRatingResponse.rating:type_name -> einkauf.v1.SupplierRating
+	35, // 41: einkauf.v1.ListFrameworkContractsResponse.contracts:type_name -> einkauf.v1.FrameworkContract
+	35, // 42: einkauf.v1.FrameworkContractResponse.contract:type_name -> einkauf.v1.FrameworkContract
+	69, // 43: einkauf.v1.CreateFrameworkContractRequest.start_date:type_name -> google.protobuf.Timestamp
+	69, // 44: einkauf.v1.CreateFrameworkContractRequest.end_date:type_name -> google.protobuf.Timestamp
+	69, // 45: einkauf.v1.UpdateFrameworkContractRequest.start_date:type_name -> google.protobuf.Timestamp
+	69, // 46: einkauf.v1.UpdateFrameworkContractRequest.end_date:type_name -> google.protobuf.Timestamp
+	36, // 47: einkauf.v1.ContractItemResponse.item:type_name -> einkauf.v1.FrameworkContractItem
+	37, // 48: einkauf.v1.ContractCallResponse.call:type_name -> einkauf.v1.FrameworkContractCall
+	37, // 49: einkauf.v1.ListContractCallsResponse.calls:type_name -> einkauf.v1.FrameworkContractCall
 	3,  // 50: einkauf.v1.EinkaufService.CreateSupplier:input_type -> einkauf.v1.CreateSupplierRequest
 	4,  // 51: einkauf.v1.EinkaufService.UpdateSupplier:input_type -> einkauf.v1.UpdateSupplierRequest
 	5,  // 52: einkauf.v1.EinkaufService.DeleteSupplier:input_type -> einkauf.v1.DeleteSupplierRequest
@@ -5519,65 +5576,67 @@ var file_proto_einkauf_v1_einkauf_proto_depIdxs = []int32{
 	21, // 62: einkauf.v1.EinkaufService.DeletePOLine:input_type -> einkauf.v1.DeletePOLineRequest
 	23, // 63: einkauf.v1.EinkaufService.ListPOLines:input_type -> einkauf.v1.ListPOLinesRequest
 	26, // 64: einkauf.v1.EinkaufService.SubmitPO:input_type -> einkauf.v1.SubmitPORequest
-	27, // 65: einkauf.v1.EinkaufService.ReceiveGoods:input_type -> einkauf.v1.ReceiveGoodsRequest
-	29, // 66: einkauf.v1.EinkaufService.PartialReceive:input_type -> einkauf.v1.PartialReceiveRequest
-	30, // 67: einkauf.v1.EinkaufService.ExportPO:input_type -> einkauf.v1.ExportPORequest
-	37, // 68: einkauf.v1.EinkaufService.ListCatalogItems:input_type -> einkauf.v1.ListCatalogItemsRequest
-	39, // 69: einkauf.v1.EinkaufService.GetCatalogItem:input_type -> einkauf.v1.GetCatalogItemRequest
-	41, // 70: einkauf.v1.EinkaufService.CreateCatalogItem:input_type -> einkauf.v1.CreateCatalogItemRequest
-	42, // 71: einkauf.v1.EinkaufService.UpdateCatalogItem:input_type -> einkauf.v1.UpdateCatalogItemRequest
-	43, // 72: einkauf.v1.EinkaufService.DeleteCatalogItem:input_type -> einkauf.v1.DeleteCatalogItemRequest
-	45, // 73: einkauf.v1.EinkaufService.ListSupplierRatings:input_type -> einkauf.v1.ListSupplierRatingsRequest
-	47, // 74: einkauf.v1.EinkaufService.CreateSupplierRating:input_type -> einkauf.v1.CreateSupplierRatingRequest
-	49, // 75: einkauf.v1.EinkaufService.DeleteSupplierRating:input_type -> einkauf.v1.DeleteSupplierRatingRequest
-	51, // 76: einkauf.v1.EinkaufService.ListFrameworkContracts:input_type -> einkauf.v1.ListFrameworkContractsRequest
-	53, // 77: einkauf.v1.EinkaufService.GetFrameworkContract:input_type -> einkauf.v1.GetFrameworkContractRequest
-	55, // 78: einkauf.v1.EinkaufService.CreateFrameworkContract:input_type -> einkauf.v1.CreateFrameworkContractRequest
-	56, // 79: einkauf.v1.EinkaufService.UpdateFrameworkContract:input_type -> einkauf.v1.UpdateFrameworkContractRequest
-	57, // 80: einkauf.v1.EinkaufService.DeleteFrameworkContract:input_type -> einkauf.v1.DeleteFrameworkContractRequest
-	59, // 81: einkauf.v1.EinkaufService.CreateContractItem:input_type -> einkauf.v1.CreateContractItemRequest
-	60, // 82: einkauf.v1.EinkaufService.UpdateContractItem:input_type -> einkauf.v1.UpdateContractItemRequest
-	62, // 83: einkauf.v1.EinkaufService.DeleteContractItem:input_type -> einkauf.v1.DeleteContractItemRequest
-	64, // 84: einkauf.v1.EinkaufService.CreateContractCall:input_type -> einkauf.v1.CreateContractCallRequest
-	66, // 85: einkauf.v1.EinkaufService.ListContractCalls:input_type -> einkauf.v1.ListContractCallsRequest
-	8,  // 86: einkauf.v1.EinkaufService.CreateSupplier:output_type -> einkauf.v1.SupplierResponse
-	8,  // 87: einkauf.v1.EinkaufService.UpdateSupplier:output_type -> einkauf.v1.SupplierResponse
-	6,  // 88: einkauf.v1.EinkaufService.DeleteSupplier:output_type -> einkauf.v1.DeleteSupplierResponse
-	8,  // 89: einkauf.v1.EinkaufService.GetSupplier:output_type -> einkauf.v1.SupplierResponse
-	10, // 90: einkauf.v1.EinkaufService.ListSuppliers:output_type -> einkauf.v1.ListSuppliersResponse
-	16, // 91: einkauf.v1.EinkaufService.CreatePO:output_type -> einkauf.v1.POResponse
-	16, // 92: einkauf.v1.EinkaufService.UpdatePO:output_type -> einkauf.v1.POResponse
-	14, // 93: einkauf.v1.EinkaufService.DeletePO:output_type -> einkauf.v1.DeletePOResponse
-	16, // 94: einkauf.v1.EinkaufService.GetPO:output_type -> einkauf.v1.POResponse
-	18, // 95: einkauf.v1.EinkaufService.ListPOs:output_type -> einkauf.v1.ListPOsResponse
-	25, // 96: einkauf.v1.EinkaufService.AddPOLine:output_type -> einkauf.v1.POLineResponse
-	25, // 97: einkauf.v1.EinkaufService.UpdatePOLine:output_type -> einkauf.v1.POLineResponse
-	22, // 98: einkauf.v1.EinkaufService.DeletePOLine:output_type -> einkauf.v1.DeletePOLineResponse
-	24, // 99: einkauf.v1.EinkaufService.ListPOLines:output_type -> einkauf.v1.ListPOLinesResponse
-	16, // 100: einkauf.v1.EinkaufService.SubmitPO:output_type -> einkauf.v1.POResponse
-	16, // 101: einkauf.v1.EinkaufService.ReceiveGoods:output_type -> einkauf.v1.POResponse
-	16, // 102: einkauf.v1.EinkaufService.PartialReceive:output_type -> einkauf.v1.POResponse
-	31, // 103: einkauf.v1.EinkaufService.ExportPO:output_type -> einkauf.v1.ExportPOResponse
-	38, // 104: einkauf.v1.EinkaufService.ListCatalogItems:output_type -> einkauf.v1.ListCatalogItemsResponse
-	40, // 105: einkauf.v1.EinkaufService.GetCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
-	40, // 106: einkauf.v1.EinkaufService.CreateCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
-	40, // 107: einkauf.v1.EinkaufService.UpdateCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
-	44, // 108: einkauf.v1.EinkaufService.DeleteCatalogItem:output_type -> einkauf.v1.DeleteCatalogItemResponse
-	46, // 109: einkauf.v1.EinkaufService.ListSupplierRatings:output_type -> einkauf.v1.ListSupplierRatingsResponse
-	48, // 110: einkauf.v1.EinkaufService.CreateSupplierRating:output_type -> einkauf.v1.SupplierRatingResponse
-	50, // 111: einkauf.v1.EinkaufService.DeleteSupplierRating:output_type -> einkauf.v1.DeleteSupplierRatingResponse
-	52, // 112: einkauf.v1.EinkaufService.ListFrameworkContracts:output_type -> einkauf.v1.ListFrameworkContractsResponse
-	54, // 113: einkauf.v1.EinkaufService.GetFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
-	54, // 114: einkauf.v1.EinkaufService.CreateFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
-	54, // 115: einkauf.v1.EinkaufService.UpdateFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
-	58, // 116: einkauf.v1.EinkaufService.DeleteFrameworkContract:output_type -> einkauf.v1.DeleteFrameworkContractResponse
-	61, // 117: einkauf.v1.EinkaufService.CreateContractItem:output_type -> einkauf.v1.ContractItemResponse
-	61, // 118: einkauf.v1.EinkaufService.UpdateContractItem:output_type -> einkauf.v1.ContractItemResponse
-	63, // 119: einkauf.v1.EinkaufService.DeleteContractItem:output_type -> einkauf.v1.DeleteContractItemResponse
-	65, // 120: einkauf.v1.EinkaufService.CreateContractCall:output_type -> einkauf.v1.ContractCallResponse
-	67, // 121: einkauf.v1.EinkaufService.ListContractCalls:output_type -> einkauf.v1.ListContractCallsResponse
-	86, // [86:122] is the sub-list for method output_type
-	50, // [50:86] is the sub-list for method input_type
+	27, // 65: einkauf.v1.EinkaufService.CancelPO:input_type -> einkauf.v1.CancelPORequest
+	28, // 66: einkauf.v1.EinkaufService.ReceiveGoods:input_type -> einkauf.v1.ReceiveGoodsRequest
+	30, // 67: einkauf.v1.EinkaufService.PartialReceive:input_type -> einkauf.v1.PartialReceiveRequest
+	31, // 68: einkauf.v1.EinkaufService.ExportPO:input_type -> einkauf.v1.ExportPORequest
+	38, // 69: einkauf.v1.EinkaufService.ListCatalogItems:input_type -> einkauf.v1.ListCatalogItemsRequest
+	40, // 70: einkauf.v1.EinkaufService.GetCatalogItem:input_type -> einkauf.v1.GetCatalogItemRequest
+	42, // 71: einkauf.v1.EinkaufService.CreateCatalogItem:input_type -> einkauf.v1.CreateCatalogItemRequest
+	43, // 72: einkauf.v1.EinkaufService.UpdateCatalogItem:input_type -> einkauf.v1.UpdateCatalogItemRequest
+	44, // 73: einkauf.v1.EinkaufService.DeleteCatalogItem:input_type -> einkauf.v1.DeleteCatalogItemRequest
+	46, // 74: einkauf.v1.EinkaufService.ListSupplierRatings:input_type -> einkauf.v1.ListSupplierRatingsRequest
+	48, // 75: einkauf.v1.EinkaufService.CreateSupplierRating:input_type -> einkauf.v1.CreateSupplierRatingRequest
+	50, // 76: einkauf.v1.EinkaufService.DeleteSupplierRating:input_type -> einkauf.v1.DeleteSupplierRatingRequest
+	52, // 77: einkauf.v1.EinkaufService.ListFrameworkContracts:input_type -> einkauf.v1.ListFrameworkContractsRequest
+	54, // 78: einkauf.v1.EinkaufService.GetFrameworkContract:input_type -> einkauf.v1.GetFrameworkContractRequest
+	56, // 79: einkauf.v1.EinkaufService.CreateFrameworkContract:input_type -> einkauf.v1.CreateFrameworkContractRequest
+	57, // 80: einkauf.v1.EinkaufService.UpdateFrameworkContract:input_type -> einkauf.v1.UpdateFrameworkContractRequest
+	58, // 81: einkauf.v1.EinkaufService.DeleteFrameworkContract:input_type -> einkauf.v1.DeleteFrameworkContractRequest
+	60, // 82: einkauf.v1.EinkaufService.CreateContractItem:input_type -> einkauf.v1.CreateContractItemRequest
+	61, // 83: einkauf.v1.EinkaufService.UpdateContractItem:input_type -> einkauf.v1.UpdateContractItemRequest
+	63, // 84: einkauf.v1.EinkaufService.DeleteContractItem:input_type -> einkauf.v1.DeleteContractItemRequest
+	65, // 85: einkauf.v1.EinkaufService.CreateContractCall:input_type -> einkauf.v1.CreateContractCallRequest
+	67, // 86: einkauf.v1.EinkaufService.ListContractCalls:input_type -> einkauf.v1.ListContractCallsRequest
+	8,  // 87: einkauf.v1.EinkaufService.CreateSupplier:output_type -> einkauf.v1.SupplierResponse
+	8,  // 88: einkauf.v1.EinkaufService.UpdateSupplier:output_type -> einkauf.v1.SupplierResponse
+	6,  // 89: einkauf.v1.EinkaufService.DeleteSupplier:output_type -> einkauf.v1.DeleteSupplierResponse
+	8,  // 90: einkauf.v1.EinkaufService.GetSupplier:output_type -> einkauf.v1.SupplierResponse
+	10, // 91: einkauf.v1.EinkaufService.ListSuppliers:output_type -> einkauf.v1.ListSuppliersResponse
+	16, // 92: einkauf.v1.EinkaufService.CreatePO:output_type -> einkauf.v1.POResponse
+	16, // 93: einkauf.v1.EinkaufService.UpdatePO:output_type -> einkauf.v1.POResponse
+	14, // 94: einkauf.v1.EinkaufService.DeletePO:output_type -> einkauf.v1.DeletePOResponse
+	16, // 95: einkauf.v1.EinkaufService.GetPO:output_type -> einkauf.v1.POResponse
+	18, // 96: einkauf.v1.EinkaufService.ListPOs:output_type -> einkauf.v1.ListPOsResponse
+	25, // 97: einkauf.v1.EinkaufService.AddPOLine:output_type -> einkauf.v1.POLineResponse
+	25, // 98: einkauf.v1.EinkaufService.UpdatePOLine:output_type -> einkauf.v1.POLineResponse
+	22, // 99: einkauf.v1.EinkaufService.DeletePOLine:output_type -> einkauf.v1.DeletePOLineResponse
+	24, // 100: einkauf.v1.EinkaufService.ListPOLines:output_type -> einkauf.v1.ListPOLinesResponse
+	16, // 101: einkauf.v1.EinkaufService.SubmitPO:output_type -> einkauf.v1.POResponse
+	16, // 102: einkauf.v1.EinkaufService.CancelPO:output_type -> einkauf.v1.POResponse
+	16, // 103: einkauf.v1.EinkaufService.ReceiveGoods:output_type -> einkauf.v1.POResponse
+	16, // 104: einkauf.v1.EinkaufService.PartialReceive:output_type -> einkauf.v1.POResponse
+	32, // 105: einkauf.v1.EinkaufService.ExportPO:output_type -> einkauf.v1.ExportPOResponse
+	39, // 106: einkauf.v1.EinkaufService.ListCatalogItems:output_type -> einkauf.v1.ListCatalogItemsResponse
+	41, // 107: einkauf.v1.EinkaufService.GetCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
+	41, // 108: einkauf.v1.EinkaufService.CreateCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
+	41, // 109: einkauf.v1.EinkaufService.UpdateCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
+	45, // 110: einkauf.v1.EinkaufService.DeleteCatalogItem:output_type -> einkauf.v1.DeleteCatalogItemResponse
+	47, // 111: einkauf.v1.EinkaufService.ListSupplierRatings:output_type -> einkauf.v1.ListSupplierRatingsResponse
+	49, // 112: einkauf.v1.EinkaufService.CreateSupplierRating:output_type -> einkauf.v1.SupplierRatingResponse
+	51, // 113: einkauf.v1.EinkaufService.DeleteSupplierRating:output_type -> einkauf.v1.DeleteSupplierRatingResponse
+	53, // 114: einkauf.v1.EinkaufService.ListFrameworkContracts:output_type -> einkauf.v1.ListFrameworkContractsResponse
+	55, // 115: einkauf.v1.EinkaufService.GetFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
+	55, // 116: einkauf.v1.EinkaufService.CreateFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
+	55, // 117: einkauf.v1.EinkaufService.UpdateFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
+	59, // 118: einkauf.v1.EinkaufService.DeleteFrameworkContract:output_type -> einkauf.v1.DeleteFrameworkContractResponse
+	62, // 119: einkauf.v1.EinkaufService.CreateContractItem:output_type -> einkauf.v1.ContractItemResponse
+	62, // 120: einkauf.v1.EinkaufService.UpdateContractItem:output_type -> einkauf.v1.ContractItemResponse
+	64, // 121: einkauf.v1.EinkaufService.DeleteContractItem:output_type -> einkauf.v1.DeleteContractItemResponse
+	66, // 122: einkauf.v1.EinkaufService.CreateContractCall:output_type -> einkauf.v1.ContractCallResponse
+	68, // 123: einkauf.v1.EinkaufService.ListContractCalls:output_type -> einkauf.v1.ListContractCallsResponse
+	87, // [87:124] is the sub-list for method output_type
+	50, // [50:87] is the sub-list for method input_type
 	50, // [50:50] is the sub-list for extension type_name
 	50, // [50:50] is the sub-list for extension extendee
 	0,  // [0:50] is the sub-list for field type_name
@@ -5596,24 +5655,24 @@ func file_proto_einkauf_v1_einkauf_proto_init() {
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[17].OneofWrappers = []any{}
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[20].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[33].OneofWrappers = []any{}
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[34].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[36].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[35].OneofWrappers = []any{}
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[37].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[42].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[47].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[51].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[55].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[38].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[43].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[48].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[52].OneofWrappers = []any{}
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[56].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[60].OneofWrappers = []any{}
-	file_proto_einkauf_v1_einkauf_proto_msgTypes[64].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[57].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[61].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[65].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_einkauf_v1_einkauf_proto_rawDesc), len(file_proto_einkauf_v1_einkauf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   68,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
