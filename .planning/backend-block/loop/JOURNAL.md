@@ -1824,3 +1824,5 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   - Naechste freie Unit: **`p3-route-path-drift-triage`** (neu, todo).
     `p3-berichte-share-token` haengt weiter am blockierten
     `p3-berichte-server-pdf`.
+
+- iteration 23 commit: `d78f9176`
