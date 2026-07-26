@@ -841,7 +841,7 @@ units:
     service: produktion
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 25 — Ext-Routen im bestehenden Block gemountet, Routing-Test pinnt es
     scope: >
       `ProduktionRoutes.RegisterExtRoutes` (route_produktion_ext.go:17) hat im
       ganzen Repo keinen einzigen Aufrufer — obwohl der eigene Doc-Kommentar
@@ -863,6 +863,20 @@ units:
       in einen chi-Panic ("routing pattern already exists") laeuft; notfalls
       die Ext-Subrouten in den bestehenden Block ziehen statt zweimal zu
       mounten.
+      ERLEDIGT Iteration 25. Genau der Notfall-Pfad wurde genommen: die
+      Ext-Routen sind jetzt relativ und werden aus RegisterRoutes im
+      bestehenden `/api/v1/produktion`-Block registriert — ein zweiter Mount
+      waere ein chi-Panic gewesen, und ausserhalb des Blocks haetten die Routen
+      weder authMiddleware noch RequireAuthenticated gesehen. Die
+      WorkStep-Routen liegen getrennt (`registerWorkStepRoutes`) und werden von
+      innerhalb des `/orders`-Blocks gemountet, weil `/orders` dort bereits ein
+      Mount-Punkt ist. Parametername bleibt `orderId` (Handler lesen ihn so,
+      Spec dokumentiert ihn so) — chi teilt sich den Knoten mit `{id}`, der
+      Name kommt vom gematchten Endpoint; ein neuer Test pinnt das per
+      `r.Match` mit Parameter-Erwartung statt es anzunehmen. openapi.yaml
+      unveraendert. Nebenbefund: Migration 000191 vergibt die acht
+      produktion-ext-Permissions NUR an `admin` — Manager laufen auf den jetzt
+      erreichbaren Routen in 403; Rollenzuschnitt ist Phase-1-Scope (Luke).
     done_when:
       - Ext-Routen sind im gewalkten Router enthalten (Test statt Annahme)
       - Kein chi-Panic beim Registrieren, gateway-Tests gruen

@@ -1979,3 +1979,80 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     der drei Verdrahtungen, Permissions sind bereits geseedet.
 
 - iteration 24 commit: `a3263086`
+
+---
+
+## Iteration 25 — 2026-07-27 — p3-gateway-wire-produktion-ext
+
+- verify-vorspann (Iteration 24, `a3263086`): gruen. Reine Doku-Iteration —
+  `git show --stat` zeigt ausschliesslich `BACKLOG.yml` und `JOURNAL.md`, kein
+  Produktivcode, keine Migration, kein Proto, keine Route. Der temporaere
+  Dump-Test ist tatsaechlich geloescht (`route_dump_test.go` existiert nicht,
+  `git status` sauber). Nichts nachzutragen.
+- Unit: `p3-gateway-wire-produktion-ext` — erste der drei Verdrahtungs-Units
+  aus der Triage von Iteration 24.
+- **Befund bestaetigt:** `ProduktionRoutes.RegisterExtRoutes` hatte im ganzen
+  Repo keinen Aufrufer. BOM, WorkStep, Machine und QualityCheck waren
+  vollstaendig gebaut — Repo (`postgres_repository_ext.go`), Service
+  (`service_ext.go`), gRPC-Server (`produktion_grpc_ext.go`), Gateway-Handler
+  (`route_produktion_ext.go`), openapi.yaml-Eintraege (8 Pfadschluessel),
+  Tabellen (Migration 000187) und Permission-Seeds (Migration 000191). Nur der
+  Mount fehlte, also waren alle 17 Endpoints ein 404. `produktion-client.ts`
+  ruft genau diese Pfade — verifiziert, `${BASE}/boms`, `/orders/{id}/steps`,
+  `/machines`, `/quality` decken sich 1:1 mit den jetzt registrierten Mustern.
+- **Entscheidung zum Mount.** `RegisterExtRoutes` oeffnete ein eigenes
+  `r.Route("/api/v1/produktion", …)`. Ein zweiter Mount auf denselben Pfad ist
+  bei chi ein Panic ("attempting to Mount() a handler on an existing path"),
+  und ausserhalb des bestehenden Blocks haetten die Routen ausserdem weder
+  `authMiddleware` noch `RequireAuthenticated` gesehen — `RequirePermission`
+  allein haette dann auf einen Request ohne Identitaet geschaut. Darum sind die
+  Ext-Routen jetzt **relativ** und werden aus `RegisterRoutes` heraus im
+  bestehenden Block registriert; sie erben Flag-Gate, Auth und
+  Tenant-Kontext der Nachbarn. Funktion umbenannt zu `registerExtRoutes` (klein),
+  weil es keinen externen Aufrufer mehr gibt und geben soll.
+- **Die WorkStep-Routen sind bewusst getrennt** (`registerWorkStepRoutes`):
+  `/orders` ist im Hauptblock bereits ein Mount-Punkt, und
+  `/orders/{orderId}/steps` von aussen daneben zu mounten landet in derselben
+  chi-Teilstruktur. Sie werden darum von *innerhalb* des `/orders`-Blocks
+  registriert. Der Parametername bleibt `orderId` (nicht `id` wie beim
+  Nachbarn `/orders/{id}`) — das ist kein Schoenheitsfehler, sondern Absicht:
+  die Handler lesen `validateUUIDParam(w, r, "orderId")`, und `openapi.yaml`
+  dokumentiert die Pfadschluessel mit `{orderId}`. Der Drift-Test vergleicht
+  Zeichenketten, ein Umbenennen haette also Spec plus Handler gekostet, ohne
+  dass sich die URL aendert. **openapi.yaml bleibt unveraendert.**
+- chi teilt sich `{id}` und `{orderId}` an derselben Parameterposition (die
+  Knoten werden nach Label und Tail gesucht, nicht nach Namen; der Name kommt
+  vom gematchten Endpoint). Das funktioniert, ist aber genau die Stelle, an der
+  eine Annahme teuer waere — deshalb pinnt der neue Test nicht nur die
+  Registrierung, sondern das Routing: `r.Match` gegen sechs konkrete Pfade,
+  jeweils mit Erwartung an den aufgeloesten Parameter (`orderId`+`stepId` fuer
+  die Steps, `id` fuer `/orders/{id}` und `/orders/{id}/start`).
+- **Falsifikation, nicht nur "gruen":** Aufrufe testweise entfernt →
+  `TestProduktionExtRoutes_Registered` meldet alle 17 Muster als fehlend,
+  `…_MatchAgainstOrderSubtree` findet keine Route fuer Steps und BOMs;
+  Zustand danach wiederhergestellt. Der Test schuetzt also wirklich gegen genau
+  den Zustand, der jahrelang unbemerkt blieb.
+- Permission-Seeds gegengeprueft statt geglaubt: Migration 000191 legt die acht
+  `produktion:{bom,machine,quality,workstep}:{read,write}`-Permissions an. Sie
+  gehen dort allerdings **nur an die Rolle `admin`** — `manager` und `member`
+  bekommen sie nicht. Das ist Bestand aus 000191 und keine Folge dieser Unit,
+  aber ab jetzt sichtbar: ein Manager bekommt auf den frisch erreichbaren
+  Routen 403 statt 404. Notiert fuer Lukes RBAC-Phase, hier bewusst nicht
+  angefasst (Rollenzuschnitt ist Phase-1-Scope).
+- gate: `go build ./...` gruen, `go vet ./internal/gateway/...` gruen,
+  `golangci-lint run ./internal/gateway/...` 0 issues,
+  `go test ./internal/gateway/... -count=1` gruen inklusive
+  `TestOpenAPIRouteDrift` (die Ext-Pfade sind jetzt registriert *und*
+  dokumentiert — der Drift-Test bleibt gruen, weil die Spec sie schon kannte).
+  Keine Migration, kein Proto, keine neue Dependency, kein Deploy-Hazard.
+- offen / fuer Luke:
+  - Rollen-Zuschnitt der acht produktion-ext-Permissions (nur `admin`) — s.o.
+  - Naechste freie Unit: `p3-gateway-wire-datev-upload` (Verdrahtung 2 von 3;
+    dort ist zusaetzlich zu pruefen, ob ein leeres `stateSecret` einen
+    OAuth-State faelschlich als gueltig durchgehen laesst).
+  - Unveraendert offen aus frueheren Iterationen: `p3-fe-only-features-scope-
+    decision` wartet auf Lukes Entscheid; HR-Status als Enum-Zahl gegen den
+    String-lesenden FE-Adapter; Modul-Aktivierung wird nicht durchgesetzt
+    (Iteration 20); `platform_admin` haelt niemand (Iteration 21); lokale
+    `deploy/docker/.env` laeuft als Superuser `kmuhub` statt `kmuhub_app`,
+    darum drei HR-RLS-Tests dauerhaft rot.
