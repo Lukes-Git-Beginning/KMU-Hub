@@ -208,3 +208,68 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   `/documents/files/{id}/activity`-Endpoint ist eine echte Feature-Luecke,
   aktuell nicht im BACKLOG.yml als eigene Unit erfasst — ggf. nachtragen,
   falls die Activity-Timeline im Dokumente-Modul Prioritaet bekommt.
+
+## Iteration 5 — p3-helpdesk-wire-ticket — done — 2026-07-26 20:12
+
+- commit: - (keine Code-Aenderung, nur BACKLOG.yml/JOURNAL.md)
+- verify vorgaenger: sauber. `f9aa3752` (document wire-shape) gegen alle
+  sieben Klassen geprueft: keine gRPC-Umgehung, kein Proto-Touch, keine neue
+  Tabelle/Guard/Route — reine Response-Serialisierung, Diff bestaetigt es.
+- gebaut: nichts — Unit war bereits vollstaendig umgesetzt, lange bevor
+  backend-gaps.md/BACKLOG.yml geschrieben wurden. Commit `d2473afb` (2026-06-28,
+  "feat(helpdesk): denormalize assignee/requester names, add
+  description/category/ticket_number") deckt beide Units
+  `p3-helpdesk-wire-ticket` UND `p3-helpdesk-ticket-number` vollstaendig ab:
+  - `Ticket`-Proto traegt `assignee_name` (optional), `requester_name`,
+    `description`, `category`, `ticket_number` (helpdesk.proto:86-92),
+    .pb.go im selben Commit regeneriert.
+  - `ticketSelectColumns` in postgres_repository.go joint per `LEFT JOIN
+    users` auf assignee_id/requester_id, COALESCEd auf Vor-/Nachname dann
+    E-Mail; nicht aufloesbare Referenz (NULL-Assignee oder RLS-gefilterter
+    Fremd-User) liefert leeren/optionalen Namen statt Fehler — kein Crash-Pfad.
+  - `assignee_id` ist DB-seitig UUID-typisiert (000077) und am Gateway
+    `validate:"omitempty,uuid"` — die im Backlog vermerkte "Vorbestand"-Sorge
+    (Freitext-Namen als assignee_id) ist mit dem heutigen Code-Stand nicht
+    mehr zutreffend.
+  - Migration `000236_helpdesk_ticket_fields`: neue Spalten +
+    `helpdesk_ticket_counters` (RLS aktiv), Bestandstickets per
+    `ROW_NUMBER() OVER (PARTITION BY tenant_id ...)` rueckwirkend
+    nummeriert, Counter korrekt geseeded, up/down beide gefuellt.
+    `CreateTicket` alloziert die naechste Nummer atomar per
+    `INSERT ... ON CONFLICT DO UPDATE ... RETURNING next_number - 1`.
+  - Lokaler Migrationskopf ist 243 = Repo-Kopf, 000236 ist also seit langem
+    angewendet.
+  Habe beide Units in BACKLOG.yml auf `done` gesetzt und die Begruendung dort
+  hinterlegt, statt sie stumm abgearbeitet zu lassen — sonst haette eine
+  spaetere Iteration hier nochmal recherchiert und nichts zu bauen gefunden.
+- gate: build ok (`go build -p 2 ./internal/helpdesk/... ./internal/gateway/...
+  ./cmd/helpdesk/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues,
+  `./internal/helpdesk/... ./internal/gateway/...`) | test ok
+  (`go test ./internal/helpdesk/...`, `go test ./internal/gateway/...`) |
+  migration ok (Kopf 243 = Repo-Kopf, 000236 bereits angewendet) | rls-smoke
+  ok — manuell nachgezogen (siehe unten), da die vorhandenen DB-Tests
+  (`TestTenantIsolation_Helpdesk`, `TestTenantIsolation_TicketMessages_DB`)
+  lokal grundsaetzlich nicht aussagekraeftig sind (siehe offen).
+- rls-smoke Detail (psql, `kmuhub` → `SET ROLE kmuhub_app`, Testzeile
+  eingefuegt und wieder geloescht): eigener Tenant
+  (`00000000-0000-0000-0000-000000000001`) → 1 Zeile, fremder Tenant
+  (`...ff`) → 0 Zeilen. Bestanden.
+- offen: **Lokale DB-Tests mit RLS-Anspruch sind aktuell blind.**
+  `deploy/docker/.env` setzt `DATABASE_URL` UND `MIGRATION_DATABASE_URL` auf
+  die Superuser-Rolle `kmuhub` — Postgres-Superuser umgehen RLS immer,
+  unabhaengig von `FORCE ROW LEVEL SECURITY`. Dadurch liefern
+  `TestTenantIsolation_Helpdesk` und `TestTenantIsolation_TicketMessages_DB`
+  (und vermutlich alle `*_DB`-Tests in anderen Paketen, die `testutil.
+  PoolFromEnv` nutzen) lokal fuer JEDE Tabelle "expected 0, got 1" — nicht
+  weil RLS kaputt ist, sondern weil der Testlauf nie mit `kmuhub_app`
+  verbindet. In CI ist das korrekt verdrahtet (`ci.yml` setzt dort
+  `kmuhub_app:app_dev@.../kmuhub_test`), daher faellt es dort nicht auf.
+  Habe versucht, lokal explizit `DATABASE_URL=postgres://kmuhub_app:app_dev@
+  localhost:5432/kmuhub` zu setzen — Passwort `app_dev` (aus Migration
+  000121-Kommentar "Lokal-Dev nutzt 'app_dev'") schlaegt fehl
+  (`password authentication failed`), das lokale Compose-Postgres hat
+  offenbar ein abweichendes Passwort fuer `kmuhub_app`. Fuer Luke: entweder
+  `ALTER ROLE kmuhub_app PASSWORD 'app_dev'` lokal nachziehen, oder das
+  tatsaechliche lokale Passwort in GATE-COMMANDS.md dokumentieren — sonst
+  bleibt jede zukuenftige `*_DB`-Testverifikation in diesem Loop auf den
+  manuellen psql-`SET ROLE`-Umweg angewiesen.

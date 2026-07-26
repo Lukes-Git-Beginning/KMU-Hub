@@ -128,7 +128,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       WireTicket liefert nur assignee_id/requester_id als UUID, keine Namen —
       die Ticket-Liste rendert rohe UUIDs in "Zugewiesen an", und ein
@@ -141,10 +141,8 @@ units:
       - backend/internal/helpdesk/
       - backend/internal/gateway/route_helpdesk.go
     notes: >
-      Proto-Touch am WireTicket -> im selben Commit regenerieren. Achtung
-      Vorbestand: der Assign-Flow schreibt heute Agent-NAMEN als assignee_id
-      (Freitext). Beim Join auf users darauf gefasst sein und den Fall sauber
-      behandeln statt zu crashen.
+      War bei Backlog-Erstellung bereits erledigt (Commit d2473afb,
+      2026-06-28, vor backend-gaps.md-Audit) — siehe Iteration 5 im Journal.
     done_when:
       - WireTicket traegt assignee_name, requester_name, description, category
       - Join laeuft tenant-gescoped
@@ -157,7 +155,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: [p3-helpdesk-wire-ticket]
-    status: todo
+    status: done
     scope: >
       Es gibt kein ticket_number-Feld. Das FE bastelt eine Pseudo-Nummer aus
       den ersten vier Hex-Zeichen der UUID (HD-YYYY-NNNN) — kollisionsanfaellig.
@@ -167,9 +165,8 @@ units:
       - .planning/backend-gaps.md:142
       - backend/internal/helpdesk/
     notes: >
-      Migration noetig (Nummer zur Laufzeit ermitteln). Pro Tenant fortlaufend,
-      nicht global — die Sequenz muss tenant-gescoped und luecken-tolerant sein.
-      Bestandstickets ruckwirkend nummerieren.
+      War bei Backlog-Erstellung bereits erledigt (Commit d2473afb,
+      2026-06-28, vor backend-gaps.md-Audit) — siehe Iteration 5 im Journal.
     done_when:
       - Neue Tickets bekommen eine fortlaufende Nummer pro Tenant
       - Bestandstickets sind nummeriert
