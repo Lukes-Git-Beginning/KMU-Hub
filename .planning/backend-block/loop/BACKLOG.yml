@@ -384,7 +384,7 @@ units:
     service: berichte
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Echter KPI-Service statt vorberechneter Platzhalter — Kennzahlen aus den
       echten Modul-Tabellen aggregieren.
@@ -396,6 +396,22 @@ units:
       Tenant-Isolation Entwurfsarbeit ist, keine Mechanik. Jede Aggregat-Query
       muss tenant-gescoped sein — ein vergessener Scope ist hier ein Datenleck
       ueber Tenant-Grenzen, kein Anzeigefehler.
+      ERLEDIGT Iteration 12. Kern des Befundes: der Executor hatte zwar eine
+      KPI-Ableitung, `cmd/berichte` wirete aber `executor.Deps{}` — alle
+      Downstream-Repos nil, also lieferte `GET /berichte/kpis` produktiv immer
+      eine leere Liste. Entscheidungen: (a) EIN neues Interface `KPIRepo`
+      (Snapshot pro Periode) statt der vier vollen Report-Repos — die
+      Report-Kinds bleiben bewusst auf "downstream_not_available", das ist eine
+      eigene Unit. (b) Neues Package `internal/berichte/downstream` mit einer
+      Query ueber vier Modul-Tabellen; der Executor bleibt pgx-frei.
+      (c) Helpdesk-KPI von "Ersantwort-SLA %" auf "Offene Tickets" gewechselt
+      (`lean:`-Marker) — die SLA-Quote braucht Policy-Ziele pro Queue.
+      (d) change_percent gegen denselben Zeitraum des Vormonats, damit
+      backend-gaps.md:234 mitgeschlossen ist; Bestands-KPIs werden dafuer zum
+      Perioden-Ende rekonstruiert, stock_warnings hat keine Historie und traegt
+      darum keinen Trend. NICHT enthalten: die Filterung der KPI-Liste nach den
+      Modul-Rechten des Users (backend-gaps.md:92) — das braucht das
+      RBAC-Fundament aus Phase 1 und gehoert nach Phase 2.
     done_when:
       - KPIs kommen aus echten Tabellen
       - Jede Aggregat-Query tenant-gescoped

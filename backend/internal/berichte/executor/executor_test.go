@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
 )
@@ -71,6 +72,31 @@ type mockInventar struct {
 
 func (m *mockInventar) GetStockWarnings(_ context.Context, _ uuid.UUID) ([]StockWarning, error) {
 	return m.warnings, m.err
+}
+
+type kpiCall struct {
+	tenantID uuid.UUID
+	from, to time.Time
+}
+
+// mockKPI answers snapshot calls in order: first the current period, then the
+// previous one.
+type mockKPI struct {
+	snapshots []*KPISnapshot
+	errs      []error
+	calls     []kpiCall
+}
+
+func (m *mockKPI) KPISnapshot(_ context.Context, tenantID uuid.UUID, from, to time.Time) (*KPISnapshot, error) {
+	i := len(m.calls)
+	m.calls = append(m.calls, kpiCall{tenantID: tenantID, from: from, to: to})
+	if i < len(m.errs) && m.errs[i] != nil {
+		return nil, m.errs[i]
+	}
+	if i >= len(m.snapshots) {
+		return &KPISnapshot{}, nil
+	}
+	return m.snapshots[i], nil
 }
 
 type mockDatev struct {
@@ -407,38 +433,127 @@ func TestRun_DatevBWA_NoBridge(t *testing.T) {
 // Tests: DashboardKPIs
 // ============================================================================
 
+func kpiByID(kpis []berichte.KPI, id string) *berichte.KPI {
+	for i := range kpis {
+		if kpis[i].ID == id {
+			return &kpis[i]
+		}
+	}
+	return nil
+}
+
 func TestDashboardKPIs_AllModulesPopulated(t *testing.T) {
-	finance := &mockFinance{
-		revenue: []MonthlyRevenue{{Month: time.Now(), Revenue: 5000, InvoiceCnt: 3}},
-	}
-	crm := &mockCRM{
-		pipeline: &CRMPipelineReport{Stages: []CRMPipelineStage{{Stage: "Lead", Volume: 10000}}},
-	}
-	hd := &mockHelpdesk{
-		report: &HelpdeskSLAReport{
-			Queues: []HelpdeskSLARow{{Queue: "a", FirstResponsePct: 0.9}, {Queue: "b", FirstResponsePct: 0.8}},
+	repo := &mockKPI{
+		snapshots: []*KPISnapshot{
+			{Revenue: decimal.NewFromInt(5000), PipelineVolume: decimal.NewFromInt(10000), OpenTickets: 12, StockWarnings: 3},
+			{Revenue: decimal.NewFromInt(4000), PipelineVolume: decimal.NewFromInt(8000), OpenTickets: 15, StockWarnings: 3},
 		},
 	}
-	inv := &mockInventar{warnings: []StockWarning{{SKU: "x"}}}
 
-	exec := newTestExecutor(Deps{Finance: finance, CRMReports: crm, Helpdesk: hd, Inventar: inv})
+	exec := newTestExecutor(Deps{KPI: repo})
 	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(kpis) != 4 {
-		t.Errorf("expected 4 KPIs, got %d", len(kpis))
+		t.Fatalf("expected 4 KPIs, got %d", len(kpis))
+	}
+
+	revenue := kpiByID(kpis, "revenue_current_month")
+	if revenue == nil || revenue.Value != "5000.00" || revenue.Unit != "EUR" {
+		t.Fatalf("unexpected revenue KPI: %+v", revenue)
+	}
+	if revenue.ChangePercent == nil || *revenue.ChangePercent != 25 {
+		t.Errorf("expected revenue change +25%%, got %v", revenue.ChangePercent)
+	}
+
+	tickets := kpiByID(kpis, "open_tickets")
+	if tickets == nil || tickets.Value != "12" {
+		t.Fatalf("unexpected tickets KPI: %+v", tickets)
+	}
+	if tickets.ChangePercent == nil || *tickets.ChangePercent != -20 {
+		t.Errorf("expected tickets change -20%%, got %v", tickets.ChangePercent)
+	}
+
+	// stock_warnings has no history, so it must not claim a trend.
+	stock := kpiByID(kpis, "stock_warnings_count")
+	if stock == nil || stock.Value != "3" {
+		t.Fatalf("unexpected stock KPI: %+v", stock)
+	}
+	if stock.ChangePercent != nil {
+		t.Errorf("expected no change_percent for stock warnings, got %v", *stock.ChangePercent)
+	}
+}
+
+func TestDashboardKPIs_ComparesAgainstSameSpanOfPreviousMonth(t *testing.T) {
+	repo := &mockKPI{snapshots: []*KPISnapshot{{}, {}}}
+	exec := newTestExecutor(Deps{KPI: repo}) // clock: 2026-04-18 12:00 UTC
+
+	if _, err := exec.DashboardKPIs(context.Background(), testTenant, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(repo.calls) != 2 {
+		t.Fatalf("expected 2 snapshot calls, got %d", len(repo.calls))
+	}
+
+	cur, prev := repo.calls[0], repo.calls[1]
+	if cur.tenantID != testTenant || prev.tenantID != testTenant {
+		t.Errorf("snapshots must stay tenant-scoped, got %v / %v", cur.tenantID, prev.tenantID)
+	}
+	wantCurFrom := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	if !cur.from.Equal(wantCurFrom) {
+		t.Errorf("current period starts %v, want %v", cur.from, wantCurFrom)
+	}
+	wantPrevFrom := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	wantPrevTo := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
+	if !prev.from.Equal(wantPrevFrom) || !prev.to.Equal(wantPrevTo) {
+		t.Errorf("previous period %v..%v, want %v..%v", prev.from, prev.to, wantPrevFrom, wantPrevTo)
+	}
+}
+
+// A 31-day month must not let the comparison window bleed into the current one.
+func TestDashboardKPIs_PreviousPeriodClampedToMonthStart(t *testing.T) {
+	repo := &mockKPI{snapshots: []*KPISnapshot{{}, {}}}
+	exec := newTestExecutor(Deps{
+		KPI:   repo,
+		Clock: &fixedClock{t: time.Date(2026, 3, 31, 23, 0, 0, 0, time.UTC)},
+	})
+
+	if _, err := exec.DashboardKPIs(context.Background(), testTenant, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	marchStart := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	if got := repo.calls[1].to; got.After(marchStart) {
+		t.Errorf("previous period ends %v, must not pass %v", got, marchStart)
+	}
+}
+
+func TestDashboardKPIs_ZeroBaselineHasNoChange(t *testing.T) {
+	repo := &mockKPI{
+		snapshots: []*KPISnapshot{
+			{Revenue: decimal.NewFromInt(500)},
+			{Revenue: decimal.Zero},
+		},
+	}
+	exec := newTestExecutor(Deps{KPI: repo})
+
+	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, []string{"finanzen"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := kpis[0].ChangePercent; got != nil {
+		t.Errorf("expected no change against a zero baseline, got %v", *got)
 	}
 }
 
 func TestDashboardKPIs_ModuleFilter(t *testing.T) {
-	finance := &mockFinance{
-		revenue: []MonthlyRevenue{{Month: time.Now(), Revenue: 100, InvoiceCnt: 1}},
+	repo := &mockKPI{
+		snapshots: []*KPISnapshot{
+			{Revenue: decimal.NewFromInt(100), PipelineVolume: decimal.NewFromInt(200)},
+			{Revenue: decimal.NewFromInt(100), PipelineVolume: decimal.NewFromInt(200)},
+		},
 	}
-	crm := &mockCRM{
-		pipeline: &CRMPipelineReport{Stages: []CRMPipelineStage{{Stage: "Lead", Volume: 200}}},
-	}
-	exec := newTestExecutor(Deps{Finance: finance, CRMReports: crm})
+	exec := newTestExecutor(Deps{KPI: repo})
 	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, []string{"finanzen"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -448,14 +563,46 @@ func TestDashboardKPIs_ModuleFilter(t *testing.T) {
 	}
 }
 
-func TestDashboardKPIs_MissingDepsNoCrash(t *testing.T) {
+func TestDashboardKPIs_MissingRepoNoCrash(t *testing.T) {
 	exec := newTestExecutor(Deps{})
 	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if kpis == nil {
+		t.Fatal("expected an empty slice, not nil — the wire shape must stay []")
+	}
 	if len(kpis) != 0 {
-		t.Errorf("expected 0 KPIs when deps missing, got %d", len(kpis))
+		t.Errorf("expected 0 KPIs without a KPI repo, got %d", len(kpis))
+	}
+}
+
+func TestDashboardKPIs_CurrentSnapshotErrorFails(t *testing.T) {
+	repo := &mockKPI{errs: []error{errors.New("boom")}}
+	exec := newTestExecutor(Deps{KPI: repo})
+
+	if _, err := exec.DashboardKPIs(context.Background(), testTenant, nil); err == nil {
+		t.Fatal("expected an error when the current snapshot fails")
+	}
+}
+
+// Losing only the comparison must not cost the user the numbers themselves.
+func TestDashboardKPIs_PreviousSnapshotErrorStillServesKPIs(t *testing.T) {
+	repo := &mockKPI{
+		snapshots: []*KPISnapshot{{Revenue: decimal.NewFromInt(700)}, nil},
+		errs:      []error{nil, errors.New("boom")},
+	}
+	exec := newTestExecutor(Deps{KPI: repo})
+
+	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, []string{"finanzen"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(kpis) != 1 || kpis[0].Value != "700.00" {
+		t.Fatalf("unexpected KPIs: %+v", kpis)
+	}
+	if kpis[0].ChangePercent != nil {
+		t.Errorf("expected no change_percent without a previous snapshot, got %v", *kpis[0].ChangePercent)
 	}
 }
 

@@ -19,9 +19,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
 )
@@ -162,6 +165,27 @@ type DatevBridge interface {
 	GetBWAData(ctx context.Context, tenantID uuid.UUID, from, to time.Time) (*BWAData, error)
 }
 
+// KPISnapshot holds the raw cross-module aggregates behind the dashboard KPIs,
+// measured for one period. Monetary values are decimals, not float64: the sums
+// are computed in Postgres and scanned as text (ADR-0007).
+//
+// Revenue is a flow value — what was invoiced within [from, to]. PipelineVolume
+// and OpenTickets are stock values measured as of `to`, which is what makes a
+// previous-period snapshot comparable at all. StockWarnings has no history (the
+// row status is mutated in place), so it is always "now" and carries no change.
+type KPISnapshot struct {
+	Revenue        decimal.Decimal
+	PipelineVolume decimal.Decimal
+	OpenTickets    int
+	StockWarnings  int
+}
+
+// KPIRepo aggregates the dashboard KPIs straight from the module tables. Every
+// query it runs must be tenant-scoped on top of RLS.
+type KPIRepo interface {
+	KPISnapshot(ctx context.Context, tenantID uuid.UUID, from, to time.Time) (*KPISnapshot, error)
+}
+
 // ============================================================================
 // Executor
 // ============================================================================
@@ -184,17 +208,19 @@ type Deps struct {
 	Helpdesk    HelpdeskRepo
 	Inventar    InventarRepo
 	DatevBridge DatevBridge
+	KPI         KPIRepo
 	Clock       Clock
 }
 
 // Executor runs aggregations based on a Definition's query_config.kind.
 type Executor struct {
-	finance   FinanceRepo
-	crm       CRMReportsRepo
-	helpdesk  HelpdeskRepo
-	inventar  InventarRepo
-	datev     DatevBridge
-	clock     Clock
+	finance  FinanceRepo
+	crm      CRMReportsRepo
+	helpdesk HelpdeskRepo
+	inventar InventarRepo
+	datev    DatevBridge
+	kpi      KPIRepo
+	clock    Clock
 }
 
 // New creates a new executor. The caller owns the downstream lifetimes.
@@ -209,6 +235,7 @@ func New(deps Deps) *Executor {
 		helpdesk: deps.Helpdesk,
 		inventar: deps.Inventar,
 		datev:    deps.DatevBridge,
+		kpi:      deps.KPI,
 		clock:    clk,
 	}
 }
@@ -289,11 +316,22 @@ func (e *Executor) Run(ctx context.Context, def *berichte.Definition, _ json.Raw
 	}
 }
 
-// DashboardKPIs produces a compact KPI list for the berichte dashboard. The
-// initial implementation derives four cross-module KPIs from the available
-// downstream repositories; missing repositories yield zero-value KPIs so the
-// dashboard stays predictable.
+// DashboardKPIs produces a compact KPI list for the berichte dashboard, read
+// from the module tables through the KPI repository. Each KPI carries a
+// change_percent against the same span of the previous month where a
+// comparison is meaningful.
+//
+// Without a wired KPI repository the dashboard shows no cards rather than
+// fabricated ones — same graceful-degradation stance as the report kinds.
 func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, modules []string) ([]berichte.KPI, error) {
+	out := make([]berichte.KPI, 0, 4)
+
+	if e.kpi == nil {
+		slog.WarnContext(ctx, "berichte: dashboard KPIs requested without a KPI repository",
+			"tenant_id", tenantID)
+		return out, nil
+	}
+
 	active := make(map[string]bool, len(modules))
 	for _, m := range modules {
 		active[m] = true
@@ -303,75 +341,103 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 		active = map[string]bool{"finanzen": true, "crm": true, "helpdesk": true, "inventar": true}
 	}
 
-	var out []berichte.KPI
+	now := e.clock.Now()
+	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
-	if active["finanzen"] && e.finance != nil {
-		from, to := e.periodRange("current_month")
-		rows, err := e.finance.GetRevenueByMonth(ctx, tenantID, from, to)
-		if err == nil && len(rows) > 0 {
-			total := 0.0
-			for _, r := range rows {
-				total += r.Revenue
-			}
-			out = append(out, berichte.KPI{
-				ID:       "revenue_current_month",
-				Label:    "Umsatz laufender Monat",
-				Value:    fmt.Sprintf("%.2f", total),
-				Unit:     "EUR",
-				ModuleID: "finanzen",
-			})
-		}
+	cur, err := e.kpi.KPISnapshot(ctx, tenantID, from, now)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard kpis: %w", err)
 	}
 
-	if active["crm"] && e.crm != nil {
-		rep, err := e.crm.GetPipelineReport(ctx, tenantID)
-		if err == nil && rep != nil {
-			volume := 0.0
-			for _, s := range rep.Stages {
-				volume += s.Volume
-			}
-			out = append(out, berichte.KPI{
-				ID:       "pipeline_volume",
-				Label:    "Pipeline-Volumen",
-				Value:    fmt.Sprintf("%.2f", volume),
-				Unit:     "EUR",
-				ModuleID: "crm",
-			})
-		}
+	// Compare month-to-date against the same span of the previous month, not
+	// against a full month — otherwise every 3rd of the month reads as a
+	// collapse. Clamped so a long month cannot bleed into the current one.
+	prevFrom := from.AddDate(0, -1, 0)
+	prevTo := prevFrom.Add(now.Sub(from))
+	if prevTo.After(from) {
+		prevTo = from
+	}
+	prev, err := e.kpi.KPISnapshot(ctx, tenantID, prevFrom, prevTo)
+	if err != nil {
+		// A missing comparison must not cost the user the numbers themselves.
+		slog.WarnContext(ctx, "berichte: previous-period KPI snapshot failed, serving KPIs without change",
+			"tenant_id", tenantID, "error", err)
+		prev = nil
 	}
 
-	if active["helpdesk"] && e.helpdesk != nil {
-		from, to := e.periodRange("last_30_days")
-		rep, err := e.helpdesk.GetSLAReport(ctx, tenantID, from, to)
-		if err == nil && rep != nil && len(rep.Queues) > 0 {
-			total := 0.0
-			for _, q := range rep.Queues {
-				total += q.FirstResponsePct
-			}
-			avg := total / float64(len(rep.Queues))
-			out = append(out, berichte.KPI{
-				ID:       "helpdesk_first_response",
-				Label:    "Helpdesk Ersantwort-SLA",
-				Value:    fmt.Sprintf("%.1f", avg),
-				Unit:     "%",
-				ModuleID: "helpdesk",
-			})
+	if active["finanzen"] {
+		kpi := berichte.KPI{
+			ID:       "revenue_current_month",
+			Label:    "Umsatz laufender Monat",
+			Value:    cur.Revenue.StringFixed(2),
+			Unit:     "EUR",
+			ModuleID: "finanzen",
 		}
+		if prev != nil {
+			kpi.ChangePercent = changePercent(cur.Revenue, prev.Revenue)
+		}
+		out = append(out, kpi)
 	}
 
-	if active["inventar"] && e.inventar != nil {
-		warnings, err := e.inventar.GetStockWarnings(ctx, tenantID)
-		if err == nil {
-			out = append(out, berichte.KPI{
-				ID:       "stock_warnings_count",
-				Label:    "Bestands-Warnungen",
-				Value:    fmt.Sprintf("%d", len(warnings)),
-				ModuleID: "inventar",
-			})
+	if active["crm"] {
+		kpi := berichte.KPI{
+			ID:       "pipeline_volume",
+			Label:    "Pipeline-Volumen",
+			Value:    cur.PipelineVolume.StringFixed(2),
+			Unit:     "EUR",
+			ModuleID: "crm",
 		}
+		if prev != nil {
+			kpi.ChangePercent = changePercent(cur.PipelineVolume, prev.PipelineVolume)
+		}
+		out = append(out, kpi)
+	}
+
+	if active["helpdesk"] {
+		// lean: open ticket count instead of the first-response SLA quota the
+		// placeholder promised — the quota needs per-queue SLA policy targets
+		// joined per ticket. Upgrade when a pilot asks for SLA attainment on
+		// the dashboard.
+		kpi := berichte.KPI{
+			ID:       "open_tickets",
+			Label:    "Offene Tickets",
+			Value:    strconv.Itoa(cur.OpenTickets),
+			ModuleID: "helpdesk",
+		}
+		if prev != nil {
+			kpi.ChangePercent = changePercentInt(cur.OpenTickets, prev.OpenTickets)
+		}
+		out = append(out, kpi)
+	}
+
+	if active["inventar"] {
+		// No change_percent: stock_warnings rows are mutated in place, so there
+		// is no previous-period state to compare against.
+		out = append(out, berichte.KPI{
+			ID:       "stock_warnings_count",
+			Label:    "Bestands-Warnungen",
+			Value:    strconv.Itoa(cur.StockWarnings),
+			ModuleID: "inventar",
+		})
 	}
 
 	return out, nil
+}
+
+// changePercent returns the relative change from prev to cur, rounded to one
+// decimal. It returns nil when the baseline is zero — growth from nothing is
+// not a percentage, and the frontend renders a missing change as "no trend".
+func changePercent(cur, prev decimal.Decimal) *float64 {
+	if prev.IsZero() {
+		return nil
+	}
+	pct, _ := cur.Sub(prev).Div(prev).Mul(decimal.NewFromInt(100)).Float64()
+	rounded := math.Round(pct*10) / 10
+	return &rounded
+}
+
+func changePercentInt(cur, prev int) *float64 {
+	return changePercent(decimal.NewFromInt(int64(cur)), decimal.NewFromInt(int64(prev)))
 }
 
 // ============================================================================

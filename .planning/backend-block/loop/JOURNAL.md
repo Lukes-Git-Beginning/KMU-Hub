@@ -688,3 +688,89 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   - Naechste freie Unit in Reihenfolge: `p3-berichte-kpi-service` (opus,
     deps: []) oder `p3-finance-list-amounts` (sonnet, deps: []) — beide ohne
     offene Abhaengigkeiten.
+
+## Iteration 12 — p3-berichte-kpi-service — done — 2026-07-26
+- commit: (siehe Git-Historie, folgt direkt auf diesen Eintrag)
+- Verify-Vorspann: Commit `5bfd7174` (Iteration 11, Templates) geprueft —
+  `HandleListTemplates` geht ueber `client.ListTemplates` (kein direkter
+  Service-Aufruf im Gateway), Route haengt am bestehenden
+  `berichte:reports`-Read-Guard (kein Seed noetig), Antwort ist
+  `{templates:[...]}` mit `[]`/`{}`-Defaults statt null, OpenAPI-Pfad liegt im
+  selben Commit. Keine Tabelle, kein tenant_id — korrekt, Templates sind
+  statische Startstrukturen. `go build ./...` sauber.
+  `git merge origin/main` = already up to date.
+- Befund vor dem Bauen: die KPI-Ableitung im Executor existierte, war aber tot.
+  `cmd/berichte/main.go` rief `executor.New(executor.Deps{})` — alle
+  Downstream-Repos nil, jede der vier KPI-Ableitungen an `!= nil` gebunden.
+  `GET /api/v1/berichte/kpis` lieferte produktiv also immer eine leere Liste,
+  das Dashboard blieb leer. Das ist die eigentliche Luecke, nicht die Formeln.
+- gebaut:
+  - Neues Interface `KPIRepo` + `KPISnapshot` im Executor (Rohaggregate pro
+    Periode: Umsatz, Pipeline-Volumen, offene Tickets, aktive Bestandswarnungen;
+    Geldwerte als `decimal`, nie float64 — ADR-0007).
+  - Neues Package `internal/berichte/downstream` mit `PostgresKPIRepo`: eine
+    Query mit vier tenant-gescopten Subselects gegen `finance_invoices`,
+    `deals`, `tickets`, `stock_warnings`. Liegt bewusst NICHT im
+    executor-Package, damit der Executor pgx-frei und ohne DB testbar bleibt.
+  - `DashboardKPIs` liest jetzt zwei Snapshots (laufender Monat + derselbe
+    Zeitraum des Vormonats) und liefert `change_percent` — damit ist
+    backend-gaps.md:234 (KPI-Werte + change_percent) mitgeschlossen.
+  - Verdrahtung in `cmd/berichte/main.go`.
+- Entscheidungen:
+  - EIN KPI-Interface statt der vier vollen Report-Repos (Finance/CRM/Helpdesk/
+    Inventar). Die Report-Kinds (`revenue_by_month`, `pipeline`, …) bleiben auf
+    `downstream_not_available` — das ist eigener Umfang und gehoert in eine
+    eigene Unit, nicht als Beifang hier hinein.
+  - Helpdesk-KPI von "Ersantwort-SLA %" auf "Offene Tickets" gewechselt
+    (`lean:`-Marker im Code, Upgrade-Trigger "wenn ein Pilot SLA-Attainment auf
+    dem Dashboard verlangt"): die Quote braucht SLA-Policy-Ziele je Queue pro
+    Ticket gejoint, das ist eine eigene Aggregation.
+  - Bestandswerte (Pipeline, offene Tickets) werden zum Perioden-Ende
+    rekonstruiert (`created_at <= to AND (closed_at IS NULL OR closed_at > to)`),
+    damit dieselbe Query auch die Vorperiode beantwortet. `stock_warnings` hat
+    keine Historie (Status wird in-place mutiert) und traegt darum bewusst
+    kein `change_percent`.
+  - Vorperioden-Fenster auf den Monatsanfang geklemmt, sonst laeuft der
+    Vergleichszeitraum eines 31-Tage-Monats in den laufenden Monat hinein.
+  - Faellt nur der Vorperioden-Snapshot aus, werden die KPIs ohne Trend
+    ausgeliefert statt die ganze Antwort zu verlieren.
+- Bug, den der DB-Test gefunden hat (waere sonst live gegangen): `$3` wurde
+  gegen `invoice_date` (DATE) UND `created_at` (TIMESTAMPTZ) verglichen.
+  Postgres inferiert den Parametertyp aus der ersten Verwendung, pgx sendet die
+  Grenze dann date-truncated — Pipeline-Volumen und offene Tickets lieferten
+  den ganzen Tag ueber 0 (alles nach Mitternacht faellt aus dem Vergleich).
+  Fix: explizite `::timestamptz`-Casts an allen Punkt-in-der-Zeit-Praedikaten
+  und `($2::timestamptz)::date` auf der Rechnungsseite. Kommentar im Code
+  erklaert, dass die Casts tragend sind und nicht kosmetisch.
+- gate: `go build ./...` OK (`GOFLAGS="-p=2"`, wie in Iteration 11 wegen
+  Speicherdruck) · `go vet` (berichte/…, cmd/berichte) OK ·
+  `golangci-lint run ./internal/berichte/... ./cmd/berichte/...`: 0 issues ·
+  `go test ./internal/berichte/... ./internal/server/... ./internal/gateway/...`
+  gruen (inkl. `TestOpenAPIRouteDrift` — keine neue Route, `/berichte/kpis` und
+  `change_percent` stehen bereits in der Spec).
+- RLS-Smoke: die beiden DB-Tests in `internal/berichte/downstream` liefen lokal
+  gegen die Dev-Postgres — einmal als `kmuhub` und einmal als `kmuhub_app`
+  (NOSUPERUSER NOBYPASSRLS, also mit scharfer RLS), beide gruen. Sie messen
+  Deltas um einen Seed herum statt Absolutwerte, damit parallele Paket-Tests und
+  Reste abgebrochener Laeufe sie nicht flaky machen, und nutzen eigene
+  Test-Tenants (`cccc0000-…`) statt TenantA/TenantB. Die Perioden-Grenze kommt
+  aus der DB-Uhr (`SELECT NOW()`), nicht aus der Go-Uhr — sonst haengt die
+  Zusicherung am Uhren-Versatz Host/Container.
+  Hinweis fuer die naechste Iteration: `kmuhub_app` hat in der lokalen Dev-DB
+  jetzt das Passwort `app_dev` (wie in CI), damit RLS-Tests lokal ueberhaupt
+  unter der App-Rolle laufen koennen. Nur lokal, Production unberuehrt.
+- offen / naechste Iteration:
+  - backend-gaps.md:92 (KPI-Liste serverseitig nach den Modul-Rechten des Users
+    filtern) bleibt offen: braucht das RBAC-Fundament aus Phase 1, gehoert
+    nach Phase 2. Heute filtert nur der `?modules=`-Parameter, den der Client
+    schickt.
+  - backend-gaps.md:235 (echte Sparkline-Zeitreihe pro KPI statt der
+    FE-Synthese aus `kpi.id` + `change_percent`) ist damit NICHT erledigt —
+    der Snapshot liefert zwei Punkte, die Sparkline braucht ~8 Perioden.
+    Waere die naechste kleine berichte-Unit.
+  - Die Report-Kinds haengen weiter an nil-Repos (`downstream_not_available`).
+    Das ist der groessere Bruder dieser Unit und braucht Finance-/CRM-/
+    Helpdesk-/Inventar-Adapter; CRM liesse sich direkt auf
+    `internal/crm/report.PostgresRepository` legen.
+  - Naechste freie Unit in Reihenfolge: `p3-finance-list-amounts` (sonnet,
+    deps: []) oder `p3-zeiterfassung-entries` (sonnet, deps: []).
