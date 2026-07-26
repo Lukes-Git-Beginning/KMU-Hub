@@ -13,6 +13,7 @@ const BASE = `${API}/api/v1/helpdesk`
 
 type WireTicketStatus = 'open' | 'pending' | 'solved' | 'closed' | 'merged'
 type WireTicketPriority = 'low' | 'normal' | 'high' | 'urgent'
+type WireTicketChannel = 'agent' | 'selfservice' | 'external'
 
 interface WireTicket {
   id: string
@@ -23,6 +24,14 @@ interface WireTicket {
   priority: WireTicketPriority
   assignee_id: string | null
   requester_id: string
+  requester_name?: string
+  requester_email?: string
+  requester_is_external?: boolean
+  channel?: WireTicketChannel
+  category?: string
+  custom_fields?: Record<string, string | number | boolean>
+  csat_rating?: number
+  csat_comment?: string
   queue_id: string | null
   due_at: string | null
   merged_into_id: string | null
@@ -202,6 +211,12 @@ const tickets: WireTicket[] = [
     priority: 'high',
     assignee_id: IDS.users.thomas,
     requester_id: 'Brigitte Schärer',
+    requester_name: 'Brigitte Schärer',
+    requester_email: 'brigitte.schaerer@kunde.example',
+    requester_is_external: true,
+    channel: 'external',
+    category: 'Hardware',
+    custom_fields: { contact_channel: 'E-Mail', sla_tier: 'Standard' },
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-001'] * H).toISOString(),
     merged_into_id: null,
@@ -219,6 +234,12 @@ const tickets: WireTicket[] = [
     priority: 'urgent',
     assignee_id: IDS.users.thomas,
     requester_id: 'Stefan Wenger',
+    requester_name: 'Stefan Wenger',
+    requester_email: 'stefan.wenger@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Netzwerk',
+    custom_fields: { sla_tier: 'Kritisch', escalation_reason: 'Wiederholter Verbindungsabbruch im Home-Office', contact_channel: 'Telefon' },
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-002'] * H).toISOString(),
     merged_into_id: null,
@@ -235,6 +256,8 @@ const tickets: WireTicket[] = [
     priority: 'normal',
     assignee_id: IDS.users.julia,
     requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
+    channel: 'selfservice',
+    category: 'Onboarding',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-003'] * H).toISOString(),
     merged_into_id: null,
@@ -252,6 +275,12 @@ const tickets: WireTicket[] = [
     priority: 'normal',
     assignee_id: IDS.users.thomas,
     requester_id: 'Andreas Müller',
+    requester_name: 'Andreas Müller',
+    requester_email: 'andreas.mueller@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'E-Mail',
+    custom_fields: { contact_channel: 'E-Mail' },
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-004'] * H).toISOString(),
     merged_into_id: null,
@@ -268,6 +297,8 @@ const tickets: WireTicket[] = [
     priority: 'low',
     assignee_id: IDS.users.julia,
     requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
+    channel: 'selfservice',
+    category: 'Hardware',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-005'] * H).toISOString(),
     merged_into_id: null,
@@ -285,6 +316,14 @@ const tickets: WireTicket[] = [
     priority: 'urgent',
     assignee_id: IDS.users.thomas,
     requester_id: 'Thomas Kunz',
+    requester_name: 'Thomas Kunz',
+    requester_email: 'thomas.kunz@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Sonstiges',
+    custom_fields: { sla_tier: 'Kritisch', escalation_reason: 'Rechnungslauf blockiert' },
+    csat_rating: 5,
+    csat_comment: 'Sehr schnelle Hilfe, der Rechnungslauf lief nach kurzer Zeit wieder. Top!',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-006'] * H).toISOString(),
     merged_into_id: null,
@@ -302,6 +341,11 @@ const tickets: WireTicket[] = [
     priority: 'normal',
     assignee_id: IDS.users.markus,
     requester_id: 'Daniel Roth',
+    requester_name: 'Daniel Roth',
+    requester_email: 'daniel.roth@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Netzwerk',
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-007'] * H).toISOString(),
     merged_into_id: null,
@@ -319,6 +363,12 @@ const tickets: WireTicket[] = [
     priority: 'high',
     assignee_id: IDS.users.julia,
     requester_id: 'Nicole Berger',
+    requester_name: 'Nicole Berger',
+    requester_email: 'nicole.berger@kunde.example',
+    requester_is_external: true,
+    channel: 'external',
+    category: 'Software',
+    custom_fields: { sla_tier: 'Priorität', contact_channel: 'E-Mail' },
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-008'] * H).toISOString(),
     merged_into_id: null,
@@ -336,6 +386,10 @@ const tickets: WireTicket[] = [
     priority: 'urgent',
     assignee_id: IDS.users.thomas,
     requester_id: 'System Alert',
+    requester_name: 'System Alert',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Netzwerk',
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-009'] * H).toISOString(),
     merged_into_id: null,
@@ -353,6 +407,8 @@ const tickets: WireTicket[] = [
     priority: 'normal',
     assignee_id: IDS.users.julia,
     requester_id: IDS.users.markus, // Demo: Requester-Modell (scope=own sieht dieses Ticket als Markus)
+    channel: 'selfservice',
+    category: 'Zutritt',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-010'] * H).toISOString(),
     merged_into_id: null,
@@ -370,6 +426,13 @@ const tickets: WireTicket[] = [
     priority: 'low',
     assignee_id: IDS.users.thomas,
     requester_id: 'Ruth Eberle',
+    requester_name: 'Ruth Eberle',
+    requester_email: 'ruth.eberle@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Telefonie',
+    csat_rating: 4,
+    csat_comment: 'Die Weiterleitung wurde zuverlässig eingerichtet, danke.',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-011'] * H).toISOString(),
     merged_into_id: null,
@@ -387,6 +450,11 @@ const tickets: WireTicket[] = [
     priority: 'low',
     assignee_id: IDS.users.julia,
     requester_id: 'Beat Kuhn',
+    requester_name: 'Beat Kuhn',
+    requester_email: 'beat.kuhn@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Hardware',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-012'] * H).toISOString(),
     merged_into_id: null,
@@ -404,6 +472,13 @@ const tickets: WireTicket[] = [
     priority: 'normal',
     assignee_id: IDS.users.julia,
     requester_id: 'Patricia Hofer',
+    requester_name: 'Patricia Hofer',
+    requester_email: 'patricia.hofer@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Zugriffsrechte',
+    csat_rating: 3,
+    csat_comment: 'Hat etwas länger gedauert als erhofft, am Ende aber gelöst.',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-013'] * H).toISOString(),
     merged_into_id: null,
@@ -421,6 +496,10 @@ const tickets: WireTicket[] = [
     priority: 'high',
     assignee_id: IDS.users.thomas,
     requester_id: 'System Alert',
+    requester_name: 'System Alert',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Sicherheit',
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-014'] * H).toISOString(),
     merged_into_id: null,
@@ -438,6 +517,11 @@ const tickets: WireTicket[] = [
     priority: 'normal',
     assignee_id: IDS.users.markus,
     requester_id: 'Yvonne Stocker',
+    requester_name: 'Yvonne Stocker',
+    requester_email: 'yvonne.stocker@kunde.example',
+    requester_is_external: true,
+    channel: 'agent',
+    category: 'Hardware',
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-015'] * H).toISOString(),
     merged_into_id: null,
@@ -571,21 +655,41 @@ export const helpdeskHandlers = [
   http.post(`${BASE}/tickets`, async ({ request }) => {
     const body = (await request.json()) as {
       subject?: string
+      description?: string
+      category?: string
       priority?: WireTicketPriority
       assignee_id?: string
       queue_id?: string
+      requester_id?: string
+      requester_name?: string
+      requester_email?: string
+      requester_is_external?: boolean
+      channel?: WireTicketChannel
+      custom_fields?: Record<string, string | number | boolean>
     }
     const now = new Date().toISOString()
+    const isExternal = body.requester_is_external ?? false
     const newTicket: WireTicket = {
       id: `hd-tk-${Date.now()}`,
       tenant_id: 'tenant-001',
       subject: body.subject ?? 'Neues Ticket',
+      description: body.description || undefined,
       status: 'open',
       priority: body.priority ?? 'normal',
       assignee_id: body.assignee_id ?? null,
-      // Requester = the active demo session (RBAC scope=own: creators must
-      // see their own tickets, so never hardcode a fixed user here).
-      requester_id: getDemoSessionUserId(),
+      // Requester = explicit body value (external intake carries a name/email),
+      // else the active demo session (RBAC scope=own: creators must see their
+      // own tickets, so never hardcode a fixed user here).
+      requester_id: body.requester_id ?? (isExternal ? `ext-${Date.now()}` : getDemoSessionUserId()),
+      requester_name: body.requester_name || undefined,
+      requester_email: body.requester_email || undefined,
+      requester_is_external: isExternal || undefined,
+      channel: body.channel ?? 'agent',
+      category: body.category || undefined,
+      custom_fields:
+        body.custom_fields && Object.keys(body.custom_fields).length > 0
+          ? body.custom_fields
+          : undefined,
       queue_id: body.queue_id ?? null,
       due_at: hoursFromNow(8),
       merged_into_id: null,
@@ -597,6 +701,20 @@ export const helpdeskHandlers = [
     tickets.unshift(newTicket)
     ticketMessages[newTicket.id] = []
     return HttpResponse.json(newTicket, { status: 201 })
+  }),
+
+  // --- Tickets: submit CSAT rating ---
+  // Customer satisfaction (1–5 + optional comment). Written onto the wire ticket
+  // so the active React-Query path renders it (replaces the legacy Zustand store).
+
+  http.post(`${BASE}/tickets/:id/csat`, async ({ params, request }) => {
+    const ticket = tickets.find((t) => t.id === params.id)
+    if (!ticket) return HttpResponse.json({ error: 'ticket not found' }, { status: 404 })
+    const body = (await request.json()) as { rating: number; comment?: string }
+    ticket.csat_rating = body.rating
+    ticket.csat_comment = body.comment || undefined
+    ticket.updated_at = new Date().toISOString()
+    return HttpResponse.json(ticket)
   }),
 
   // --- Tickets: update ---

@@ -1327,7 +1327,7 @@ function TicketDetailPanel({
         <div className="border-t border-border" />
 
         {/* CSAT Widget (5.12) */}
-        <CSATWidget key={ticket.id} ticketId={ticket.id} ticketStatus={ticket.status} />
+        <CSATWidget key={ticket.id} ticketId={ticket.id} ticketStatus={ticket.status} csatRating={ticket.csatRating} csatComment={ticket.csatComment} />
 
         {/* Message thread */}
         <div>

@@ -4878,6 +4878,7 @@
   "helpdesk.csat.ratingsCount": "{count} ratings",
   "helpdesk.csat.satisfaction": "Customer satisfaction",
   "helpdesk.csat.saved": "Rating saved.",
+  "helpdesk.csat.saveError": "Could not save the rating.",
   "helpdesk.csat.selectRating": "Please select a rating.",
   "helpdesk.csat.submit": "Submit rating",
   "helpdesk.empty.adjustFilters": "Adjust the filters to find tickets.",

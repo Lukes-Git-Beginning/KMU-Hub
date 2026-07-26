@@ -4848,6 +4848,7 @@
   "helpdesk.csat.ratingsCount": "{count} évaluations",
   "helpdesk.csat.satisfaction": "Satisfaction client",
   "helpdesk.csat.saved": "Évaluation enregistrée.",
+  "helpdesk.csat.saveError": "Impossible d'enregistrer l'évaluation.",
   "helpdesk.csat.selectRating": "Veuillez choisir une évaluation.",
   "helpdesk.csat.submit": "Soumettre l'évaluation",
   "helpdesk.empty.adjustFilters": "Ajustez les filtres pour trouver des tickets.",

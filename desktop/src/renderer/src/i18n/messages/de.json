@@ -4878,6 +4878,7 @@
   "helpdesk.csat.ratingsCount": "{count} Bewertungen",
   "helpdesk.csat.satisfaction": "Kundenzufriedenheit",
   "helpdesk.csat.saved": "Bewertung gespeichert.",
+  "helpdesk.csat.saveError": "Bewertung konnte nicht gespeichert werden.",
   "helpdesk.csat.selectRating": "Bitte wählen Sie eine Bewertung.",
   "helpdesk.csat.submit": "Bewertung abgeben",
   "helpdesk.empty.adjustFilters": "Passen Sie die Filter an, um Tickets zu finden.",

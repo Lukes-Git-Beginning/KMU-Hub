@@ -4848,6 +4848,7 @@
   "helpdesk.csat.ratingsCount": "{count} valutazioni",
   "helpdesk.csat.satisfaction": "Soddisfazione clienti",
   "helpdesk.csat.saved": "Valutazione salvata.",
+  "helpdesk.csat.saveError": "Impossibile salvare la valutazione.",
   "helpdesk.csat.selectRating": "Selezionare una valutazione.",
   "helpdesk.csat.submit": "Invia valutazione",
   "helpdesk.empty.adjustFilters": "Modifica i filtri per trovare ticket.",

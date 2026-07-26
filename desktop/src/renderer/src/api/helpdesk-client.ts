@@ -128,6 +128,17 @@ export function mergeTickets(sourceId: string, targetId: string) {
   })
 }
 
+/** Submit a customer-satisfaction rating (1–5 + optional comment) onto the
+ *  ticket. Replaces the legacy Zustand-store CSAT so the rating lives on the
+ *  wire ticket and flows through the active React-Query path. */
+export function submitCsat(ticketId: string, rating: number, comment?: string) {
+  return request<Ticket>({
+    method: 'POST',
+    path: `${BASE}/tickets/${ticketId}/csat`,
+    body: { rating, comment },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------

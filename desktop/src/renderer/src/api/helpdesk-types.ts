@@ -13,6 +13,10 @@ export type TicketStatus = 'open' | 'pending' | 'solved' | 'closed' | 'merged'
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type SLAStatusValue = 'on_track' | 'at_risk' | 'breached'
 
+/** Origin channel a ticket was created through (intake channels, §Ticket-Intake).
+    Drives the "Herkunft" tabs in the module. */
+export type TicketChannel = 'agent' | 'selfservice' | 'external'
+
 // ---------------------------------------------------------------------------
 // Domain models
 // ---------------------------------------------------------------------------
@@ -27,7 +31,25 @@ export interface Ticket {
   status: TicketStatus
   priority: TicketPriority
   assignee_id: string | null
+  /** Ownership key (RBAC scope=own). User UUID for internal tickets; for
+      external requesters a synthetic id (name is carried in requester_name). */
   requester_id: string
+  /** Display name of the requester. Set for external requesters who have no
+      user account; internal tickets resolve the name from requester_id. */
+  requester_name?: string
+  /** Reply address for external requesters (public intake). */
+  requester_email?: string
+  /** True when the requester is not a tenant user (external/public intake). */
+  requester_is_external?: boolean
+  /** Origin channel (agent / self-service / external) — drives Herkunft tabs. */
+  channel?: TicketChannel
+  /** Category label (routing + display). */
+  category?: string
+  /** Intake values mapped onto helpdesk_ticket custom fields. */
+  custom_fields?: Record<string, string | number | boolean>
+  /** Customer satisfaction rating (1–5) submitted after close. */
+  csat_rating?: number
+  csat_comment?: string
   queue_id: string | null
   due_at: string | null
   merged_into_id: string | null
@@ -90,9 +112,19 @@ export interface TicketSLAStatus {
 
 export interface CreateTicketInput {
   subject: string
+  description?: string
+  category?: string
   priority?: TicketPriority
   assignee_id?: string
   queue_id?: string
+  /** Ownership key — omit to let the backend use the active session user. */
+  requester_id?: string
+  requester_name?: string
+  requester_email?: string
+  requester_is_external?: boolean
+  /** Intake channel; defaults to 'agent' when created from the module. */
+  channel?: TicketChannel
+  custom_fields?: Record<string, string | number | boolean>
 }
 
 export interface UpdateTicketInput {
