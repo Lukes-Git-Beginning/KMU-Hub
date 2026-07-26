@@ -504,3 +504,58 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     fehlerhaften) Muster bewusst fuer Konsistenz. Bleibt irrelevant, solange
     der Cross-Service-Client nicht existiert; sobald er gebaut wird, sollte
     diese ID-Verwechslung mitgeprueft werden.
+
+## Iteration 9 — p3-berichte-server-pdf — blocked — 2026-07-26 20:57
+- commit: (siehe unten, nur Planning-Docs)
+- Verify-Vorspann: Commit `31d933a1` (Iteration 8, inbox tags/forward) gegen
+  die sechs Fehlerklassen geprueft — Handler gehen ueber den gRPC-Client,
+  keine neue Tabelle/Migration in diesem Commit (also keine Tenant-/RLS-Frage),
+  kein neuer `RequirePermission`-Guard, `.proto` wurde regeneriert
+  (`inbox.pb.go`/`inbox_grpc.pb.go` im selben Commit), openapi.yaml im selben
+  Commit erweitert. `go build ./...` (GOFLAGS=-p=2) lief vor Iterationsbeginn
+  sauber durch (ein Linker-Absturz beim ersten Versuch war ein einmaliger
+  Windows-Flake, zweiter Lauf 0 Output). Sauber.
+- Recherche: 1 Explore-Subagent (Scope: Berichte-Dokumente-Struktur —
+  Backend-Modell, Proto, Gateway, FE-Typ, CRM-Advisory-PDF-Muster 1c639adf).
+- **Fund — Backlog-Annahme war falsch:** die Unit ging davon aus, dass nur der
+  PDF-Render fehlt (analog CRM-Advisory `1c639adf`, wo `GeneratePDF` schon
+  existierte und nur eine RPC drumherum fehlte). Real existiert die
+  "Bericht-Authoring-Dokument"-Persistenz serverseitig **ueberhaupt nicht**:
+  kein `ReportDocument`-Modell in `models.go`, keine Tabelle (Migration
+  000079 legt nur `report_definitions`/`report_cache`/`report_schedules`/
+  `report_runs` an), keine Proto-RPCs, keine Gateway-Routen unter
+  `/berichte/documents/...`. `berichte-client.ts` ruft bereits
+  list/get/create/update/deleteReportDocument gegen `${BASE}/documents...`
+  auf, die laufen aber ins Leere — reine FE-Fiktion. Der FE-Typ
+  (`berichte-types.ts` ab Zeile 377) ist vollstaendig spezifiziert: `rows` ist
+  ein rows->columns->blocks-Baum mit 13 Blocktypen, `text` traegt TipTap-HTML.
+- **Zweiter Fund:** selbst mit Persistenz waere der PDF-Render kein reiner
+  Mechanik-Task. `chart`/`table`-Bloecke lassen sich nicht ueber maroto/v2
+  rendern (kein Chart-Rendering in reinem Go ohne neue Dependency wie
+  go-chart/gonum-plot) — Verstoss gegen die "keine neue Dependency ohne Not"-
+  Vorgabe dieser Unit selbst.
+- Entscheidung: **nicht geraten, nicht Stub gebaut.** Neue Vorgaenger-Unit
+  `p3-berichte-document-persistence` (opus, weil das rows/columns/blocks-
+  Schema und die Frage "JSONB-Passthrough vs. serverseitige Blocktyp-
+  Validierung" ein echter Entwurf ist, keine Mechanik) in `BACKLOG.yml`
+  eingefuegt. `p3-berichte-server-pdf` auf `status: blocked` mit
+  `blocked_reason` (Architektur-Entscheidung + Dependency-Frage — gehoert
+  Luke), `deps` auf die neue Unit gesetzt, `notes` um einen Lean-Vorschlag
+  fuer den Chart-Fallback ergaenzt (Datentabelle statt Grafik, `lean:`-Marker
+  mit Upgrade-Trigger), damit die naechste Iteration (oder Luke) nicht wieder
+  bei null recherchiert.
+- gebaut: nur `BACKLOG.yml` (neue Unit + blocked_reason) und dieser
+  Journal-Eintrag. Kein Code geaendert.
+- gate: n.a. (keine Code-Aenderung)
+- offen:
+  - Luke muss entscheiden: (a) JSONB-Passthrough vs. Blocktyp-Validierung fuer
+    `ReportDocument.rows`, (b) ob `template_id` eine echte
+    `report_templates`-Tabelle braucht oder Templates FE-seitig hartkodiert
+    bleiben (siehe `ReportTemplate` im selben FE-Typfile), (c) Chart-Block-
+    PDF-Strategie (Lean-Fallback vs. neue Chart-Dependency).
+  - Sobald `p3-berichte-document-persistence` steht, ist `p3-berichte-
+    server-pdf` wieder ein normaler sonnet-Mechanik-Task im Stil von
+    `1c639adf`.
+  - `p3-berichte-share-token` (deps: [p3-berichte-server-pdf]) haengt jetzt
+    transitiv auch von der neuen Persistenz-Unit ab — keine Aenderung an
+    ihren `deps` noetig, die Kette laeuft schon darueber.

@@ -247,12 +247,70 @@ units:
 
   # --- berichte -------------------------------------------------------------
 
+  - id: p3-berichte-document-persistence
+    phase: 3
+    service: berichte
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      Backend-Persistenz fuer "Bericht-Authoring-Dokumente" (Schicht 4,
+      unterscheidet sich von ReportDefinition/Schicht 3). Existiert serverseitig
+      bisher ueberhaupt nicht: kein Modell, keine Tabelle, keine Proto-RPCs,
+      keine Gateway-Routen — nur FE-Fiktion. `berichte-client.ts` ruft bereits
+      list/get/create/update/deleteReportDocument gegen `${BASE}/documents...`,
+      die RPCs existieren nicht. CRUD + List fuer ReportDocument nachbauen,
+      Schema exakt gegen den FE-Typ.
+    sources:
+      - desktop/src/renderer/src/api/berichte-types.ts (ab Zeile 377, Abschnitt
+        "Report Documents — multi-page authoring (Schicht 4)")
+      - desktop/src/renderer/src/api/berichte-client.ts
+      - backend/internal/berichte/models.go
+      - backend/internal/berichte/postgres_repository.go
+      - backend/proto/berichte/v1/berichte.proto
+    notes: >
+      Als opus eingestuft (nicht sonnet-mechanisch), weil hier ein echter
+      Entwurf ansteht: ReportDocument.rows ist ein rows->columns->blocks-Baum
+      mit 13 Blocktypen (cover/heading/text/chart/table/kpi/callout/bullet/
+      divider/image/pagebreak + geteilte code/simpletable/quote-Bloecke aus dem
+      document-Package), text-Bloecke tragen TipTap-HTML. Kernentscheidung:
+      rows/settings als schema-loses JSONB speichern und nur an tenant_id +
+      Groessenlimit validieren (lean, FE bleibt Owner der Blockstruktur) vs.
+      serverseitige Typvalidierung pro Blocktyp. Ersteres ist der lean-Pfad;
+      Zweiteres kostet deutlich mehr, faengt aber kaputte Bloecke frueher ab.
+      Migrationsnummer zur Laufzeit ermitteln (Stand 2026-07-26: hoechste ist
+      000244). status-Enum draft/final/released/archived ohne Genehmigungs-Gate
+      (siehe FE-Kommentar "zu buerokratisch fuer KMU"). `template_id` referenziert
+      vermutlich eine noch fehlende `report_templates`-Tabelle/Seed-Daten (siehe
+      ReportTemplate im selben FE-Typfile) — pruefen, ob Templates hart im FE
+      liegen oder ebenfalls Backend brauchen, bevor template_id als FK gebaut wird.
+    done_when:
+      - report_documents-Tabelle, tenant_id NOT NULL + RLS-Policy
+      - Create/Get/Update/Delete/List-RPCs + Gateway-Routen, tenant-gescoped
+      - Wire-Shape exakt gegen ReportDocument/ListReportDocumentsResponse/
+        ReportDocumentResponse in berichte-types.ts
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
   - id: p3-berichte-server-pdf
     phase: 3
     service: berichte
     model: sonnet
-    deps: []
-    status: todo
+    deps: [p3-berichte-document-persistence]
+    status: blocked
+    blocked_reason: >
+      Architektur-Entscheidung, nicht Mechanik — braucht Luke. Backlog-Annahme
+      war "nur der PDF-Render fehlt" (analog CRM-Advisory 1c639adf, wo
+      GeneratePDF schon existierte). Real fehlt die komplette
+      ReportDocument-Persistenz serverseitig (siehe neue Vorgaenger-Unit
+      p3-berichte-document-persistence) — ohne sie gibt es nichts zu
+      exportieren. Zusaetzlich: ein "chart"-Block laesst sich nicht ueber
+      maroto/v2 rendern (kein Chart-Rendering in reinem Go ohne neue
+      Dependency wie go-chart/gonum-plot) — Verstoss gegen die
+      "keine neue Dependency ohne Not"-Vorgabe dieser Unit. Lean-Vorschlag fuer
+      Luke: chart/table-Bloecke im PDF als Datentabelle statt Grafik rendern
+      (`lean:`-Marker, Upgrade-Trigger "wenn Kunden PDF-Charts als Pflicht
+      melden") — muesste Luke absegnen, bevor eine Iteration das umsetzt.
     scope: >
       Server-PDF fuer Berichte. Das FE hat heute nur window.print() mit
       Print-CSS; fuer einen echten Download fehlt der Server-Render.
@@ -267,7 +325,9 @@ units:
       Mahnungen, internal/berichte/export/pdf.go). Kein chromedp, kein
       gotenberg, keine neue Dependency. Muster: CRM-Advisory-PDF in Commit
       1c639adf — vorhandenen Generator ueber eine gRPC-RPC exponieren und den
-      Gateway-501 ersetzen.
+      Gateway-501 ersetzen. Dieses Muster passt aber nur, sobald die
+      Document-Persistenz existiert und die Chart-Rendering-Frage geklaert ist
+      (siehe blocked_reason).
     done_when:
       - GET /berichte/documents/{id}/export/pdf liefert application/pdf
       - Erzeugt ueber maroto, keine neue Dependency
