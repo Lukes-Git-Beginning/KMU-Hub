@@ -20565,14 +20565,18 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentFolder"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
-                        updated_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  folders:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentFolder"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
+                            updated_at: { type: string, format: date-time }
+                  total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -20705,13 +20709,16 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Breadcrumb segments (protojson bare array)
+          description: Breadcrumb segments
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DocumentFolderPathSegment"
+                type: object
+                properties:
+                  segments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentFolderPathSegment"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -21056,13 +21063,16 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Version history (protojson bare array, oldest→newest as stored)
+          description: Version history (oldest→newest as stored)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DocumentFileVersion"
+                type: object
+                properties:
+                  versions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentFileVersion"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -21115,17 +21125,20 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Entity links (protojson bare array)
+          description: Entity links (protojson — created_at as RFC3339 string)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentEntityLink"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  links:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentEntityLink"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -21300,13 +21313,16 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentShare"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  shares:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentShare"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -21352,13 +21368,16 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentTag"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentTag"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:

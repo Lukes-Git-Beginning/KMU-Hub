@@ -204,7 +204,7 @@ func (d *DocumentRoutes) HandleListFolders(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Folders)
+	response.ProtoListWrapped(w, http.StatusOK, "folders", resp.Folders, map[string]any{"total": len(resp.Folders)})
 }
 
 type updateFolderRequest struct {
@@ -272,7 +272,7 @@ func (d *DocumentRoutes) HandleGetFolderPath(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Segments)
+	response.ProtoListWrapped(w, http.StatusOK, "segments", resp.Segments, nil)
 }
 
 type initializeUserSpaceRequest struct {
@@ -441,7 +441,7 @@ func (d *DocumentRoutes) HandleListFiles(w http.ResponseWriter, r *http.Request)
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"files": resp.Files,
+		"files": emptyIfNil(resp.Files),
 		"total": resp.Total,
 	})
 }
@@ -599,7 +599,7 @@ func (d *DocumentRoutes) HandleListFileVersions(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Versions)
+	response.ProtoListWrapped(w, http.StatusOK, "versions", resp.Versions, nil)
 }
 
 type revertVersionRequest struct {
@@ -720,7 +720,7 @@ func (d *DocumentRoutes) HandleListFileEntityLinks(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Links)
+	response.ProtoListWrapped(w, http.StatusOK, "links", resp.Links, nil)
 }
 
 // ============================================================================
@@ -818,7 +818,7 @@ func (d *DocumentRoutes) HandleListShares(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Shares)
+	response.ProtoListWrapped(w, http.StatusOK, "shares", resp.Shares, nil)
 }
 
 func (d *DocumentRoutes) HandleListSharedWithMe(w http.ResponseWriter, r *http.Request) {
@@ -839,8 +839,8 @@ func (d *DocumentRoutes) HandleListSharedWithMe(w http.ResponseWriter, r *http.R
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"files":   resp.Files,
-		"folders": resp.Folders,
+		"files":   emptyIfNil(resp.Files),
+		"folders": emptyIfNil(resp.Folders),
 		"total":   resp.Total,
 	})
 }
@@ -862,7 +862,7 @@ func (d *DocumentRoutes) HandleListTags(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Tags)
+	response.ProtoListWrapped(w, http.StatusOK, "tags", resp.Tags, nil)
 }
 
 type createDocumentTagRequest struct {
@@ -1004,7 +1004,7 @@ func (d *DocumentRoutes) HandleSearchFiles(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"results": resp.Results,
+		"results": emptyIfNil(resp.Results),
 		"total":   resp.Total,
 	})
 }
@@ -1035,7 +1035,7 @@ func (d *DocumentRoutes) HandleListVirtualFiles(w http.ResponseWriter, r *http.R
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"files": resp.Files,
+		"files": emptyIfNil(resp.Files),
 		"total": resp.Total,
 	})
 }
@@ -1091,6 +1091,18 @@ func (d *DocumentRoutes) HandleGetWOPIDiscovery(w http.ResponseWriter, r *http.R
 	}
 
 	response.ProtoList(w, http.StatusOK, resp.Actions)
+}
+
+// emptyIfNil coalesces a nil slice to a non-nil empty one before it reaches
+// encoding/json, which serializes nil as `null` and a non-nil empty slice as
+// `[]`. Handlers here mostly go through response.ProtoList(Wrapped), which
+// already guarantees `[]`; this covers the few that still hand a raw proto
+// repeated field to response.JSON.
+func emptyIfNil[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
 }
 
 // ============================================================================

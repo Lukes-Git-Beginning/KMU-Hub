@@ -50,3 +50,49 @@ func TestProto_TimestampEnumAndFieldNames(t *testing.T) {
 		t.Errorf("Proto output is not valid JSON: %v", err)
 	}
 }
+
+// TestProtoListWrapped_EmptySliceIsEmptyArray locks in the document-routes
+// wire-shape fix: a nil proto slice must serialize as `[]` under the given
+// key, never `null` — the frontend types these endpoints as T[] and a null
+// crashes any .map()/.length call on the wire-shape-tolerant client.
+func TestProtoListWrapped_EmptySliceIsEmptyArray(t *testing.T) {
+	rec := httptest.NewRecorder()
+	response.ProtoListWrapped(rec, 200, "folders", []*dialerv1.Campaign(nil), map[string]any{"total": 0})
+
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("ProtoListWrapped output is not valid JSON: %v", err)
+	}
+
+	folders, ok := body["folders"].([]any)
+	if !ok {
+		t.Fatalf("expected folders to be a JSON array, got %T: %v", body["folders"], body["folders"])
+	}
+	if len(folders) != 0 {
+		t.Errorf("expected empty array, got %d items", len(folders))
+	}
+	if total, _ := body["total"].(float64); total != 0 {
+		t.Errorf("expected total 0, got %v", body["total"])
+	}
+}
+
+// TestProtoListWrapped_ExtraFieldsAndItems verifies the key holds the
+// protojson-encoded items and extra top-level fields survive alongside it.
+func TestProtoListWrapped_ExtraFieldsAndItems(t *testing.T) {
+	rec := httptest.NewRecorder()
+	items := []*dialerv1.Campaign{{Name: "A"}, {Name: "B"}}
+	response.ProtoListWrapped(rec, 200, "campaigns", items, map[string]any{"total": 2})
+
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("ProtoListWrapped output is not valid JSON: %v", err)
+	}
+
+	campaigns, ok := body["campaigns"].([]any)
+	if !ok || len(campaigns) != 2 {
+		t.Fatalf("expected 2 campaigns, got %v", body["campaigns"])
+	}
+	if total, _ := body["total"].(float64); total != 2 {
+		t.Errorf("expected total 2, got %v", body["total"])
+	}
+}
