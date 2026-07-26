@@ -11,8 +11,9 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
 
 ## Unverhandelbare Grenzen
 
-- Branch ist **`backend-loop`**. Du wechselst nie auf `main`, mergst nie, pushst nie nach `main`.
-  Ein PreToolUse-Hook blockt das hart (exit 2) — versuch es nicht, es kostet nur eine Iteration.
+- Branch ist **`backend-loop`**. Du wechselst nie auf `main` und **pushst ueberhaupt nicht** — weder
+  main noch den Loop-Branch. Auch kein `gh pr create`. Ein PreToolUse-Hook blockt das hart (exit 2)
+  — versuch es nicht, es kostet nur eine Iteration. Begruendung in Schritt 7.
 - Kein Zugriff auf Production (Server, `.env.production`, `deploy.sh`, prod-Compose).
 - **Keine neue `config.RequireX`-Assertion** und **kein Scharfschalten neuer `modules.*`-Flags**.
   Beides ist ein Deploy-Hazard (`COSMI_ENV=production` ist live, CD deployt automatisch). Brauchst du eins,
@@ -186,29 +187,19 @@ Die naechste Iteration nimmt die naechste Unit.
 - offen: <was Luke morgens pruefen muss — DB-Gate, Proto-Regen, Route-Registrierung, Annahmen>
 ```
 
-### 7 · Push-Kadenz
+### 7 · Kein Push. Niemals.
 
-Zaehl die Commits, die noch nicht auf dem Remote sind:
+**Du pushst nicht, du legst keinen PR an, du triggerst keine Workflows.** Der Guard blockt das hart.
 
-```bash
-git log --oneline origin/backend-loop..backend-loop | wc -l
-```
+Der Grund ist Geld, nicht Sicherheit: jeder Push gegen einen offenen PR startet GitHub Actions
+(Minuten-Kontingent auf einem privaten Repo), und zwei der PR-Workflows laufen mit einem echten
+`ANTHROPIC_API_KEY` als Repo-Secret — das wird separat abgerechnet und hat nichts mit dem
+Claude-Abo zu tun, ueber das du selbst laeufst. Ein Nachtlauf mit zwanzig Pushes waere eine
+zwanzigfache Rechnung fuer null Zusatznutzen.
 
-**Ab 5** — oder wenn die letzte Unit einer Phase fertig ist:
-
-```bash
-git push origin backend-loop
-```
-
-Existiert noch kein PR, leg **einen Draft-PR** an (nur beim ersten Mal):
-
-```bash
-gh pr create --draft --base main --head backend-loop \
-  --title "Backend-Nachtloop: Phase 3" --body "Automatischer Lauf. Review vor Merge. Details: .planning/backend-block/loop/JOURNAL.md"
-```
-
-Das laesst CI laufen (CI triggert auf PRs gegen `main`), aber **nicht** CD (CD haengt an `workflow_run`
-auf `main`). Deshalb bleibt der PR Draft und wird nie gemergt.
+Deine Commits liegen lokal auf `backend-loop`. Luke pusht und faehrt CI **einmal**, wenn er
+ohnehin reviewt. Deshalb ist dein lokales Gate der einzige Gate — ueberspringe nichts davon,
+besonders nicht `go test ./internal/gateway/` bei Routen-Aenderungen.
 
 ### 8 · Ende
 
