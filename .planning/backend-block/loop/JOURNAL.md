@@ -1266,7 +1266,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
 
 ## Iteration 18 — p3-zeiterfassung-correction-supersede — done — 2026-07-26
 
-- commit: (siehe naechste Zeile nach dem Commit)
+- commit: b871bbba
 - verify vorgaenger (`ba944edb`, Iteration 17): sauber. Alle sechs Gateway-Handler
   in `route_biz_banking.go` gehen ueber `b.getBizClient()` (kein Direct-Svc),
   jeder SELECT in `banking/postgres_repository.go` traegt `tenant_id = $1`,
