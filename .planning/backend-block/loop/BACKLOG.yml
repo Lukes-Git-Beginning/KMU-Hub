@@ -94,7 +94,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Gateway-Responses driften vom FE-Typ ab; das FE faengt es heute mit einem
       Normalizer in document-client.ts ab. Kanonisch gehoert der Fix ins

@@ -132,3 +132,79 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   der OOM bei vollem `go build ./...` systematisch auftritt (nicht nur diese
   Maschine/dieser Moment), gehoert das als generelle Anmerkung in die
   Loop-Betriebsnotizen, nicht nur hierher.
+
+## Iteration 4 — p3-document-wire-shape — done — 2026-07-26 19:59
+
+- commit: f9aa3752
+- verify vorgaenger: sauber (33516ae1 unabhaengig gegengeprueft — Grep ueber
+  `desktop/` und `backend/` bestaetigt keinen Aufrufer der geloeschten Route;
+  `EinkaufDetailModals.tsx:handleExportPdf` baut das PDF nachweislich
+  clientseitig via `buildPOPdf`, ruft nie den Client-Kommentar-referenzierten
+  Backend-Endpoint auf).
+- Bestandsaufnahme vor dem Bauen: Der BACKLOG-Scope-Text war teilweise stale.
+  `eaf0c79f` (vor dieser Iteration) hatte "Alle Create-Responses gewrappt"
+  bereits erledigt (Share/Tag/Link-POST liefern `{share}`/`{tag}`/`{link}`,
+  Revert liefert bereits `{version}`). Reales Restproblem war die
+  bare-Array-vs-wrapped-Inkonsistenz bei sechs List-Endpoints und ein
+  Null-vs-Empty-Array-Defekt an vier weiteren Stellen — beides durch
+  gegenlesen von `document-client.ts` (dort explizit als Workaround
+  dokumentiert: `unwrapList`/`listTotal`-Normalizer) und den FE-Typen in
+  `document-types.ts` verifiziert, nicht angenommen.
+- gebaut: `response.ProtoListWrapped[T]` (neuer Helper neben `ProtoList`,
+  gleiche protojson-Kodierung pro Item, aber unter einem Key gewrappt plus
+  optionale Zusatzfelder). Sechs Handler in `route_document.go` umgestellt:
+  `HandleListFolders` -> `{folders, total}` (total = len, Proto hat kein
+  eigenes total-Feld), `HandleGetFolderPath` -> `{segments}`,
+  `HandleListFileVersions` -> `{versions}`, `HandleListFileEntityLinks` ->
+  `{links}`, `HandleListShares` -> `{shares}`, `HandleListTags` -> `{tags}`.
+  Alle sechs matchen jetzt exakt die FE-Typen in `document-types.ts`
+  (`ListFoldersResponse`, `ListVersionsResponse`, etc.).
+  Zusaetzlich `emptyIfNil[T]`-Helper gegen den Null-vs-Empty-Array-Defekt:
+  `HandleListFiles` (resp.Files), `HandleListSharedWithMe` (resp.Files,
+  resp.Folders), `HandleSearchFiles` (resp.Results), `HandleListVirtualFiles`
+  (resp.Files) gingen bisher unveraendert an `response.JSON` — ein nil-Slice
+  aus dem gRPC-Response serialisiert dort via encoding/json als `null`, nicht
+  `[]`. Das ist exakt der Bug, den der FE-Client-Kommentar in
+  `document-client.ts:134` fuer "files" schon dokumentiert
+  (`{ files: null, total: 0 }` bei leerer Liste).
+  `openapi.yaml` fuer alle sechs umgestellten Endpoints synchron nachgezogen
+  (Schema von bare array auf `{key: [...]}` gewrappt).
+  2 neue Unit-Tests in `response_proto_test.go`
+  (`TestProtoListWrapped_EmptySliceIsEmptyArray`,
+  `TestProtoListWrapped_ExtraFieldsAndItems`) decken den neuen Helper direkt
+  ab, inkl. Nil-Slice-Regressionstest.
+- bewusst NICHT angefasst:
+  1. `GetWOPIDiscovery` (bare-Array-Response) — kein FE-Aufrufer im ganzen
+     Repo (nur ein auto-generierter OpenAPI-TS-Typ in `api/types.ts`, kein
+     `documentWopiApi`-Call dafuer). Aendern haette nur Risiko ohne Nutzen.
+  2. `HandleListSharedWithMe`-Wireshape (`{files,folders,total}`) — der
+     FE-Typ (`ListSharesResponse{shares}`) passt semantisch nicht:
+     `ListSharedWithMeResponse` im Proto liefert echte File-/Folder-Entities
+     (fuer eine "durchstoebern"-Ansicht), nicht Share-Records mit
+     `permission`/`shared_by`. Das waere ein RPC-Redesign (Service muesste
+     Share-Records mit denormalisierten Entity-Feldern liefern), keine
+     Wire-Shape-Mechanik, und passt nicht in eine Ein-Commit-Iteration.
+     Zusaetzlich: `DokumentePage.tsx` zieht `useSharedWithMe(...)` aktuell nur
+     in eine `_sharedData`-Variable (unused, Underscore-Konvention) — die
+     "Shared with me"-Sidebar-Ansicht rendert die Daten heute gar nicht.
+     Der Backend-Wert ist korrekt (matcht Proto + openapi.yaml bereits vor
+     dieser Iteration); der FE-Typ ist falsch. Fix gehoert in den FE-Client
+     (`ListSharesResponse` vs. einen neuen `ListSharedWithMeResponse`-Typ),
+     ausserhalb des Backend-Loop-Scopes. Fuer Luke: eigene kleine FE-Unit.
+  3. `/documents/files/{id}/activity` — FE-Client (`documentFileApi.
+     listActivity`) ruft eine Route auf, die im Gateway gar nicht registriert
+     ist. Kein Wire-Shape-Defekt, sondern ein fehlender Endpoint; laut
+     FE-Typ-Kommentar ("Mock-first — backend activity log ist in
+     backend-gaps.md getrackt") bereits bekannte, separate Luecke.
+- gate: build ok (`GOFLAGS=-p=2 go build ./...`) | vet ok | lint ok
+  (`golangci-lint run ./internal/gateway/... ./internal/server/...`,
+  0 issues) | test ok (`go test ./internal/gateway/... ./internal/server/...`,
+  inkl. `TestOpenAPIRouteDrift` 656 Routen vs. 711 dokumentierte Pfade) |
+  openapi ok (`npx @apidevtools/swagger-cli validate` lokal gruen) |
+  migration n.a. (keine Tabelle/Policy angefasst) | rls-smoke n.a. (kein
+  neuer SELECT-Pfad, nur Serialisierung der bestehenden Antworten geaendert)
+- offen: Fuer Luke — (1) `HandleListSharedWithMe` FE-Typ-Fix (siehe oben,
+  Punkt 2) ist eine schnelle FE-Unit, kein Backend-Scope; (2) fehlender
+  `/documents/files/{id}/activity`-Endpoint ist eine echte Feature-Luecke,
+  aktuell nicht im BACKLOG.yml als eigene Unit erfasst — ggf. nachtragen,
+  falls die Activity-Timeline im Dokumente-Modul Prioritaet bekommt.
