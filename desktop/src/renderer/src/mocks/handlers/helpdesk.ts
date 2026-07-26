@@ -216,7 +216,6 @@ const tickets: WireTicket[] = [
     requester_is_external: true,
     channel: 'external',
     category: 'Hardware',
-    custom_fields: { contact_channel: 'E-Mail', sla_tier: 'Standard' },
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-001'] * H).toISOString(),
     merged_into_id: null,
@@ -239,7 +238,6 @@ const tickets: WireTicket[] = [
     requester_is_external: true,
     channel: 'agent',
     category: 'Netzwerk',
-    custom_fields: { sla_tier: 'Kritisch', escalation_reason: 'Wiederholter Verbindungsabbruch im Home-Office', contact_channel: 'Telefon' },
     queue_id: QUEUE_NETWORK,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-002'] * H).toISOString(),
     merged_into_id: null,
@@ -280,7 +278,6 @@ const tickets: WireTicket[] = [
     requester_is_external: true,
     channel: 'agent',
     category: 'E-Mail',
-    custom_fields: { contact_channel: 'E-Mail' },
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-004'] * H).toISOString(),
     merged_into_id: null,
@@ -321,7 +318,6 @@ const tickets: WireTicket[] = [
     requester_is_external: true,
     channel: 'agent',
     category: 'Sonstiges',
-    custom_fields: { sla_tier: 'Kritisch', escalation_reason: 'Rechnungslauf blockiert' },
     csat_rating: 5,
     csat_comment: 'Sehr schnelle Hilfe, der Rechnungslauf lief nach kurzer Zeit wieder. Top!',
     queue_id: QUEUE_GENERAL,
@@ -368,7 +364,6 @@ const tickets: WireTicket[] = [
     requester_is_external: true,
     channel: 'external',
     category: 'Software',
-    custom_fields: { sla_tier: 'Priorität', contact_channel: 'E-Mail' },
     queue_id: QUEUE_GENERAL,
     due_at: new Date(NOW + SLA_OFFSETS['hd-tk-008'] * H).toISOString(),
     merged_into_id: null,
@@ -531,6 +526,31 @@ const tickets: WireTicket[] = [
     updated_at: new Date(NOW - 44 * H).toISOString(),
   },
 ]
+
+// Per-ticket custom-field values seeded onto the wire (helpdesk_ticket custom
+// fields). Applied to the tickets above so the module reads them from the wire
+// (intake P1b: replaces the former display-layer DEMO overlay in the store).
+const SEED_CUSTOM_FIELDS: Record<string, Record<string, string>> = {
+  'hd-tk-001': { sla_tier: 'Priorität', contact_channel: 'Telefon' },
+  'hd-tk-002': { sla_tier: 'Kritisch', escalation_reason: 'Wiederholter VPN-Ausfall im Aussendienst', contact_channel: 'E-Mail' },
+  'hd-tk-003': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-004': { sla_tier: 'Standard', contact_channel: 'Chat' },
+  'hd-tk-005': { sla_tier: 'Standard', contact_channel: 'Vor Ort' },
+  'hd-tk-006': { sla_tier: 'Kritisch', escalation_reason: 'Rechnungslauf blockiert – Monatsabschluss gefährdet', contact_channel: 'Vor Ort' },
+  'hd-tk-007': { sla_tier: 'Priorität', contact_channel: 'Telefon' },
+  'hd-tk-008': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-009': { sla_tier: 'Kritisch', escalation_reason: 'Backup-Job schlägt seit 3 Tagen fehl', contact_channel: 'E-Mail' },
+  'hd-tk-010': { sla_tier: 'Priorität', escalation_reason: 'Mitarbeiter kommt nicht ins Büro', contact_channel: 'Vor Ort' },
+  'hd-tk-011': { sla_tier: 'Standard', contact_channel: 'Telefon' },
+  'hd-tk-012': { sla_tier: 'Standard', contact_channel: 'E-Mail' },
+  'hd-tk-013': { sla_tier: 'Priorität', contact_channel: 'Chat' },
+  'hd-tk-014': { sla_tier: 'Kritisch', escalation_reason: 'Möglicher Malware-Befall – Arbeitsplatz isoliert', contact_channel: 'Telefon' },
+  'hd-tk-015': { sla_tier: 'Standard', contact_channel: 'Vor Ort' },
+}
+for (const seededTicket of tickets) {
+  const cf = SEED_CUSTOM_FIELDS[seededTicket.id]
+  if (cf) seededTicket.custom_fields = { ...cf }
+}
 
 // Ticket messages — full conversations for tk-001 and tk-002, single opening for others
 const ticketMessages: Record<string, WireTicketMessage[]> = {
@@ -728,6 +748,12 @@ export const helpdeskHandlers = [
     if (body.priority != null) ticket.priority = body.priority
     if (body.assignee_id !== undefined) ticket.assignee_id = body.assignee_id
     if (body.queue_id !== undefined) ticket.queue_id = body.queue_id
+    if (body.category !== undefined) ticket.category = body.category || undefined
+    // custom_fields is a partial patch — merge into the existing map so a single
+    // field edit persists without clobbering the others.
+    if (body.custom_fields) {
+      ticket.custom_fields = { ...(ticket.custom_fields ?? {}), ...body.custom_fields }
+    }
     ticket.updated_at = new Date().toISOString()
     return HttpResponse.json(ticket)
   }),

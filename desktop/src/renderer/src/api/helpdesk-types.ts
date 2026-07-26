@@ -133,6 +133,9 @@ export interface UpdateTicketInput {
   priority?: TicketPriority
   assignee_id?: string
   queue_id?: string
+  category?: string
+  /** Partial update — merged into the ticket's existing custom_fields. */
+  custom_fields?: Record<string, string | number | boolean>
 }
 
 export interface AddMessageInput {

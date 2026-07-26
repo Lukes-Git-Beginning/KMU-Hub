@@ -28,7 +28,6 @@ import { toast } from 'sonner'
 import {
   slaLabel,
   MOCK_CATEGORIES,
-  DEMO_TICKET_CUSTOM_FIELDS,
 } from '@/stores/helpdesk'
 import type { CustomFieldDefinition } from '@/mocks/data/custom-fields'
 import {
@@ -198,11 +197,12 @@ export default function HelpdeskPage() {
         ...tk,
         status: (statusMigration[tk.status] ?? tk.status) as DisplayTicket['status'],
         priority: (priorityMigration[tk.priority] ?? tk.priority) as DisplayTicket['priority'],
-        // Custom-field values live in a display-layer overlay (wire type has none
-        // yet — backend-gaps §Customization): demo seed ⊕ in-session edits, so the
-        // detail renders them and edits stick within the session.
-        customFields: (DEMO_TICKET_CUSTOM_FIELDS[tk.id] || createdCustomFields[tk.id])
-          ? { ...DEMO_TICKET_CUSTOM_FIELDS[tk.id], ...createdCustomFields[tk.id] }
+        // Custom-field values come from the wire ticket (intake P1b). Unsaved /
+        // just-saved in-session edits layer on top for instant, flicker-free
+        // typing; the commit (onBlur for text, on-change for select/checkbox)
+        // persists them to the wire via PUT.
+        customFields: createdCustomFields[tk.id]
+          ? { ...tk.customFields, ...createdCustomFields[tk.id] }
           : tk.customFields,
       })),
     [rawTickets, statusMigration, priorityMigration, createdCustomFields],
@@ -454,10 +454,17 @@ export default function HelpdeskPage() {
     setSelectedTicketId(id); setReplyText(''); setShowInternalNotes(false)
   }
 
-  // Fill/change a custom-field value on a ticket (accumulated per ticket; merged
-  // over the demo seed in the `tickets` memo). Session-only until BE persistence.
+  // Fill/change a custom-field value on a ticket — instant, flicker-free session
+  // buffer (merged over the wire value in the `tickets` memo) so typing feels
+  // responsive without a request per keystroke.
   const handleCustomFieldChange = (ticketId: string, key: string, value: string) => {
     setCreatedCustomFields((m) => ({ ...m, [ticketId]: { ...(m[ticketId] ?? {}), [key]: value } }))
+  }
+  // Persist a custom-field value to the wire ticket (intake P1b). Fired on blur
+  // for text/number inputs and immediately for select/checkbox — the commit
+  // never runs mid-keystroke, so the input keeps focus through the refetch.
+  const handleCustomFieldCommit = (ticketId: string, key: string, value: string) => {
+    updateTicketMut.mutate({ id: ticketId, custom_fields: { [key]: value } })
   }
 
   const handleCreateKBArticle = () => {
@@ -844,6 +851,7 @@ export default function HelpdeskPage() {
           onStatusChange={guard(handleStatusChange)}
           onClose={() => setSelectedTicketId(null)}
           onCustomFieldChange={handleCustomFieldChange}
+          onCustomFieldCommit={handleCustomFieldCommit}
           assignTicketMut={assignTicketMut}
           updateTicketMut={updateTicketMut}
           mergeTicketsMut={mergeTicketsMut}
@@ -960,18 +968,21 @@ function StatCard({ icon: Icon, label, value, iconColor, iconBg }: {
  * select → dropdown of its options · boolean → checkbox · else a typed input.
  */
 function CustomFieldControl({
-  def, value, onChange,
+  def, value, onChange, onCommit,
 }: {
   def: CustomFieldDefinition
   value: string
   onChange: (v: string) => void
+  /** Persist the value (intake P1b). Discrete controls (select/checkbox) commit
+   *  on change; free-text inputs commit on blur so typing isn't interrupted. */
+  onCommit?: (v: string) => void
 }) {
   const { t } = useTranslation()
   const inputCls = 'w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring'
   if (def.type === 'boolean') {
     return (
       <label className="flex items-center gap-2 text-sm text-foreground">
-        <input type="checkbox" checked={value === 'true'} onChange={(e) => onChange(e.target.checked ? 'true' : 'false')} className="h-4 w-4 rounded border-border" />
+        <input type="checkbox" checked={value === 'true'} onChange={(e) => { const v = e.target.checked ? 'true' : 'false'; onChange(v); onCommit?.(v) }} className="h-4 w-4 rounded border-border" />
         {value === 'true' ? t('common.yes') : t('common.no')}
       </label>
     )
@@ -979,7 +990,7 @@ function CustomFieldControl({
   if (def.type === 'select' && def.options.length > 0) {
     return (
       <div className="relative">
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} appearance-none pr-7 cursor-pointer`}>
+        <select value={value} onChange={(e) => { onChange(e.target.value); onCommit?.(e.target.value) }} className={`${inputCls} appearance-none pr-7 cursor-pointer`}>
           <option value="">{t('helpdesk.newTicket.selectPlaceholder')}</option>
           {def.options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -988,12 +999,12 @@ function CustomFieldControl({
     )
   }
   const inputType = def.type === 'number' ? 'number' : def.type === 'email' ? 'email' : def.type === 'url' ? 'url' : def.type === 'date' ? 'date' : 'text'
-  return <input type={inputType} value={value} onChange={(e) => onChange(e.target.value)} placeholder={t('helpdesk.ticket.customFieldPlaceholder')} className={inputCls} />
+  return <input type={inputType} value={value} onChange={(e) => onChange(e.target.value)} onBlur={(e) => onCommit?.(e.target.value)} placeholder={t('helpdesk.ticket.customFieldPlaceholder')} className={inputCls} />
 }
 
 function TicketDetailPanel({
   ticket, allTickets, replyText, onReplyChange, showInternalNotes, onToggleInternal,
-  onSendReply, onStatusChange, onClose, onCustomFieldChange, assignTicketMut, updateTicketMut, mergeTicketsMut,
+  onSendReply, onStatusChange, onClose, onCustomFieldChange, onCustomFieldCommit, assignTicketMut, updateTicketMut, mergeTicketsMut,
 }: {
   ticket: DisplayTicket
   allTickets: DisplayTicket[]
@@ -1005,6 +1016,7 @@ function TicketDetailPanel({
   onStatusChange: (s: DisplayTicket['status']) => void
   onClose: () => void
   onCustomFieldChange: (ticketId: string, key: string, value: string) => void
+  onCustomFieldCommit: (ticketId: string, key: string, value: string) => void
   assignTicketMut: ReturnType<typeof useAssignTicket>
   updateTicketMut: ReturnType<typeof useUpdateTicket>
   mergeTicketsMut: ReturnType<typeof useMergeTickets>
@@ -1227,6 +1239,7 @@ function TicketDetailPanel({
                     def={def}
                     value={String(ticket.customFields?.[def.key] ?? '')}
                     onChange={(v) => onCustomFieldChange(ticket.id, def.key, v)}
+                    onCommit={(v) => onCustomFieldCommit(ticket.id, def.key, v)}
                   />
                 </div>
               ))}
