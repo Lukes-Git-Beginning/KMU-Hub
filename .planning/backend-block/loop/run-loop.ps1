@@ -40,8 +40,15 @@ if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out
 
 $env:PATH = "$env:PATH;C:\Program Files\Go\bin;$env:USERPROFILE\go\bin"
 
+$RunLog = Join-Path $LogDir "run.log"
+
+# Konsolenzeilen zusaetzlich in eine Datei schreiben. Der Loop laeuft abgekoppelt
+# in einem eigenen Fenster; ohne Mitschrift ist sein Fortschritt von aussen
+# (Monitoring-Session, Wakeup-Check) nicht lesbar.
 function Write-Line([string]$msg, [string]$color = "Gray") {
-    Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) -ForegroundColor $color
+    $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $msg
+    Write-Host $line -ForegroundColor $color
+    try { Add-Content -Path $RunLog -Value $line -Encoding utf8 } catch { }
 }
 
 # --- Git Bash aufloesen ------------------------------------------------------
