@@ -1067,7 +1067,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
 
 ## Iteration 16 — p3-zeiterfassung-week-submission — done — 2026-07-26
 
-- commit: PENDING
+- commit: 7d612aa3
 - verify vorgaenger: sauber. `9d5e176f` (offene Posten) gegen die sechs
   Fehlerklassen geprueft: keine neue Tabelle (Read-Model ueber
   `finance_invoices`/`finance_payments`/`finance_dunning_records`), also kein
