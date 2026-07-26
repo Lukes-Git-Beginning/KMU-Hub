@@ -21,6 +21,7 @@ Ein **anpassbares Ticket-Intake-System** für den Helpdesk mit **drei kombinierb
 
 - **① Architektur = „Formular-Tool treibt alles":** EIN Ticket-Formular im Form-Builder ist die Feld-Definition. Alle 3 Kanäle nutzen dasselbe Formular; eine Einreichung erzeugt ein Ticket (neue Formular-Aktion), die Werte landen als Ticket-Felder/Zusatzfelder. **Ein Editor** für die Intake-Felder (nicht zwei getrennte Feld-Systeme).
 - **② Start = Konzept-Briefing (dieses Dok) + frisches Terminal.** Keine „schnellen Wins" vorab — sie werden Phase 1 des Blocks.
+- **③ Wiederverwendbar bauen (Darien 2026-07-26, verbindlich):** Das Intake-System ist KEINE helpdesk-spezifische Insel, sondern eine **shared Engine** — analog zu `shared/document` (Block-System für alle Dokument-/Berichte-Stellen). Muster = „editor-konfigurierbares Multi-Kanal-Formular → modul-spezifischer Datensatz". Helpdesk (Formular→Ticket) ist der ERSTE Konsument; andere Module mit Anfragen/Anträgen/Requests (HR-Anträge, Einkaufs-/Wartungsanfragen, Reklamationen, Onboarding-Requests …) sollen dieselbe Engine angepasst nutzen. **CSAT/Bewertung** = Spezialfall (rating-Formular → Bewertung an einen beliebigen Datensatz, auch außerhalb Helpdesk denkbar — z.B. nach Meeting/Projekt). → Von Anfang an in `shared/` bauen, **modul-agnostische API** (Datensatz-Typ + Feld→Ziel-Mapping als Parameter), Helpdesk nur als erste Instanz verdrahten. Beim Bau immer fragen: „gehört das in die Engine (shared) oder in die Helpdesk-Instanz?"
 
 ## §2 Ist-Stand (2 Explore-Agents, 2026-07-26)
 
