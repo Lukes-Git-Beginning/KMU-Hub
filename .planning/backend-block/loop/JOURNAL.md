@@ -864,7 +864,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
 
 ## Iteration 14 — p3-finance-recurring — done — 2026-07-26
 
-- commit: siehe naechster docs-Nachtrag (sha kann nicht im eigenen Commit stehen)
+- commit: 598e8301
 - verify vorgaenger: sauber. `de0a5921` (finance currency/provenance) gegen die
   sechs Fehlerklassen geprueft: reine Wire-Schicht — keine neue Tabelle, keine
   neue Route, kein neuer Guard, kein SELECT ohne Tenant. `.proto` und `.pb.go`
