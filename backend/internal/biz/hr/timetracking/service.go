@@ -10,6 +10,7 @@ package timetracking
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -113,6 +114,13 @@ func (s *Service) ClockIn(ctx context.Context, tenantID, employeeID uuid.UUID) (
 	}
 
 	now := time.Now()
+
+	// A submitted or approved week does not accept new shifts. Clocking out of a
+	// shift that is already running stays possible on purpose (see ClockOut) —
+	// stranding an open shift would be the worse data.
+	if lockErr := s.assertWeekEditable(ctx, tenantID, employeeID, now); lockErr != nil {
+		return nil, nil, lockErr
+	}
 
 	// ArbZG 10h block: check today's daily summary
 	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, employeeID, now)
@@ -380,9 +388,18 @@ func (s *Service) GetWeeklySummary(ctx context.Context, employeeID uuid.UUID, we
 // SubmitTimeCorrection creates a correction entry pending manager approval.
 func (s *Service) SubmitTimeCorrection(ctx context.Context, tenantID, employeeID uuid.UUID, input CorrectionInput) (*models.HRWorkTimeEntry, error) {
 	// Validate original entry exists
-	_, origErr := s.workTimeRepo.GetByID(ctx, input.OriginalEntryID)
+	original, origErr := s.workTimeRepo.GetByID(ctx, input.OriginalEntryID)
 	if origErr != nil {
 		return nil, origErr
+	}
+
+	// Both weeks are checked: a correction that moves time out of a locked week
+	// changes that week's total just as much as one that moves time into it.
+	if lockErr := s.assertWeekEditable(ctx, tenantID, employeeID, original.ClockIn); lockErr != nil {
+		return nil, lockErr
+	}
+	if lockErr := s.assertWeekEditable(ctx, tenantID, employeeID, input.CorrectedClockIn); lockErr != nil {
+		return nil, lockErr
 	}
 
 	now := time.Now()
@@ -430,6 +447,13 @@ func (s *Service) ApproveTimeCorrection(ctx context.Context, correctionID, appro
 		return nil, ErrCorrectionNotFound
 	}
 
+	// Approving is what makes the correction count towards the week
+	// (aggregateDailyBuckets sums 'correction_approved'), so the lock applies
+	// here too — not only when the correction was requested.
+	if lockErr := s.assertWeekEditable(ctx, correction.TenantID, correction.EmployeeID, correction.ClockIn); lockErr != nil {
+		return nil, lockErr
+	}
+
 	now := time.Now()
 	correction.Status = models.WorkTimeStatusCorrectionApproved
 	correction.CorrectionApprovedBy = &approverID
@@ -457,6 +481,12 @@ func (s *Service) ApproveTimeCorrection(ctx context.Context, correctionID, appro
 func (s *Service) CreateManualEntry(ctx context.Context, input ManualEntryInput) (*models.HRWorkTimeEntry, error) {
 	if !input.ClockOut.After(input.ClockIn) {
 		return nil, ErrInvalidManualEntry
+	}
+
+	// The clock-in decides the week: the daily/weekly aggregates bucket an entry
+	// by clock_in, so that is the week whose signed-off total would move.
+	if lockErr := s.assertWeekEditable(ctx, input.TenantID, input.EmployeeID, input.ClockIn); lockErr != nil {
+		return nil, lockErr
 	}
 
 	// Calculate net work minutes
@@ -518,11 +548,7 @@ func (s *Service) GetTimeBalance(ctx context.Context, tenantID, employeeID uuid.
 
 	// Current week start (Monday)
 	now := time.Now()
-	weekStart := now
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart := weekStartOf(now)
 
 	weekly, summaryErr := s.workTimeRepo.GetWeeklySummary(ctx, employeeID, weekStart)
 	if summaryErr != nil {
@@ -554,11 +580,7 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 		numDays = now.Day()
 	} else {
 		// Default: week
-		start = now
-		for start.Weekday() != time.Monday {
-			start = start.AddDate(0, 0, -1)
-		}
-		start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+		start = weekStartOf(now)
 		numDays = 7
 	}
 
@@ -616,10 +638,7 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 // GetTeamTime returns aggregated weekly time for all employees of the tenant.
 func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart time.Time) ([]TeamTimeEntry, error) {
 	// Ensure Monday
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	employees, _, listErr := s.employeeRepo.List(ctx, employee.EmployeeFilter{TenantID: tenantID, Page: 1, PerPage: 500})
 	if listErr != nil {
@@ -699,10 +718,7 @@ func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart
 // GetMyWeekStatus returns the approval status for an employee's week.
 func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, int, int, error) {
 	// Ensure Monday
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	ep, _ := s.employeeRepo.GetByUserID(ctx, employeeID)
 	workDays := 5
@@ -718,6 +734,11 @@ func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid
 	}
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
+	if waErr != nil && !errors.Is(waErr, ErrWeekApprovalNotFound) {
+		// Reporting a read failure as "open" would tell the employee an approved
+		// week is still editable.
+		return nil, 0, 0, waErr
+	}
 	if waErr != nil {
 		// No record yet → synthesise an open one
 		now := time.Now()
@@ -737,15 +758,13 @@ func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid
 
 // SubmitWeek transitions an employee's week to submitted state.
 func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	now := time.Now()
-	if waErr != nil {
-		// Create fresh record
+	switch {
+	case errors.Is(waErr, ErrWeekApprovalNotFound):
+		// No record yet — the week has never been submitted, start a fresh one.
 		wa = &models.HRWeekApproval{
 			ID:         uuid.New(),
 			TenantID:   tenantID,
@@ -755,9 +774,13 @@ func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID
 			CreatedAt:  now,
 			UpdatedAt:  now,
 		}
+	case waErr != nil:
+		// A read failure must not be mistaken for "no record": the upsert below
+		// would overwrite an existing approved week back to submitted.
+		return nil, waErr
 	}
 
-	if wa.Status == models.WeekApprovalSubmitted || wa.Status == models.WeekApprovalApproved {
+	if weekLocked(wa.Status) {
 		return nil, ErrWeekAlreadySubmitted
 	}
 
@@ -778,10 +801,7 @@ func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID
 
 // ApproveWeek approves a submitted week.
 func (s *Service) ApproveWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	if waErr != nil {
@@ -812,10 +832,7 @@ func (s *Service) ApproveWeek(ctx context.Context, tenantID, approverID, employe
 
 // RejectWeek rejects a submitted week with a reason.
 func (s *Service) RejectWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time, reason string) (*models.HRWeekApproval, error) {
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	if waErr != nil {

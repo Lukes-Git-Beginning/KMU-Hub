@@ -27118,6 +27118,34 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /api/v1/hr/time/weeks/reopen:
+    post:
+      summary: Reopen a submitted or approved week for corrections (manager/admin)
+      description: >
+        A submitted or approved week rejects every write of work time — clock-in,
+        manual entry and time corrections all return 409. Reopening is the only
+        way back to an editable week. A week that is open or rejected is already
+        editable and returns 409.
+      tags: [hr-time]
+      operationId: reopenHrTimeWeek
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeReopenWeekRequest" }
+      responses:
+        "200":
+          description: Week reopened
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeWeekApproval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   # === openapi-drift sweep: r2c-misc-gaps ===
   # --- 2FA: pending-login validation (backend/internal/gateway/route_auth.go) ---
   # Public route (no bearer token) — called after POST /auth/login returns a
@@ -38918,6 +38946,16 @@ components:
         employee_id: { type: string, format: uuid }
         week_start: { type: string, format: date }
         rejection_reason: { type: string }
+
+    HrTimeReopenWeekRequest:
+      type: object
+      required: [employee_id, week_start]
+      properties:
+        employee_id: { type: string, format: uuid }
+        week_start: { type: string, format: date }
+        reason:
+          type: string
+          description: Logged with the reopen event, not stored on the approval record.
 
     HrTimeAnalytics:
       type: object

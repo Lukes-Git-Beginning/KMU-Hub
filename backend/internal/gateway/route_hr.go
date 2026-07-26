@@ -98,6 +98,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/submit", h.HandleSubmitWeek)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/approve", h.HandleApproveWeek)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reject", h.HandleRejectWeek)
+		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reopen", h.HandleReopenWeek)
 		// Time categories
 		r.With(middleware.RequirePermission("hr:time_category", "read")).Get("/categories", h.HandleListTimeCategories)
 		r.With(middleware.RequirePermission("hr:time_category", "write")).Post("/categories", h.HandleCreateTimeCategory)
@@ -1619,6 +1620,48 @@ func (h *HRRoutes) HandleRejectWeek(w http.ResponseWriter, r *http.Request) {
 		EmployeeId:      req.EmployeeID,
 		WeekStart:       req.WeekStart,
 		RejectionReason: req.RejectionReason,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp.WeekApproval)
+}
+
+type reopenWeekHTTPReq struct {
+	EmployeeID string `json:"employee_id" validate:"required,uuid"`
+	WeekStart  string `json:"week_start"  validate:"required"`
+	Reason     string `json:"reason"`
+}
+
+// HandleReopenWeek unlocks a submitted or approved week for corrections.
+// POST /api/v1/hr/time/weeks/reopen
+func (h *HRRoutes) HandleReopenWeek(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	approverID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[reopenWeekHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.ReopenWeek(r.Context(), &hrv1.ReopenWeekReq{
+		TenantId:   tenantID,
+		ApproverId: approverID,
+		EmployeeId: req.EmployeeID,
+		WeekStart:  req.WeekStart,
+		Reason:     req.Reason,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

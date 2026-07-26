@@ -8095,6 +8095,127 @@ func (x *RejectWeekResp) GetWeekApproval() *WeekApproval {
 	return nil
 }
 
+// ReopenWeek unlocks a submitted or approved week for corrections.
+type ReopenWeekReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ApproverId    string                 `protobuf:"bytes,2,opt,name=approver_id,json=approverId,proto3" json:"approver_id,omitempty"`
+	EmployeeId    string                 `protobuf:"bytes,3,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
+	WeekStart     string                 `protobuf:"bytes,4,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"` // YYYY-MM-DD
+	Reason        string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`                        // logged, not persisted
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReopenWeekReq) Reset() {
+	*x = ReopenWeekReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[113]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReopenWeekReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReopenWeekReq) ProtoMessage() {}
+
+func (x *ReopenWeekReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[113]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReopenWeekReq.ProtoReflect.Descriptor instead.
+func (*ReopenWeekReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{113}
+}
+
+func (x *ReopenWeekReq) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ReopenWeekReq) GetApproverId() string {
+	if x != nil {
+		return x.ApproverId
+	}
+	return ""
+}
+
+func (x *ReopenWeekReq) GetEmployeeId() string {
+	if x != nil {
+		return x.EmployeeId
+	}
+	return ""
+}
+
+func (x *ReopenWeekReq) GetWeekStart() string {
+	if x != nil {
+		return x.WeekStart
+	}
+	return ""
+}
+
+func (x *ReopenWeekReq) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type ReopenWeekResp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WeekApproval  *WeekApproval          `protobuf:"bytes,1,opt,name=week_approval,json=weekApproval,proto3" json:"week_approval,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReopenWeekResp) Reset() {
+	*x = ReopenWeekResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[114]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReopenWeekResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReopenWeekResp) ProtoMessage() {}
+
+func (x *ReopenWeekResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[114]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReopenWeekResp.ProtoReflect.Descriptor instead.
+func (*ReopenWeekResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{114}
+}
+
+func (x *ReopenWeekResp) GetWeekApproval() *WeekApproval {
+	if x != nil {
+		return x.WeekApproval
+	}
+	return nil
+}
+
 var File_proto_hr_v1_hr_proto protoreflect.FileDescriptor
 
 const file_proto_hr_v1_hr_proto_rawDesc = "" +
@@ -8803,6 +8924,17 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"week_start\x18\x04 \x01(\tR\tweekStart\x12)\n" +
 	"\x10rejection_reason\x18\x05 \x01(\tR\x0frejectionReason\"J\n" +
 	"\x0eRejectWeekResp\x128\n" +
+	"\rweek_approval\x18\x01 \x01(\v2\x13.hr.v1.WeekApprovalR\fweekApproval\"\xa5\x01\n" +
+	"\rReopenWeekReq\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vapprover_id\x18\x02 \x01(\tR\n" +
+	"approverId\x12\x1f\n" +
+	"\vemployee_id\x18\x03 \x01(\tR\n" +
+	"employeeId\x12\x1d\n" +
+	"\n" +
+	"week_start\x18\x04 \x01(\tR\tweekStart\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\"J\n" +
+	"\x0eReopenWeekResp\x128\n" +
 	"\rweek_approval\x18\x01 \x01(\v2\x13.hr.v1.WeekApprovalR\fweekApproval*\x8a\x01\n" +
 	"\x12LeaveRequestStatus\x12$\n" +
 	" LEAVE_REQUEST_STATUS_UNSPECIFIED\x10\x00\x12\x11\n" +
@@ -8831,7 +8963,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x1fDOCUMENT_VISIBILITY_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bDOCUMENT_VISIBILITY_HR_ONLY\x10\x01\x12\x1f\n" +
 	"\x1bDOCUMENT_VISIBILITY_MANAGER\x10\x02\x12 \n" +
-	"\x1cDOCUMENT_VISIBILITY_EMPLOYEE\x10\x032\xef\x1b\n" +
+	"\x1cDOCUMENT_VISIBILITY_EMPLOYEE\x10\x032\xaa\x1c\n" +
 	"\tHRService\x12Q\n" +
 	"\x12CreateLeaveRequest\x12\x1c.hr.v1.CreateLeaveRequestReq\x1a\x1d.hr.v1.CreateLeaveRequestResp\x12H\n" +
 	"\x0fGetLeaveRequest\x12\x19.hr.v1.GetLeaveRequestReq\x1a\x1a.hr.v1.GetLeaveRequestResp\x12N\n" +
@@ -8863,7 +8995,9 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"SubmitWeek\x12\x14.hr.v1.SubmitWeekReq\x1a\x15.hr.v1.SubmitWeekResp\x12<\n" +
 	"\vApproveWeek\x12\x15.hr.v1.ApproveWeekReq\x1a\x16.hr.v1.ApproveWeekResp\x129\n" +
 	"\n" +
-	"RejectWeek\x12\x14.hr.v1.RejectWeekReq\x1a\x15.hr.v1.RejectWeekResp\x12Q\n" +
+	"RejectWeek\x12\x14.hr.v1.RejectWeekReq\x1a\x15.hr.v1.RejectWeekResp\x129\n" +
+	"\n" +
+	"ReopenWeek\x12\x14.hr.v1.ReopenWeekReq\x1a\x15.hr.v1.ReopenWeekResp\x12Q\n" +
 	"\x12ListTimeCategories\x12\x1c.hr.v1.ListTimeCategoriesReq\x1a\x1d.hr.v1.ListTimeCategoriesResp\x12Q\n" +
 	"\x12CreateTimeCategory\x12\x1c.hr.v1.CreateTimeCategoryReq\x1a\x1d.hr.v1.CreateTimeCategoryResp\x12Q\n" +
 	"\x12UpdateTimeCategory\x12\x1c.hr.v1.UpdateTimeCategoryReq\x1a\x1d.hr.v1.UpdateTimeCategoryResp\x12Q\n" +
@@ -8897,7 +9031,7 @@ func file_proto_hr_v1_hr_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_hr_v1_hr_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_proto_hr_v1_hr_proto_msgTypes = make([]protoimpl.MessageInfo, 113)
+var file_proto_hr_v1_hr_proto_msgTypes = make([]protoimpl.MessageInfo, 115)
 var file_proto_hr_v1_hr_proto_goTypes = []any{
 	(LeaveRequestStatus)(0),             // 0: hr.v1.LeaveRequestStatus
 	(WorkTimeEntryStatus)(0),            // 1: hr.v1.WorkTimeEntryStatus
@@ -9017,35 +9151,37 @@ var file_proto_hr_v1_hr_proto_goTypes = []any{
 	(*ApproveWeekResp)(nil),             // 115: hr.v1.ApproveWeekResp
 	(*RejectWeekReq)(nil),               // 116: hr.v1.RejectWeekReq
 	(*RejectWeekResp)(nil),              // 117: hr.v1.RejectWeekResp
-	(*timestamppb.Timestamp)(nil),       // 118: google.protobuf.Timestamp
+	(*ReopenWeekReq)(nil),               // 118: hr.v1.ReopenWeekReq
+	(*ReopenWeekResp)(nil),              // 119: hr.v1.ReopenWeekResp
+	(*timestamppb.Timestamp)(nil),       // 120: google.protobuf.Timestamp
 }
 var file_proto_hr_v1_hr_proto_depIdxs = []int32{
-	118, // 0: hr.v1.LeaveType.created_at:type_name -> google.protobuf.Timestamp
+	120, // 0: hr.v1.LeaveType.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 1: hr.v1.LeaveRequest.half_day_period_start:type_name -> hr.v1.HalfDayPeriod
 	3,   // 2: hr.v1.LeaveRequest.half_day_period_end:type_name -> hr.v1.HalfDayPeriod
 	0,   // 3: hr.v1.LeaveRequest.status:type_name -> hr.v1.LeaveRequestStatus
-	118, // 4: hr.v1.LeaveRequest.approved_at:type_name -> google.protobuf.Timestamp
-	118, // 5: hr.v1.LeaveRequest.created_at:type_name -> google.protobuf.Timestamp
-	118, // 6: hr.v1.LeaveRequest.updated_at:type_name -> google.protobuf.Timestamp
-	118, // 7: hr.v1.LeaveBalance.created_at:type_name -> google.protobuf.Timestamp
-	118, // 8: hr.v1.LeaveBalance.updated_at:type_name -> google.protobuf.Timestamp
-	118, // 9: hr.v1.WorkTimeEntry.clock_in:type_name -> google.protobuf.Timestamp
-	118, // 10: hr.v1.WorkTimeEntry.clock_out:type_name -> google.protobuf.Timestamp
+	120, // 4: hr.v1.LeaveRequest.approved_at:type_name -> google.protobuf.Timestamp
+	120, // 5: hr.v1.LeaveRequest.created_at:type_name -> google.protobuf.Timestamp
+	120, // 6: hr.v1.LeaveRequest.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 7: hr.v1.LeaveBalance.created_at:type_name -> google.protobuf.Timestamp
+	120, // 8: hr.v1.LeaveBalance.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 9: hr.v1.WorkTimeEntry.clock_in:type_name -> google.protobuf.Timestamp
+	120, // 10: hr.v1.WorkTimeEntry.clock_out:type_name -> google.protobuf.Timestamp
 	1,   // 11: hr.v1.WorkTimeEntry.status:type_name -> hr.v1.WorkTimeEntryStatus
-	118, // 12: hr.v1.WorkTimeEntry.correction_approved_at:type_name -> google.protobuf.Timestamp
-	118, // 13: hr.v1.WorkTimeEntry.created_at:type_name -> google.protobuf.Timestamp
-	118, // 14: hr.v1.WorkTimeEntry.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 12: hr.v1.WorkTimeEntry.correction_approved_at:type_name -> google.protobuf.Timestamp
+	120, // 13: hr.v1.WorkTimeEntry.created_at:type_name -> google.protobuf.Timestamp
+	120, // 14: hr.v1.WorkTimeEntry.updated_at:type_name -> google.protobuf.Timestamp
 	9,   // 15: hr.v1.WorkTimeEntry.breaks:type_name -> hr.v1.BreakEntry
-	118, // 16: hr.v1.BreakEntry.start_time:type_name -> google.protobuf.Timestamp
-	118, // 17: hr.v1.BreakEntry.end_time:type_name -> google.protobuf.Timestamp
+	120, // 16: hr.v1.BreakEntry.start_time:type_name -> google.protobuf.Timestamp
+	120, // 17: hr.v1.BreakEntry.end_time:type_name -> google.protobuf.Timestamp
 	2,   // 18: hr.v1.EmployeeProfile.contract_type:type_name -> hr.v1.ContractType
-	118, // 19: hr.v1.EmployeeProfile.created_at:type_name -> google.protobuf.Timestamp
-	118, // 20: hr.v1.EmployeeProfile.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 19: hr.v1.EmployeeProfile.created_at:type_name -> google.protobuf.Timestamp
+	120, // 20: hr.v1.EmployeeProfile.updated_at:type_name -> google.protobuf.Timestamp
 	4,   // 21: hr.v1.HRDocumentCategory.visibility:type_name -> hr.v1.DocumentVisibility
-	118, // 22: hr.v1.HRDocumentCategory.created_at:type_name -> google.protobuf.Timestamp
-	118, // 23: hr.v1.EmployeeDocument.created_at:type_name -> google.protobuf.Timestamp
-	118, // 24: hr.v1.HRSettings.created_at:type_name -> google.protobuf.Timestamp
-	118, // 25: hr.v1.HRSettings.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 22: hr.v1.HRDocumentCategory.created_at:type_name -> google.protobuf.Timestamp
+	120, // 23: hr.v1.EmployeeDocument.created_at:type_name -> google.protobuf.Timestamp
+	120, // 24: hr.v1.HRSettings.created_at:type_name -> google.protobuf.Timestamp
+	120, // 25: hr.v1.HRSettings.updated_at:type_name -> google.protobuf.Timestamp
 	8,   // 26: hr.v1.DailySummary.entries:type_name -> hr.v1.WorkTimeEntry
 	15,  // 27: hr.v1.WeeklySummary.daily_summaries:type_name -> hr.v1.DailySummary
 	3,   // 28: hr.v1.CreateLeaveRequestReq.half_day_period_start:type_name -> hr.v1.HalfDayPeriod
@@ -9060,21 +9196,21 @@ var file_proto_hr_v1_hr_proto_depIdxs = []int32{
 	7,   // 37: hr.v1.GetEmployeeLeaveBalanceResp.balance:type_name -> hr.v1.LeaveBalance
 	5,   // 38: hr.v1.ListLeaveTypesResp.leave_types:type_name -> hr.v1.LeaveType
 	6,   // 39: hr.v1.RecordSickLeaveResp.leave_request:type_name -> hr.v1.LeaveRequest
-	118, // 40: hr.v1.ClockInReq.timestamp:type_name -> google.protobuf.Timestamp
+	120, // 40: hr.v1.ClockInReq.timestamp:type_name -> google.protobuf.Timestamp
 	8,   // 41: hr.v1.ClockInResp.entry:type_name -> hr.v1.WorkTimeEntry
-	118, // 42: hr.v1.ClockOutReq.timestamp:type_name -> google.protobuf.Timestamp
+	120, // 42: hr.v1.ClockOutReq.timestamp:type_name -> google.protobuf.Timestamp
 	8,   // 43: hr.v1.ClockOutResp.entry:type_name -> hr.v1.WorkTimeEntry
-	118, // 44: hr.v1.StartBreakReq.timestamp:type_name -> google.protobuf.Timestamp
+	120, // 44: hr.v1.StartBreakReq.timestamp:type_name -> google.protobuf.Timestamp
 	9,   // 45: hr.v1.StartBreakResp.break_entry:type_name -> hr.v1.BreakEntry
-	118, // 46: hr.v1.EndBreakReq.timestamp:type_name -> google.protobuf.Timestamp
+	120, // 46: hr.v1.EndBreakReq.timestamp:type_name -> google.protobuf.Timestamp
 	9,   // 47: hr.v1.EndBreakResp.break_entry:type_name -> hr.v1.BreakEntry
 	8,   // 48: hr.v1.GetActiveShiftResp.entry:type_name -> hr.v1.WorkTimeEntry
 	9,   // 49: hr.v1.GetActiveShiftResp.active_break:type_name -> hr.v1.BreakEntry
 	8,   // 50: hr.v1.ListWorkTimeEntriesResp.entries:type_name -> hr.v1.WorkTimeEntry
 	15,  // 51: hr.v1.GetDailySummaryResp.summary:type_name -> hr.v1.DailySummary
 	16,  // 52: hr.v1.GetWeeklySummaryResp.summary:type_name -> hr.v1.WeeklySummary
-	118, // 53: hr.v1.SubmitTimeCorrectionReq.corrected_clock_in:type_name -> google.protobuf.Timestamp
-	118, // 54: hr.v1.SubmitTimeCorrectionReq.corrected_clock_out:type_name -> google.protobuf.Timestamp
+	120, // 53: hr.v1.SubmitTimeCorrectionReq.corrected_clock_in:type_name -> google.protobuf.Timestamp
+	120, // 54: hr.v1.SubmitTimeCorrectionReq.corrected_clock_out:type_name -> google.protobuf.Timestamp
 	8,   // 55: hr.v1.SubmitTimeCorrectionResp.correction:type_name -> hr.v1.WorkTimeEntry
 	8,   // 56: hr.v1.ApproveTimeCorrectionResp.correction:type_name -> hr.v1.WorkTimeEntry
 	14,  // 57: hr.v1.GetAbsenceCalendarResp.absences:type_name -> hr.v1.AbsenceEntry
@@ -9089,132 +9225,135 @@ var file_proto_hr_v1_hr_proto_depIdxs = []int32{
 	13,  // 66: hr.v1.UpdateHRSettingsResp.settings:type_name -> hr.v1.HRSettings
 	2,   // 67: hr.v1.CreateEmployeeReq.contract_type:type_name -> hr.v1.ContractType
 	10,  // 68: hr.v1.CreateEmployeeResp.employee:type_name -> hr.v1.EmployeeProfile
-	118, // 69: hr.v1.TimeCategory.created_at:type_name -> google.protobuf.Timestamp
-	118, // 70: hr.v1.TimeCategory.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 69: hr.v1.TimeCategory.created_at:type_name -> google.protobuf.Timestamp
+	120, // 70: hr.v1.TimeCategory.updated_at:type_name -> google.protobuf.Timestamp
 	77,  // 71: hr.v1.ListTimeCategoriesResp.categories:type_name -> hr.v1.TimeCategory
 	77,  // 72: hr.v1.CreateTimeCategoryResp.category:type_name -> hr.v1.TimeCategory
 	77,  // 73: hr.v1.UpdateTimeCategoryResp.category:type_name -> hr.v1.TimeCategory
-	118, // 74: hr.v1.TimeTemplate.created_at:type_name -> google.protobuf.Timestamp
-	118, // 75: hr.v1.TimeTemplate.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 74: hr.v1.TimeTemplate.created_at:type_name -> google.protobuf.Timestamp
+	120, // 75: hr.v1.TimeTemplate.updated_at:type_name -> google.protobuf.Timestamp
 	86,  // 76: hr.v1.ListTimeTemplatesResp.templates:type_name -> hr.v1.TimeTemplate
 	86,  // 77: hr.v1.CreateTimeTemplateResp.template:type_name -> hr.v1.TimeTemplate
-	118, // 78: hr.v1.TimeProject.created_at:type_name -> google.protobuf.Timestamp
-	118, // 79: hr.v1.TimeProject.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 78: hr.v1.TimeProject.created_at:type_name -> google.protobuf.Timestamp
+	120, // 79: hr.v1.TimeProject.updated_at:type_name -> google.protobuf.Timestamp
 	93,  // 80: hr.v1.ListTimeProjectsResp.projects:type_name -> hr.v1.TimeProject
 	93,  // 81: hr.v1.CreateTimeProjectResp.project:type_name -> hr.v1.TimeProject
-	118, // 82: hr.v1.CreateManualEntryReq.clock_in:type_name -> google.protobuf.Timestamp
-	118, // 83: hr.v1.CreateManualEntryReq.clock_out:type_name -> google.protobuf.Timestamp
+	120, // 82: hr.v1.CreateManualEntryReq.clock_in:type_name -> google.protobuf.Timestamp
+	120, // 83: hr.v1.CreateManualEntryReq.clock_out:type_name -> google.protobuf.Timestamp
 	8,   // 84: hr.v1.CreateManualEntryResp.entry:type_name -> hr.v1.WorkTimeEntry
 	102, // 85: hr.v1.GetTimeAnalyticsResp.day_trend:type_name -> hr.v1.DayTrendEntry
 	103, // 86: hr.v1.GetTimeAnalyticsResp.by_project:type_name -> hr.v1.ProjectBreakdown
 	106, // 87: hr.v1.GetTeamTimeResp.team:type_name -> hr.v1.TeamTimeEntry
-	118, // 88: hr.v1.WeekApproval.submitted_at:type_name -> google.protobuf.Timestamp
-	118, // 89: hr.v1.WeekApproval.approved_at:type_name -> google.protobuf.Timestamp
-	118, // 90: hr.v1.WeekApproval.created_at:type_name -> google.protobuf.Timestamp
-	118, // 91: hr.v1.WeekApproval.updated_at:type_name -> google.protobuf.Timestamp
+	120, // 88: hr.v1.WeekApproval.submitted_at:type_name -> google.protobuf.Timestamp
+	120, // 89: hr.v1.WeekApproval.approved_at:type_name -> google.protobuf.Timestamp
+	120, // 90: hr.v1.WeekApproval.created_at:type_name -> google.protobuf.Timestamp
+	120, // 91: hr.v1.WeekApproval.updated_at:type_name -> google.protobuf.Timestamp
 	109, // 92: hr.v1.GetMyWeekStatusResp.week_approval:type_name -> hr.v1.WeekApproval
 	109, // 93: hr.v1.SubmitWeekResp.week_approval:type_name -> hr.v1.WeekApproval
 	109, // 94: hr.v1.ApproveWeekResp.week_approval:type_name -> hr.v1.WeekApproval
 	109, // 95: hr.v1.RejectWeekResp.week_approval:type_name -> hr.v1.WeekApproval
-	17,  // 96: hr.v1.HRService.CreateLeaveRequest:input_type -> hr.v1.CreateLeaveRequestReq
-	19,  // 97: hr.v1.HRService.GetLeaveRequest:input_type -> hr.v1.GetLeaveRequestReq
-	21,  // 98: hr.v1.HRService.ListLeaveRequests:input_type -> hr.v1.ListLeaveRequestsReq
-	23,  // 99: hr.v1.HRService.ApproveLeaveRequest:input_type -> hr.v1.ApproveLeaveRequestReq
-	25,  // 100: hr.v1.HRService.RejectLeaveRequest:input_type -> hr.v1.RejectLeaveRequestReq
-	27,  // 101: hr.v1.HRService.CancelLeaveRequest:input_type -> hr.v1.CancelLeaveRequestReq
-	29,  // 102: hr.v1.HRService.GetLeaveBalance:input_type -> hr.v1.GetLeaveBalanceReq
-	31,  // 103: hr.v1.HRService.GetEmployeeLeaveBalance:input_type -> hr.v1.GetEmployeeLeaveBalanceReq
-	33,  // 104: hr.v1.HRService.ListLeaveTypes:input_type -> hr.v1.ListLeaveTypesReq
-	35,  // 105: hr.v1.HRService.RecordSickLeave:input_type -> hr.v1.RecordSickLeaveReq
-	37,  // 106: hr.v1.HRService.ClockIn:input_type -> hr.v1.ClockInReq
-	39,  // 107: hr.v1.HRService.ClockOut:input_type -> hr.v1.ClockOutReq
-	41,  // 108: hr.v1.HRService.StartBreak:input_type -> hr.v1.StartBreakReq
-	43,  // 109: hr.v1.HRService.EndBreak:input_type -> hr.v1.EndBreakReq
-	45,  // 110: hr.v1.HRService.GetActiveShift:input_type -> hr.v1.GetActiveShiftReq
-	47,  // 111: hr.v1.HRService.ListWorkTimeEntries:input_type -> hr.v1.ListWorkTimeEntriesReq
-	49,  // 112: hr.v1.HRService.GetDailySummary:input_type -> hr.v1.GetDailySummaryReq
-	51,  // 113: hr.v1.HRService.GetWeeklySummary:input_type -> hr.v1.GetWeeklySummaryReq
-	53,  // 114: hr.v1.HRService.SubmitTimeCorrection:input_type -> hr.v1.SubmitTimeCorrectionReq
-	55,  // 115: hr.v1.HRService.ApproveTimeCorrection:input_type -> hr.v1.ApproveTimeCorrectionReq
-	98,  // 116: hr.v1.HRService.CreateManualEntry:input_type -> hr.v1.CreateManualEntryReq
-	100, // 117: hr.v1.HRService.GetTimeBalance:input_type -> hr.v1.GetTimeBalanceReq
-	104, // 118: hr.v1.HRService.GetTimeAnalytics:input_type -> hr.v1.GetTimeAnalyticsReq
-	107, // 119: hr.v1.HRService.GetTeamTime:input_type -> hr.v1.GetTeamTimeReq
-	110, // 120: hr.v1.HRService.GetMyWeekStatus:input_type -> hr.v1.GetMyWeekStatusReq
-	112, // 121: hr.v1.HRService.SubmitWeek:input_type -> hr.v1.SubmitWeekReq
-	114, // 122: hr.v1.HRService.ApproveWeek:input_type -> hr.v1.ApproveWeekReq
-	116, // 123: hr.v1.HRService.RejectWeek:input_type -> hr.v1.RejectWeekReq
-	78,  // 124: hr.v1.HRService.ListTimeCategories:input_type -> hr.v1.ListTimeCategoriesReq
-	80,  // 125: hr.v1.HRService.CreateTimeCategory:input_type -> hr.v1.CreateTimeCategoryReq
-	82,  // 126: hr.v1.HRService.UpdateTimeCategory:input_type -> hr.v1.UpdateTimeCategoryReq
-	84,  // 127: hr.v1.HRService.DeleteTimeCategory:input_type -> hr.v1.DeleteTimeCategoryReq
-	87,  // 128: hr.v1.HRService.ListTimeTemplates:input_type -> hr.v1.ListTimeTemplatesReq
-	89,  // 129: hr.v1.HRService.CreateTimeTemplate:input_type -> hr.v1.CreateTimeTemplateReq
-	91,  // 130: hr.v1.HRService.DeleteTimeTemplate:input_type -> hr.v1.DeleteTimeTemplateReq
-	94,  // 131: hr.v1.HRService.ListTimeProjects:input_type -> hr.v1.ListTimeProjectsReq
-	96,  // 132: hr.v1.HRService.CreateTimeProject:input_type -> hr.v1.CreateTimeProjectReq
-	57,  // 133: hr.v1.HRService.GetAbsenceCalendar:input_type -> hr.v1.GetAbsenceCalendarReq
-	59,  // 134: hr.v1.HRService.ListEmployees:input_type -> hr.v1.ListEmployeesReq
-	61,  // 135: hr.v1.HRService.GetEmployee:input_type -> hr.v1.GetEmployeeReq
-	63,  // 136: hr.v1.HRService.UpdateEmployee:input_type -> hr.v1.UpdateEmployeeReq
-	65,  // 137: hr.v1.HRService.UpdateSelfProfile:input_type -> hr.v1.UpdateSelfProfileReq
-	67,  // 138: hr.v1.HRService.ListEmployeeDocuments:input_type -> hr.v1.ListEmployeeDocumentsReq
-	69,  // 139: hr.v1.HRService.UploadEmployeeDocument:input_type -> hr.v1.UploadEmployeeDocumentReq
-	75,  // 140: hr.v1.HRService.CreateEmployee:input_type -> hr.v1.CreateEmployeeReq
-	71,  // 141: hr.v1.HRService.GetHRSettings:input_type -> hr.v1.GetHRSettingsReq
-	73,  // 142: hr.v1.HRService.UpdateHRSettings:input_type -> hr.v1.UpdateHRSettingsReq
-	18,  // 143: hr.v1.HRService.CreateLeaveRequest:output_type -> hr.v1.CreateLeaveRequestResp
-	20,  // 144: hr.v1.HRService.GetLeaveRequest:output_type -> hr.v1.GetLeaveRequestResp
-	22,  // 145: hr.v1.HRService.ListLeaveRequests:output_type -> hr.v1.ListLeaveRequestsResp
-	24,  // 146: hr.v1.HRService.ApproveLeaveRequest:output_type -> hr.v1.ApproveLeaveRequestResp
-	26,  // 147: hr.v1.HRService.RejectLeaveRequest:output_type -> hr.v1.RejectLeaveRequestResp
-	28,  // 148: hr.v1.HRService.CancelLeaveRequest:output_type -> hr.v1.CancelLeaveRequestResp
-	30,  // 149: hr.v1.HRService.GetLeaveBalance:output_type -> hr.v1.GetLeaveBalanceResp
-	32,  // 150: hr.v1.HRService.GetEmployeeLeaveBalance:output_type -> hr.v1.GetEmployeeLeaveBalanceResp
-	34,  // 151: hr.v1.HRService.ListLeaveTypes:output_type -> hr.v1.ListLeaveTypesResp
-	36,  // 152: hr.v1.HRService.RecordSickLeave:output_type -> hr.v1.RecordSickLeaveResp
-	38,  // 153: hr.v1.HRService.ClockIn:output_type -> hr.v1.ClockInResp
-	40,  // 154: hr.v1.HRService.ClockOut:output_type -> hr.v1.ClockOutResp
-	42,  // 155: hr.v1.HRService.StartBreak:output_type -> hr.v1.StartBreakResp
-	44,  // 156: hr.v1.HRService.EndBreak:output_type -> hr.v1.EndBreakResp
-	46,  // 157: hr.v1.HRService.GetActiveShift:output_type -> hr.v1.GetActiveShiftResp
-	48,  // 158: hr.v1.HRService.ListWorkTimeEntries:output_type -> hr.v1.ListWorkTimeEntriesResp
-	50,  // 159: hr.v1.HRService.GetDailySummary:output_type -> hr.v1.GetDailySummaryResp
-	52,  // 160: hr.v1.HRService.GetWeeklySummary:output_type -> hr.v1.GetWeeklySummaryResp
-	54,  // 161: hr.v1.HRService.SubmitTimeCorrection:output_type -> hr.v1.SubmitTimeCorrectionResp
-	56,  // 162: hr.v1.HRService.ApproveTimeCorrection:output_type -> hr.v1.ApproveTimeCorrectionResp
-	99,  // 163: hr.v1.HRService.CreateManualEntry:output_type -> hr.v1.CreateManualEntryResp
-	101, // 164: hr.v1.HRService.GetTimeBalance:output_type -> hr.v1.GetTimeBalanceResp
-	105, // 165: hr.v1.HRService.GetTimeAnalytics:output_type -> hr.v1.GetTimeAnalyticsResp
-	108, // 166: hr.v1.HRService.GetTeamTime:output_type -> hr.v1.GetTeamTimeResp
-	111, // 167: hr.v1.HRService.GetMyWeekStatus:output_type -> hr.v1.GetMyWeekStatusResp
-	113, // 168: hr.v1.HRService.SubmitWeek:output_type -> hr.v1.SubmitWeekResp
-	115, // 169: hr.v1.HRService.ApproveWeek:output_type -> hr.v1.ApproveWeekResp
-	117, // 170: hr.v1.HRService.RejectWeek:output_type -> hr.v1.RejectWeekResp
-	79,  // 171: hr.v1.HRService.ListTimeCategories:output_type -> hr.v1.ListTimeCategoriesResp
-	81,  // 172: hr.v1.HRService.CreateTimeCategory:output_type -> hr.v1.CreateTimeCategoryResp
-	83,  // 173: hr.v1.HRService.UpdateTimeCategory:output_type -> hr.v1.UpdateTimeCategoryResp
-	85,  // 174: hr.v1.HRService.DeleteTimeCategory:output_type -> hr.v1.DeleteTimeCategoryResp
-	88,  // 175: hr.v1.HRService.ListTimeTemplates:output_type -> hr.v1.ListTimeTemplatesResp
-	90,  // 176: hr.v1.HRService.CreateTimeTemplate:output_type -> hr.v1.CreateTimeTemplateResp
-	92,  // 177: hr.v1.HRService.DeleteTimeTemplate:output_type -> hr.v1.DeleteTimeTemplateResp
-	95,  // 178: hr.v1.HRService.ListTimeProjects:output_type -> hr.v1.ListTimeProjectsResp
-	97,  // 179: hr.v1.HRService.CreateTimeProject:output_type -> hr.v1.CreateTimeProjectResp
-	58,  // 180: hr.v1.HRService.GetAbsenceCalendar:output_type -> hr.v1.GetAbsenceCalendarResp
-	60,  // 181: hr.v1.HRService.ListEmployees:output_type -> hr.v1.ListEmployeesResp
-	62,  // 182: hr.v1.HRService.GetEmployee:output_type -> hr.v1.GetEmployeeResp
-	64,  // 183: hr.v1.HRService.UpdateEmployee:output_type -> hr.v1.UpdateEmployeeResp
-	66,  // 184: hr.v1.HRService.UpdateSelfProfile:output_type -> hr.v1.UpdateSelfProfileResp
-	68,  // 185: hr.v1.HRService.ListEmployeeDocuments:output_type -> hr.v1.ListEmployeeDocumentsResp
-	70,  // 186: hr.v1.HRService.UploadEmployeeDocument:output_type -> hr.v1.UploadEmployeeDocumentResp
-	76,  // 187: hr.v1.HRService.CreateEmployee:output_type -> hr.v1.CreateEmployeeResp
-	72,  // 188: hr.v1.HRService.GetHRSettings:output_type -> hr.v1.GetHRSettingsResp
-	74,  // 189: hr.v1.HRService.UpdateHRSettings:output_type -> hr.v1.UpdateHRSettingsResp
-	143, // [143:190] is the sub-list for method output_type
-	96,  // [96:143] is the sub-list for method input_type
-	96,  // [96:96] is the sub-list for extension type_name
-	96,  // [96:96] is the sub-list for extension extendee
-	0,   // [0:96] is the sub-list for field type_name
+	109, // 96: hr.v1.ReopenWeekResp.week_approval:type_name -> hr.v1.WeekApproval
+	17,  // 97: hr.v1.HRService.CreateLeaveRequest:input_type -> hr.v1.CreateLeaveRequestReq
+	19,  // 98: hr.v1.HRService.GetLeaveRequest:input_type -> hr.v1.GetLeaveRequestReq
+	21,  // 99: hr.v1.HRService.ListLeaveRequests:input_type -> hr.v1.ListLeaveRequestsReq
+	23,  // 100: hr.v1.HRService.ApproveLeaveRequest:input_type -> hr.v1.ApproveLeaveRequestReq
+	25,  // 101: hr.v1.HRService.RejectLeaveRequest:input_type -> hr.v1.RejectLeaveRequestReq
+	27,  // 102: hr.v1.HRService.CancelLeaveRequest:input_type -> hr.v1.CancelLeaveRequestReq
+	29,  // 103: hr.v1.HRService.GetLeaveBalance:input_type -> hr.v1.GetLeaveBalanceReq
+	31,  // 104: hr.v1.HRService.GetEmployeeLeaveBalance:input_type -> hr.v1.GetEmployeeLeaveBalanceReq
+	33,  // 105: hr.v1.HRService.ListLeaveTypes:input_type -> hr.v1.ListLeaveTypesReq
+	35,  // 106: hr.v1.HRService.RecordSickLeave:input_type -> hr.v1.RecordSickLeaveReq
+	37,  // 107: hr.v1.HRService.ClockIn:input_type -> hr.v1.ClockInReq
+	39,  // 108: hr.v1.HRService.ClockOut:input_type -> hr.v1.ClockOutReq
+	41,  // 109: hr.v1.HRService.StartBreak:input_type -> hr.v1.StartBreakReq
+	43,  // 110: hr.v1.HRService.EndBreak:input_type -> hr.v1.EndBreakReq
+	45,  // 111: hr.v1.HRService.GetActiveShift:input_type -> hr.v1.GetActiveShiftReq
+	47,  // 112: hr.v1.HRService.ListWorkTimeEntries:input_type -> hr.v1.ListWorkTimeEntriesReq
+	49,  // 113: hr.v1.HRService.GetDailySummary:input_type -> hr.v1.GetDailySummaryReq
+	51,  // 114: hr.v1.HRService.GetWeeklySummary:input_type -> hr.v1.GetWeeklySummaryReq
+	53,  // 115: hr.v1.HRService.SubmitTimeCorrection:input_type -> hr.v1.SubmitTimeCorrectionReq
+	55,  // 116: hr.v1.HRService.ApproveTimeCorrection:input_type -> hr.v1.ApproveTimeCorrectionReq
+	98,  // 117: hr.v1.HRService.CreateManualEntry:input_type -> hr.v1.CreateManualEntryReq
+	100, // 118: hr.v1.HRService.GetTimeBalance:input_type -> hr.v1.GetTimeBalanceReq
+	104, // 119: hr.v1.HRService.GetTimeAnalytics:input_type -> hr.v1.GetTimeAnalyticsReq
+	107, // 120: hr.v1.HRService.GetTeamTime:input_type -> hr.v1.GetTeamTimeReq
+	110, // 121: hr.v1.HRService.GetMyWeekStatus:input_type -> hr.v1.GetMyWeekStatusReq
+	112, // 122: hr.v1.HRService.SubmitWeek:input_type -> hr.v1.SubmitWeekReq
+	114, // 123: hr.v1.HRService.ApproveWeek:input_type -> hr.v1.ApproveWeekReq
+	116, // 124: hr.v1.HRService.RejectWeek:input_type -> hr.v1.RejectWeekReq
+	118, // 125: hr.v1.HRService.ReopenWeek:input_type -> hr.v1.ReopenWeekReq
+	78,  // 126: hr.v1.HRService.ListTimeCategories:input_type -> hr.v1.ListTimeCategoriesReq
+	80,  // 127: hr.v1.HRService.CreateTimeCategory:input_type -> hr.v1.CreateTimeCategoryReq
+	82,  // 128: hr.v1.HRService.UpdateTimeCategory:input_type -> hr.v1.UpdateTimeCategoryReq
+	84,  // 129: hr.v1.HRService.DeleteTimeCategory:input_type -> hr.v1.DeleteTimeCategoryReq
+	87,  // 130: hr.v1.HRService.ListTimeTemplates:input_type -> hr.v1.ListTimeTemplatesReq
+	89,  // 131: hr.v1.HRService.CreateTimeTemplate:input_type -> hr.v1.CreateTimeTemplateReq
+	91,  // 132: hr.v1.HRService.DeleteTimeTemplate:input_type -> hr.v1.DeleteTimeTemplateReq
+	94,  // 133: hr.v1.HRService.ListTimeProjects:input_type -> hr.v1.ListTimeProjectsReq
+	96,  // 134: hr.v1.HRService.CreateTimeProject:input_type -> hr.v1.CreateTimeProjectReq
+	57,  // 135: hr.v1.HRService.GetAbsenceCalendar:input_type -> hr.v1.GetAbsenceCalendarReq
+	59,  // 136: hr.v1.HRService.ListEmployees:input_type -> hr.v1.ListEmployeesReq
+	61,  // 137: hr.v1.HRService.GetEmployee:input_type -> hr.v1.GetEmployeeReq
+	63,  // 138: hr.v1.HRService.UpdateEmployee:input_type -> hr.v1.UpdateEmployeeReq
+	65,  // 139: hr.v1.HRService.UpdateSelfProfile:input_type -> hr.v1.UpdateSelfProfileReq
+	67,  // 140: hr.v1.HRService.ListEmployeeDocuments:input_type -> hr.v1.ListEmployeeDocumentsReq
+	69,  // 141: hr.v1.HRService.UploadEmployeeDocument:input_type -> hr.v1.UploadEmployeeDocumentReq
+	75,  // 142: hr.v1.HRService.CreateEmployee:input_type -> hr.v1.CreateEmployeeReq
+	71,  // 143: hr.v1.HRService.GetHRSettings:input_type -> hr.v1.GetHRSettingsReq
+	73,  // 144: hr.v1.HRService.UpdateHRSettings:input_type -> hr.v1.UpdateHRSettingsReq
+	18,  // 145: hr.v1.HRService.CreateLeaveRequest:output_type -> hr.v1.CreateLeaveRequestResp
+	20,  // 146: hr.v1.HRService.GetLeaveRequest:output_type -> hr.v1.GetLeaveRequestResp
+	22,  // 147: hr.v1.HRService.ListLeaveRequests:output_type -> hr.v1.ListLeaveRequestsResp
+	24,  // 148: hr.v1.HRService.ApproveLeaveRequest:output_type -> hr.v1.ApproveLeaveRequestResp
+	26,  // 149: hr.v1.HRService.RejectLeaveRequest:output_type -> hr.v1.RejectLeaveRequestResp
+	28,  // 150: hr.v1.HRService.CancelLeaveRequest:output_type -> hr.v1.CancelLeaveRequestResp
+	30,  // 151: hr.v1.HRService.GetLeaveBalance:output_type -> hr.v1.GetLeaveBalanceResp
+	32,  // 152: hr.v1.HRService.GetEmployeeLeaveBalance:output_type -> hr.v1.GetEmployeeLeaveBalanceResp
+	34,  // 153: hr.v1.HRService.ListLeaveTypes:output_type -> hr.v1.ListLeaveTypesResp
+	36,  // 154: hr.v1.HRService.RecordSickLeave:output_type -> hr.v1.RecordSickLeaveResp
+	38,  // 155: hr.v1.HRService.ClockIn:output_type -> hr.v1.ClockInResp
+	40,  // 156: hr.v1.HRService.ClockOut:output_type -> hr.v1.ClockOutResp
+	42,  // 157: hr.v1.HRService.StartBreak:output_type -> hr.v1.StartBreakResp
+	44,  // 158: hr.v1.HRService.EndBreak:output_type -> hr.v1.EndBreakResp
+	46,  // 159: hr.v1.HRService.GetActiveShift:output_type -> hr.v1.GetActiveShiftResp
+	48,  // 160: hr.v1.HRService.ListWorkTimeEntries:output_type -> hr.v1.ListWorkTimeEntriesResp
+	50,  // 161: hr.v1.HRService.GetDailySummary:output_type -> hr.v1.GetDailySummaryResp
+	52,  // 162: hr.v1.HRService.GetWeeklySummary:output_type -> hr.v1.GetWeeklySummaryResp
+	54,  // 163: hr.v1.HRService.SubmitTimeCorrection:output_type -> hr.v1.SubmitTimeCorrectionResp
+	56,  // 164: hr.v1.HRService.ApproveTimeCorrection:output_type -> hr.v1.ApproveTimeCorrectionResp
+	99,  // 165: hr.v1.HRService.CreateManualEntry:output_type -> hr.v1.CreateManualEntryResp
+	101, // 166: hr.v1.HRService.GetTimeBalance:output_type -> hr.v1.GetTimeBalanceResp
+	105, // 167: hr.v1.HRService.GetTimeAnalytics:output_type -> hr.v1.GetTimeAnalyticsResp
+	108, // 168: hr.v1.HRService.GetTeamTime:output_type -> hr.v1.GetTeamTimeResp
+	111, // 169: hr.v1.HRService.GetMyWeekStatus:output_type -> hr.v1.GetMyWeekStatusResp
+	113, // 170: hr.v1.HRService.SubmitWeek:output_type -> hr.v1.SubmitWeekResp
+	115, // 171: hr.v1.HRService.ApproveWeek:output_type -> hr.v1.ApproveWeekResp
+	117, // 172: hr.v1.HRService.RejectWeek:output_type -> hr.v1.RejectWeekResp
+	119, // 173: hr.v1.HRService.ReopenWeek:output_type -> hr.v1.ReopenWeekResp
+	79,  // 174: hr.v1.HRService.ListTimeCategories:output_type -> hr.v1.ListTimeCategoriesResp
+	81,  // 175: hr.v1.HRService.CreateTimeCategory:output_type -> hr.v1.CreateTimeCategoryResp
+	83,  // 176: hr.v1.HRService.UpdateTimeCategory:output_type -> hr.v1.UpdateTimeCategoryResp
+	85,  // 177: hr.v1.HRService.DeleteTimeCategory:output_type -> hr.v1.DeleteTimeCategoryResp
+	88,  // 178: hr.v1.HRService.ListTimeTemplates:output_type -> hr.v1.ListTimeTemplatesResp
+	90,  // 179: hr.v1.HRService.CreateTimeTemplate:output_type -> hr.v1.CreateTimeTemplateResp
+	92,  // 180: hr.v1.HRService.DeleteTimeTemplate:output_type -> hr.v1.DeleteTimeTemplateResp
+	95,  // 181: hr.v1.HRService.ListTimeProjects:output_type -> hr.v1.ListTimeProjectsResp
+	97,  // 182: hr.v1.HRService.CreateTimeProject:output_type -> hr.v1.CreateTimeProjectResp
+	58,  // 183: hr.v1.HRService.GetAbsenceCalendar:output_type -> hr.v1.GetAbsenceCalendarResp
+	60,  // 184: hr.v1.HRService.ListEmployees:output_type -> hr.v1.ListEmployeesResp
+	62,  // 185: hr.v1.HRService.GetEmployee:output_type -> hr.v1.GetEmployeeResp
+	64,  // 186: hr.v1.HRService.UpdateEmployee:output_type -> hr.v1.UpdateEmployeeResp
+	66,  // 187: hr.v1.HRService.UpdateSelfProfile:output_type -> hr.v1.UpdateSelfProfileResp
+	68,  // 188: hr.v1.HRService.ListEmployeeDocuments:output_type -> hr.v1.ListEmployeeDocumentsResp
+	70,  // 189: hr.v1.HRService.UploadEmployeeDocument:output_type -> hr.v1.UploadEmployeeDocumentResp
+	76,  // 190: hr.v1.HRService.CreateEmployee:output_type -> hr.v1.CreateEmployeeResp
+	72,  // 191: hr.v1.HRService.GetHRSettings:output_type -> hr.v1.GetHRSettingsResp
+	74,  // 192: hr.v1.HRService.UpdateHRSettings:output_type -> hr.v1.UpdateHRSettingsResp
+	145, // [145:193] is the sub-list for method output_type
+	97,  // [97:145] is the sub-list for method input_type
+	97,  // [97:97] is the sub-list for extension type_name
+	97,  // [97:97] is the sub-list for extension extendee
+	0,   // [0:97] is the sub-list for field type_name
 }
 
 func init() { file_proto_hr_v1_hr_proto_init() }
@@ -9228,7 +9367,7 @@ func file_proto_hr_v1_hr_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_hr_v1_hr_proto_rawDesc), len(file_proto_hr_v1_hr_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   113,
+			NumMessages:   115,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

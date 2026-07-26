@@ -1064,3 +1064,107 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     jetzt erfuellt), `p3-zeiterfassung-entries` (sonnet, vorher verifizieren)
     oder `p3-admin-invite-flow` (opus). `p3-berichte-share-token` bleibt durch
     das blockierte `p3-berichte-server-pdf` gesperrt.
+
+## Iteration 16 — p3-zeiterfassung-week-submission — done — 2026-07-26
+
+- commit: PENDING
+- verify vorgaenger: sauber. `9d5e176f` (offene Posten) gegen die sechs
+  Fehlerklassen geprueft: keine neue Tabelle (Read-Model ueber
+  `finance_invoices`/`finance_payments`/`finance_dunning_records`), also kein
+  RLS-Thema; der Gateway-Handler geht ueber `b.getBizClient()`, nicht ueber eine
+  injizierte Service-Instanz; die Route haengt am bestehenden
+  `finance:read`-Guard, also kein Seed noetig; `.proto` + `.pb.go` +
+  `openapi.yaml` liegen im selben Commit; leere Liste kommt ueber
+  `hrMarshalSlice` als `[]`, nicht als `null`. `go build ./...` gruen.
+- Befund vor dem Bauen — wie in Iteration 15 war die Unit teils erledigt und
+  teils falsch beschrieben. Erst nachgesehen, dann gebaut:
+  - **`p3-zeiterfassung-entries` und `p3-zeiterfassung-balance-analytics` waren
+    fertig.** `route_hr.go` registriert `/hr/time/entries|projects|balance|
+    analytics|team`, die Handler gehen ueber `h.getHRClient()`, der Service
+    liegt in `internal/biz/hr/timetracking`, und die Repos filtern in jedem
+    SELECT explizit auf `tenant_id`. Beide auf `done` gesetzt, nichts gebaut.
+  - **Auch die Woche selbst war zur Haelfte da**, aber anders als die Unit sie
+    beschreibt: die Tabelle heisst nicht `time_week_submissions`, sondern
+    `hr_week_approvals` (Migration 000180, `tenant_id UUID NOT NULL`,
+    `enable_tenant_rls`, UNIQUE(tenant,employee,week)), und einreichen/
+    genehmigen/ablehnen inklusive Statuspruefung existierten. **Keine Migration
+    in diesem Commit** — sie waere ein Duplikat gewesen.
+  - **Was gefehlt hat, ist die Wirkung.** Die Freigabe war reine Anzeige: kein
+    einziger Schreibpfad hat den Wochenstatus gelesen. `CreateManualEntry`
+    schreibt ein beliebiges `clock_in`, also auch in eine genehmigte Woche;
+    `ClockIn` legt in der laufenden, bereits eingereichten Woche eine neue
+    Schicht an; `ApproveTimeCorrection` setzt eine Korrektur auf
+    `correction_approved`, und genau dieser Status wird in
+    `aggregateDailyBuckets` mitsummiert. Die unterschriebene Zahl konnte sich
+    also nach der Unterschrift noch aendern, ohne Spur.
+- gebaut:
+  - `service_week_lock.go`: `assertWeekEditable` refused jeden Zeitschrieb in
+    eine `submitted`- oder `approved`-Woche (`ErrWeekLocked` →
+    `FailedPrecondition` → **409**). Verdrahtet in `ClockIn`,
+    `CreateManualEntry`, `SubmitTimeCorrection` (beide Wochen: die des
+    Original-Eintrags **und** die der Korrekturzeit — eine Korrektur, die Zeit
+    aus einer gesperrten Woche herausschiebt, aendert deren Summe genauso) und
+    `ApproveTimeCorrection` (dort faellt die Zeit in die Summe, nicht beim
+    Beantragen).
+  - `ReopenWeek` + `POST /api/v1/hr/time/weeks/reopen` (`hr:write`, Guard
+    bereits geseedet, keine neue Permission): `submitted|approved` → `open`,
+    alles andere 409 (`ErrWeekNotLocked`). Ohne diesen Uebergang waere die
+    Sperre eine Falle — eine genehmigte Woche liesse sich nie mehr korrigieren,
+    und der Druck ginge auf die Sperre statt auf den Prozess.
+  - `weekStartOf()` — die Monday-Truncation stand siebenmal woertlich im
+    Service. Jetzt einmal. Zwei Kopien wuerden frueher oder spaeter
+    auseinanderlaufen und einen Eintrag in eine Woche legen, die die Summe
+    woanders zaehlt.
+- entschieden, mit Begruendung:
+  - **`ClockOut`/`Break*` sind absichtlich nicht gesperrt.** Sie beenden eine
+    Schicht, die begonnen wurde, als die Woche offen war; ein 409 dort liesse
+    eine offene Schicht dauerhaft stehen — schlechtere Daten als die
+    Statusaenderung. Die Sperre trifft das Anlegen, nicht das Abschliessen.
+  - **Fail closed:** ein Repo-Fehler in `assertWeekEditable` verweigert den
+    Schreibzugriff. Waere er "offen", liesse ein DB-Aussetzer genau die Mutation
+    durch, die verhindert werden soll. Nur `ErrWeekApprovalNotFound` heisst
+    "nie eingereicht" und damit offen.
+  - **`SubmitWeek` hat jeden Lesefehler als "kein Datensatz" behandelt** und
+    danach ein frisches Objekt upserted — bei einem transienten Fehler haette
+    das eine genehmigte Woche auf `submitted` zurueckgeschrieben. Jetzt nur noch
+    `ErrWeekApprovalNotFound`. Dasselbe in `GetMyWeekStatus`, das sonst eine
+    genehmigte Woche bei DB-Fehler als "offen" gemeldet haette.
+  - **Reopen-Grund wird geloggt, nicht gespeichert** (`lean:`-Marker im Code):
+    `hr_week_approvals` hat keine Spalte dafuer, und `rejection_reason` bedeutet
+    etwas anderes und wird beim Reopen geleert. Upgrade-Trigger: sobald die
+    Wochenfreigabe einen abfragbaren Audit-Trail braucht (GoBD/Betriebsrat),
+    Spalte `reopen_reason` nachziehen.
+- gate: `go build -p 2 ./...` OK (Default-Parallelitaet OOMt in dieser Umgebung)
+  · `go vet ./internal/biz/hr/... ./internal/gateway/... ./internal/server/...`
+  OK · `golangci-lint run` auf timetracking/gateway/server: 0 issues ·
+  `go test ./internal/biz/hr/timetracking/...` gruen (11 neue Tests, per `-v`
+  nachgesehen dass sie wirklich laufen) · `go test -p 1 ./internal/gateway/...
+  ./internal/server/...` gruen inkl. `TestOpenAPIRouteDrift` ·
+  `swagger-cli validate backend/api/openapi.yaml` → valid.
+- offen / naechste Iteration:
+  - **Neue Unit eingetragen: `p3-zeiterfassung-correction-supersede`.** Beim
+    Lesen gefunden, nicht mitgefixt (eigene Unit, braucht Migration): eine
+    genehmigte Zeitkorrektur zaehlt **doppelt**. `aggregateDailyBuckets` summiert
+    `status IN ('active','completed','correction_approved')`,
+    `ApproveTimeCorrection` laesst den Original-Eintrag aber auf `completed`.
+    Jede genehmigte Korrektur hebt Tages- und Wochensaldo um die korrigierte
+    Dauer. Der neue Status-Wert braucht eine Migration
+    (`chk_work_time_status`), darum getrennt.
+  - **`aggregateDailyBuckets` filtert nicht auf `tenant_id`**, nur auf
+    `employee_id`, und verlaesst sich auf RLS. Im System-Kontext liefert das die
+    falsche Menge. Fix heisst `tenantID` durch `GetWeeklySummary`/
+    `GetDailySummary`/`GetDailySummaryRange` faedeln — eigene Unit wert, hier
+    bewusst nicht angefasst.
+  - **FE kennt `weeks/reopen` noch nicht** (`hr-client.ts` hat submit/approve/
+    reject). Wire-Shape steht in `openapi.yaml`
+    (`HrTimeReopenWeekRequest` → `HrTimeWeekApproval`). FE-Aufgabe, kein
+    Loop-Scope. Ebenso muss die UI das neue 409 aus Erfassung/Korrektur
+    anzeigen, sonst wirkt der Speichern-Button kaputt statt gesperrt.
+  - **Fuer Luke, unveraendert offen aus Iteration 13/14:**
+    `finance-client.ts:229` ruft `POST /finance/invoices/{id}/mark-paid`, die
+    Route heisst `/pay` → 404 gegen echtes BE. Und weiterhin kein automatischer
+    Mahnlauf (pg_cron-Tick, zusammen mit dem Recurring-Scheduler zu loesen).
+  - Naechste freie Unit in Reihenfolge: `p3-finance-camt-import` (opus, deps
+    erfuellt), `p3-zeiterfassung-correction-supersede` (sonnet, neu) oder
+    `p3-admin-invite-flow` (opus). `p3-berichte-share-token` bleibt durch das
+    blockierte `p3-berichte-server-pdf` gesperrt.

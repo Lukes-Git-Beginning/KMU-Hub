@@ -1211,6 +1211,36 @@ func (s *HRGRPCServer) RejectWeek(ctx context.Context, req *hrv1.RejectWeekReq) 
 	return &hrv1.RejectWeekResp{WeekApproval: toProtoWeekApproval(wa)}, nil
 }
 
+// ReopenWeek unlocks a submitted or approved week so it accepts time entries again.
+func (s *HRGRPCServer) ReopenWeek(ctx context.Context, req *hrv1.ReopenWeekReq) (*hrv1.ReopenWeekResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	approverID, err := uuid.Parse(req.GetApproverId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
+	}
+
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+
+	weekStart, err := time.Parse("2006-01-02", req.GetWeekStart())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid week_start")
+	}
+
+	wa, err := s.timetrackingService.ReopenWeek(ctx, tenantID, approverID, employeeID, weekStart, req.GetReason())
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.ReopenWeekResp{WeekApproval: toProtoWeekApproval(wa)}, nil
+}
+
 // ============================================================================
 // Time Category RPCs
 // ============================================================================
@@ -1892,6 +1922,10 @@ func mapHRError(err error) error {
 	case errors.Is(err, timetracking.ErrWeekAlreadySubmitted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, timetracking.ErrWeekNotSubmitted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, timetracking.ErrWeekLocked):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, timetracking.ErrWeekNotLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, timetracking.ErrInvalidManualEntry):
 		return status.Error(codes.InvalidArgument, err.Error())

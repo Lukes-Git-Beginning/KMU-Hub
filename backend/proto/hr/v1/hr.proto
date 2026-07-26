@@ -40,6 +40,7 @@ service HRService {
   rpc SubmitWeek(SubmitWeekReq) returns (SubmitWeekResp);
   rpc ApproveWeek(ApproveWeekReq) returns (ApproveWeekResp);
   rpc RejectWeek(RejectWeekReq) returns (RejectWeekResp);
+  rpc ReopenWeek(ReopenWeekReq) returns (ReopenWeekResp);
   // Time categories
   rpc ListTimeCategories(ListTimeCategoriesReq) returns (ListTimeCategoriesResp);
   rpc CreateTimeCategory(CreateTimeCategoryReq) returns (CreateTimeCategoryResp);
@@ -980,5 +981,18 @@ message RejectWeekReq {
 }
 
 message RejectWeekResp {
+  WeekApproval week_approval = 1;
+}
+
+// ReopenWeek unlocks a submitted or approved week for corrections.
+message ReopenWeekReq {
+  string tenant_id = 1;
+  string approver_id = 2;
+  string employee_id = 3;
+  string week_start = 4;      // YYYY-MM-DD
+  string reason = 5;          // logged, not persisted
+}
+
+message ReopenWeekResp {
   WeekApproval week_approval = 1;
 }

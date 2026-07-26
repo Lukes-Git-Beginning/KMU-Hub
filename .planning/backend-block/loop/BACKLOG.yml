@@ -595,7 +595,7 @@ units:
     service: zeiterfassung
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 16 verifiziert: war bereits gebaut, nichts nachzuholen
     scope: >
       /hr/time/entries und /hr/time/projects — Erfassung und Lesen von
       Zeiteintraegen gegen echte Tabellen.
@@ -612,7 +612,7 @@ units:
     service: zeiterfassung
     model: sonnet
     deps: [p3-zeiterfassung-entries]
-    status: todo
+    status: done   # Iteration 16 verifiziert: Routen, Service und Repos existieren
     scope: >
       /hr/time/balance, /hr/time/analytics und /hr/time/team — Salden und
       Auswertungen.
@@ -628,20 +628,50 @@ units:
     service: zeiterfassung
     model: opus
     deps: [p3-zeiterfassung-balance-analytics]
-    status: todo
+    status: done   # Iteration 16
     scope: >
       Tabelle time_week_submissions plus Wochen-Freigabe-Workflow
       (einreichen, genehmigen, ablehnen, wieder oeffnen).
     sources:
       - .planning/backend-gaps.md
     notes: >
-      Zustandsuebergaenge serverseitig erzwingen, nicht im FE. Eine freigegebene
-      Woche darf nicht stillschweigend wieder editierbar werden. Migration
-      noetig — Nummer zur Laufzeit ermitteln.
+      Iteration 16: Tabelle (hr_week_approvals, Migration 180, tenant_id NOT NULL
+      + RLS) und die drei Uebergaenge existierten bereits. Gefehlt haben die
+      Wirkung der Freigabe (jeder Schreibpfad hat weiter in die freigegebene
+      Woche geschrieben) und der vierte Uebergang (wieder oeffnen). Beides
+      nachgezogen; keine Migration noetig.
     done_when:
       - Tabelle mit tenant_id NOT NULL und RLS-Policy
       - Uebergaenge serverseitig erzwungen, ungueltiger Uebergang 409
       - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  - id: p3-zeiterfassung-correction-supersede
+    phase: 3
+    service: zeiterfassung
+    model: sonnet
+    deps: [p3-zeiterfassung-week-submission]
+    status: todo
+    scope: >
+      Genehmigte Zeitkorrektur zaehlt doppelt. aggregateDailyBuckets summiert
+      status IN ('active','completed','correction_approved'); ApproveTimeCorrection
+      setzt die Korrekturzeile auf correction_approved, ruehrt den Original-
+      Eintrag aber nicht an — der bleibt 'completed' und wird mitgezaehlt. Nach
+      jeder genehmigten Korrektur ist der Tages- und Wochensaldo um die
+      korrigierte Dauer zu hoch. Original beim Genehmigen aus der Summe nehmen.
+    sources:
+      - backend/internal/biz/hr/timetracking/service.go (ApproveTimeCorrection)
+      - backend/internal/biz/hr/timetracking/postgres_repository.go (aggregateDailyBuckets)
+      - backend/migrations/000046_create_hr_tables.up.sql (chk_work_time_status)
+    notes: >
+      Neuer Status-Wert (z.B. 'superseded') braucht eine Migration: die
+      CHECK-Constraint chk_work_time_status listet die vier erlaubten Werte
+      auf. Migrationsnummer zur Laufzeit ermitteln. Alternative ohne neuen
+      Status waere ein Filter auf original_entry_id in der Aggregation — dann
+      aber an genau einer Stelle, nicht in jeder Query.
+    done_when:
+      - Wochensaldo nach genehmigter Korrektur entspricht der korrigierten Dauer
+      - Test rechnet den Saldo ueber Original + genehmigte Korrektur nach
       - go build/vet/lint/test gruen
 
   # --- admin ----------------------------------------------------------------

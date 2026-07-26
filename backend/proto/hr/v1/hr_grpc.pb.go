@@ -47,6 +47,7 @@ const (
 	HRService_SubmitWeek_FullMethodName              = "/hr.v1.HRService/SubmitWeek"
 	HRService_ApproveWeek_FullMethodName             = "/hr.v1.HRService/ApproveWeek"
 	HRService_RejectWeek_FullMethodName              = "/hr.v1.HRService/RejectWeek"
+	HRService_ReopenWeek_FullMethodName              = "/hr.v1.HRService/ReopenWeek"
 	HRService_ListTimeCategories_FullMethodName      = "/hr.v1.HRService/ListTimeCategories"
 	HRService_CreateTimeCategory_FullMethodName      = "/hr.v1.HRService/CreateTimeCategory"
 	HRService_UpdateTimeCategory_FullMethodName      = "/hr.v1.HRService/UpdateTimeCategory"
@@ -104,6 +105,7 @@ type HRServiceClient interface {
 	SubmitWeek(ctx context.Context, in *SubmitWeekReq, opts ...grpc.CallOption) (*SubmitWeekResp, error)
 	ApproveWeek(ctx context.Context, in *ApproveWeekReq, opts ...grpc.CallOption) (*ApproveWeekResp, error)
 	RejectWeek(ctx context.Context, in *RejectWeekReq, opts ...grpc.CallOption) (*RejectWeekResp, error)
+	ReopenWeek(ctx context.Context, in *ReopenWeekReq, opts ...grpc.CallOption) (*ReopenWeekResp, error)
 	// Time categories
 	ListTimeCategories(ctx context.Context, in *ListTimeCategoriesReq, opts ...grpc.CallOption) (*ListTimeCategoriesResp, error)
 	CreateTimeCategory(ctx context.Context, in *CreateTimeCategoryReq, opts ...grpc.CallOption) (*CreateTimeCategoryResp, error)
@@ -419,6 +421,16 @@ func (c *hRServiceClient) RejectWeek(ctx context.Context, in *RejectWeekReq, opt
 	return out, nil
 }
 
+func (c *hRServiceClient) ReopenWeek(ctx context.Context, in *ReopenWeekReq, opts ...grpc.CallOption) (*ReopenWeekResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReopenWeekResp)
+	err := c.cc.Invoke(ctx, HRService_ReopenWeek_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hRServiceClient) ListTimeCategories(ctx context.Context, in *ListTimeCategoriesReq, opts ...grpc.CallOption) (*ListTimeCategoriesResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListTimeCategoriesResp)
@@ -645,6 +657,7 @@ type HRServiceServer interface {
 	SubmitWeek(context.Context, *SubmitWeekReq) (*SubmitWeekResp, error)
 	ApproveWeek(context.Context, *ApproveWeekReq) (*ApproveWeekResp, error)
 	RejectWeek(context.Context, *RejectWeekReq) (*RejectWeekResp, error)
+	ReopenWeek(context.Context, *ReopenWeekReq) (*ReopenWeekResp, error)
 	// Time categories
 	ListTimeCategories(context.Context, *ListTimeCategoriesReq) (*ListTimeCategoriesResp, error)
 	CreateTimeCategory(context.Context, *CreateTimeCategoryReq) (*CreateTimeCategoryResp, error)
@@ -763,6 +776,9 @@ func (UnimplementedHRServiceServer) ApproveWeek(context.Context, *ApproveWeekReq
 }
 func (UnimplementedHRServiceServer) RejectWeek(context.Context, *RejectWeekReq) (*RejectWeekResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method RejectWeek not implemented")
+}
+func (UnimplementedHRServiceServer) ReopenWeek(context.Context, *ReopenWeekReq) (*ReopenWeekResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReopenWeek not implemented")
 }
 func (UnimplementedHRServiceServer) ListTimeCategories(context.Context, *ListTimeCategoriesReq) (*ListTimeCategoriesResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTimeCategories not implemented")
@@ -1346,6 +1362,24 @@ func _HRService_RejectWeek_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HRService_ReopenWeek_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReopenWeekReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ReopenWeek(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ReopenWeek_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ReopenWeek(ctx, req.(*ReopenWeekReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HRService_ListTimeCategories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListTimeCategoriesReq)
 	if err := dec(in); err != nil {
@@ -1806,6 +1840,10 @@ var HRService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RejectWeek",
 			Handler:    _HRService_RejectWeek_Handler,
+		},
+		{
+			MethodName: "ReopenWeek",
+			Handler:    _HRService_ReopenWeek_Handler,
 		},
 		{
 			MethodName: "ListTimeCategories",

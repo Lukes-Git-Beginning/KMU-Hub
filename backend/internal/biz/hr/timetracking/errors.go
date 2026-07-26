@@ -30,4 +30,10 @@ var (
 	ErrWeekAlreadySubmitted  = errors.New("week already submitted")
 	ErrWeekNotSubmitted      = errors.New("week not in submitted state")
 	ErrInvalidManualEntry    = errors.New("clock_out must be after clock_in")
+	// ErrWeekLocked is returned when work time would be written into a week that
+	// is already submitted or approved. The week has to be reopened first.
+	ErrWeekLocked = errors.New("week is submitted or approved and no longer accepts time entries")
+	// ErrWeekNotLocked is returned when reopening a week that is neither
+	// submitted nor approved — there is nothing to unlock.
+	ErrWeekNotLocked = errors.New("week is not submitted or approved")
 )
