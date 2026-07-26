@@ -382,22 +382,27 @@ export default function HelpdeskPage() {
 
   const handleSaveNewTicket = () => {
     if (!ntSubject.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
-    // Only carry non-empty custom values (backend-gaps §Customization: the wire
-    // create body must eventually persist these; for now stashed display-side).
+    // Intake P1 (agent channel): the whole form flows onto the wire ticket —
+    // description, category, contact and the custom-field values — so nothing
+    // is lost on creation and no session overlay is needed for new tickets.
     const enteredFields = Object.fromEntries(
       Object.entries(ntCustomFields).filter(([, v]) => v !== undefined && v !== ''),
     )
     createTicketMut.mutate(
       {
         subject: ntSubject.trim(),
+        description: ntDescription.trim() || undefined,
+        category: ntCategory || undefined,
         priority: displayPriorityToWire(ntPriority),
         assignee_id: ntAssignee || undefined,
+        channel: 'agent',
+        // The agent notes the contact manually; ownership stays with the creator
+        // (scope=own) so the new ticket remains visible to them.
+        requester_name: ntContact.trim() || undefined,
+        custom_fields: Object.keys(enteredFields).length > 0 ? enteredFields : undefined,
       },
       {
-        onSuccess: (created) => {
-          if (created?.id && Object.keys(enteredFields).length > 0) {
-            setCreatedCustomFields((m) => ({ ...m, [created.id]: enteredFields }))
-          }
+        onSuccess: () => {
           toast.success(t('helpdesk.newTicket.created', { subject: ntSubject.trim() }))
           setNewTicketOpen(false)
         },
