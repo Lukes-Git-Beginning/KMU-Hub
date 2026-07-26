@@ -558,6 +558,18 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - 🔴 **Aggregation:** `GET /helpdesk/stats` um echte CSAT-Werte erweitern (Durchschnitt + Sterne-Verteilung + Antwortzahl), tenant-gescopt. Ersetzt den Mock `customer_satisfaction`.
 - 🟠 **CSAT-Konfiguration** (tenant-Setting): an/aus, Delay, Mail-Text/Skala. Gehört in die Helpdesk-Moduleinstellungen.
 - ⚪ FE nach BE: `CSAT_FEATURE_ENABLED` auf `true`, `locked` an den 2 Statistik-Widgets entfernen, Kachel/Chart konsumieren echte Daten.
+- ⚪ **FE-Fundament schon da (Session #31, P0):** CSAT liegt jetzt am Wire-Ticket (`csat_rating`/`csat_comment`) statt im Legacy-Zustand-Store; Mock-Endpoint `POST /helpdesk/tickets/:id/csat` + Hook `useSaveCsat`; 3 Seed-Tickets tragen echte Ratings. BE muss diesen Endpoint + die Persistenz real machen (siehe CSAT-Erhebung oben).
+
+## 🔴 helpdesk — Ticket-Intake Daten-Fundament (neu Session #31, 2026-07-27, FE-mock-first gebaut)
+
+> Kontext: Ticket-Intake-Block (Briefing `.planning/helpdesk-intake-block/KONZEPT-BRIEFING.md`). FE ist mock-first gebaut (P0 Wire-Modell + P1a Agent-Kanal); BE muss die erweiterten Felder real persistieren. Kein Blocker für die weiteren FE-Phasen ausser der öffentlichen Route (Kanal 1/extern).
+
+- 🔴 **`CreateTicketInput` erweitern** (FE sendet bereits): `description`, `category`, `channel` (`agent|selfservice|external`), `requester_name`, `requester_email`, `requester_is_external`, `custom_fields` (Map). MSW nimmt sie heute an — BE-Handler + Proto/pb + Service müssen nachziehen.
+- 🔴 **`Ticket.custom_fields`** aufs Wire + persistieren (`helpdesk_ticket`-Custom-Field-Werte pro Ticket; bislang FE-Session-Overlay, P1b zieht sie auf den Wire). Tenant-scoped + RLS.
+- 🔴 **Requester-Modell:** Externe (Nicht-User) als Requester speicherbar (Name/E-Mail statt User-UUID), `requester_is_external`-Flag, `scope=own`-Filter-Verhalten für externe Requester definieren (heute matcht `scope=own` Externe nie).
+- 🔴 **Herkunfts-Feld `channel`/`source`** am Ticket persistieren — treibt die geplanten Herkunfts-Reiter im Modul (agent / selfservice / external, mit „zusammenführen").
+- 🔴 **Formular→Ticket-Aktion** (P2, folgt): neue `FormAction 'helpdesk_ticket'` — eine Formular-Einreichung mit Rolle=Ticket erzeugt serverseitig ein Helpdesk-Ticket (Feld-Rollen-Mapping subject/description/priority/category/requester + freie Felder → `custom_fields`). Webhook-Basis vorhanden.
+- 🔴 **Öffentliche Formular-Route** (`/r/:token`, kein Login) — Haupt-Blocker für Kanal 1 (extern); + Anti-Spam/Rate-Limit + echtes Datei-Storage.
 
 # Hinweis zur Arbeitsweise (Claude = FE, Luke = BE)
 Die meisten 🟡-Punkte (FE-Page von Mock-Store auf fertige TanStack-Hooks umstellen) brauchen KEIN Backend von Luke — die Hooks + Endpoints existieren bereits. Luke-Bedarf = nur die 🔴- und cross-cutting-Punkte oben.

@@ -1,4 +1,19 @@
-# RESUME — nächster Einstieg (Stand 2026-07-26, Session #30 — DARIEN LOKAL-REVIEW: 3 FEEDBACK-RUNDEN + STATISTIK-DIMENSION)
+# RESUME — nächster Einstieg (Stand 2026-07-27, Session #31 — TICKET-INTAKE-BLOCK START: P0 + P1a GEBAUT+QA)
+
+> **★★★★★ SESSION #31 (2026-07-27) — Ticket-Intake-Block gestartet. Erst `git merge origin/main` (8 „night-loop"-Commits = reines Backend-Nacht-Loop-Harness unter `.planning/backend-block/loop/*`, konfliktfrei). Dann P0 + P1a des Intake-Systems gebaut, QA grün, committed — NICHT gepusht (Hetzner-Gate, Darien reviewt lokal). Stand jetzt: 27 Commits lokal voraus, 0 hinter. NEUES TERMINAL: erst `git pull`.**
+>
+> **★ P0 — Daten-Fundament (Commit `580b1f7b`):** Wire-Modell für den Intake erweitert (`helpdesk-types.ts` + Adapter + Client + `useHelpdesk` + MSW-Handler): `TicketChannel` (agent/selfservice/external = Herkunft), Requester-Objekt für Externe (`requester_name/email/is_external`), `category`, `custom_fields`-Map, `csat_rating/comment` — alles round-trips durch `CreateTicketInput` + Wire-`Ticket`. 15 Seed-Tickets angereichert (Kanal-Mix, externe Requester + E-Mail, custom_fields, **3 echte CSAT-Ratings**). **CSAT vom Legacy-Zustand-Store auf den aktiven Wire/React-Query-Pfad gezogen:** neuer `POST /tickets/:id/csat` + `useSaveCsat`; `CSATWidget`+`CSATAggregate` lesen/schreiben jetzt das Wire-Ticket (Props statt Store). QA `qa-intake-p0.mjs` 5/5 (Bilder angesehen: tk-006 Seed-Rating 5/5, tk-009 Formular→4 Sterne→Wire→4/5+Toast).
+> **★ P1a — Agent-Kanal Durchreichung (Commit `dda2042f`):** `handleSaveNewTicket` sendet jetzt ALLE Dialog-Felder (Beschreibung, Kategorie, `channel:'agent'`, `requester_name` aus Kontakt, `custom_fields`) auf den Wire — **fixt RESUME-Bug (b)** (neue Tickets verloren Beschreibung/Kontakt/Felder). Post-Create-Overlay-Stash entfernt → created Tickets tragen custom_fields auf dem Wire. QA `qa-intake-p1a.mjs` 4/4 (Bild angesehen: neues Ticket zeigt Beschreibung + Kontakt „Testkontakt Meier" + SLA-Stufe „Priorität").
+> **★ Gates je Phase:** scoped tsc (`tsconfig.intakecheck.json`) 0 Fehler · eslint `src/` grün · i18n +1 Key ×4 (`helpdesk.csat.saveError`, `{var}`-Konvention). backend-gaps §Ticket-Intake + §CSAT-P0-Notiz eingetragen.
+> **★★ NÄCHSTER SCHRITT = P1b (Implementierung, kein Darien-Blocker) → dann P2 (ARCHITEKTUR, mit Darien besprechen):**
+>   - **P1b** Custom-Fields-Edit-Persistenz Overlay→Wire: Edits an bestehenden Tickets via **onBlur→PUT** (kein Fokus-Verlust bei Textfeldern — `CustomFieldControl` feuert onChange pro Tastendruck!) + optimistisch; `UpdateTicketInput.custom_fields` + PUT-Handler-Merge. **`DEMO_TICKET_CUSTOM_FIELDS`-Seedwerte in die MSW-Wire-Seeds ziehen** + `tickets`-Memo auf Wire-Base umstellen (DEMO-Overlay raus, `createdCustomFields` raus). **G2b-Re-QA Pflicht** (Regressionsrisiko). Task #7.
+>   - **P2** Formular→Ticket-Aktion = **shared Engine** (§1③ des Briefings: von Anfang an in `shared/`, modul-agnostisch — Helpdesk = erste Instanz). Neue `FormAction 'helpdesk_ticket'` + Feld-Rollen-Mapping + Ticket-Formular-/CSAT-Template. **→ API-Shape der Engine mit Darien abstimmen bevor gebaut** (Datensatz-Typ + Feld→Ziel-Mapping als Parameter).
+>   - Danach P3 (CSAT-Trigger + Flag an + Statistik entsperren — CSAT muss vor Team-Review fertig), P4 (Intern-Selfservice in Settings), P5 (Extern = öffentliche Route, Luke-Blocker), P6 (Editor-Anbindung).
+> **★ OFFEN bei Darien:** (1) **Push/Deploy-Zeitpunkt** — 27 Commits lokal, cd.yml scharf (grüner Push → Auto-Deploy Hetzner). (2) P2-Shared-Engine-API besprechen. (3) CSAT-Auslöser-Default (§7 Briefing: auto nach Schluss + Delay, tenant an/aus, 1–5 fix) im Bau gegenchecken. Untracked belassen: `flags.yml`, `qa-dialer-callflow.mjs`, `.qa-screenshots/`.
+>
+> ---
+
+# RESUME — Historie (Stand 2026-07-26, Session #30 — DARIEN LOKAL-REVIEW: 3 FEEDBACK-RUNDEN + STATISTIK-DIMENSION)
 
 > **★★★★★ SESSION #30 (2026-07-26) — Darien hat den Helpdesk-Editor-Pilot LOKAL reviewt (Dev-App). 3 Feedback-Runden abgearbeitet, alle gebaut+QA+commit. 5 neue Commits lokal (`4e4a5e4a`…`d11a4882`), NICHT gepusht (Hetzner-Gate, Darien reviewt weiter lokal). NEUES TERMINAL: erst `git pull`.**
 >
