@@ -452,7 +452,7 @@ units:
     service: finance
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Rechnungsliste zeigt durchgehend 0,00 EUR (Gaps-Punkt 17). Betragsfeld im
       Listen-Pfad korrekt befuellen — verwandt mit dem einkauf-Defekt, aber
@@ -460,6 +460,19 @@ units:
     sources:
       - .planning/backend-gaps.md
       - backend/internal/biz/
+    notes: >
+      Die 0,00-EUR-Ursache selbst war bereits erledigt (Commit 4c197d79,
+      2026-06-24, Darien — `protoTaxBreakdown` faellt auf die
+      subtotal/total_tax/gross_total-Spalten zurueck, wenn die
+      tax_breakdown-JSONB fehlt; das ist der Zustand von Seed-Zeilen UND
+      Bexio-Spiegeln). Gegen die done_when-Liste fehlten aber der Unit-Test
+      (einziger Schutz war ein manuelles QA-Script gegen ein laufendes Backend)
+      und die Waehrung: `models.Quote/Invoice/CreditNote` tragen `Currency`, die
+      drei Proto-Messages hatten kein Feld dafuer — jeder Betrag rannte im FE in
+      den EUR-Default (`formatMoney(grossTotal, inv.currency)`), CHF-Spiegel
+      inklusive. Iteration 13 hat currency (alle drei) + source/external_id/
+      external_number (Invoice, `InvoiceDetailPanel` gated `isExternal` darauf
+      und war immer false) ins Proto gezogen und den Regressionstest gebaut.
     done_when:
       - Liste zeigt echte Betraege
       - Unit-Test auf den Listen-Pfad

@@ -210,6 +210,9 @@ message Quote {
   string created_by = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
+  // ISO 4217 code of the document currency. Without it every amount renders
+  // with the EUR symbol, whatever the stored currency is.
+  string currency = 16;
 }
 
 message Invoice {
@@ -234,6 +237,15 @@ message Invoice {
   google.protobuf.Timestamp updated_at = 19;
   // Contact-360: CRM contact linked to this invoice (Migration 000141).
   optional string contact_id = 20;
+  // ISO 4217 code of the document currency. Without it every amount renders
+  // with the EUR symbol, whatever the stored currency is — Bexio mirrors are
+  // typically CHF.
+  string currency = 21;
+  // Provenance (Migration 000243): "cosmi" for own GoBD-numbered invoices,
+  // "bexio" for read-only mirrors. The detail view gates editing on this.
+  string source = 22;
+  optional string external_id = 23;
+  optional string external_number = 24;
 }
 
 message CreditNote {
@@ -250,6 +262,9 @@ message CreditNote {
   string created_by = 11;
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+  // ISO 4217 code of the document currency. Without it every amount renders
+  // with the EUR symbol, whatever the stored currency is.
+  string currency = 14;
 }
 
 message Payment {

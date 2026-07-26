@@ -31467,6 +31467,10 @@ components:
         updated_at:
           type: string
           format: date-time
+        currency:
+          type: string
+          description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
+          example: EUR
 
     CreateQuoteRequest:
       type: object
@@ -31561,6 +31565,20 @@ components:
           type: string
           format: uuid
           description: CRM contact linked to this invoice (Contact-360, Migration 000141)
+        currency:
+          type: string
+          description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
+          example: EUR
+        source:
+          type: string
+          enum: [cosmi, bexio]
+          description: Provenance (Migration 000243). Bexio rows are read-only mirrors.
+        external_id:
+          type: string
+          description: Identity in the source system. Absent for cosmi invoices.
+        external_number:
+          type: string
+          description: Document number in the source system. Absent for cosmi invoices.
 
     CreateInvoiceRequest:
       type: object
@@ -31659,6 +31677,10 @@ components:
         updated_at:
           type: string
           format: date-time
+        currency:
+          type: string
+          description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
+          example: EUR
 
     CreateCreditNoteRequest:
       type: object

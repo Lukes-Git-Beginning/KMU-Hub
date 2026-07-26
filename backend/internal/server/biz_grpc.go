@@ -1465,6 +1465,7 @@ func toProtoQuote(q *models.Quote) *bizv1.Quote {
 		LineItems:    lineItems,
 		TaxMode:      taxModeToProto(q.TaxMode),
 		TaxBreakdown: taxBreakdown,
+		Currency:     documentCurrency(q.Currency),
 		Notes:        q.Notes,
 		TenantId:     q.TenantID.String(),
 		CreatedBy:    q.CreatedBy.String(),
@@ -1494,22 +1495,26 @@ func toProtoInvoice(inv *models.Invoice) *bizv1.Invoice {
 	taxBreakdown := protoTaxBreakdown(inv.TaxBreakdownRaw, inv.Subtotal, inv.TotalTax, inv.GrossTotal)
 
 	pi := &bizv1.Invoice{
-		Id:            inv.ID.String(),
-		InvoiceNumber: inv.InvoiceNumber,
-		Status:        invoiceStatusToProto(inv.Status),
-		Customer:      &bizv1.CustomerSnapshot{Name: inv.CustomerName, Address: inv.CustomerAddress, Email: inv.CustomerEmail, UstIdNr: inv.CustomerUStIDNr},
-		LineItems:     lineItems,
-		TaxMode:       taxModeToProto(inv.TaxMode),
-		TaxBreakdown:  taxBreakdown,
-		InvoiceDate:   inv.InvoiceDate.Format("2006-01-02"),
-		DueDate:       inv.DueDate.Format("2006-01-02"),
-		PaymentTerms:  inv.PaymentTerms,
-		SnapshotData:  inv.SnapshotData,
-		Notes:         inv.Notes,
-		TenantId:      inv.TenantID.String(),
-		CreatedBy:     inv.CreatedBy.String(),
-		CreatedAt:     timestamppb.New(inv.CreatedAt),
-		UpdatedAt:     timestamppb.New(inv.UpdatedAt),
+		Id:             inv.ID.String(),
+		InvoiceNumber:  inv.InvoiceNumber,
+		Status:         invoiceStatusToProto(inv.Status),
+		Customer:       &bizv1.CustomerSnapshot{Name: inv.CustomerName, Address: inv.CustomerAddress, Email: inv.CustomerEmail, UstIdNr: inv.CustomerUStIDNr},
+		LineItems:      lineItems,
+		TaxMode:        taxModeToProto(inv.TaxMode),
+		TaxBreakdown:   taxBreakdown,
+		Currency:       documentCurrency(inv.Currency),
+		Source:         inv.Source,
+		ExternalId:     inv.ExternalID,
+		ExternalNumber: inv.ExternalNumber,
+		InvoiceDate:    inv.InvoiceDate.Format("2006-01-02"),
+		DueDate:        inv.DueDate.Format("2006-01-02"),
+		PaymentTerms:   inv.PaymentTerms,
+		SnapshotData:   inv.SnapshotData,
+		Notes:          inv.Notes,
+		TenantId:       inv.TenantID.String(),
+		CreatedBy:      inv.CreatedBy.String(),
+		CreatedAt:      timestamppb.New(inv.CreatedAt),
+		UpdatedAt:      timestamppb.New(inv.UpdatedAt),
 	}
 
 	if inv.DeliveryDate != nil {
@@ -1560,6 +1565,7 @@ func toProtoCreditNote(cn *models.CreditNote) *bizv1.CreditNote {
 		LineItems:         lineItems,
 		TaxMode:           taxModeToProto(cn.TaxMode),
 		TaxBreakdown:      taxBreakdown,
+		Currency:          documentCurrency(cn.Currency),
 		Reason:            cn.Reason,
 		TenantId:          cn.TenantID.String(),
 		CreatedBy:         cn.CreatedBy.String(),
@@ -1757,6 +1763,17 @@ func protoTaxBreakdown(raw json.RawMessage, subtotal, totalTax, grossTotal decim
 		TotalTax:   totalTax.String(),
 		GrossTotal: grossTotal.String(),
 	}
+}
+
+// documentCurrency returns the ISO 4217 code to put on the wire for a finance
+// document. Rows written before the currency column existed carry an empty
+// string; those are EUR documents, so the wire stays self-describing instead of
+// leaving the frontend to guess a default.
+func documentCurrency(stored string) string {
+	if stored == "" {
+		return models.DefaultCurrency
+	}
+	return stored
 }
 
 // ============================================================================

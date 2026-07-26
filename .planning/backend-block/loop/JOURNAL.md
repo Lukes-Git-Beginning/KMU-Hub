@@ -774,3 +774,89 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     `internal/crm/report.PostgresRepository` legen.
   - Naechste freie Unit in Reihenfolge: `p3-finance-list-amounts` (sonnet,
     deps: []) oder `p3-zeiterfassung-entries` (sonnet, deps: []).
+
+## Iteration 13 — p3-finance-list-amounts — done — 2026-07-26 23:05
+
+- commit: bbb159b2 (amended, um diese sha einzutragen)
+- verify vorgaenger: sauber. `2427a8d8` (berichte-KPIs) gegen die sechs
+  Fehlerklassen geprueft: jede Aggregat-Query hat `tenant_id = $1`, keine neue
+  Tabelle/Route/Guard, Handler unberuehrt (reine Service-Seite), `slog` statt
+  Print, `go build ./...` gruen. Der Executor bleibt pgx-frei — das neue
+  `downstream`-Package haengt am Pool, nicht am Executor.
+- Befund vor dem Bauen: die 0,00-EUR-Ursache selbst war bereits getilgt, und
+  zwar nicht von diesem Loop — `4c197d79` (2026-06-24, Darien) hat
+  `protoTaxBreakdown()` eingefuehrt: bevorzugt die `tax_breakdown`-JSONB, faellt
+  aber auf die Spalten `subtotal/total_tax/gross_total` zurueck, wenn die JSONB
+  NULL ist. Das ist der Zustand von zwei realen Zeilenklassen: Seed-/Legacy-Zeilen
+  und **Bexio-Spiegel** (`bexio/field_mapper.go:258-260` fuellt genau die drei
+  Spalten und nie die JSONB). Alle drei Konverter (Quote/Invoice/CreditNote)
+  haengen dran, es gibt je nur eine Konstruktionsstelle — verifiziert per grep
+  auf `bizv1.Invoice{|Quote{|CreditNote{`.
+- Damit war die Unit gegen ihre eigene done_when-Liste aber NICHT fertig, zwei
+  Punkte offen:
+  - **Unit-Test auf den Listen-Pfad** fehlte komplett. Einziger Schutz war
+    `desktop/scripts/qa-b12-finanzen-amounts.mjs`, ein manuelles Script gegen ein
+    laufendes Backend — in CI laeuft das nicht, der Fallback war also ungesichert.
+  - **Waehrung fehlte auf dem Draht.** `models.Quote/Invoice/CreditNote` tragen
+    alle `Currency` (Spalte existiert), die drei Proto-Messages hatten kein Feld
+    dafuer. Das FE rendert `formatMoney(grossTotal, inv.currency)` → `currency`
+    war immer `undefined` → EUR-Default. Ein CHF-Betrag aus dem Bexio-Spiegel
+    (Schweizer Quelle!) wurde also als "1.234,00 €" angezeigt. Betrag richtig,
+    Waehrung falsch — in einem Finanzmodul derselbe Defekt wie 0,00.
+- gebaut:
+  - Proto: `currency` an Quote (16), Invoice (21), CreditNote (14); zusaetzlich
+    `source` (22), `external_id` (23), `external_number` (24) an Invoice.
+    `.proto` + regeneriertes `.pb.go` im selben Commit (protoc, Makefile-Target
+    `proto-biz`).
+  - `toProtoQuote/Invoice/CreditNote` fuellen die Felder; neuer Helper
+    `documentCurrency()` mappt eine leere Spalte auf `models.DefaultCurrency`,
+    damit der Draht selbstbeschreibend ist statt auf einen FE-Default zu bauen.
+  - `internal/server/biz_grpc_amounts_test.go`: JSONB-Vorrang, Spalten-Fallback
+    (der eigentliche 0,00-Regressionsschutz), Currency-Passthrough + EUR-Default,
+    Provenance-Felder, und ein Wire-Shape-Test, der mit denselben
+    protojson-Optionen wie das Gateway marshalt und `tax_breakdown.gross_total`
+    /`currency`/`source` als snake_case-Keys aus dem JSON liest.
+  - `openapi.yaml`: `currency` in Quote/Invoice/CreditNote-Schema,
+    `source`/`external_id`/`external_number` in Invoice. Keine neue Route.
+- Entscheidungen:
+  - `source`/`external_*` mitgenommen statt in eine eigene Unit zu schieben:
+    dieselbe Ursache (Konverter laesst Spalten liegen, die der FE-Typ
+    deklariert), dieselbe Proto-Regeneration, und der Effekt ist echt —
+    `InvoiceDetailPanel.tsx:155` entscheidet `isExternal = invoice.source ===
+    'bexio'` und war damit immer `false`, ein read-only Bexio-Spiegel praesentierte
+    sich als normal editierbare Cosmi-Rechnung.
+  - Keinen Code fuer den degenerierten JSONB-Fall (`'null'::jsonb` oder `'{}'`)
+    gebaut: dann greift der Spalten-Fallback nicht und der Betrag steht wieder
+    auf 0. Aus der App ist das nicht erreichbar (SQL-NULL → pgx liefert nil →
+    Fallback greift; die Services marshallen immer ein volles Struct), erreichbar
+    waere es nur per handgeschriebenem SQL. YAGNI — hier steht es als Notiz statt
+    als Guard.
+  - `exchange_rate` aus dem FE-Typ bewusst NICHT bedient: dafuer gibt es keine
+    Spalte und keinen Kurs-Provider, das ist eine eigene Unit.
+- gate: `go build ./...` OK (`GOFLAGS="-p=2"`) · `go vet ./internal/server/...
+  ./proto/biz/...` OK · `golangci-lint run ./internal/server/...`: 0 issues ·
+  `go test ./internal/server/... ./internal/gateway/... ./internal/biz/...`
+  gruen (inkl. `TestOpenAPIRouteDrift`) · `npx @apidevtools/swagger-cli validate
+  backend/api/openapi.yaml` → valid · migration n.a. · rls-smoke n.a. (keine
+  Query, keine Tabelle beruehrt — reine Wire-Schicht).
+- offen / naechste Iteration:
+  - **Fuer Luke, kein BE-Fix:** das FE kann jetzt aufgeraeumt werden. `Invoice.
+    total_net/total_gross` in `types/finance-types.ts` sind als
+    "mock/list payloads"-Sonderweg dokumentiert und ueberall als
+    `tax_breakdown?.gross_total ?? total_gross ?? 0` abgefragt — der Draht
+    liefert `tax_breakdown` jetzt garantiert, der zweite Zweig ist toter Code.
+    Ebenso der `calcInvoiceTotal(line_items)`-Fallback in `FinanzenPage.tsx:719`.
+  - **Echter Contract-Bug gefunden, NICHT in dieser Unit gefixt:**
+    `finance-client.ts:229` ruft `POST /api/v1/finance/invoices/{id}/mark-paid`,
+    die Route heisst `POST .../{id}/pay` (`route_biz.go:82`). "Als bezahlt
+    markieren" laeuft gegen echtes BE in einen 404. Gehoert in die
+    FE/BE-Contract-Klasse (`project_fe_be_contract_mismatch_20260712`), ist ein
+    Einzeiler im FE-Client oder ein Alias im Gateway — Luke entscheidet, welche
+    Seite nachgibt. Habe ich nicht angefasst, weil es das FE beruehrt und diese
+    Unit BE-Wire ist.
+  - Die Report-Kinds haengen weiter an nil-Repos
+    (`downstream_not_available`) — unveraendert aus Iteration 12.
+  - Naechste freie Unit in Reihenfolge: `p3-zeiterfassung-entries` (sonnet,
+    deps: []) oder `p3-admin-invite-flow` (opus, deps: []).
+    `p3-finance-recurring` ist jetzt entsperrt (deps erfuellt), aber opus und
+    idempotenz-kritisch.

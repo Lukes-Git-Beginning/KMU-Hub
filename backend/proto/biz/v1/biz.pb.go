@@ -731,6 +731,9 @@ type Quote struct {
 	CreatedBy     string                 `protobuf:"bytes,13,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// ISO 4217 code of the document currency. Without it every amount renders
+	// with the EUR symbol, whatever the stored currency is.
+	Currency      string `protobuf:"bytes,16,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -870,6 +873,13 @@ func (x *Quote) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Quote) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
 type Invoice struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -892,9 +902,18 @@ type Invoice struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// Contact-360: CRM contact linked to this invoice (Migration 000141).
-	ContactId     *string `protobuf:"bytes,20,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ContactId *string `protobuf:"bytes,20,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	// ISO 4217 code of the document currency. Without it every amount renders
+	// with the EUR symbol, whatever the stored currency is — Bexio mirrors are
+	// typically CHF.
+	Currency string `protobuf:"bytes,21,opt,name=currency,proto3" json:"currency,omitempty"`
+	// Provenance (Migration 000243): "cosmi" for own GoBD-numbered invoices,
+	// "bexio" for read-only mirrors. The detail view gates editing on this.
+	Source         string  `protobuf:"bytes,22,opt,name=source,proto3" json:"source,omitempty"`
+	ExternalId     *string `protobuf:"bytes,23,opt,name=external_id,json=externalId,proto3,oneof" json:"external_id,omitempty"`
+	ExternalNumber *string `protobuf:"bytes,24,opt,name=external_number,json=externalNumber,proto3,oneof" json:"external_number,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Invoice) Reset() {
@@ -1067,6 +1086,34 @@ func (x *Invoice) GetContactId() string {
 	return ""
 }
 
+func (x *Invoice) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *Invoice) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *Invoice) GetExternalId() string {
+	if x != nil && x.ExternalId != nil {
+		return *x.ExternalId
+	}
+	return ""
+}
+
+func (x *Invoice) GetExternalNumber() string {
+	if x != nil && x.ExternalNumber != nil {
+		return *x.ExternalNumber
+	}
+	return ""
+}
+
 type CreditNote struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1082,8 +1129,11 @@ type CreditNote struct {
 	CreatedBy         string                 `protobuf:"bytes,11,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// ISO 4217 code of the document currency. Without it every amount renders
+	// with the EUR symbol, whatever the stored currency is.
+	Currency      string `protobuf:"bytes,14,opt,name=currency,proto3" json:"currency,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreditNote) Reset() {
@@ -1205,6 +1255,13 @@ func (x *CreditNote) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *CreditNote) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
 }
 
 type Payment struct {
@@ -9285,7 +9342,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	" \x01(\tR\x04iban\x12\x10\n" +
 	"\x03bic\x18\v \x01(\tR\x03bic\x12\x19\n" +
 	"\blogo_url\x18\f \x01(\tR\alogoUrl\x12!\n" +
-	"\faccent_color\x18\r \x01(\tR\vaccentColor\"\xdf\x04\n" +
+	"\faccent_color\x18\r \x01(\tR\vaccentColor\"\xfb\x04\n" +
 	"\x05Quote\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fquote_number\x18\x02 \x01(\tR\vquoteNumber\x12+\n" +
@@ -9307,7 +9364,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xc0\x06\n" +
+	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1a\n" +
+	"\bcurrency\x18\x10 \x01(\tR\bcurrency\"\xec\a\n" +
 	"\aInvoice\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12%\n" +
 	"\x0einvoice_number\x18\x02 \x01(\tR\rinvoiceNumber\x12-\n" +
@@ -9334,8 +9392,15 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\"\n" +
 	"\n" +
-	"contact_id\x18\x14 \x01(\tH\x00R\tcontactId\x88\x01\x01B\r\n" +
-	"\v_contact_id\"\xc4\x04\n" +
+	"contact_id\x18\x14 \x01(\tH\x00R\tcontactId\x88\x01\x01\x12\x1a\n" +
+	"\bcurrency\x18\x15 \x01(\tR\bcurrency\x12\x16\n" +
+	"\x06source\x18\x16 \x01(\tR\x06source\x12$\n" +
+	"\vexternal_id\x18\x17 \x01(\tH\x01R\n" +
+	"externalId\x88\x01\x01\x12,\n" +
+	"\x0fexternal_number\x18\x18 \x01(\tH\x02R\x0eexternalNumber\x88\x01\x01B\r\n" +
+	"\v_contact_idB\x0e\n" +
+	"\f_external_idB\x12\n" +
+	"\x10_external_number\"\xe0\x04\n" +
 	"\n" +
 	"CreditNote\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12,\n" +
@@ -9355,7 +9420,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xcd\x02\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1a\n" +
+	"\bcurrency\x18\x0e \x01(\tR\bcurrency\"\xcd\x02\n" +
 	"\aPayment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
