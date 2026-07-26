@@ -30,7 +30,10 @@ test_cmd "push --tags"              "git push origin backend-loop --tags" BLOCK
 test_cmd "chained push main"        "cd /repo && git push origin main" BLOCK
 test_cmd "checkout main"            "git checkout main" BLOCK
 test_cmd "switch main"              "git switch main" BLOCK
-test_cmd "merge"                    "git merge backend-loop" BLOCK
+test_cmd "merge fremder Branch"     "git merge backend-loop" BLOCK
+test_cmd "merge feature-branch"     "git merge feat/partition-ephemeral-logs" BLOCK
+test_cmd "rebase (History-Rewrite)" "git rebase origin/main" BLOCK
+test_cmd "rebase -i"                "git rebase -i HEAD~3" BLOCK
 test_cmd "reset --hard"             "git reset --hard HEAD~1" BLOCK
 test_cmd "branch -f main"           "git branch -f main HEAD" BLOCK
 test_cmd "gh pr merge"              "gh pr merge 42 --squash" BLOCK
@@ -46,7 +49,10 @@ test_cmd "deploy.sh"                "sudo bash deploy/scripts/deploy.sh --force"
 echo "=== MUSS DURCHLASSEN ==="
 test_cmd "push loop branch"         "git push origin backend-loop" ALLOW
 test_cmd "push -u loop branch"      "git push -u origin backend-loop" ALLOW
-test_cmd "rebase auf origin/main"   "git rebase origin/main" ALLOW
+test_cmd "merge origin/main"        "git merge origin/main --no-edit" ALLOW
+test_cmd "merge origin/main ff"     "git merge --ff-only origin/main" ALLOW
+test_cmd "merge --abort"            "git merge --abort" ALLOW
+test_cmd "rebase --abort"           "git rebase --abort" ALLOW
 test_cmd "fetch"                    "git fetch --all --prune" ALLOW
 test_cmd "commit mit Wort 'main'"   "git commit -m 'fix(crm): align wire shape with main branch contract'" ALLOW
 test_cmd "checkout -- . (verwerfen)" "git checkout -- ." ALLOW

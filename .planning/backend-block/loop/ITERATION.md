@@ -54,14 +54,17 @@ git fetch --all --prune
 git status --short --branch
 ```
 
-Du musst auf `backend-loop` sein. Dann auf den aktuellen main-Stand rebasen (Luke pusht tagsueber):
+Du musst auf `backend-loop` sein. Dann den aktuellen main-Stand hereinholen (Luke pusht tagsueber):
 
 ```bash
-git rebase origin/main
+git merge origin/main --no-edit
 ```
 
-Konflikt? **Nicht raten.** `git rebase --abort`, Eintrag ins `JOURNAL.md`, `touch .planning/backend-block/loop/STOP`,
-Lauf beenden. Ein Mensch loest das.
+**Merge, nicht Rebase.** Ein Rebase wuerde die Branch-Historie umschreiben und den naechsten Push
+force-pflichtig machen — Force-Push ist auf diesem Repo verboten und der Guard blockt ihn.
+
+Konflikt? **Nicht raten.** `git merge --abort`, Eintrag ins `JOURNAL.md`,
+`touch .planning/backend-block/loop/STOP`, Lauf beenden. Ein Mensch loest das.
 
 Lies `.planning/backend-block/loop/BACKLOG.yml` und die letzten ~40 Zeilen `JOURNAL.md`.
 
