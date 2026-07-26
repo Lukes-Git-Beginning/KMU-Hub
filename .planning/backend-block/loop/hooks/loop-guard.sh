@@ -64,8 +64,26 @@ fi
 if echo "$CMD" | grep -Eq 'git[[:space:]]+(checkout|switch)([[:space:]]+-[a-zA-Z-]+)*[[:space:]]+main([[:space:]]|$|&|\||;)'; then
   block "Wechsel auf main. Der Loop arbeitet ausschliesslich auf backend-loop."
 fi
+# Erlaubt ist ausschliesslich, origin/main IN den Loop-Branch zu ziehen. Das ist
+# ungefaehrlich (main wird nie beschrieben) und die Alternative zu `rebase`:
+# ein Rebase wuerde die Branch-Historie umschreiben und danach einen Force-Push
+# erzwingen - den es hier nicht geben darf.
 if echo "$CMD" | grep -Eq 'git[[:space:]]+merge([[:space:]]|$)'; then
-  block "git merge. Das Zusammenfuehren nach main entscheidet Luke nach dem Review."
+  # Flags duerfen vor oder hinter der Ref stehen, deshalb wird nur geprueft, ob
+  # im selben Kommando 'origin/main' bzw. '--abort' vorkommt.
+  if ! echo "$CMD" | grep -Eq 'git[[:space:]]+merge[^;&|]*(origin/main|--abort)'; then
+    block "git merge mit anderem Ziel als origin/main. Das Zusammenfuehren nach main entscheidet Luke nach dem Review."
+  fi
+fi
+
+# Rebase schreibt die Branch-Historie um und macht den naechsten Push
+# force-pflichtig. Auf dem Loop-Branch wird stattdessen gemergt.
+if echo "$CMD" | grep -Eq 'git[[:space:]]+rebase([[:space:]]+(-i|--interactive))'; then
+  block "interaktiver Rebase."
+fi
+if echo "$CMD" | grep -Eq 'git[[:space:]]+rebase([[:space:]]|$)' \
+   && ! echo "$CMD" | grep -Eq 'git[[:space:]]+rebase[[:space:]]+--abort'; then
+  block "git rebase. Er schreibt die Historie um und erzwingt danach einen Force-Push. Nimm stattdessen 'git merge origin/main'."
 fi
 if echo "$CMD" | grep -Eq 'git[[:space:]]+branch[[:space:]]+(-f|-D|-M)[[:space:]]+main'; then
   block "Manipulation des main-Branches."
