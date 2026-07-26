@@ -1521,7 +1521,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     blocked ist.
 
 ## Iteration 21 — p3-admin-tenant-provisioning — done — 2026-07-27 00:2x
-- commit: (siehe naechste Iteration)
+- commit: 8ae15124
 - verify vorgaenger (`08e29e52`, Billing/License): **sauber**. Gateway geht ueber
   den Registry-Client, kein direkt injizierter Service; jede neue Repo-Query ist
   tenant-gescoped (`ListModuleActivations`, `CountGrantsByModule`,
