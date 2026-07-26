@@ -7,13 +7,14 @@
  * BegriffeTab / ValueSetsTab, module-filtered + draft-wired) below the intro.
  */
 import { useTranslation } from 'react-i18next'
-import { MousePointerClick, Type, ListChecks, SquareStack, Layers, MousePointer2, Copy, PanelLeft } from 'lucide-react'
+import { MousePointerClick, Type, ListChecks, SquareStack, Layers, BarChart3, MousePointer2, Copy, PanelLeft } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { EditorSection } from './EditorTrioNav'
 import { BegriffePanel } from './BegriffePanel'
 import { WertelistenPanel } from './WertelistenPanel'
 import { FelderPanel } from './FelderPanel'
 import { BereichePanel } from './BereichePanel'
+import { StatistikPanel } from './StatistikPanel'
 
 const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; descKey: string }> = {
   felder: {
@@ -35,6 +36,11 @@ const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; 
     icon: Layers,
     titleKey: 'customization.editor.nav.areas',
     descKey: 'customization.editor.props.areasDesc',
+  },
+  statistik: {
+    icon: BarChart3,
+    titleKey: 'customization.editor.nav.statistics',
+    descKey: 'customization.editor.props.statisticsDesc',
   },
 }
 
@@ -100,6 +106,8 @@ export function EditorPropertiesPanel({
         <FelderPanel moduleKey={moduleKey} />
       ) : section === 'bereiche' ? (
         <BereichePanel moduleKey={moduleKey} />
+      ) : section === 'statistik' ? (
+        <StatistikPanel moduleKey={moduleKey} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>

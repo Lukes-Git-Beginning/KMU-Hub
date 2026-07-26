@@ -6,12 +6,12 @@
  * editor content.
  */
 import { useTranslation } from 'react-i18next'
-import { Type, ListChecks, SquareStack, Layers } from 'lucide-react'
+import { Type, ListChecks, SquareStack, Layers, BarChart3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib'
 import { useDraftConfig } from './DraftConfigProvider'
 
-export type EditorSection = 'felder' | 'begriffe' | 'wertelisten' | 'bereiche'
+export type EditorSection = 'felder' | 'begriffe' | 'wertelisten' | 'bereiche' | 'statistik'
 
 interface SectionDef {
   key: EditorSection
@@ -24,6 +24,7 @@ const SECTIONS: SectionDef[] = [
   { key: 'begriffe', labelKey: 'customization.editor.nav.terms', icon: Type },
   { key: 'wertelisten', labelKey: 'customization.editor.nav.valueSets', icon: ListChecks },
   { key: 'bereiche', labelKey: 'customization.editor.nav.areas', icon: Layers },
+  { key: 'statistik', labelKey: 'customization.editor.nav.statistics', icon: BarChart3 },
 ]
 
 export function EditorTrioNav({
@@ -37,11 +38,15 @@ export function EditorTrioNav({
   const { labels, valueSets, customFields, moduleAreas, moduleKey } = useDraftConfig()
 
   const labelCount = Object.values(labels).reduce((acc, m) => acc + Object.keys(m).length, 0)
+  // Stat-widget toggles live in moduleAreas under a `stat:` prefix — split them
+  // out so the Bereiche and Statistik badges each count only their own keys.
+  const areaKeys = Object.keys(moduleAreas[moduleKey] ?? {})
   const counts: Record<EditorSection, number> = {
     felder: Object.keys(customFields).length,
     begriffe: labelCount,
     wertelisten: Object.keys(valueSets).length,
-    bereiche: Object.keys(moduleAreas[moduleKey] ?? {}).length,
+    bereiche: areaKeys.filter((k) => !k.startsWith('stat:')).length,
+    statistik: areaKeys.filter((k) => k.startsWith('stat:')).length,
   }
 
   return (

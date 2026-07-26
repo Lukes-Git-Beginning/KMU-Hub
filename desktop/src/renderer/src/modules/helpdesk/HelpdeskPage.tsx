@@ -733,18 +733,22 @@ export default function HelpdeskPage() {
       {/* ================================================================== */}
       {/* STATISTIK TAB                                                       */}
       {/* ================================================================== */}
-      {tab === 'statistik' && (
-        <div className="animate-fade-up">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={AlertCircle} label={<EditableText dkey="helpdesk.stats.openTickets" />} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />
-            <StatCard icon={Clock} label={<EditableText dkey="helpdesk.stats.avgResponseTime" />} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />
-            <StatCard icon={CheckCircle2} label={<EditableText dkey="helpdesk.stats.resolvedThisWeek" />} value={stats.resolved_this_week} iconColor="text-success" iconBg="bg-success-light" />
-            <StatCard icon={BarChart3} label={<EditableText dkey="helpdesk.stats.customerSatisfaction" />} value={stats.customer_satisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Bar Chart */}
-            <div className="rounded-lg border border-border bg-card p-6">
+      {tab === 'statistik' && (() => {
+        // Stats widgets are toggleable via the editor (moduleAreas, `stat:` prefix).
+        // A missing key means visible. CSAT has no real data source yet → its card
+        // + chart stay hidden until the CSAT survey feature ships (backend-gaps);
+        // the editor still lists them (locked) so the tenant sees they exist.
+        const showStat = (key: string): boolean => areaEnabled[`stat:${key}`] !== false
+        const CSAT_FEATURE_ENABLED = false
+        const statCards = [
+          showStat('openTickets') && <StatCard key="ot" icon={AlertCircle} label={<EditableText dkey="helpdesk.stats.openTickets" />} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />,
+          showStat('avgResponseTime') && <StatCard key="art" icon={Clock} label={<EditableText dkey="helpdesk.stats.avgResponseTime" />} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />,
+          showStat('resolvedThisWeek') && <StatCard key="rtw" icon={CheckCircle2} label={<EditableText dkey="helpdesk.stats.resolvedThisWeek" />} value={stats.resolved_this_week} iconColor="text-success" iconBg="bg-success-light" />,
+          CSAT_FEATURE_ENABLED && showStat('csat') && <StatCard key="csat" icon={BarChart3} label={<EditableText dkey="helpdesk.stats.customerSatisfaction" />} value={stats.customer_satisfaction} iconColor="text-primary" iconBg="bg-primary-light" />,
+        ].filter(Boolean)
+        const charts = [
+          showStat('ticketsPerDay') && (
+            <div key="tpd" className="rounded-lg border border-border bg-card p-6">
               <h3 className="text-sm font-medium text-foreground mb-4"><EditableText as="span" dkey="helpdesk.stats.ticketsPerDay" /></h3>
               <div className="flex items-end gap-3 h-40">
                 {stats.weekly_breakdown.map((day) => {
@@ -759,13 +763,10 @@ export default function HelpdeskPage() {
                 })}
               </div>
             </div>
-
-            {/* CSAT Aggregate (5.12) */}
-            <CSATAggregate />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-border bg-card p-4">
+          ),
+          CSAT_FEATURE_ENABLED && showStat('csatChart') && <CSATAggregate key="csat-agg" />,
+          showStat('byStatus') && (
+            <div key="bs" className="rounded-lg border border-border bg-card p-4">
               <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byStatus" /></h3>
               <div className="space-y-2">
                 {activeStatusOptions.map((o) => {
@@ -783,7 +784,9 @@ export default function HelpdeskPage() {
                 })}
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-card p-4">
+          ),
+          showStat('byPriority') && (
+            <div key="bp" className="rounded-lg border border-border bg-card p-4">
               <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byPriority" /></h3>
               <div className="space-y-2">
                 {activePriorityOptions.map((o) => {
@@ -801,9 +804,25 @@ export default function HelpdeskPage() {
                 })}
               </div>
             </div>
+          ),
+        ].filter(Boolean)
+        return (
+          <div className="animate-fade-up">
+            {statCards.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">{statCards}</div>
+            )}
+            {charts.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{charts}</div>
+            )}
+            {statCards.length === 0 && charts.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+                <BarChart3 className="h-8 w-8" aria-hidden="true" />
+                <p className="text-sm">{t('helpdesk.stats.allHidden')}</p>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ================================================================== */}
       {/* TICKET DETAIL PANEL                                                 */}

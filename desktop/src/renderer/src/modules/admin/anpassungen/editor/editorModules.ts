@@ -37,6 +37,14 @@ export interface EditorModuleDef {
    * i18n key for the display name. Empty → module has no on/off areas.
    */
   areas: { key: string; labelKey: string }[]
+  /**
+   * Statistics widgets this module's stats view exposes in the Statistik editor.
+   * Each toggles visibility via moduleAreas under a `stat:` prefix (so it reuses
+   * the areas draft/resolve/deploy machinery). `locked` widgets need a feature
+   * that isn't built yet (e.g. CSAT) → shown greyed in the catalog, hidden in the
+   * module until the feature ships.
+   */
+  statWidgets?: { key: string; labelKey: string; locked?: boolean }[]
   /** The module page rendered read-only in the sandbox canvas. */
   Component: LazyExoticComponent<ComponentType<unknown>>
 }
@@ -74,6 +82,18 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
       { key: 'tickets', labelKey: 'helpdesk.tabs.ticketsLabel' },
       { key: 'wissensdatenbank', labelKey: 'helpdesk.tabs.knowledgeBase' },
       { key: 'statistik', labelKey: 'helpdesk.tabs.statistics' },
+    ],
+    // Stats-view widgets, toggleable in the Statistik editor. CSAT (kachel + chart)
+    // is locked: it has no real data source until the CSAT survey feature ships.
+    statWidgets: [
+      { key: 'openTickets', labelKey: 'helpdesk.stats.openTickets' },
+      { key: 'avgResponseTime', labelKey: 'helpdesk.stats.avgResponseTime' },
+      { key: 'resolvedThisWeek', labelKey: 'helpdesk.stats.resolvedThisWeek' },
+      { key: 'csat', labelKey: 'helpdesk.stats.customerSatisfaction', locked: true },
+      { key: 'ticketsPerDay', labelKey: 'helpdesk.stats.ticketsPerDay' },
+      { key: 'csatChart', labelKey: 'customization.editor.statistik.csatChartLabel', locked: true },
+      { key: 'byStatus', labelKey: 'helpdesk.stats.byStatus' },
+      { key: 'byPriority', labelKey: 'helpdesk.stats.byPriority' },
     ],
     Component: lazy(() => import('@/modules/helpdesk/HelpdeskPage')) as EditorModuleDef['Component'],
   },
