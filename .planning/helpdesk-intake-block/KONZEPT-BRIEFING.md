@@ -95,14 +95,15 @@ Es gibt **zwei getrennte Feld-Systeme**: `formulare.FormField` (11 Typen, formul
 - 🔴 **CSAT-Erhebung** (bereits vorgemerkt §helpdesk-CSAT): Close-Trigger → Survey-Mail mit tokenisiertem rating-Link → Response-Endpoint → `csatRating` am Ticket + Aggregation im `/helpdesk/stats`.
 - 🟠 Anti-Spam/Rate-Limit + Datei-Upload (echtes Storage statt String) für externe Formulare.
 
-## §7 Offene Fragen fürs Terminal-Gate (mit Darien klären, VOR Bau)
+## §7 Gate-Entscheide (Darien 2026-07-26/27 — GEKLÄRT, Bau kann starten)
 
-1. **Feld-Quelle vereinheitlichen — wie tief?** Soll der Agent-Dialog aus DEMSELBEN Ticket-Formular-Template generiert werden (eine Feld-Quelle, sauberste Umsetzung von Entscheid ①), oder bleibt der Agent-Dialog handgebaut und nur die Werte-Struktur ist geteilt? (Empfehlung: aus dem Template generieren, aber P1 pragmatisch mit Durchreichung starten.)
-2. **Editor-Ort:** Erscheint die Kanal-/Formular-Konfiguration im **Customization-Modul-Editor** (neue Dimension „Ticket-Formulare") oder direkt im **Form-Builder** mit einer Helpdesk-Verknüpfung? Darien-Vision = „im Editor anpassbar" — welcher Editor?
-3. **Ein Formular pro Kanal oder ein Formular für alle?** Darf extern ein anderes (schlankeres) Formular haben als der Agent-Dialog, oder immer identische Felder?
-4. **Requester-Identität extern:** reicht Name+E-Mail, oder Verknüpfung zu CRM-Kontakten (Externe = CRM-Kontakt)?
-5. **Kanal 2 Ort:** Helpcenter als eigener App-Bereich, in Settings, oder als globaler „Ticket melden"-Button?
-6. **CSAT-Auslöser:** automatisch bei Close (Delay) — konfigurierbar pro Tenant im Helpdesk-Setting? Skala Sterne 1–5 fix?
+- **Kanäle = an/aus-Funktionen, NICHT 3 getrennte Formulare:** Das Ticket ist immer dasselbe Objekt. Die 3 Erstellungs-Wege (Agent-im-Modul / Button in Settings+Info-Center / öffentlicher Link) sind **einzeln an-/ausschaltbar**. Welche Felder ein Formular hat, baut man im Editor.
+- **Herkunfts-Reiter im Modul (NEU, wichtig):** Sind mehrere Wege aktiv, werden die eingehenden Tickets im Modul **nach Herkunft in eigene Reiter getrennt** (z.B. „via Link eingegangen" / „selbst erstellt") — MIT Umschalter „**zusammenführen**", falls man eine gemeinsame Liste will. → Herkunft als Ticket-Feld (`source: agent | selfservice | external`), Reiter-/Merge-Logik als Modul-Ansichts-Feature.
+- **Agent-Dialog aus dem Formular generiert:** EINE Feld-Quelle für alle Wege (P1 pragmatisch mit Durchreichung starten, dann auf generiert umstellen).
+- **Editor-Ort = alles im Helpdesk-Editor:** der Form-Builder wird **in den Modul-Editor eingebettet** (ein Fenster) — Kanäle an/aus + Felder bauen am selben Ort. Nicht ins separate Formular-Tool springen.
+- **Kontaktfelder editor-konfigurierbar + kanalabhängig befüllt:** im Editor legt man fest, welche Kontaktfelder es gibt + welche Pflicht sind. Befüllung je Weg: **extern** = Kunde füllt selbst aus · **intern-Selfservice** = automatisch aus dem User-Profil · **Agent** = beim Anlegen manuell eintragbar. CRM-Verknüpfung optional/später.
+- **Interner Zugang (Kanal 2):** in den **Settings** UND im **Onboarding/Info-Center** (Letzteres kommt mit dem späteren Onboarding-System / Modul-Touren — bis dahin nur Settings-Einstieg bauen).
+- **CSAT-Auslöser (Default, im Terminal verfeinern):** automatisch nach Ticket-Schluss (mit Verzögerung), pro Firma in den Helpdesk-Einstellungen **an/aus + Verzögerung**, Sterne-Skala **1–5 fix**. (Von Darien noch nicht final bestätigt — als sinnvoller Standard gesetzt, im Bau kurz gegenchecken.)
 
 ## §8 Bezug zu bereits Gebautem (nicht neu bauen)
 - Modul-Customization-Editor inkl. Zusatzfelder-Dimension (`useModuleCustomFields`, `FelderPanel`) + Statistik-Dimension (Session #30) — die CSAT-Kachel ist dort schon als `locked` vorbereitet.
