@@ -58,9 +58,39 @@ Format:
 - verify vorgaenger: sauber (e91cdf2a gegen alle 6 Fehlerklassen geprueft — Business-Logik
   korrekt in Service/Repository, tenant-gescopte SQL, kein gRPC-Bypass, kein Stub, kein
   Proto-Touch, kein neuer Guard, keine neue Tabelle).
+- NACHTRAG (Hauptsession, Trockenlauf-Review): Diese Iteration meldete "test ok", war aber in CI
+  ROT. `TestOpenAPIRouteDrift` (`internal/gateway`) schlug fehl, weil die neue Route
+  `POST /einkauf/pos/{id}/cancel` keinen Eintrag in `api/openapi.yaml` hatte. Das Gate lief nur
+  ueber `./internal/einkauf/...`, wo dieser Test nicht liegt. Behoben in `986633e9`
+  (Spec-Eintrag inkl. 409). Systemisch behoben: `go test ./internal/gateway/` ist jetzt Pflicht,
+  sobald eine Route dazukommt, und "Route ohne Spec-Eintrag" ist Fehlerklasse 7 im Verify-Vorspann.
 - offen: FE-Client (`desktop/src/renderer/src/api/einkauf-client.ts`) erwartet bereits
   genau diese Route/Response-Form (mock-first) — kein FE-Aenderungsbedarf. Der
   `🔒 Backend-Gap`-Kommentar im FE-Client und im MSW-Handler (`mocks/handlers/einkauf.ts`)
   kann jetzt entfernt werden, ist aber nicht Teil dieser Iteration (FE-Datei, nicht
   Backend-Scope). DB-Gate (RLS-Smoke) nicht gelaufen, da keine Tabelle/Policy angefasst —
   bewusst n.a., nicht uebersprungen.
+
+## Trockenlauf-Abnahme (Hauptsession) — 2026-07-26
+
+Zwei Iterationen unter Aufsicht, 7 min und 6 min, $2,41 und $3,49. Ergebnis: **abgenommen.**
+
+Abnahme-Kriterien:
+- Commits nur auf `backend-loop`, `main` durch den Loop unberuehrt.
+- Guard feuert nachweislich **innerhalb** von `claude -p`: eine Sonde `git push origin main`
+  wurde vom Hook blockiert, nicht nur vom Prompt abgeraten.
+- Iteration 2 hat den Commit von Iteration 1 im Verify-Vorspann geprueft.
+- Unabhaengige Gegenpruefung der Diffs durch die Hauptsession: Handler geht ueber
+  `client.CancelPO` (kein gRPC-Bypass), `.proto` und beide `.pb.go` im selben Commit, SQL in
+  beiden Ebenen tenant-gescoped, `COALESCE(...,0)` faengt den Null-Zeilen-Fall.
+- CI am Draft-PR #14 gruen: Lint, Test, Validate OpenAPI. CD ist erwartungsgemaess nicht gelaufen.
+
+Zwei echte Befunde, beide systemisch geschlossen:
+1. **Route ohne Spec-Eintrag** — siehe Nachtrag zu Iteration 2. Gate erweitert, Fehlerklasse 7.
+2. **Rebase erzwingt Force-Push** — `git rebase origin/main` schrieb die Branch-Historie um, der
+   Push wurde als non-fast-forward abgelehnt, und Force-Push ist verboten. Der Loop merged jetzt
+   `origin/main` statt zu rebasen; der Guard blockt `rebase` und laesst `merge` nur mit Ziel
+   `origin/main` zu.
+
+Ein roter Check bleibt und ist **kein** Code-Befund: `Claude Code Review` scheitert an einem Bug
+in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this indicates a bug").
