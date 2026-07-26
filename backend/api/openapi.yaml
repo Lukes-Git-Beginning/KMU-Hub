@@ -26153,6 +26153,87 @@ paths:
   # Handler: internal/gateway/route_settings.go (SettingsRoutes)
   # ==========================================================================
 
+  /api/v1/admin/license:
+    get:
+      summary: List every Cosmi module with its tenant-wide activation state
+      description: >
+        Returns the full module catalogue, not only the activated ones. A module
+        the deployment does not run (modules.* feature flag off) always reports
+        active=false regardless of the stored activation.
+      tags: [Settings]
+      operationId: getTenantLicense
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Module activation state for the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TenantModule"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    patch:
+      summary: Activate or deactivate one module tenant-wide (admin only)
+      tags: [Settings]
+      operationId: setTenantModuleActive
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [moduleId, active]
+              properties:
+                moduleId:
+                  type: string
+                  description: Catalogue module id (see GET for the list)
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: The updated module
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  module:
+                    $ref: "#/components/schemas/TenantModule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Unknown module id
+        "409":
+          description: Module is not available in this deployment (feature flag off)
+
+  /api/v1/admin/subscription:
+    get:
+      summary: Booked plan, support tier and seats of the tenant
+      tags: [Settings]
+      operationId: getTenantSubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: The tenant's subscription
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription:
+                    $ref: "#/components/schemas/TenantSubscription"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Tenant not found
+
   /api/v1/tenant/module-grants:
     get:
       summary: List module-access grants for the tenant
@@ -38864,6 +38945,48 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    TenantModule:
+      type: object
+      description: >
+        One catalogue module with this tenant's activation state. assignedSeats
+        counts the users holding a module grant and is reported as 0 while the
+        module is inactive — the grants themselves survive a deactivation.
+      properties:
+        moduleId:
+          type: string
+          description: One of the ModuleId values (see lib/pricing.ts)
+        group:
+          type: string
+          enum: [core, comm, team, industry, tools]
+        active:
+          type: boolean
+        assignedSeats:
+          type: integer
+
+    TenantSubscription:
+      type: object
+      description: >
+        The booked contract of the tenant. Seats in use are not part of it —
+        they are counted where they are enforced (the invitation path).
+      properties:
+        planType:
+          type: string
+          enum: [cosmi, orbit]
+        supportTier:
+          type: string
+          enum: [standard, priority, enterprise]
+        status:
+          type: string
+          enum: [active, past_due, paused]
+        billingPeriodEnd:
+          type: string
+          format: date
+          nullable: true
+        totalSeats:
+          type: integer
+          nullable: true
+          description: Booked seats; null means unlimited
 
     # -----------------------------------------------------------------------
     # route_files.go -- generic presigned upload/download request/response

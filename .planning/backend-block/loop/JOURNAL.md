@@ -1434,3 +1434,88 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     `finance-client.ts:229` ruft `mark-paid`, die Route heisst `/pay`;
     HR-Status als Enum-Zahl gegen den String-lesenden FE-Adapter.
   - Naechste freie Unit: `p3-admin-billing-license` (deps jetzt erfuellt).
+
+## Iteration 20 — p3-admin-billing-license — done — 2026-07-27 00:4x
+- commit: <wird nachgetragen>
+- verify vorgaenger (`41bf1080`, Invitations-Tenant-Scope): **sauber**. Kein
+  direkter Service-Aufruf im Gateway (die Routen sind unveraendert), kein Stub,
+  kein `.proto` angefasst, kein neuer `RequirePermission`-Guard. Migration 000249
+  hat `tenant_id NOT NULL` + FK + `tenant_isolation`-Policy, und jeder SELECT/
+  DELETE im Repo ist tenant-gescoped — bis auf `GetInvitationByToken`, das
+  bewusst global bleibt (der Annehmende hat noch keinen Tenant) und unter
+  System-Context laeuft. Wire-Shape unveraendert; `ListPendingInvitations` gibt
+  jetzt sogar `[]` statt `nil`.
+- gebaut: Billing/License serverseitig. Es gab davon **nichts** — das FE rief
+  `/api/v1/admin/license` gegen MSW, `useTenant()` war ein Mock-Hook ganz ohne
+  Fetch.
+  - **Migration 000250:** `tenants` bekommt `plan_type` / `support_tier` /
+    `subscription_status` (je mit CHECK) und `billing_period_end`; neue Tabelle
+    `tenant_module_activations` (tenant_id NOT NULL, FK, `enable_tenant_rls`),
+    Backfill aller Bestands-Tenants × 24 Katalog-Module auf aktiv, Seed
+    `license:read` (admin+manager) / `license:write` (admin).
+  - **Neues Package `internal/modules`:** der Katalog (ID, Gruppe, Flag-Key) als
+    einzige Quelle. Noetig, weil die FE-ModuleId und der Flag-Key auseinander
+    laufen (`finance`→`modules.buchhaltung`, `meetings`→`modules.video`) und
+    Gateway wie Service dieselbe Zuordnung brauchen. `catalog_test.go` prueft
+    jeden Flag-Key gegen `featureflag.NewRegistry().All()` — eine Flag-Umbenennung
+    wuerde sonst still zu "Modul dauerhaft nicht aktivierbar" fuehren.
+  - **settings-Service:** `GetTenantLicense`, `SetTenantModuleActive`,
+    `GetTenantSubscription` (+ Repo-Methoden, + 3 RPCs im settings.proto,
+    regeneriert). Der Katalog treibt die Liste, nicht die Tabelle: ein Modul ohne
+    Zeile ist inaktiv.
+  - **Gateway:** `GET/PATCH /api/v1/admin/license`, `GET /api/v1/admin/subscription`
+    — camelCase wie der FE-Typ (`TenantModule`, `MockTenantData`), Liste als
+    `{modules:[...]}`, Single-Entity gewrappt (`{module}` / `{subscription}`),
+    leere Liste `[]`.
+- entscheidungen:
+  - **Der Flag-Check sitzt im Gateway, nicht im Service.** `COSMI_MODULE_*_ENABLED`
+    ist nur am gateway-Container gesetzt (und nur 6 der 14 Flags stehen ueberhaupt
+    in `docker-compose.yml`); im auth-Binary waere jedes Flag still `false` und
+    kein Modul mehr aktivierbar. Das Flag ist die Obergrenze: GET maskiert eine
+    gespeicherte Aktivierung auf `active:false`, PATCH auf ein nicht
+    ausgeliefertes Modul gibt **409** statt eine Zeile zu schreiben, die der GET
+    sofort wieder wegmaskiert. Kein Flag wird dabei geschrieben oder scharfgeschaltet.
+  - **Plan als Spalten auf `tenants`, Route read-only.** Die tenants-Policy
+    erlaubt `WITH CHECK` nur im System-Context, und ein Plan-Wechsel ist ein
+    Vertragsvorgang — das FE hat dafuer auch keinen Schreibpfad. Geschrieben wird
+    ueber Migration/Provisioning (`p3-admin-tenant-provisioning`).
+  - **`seatsUsed` bewusst weggelassen.** Die Seat-Definition (aktive User + offene,
+    nicht abgelaufene Einladungen) steht in `auth.CountSeatsInUse`, wo sie auch
+    durchgesetzt wird; eine zweite Ausgabestelle waere eine zweite Definition.
+    `totalSeats` ist `seat_limit` und `null` = unbegrenzt — das FE liest es als
+    `tenant?.totalSeats ?? seatsUsed`.
+  - **Deaktivieren loescht keine Grants.** `assignedSeats` meldet 0 (so wie der
+    MSW-Handler), die `user_module_grants` bleiben stehen; Reaktivieren stellt den
+    Stand wieder her. Ein versehentlicher Toggle darf keine Zuweisungen vernichten.
+  - **Backfill auf aktiv, Code-Default inaktiv.** Ohne Zeile gilt "nicht gebucht";
+    damit ist die Semantik fuer neue Tenants richtig, und die Migration setzt die
+    Bestandstenants explizit auf das, was sie heute nutzen.
+- gate: build ok | vet ok | golangci-lint 0 issues | `go test ./internal/settings/...
+  ./internal/modules/... ./internal/gateway/ ./internal/server/` ok |
+  `TestOpenAPIRouteDrift` ok (3 neue Pfade + 2 Schemas in openapi.yaml) |
+  migration ok (`up` → 250, `down 1` → 249, `up` → 250) | rls-smoke ok
+- rls-smoke (als `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): `tenant_module_activations`
+  eigener Tenant **24**, fremder Tenant **0**, und ein `UPDATE` aus fremdem Tenant
+  trifft **0 Zeilen**. Backfill: 5 Tenants × 24 Module.
+- offen / fuer Luke:
+  - **Aktivierung wird nicht durchgesetzt.** Ein deaktiviertes Modul antwortet
+    weiter normal — die Tabelle ist Buchhaltung, der Zugriffsguard fehlt. Bewusst:
+    ein Guard ueber alle Modul-Routen kann einen Tenant aus einem Modul aussperren,
+    das er benutzt (backend-gaps.md:288 will genau das, aber als eigene Runde).
+  - **Das FE zieht noch nicht nach:** `useTenantModules` trifft ab jetzt echtes
+    Backend (Shape passt), aber `useBilling.useTenant()` ist weiter ein Mock ohne
+    Fetch — `GET /api/v1/admin/subscription` hat noch keinen Aufrufer. Der Wire-Shape
+    steht in openapi.yaml (`TenantSubscription`).
+  - **Neue Permissions `license:read`/`license:write`** sind geseedet (admin +
+    manager-read). Auf Production muss Migration 000250 laufen, sonst 403 fuer alle.
+  - **Katalog-Drift:** `internal/modules.Catalog` spiegelt `ModuleId` in
+    `desktop/src/renderer/src/lib/pricing.ts`. Kommt dort ein Modul dazu, muss es
+    hier nach — es ist dann fuer Bestands-Tenants inaktiv, bis es jemand aktiviert.
+  - Unveraendert offen aus frueheren Iterationen: `aggregateDailyBuckets` /
+    `GetDailySummary` ohne `tenant_id`-Filter (Signaturschnitt);
+    `finance-client.ts:229` ruft `mark-paid`, die Route heisst `/pay`;
+    HR-Status als Enum-Zahl gegen den String-lesenden FE-Adapter;
+    Rollen-Eskalation beim Einladen ungeprueft (gehoert in RBAC-Phase 1).
+  - Naechste freie Unit: `p3-admin-tenant-provisioning` (deps jetzt erfuellt).
+    `p3-berichte-share-token` bleibt haengen, solange `p3-berichte-server-pdf`
+    blocked ist.

@@ -18,3 +18,8 @@ var ErrInvalidKey = errors.New("settings: setting key must not be empty")
 // ErrNotAdmin is returned when a non-admin attempts an admin-only operation
 // (e.g. granting or revoking module access).
 var ErrNotAdmin = errors.New("settings: caller is not an admin")
+
+// ErrUnknownModule is returned when a module id is not in the catalogue
+// (internal/modules). Guessing would let a typo create an activation row that
+// no UI can ever show.
+var ErrUnknownModule = errors.New("settings: unknown module id")

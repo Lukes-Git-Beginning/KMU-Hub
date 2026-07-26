@@ -8,7 +8,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/modules"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
 )
@@ -18,11 +20,16 @@ import (
 // gRPC connection — identical pattern to SecurityRoutes.
 type SettingsRoutes struct {
 	registry *ServiceRegistry
+	// flags resolves the deployment-wide modules.* flags for the licence
+	// endpoints. The settings service deliberately does not see them: they
+	// describe what this deployment runs, not what the tenant booked.
+	flags *featureflag.Registry
 }
 
-// NewSettingsRoutes creates a new SettingsRoutes with the given service registry.
-func NewSettingsRoutes(registry *ServiceRegistry) *SettingsRoutes {
-	return &SettingsRoutes{registry: registry}
+// NewSettingsRoutes creates a new SettingsRoutes with the given service registry
+// and feature flags.
+func NewSettingsRoutes(registry *ServiceRegistry, flags *featureflag.Registry) *SettingsRoutes {
+	return &SettingsRoutes{registry: registry, flags: flags}
 }
 
 // ServiceName returns "auth" because the Settings gRPC server is co-located
@@ -67,6 +74,17 @@ func (sr *SettingsRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequirePermission("module-grants", "write")).Post("/bulk-revoke", sr.HandleBulkRevokeModuleAccess)
 		r.With(middleware.RequirePermission("module-grants", "write")).Put("/{user_id}/{module_id}", sr.HandleGrantModuleAccess)
 		r.With(middleware.RequirePermission("module-grants", "write")).Delete("/{user_id}/{module_id}", sr.HandleRevokeModuleAccess)
+	})
+
+	r.Route("/api/v1/admin/license", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("license", "read")).Get("/", sr.HandleGetTenantLicense)
+		r.With(middleware.RequirePermission("license", "write")).Patch("/", sr.HandleSetTenantModuleActive)
+	})
+
+	r.Route("/api/v1/admin/subscription", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("license", "read")).Get("/", sr.HandleGetTenantSubscription)
 	})
 
 	r.Route("/api/v1/settings/{module_id}", func(r chi.Router) {
@@ -624,4 +642,176 @@ func rawMapToSettingEntries(m map[string]json.RawMessage) ([]*settingsv1.Setting
 		})
 	}
 	return entries, nil
+}
+
+// ============================================================================
+// Licensing handlers
+// ============================================================================
+
+// tenantModuleJSON is the shape the licence tab consumes (TenantModule in
+// desktop/src/renderer/src/api/admin-types.ts). flag_key stays server-side.
+type tenantModuleJSON struct {
+	ModuleID      string `json:"moduleId"`
+	Group         string `json:"group"`
+	Active        bool   `json:"active"`
+	AssignedSeats int32  `json:"assignedSeats"`
+}
+
+// tenantSubscriptionJSON mirrors MockTenantData in api/hooks/useBilling.ts.
+// billingPeriodEnd and totalSeats are null when unset resp. unlimited — the FE
+// reads both with a `??` fallback.
+type tenantSubscriptionJSON struct {
+	PlanType         string  `json:"planType"`
+	SupportTier      string  `json:"supportTier"`
+	Status           string  `json:"status"`
+	BillingPeriodEnd *string `json:"billingPeriodEnd"`
+	TotalSeats       *int32  `json:"totalSeats"`
+}
+
+// moduleAvailable reports whether this deployment runs the module at all. A
+// module the deployment does not run cannot be active for any tenant, however
+// the activation table reads — the flag is the upper bound.
+func (sr *SettingsRoutes) moduleAvailable(moduleID string) bool {
+	flagKey := modules.FlagKey(moduleID)
+	return flagKey == "" || sr.flags.IsEnabled(flagKey)
+}
+
+func (sr *SettingsRoutes) toTenantModuleJSON(m *settingsv1.TenantModule) tenantModuleJSON {
+	active := m.GetActive() && sr.moduleAvailable(m.GetModuleId())
+	seats := m.GetAssignedSeats()
+	if !active {
+		seats = 0
+	}
+	return tenantModuleJSON{
+		ModuleID:      m.GetModuleId(),
+		Group:         m.GetGroup(),
+		Active:        active,
+		AssignedSeats: seats,
+	}
+}
+
+// HandleGetTenantLicense lists every catalogue module with its tenant-wide
+// activation state.
+func (sr *SettingsRoutes) HandleGetTenantLicense(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	resp, err := client.GetTenantLicense(r.Context(), &settingsv1.GetTenantLicenseRequest{
+		TenantId: tenantID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	out := make([]tenantModuleJSON, 0, len(resp.GetModules()))
+	for _, m := range resp.GetModules() {
+		out = append(out, sr.toTenantModuleJSON(m))
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"modules": out})
+}
+
+// setTenantModuleRequest is the HTTP body for PATCH /admin/license.
+type setTenantModuleRequest struct {
+	ModuleID string `json:"moduleId"`
+	Active   *bool  `json:"active"`
+}
+
+// HandleSetTenantModuleActive activates or deactivates one module tenant-wide.
+func (sr *SettingsRoutes) HandleSetTenantModuleActive(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	callerID := middleware.GetUserID(r.Context())
+	if callerID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req setTenantModuleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Active == nil {
+		response.Error(w, http.StatusBadRequest, "active is required")
+		return
+	}
+	if _, ok := modules.Get(req.ModuleID); !ok {
+		response.Error(w, http.StatusNotFound, "unknown module")
+		return
+	}
+	// Activating a module this deployment does not run would store a row the
+	// GET immediately masks back to inactive — say so instead.
+	if *req.Active && !sr.moduleAvailable(req.ModuleID) {
+		response.Error(w, http.StatusConflict, "module is not available in this deployment")
+		return
+	}
+
+	resp, err := client.SetTenantModuleActive(r.Context(), &settingsv1.SetTenantModuleActiveRequest{
+		TenantId:  tenantID.String(),
+		ModuleId:  req.ModuleID,
+		Active:    *req.Active,
+		UpdatedBy: callerID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"module": sr.toTenantModuleJSON(resp)})
+}
+
+// HandleGetTenantSubscription returns the booked plan of the caller's tenant.
+func (sr *SettingsRoutes) HandleGetTenantSubscription(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	resp, err := client.GetTenantSubscription(r.Context(), &settingsv1.GetTenantSubscriptionRequest{
+		TenantId: tenantID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	out := tenantSubscriptionJSON{
+		PlanType:    resp.GetPlanType(),
+		SupportTier: resp.GetSupportTier(),
+		Status:      resp.GetStatus(),
+	}
+	if resp.BillingPeriodEnd != nil {
+		end := resp.GetBillingPeriodEnd()
+		out.BillingPeriodEnd = &end
+	}
+	if resp.TotalSeats != nil {
+		seats := resp.GetTotalSeats()
+		out.TotalSeats = &seats
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"subscription": out})
 }

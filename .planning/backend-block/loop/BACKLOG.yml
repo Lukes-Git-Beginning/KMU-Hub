@@ -735,7 +735,7 @@ units:
     service: admin
     model: opus
     deps: [p3-admin-invite-flow]
-    status: todo
+    status: done   # Iteration 20 — Migration 000250, Katalog + Aktivierung + Subscription
     scope: >
       Billing- und License-Service: Plan, Seats, Modul-Aktivierung tenant-weit.
     sources:
@@ -746,6 +746,31 @@ units:
       scharfschalten und KEINE neue config.RequireX-Assertion hinzufuegen.
       Braucht die Unit das, markier sie blocked mit Begruendung; Luke rollt
       solche Aenderungen kontrolliert mit dem Compose-Passthrough aus.
+      ERLEDIGT Iteration 20 (Migration 000250). Serverseitig existierte nichts —
+      `/api/v1/admin/license` lief gegen MSW, `useTenant()` war ein reiner
+      Mock-Hook ohne Fetch. Entscheidungen: (a) Neues Package
+      `internal/modules` mit dem Katalog (24 IDs, Gruppe, Flag-Key) — die
+      ModuleId↔Flag-Zuordnung ist NICHT 1:1 (`finance`→`modules.buchhaltung`,
+      `meetings`→`modules.video`), und Gateway wie settings-Service brauchen sie
+      beide; ein Test pinnt jeden Flag-Key gegen die Registry. (b) Der Flag-Check
+      sitzt im GATEWAY, nicht im Service: `COSMI_MODULE_*_ENABLED` ist nur am
+      gateway-Container gesetzt (6 von 14 ueberhaupt in Compose), im
+      auth-Binary waere jedes Flag still false. Das Flag ist Obergrenze — GET
+      maskiert eine gespeicherte Aktivierung, PATCH auf ein nicht ausgeliefertes
+      Modul gibt 409. (c) Plan/Support-Tier/Status/Periode als Spalten auf
+      `tenants` (wie `seat_limit` aus 000249), nicht als eigene Tabelle: die
+      tenants-Policy laesst Schreiben nur im System-Context zu, und ein
+      Plan-Wechsel ist ein Vertragsvorgang, kein Admin-Self-Service — die Route
+      ist bewusst read-only. (d) `seatsUsed` bewusst NICHT im Response: die
+      Seat-Definition (aktive User + offene Einladungen) steht in
+      `auth.CountSeatsInUse`, wo sie auch durchgesetzt wird; eine zweite
+      Ausgabestelle waere eine zweite Definition. (e) Deaktivieren loescht KEINE
+      user_module_grants — es meldet nur `assignedSeats: 0` (FE-Mock-Semantik),
+      Reaktivieren stellt den Stand her.
+      NICHT enthalten: Enforcement (eine deaktivierte Modul-Route antwortet
+      weiter normal) — das ist ein Zugriffsguard ueber alle Modul-Routen und
+      kann einen Tenant aussperren; eigene Unit. Kein FE-Umbau (useBilling
+      bleibt Mock, useTenantModules trifft jetzt echtes BE).
     done_when:
       - Plan und Seats persistiert, tenant-gescoped
       - Modul-Aktivierung liest bestehende Flag-Registry, schaltet nichts scharf

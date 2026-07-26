@@ -38,6 +38,13 @@ service SettingsService {
   // User-scope settings (own user only)
   rpc GetUserSettings(GetUserSettingsRequest) returns (GetUserSettingsResponse);
   rpc PutUserSettings(PutUserSettingsRequest) returns (PutUserSettingsResponse);
+
+  // Licensing: which modules the tenant has booked, and the booked plan itself.
+  // Activation is bookkeeping — the deployment-wide modules.* flags remain the
+  // access gate, and the gateway masks an activation a flag does not cover.
+  rpc GetTenantLicense(GetTenantLicenseRequest)           returns (GetTenantLicenseResponse);
+  rpc SetTenantModuleActive(SetTenantModuleActiveRequest) returns (TenantModule);
+  rpc GetTenantSubscription(GetTenantSubscriptionRequest) returns (TenantSubscription);
 }
 
 // ============================================================================
@@ -216,4 +223,52 @@ message PutUserSettingsRequest {
 
 message PutUserSettingsResponse {
   repeated SettingEntry entries = 1;
+}
+
+// ============================================================================
+// Licensing Requests / Responses
+// ============================================================================
+
+// TenantModule is one catalogue module plus this tenant's activation state.
+// flag_key names the deployment-wide feature flag gating the module ("" when
+// the module ships unconditionally); the gateway resolves it and never puts it
+// on the wire.
+message TenantModule {
+  string module_id      = 1;
+  string group          = 2;
+  bool   active         = 3;
+  int32  assigned_seats = 4;
+  string flag_key       = 5;
+}
+
+message GetTenantLicenseRequest {
+  string tenant_id = 1;
+}
+
+message GetTenantLicenseResponse {
+  repeated TenantModule modules = 1;
+}
+
+message SetTenantModuleActiveRequest {
+  string tenant_id  = 1;
+  string module_id  = 2;
+  bool   active     = 3;
+  // The admin performing the change; recorded on the activation row.
+  string updated_by = 4;
+}
+
+message GetTenantSubscriptionRequest {
+  string tenant_id = 1;
+}
+
+// TenantSubscription is the booked contract, not a usage snapshot: seats in use
+// are counted where they are enforced (the invitation path in auth).
+message TenantSubscription {
+  string plan_type    = 1;  // cosmi | orbit
+  string support_tier = 2;  // standard | priority | enterprise
+  string status       = 3;  // active | past_due | paused
+  // ISO date (YYYY-MM-DD); absent while no billing period has been agreed.
+  optional string billing_period_end = 4;
+  // Booked seats; absent means unlimited.
+  optional int32  total_seats        = 5;
 }

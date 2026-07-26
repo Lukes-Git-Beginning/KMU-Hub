@@ -64,3 +64,26 @@ type UserSetting struct {
 	Value     json.RawMessage
 	UpdatedAt time.Time
 }
+
+// TenantModule is one catalogue module together with this tenant's activation
+// state. Group and the module id come from internal/modules; Active and
+// AssignedSeats come from the database.
+type TenantModule struct {
+	ModuleID      string
+	Group         string
+	Active        bool
+	AssignedSeats int32
+	// FlagKey names the deployment-wide feature flag gating the module, or "".
+	// The gateway resolves it; it never reaches the HTTP response.
+	FlagKey string
+}
+
+// TenantSubscription is the booked contract of a tenant. BillingPeriodEnd and
+// TotalSeats are nil when no period has been agreed resp. seats are unlimited.
+type TenantSubscription struct {
+	PlanType         string
+	SupportTier      string
+	Status           string
+	BillingPeriodEnd *time.Time
+	TotalSeats       *int32
+}

@@ -32,6 +32,9 @@ const (
 	SettingsService_PutTenantSettings_FullMethodName      = "/settings.v1.SettingsService/PutTenantSettings"
 	SettingsService_GetUserSettings_FullMethodName        = "/settings.v1.SettingsService/GetUserSettings"
 	SettingsService_PutUserSettings_FullMethodName        = "/settings.v1.SettingsService/PutUserSettings"
+	SettingsService_GetTenantLicense_FullMethodName       = "/settings.v1.SettingsService/GetTenantLicense"
+	SettingsService_SetTenantModuleActive_FullMethodName  = "/settings.v1.SettingsService/SetTenantModuleActive"
+	SettingsService_GetTenantSubscription_FullMethodName  = "/settings.v1.SettingsService/GetTenantSubscription"
 )
 
 // SettingsServiceClient is the client API for SettingsService service.
@@ -66,6 +69,12 @@ type SettingsServiceClient interface {
 	// User-scope settings (own user only)
 	GetUserSettings(ctx context.Context, in *GetUserSettingsRequest, opts ...grpc.CallOption) (*GetUserSettingsResponse, error)
 	PutUserSettings(ctx context.Context, in *PutUserSettingsRequest, opts ...grpc.CallOption) (*PutUserSettingsResponse, error)
+	// Licensing: which modules the tenant has booked, and the booked plan itself.
+	// Activation is bookkeeping — the deployment-wide modules.* flags remain the
+	// access gate, and the gateway masks an activation a flag does not cover.
+	GetTenantLicense(ctx context.Context, in *GetTenantLicenseRequest, opts ...grpc.CallOption) (*GetTenantLicenseResponse, error)
+	SetTenantModuleActive(ctx context.Context, in *SetTenantModuleActiveRequest, opts ...grpc.CallOption) (*TenantModule, error)
+	GetTenantSubscription(ctx context.Context, in *GetTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscription, error)
 }
 
 type settingsServiceClient struct {
@@ -206,6 +215,36 @@ func (c *settingsServiceClient) PutUserSettings(ctx context.Context, in *PutUser
 	return out, nil
 }
 
+func (c *settingsServiceClient) GetTenantLicense(ctx context.Context, in *GetTenantLicenseRequest, opts ...grpc.CallOption) (*GetTenantLicenseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTenantLicenseResponse)
+	err := c.cc.Invoke(ctx, SettingsService_GetTenantLicense_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) SetTenantModuleActive(ctx context.Context, in *SetTenantModuleActiveRequest, opts ...grpc.CallOption) (*TenantModule, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantModule)
+	err := c.cc.Invoke(ctx, SettingsService_SetTenantModuleActive_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settingsServiceClient) GetTenantSubscription(ctx context.Context, in *GetTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscription, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantSubscription)
+	err := c.cc.Invoke(ctx, SettingsService_GetTenantSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SettingsServiceServer is the server API for SettingsService service.
 // All implementations must embed UnimplementedSettingsServiceServer
 // for forward compatibility.
@@ -238,6 +277,12 @@ type SettingsServiceServer interface {
 	// User-scope settings (own user only)
 	GetUserSettings(context.Context, *GetUserSettingsRequest) (*GetUserSettingsResponse, error)
 	PutUserSettings(context.Context, *PutUserSettingsRequest) (*PutUserSettingsResponse, error)
+	// Licensing: which modules the tenant has booked, and the booked plan itself.
+	// Activation is bookkeeping — the deployment-wide modules.* flags remain the
+	// access gate, and the gateway masks an activation a flag does not cover.
+	GetTenantLicense(context.Context, *GetTenantLicenseRequest) (*GetTenantLicenseResponse, error)
+	SetTenantModuleActive(context.Context, *SetTenantModuleActiveRequest) (*TenantModule, error)
+	GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscription, error)
 	mustEmbedUnimplementedSettingsServiceServer()
 }
 
@@ -286,6 +331,15 @@ func (UnimplementedSettingsServiceServer) GetUserSettings(context.Context, *GetU
 }
 func (UnimplementedSettingsServiceServer) PutUserSettings(context.Context, *PutUserSettingsRequest) (*PutUserSettingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PutUserSettings not implemented")
+}
+func (UnimplementedSettingsServiceServer) GetTenantLicense(context.Context, *GetTenantLicenseRequest) (*GetTenantLicenseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenantLicense not implemented")
+}
+func (UnimplementedSettingsServiceServer) SetTenantModuleActive(context.Context, *SetTenantModuleActiveRequest) (*TenantModule, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetTenantModuleActive not implemented")
+}
+func (UnimplementedSettingsServiceServer) GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscription, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenantSubscription not implemented")
 }
 func (UnimplementedSettingsServiceServer) mustEmbedUnimplementedSettingsServiceServer() {}
 func (UnimplementedSettingsServiceServer) testEmbeddedByValue()                         {}
@@ -542,6 +596,60 @@ func _SettingsService_PutUserSettings_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SettingsService_GetTenantLicense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantLicenseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).GetTenantLicense(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_GetTenantLicense_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).GetTenantLicense(ctx, req.(*GetTenantLicenseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_SetTenantModuleActive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTenantModuleActiveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).SetTenantModuleActive(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_SetTenantModuleActive_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).SetTenantModuleActive(ctx, req.(*SetTenantModuleActiveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettingsService_GetTenantSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettingsServiceServer).GetTenantSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettingsService_GetTenantSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettingsServiceServer).GetTenantSubscription(ctx, req.(*GetTenantSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SettingsService_ServiceDesc is the grpc.ServiceDesc for SettingsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -600,6 +708,18 @@ var SettingsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PutUserSettings",
 			Handler:    _SettingsService_PutUserSettings_Handler,
+		},
+		{
+			MethodName: "GetTenantLicense",
+			Handler:    _SettingsService_GetTenantLicense_Handler,
+		},
+		{
+			MethodName: "SetTenantModuleActive",
+			Handler:    _SettingsService_SetTenantModuleActive_Handler,
+		},
+		{
+			MethodName: "GetTenantSubscription",
+			Handler:    _SettingsService_GetTenantSubscription_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

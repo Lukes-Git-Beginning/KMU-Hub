@@ -29,4 +29,10 @@ type Repository interface {
 	// User settings
 	GetUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) ([]*SettingEntry, error)
 	PutUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*SettingEntry) ([]*SettingEntry, error)
+
+	// Licensing
+	ListModuleActivations(ctx context.Context, tenantID uuid.UUID) (map[string]bool, error)
+	SetModuleActivation(ctx context.Context, tenantID uuid.UUID, moduleID string, active bool, updatedBy *uuid.UUID) error
+	CountGrantsByModule(ctx context.Context, tenantID uuid.UUID) (map[string]int32, error)
+	GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) (*TenantSubscription, error)
 }

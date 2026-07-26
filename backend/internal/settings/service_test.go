@@ -3,12 +3,14 @@ package settings_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/modules"
 	"github.com/kmuhub/kmuhub/internal/settings"
 )
 
@@ -18,8 +20,11 @@ import (
 
 type fakeRepo struct {
 	leads          []*settings.ModuleLead
-	tenantSettings map[string][]*settings.SettingEntry // key: tenantID+":"+moduleID
-	userSettings   map[string][]*settings.SettingEntry // key: tenantID+":"+userID+":"+moduleID
+	tenantSettings map[string][]*settings.SettingEntry     // key: tenantID+":"+moduleID
+	userSettings   map[string][]*settings.SettingEntry     // key: tenantID+":"+userID+":"+moduleID
+	activations    map[string]bool                         // key: tenantID+":"+moduleID
+	grantCounts    map[string]int32                        // key: tenantID+":"+moduleID
+	subscriptions  map[string]*settings.TenantSubscription // key: tenantID
 }
 
 func newFakeRepo() *fakeRepo {
@@ -401,4 +406,171 @@ func TestGetMyModuleLeads_AdminGetsAll(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, isAdmin, "admin flag must be set")
 	assert.Empty(t, moduleIDs, "admin returns empty list (FE short-circuits via is_admin flag)")
+}
+
+// ============================================================================
+// Licensing fakes
+// ============================================================================
+
+func (r *fakeRepo) ListModuleActivations(_ context.Context, tenantID uuid.UUID) (map[string]bool, error) {
+	out := make(map[string]bool)
+	for k, v := range r.activations {
+		t, moduleID, _ := strings.Cut(k, ":")
+		if t == tenantID.String() {
+			out[moduleID] = v
+		}
+	}
+	return out, nil
+}
+
+func (r *fakeRepo) SetModuleActivation(_ context.Context, tenantID uuid.UUID, moduleID string, active bool, _ *uuid.UUID) error {
+	if r.activations == nil {
+		r.activations = make(map[string]bool)
+	}
+	r.activations[tenantID.String()+":"+moduleID] = active
+	return nil
+}
+
+func (r *fakeRepo) CountGrantsByModule(_ context.Context, tenantID uuid.UUID) (map[string]int32, error) {
+	out := make(map[string]int32)
+	for k, v := range r.grantCounts {
+		t, moduleID, _ := strings.Cut(k, ":")
+		if t == tenantID.String() {
+			out[moduleID] = v
+		}
+	}
+	return out, nil
+}
+
+func (r *fakeRepo) GetTenantSubscription(_ context.Context, tenantID uuid.UUID) (*settings.TenantSubscription, error) {
+	sub, ok := r.subscriptions[tenantID.String()]
+	if !ok {
+		return nil, settings.ErrNotFound
+	}
+	return sub, nil
+}
+
+// ============================================================================
+// Licensing tests
+// ============================================================================
+
+// The catalogue drives the response, not the activation table: a tenant that
+// has never touched the licence tab still sees every module, all inactive.
+func TestGetTenantLicense_ReturnsWholeCatalogue(t *testing.T) {
+	tenantID := uuid.New()
+	svc := newService(newFakeRepo())
+
+	mods, err := svc.GetTenantLicense(context.Background(), tenantID)
+	require.NoError(t, err)
+	require.Len(t, mods, len(modules.Catalog))
+	for _, m := range mods {
+		assert.False(t, m.Active, "module %s should be inactive without a row", m.ModuleID)
+		assert.Zero(t, m.AssignedSeats)
+	}
+}
+
+func TestGetTenantLicense_ReportsSeatsOnlyWhileActive(t *testing.T) {
+	tenantID := uuid.New()
+	other := uuid.New()
+	repo := newFakeRepo()
+	repo.activations = map[string]bool{
+		tenantID.String() + ":crm":  true,
+		tenantID.String() + ":wiki": false,
+		// A different tenant with the same module must not leak in.
+		other.String() + ":inventar": true,
+	}
+	repo.grantCounts = map[string]int32{
+		tenantID.String() + ":crm":  7,
+		tenantID.String() + ":wiki": 3,
+	}
+	svc := newService(repo)
+
+	mods, err := svc.GetTenantLicense(context.Background(), tenantID)
+	require.NoError(t, err)
+
+	byID := make(map[string]*settings.TenantModule, len(mods))
+	for _, m := range mods {
+		byID[m.ModuleID] = m
+	}
+	assert.True(t, byID["crm"].Active)
+	assert.Equal(t, int32(7), byID["crm"].AssignedSeats)
+	// Deactivated: the grants stay in the database, the cost view reads 0.
+	assert.False(t, byID["wiki"].Active)
+	assert.Zero(t, byID["wiki"].AssignedSeats)
+	assert.False(t, byID["inventar"].Active, "another tenant's activation must not leak")
+}
+
+func TestGetTenantLicense_CarriesFlagKeyForGateway(t *testing.T) {
+	svc := newService(newFakeRepo())
+
+	mods, err := svc.GetTenantLicense(context.Background(), uuid.New())
+	require.NoError(t, err)
+
+	byID := make(map[string]*settings.TenantModule, len(mods))
+	for _, m := range mods {
+		byID[m.ModuleID] = m
+	}
+	assert.Equal(t, "modules.buchhaltung", byID["finance"].FlagKey)
+	assert.Empty(t, byID["crm"].FlagKey, "crm ships in every deployment")
+}
+
+func TestSetTenantModuleActive_RejectsUnknownModule(t *testing.T) {
+	svc := newService(newFakeRepo())
+
+	_, err := svc.SetTenantModuleActive(context.Background(), uuid.New(), "not-a-module", true, nil)
+	assert.ErrorIs(t, err, settings.ErrUnknownModule)
+
+	_, err = svc.SetTenantModuleActive(context.Background(), uuid.New(), "", true, nil)
+	assert.ErrorIs(t, err, settings.ErrInvalidModuleID)
+}
+
+func TestSetTenantModuleActive_PersistsAndReadsBack(t *testing.T) {
+	tenantID := uuid.New()
+	repo := newFakeRepo()
+	repo.grantCounts = map[string]int32{tenantID.String() + ":helpdesk": 5}
+	svc := newService(repo)
+
+	m, err := svc.SetTenantModuleActive(context.Background(), tenantID, "helpdesk", true, nil)
+	require.NoError(t, err)
+	assert.True(t, m.Active)
+	assert.Equal(t, int32(5), m.AssignedSeats)
+	assert.Equal(t, "industry", m.Group)
+
+	m, err = svc.SetTenantModuleActive(context.Background(), tenantID, "helpdesk", false, nil)
+	require.NoError(t, err)
+	assert.False(t, m.Active)
+	assert.Zero(t, m.AssignedSeats)
+
+	mods, err := svc.GetTenantLicense(context.Background(), tenantID)
+	require.NoError(t, err)
+	for _, mod := range mods {
+		if mod.ModuleID == "helpdesk" {
+			assert.False(t, mod.Active)
+		}
+	}
+}
+
+func TestGetTenantSubscription_MissingTenant(t *testing.T) {
+	svc := newService(newFakeRepo())
+
+	_, err := svc.GetTenantSubscription(context.Background(), uuid.New())
+	assert.ErrorIs(t, err, settings.ErrNotFound)
+}
+
+func TestGetTenantSubscription_ReturnsBookedPlan(t *testing.T) {
+	tenantID := uuid.New()
+	seats := int32(14)
+	repo := newFakeRepo()
+	repo.subscriptions = map[string]*settings.TenantSubscription{
+		tenantID.String(): {PlanType: "cosmi", SupportTier: "priority", Status: "active", TotalSeats: &seats},
+	}
+	svc := newService(repo)
+
+	sub, err := svc.GetTenantSubscription(context.Background(), tenantID)
+	require.NoError(t, err)
+	assert.Equal(t, "cosmi", sub.PlanType)
+	assert.Equal(t, "priority", sub.SupportTier)
+	require.NotNil(t, sub.TotalSeats)
+	assert.Equal(t, int32(14), *sub.TotalSeats)
+	assert.Nil(t, sub.BillingPeriodEnd)
 }

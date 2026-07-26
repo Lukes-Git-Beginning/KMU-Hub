@@ -272,7 +272,7 @@ func main() {
 		gateway.NewFeatureFlagRoutes(flagRegistry),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 		bookingRoutes,
-		gateway.NewSettingsRoutes(registry),
+		gateway.NewSettingsRoutes(registry, flagRegistry),
 	}
 
 	for _, reg := range registrars {
