@@ -2272,3 +2272,81 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     statt `kmuhub_app`, darum drei HR-RLS-Tests dauerhaft rot.
 
 - iteration 27 commit: `e81184f9`
+
+---
+
+## Iteration 28 — `p3-openapi-reverse-drift-guard`
+
+- verify-vorspann: Commit `e81184f9` (Iteration 27) gegen die sechs
+  Fehlerklassen geprueft. Sauber: der Mount in `main.go` geht ueber die
+  Registrar-Liste (kein Direct-Service im Gateway), `TestIntegrationConfig`
+  antwortet jetzt `codes.Unimplemented` statt eines Falsch-Erfolgs, die
+  Spec-Korrekturen sind im selben Commit, keine Migration, kein neuer
+  Permission-Guard, keine neue `config.RequireX`. `go build ./internal/gateway/...`
+  gruen auf dem gemergten Stand. `git merge origin/main` — already up to date.
+- unit: `p3-openapi-reverse-drift-guard`. Neuer Test `TestOpenAPISpecDrift` in
+  `internal/gateway/openapi_drift_test.go`: er faellt, wenn `openapi.yaml` einen
+  `/api/v1/*`-Pfad beschreibt, den das Gateway nie registriert. Das ist die
+  Richtung, an der die drei toten Verdrahtungen (produktion-ext, DATEV-Upload,
+  Integrations) jahrelang vorbeigelaufen sind — dokumentiert, in
+  `desktop/src/renderer/src/api/types.ts` generiert, gegen echtes BE ein 404.
+- **Hauptentscheidung: die Allowlist ist nicht die Antwort geworden.** Der
+  Rohbefund waren 25 Pfade in drei Gruppen; die Unit-Notes sahen fuer alle drei
+  einen Allowlist-Eintrag vor. Zwei davon liessen sich stattdessen im
+  Test-Router wirklich registrieren, und ein registrierter Block wird bewacht,
+  waehrend ein allowlisteter genau die Luecke behaelt, die dieser Test schliessen
+  soll:
+  - **plugins.api (16 Pfade):** `gateway.NewPluginRoutes(registry)` ist
+    exportiert und nimmt nur die Registry — dieselbe nil-Backend-Konstruktion
+    wie jeder andere Registrar. Bewusst mitgeprueft, obwohl das Flag OFF ist:
+    die Spec dokumentiert den Block bedingungslos, und die Frage des Guards ist
+    "gibt es einen Endpoint hinter dem Pfad", nicht "ist er heute an".
+  - **CalDAV (8 Pfade):** der Package-Kommentar behauptete, die Routen seien
+    "reachable only via cmd/gateway's unexported adapter types". Das stimmt fuer
+    die Adapter, nicht fuer die Routen: `NewCalDAVRoutes` nimmt ausschliesslich
+    Interfaces, `http.Handler` und eine Middleware-Funktion, und die Adapter in
+    package main sind nur Implementierungen davon. `nil` genuegt, weil
+    `RegisterRoutes` beide Protokoll-Handler in Closures wickelt
+    (`sub.HandleFunc("/*", func(...){ c.caldavHandler.ServeHTTP(...) })`, kein
+    `Mount` mit nil) und die REST-Handler als Method-Values bindet — waehrend der
+    Registrierung wird nichts davon aufgerufen. Der veraltete Kommentar ist raus.
+  - **uebrig: genau ein Eintrag.** `/api/v1/files/upload` haengt in `main.go:381`
+    am rohen Router, weil `server.NewFileUploadHandler` den lebenden
+    WebSocket-Hub und den chat-File-Service braucht — beides ausserhalb eines
+    DB-losen Unit-Tests. Der Grund im Allowlist-Eintrag nennt die Zeile, ist also
+    nachpruefbar statt eine Behauptung.
+- **Nebeneffekt auf den Vorwaerts-Test:** `TestOpenAPIRouteDrift` sieht jetzt
+  731 statt 707 registrierte Pfade (CalDAV + Plugins dazu) und bleibt gruen —
+  beide Bloecke waren vollstaendig dokumentiert. Die Prefix-Allowlist-Mechanik,
+  die ich zuerst gebaut hatte, ist wieder raus: mit einem einzigen exakten
+  Eintrag war sie toter Code.
+- **Falsifikation:** `gateway.NewIntegrationRoutes(registry)` testweise aus der
+  Registrar-Liste entfernt -> `TestOpenAPISpecDrift` meldet alle 13
+  Integrations-Pfade als nicht registriert, `TestOpenAPIRouteDrift` bleibt dabei
+  gruen (prueft nur "registriert ⊆ dokumentiert"). Zustand wiederhergestellt und
+  nachgeprueft.
+- gate: `go build -p 2 ./internal/... ./cmd/gateway/...` gruen,
+  `go vet ./internal/gateway/...` gruen,
+  `golangci-lint run ./internal/gateway/...` 0 issues,
+  `go test ./internal/gateway/... -count=1` gruen.
+  Nur eine Testdatei geaendert — keine Migration, kein Proto, keine Route, keine
+  Spec-Aenderung, keine neue Dependency, keine neue `config.RequireX`, kein Flag
+  scharfgeschaltet.
+- offen / fuer Luke:
+  - **FE-Nebenbefund bestaetigt:** `desktop/src/renderer/src/api/types.ts` ist
+    gegenueber der Spec veraltet — es enthaelt weiter
+    `/api/v1/einkauf/pos/{id}/export` (mit `p3-einkauf-exportpo-remove` aus der
+    Spec geflogen) und hat insgesamt nur 710 `/api/v1/*`-Schluessel gegen 732 in
+    `openapi.yaml`. Der Generator-Lauf ist FE-Arbeit, nicht Loop-Scope; solange
+    die Datei driftet, ist sie als Beleg fuer "Endpoint existiert" wertlos.
+  - Naechste freie Units: `p3-hr-document-categories-route` (sonnet, deps leer),
+    `p3-integration-test-connection` (sonnet), `p3-datev-upload-orchestration`
+    (opus), `p3-integration-webhook-adapters` (opus).
+  - Unveraendert offen: `p3-berichte-share-token` haengt am blockierten
+    `p3-berichte-server-pdf` (Chart-Frage); `p3-fe-only-features-scope-decision`
+    wartet auf Lukes Entscheid; Rollen-Zuschnitt der produktion-ext-Permissions
+    (nur `admin`, Iteration 25); HR-Status als Enum-Zahl gegen den
+    String-lesenden FE-Adapter; Modul-Aktivierung wird nicht durchgesetzt
+    (Iteration 20); `platform_admin` haelt niemand (Iteration 21); lokale
+    `deploy/docker/.env` laeuft als Superuser `kmuhub` statt `kmuhub_app`, darum
+    drei HR-RLS-Tests dauerhaft rot.

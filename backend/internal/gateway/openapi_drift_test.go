@@ -16,15 +16,10 @@
 //     WebSocket hub (/api/v1/ws, /api/v1/files/upload) — constructing that
 //     needs a real gRPC-reachable chat/auth service; out of reach for an
 //     in-memory, DB-less unit test.
-//   - the /api/v1/caldav/* and /api/v1/admin/caldav/* REST routes — reachable
-//     only via cmd/gateway's unexported adapter types (package main), which
-//     cannot be imported from a test in another package. These paths are
-//     already documented today; if this guard should cover them too, extract
-//     the adapters into an exported gateway-internal helper first.
-//   - Plugin API routes (plugins.api flag) — off by default, registered
-//     conditionally in main.go outside the RouteRegistrar loop; the task
-//     this guard protects against explicitly allows this ("registered ⊆
-//     documented", not the reverse).
+//
+// The reverse direction (documented ⊆ registered) lives in TestOpenAPISpecDrift
+// below and is what actually catches a route block that was built, documented
+// and generated into the frontend types but never mounted in main.go.
 package gateway_test
 
 import (
@@ -132,6 +127,22 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 
 	// Advisory-protocol routes (CRM, separate registration — ZFA Beratungsprotokoll).
 	crmRoutes.RegisterAdvisoryRoutes(r, passthroughAuth)
+
+	// Plugin API routes. main.go registers these only when the plugins.api flag
+	// is on (Phase D, off by default), but the routes are documented
+	// unconditionally, so the reverse guard has to see them — otherwise the
+	// whole /api/v1/plugins/* block would sit on the allowlist and a lost
+	// constructor call there would go unnoticed, which is the exact defect this
+	// file guards against.
+	gateway.NewPluginRoutes(registry).RegisterRoutes(r, passthroughAuth)
+
+	// CalDAV/CardDAV REST routes (/api/v1/caldav/*, /api/v1/admin/caldav/*).
+	// main.go builds these through cmd/gateway's unexported adapters, but
+	// NewCalDAVRoutes only takes interfaces and http.Handlers, so a nil backend
+	// registers the same tree: RegisterRoutes wraps both protocol handlers in
+	// closures and binds the REST handlers as method values, touching neither
+	// during registration.
+	gateway.NewCalDAVRoutes(nil, nil, nil, nil, nil, passthroughAuth).RegisterRoutes(r)
 
 	// Public (unauthenticated) routes registered outside the RouteRegistrar
 	// loop in main.go — cheap to construct (no adapters, no live backend
@@ -262,6 +273,62 @@ func TestOpenAPIRouteDrift(t *testing.T) {
 	}
 
 	t.Logf("checked %d registered /api/v1/* routes against %d documented paths", len(registered), len(documented))
+}
+
+// apiV1UnregisteredAllowlist lists /api/v1/* paths api/openapi.yaml documents
+// that buildGatewayRouter deliberately does not register, with a reason per
+// entry. Every entry is a promise that the endpoint exists in production even
+// though this test cannot see it — anything else belongs in the failure list,
+// because a documented path with no endpoint behind it is exactly the defect
+// this guard exists to catch.
+var apiV1UnregisteredAllowlist = map[string]string{
+	"/api/v1/files/upload": "registered in cmd/gateway/main.go on the raw router, not through a RouteRegistrar: " +
+		"server.NewFileUploadHandler needs the live WebSocket hub and the chat file service, neither of which " +
+		"this DB-less test can construct. Verified present at main.go:381.",
+}
+
+// TestOpenAPISpecDrift is the reverse of TestOpenAPIRouteDrift: it fails if
+// api/openapi.yaml documents an /api/v1/* path the gateway never registers.
+//
+// That direction was unguarded for years, and it is the one that hurt. Three
+// whole route blocks (produktion ext, DATEV upload, integrations) were fully
+// built, fully documented and generated into desktop/src/renderer/src/api/
+// types.ts — but their constructors had no caller in cmd/gateway/main.go, so
+// every one of those paths was a 404 against a real backend. "registered ⊆
+// documented" cannot see that; only "documented ⊆ registered" can.
+func TestOpenAPISpecDrift(t *testing.T) {
+	r := buildGatewayRouter(t)
+	registered := registeredAPIv1Paths(t, r)
+
+	specPath := filepath.Join("..", "..", "api", "openapi.yaml")
+	documented := documentedPaths(t, specPath)
+
+	var unregistered []string
+	checked := 0
+	for path := range documented {
+		if !strings.HasPrefix(path, "/api/v1/") {
+			continue // non-/api/v1 protocol routes are out of scope, same as forward direction
+		}
+		checked++
+		if registered[path] {
+			continue
+		}
+		if reason, ok := apiV1UnregisteredAllowlist[path]; ok {
+			t.Logf("allowlisted unregistered path %s: %s", path, reason)
+			continue
+		}
+		unregistered = append(unregistered, path)
+	}
+
+	if len(unregistered) > 0 {
+		sort.Strings(unregistered)
+		t.Errorf(
+			"%d documented /api/v1/* path(s) that the gateway never registers — the endpoint is a 404 (wire the route, remove the spec entry, or add a justified apiV1UnregisteredAllowlist entry):\n  %s",
+			len(unregistered), strings.Join(unregistered, "\n  "),
+		)
+	}
+
+	t.Logf("checked %d documented /api/v1/* paths against %d registered routes", checked, len(registered))
 }
 
 // TestOpenAPIRouteDriftParserSanity is a narrow sanity check on

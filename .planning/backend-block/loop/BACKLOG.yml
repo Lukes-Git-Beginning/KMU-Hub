@@ -1090,7 +1090,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: [p3-gateway-wire-integration-routes]
-    status: todo
+    status: done   # Iteration 28 — TestOpenAPISpecDrift, Allowlist mit genau einem Eintrag
     scope: >
       TestOpenAPIRouteDrift prueft nur eine Richtung: jede registrierte Route
       muss dokumentiert sein. Die Gegenrichtung — die Spec beschreibt Routen,
@@ -1109,6 +1109,27 @@ units:
       oder das Journal: desktop/src/renderer/src/api/types.ts ist gegenueber
       der Spec veraltet, es enthaelt noch /api/v1/einkauf/pos/{id}/export,
       das mit p3-einkauf-exportpo-remove aus der Spec geflogen ist.
+      ERLEDIGT Iteration 28. Entscheidungen: (a) Die Allowlist ist NICHT der
+      Ort fuer die drei bauartbedingten Luecken geworden — zwei davon liessen
+      sich stattdessen im Test-Router registrieren, und ein registrierter Block
+      wird bewacht, ein allowlisteter nicht. `NewPluginRoutes` ist exportiert
+      und nimmt nur die Registry; `NewCalDAVRoutes` nimmt ausschliesslich
+      Interfaces und http.Handler, die unexportierten Adapter in package main
+      sind nur Implementierungen davon — nil genuegt, weil RegisterRoutes beide
+      Protokoll-Handler in Closures wickelt und die REST-Handler als
+      Method-Values bindet. Damit fallen 24 der 25 Rohtreffer weg, weil die
+      Routen jetzt wirklich geprueft werden, nicht weil sie ausgenommen sind.
+      (b) Uebrig bleibt genau ein Allowlist-Eintrag: `/api/v1/files/upload`
+      (braucht den lebenden WebSocket-Hub, main.go:381 verifiziert).
+      (c) Der plugins.api-Block wird bewusst mitgeprueft, obwohl das Flag OFF
+      ist: die Spec dokumentiert ihn bedingungslos, und die Frage des Guards ist
+      "gibt es einen Endpoint hinter dem Pfad", nicht "ist er heute an".
+      (d) Nebeneffekt: der Vorwaerts-Test deckt jetzt auch CalDAV und Plugins ab
+      (731 statt 707 registrierte Pfade) und bleibt gruen — beide Bloecke waren
+      vollstaendig dokumentiert.
+      Falsifiziert: `NewIntegrationRoutes` testweise aus der Registrar-Liste
+      entfernt -> alle 13 Integrations-Pfade rot gemeldet; Zustand
+      wiederhergestellt und nachgeprueft.
     done_when:
       - Test findet dokumentierte, nicht registrierte /api/v1/*-Pfade
       - Allowlist mit Begruendung je Eintrag, sonst leer
