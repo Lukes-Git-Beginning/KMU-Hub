@@ -777,7 +777,8 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
 
 ## Iteration 13 — p3-finance-list-amounts — done — 2026-07-26 23:05
 
-- commit: bbb159b2 (amended, um diese sha einzutragen)
+- commit: de0a5921 (die sha steht in einem eigenen docs-Nachtrag darueber —
+  im Commit selbst kann sie nicht stehen)
 - verify vorgaenger: sauber. `2427a8d8` (berichte-KPIs) gegen die sechs
   Fehlerklassen geprueft: jede Aggregat-Query hat `tenant_id = $1`, keine neue
   Tabelle/Route/Guard, Handler unberuehrt (reine Service-Seite), `slog` statt
