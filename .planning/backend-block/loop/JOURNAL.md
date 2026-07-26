@@ -1723,3 +1723,5 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     `p3-berichte-server-pdf`. Die Queue bleibt leer, bis Luke die
     Chart-Entscheidung trifft oder Phase 2 nachtraegt — die "offen"-Liste in
     diesem Journal ist die naechstbeste Quelle fuer Units.
+
+- iteration 22 commit: `9f2045c9`
