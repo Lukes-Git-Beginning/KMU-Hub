@@ -48,4 +48,7 @@ type Repository interface {
 	ListPOLines(ctx context.Context, tenantID, poID uuid.UUID) ([]*POLine, error)
 	UpdatePOLineReceivedQuantity(ctx context.Context, tenantID, lineID uuid.UUID, receivedQty string) error
 	CountPOLines(ctx context.Context, tenantID, poID uuid.UUID) (int, error)
+	// RecomputePOTotal recalculates and persists the PO's total_amount as the
+	// net sum (quantity * unit_price) of its current lines.
+	RecomputePOTotal(ctx context.Context, tenantID, poID uuid.UUID) error
 }

@@ -474,6 +474,10 @@ func (s *Service) AddPOLine(ctx context.Context, input AddPOLineInput) (*POLine,
 		return nil, fmt.Errorf("add po line: %w", err)
 	}
 
+	if err := s.repo.RecomputePOTotal(ctx, input.TenantID, input.POID); err != nil {
+		return nil, fmt.Errorf("recompute po total: %w", err)
+	}
+
 	slog.Info("einkauf po line added", "line_id", line.ID, "po_id", line.POID, "tenant_id", line.TenantID)
 	return line, nil
 }
@@ -514,17 +518,25 @@ func (s *Service) UpdatePOLine(ctx context.Context, input UpdatePOLineInput) (*P
 		return nil, fmt.Errorf("update po line: %w", updateErr)
 	}
 
+	if err := s.repo.RecomputePOTotal(ctx, input.TenantID, line.POID); err != nil {
+		return nil, fmt.Errorf("recompute po total: %w", err)
+	}
+
 	slog.Info("einkauf po line updated", "line_id", line.ID, "tenant_id", input.TenantID)
 	return line, nil
 }
 
 // DeletePOLine removes a line item from a PO.
 func (s *Service) DeletePOLine(ctx context.Context, tenantID, lineID uuid.UUID) error {
-	if _, err := s.repo.GetPOLine(ctx, tenantID, lineID); err != nil {
+	line, err := s.repo.GetPOLine(ctx, tenantID, lineID)
+	if err != nil {
 		return err
 	}
 	if delErr := s.repo.DeletePOLine(ctx, tenantID, lineID); delErr != nil {
 		return fmt.Errorf("delete po line: %w", delErr)
+	}
+	if err := s.repo.RecomputePOTotal(ctx, tenantID, line.POID); err != nil {
+		return fmt.Errorf("recompute po total: %w", err)
 	}
 	slog.Info("einkauf po line deleted", "line_id", lineID, "tenant_id", tenantID)
 	return nil

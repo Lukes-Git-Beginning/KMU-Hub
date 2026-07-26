@@ -21,7 +21,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       PurchaseOrder.total_amount wird nie berechnet: CreatePO setzt "0",
       Add/Update/DeletePOLine rechnen den Kopfbetrag nicht nach. Gegen echtes BE

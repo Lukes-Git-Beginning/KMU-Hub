@@ -2,6 +2,7 @@ package einkauf
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -228,6 +229,25 @@ func (m *mockRepository) CountPOLines(ctx context.Context, tenantID, poID uuid.U
 		}
 	}
 	return count, nil
+}
+
+func (m *mockRepository) RecomputePOTotal(ctx context.Context, tenantID, poID uuid.UUID) error {
+	po, ok := m.pos[poID]
+	if !ok || po.TenantID != tenantID {
+		return ErrPONotFound
+	}
+	var total float64
+	for _, l := range m.lines {
+		if l.POID != poID || l.TenantID != tenantID {
+			continue
+		}
+		qty, _ := strconv.ParseFloat(l.Quantity, 64)
+		price, _ := strconv.ParseFloat(l.UnitPrice, 64)
+		total += qty * price
+	}
+	po.TotalAmount = strconv.FormatFloat(total, 'f', 2, 64)
+	po.UpdatedAt = time.Now()
+	return nil
 }
 
 // compile-time check
@@ -664,6 +684,81 @@ func TestService_AddPOLine_Success(t *testing.T) {
 	assert.Equal(t, "Screw M4", line.ProductName)
 	assert.Equal(t, "0", line.ReceivedQuantity) // starts at 0
 	assert.Equal(t, "0", line.TaxRate)          // default
+
+	got, err := svc.GetPO(context.Background(), tenantID, po.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "5.00", got.TotalAmount) // 100 * 0.05
+}
+
+func TestService_AddPOLine_RecomputesTotalAcrossLines(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-012", POStatusDraft)
+
+	_, err := svc.AddPOLine(context.Background(), AddPOLineInput{
+		TenantID: tenantID, POID: po.ID, ProductName: "Line A", Quantity: "2", UnitPrice: "10.00",
+	})
+	require.NoError(t, err)
+
+	_, err = svc.AddPOLine(context.Background(), AddPOLineInput{
+		TenantID: tenantID, POID: po.ID, ProductName: "Line B", Quantity: "3", UnitPrice: "5.00",
+	})
+	require.NoError(t, err)
+
+	got, err := svc.GetPO(context.Background(), tenantID, po.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "35.00", got.TotalAmount) // 2*10 + 3*5
+}
+
+func TestService_UpdatePOLine_RecomputesTotal(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-013", POStatusDraft)
+
+	line, err := svc.AddPOLine(context.Background(), AddPOLineInput{
+		TenantID: tenantID, POID: po.ID, ProductName: "Line A", Quantity: "2", UnitPrice: "10.00",
+	})
+	require.NoError(t, err)
+
+	newQty := "4"
+	_, err = svc.UpdatePOLine(context.Background(), UpdatePOLineInput{
+		TenantID: tenantID, LineID: line.ID, Quantity: &newQty,
+	})
+	require.NoError(t, err)
+
+	got, err := svc.GetPO(context.Background(), tenantID, po.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "40.00", got.TotalAmount) // 4*10
+}
+
+func TestService_DeletePOLine_RecomputesTotal(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-014", POStatusDraft)
+
+	lineA, err := svc.AddPOLine(context.Background(), AddPOLineInput{
+		TenantID: tenantID, POID: po.ID, ProductName: "Line A", Quantity: "2", UnitPrice: "10.00",
+	})
+	require.NoError(t, err)
+	_, err = svc.AddPOLine(context.Background(), AddPOLineInput{
+		TenantID: tenantID, POID: po.ID, ProductName: "Line B", Quantity: "3", UnitPrice: "5.00",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, svc.DeletePOLine(context.Background(), tenantID, lineA.ID))
+
+	got, err := svc.GetPO(context.Background(), tenantID, po.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "15.00", got.TotalAmount) // remaining 3*5
 }
 
 func TestService_AddPOLine_EmptyProductName(t *testing.T) {

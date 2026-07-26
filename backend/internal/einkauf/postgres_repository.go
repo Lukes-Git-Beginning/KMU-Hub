@@ -387,6 +387,25 @@ func (r *PostgresRepository) UpdatePOLineReceivedQuantity(ctx context.Context, t
 	return err
 }
 
+func (r *PostgresRepository) RecomputePOTotal(ctx context.Context, tenantID, poID uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE purchase_orders
+		 SET total_amount = COALESCE((
+		         SELECT SUM(quantity * unit_price) FROM po_lines WHERE po_id = $1 AND tenant_id = $2
+		     ), 0),
+		     updated_at = $3
+		 WHERE id = $1 AND tenant_id = $2`,
+		poID, tenantID, time.Now(),
+	)
+	if err != nil {
+		return fmt.Errorf("recompute po total: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPONotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) CountPOLines(ctx context.Context, tenantID, poID uuid.UUID) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
