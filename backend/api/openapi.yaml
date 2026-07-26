@@ -24312,13 +24312,12 @@ paths:
     post:
       summary: Trigger a DATEV Buchungsstapel export and upload
       description: >-
-        Requires admin role. NOTE (current backend state): the upload service
-        is invoked with empty invoice/credit-note slices at the gRPC layer, so
-        document_count is always 0 regardless of the date range passed -- the
-        full fetch-then-export orchestration is not yet wired end-to-end.
-        On export/upload failure the RPC returns success=false with a 200
-        response (not an HTTP error), except for an invalid fiscal_year_start
-        which is a 400.
+        Requires admin role. NOT IMPLEMENTED -- always returns 501. The RPC used
+        to call the upload service with empty invoice/credit-note slices and
+        report success=true, which against a connected DATEV account uploads a
+        document-less CSV and logs it as completed. Until the fetch-then-export
+        orchestration exists, the endpoint refuses rather than reporting a
+        transfer that did not happen. Use the GoBD DATEV export meanwhile.
       tags: [datev]
       operationId: uploadDatevBuchungsstapel
       security: [{ bearerAuth: [] }]
@@ -24333,29 +24332,20 @@ paths:
                 end_date: { type: string, description: "YYYY-MM-DD" }
                 fiscal_year_start: { type: string, description: "YYYY-MM-DD" }
       responses:
-        "200":
-          description: Upload result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  document_count: { type: integer, format: int32 }
-                  file_size: { type: integer, format: int32 }
-                  error_message: { type: string }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "501":
+          description: Buchungsstapel upload is not implemented yet
 
   /api/v1/finance/datev/upload/beleg/{invoice_id}:
     post:
       summary: Upload a single invoice PDF as a DATEV Belegbild
       description: >-
-        Requires admin role. NOTE (current backend state): this is a
-        placeholder RPC -- it logs the request and always returns success=true
-        without retrieving or uploading a PDF; the invoice_id path parameter
-        is also not validated as a UUID by the handler.
+        Requires admin role. NOT IMPLEMENTED -- always returns 501. The RPC used
+        to log the request and return success=true without ever retrieving or
+        uploading a PDF; it refuses now rather than reporting a transfer that
+        did not happen.
       tags: [datev]
       operationId: uploadDatevBeleg
       security: [{ bearerAuth: [] }]
@@ -24365,17 +24355,11 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "200":
-          description: Upload result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  error_message: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "501":
+          description: Belegbild upload is not implemented yet
 
   /api/v1/finance/datev/config:
     get:

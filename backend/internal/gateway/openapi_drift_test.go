@@ -97,6 +97,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry, "test-state-secret"),
+		gateway.NewDatevUploadRoutes(registry, "test-state-secret"),
 		gateway.NewLexwareRoutes(registry, "test-webhook-secret", false),
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),

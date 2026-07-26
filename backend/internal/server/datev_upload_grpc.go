@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -100,67 +99,40 @@ func (s *DatevUploadGRPCServer) GetDatevConnectionStatus(ctx context.Context, re
 	}, nil
 }
 
-// UploadDatevBuchungsstapel triggers a DATEV Buchungsstapel export and upload.
-func (s *DatevUploadGRPCServer) UploadDatevBuchungsstapel(ctx context.Context, req *bizv1.UploadDatevBuchungsstapelRequest) (*bizv1.UploadDatevBuchungsstapelResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
-	if err != nil {
+// UploadDatevBuchungsstapel is not implemented yet.
+//
+// It used to call UploadService.ExportAndUpload with empty invoice and credit
+// note slices and report Success=true. Against a connected DATEV account that
+// does not fail — it exports a document-less CSV, uploads it, and writes a
+// "completed" upload log, so the client is told the accounting data reached the
+// tax advisor when nothing did. A wrong success on a bookkeeping transfer is
+// worse than no endpoint, so the RPC refuses instead. Implementing it means
+// loading the tenant's invoices and credit notes for the requested date range
+// (plus the Berater/Mandant numbers from company_settings, which only
+// BizGRPCServer.ExportDATEV fills today) — see the backend loop backlog.
+func (s *DatevUploadGRPCServer) UploadDatevBuchungsstapel(_ context.Context, req *bizv1.UploadDatevBuchungsstapelRequest) (*bizv1.UploadDatevBuchungsstapelResponse, error) {
+	if _, err := uuid.Parse(req.GetTenantId()); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
-
-	// Parse fiscal year start from request
-	fiscalYearStart, err := time.Parse("2006-01-02", req.GetFiscalYearStart())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid fiscal_year_start: %v", err)
-	}
-
-	// ExportAndUpload requires invoices and credit notes to be fetched by the caller.
-	// At the gRPC level we pass empty slices — the real orchestration happens in a
-	// higher-level handler that fetches invoices for the date range. This RPC serves
-	// as the upload trigger; the gateway handler will coordinate the full flow.
-	csvData, err := s.uploadService.ExportAndUpload(
-		ctx,
-		tenantID,
-		[]*models.Invoice{},
-		[]*models.CreditNote{},
-		fiscalYearStart,
-	)
-	if err != nil {
-		slog.Error("datev buchungsstapel upload failed",
-			"tenant_id", tenantID,
-			"error", err,
-		)
-		return &bizv1.UploadDatevBuchungsstapelResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
-	}
-
-	return &bizv1.UploadDatevBuchungsstapelResponse{
-		Success:       true,
-		DocumentCount: 0,
-		FileSize:      int32(len(csvData)),
-	}, nil
+	return nil, status.Error(codes.Unimplemented,
+		"DATEV Buchungsstapel upload is not implemented yet — use the GoBD DATEV export")
 }
 
-// UploadDatevBeleg uploads a single invoice PDF as a DATEV Belegbild.
-func (s *DatevUploadGRPCServer) UploadDatevBeleg(ctx context.Context, req *bizv1.UploadDatevBelegRequest) (*bizv1.UploadDatevBelegResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
-	if err != nil {
+// UploadDatevBeleg is not implemented yet.
+//
+// It used to log the request and return Success=true without ever retrieving or
+// uploading a PDF, which tells the client the Belegbild was transferred when it
+// was not. Implementing it means rendering the invoice PDF and passing it to
+// UploadService.UploadBeleg — see the backend loop backlog.
+func (s *DatevUploadGRPCServer) UploadDatevBeleg(_ context.Context, req *bizv1.UploadDatevBelegRequest) (*bizv1.UploadDatevBelegResponse, error) {
+	if _, err := uuid.Parse(req.GetTenantId()); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 	if req.GetInvoiceId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "invoice_id is required")
 	}
-
-	// The actual PDF data retrieval happens at a higher level. This RPC is a
-	// placeholder that will be wired to the invoice PDF renderer + upload.
-	// For now, log and return success to allow end-to-end wiring.
-	slog.Info("datev beleg upload requested",
-		"tenant_id", tenantID,
-		"invoice_id", req.GetInvoiceId(),
-	)
-
-	return &bizv1.UploadDatevBelegResponse{Success: true}, nil
+	return nil, status.Error(codes.Unimplemented,
+		"DATEV Belegbild upload is not implemented yet")
 }
 
 // GetDatevUploadConfig returns the current DATEV upload configuration.

@@ -2058,3 +2058,96 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     darum drei HR-RLS-Tests dauerhaft rot.
 
 - iteration 25 commit: `16207a90`
+
+## Iteration 26 — 2026-07-27 — p3-gateway-wire-datev-upload
+
+- verify-vorspann (Iteration 25, `16207a90`): gruen. Der Diff mountet die
+  produktion-Ext-Routen relativ aus `RegisterRoutes` heraus, also innerhalb des
+  bestehenden `/api/v1/produktion`-Blocks mit Flag-Gate und Auth; kein zweiter
+  Mount, kein chi-Panic. Stichprobe `HandleListBOMs`: geht ueber
+  `pr.getClient()` und den gRPC-Client, Tenant kommt aus
+  `middleware.GetTenantID(ctx)` — kein Direct-Service-Aufruf, kein
+  RLS-Umgehungspfad. Keine Migration, kein Proto, openapi.yaml unveraendert
+  (Spec kannte die Pfade schon). Nichts nachzutragen.
+- Unit: `p3-gateway-wire-datev-upload` — Verdrahtung 2 von 3 aus der Triage von
+  Iteration 24.
+- **Befund bestaetigt:** `NewDatevUploadRoutes` hatte im ganzen Repo keinen
+  Aufrufer. Handler, Proto-RPCs, gRPC-Server (`cmd/biz/main.go:420`), acht
+  openapi.yaml-Pfadschluessel und `datev-upload-client.ts` waren vollstaendig —
+  nur der Mount fehlte, also war `/api/v1/finance/datev/*` gegen echtes BE
+  komplett 404. Kein Pfadkonflikt beim Mount: `/api/v1/finance` selbst ist nie
+  als Block gemountet, `route_biz.go` haengt ausschliesslich Unterpfade ein.
+- **stateSecret:** kein neues Env. `cfg.BexioStateSecret` wird geteilt — der
+  signierte State traegt nur Tenant + Ablauf, beide OAuth-Flows sind
+  admin-only, und ein eigenes `DATEV_STATE_SECRET` waere in Produktion eine
+  neue Pflichtvariable ohne Sicherheitsgewinn (die Config-Assertion listet
+  `BEXIO_STATE_SECRET` bereits als prod-pflichtig). Bewusster Nebeneffekt: ein
+  Bexio-State ist formal auch als DATEV-State gueltig; er bindet aber nur den
+  eigenen Tenant des Ausstellers, ermoeglicht also nichts, was derselbe Admin
+  nicht ohnehin ueber `/oauth/authorize` bekaeme. Kein Deploy-Hazard, keine
+  neue `config.RequireX`.
+- **Guard-Reihenfolge korrigiert.** Die Leer-Secret-Guards existierten, standen
+  aber hinter `getDatevUploadClient()`. Ein Request, der ohnehin abgelehnt
+  wird, hat im biz-Backend nichts verloren — beide Handler pruefen das Secret
+  jetzt zuerst. Nebeneffekt: der Guard ist ohne laufendes Backend testbar.
+  Im Callback wandert der Client-Zugriff hinter die State-Verifikation; die
+  Route ist public, ein gefaelschter State darf keinen Backend-Call ausloesen.
+- **Trust-Boundary:** `invoice_id` ging als roher Pfad-String an gRPC
+  (`chi.URLParam`) — jetzt `validateUUIDParam`, wie bei den Nachbar-Routen.
+  Die Spec dokumentierte die fehlende Pruefung sogar ausdruecklich.
+- **HAUPTBEFUND — zwei Falsch-Erfolg-Stubs, die der Mount scharfgeschaltet
+  haette.** `UploadDatevBuchungsstapel` rief
+  `UploadService.ExportAndUpload(ctx, tenant, []*models.Invoice{},
+  []*models.CreditNote{}, …)` — mit LEEREN Slices — und meldete
+  `success=true`. Gegen ein verbundenes DATEV-Konto ist das kein No-Op: der
+  Exporter erzeugt eine dokumentlose CSV, `uploader.UploadBuchungsstapel`
+  schickt sie los und der Upload-Log wird auf "completed" gesetzt. Der Nutzer
+  klickt "an DATEV uebertragen", sieht Erfolg, beim Steuerberater kommt eine
+  leere Datei an. `UploadDatevBeleg` war dieselbe Klasse ohne Netzverkehr:
+  loggen, `Success: true`, nie ein PDF geholt. Beide antworten jetzt
+  `codes.Unimplemented` → Gateway 501, mit Begruendung im Doc-Kommentar.
+  Ein gemeldeter, aber nie stattgefundener Buchungstransfer ist schlimmer als
+  der 404 von vorher. openapi.yaml ist im selben Commit nachgezogen (501 statt
+  200, "NOT IMPLEMENTED" in der Beschreibung, 400 beim Beleg wegen der neuen
+  UUID-Pruefung). Die echte Orchestrierung liegt als neue Unit
+  `p3-datev-upload-orchestration` im Backlog — sie braucht ausserdem die
+  Berater-/Mandantennummer aus `company_settings`, die `ExportAndUpload` heute
+  leer laesst.
+- **Wo der Verdrahtungstest sitzt.** `route_datev_upload_test.go`
+  (package `gateway`) pinnt die neun Muster von `RegisterRoutes` plus das
+  Secret-Verhalten; der eigentliche Regressionsschutz gegen "kein Aufrufer in
+  main.go" liegt aber in `route_datev_upload_wiring_test.go` (package
+  `gateway_test`) gegen `buildGatewayRouter` — nur der spiegelt die
+  Registrar-Liste aus `cmd/gateway/main.go`.
+- **Falsifikation:** Registrar-Eintrag testweise entfernt →
+  `TestDatevUploadRoutes_ReachableFromGatewayRouter` meldet alle acht Pfade als
+  nicht registriert. Im selben Lauf bestaetigt: `TestOpenAPIRouteDrift` bleibt
+  dabei **gruen** — er prueft nur "registriert ⊆ dokumentiert". Genau die
+  Luecke, die `p3-openapi-reverse-drift-guard` schliessen soll; der Registrar
+  im Test-Router ist dafuer die Voraussetzung. Zustand danach wiederhergestellt.
+- Weitere Wire-Shape-Pruefung gegen `datev-upload-types.ts`: `/status` liefert
+  `{connected}`, das FE-Feld `connected_at?` ist optional und im Proto gar nicht
+  vorhanden — nichts zu tun. `/upload/logs` antwortet als nacktes Array, so
+  typt es das FE und so dokumentiert es die Spec; hier bewusst nicht auf
+  `{items,total}` umgestellt, das waere ein FE-Bruch ohne Gewinn.
+- gate: `go build ./internal/... ./cmd/gateway/... ./cmd/biz/...` gruen,
+  `go vet ./internal/gateway/... ./internal/server/...` gruen,
+  `golangci-lint run ./internal/gateway/... ./internal/server/...
+  ./cmd/gateway/...` 0 issues, `go test ./internal/gateway/...
+  ./internal/server/... ./internal/biz/datev/... -count=1` gruen inklusive
+  `TestOpenAPIRouteDrift`. Keine Migration, kein Proto, keine neue Dependency,
+  keine neue `config.RequireX`, kein Flag scharfgeschaltet.
+  Hinweis fuer spaetere Iterationen: `go build ./...` in einem Rutsch kippt auf
+  dieser Maschine in "cannot allocate memory" — mit `-p 2` bauen.
+- offen / fuer Luke:
+  - `p3-datev-upload-orchestration` (neu): DATEV-Upload liefert bis dahin 501.
+  - Naechste freie Unit: `p3-gateway-wire-integration-routes` (Verdrahtung 3
+    von 3; dort zuerst pruefen, ob die Slack-/Teams-Adapter ohne neue Secrets
+    konstruierbar sind — sonst `blocked`).
+  - Unveraendert offen: Rollen-Zuschnitt der produktion-ext-Permissions (nur
+    `admin`, Iteration 25); `p3-fe-only-features-scope-decision` wartet auf
+    Lukes Entscheid; HR-Status als Enum-Zahl gegen den String-lesenden
+    FE-Adapter; Modul-Aktivierung wird nicht durchgesetzt (Iteration 20);
+    `platform_admin` haelt niemand (Iteration 21); lokale
+    `deploy/docker/.env` laeuft als Superuser `kmuhub` statt `kmuhub_app`,
+    darum drei HR-RLS-Tests dauerhaft rot.

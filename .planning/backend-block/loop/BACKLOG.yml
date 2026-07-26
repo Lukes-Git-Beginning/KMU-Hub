@@ -888,7 +888,7 @@ units:
     service: biz
     model: sonnet
     deps: [p3-gateway-wire-produktion-ext]
-    status: todo
+    status: done   # Iteration 26 — gemountet, zwei Falsch-Erfolg-Stubs auf 501 geriegelt
     scope: >
       `NewDatevUploadRoutes` (route_datev_upload.go:26) wird nirgends
       aufgerufen. Der komplette Block `/api/v1/finance/datev/*` (upload,
@@ -907,9 +907,66 @@ units:
       Deploy-Hazard. Trotzdem pruefen, wie sich der OAuth-Pfad bei leerem
       Secret verhaelt: ein leerer HMAC-Key darf nicht "State ist gueltig"
       bedeuten. Faellt das auf, ist der Guard Teil dieser Unit.
+      ERLEDIGT Iteration 26. Entscheidungen: (a) `cfg.BexioStateSecret` wird
+      geteilt statt ein eigenes DATEV-Secret einzufuehren — der signierte State
+      bindet nur Tenant + Ablauf, beide Flows sind admin-only, ein zweites
+      Secret waere in Produktion eine neue Pflicht-Env ohne Sicherheitsgewinn.
+      (b) Die Secret-Guards existierten bereits, standen aber HINTER dem
+      gRPC-Client-Zugriff; sie sind nach vorn gezogen — ein nicht
+      verifizierbarer OAuth-State darf das biz-Backend gar nicht erst
+      erreichen. (c) `invoice_id` laeuft jetzt ueber `validateUUIDParam`
+      (Trust-Boundary, vorher ungeprueft an gRPC durchgereicht).
+      (d) HAUPTBEFUND: zwei der acht Endpoints waren Falsch-Erfolg-Stubs.
+      `UploadDatevBuchungsstapel` rief den Upload-Service mit LEEREN
+      Invoice-/CreditNote-Slices und meldete success=true — gegen ein
+      verbundenes DATEV-Konto laedt das eine dokumentlose CSV hoch und
+      protokolliert sie als "completed"; `UploadDatevBeleg` loggte nur und
+      meldete Erfolg, ohne je ein PDF zu holen. Beide antworten jetzt
+      `codes.Unimplemented` (Gateway: 501). Ein gemeldeter, aber nie
+      stattgefundener Buchungstransfer ist schlimmer als der 404 von vorher.
+      Die echte Orchestrierung ist eine eigene Unit (s.u.).
+      (e) Der Verdrahtungsschutz sitzt bewusst auf `buildGatewayRouter` aus
+      dem Drift-Test (neue Datei route_datev_upload_wiring_test.go): nur der
+      spiegelt die Registrar-Liste aus main.go. Falsifiziert — Eintrag
+      testweise entfernt, alle acht Pfade rot gemeldet.
     done_when:
       - Routen im gewalkten Router enthalten
       - Leeres stateSecret fuehrt nicht zu akzeptiertem OAuth-State
+      - go build/vet/lint/test gruen
+
+  - id: p3-datev-upload-orchestration
+    phase: 3
+    service: biz
+    model: opus
+    deps: [p3-gateway-wire-datev-upload]
+    status: todo
+    scope: >
+      `UploadDatevBuchungsstapel` und `UploadDatevBeleg` (internal/server/
+      datev_upload_grpc.go) liefern seit Iteration 26 bewusst 501, weil sie
+      Erfolg meldeten, ohne etwas zu uebertragen. Echte Orchestrierung bauen:
+      Buchungsstapel = Rechnungen und Gutschriften des Tenants im angefragten
+      Zeitraum laden, exportieren, hochladen; Beleg = Rechnungs-PDF ueber den
+      vorhandenen maroto-Generator rendern und an
+      `UploadService.UploadBeleg` geben.
+    sources:
+      - backend/internal/server/datev_upload_grpc.go
+      - backend/internal/biz/datev/upload_service.go
+      - backend/internal/biz/pdf/
+      - backend/api/openapi.yaml
+    notes: >
+      Vor dem Bauen klaeren: Berater- und Mandantennummer stehen auf
+      `company_settings` und werden heute nur von `BizGRPCServer.ExportDATEV`
+      gefuellt — `UploadService.ExportAndUpload` uebergibt beide leer, der
+      Export waere also ohne diesen Zug DATEV-seitig unbrauchbar. Ohne
+      DATEV-Sandbox ist der Upload-Pfad nicht end-to-end pruefbar; der Test
+      muss deshalb am Service-Rand ansetzen (Uploader-Fake), nicht am Netz.
+      Beim Erfolgspfad die Spec mitziehen: 501 wieder gegen 200 tauschen und
+      die "NOT IMPLEMENTED"-Beschreibungen entfernen.
+    done_when:
+      - Buchungsstapel enthaelt die Belege des angefragten Zeitraums, tenant-gescoped
+      - Beleg-Upload uebertraegt ein echtes PDF
+      - Kein Erfolgssignal ohne tatsaechliche Uebertragung
+      - openapi.yaml im selben Commit auf den neuen Stand
       - go build/vet/lint/test gruen
 
   - id: p3-gateway-wire-integration-routes

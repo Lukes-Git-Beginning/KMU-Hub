@@ -76,6 +76,16 @@ func (dr *DatevUploadRoutes) RegisterRoutes(r chi.Router, authMiddleware func(ht
 
 // HandleGetAuthURL returns the DATEV OAuth authorization URL.
 func (dr *DatevUploadRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Request) {
+	// Sign an expiring, HMAC-protected state token so the OAuth callback can verify
+	// authenticity and recover the tenant_id without trusting the redirect round-trip
+	// (CSRF protection — mirrors the Bexio flow). Checked before anything else: an
+	// unsigned flow must never reach the backend, not even to fail there.
+	if dr.stateSecret == "" {
+		slog.Error("datev: state secret not configured, cannot issue OAuth URL")
+		response.Error(w, http.StatusInternalServerError, "OAuth state secret not configured")
+		return
+	}
+
 	client, err := dr.getDatevUploadClient()
 	if err != nil {
 		respondServiceUnavailable(w, dr.ServiceName())
@@ -88,14 +98,6 @@ func (dr *DatevUploadRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Sign an expiring, HMAC-protected state token so the OAuth callback can verify
-	// authenticity and recover the tenant_id without trusting the redirect round-trip
-	// (CSRF protection — mirrors the Bexio flow).
-	if dr.stateSecret == "" {
-		slog.Error("datev: state secret not configured, cannot issue OAuth URL")
-		response.Error(w, http.StatusInternalServerError, "OAuth state secret not configured")
-		return
-	}
 	signedState, stateErr := encodeBexioState(dr.stateSecret, tenantID)
 	if stateErr != nil {
 		slog.Error("datev: failed to encode state token", "error", stateErr)
@@ -120,9 +122,11 @@ func (dr *DatevUploadRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Req
 // HandleOAuthCallback handles the DATEV OAuth redirect callback.
 // This endpoint is public (no auth middleware) because DATEV redirects here.
 func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.Request) {
-	client, err := dr.getDatevUploadClient()
-	if err != nil {
-		respondServiceUnavailable(w, dr.ServiceName())
+	// This route is public, so the state check comes before the backend call: an
+	// unverifiable state must be rejected without touching the biz service.
+	if dr.stateSecret == "" {
+		slog.Error("datev: state secret not configured, rejecting OAuth callback")
+		http.Redirect(w, r, "/settings/integrations?datev_error=state_not_configured", http.StatusFound)
 		return
 	}
 
@@ -138,11 +142,6 @@ func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.
 	}
 
 	// Verify the HMAC-signed state token before trusting the tenant_id it carries.
-	if dr.stateSecret == "" {
-		slog.Error("datev: state secret not configured, rejecting OAuth callback")
-		http.Redirect(w, r, "/settings/integrations?datev_error=state_not_configured", http.StatusFound)
-		return
-	}
 	tenantID, stateErr := decodeBexioState(dr.stateSecret, state)
 	if stateErr != nil {
 		slog.Warn("datev: OAuth callback with invalid state token",
@@ -150,6 +149,12 @@ func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.
 			"remote_addr", r.RemoteAddr,
 		)
 		http.Redirect(w, r, "/settings/integrations?datev_error=invalid_state", http.StatusFound)
+		return
+	}
+
+	client, err := dr.getDatevUploadClient()
+	if err != nil {
+		respondServiceUnavailable(w, dr.ServiceName())
 		return
 	}
 
@@ -287,7 +292,10 @@ func (dr *DatevUploadRoutes) HandleUploadBeleg(w http.ResponseWriter, r *http.Re
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	invoiceID := chi.URLParam(r, "invoice_id")
+	invoiceID, ok := validateUUIDParam(w, r, "invoice_id")
+	if !ok {
+		return
+	}
 
 	resp, err := client.UploadDatevBeleg(r.Context(), &bizv1.UploadDatevBelegRequest{
 		TenantId:  tenantID,

@@ -249,6 +249,10 @@ func main() {
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry, cfg.BexioStateSecret),
+		// DATEV upload shares the Bexio OAuth state secret: the signed state only
+		// binds tenant + expiry, both flows are admin-only, and a second secret
+		// would be a new required env var in production for no security gain.
+		gateway.NewDatevUploadRoutes(registry, cfg.BexioStateSecret),
 		gateway.NewLexwareRoutes(registry, cfg.LexwareWebhookSecret, isProd),
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),
