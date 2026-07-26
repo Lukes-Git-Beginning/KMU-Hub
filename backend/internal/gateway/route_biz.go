@@ -90,6 +90,19 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/validate-number", b.HandleValidateInvoiceNumber)
 	})
 
+	// Recurring invoices (Abo-Rechnungen)
+	r.Route("/api/v1/finance/recurring", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListRecurringInvoices)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/pause", b.HandlePauseRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/resume", b.HandleResumeRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/generate", b.HandleGenerateRecurringInvoice)
+	})
+
 	// Credit Notes
 	r.Route("/api/v1/finance/credit-notes", func(r chi.Router) {
 		r.Use(authMiddleware)

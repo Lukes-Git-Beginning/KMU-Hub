@@ -483,7 +483,7 @@ units:
     service: finance
     model: opus
     deps: [p3-finance-list-amounts]
-    status: todo
+    status: done
     scope: >
       Wiederkehrende Rechnungen: Definition, Zeitplan, Erzeugung.
     sources:
@@ -493,6 +493,24 @@ units:
       Idempotenz ist hier Pflicht, keine Kuer — eine doppelt erzeugte Rechnung
       ist ein echter Geschaeftsvorfall. Idempotency-Key-Muster aus dem Repo
       wiederverwenden (Dialer-Outcomes, Finance-Postings).
+      ERLEDIGT Iteration 14 (Migration 000246). Serverseitig existierte gar
+      nichts — das FE (RecurringInvoicesTab/-DetailPanel/-Dialog,
+      financeRecurringApi) lief komplett gegen MSW. Entscheidungen:
+      (a) Idempotenz ueber eine Ledger-Tabelle `finance_recurring_runs` mit
+      UNIQUE (tenant_id, recurring_id, period_date) statt eines
+      Idempotency-Key-Headers: der Schluessel ist hier fachlich die Periode,
+      nicht der Request — auch ein Scheduler-Lauf ohne Client-Header darf nicht
+      doppelt fakturieren. Ein Replay liefert die bereits erzeugte Rechnung
+      zurueck statt einer zweiten. (b) `next_run` wird immer aus
+      start_date + n Perioden berechnet (Anker), nie schrittweise
+      fortgeschrieben — sonst rutscht ein Monatsabo vom 31. dauerhaft auf den
+      28. (c) invoice_date der erzeugten Rechnung ist die Periode, nicht heute:
+      Nachholen alter Perioden bleibt so nachvollziehbar. (d) Emission laeuft
+      ueber invoice.Service.Create — Nummernkreis/GoBD/Steuer bleiben an einer
+      Stelle; dafuer haben CreateInput zwei neue Felder (Currency, RecurringID).
+      NICHT enthalten: automatischer Scheduler (nur manuelles /generate; die
+      Faelligkeits-Query liegt als Index bereit) und PDF-Versand der erzeugten
+      Rechnung.
     done_when:
       - Wiederkehrende Definitionen persistiert, tenant-gescoped
       - Erzeugung idempotent, doppelter Lauf erzeugt keine zweite Rechnung

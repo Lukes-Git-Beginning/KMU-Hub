@@ -70,6 +70,21 @@ const (
 	DocumentTypeCreditNote = "credit_note"
 )
 
+// Recurring invoice intervals (Migration 000246).
+const (
+	RecurringIntervalWeekly    = "weekly"
+	RecurringIntervalMonthly   = "monthly"
+	RecurringIntervalQuarterly = "quarterly"
+	RecurringIntervalYearly    = "yearly"
+)
+
+// Recurring invoice schedule statuses (Migration 000246).
+const (
+	RecurringStatusActive = "active"
+	RecurringStatusPaused = "paused"
+	RecurringStatusEnded  = "ended"
+)
+
 // ============================================================================
 // Domain Models
 // ============================================================================
@@ -234,6 +249,9 @@ type Invoice struct {
 	Source            string          `json:"source"`
 	ExternalID        *string         `json:"external_id,omitempty"`
 	ExternalNumber    *string         `json:"external_number,omitempty"`
+	// RecurringID links this invoice to the schedule that emitted it
+	// (Migration 000246). NULL for manually created invoices.
+	RecurringID       *uuid.UUID      `json:"recurring_id,omitempty"`
 	CreatedBy         uuid.UUID       `json:"created_by"`
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`
@@ -336,6 +354,36 @@ type PipelineMetrics struct {
 	QuotesPending  int             `json:"quotes_pending"`
 	ConversionRate decimal.Decimal `json:"conversion_rate"`
 	AverageDealSize decimal.Decimal `json:"average_deal_size"`
+}
+
+// RecurringInvoice is a schedule that emits draft invoices at a fixed interval
+// until the optional end date is reached (Migration 000246). It is a template,
+// never itself a bookkeeping document: it carries no number and never enters the
+// GoBD journal — only the invoices it emits do.
+type RecurringInvoice struct {
+	ID               uuid.UUID       `json:"id"`
+	TenantID         uuid.UUID       `json:"tenant_id"`
+	Title            string          `json:"title"`
+	CustomerName     string          `json:"customer_name"`
+	CustomerAddress  string          `json:"customer_address"`
+	CustomerEmail    string          `json:"customer_email"`
+	CustomerUStIDNr  string          `json:"customer_ust_id_nr"`
+	TaxMode          string          `json:"tax_mode"`
+	LineItems        json.RawMessage `json:"line_items"`
+	TaxBreakdownRaw  json.RawMessage `json:"tax_breakdown"`
+	Currency         string          `json:"currency"`
+	Interval         string          `json:"interval"`
+	Status           string          `json:"status"`
+	StartDate        time.Time       `json:"start_date"`
+	EndDate          *time.Time      `json:"end_date,omitempty"`
+	NextRun          time.Time       `json:"next_run"`
+	PaymentTermsDays int             `json:"payment_terms_days"`
+	GeneratedCount   int             `json:"generated_count"`
+	LastGeneratedAt  *time.Time      `json:"last_generated_at,omitempty"`
+	Notes            string          `json:"notes"`
+	CreatedBy        *uuid.UUID      `json:"created_by,omitempty"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
 }
 
 // InvoiceStatusBreakdown holds invoice counts by status.

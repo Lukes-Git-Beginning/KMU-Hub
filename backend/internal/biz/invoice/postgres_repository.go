@@ -43,7 +43,7 @@ const invoiceColumns = "id, tenant_id, invoice_number, status, " +
 	"zugferd_profile, time_tracking_source, locked_at, locked_by, " +
 	"contact_id, " +
 	"created_by, created_at, updated_at, currency, " +
-	"source, external_id, external_number"
+	"source, external_id, external_number, recurring_id"
 
 func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) error {
 	tx, err := r.pool.Begin(ctx)
@@ -62,7 +62,7 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 			snapshot_data, source_quote_id, notes,
 			contact_id,
 			created_by, created_at, updated_at,
-			currency
+			currency, recurring_id
 		) VALUES (
 			$1, $2, $3, $4,
 			$5, $6, $7, $8,
@@ -72,7 +72,7 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 			$19, $20, $21,
 			$22,
 			$23, $24, $25,
-			$26
+			$26, $27
 		)`,
 		inv.ID, inv.TenantID, inv.InvoiceNumber, inv.Status,
 		inv.CustomerName, inv.CustomerAddress, inv.CustomerEmail, inv.CustomerUStIDNr,
@@ -82,7 +82,7 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 		inv.SnapshotData, inv.SourceQuoteID, inv.Notes,
 		inv.ContactID,
 		inv.CreatedBy, inv.CreatedAt, inv.UpdatedAt,
-		inv.Currency,
+		inv.Currency, inv.RecurringID,
 	)
 	if err != nil {
 		return fmt.Errorf("insert finance_invoices: %w", err)
@@ -228,6 +228,12 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 	if filter.ContactID != nil {
 		conditions = append(conditions, fmt.Sprintf("contact_id = $%d", argNum))
 		args = append(args, *filter.ContactID)
+		argNum++
+	}
+
+	if filter.RecurringID != nil {
+		conditions = append(conditions, fmt.Sprintf("recurring_id = $%d", argNum))
+		args = append(args, *filter.RecurringID)
 		argNum++
 	}
 
@@ -694,7 +700,7 @@ func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {
 		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.ContactID,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt, &inv.Currency,
-		&inv.Source, &inv.ExternalID, &inv.ExternalNumber,
+		&inv.Source, &inv.ExternalID, &inv.ExternalNumber, &inv.RecurringID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInvoiceNotFound
@@ -722,7 +728,7 @@ func (r *PostgresRepository) scanInvoiceFromRows(rows pgx.Rows) (*models.Invoice
 		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.ContactID,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt, &inv.Currency,
-		&inv.Source, &inv.ExternalID, &inv.ExternalNumber,
+		&inv.Source, &inv.ExternalID, &inv.ExternalNumber, &inv.RecurringID,
 	)
 	if err != nil {
 		return nil, err

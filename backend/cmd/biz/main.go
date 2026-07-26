@@ -32,6 +32,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
+	"github.com/kmuhub/kmuhub/internal/biz/recurring"
 	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/config"
@@ -210,6 +211,12 @@ func main() {
 	einvoiceRepo := einvoice.NewPostgresRepository(pool)
 	einvoiceSvc := einvoice.NewService(einvoiceRepo)
 
+	// Recurring invoice schedules (Abo-Rechnungen, Migration 000246). Emission
+	// goes through invoiceSvc, so numbering, tax and GoBD rules stay in one place.
+	recurringSvc := recurring.NewService(
+		recurring.NewPostgresRepository(pool), invoiceSvc, invoiceRepo,
+	)
+
 	// =========================================================================
 	// gRPC Server
 	// =========================================================================
@@ -244,6 +251,7 @@ func main() {
 		gobdArchiveSvc,
 		einvoiceSvc,
 	)
+	bizGRPC.SetRecurringService(recurringSvc)
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 
 	// =========================================================================

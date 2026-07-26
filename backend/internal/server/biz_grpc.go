@@ -26,6 +26,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
+	"github.com/kmuhub/kmuhub/internal/biz/recurring"
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
@@ -54,6 +55,15 @@ type BizGRPCServer struct {
 	crmClient         crmv1.CRMServiceClient // optional; nil if CRM service unreachable
 	gobdArchiveSvc    *gobdarchive.Service   // GoBD Belegarchiv (§147 AO)
 	einvoiceSvc       *einvoice.Service      // incoming e-invoice processing (E-Rechnung Eingang)
+	// recurringSvc backs the Abo-Rechnungen RPCs. Wired via SetRecurringService
+	// instead of the constructor so the existing 13-parameter call sites stay
+	// untouched (same pattern as SetStornoCreator on the invoice service).
+	recurringSvc *recurring.Service
+}
+
+// SetRecurringService wires the recurring invoice schedules (Migration 000246).
+func (s *BizGRPCServer) SetRecurringService(svc *recurring.Service) {
+	s.recurringSvc = svc
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.
@@ -597,6 +607,13 @@ func (s *BizGRPCServer) ListInvoices(ctx context.Context, req *bizv1.ListInvoice
 			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", parseErr)
 		}
 		filter.ContactID = &parsed
+	}
+	if rid := req.GetRecurringId(); rid != "" {
+		parsed, parseErr := uuid.Parse(rid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid recurring_id: %v", parseErr)
+		}
+		filter.RecurringID = &parsed
 	}
 
 	invoices, total, err := s.invoiceService.List(ctx, tenantID, filter)
@@ -1522,6 +1539,10 @@ func toProtoInvoice(inv *models.Invoice) *bizv1.Invoice {
 	}
 	if inv.SourceQuoteID != nil {
 		pi.SourceQuoteId = inv.SourceQuoteID.String()
+	}
+	if inv.RecurringID != nil {
+		recurringID := inv.RecurringID.String()
+		pi.RecurringId = &recurringID
 	}
 
 	if len(inv.CompanySnapshotRaw) > 0 {
@@ -2590,6 +2611,18 @@ func mapBizError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, quote.ErrNoLineItems):
 		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Recurring invoice errors
+	case errors.Is(err, recurring.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, recurring.ErrNoLineItems),
+		errors.Is(err, recurring.ErrInvalidInterval),
+		errors.Is(err, recurring.ErrInvalidStatus),
+		errors.Is(err, recurring.ErrInvalidDateRange):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, recurring.ErrNotActive),
+		errors.Is(err, recurring.ErrScheduleExhausted):
+		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// Invoice errors
 	case errors.Is(err, invoice.ErrInvoiceNotFound):

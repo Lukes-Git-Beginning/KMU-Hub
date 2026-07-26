@@ -108,6 +108,20 @@ func (b *BizRoutes) HandleListInvoices(w http.ResponseWriter, r *http.Request) {
 		}
 		req.ContactId = &cid
 	}
+	// Schedule detail view: the invoices a recurring schedule has emitted.
+	if rid := r.URL.Query().Get("recurring_id"); rid != "" {
+		if _, parseErr := uuid.Parse(rid); parseErr != nil {
+			response.JSON(w, http.StatusBadRequest, struct {
+				Error string `json:"error"`
+				Code  string `json:"code"`
+			}{
+				Error: "invalid recurring_id: must be a valid UUID",
+				Code:  "INVALID_RECURRING_ID",
+			})
+			return
+		}
+		req.RecurringId = &rid
+	}
 
 	resp, err := client.ListInvoices(r.Context(), req)
 	if err != nil {

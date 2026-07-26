@@ -861,3 +861,93 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     deps: []) oder `p3-admin-invite-flow` (opus, deps: []).
     `p3-finance-recurring` ist jetzt entsperrt (deps erfuellt), aber opus und
     idempotenz-kritisch.
+
+## Iteration 14 — p3-finance-recurring — done — 2026-07-26
+
+- commit: siehe naechster docs-Nachtrag (sha kann nicht im eigenen Commit stehen)
+- verify vorgaenger: sauber. `de0a5921` (finance currency/provenance) gegen die
+  sechs Fehlerklassen geprueft: reine Wire-Schicht — keine neue Tabelle, keine
+  neue Route, kein neuer Guard, kein SELECT ohne Tenant. `.proto` und `.pb.go`
+  liegen im selben Commit, `openapi.yaml` ist mitgezogen, der Regressionstest
+  (`biz_grpc_amounts_test.go`) existiert. Build/Test gruen.
+- Befund vor dem Bauen: serverseitig existierte fuer Abo-Rechnungen **gar
+  nichts** — kein Modell, keine Tabelle, keine RPC, keine Route. Das FE ist
+  dagegen vollstaendig: `RecurringInvoicesTab`, `RecurringDetailPanel`,
+  `RecurringInvoiceDialog`, `financeRecurringApi` (7 Endpoints) und
+  `useInvoices({recurring_id})`. Alles lief gegen MSW; gegen echtes BE waren es
+  sieben 404er.
+- gebaut:
+  - Migration 000246: `finance_recurring_invoices` (tenant_id NOT NULL + RLS
+    FORCE + Policy, CHECK auf interval/status/terms/date-range),
+    `finance_recurring_runs` (Ledger, UNIQUE (tenant_id, recurring_id,
+    period_date)), Spalte `finance_invoices.recurring_id` + Teil-Index. Spalte
+    heisst `recurrence_interval`, weil INTERVAL in PG ein Typ-Keyword ist.
+  - `internal/biz/recurring/`: Service + Repository + Postgres-Repo. Alle
+    Queries tenant-gescoped (Read UND Write), leere Liste ist `[]`.
+  - Proto: `RecurringInvoice` + 7 RPCs, `Invoice.recurring_id` (25),
+    `ListInvoicesRequest.recurring_id` (6). `.proto` + `.pb.go` im selben Commit.
+  - `internal/server/biz_grpc_recurring.go` (thin handler), Service via
+    `SetRecurringService` gewired (wie SetStornoCreator) statt als 14. Parameter.
+  - `internal/gateway/route_biz_recurring.go` + Registrierung, alle Handler ueber
+    den gRPC-Client. Berechtigungen: bestehende `finance` read/write/delete —
+    **kein neuer Guard, also keine Seed-Migration noetig**.
+  - `openapi.yaml`: 5 Pfade (7 Operationen) + 3 Schemas + `recurring_id` als
+    Query-Param an der Rechnungsliste und als Feld am Invoice-Schema.
+  - Tests: `recurring/service_test.go` (13 Faelle, u.a. Idempotenz, Claim-Release
+    nach Fehlschlag, Monatsende-Clamping) + RLS-Isolationstest fuer beide neuen
+    Tabellen in `internal/biz/tenant_isolation_recurring_test.go`.
+- Entscheidungen:
+  - **Idempotenz ueber die Periode, nicht ueber einen Request-Header.** Das
+    Repo-Muster (Dialer-Outcomes, Finance-Postings) nutzt Idempotency-Keys vom
+    Client. Hier ist der fachliche Schluessel aber die Abrechnungsperiode: ein
+    spaeterer Scheduler-Lauf hat keinen Client-Header, muesste sich also einen
+    Key ausdenken — und genau dann faellt die Garantie. Der Claim liegt darum
+    als UNIQUE-Constraint in der DB, vor dem Rechnungs-Insert. Ein zweiter Lauf
+    findet den Claim und gibt die vorhandene Rechnung zurueck (`invoice_id` am
+    Run). Schlaegt die Rechnungserzeugung fehl, wird der Claim wieder
+    freigegeben, sonst waere die Periode dauerhaft blockiert.
+  - **next_run wird geankert, nicht fortgeschrieben:** `nextRunFor(start,
+    interval, n)`. Schrittweises Addieren wuerde ein Monatsabo vom 31.01. im
+    Februar auf den 28. klemmen und dort lassen — ab dann faellt jede Rechnung
+    drei Tage zu frueh. Getestet inkl. Schaltjahr.
+  - **invoice_date = Periode, nicht heute** (der MSW-Mock nimmt heute). Beim
+    Nachholen aelterer Perioden bleibt so sichtbar, welcher Zeitraum fakturiert
+    wurde; die Rechnung ist ohnehin Draft, die GoBD-Nummer faellt erst beim
+    Senden.
+  - **Emission ueber `invoice.Service.Create`**, nicht ueber ein eigenes Insert:
+    Nummernkreis, Steuerberechnung, Faelligkeit und Company-Defaults bleiben an
+    einer Stelle. Dafuer hat `invoice.CreateInput` zwei neue Felder bekommen:
+    `RecurringID` (Back-Link) und `Currency` (das Abo bestimmt seine Waehrung,
+    sonst haette der Tenant-Default die CHF-Rate ueberschrieben).
+  - **interval/status als string im Proto**, nicht als Enum — der FE-Typ ist eine
+    String-Union; ein Enum haette auf beiden Seiten eine Mapping-Tabelle gekostet.
+  - Update ist partiell (Pointer-Felder); leerer `end_date` loescht das Enddatum
+    (`clear_end_date`), fehlender laesst es stehen.
+- gate: `go build ./...` OK · `go vet` (recurring/server/gateway/models/cmd-biz)
+  OK · `golangci-lint run` auf recurring/server/gateway/biz/cmd-biz: 0 issues ·
+  `go test ./internal/gateway/... ./internal/server/... ./internal/biz/...`
+  gruen (inkl. `TestOpenAPIRouteDrift`) · `swagger-cli validate
+  backend/api/openapi.yaml` → valid · RLS-Smoke: Test liegt, skippt lokal ohne
+  `DATABASE_URL` (kein Postgres in dieser Umgebung) — laeuft im
+  Compose-/CI-Lauf mit DB.
+- offen / naechste Iteration:
+  - **Kein Scheduler.** Faellige Abos werden nur per Klick erzeugt. Der Index
+    `idx_finance_recurring_tenant_due` liegt bereit; ein Cron-Job (pg_cron ist
+    auf Prod verfuegbar) oder ein Worker-Tick waere die naechste Stufe — dann
+    schuetzt der Periode-Claim auch dort gegen Doppel-Fakturierung.
+  - Der FE-Mock erzeugt beim Generieren sofort eine Rechnungs**nummer**; das
+    echte BE liefert einen Draft ohne Nummer (GoBD: Nummer erst beim Senden).
+    Falls die Liste die Nummer erwartet, ist das FE-seitig anzupassen, nicht im
+    Backend.
+  - **Fuer Luke, unveraendert offen aus Iteration 13:**
+    `finance-client.ts:229` ruft `POST /finance/invoices/{id}/mark-paid`, die
+    Route heisst `/pay` → 404 gegen echtes BE.
+  - Beobachtung fuer die zeiterfassung-Units: `/hr/time/entries`, `/projects`,
+    `/balance`, `/analytics`, `/team` und die Wochen-Freigabe sind in
+    `route_hr.go` bereits registriert und in `cmd/biz` mit echten Repos gewired
+    (`timeProjectRepo`, `weekApprovalRepo`). Die drei zeiterfassung-Units sind
+    also vermutlich weitgehend erledigt — vor dem Bauen verifizieren statt
+    doppelt zu implementieren.
+  - Naechste freie Unit in Reihenfolge: `p3-finance-op-mahnwesen` (opus, deps
+    jetzt erfuellt), `p3-zeiterfassung-entries` (sonnet, vorher verifizieren)
+    oder `p3-admin-invite-flow` (opus).
