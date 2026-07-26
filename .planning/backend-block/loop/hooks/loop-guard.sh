@@ -39,25 +39,26 @@ fi
 block() {
   echo "BLOCKIERT vom Backend-Nachtloop-Guard: $1" >&2
   echo "" >&2
-  echo "Erlaubt ist ausschliesslich Arbeit auf dem Branch 'backend-loop'." >&2
-  echo "Du committest lokal und pushst hoechstens 'git push origin backend-loop'." >&2
-  echo "main, Merges, Production und Deploy gehoeren Luke — trag den Punkt ins" >&2
-  echo "JOURNAL.md ein und mach mit der naechsten Unit weiter." >&2
+  echo "Erlaubt ist ausschliesslich lokale Arbeit auf dem Branch 'backend-loop'." >&2
+  echo "Du committest lokal und pushst NIE - Pushes kosten Actions-Minuten und" >&2
+  echo "triggern API-Key-abgerechnete Review-Workflows." >&2
+  echo "main, Merges, Push, PR, Production und Deploy gehoeren Luke - trag den" >&2
+  echo "Punkt ins JOURNAL.md ein und mach mit der naechsten Unit weiter." >&2
   exit 2
 }
 
 # --- Git: push ---------------------------------------------------------------
-# Erlaubt ist genau eine Form: der Loop-Branch auf origin. Alles andere blockt.
+# Der Loop pusht GAR NICHT. Zwei Gruende:
+#   1. Push auf main loest CI->CD und damit einen unbeaufsichtigten Production-
+#      Deploy aus.
+#   2. Push auf einen Branch mit offenem PR startet GitHub Actions - Minuten auf
+#      einem privaten Repo, und zwei PR-Workflows (Claude Code Review, Claude
+#      Security Analysis) laufen mit einem echten ANTHROPIC_API_KEY als
+#      Repo-Secret. Das wird separat abgerechnet, unabhaengig vom Claude-Abo,
+#      ueber das der Loop selbst laeuft.
+# Der Loop committet lokal; Luke pusht einmal bewusst beim Review.
 if echo "$CMD" | grep -Eq '(^|[^a-zA-Z-])git[[:space:]]+push'; then
-  if echo "$CMD" | grep -Eq '(--force|--force-with-lease|[[:space:]]-f([[:space:]]|$))'; then
-    block "Force-Push. Nie auf diesem Repo (Regel: kein Force-Push, kein reset --hard)."
-  fi
-  if echo "$CMD" | grep -Eq '(--tags|--all|--mirror)'; then
-    block "git push --tags/--all/--mirror."
-  fi
-  if ! echo "$CMD" | grep -Eq 'git[[:space:]]+push([[:space:]]+(-u|--set-upstream))?[[:space:]]+origin[[:space:]]+(HEAD:)?backend-loop[[:space:]]*($|&|\||;)'; then
-    block "Push-Ziel ist nicht 'origin backend-loop'. Push auf main loest CI->CD und damit einen unbeaufsichtigten Production-Deploy aus."
-  fi
+  block "git push. Der Loop committet ausschliesslich lokal - jeder Push kostet Actions-Minuten und triggert API-Key-abgerechnete Review-Workflows. Luke pusht beim Review."
 fi
 
 # --- Git: main anfassen ------------------------------------------------------
@@ -93,8 +94,8 @@ if echo "$CMD" | grep -Eq 'git[[:space:]]+reset[[:space:]]+--hard'; then
 fi
 
 # --- GitHub ------------------------------------------------------------------
-if echo "$CMD" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+merge'; then
-  block "gh pr merge. Der Draft-PR wird von Luke gemergt, nicht vom Loop."
+if echo "$CMD" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+(create|merge|reopen)'; then
+  block "gh pr create/merge. Ein PR startet Actions und die API-Key-abgerechneten Review-Workflows. PRs legt Luke an."
 fi
 if echo "$CMD" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+(ready|edit[^|]*--ready)'; then
   block "PR aus dem Draft-Status nehmen. Der PR bleibt Draft bis zum Review."

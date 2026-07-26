@@ -25,9 +25,12 @@ echo "=== MUSS BLOCKEN ==="
 test_cmd "push main"                "git push origin main" BLOCK
 test_cmd "push bare"                "git push" BLOCK
 test_cmd "push HEAD:main"           "git push origin HEAD:main" BLOCK
-test_cmd "push force loop-branch"   "git push --force origin backend-loop" BLOCK
+test_cmd "push loop-branch"         "git push origin backend-loop" BLOCK
+test_cmd "push -u loop-branch"      "git push -u origin backend-loop" BLOCK
+test_cmd "push force"               "git push --force origin backend-loop" BLOCK
 test_cmd "push --tags"              "git push origin backend-loop --tags" BLOCK
 test_cmd "chained push main"        "cd /repo && git push origin main" BLOCK
+test_cmd "gh pr create"             "gh pr create --draft --base main --head backend-loop" BLOCK
 test_cmd "checkout main"            "git checkout main" BLOCK
 test_cmd "switch main"              "git switch main" BLOCK
 test_cmd "merge fremder Branch"     "git merge backend-loop" BLOCK
@@ -47,8 +50,6 @@ test_cmd "prod compose"             "docker compose -f deploy/docker/docker-comp
 test_cmd "deploy.sh"                "sudo bash deploy/scripts/deploy.sh --force" BLOCK
 
 echo "=== MUSS DURCHLASSEN ==="
-test_cmd "push loop branch"         "git push origin backend-loop" ALLOW
-test_cmd "push -u loop branch"      "git push -u origin backend-loop" ALLOW
 test_cmd "merge origin/main"        "git merge origin/main --no-edit" ALLOW
 test_cmd "merge origin/main ff"     "git merge --ff-only origin/main" ALLOW
 test_cmd "merge --abort"            "git merge --abort" ALLOW
@@ -61,8 +62,6 @@ test_cmd "log main..loop"           "git log --oneline main..backend-loop" ALLOW
 test_cmd "go build"                 "go build -p 2 ./internal/document/..." ALLOW
 test_cmd "golangci-lint"            "golangci-lint run --config backend/.golangci.yml" ALLOW
 test_cmd "go test"                  "go test ./internal/document/..." ALLOW
-test_cmd "gh pr checks"             "gh pr checks" ALLOW
-test_cmd "gh pr create draft"       "gh pr create --draft --base main --head backend-loop" ALLOW
 test_cmd "lokales compose"          "docker compose -f deploy/docker/docker-compose.yml up -d postgres" ALLOW
 test_cmd "lokale Migration"         "migrate -path backend/migrations -database \$DB up" ALLOW
 

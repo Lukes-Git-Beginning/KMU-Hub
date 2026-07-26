@@ -31,23 +31,52 @@ New-Item -ItemType File .planning\backend-block\loop\STOP
 Der Loop beendet nach der laufenden Iteration. Strg+C bricht sofort ab (die laufende Iteration
 verliert dann ihren unfertigen Arbeitsstand — Commits bleiben).
 
+## Kosten
+
+**Der Loop selbst kostet kein Geld.** Er laeuft ueber das Claude-Max-Abo (`authMethod: claude.ai`,
+kein `ANTHROPIC_API_KEY` gesetzt). Das `total_cost_usd`-Feld in `logs/iter-*.json` ist ein
+API-**Aequivalenzwert** — was es ueber die API gekostet haette — keine Rechnung. Verbraucht werden
+Abo-Limits (5-Stunden-Fenster und Wochen-Cap), nicht Euro.
+
+Was Geld kosten wuerde, ist deshalb komplett ausgebaut: **der Loop pusht nicht.** Jeder Push gegen
+einen offenen PR startet GitHub Actions (Minuten-Kontingent, privates Repo), und zwei PR-Workflows
+(`Claude Code Review`, `Claude Security Analysis`) laufen mit einem echten `ANTHROPIC_API_KEY` als
+Repo-Secret — separat abgerechnet. Der Guard blockt `git push` und `gh pr create` hart.
+
+Preis dafuer: kein CI ueber Nacht. Das lokale Gate ist der einzige Gate — darum ist
+`go test ./internal/gateway/` bei Routen-Aenderungen Pflicht (genau das hat CI im Trockenlauf
+gefunden). CI faehrst du **einmal** beim Review.
+
+Die reale Grenze eines Dauerlaufs ist der Wochen-Cap des Abos: ein Loop, der ihn leerlaeuft,
+blockiert deine eigenen Sessions. Ueber `-MaxIterations` und `-UntilTime` steuerbar.
+
 ## Sicherheitsmodell
 
-Der Loop arbeitet auf `backend-loop` und pusht hoechstens diesen Branch. `hooks/loop-guard.sh` blockt
-als PreToolUse-Hook **hart** (exit 2): Push nach main, Merge, `reset --hard`, Force-Push, `gh pr merge`,
-Workflow-Dispatch, Production-SSH, `.env.production`, prod-Compose, `deploy.sh`.
+Der Loop arbeitet auf `backend-loop` und committet ausschliesslich **lokal**.
+`hooks/loop-guard.sh` blockt als PreToolUse-Hook **hart** (exit 2): jeden `git push`,
+`gh pr create/merge`, Wechsel auf main, `git merge` mit anderem Ziel als `origin/main`,
+`git rebase`, `reset --hard`, Workflow-Dispatch, Production-SSH, `.env.production`,
+prod-Compose, `deploy.sh`.
 
 Das ist bewusst ein Hook und kein Prompt-Text: dokumentierte Faelle in diesem Repo zeigen, dass
-Agenten die Textanweisung "nicht pushen" ignorieren.
+Agenten die Textanweisung "nicht pushen" ignorieren. Verifiziert ist auch, dass der Hook
+**innerhalb von `claude -p`** feuert, nicht nur in interaktiven Sessions.
 
-Der offene PR bleibt **Draft**. CI laeuft darauf (CI triggert auf PRs gegen `main`), CD nicht
-(CD haengt an `workflow_run` auf `main`). Gemergt wird von Hand.
+Rebase ist blockiert, weil er die Branch-Historie umschreibt und den naechsten Push
+force-pflichtig macht. Der Loop merged `origin/main` herein.
 
 ## Morgens
 
 ```bash
-git log --oneline main..backend-loop      # ein Commit pro Unit
-gh pr checks                              # CI-Status am Draft-PR
+git log --oneline main..backend-loop      # ein Commit pro Unit, alles noch lokal
+git diff --stat main..backend-loop
+```
+
+Willst du CI, pushst du selbst — einmal, bewusst:
+
+```bash
+git push origin backend-loop
+gh pr create --draft --base main --head backend-loop --title "..." --body "..."
 ```
 
 Dann `JOURNAL.md` von unten lesen: `blocked`-Units mit Grund und die `offen:`-Zeilen — dort steht,
