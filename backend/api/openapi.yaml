@@ -23749,13 +23749,17 @@ paths:
 
   /api/v1/integrations/configs/{platform}/test:
     post:
-      summary: Test an integration config
+      summary: Test an integration config (NOT IMPLEMENTED -- always 501)
       description: >-
-        Requires admin role. NOTE (current backend state): TestIntegrationConfig
-        is a stub -- it always returns success=true without actually probing the
-        platform or validating that a config for the platform exists; real
-        notification-send testing will be wired once the forwarder/platform
-        clients are available to the notification service.
+        Requires admin role. NOTE (current backend state): not implemented.
+        TestIntegrationConfig used to return success=true without probing the
+        platform, sending anything, or checking that a config for the platform
+        exists -- the setup wizards render a green "connection successful" on
+        that field, so the admin was told the integration worked when nothing
+        had been verified. The RPC now refuses with gRPC Unimplemented, which
+        the gateway maps to 501. Implementing it needs the platform clients
+        (SLACK_BOT_TOKEN / TEAMS_APP_ID+PASSWORD, currently only reachable in
+        cmd/notification/main.go) and a decision on what a test posts.
       tags: [integrations]
       operationId: testIntegrationConfig
       security: [{ bearerAuth: [] }]
@@ -23766,17 +23770,14 @@ paths:
           schema: { type: string }
           description: "Integration platform identifier, e.g. slack or teams"
       responses:
-        "200":
-          description: Test result
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "501":
+          description: Connection test is not implemented (gRPC Unimplemented mapping)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  error_message: { type: string }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/integrations/configs/{platform}/mappings:
     get:
@@ -23977,10 +23978,14 @@ paths:
     get:
       summary: Get the caller's account link status for a platform
       description: >-
-        Any authenticated user (no admin role required). NOTE: despite the
-        platform path segment, the handler currently ignores it and always
-        returns ALL of the caller's linked platforms (GetAccountLinkStatus is
-        called with only user_id, no platform filter).
+        Any authenticated user (no admin role required). GetAccountLinkStatus is
+        called with only user_id (it returns every platform the caller has
+        linked); the gateway handler then picks the link matching the platform
+        path segment and flattens it into the single-platform shape the frontend
+        types as AccountLinkStatus. No link for that platform is a 200 with
+        linked=false, not a 404. linked_at is hand-formatted RFC3339 in the
+        handler, so it is a genuine timestamp string here (unlike the
+        ProtoTimestamp-shaped IntegrationAccountLink schema).
       tags: [integrations]
       operationId: getIntegrationAccountLinkStatus
       security: [{ bearerAuth: [] }]
@@ -23989,18 +23994,25 @@ paths:
           in: path
           required: true
           schema: { type: string }
-          description: "Integration platform identifier, e.g. slack or teams (currently unused by the handler)"
+          description: "Integration platform identifier, e.g. slack or teams"
       responses:
         "200":
-          description: All account links for the caller
+          description: Link status of the caller for the requested platform
           content:
             application/json:
               schema:
                 type: object
+                required: [linked, platform]
                 properties:
-                  links:
-                    type: array
-                    items: { $ref: "#/components/schemas/IntegrationAccountLink" }
+                  linked: { type: boolean }
+                  platform: { type: string, description: "Echo of the path parameter" }
+                  external_display_name:
+                    type: string
+                    description: "Only present when linked is true"
+                  linked_at:
+                    type: string
+                    format: date-time
+                    description: "RFC3339. Only present when linked is true and the link carries a timestamp"
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/integrations/teams/webhook:

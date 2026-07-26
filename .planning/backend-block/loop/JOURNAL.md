@@ -2153,3 +2153,120 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     darum drei HR-RLS-Tests dauerhaft rot.
 
 - iteration 26 commit: `ed3709d5`
+
+## Iteration 27 — 2026-07-27 — p3-gateway-wire-integration-routes
+
+- verify-vorspann (Iteration 26, `ed3709d5`): gruen. Der Registrar-Eintrag in
+  `main.go` uebergibt `cfg.BexioStateSecret` weiter, keine neue Env-Var; die
+  beiden Riegel in `datev_upload_grpc.go` geben jetzt `codes.Unimplemented`
+  statt eines gefaelschten `Success: true`, die openapi.yaml-Pfade sind auf 501
+  nachgezogen. `go build -p 2 ./internal/server/... ./internal/gateway/...
+  ./cmd/gateway/...` gruen, keine Import-Leiche nach dem Entfernen von
+  `time`/`models`. Nichts nachzutragen.
+- Unit: `p3-gateway-wire-integration-routes` — Verdrahtung 3 von 3 aus der
+  Triage von Iteration 24. Damit ist die Triage-Liste abgearbeitet.
+- **Befund bestaetigt:** `NewIntegrationRoutes` hatte keinen Aufrufer, also
+  waren alle 18 Methode/Pfad-Kombinationen (13 Pfade) unter
+  `/api/v1/integrations/*` gegen ein echtes Gateway 404 — bei vollstaendiger
+  Spec, vollstaendigem `integration-client.ts` und zwei fertigen Setup-Wizards.
+  Jetzt gemountet, hinter Lexware in der Registrar-Liste.
+- **Kollisionsrisiko geprueft, nicht angenommen.** `route_bexio.go` und
+  `route_lexware.go` mounten `/api/v1/integrations/bexio` bzw. `/lexware` auf
+  denselben Router; chi verweigert manche ueberlappenden Mounts. Der
+  Wiring-Test prueft die beiden Nachbar-Pfade mit, damit ein spaeterer
+  Reihenfolge-Wechsel nicht still einen der drei Baeume verschluckt. Kein
+  Panic, alle drei koexistieren.
+- **HAUPTBEFUND — dritter Falsch-Erfolg-Stub derselben Klasse wie in
+  Iteration 26.** `TestIntegrationConfig` gab bedingungslos `Success: true`
+  zurueck: keine Plattform kontaktiert, nichts gesendet, nicht einmal geprueft,
+  ob fuer die Plattform ueberhaupt eine Config existiert.
+  `SlackSetupWizard.tsx:99` macht daraus `result.success ? 'success' : 'error'`
+  — der Admin sieht ein gruenes "Verbindung erfolgreich" fuer eine Verbindung,
+  die niemand angefasst hat, und schaltet die Integration aktiv. Die RPC
+  antwortet jetzt `codes.Unimplemented` → Gateway 501 → der Wizard faellt in
+  seinen Fehlerzweig. Spec im selben Commit: 200 raus, 501 rein, "NOT
+  IMPLEMENTED" in Summary und Beschreibung. Echter Probe-Pfad als neue Unit
+  `p3-integration-test-connection` (die Plattform-Clients existieren nur in
+  `cmd/notification/main.go`, muessen also als Functional Option herein — und
+  `PlatformPoster` kennt nur `PostNotification`, ein Konnektivitaets-Check ohne
+  Kanal-Nebenwirkung fehlt).
+- **Die drei Webhook-Setter bleiben bewusst unbelegt — mit Begruendung im
+  Code.** `done_when` der Unit verlangte "Setter mit echten Adaptern belegt";
+  das ist beim Bauen als das eigentliche Problem aufgefallen und nicht
+  ausgefuehrt worden, weil es zwei harte Gruende dagegen gibt:
+  (1) Die Handler brauchen `integration.Repository`, also ein direktes DB-Repo
+  im Gateway am gRPC-Layer vorbei. (2) Schwerer: die fuenf Webhook-Routen sind
+  unauthentifiziert. `database.NewPostgresPool.PrepareConn` setzt
+  `app.tenant_id` dann leer, und RLS filtert damit jede Zeile weg — der
+  Handler wuerde die Slack-Signatur korrekt pruefen und danach nichts finden.
+  `GetAccountLink(ctx, platform, external_user_id)` ist ausserdem
+  bauartbedingt tenant-uebergreifend. Ein verdrahteter, still leerlaufender
+  Webhook ist schlechter als der heutige explizite 404. Dazu kaemen Slack-
+  Signing-Secret und OAuth-Client-Secret als neue Env-Vars.
+  Die Routen sind trotzdem registriert: die nil-Guards antworten 404
+  "slack/teams … not configured", genau so wie die Spec es an allen fuenf
+  Pfaden bereits beschreibt — kein nil-Panic, und ein diagnostizierbarer
+  Fehler statt eines Routing-404. Neue Unit `p3-integration-webhook-adapters`
+  (model: opus, weil die Tenant-Aufloesung eine Architektur-Entscheidung ist;
+  die saubere Form sind vermutlich notification-RPCs, die die Payload
+  verarbeiten, damit das Gateway reiner Proxy bleibt).
+- **Wire-Shape gegen `integration-types.ts` geprueft, zwei Spec-Luegen
+  gefunden** (die Handler waren richtig, die Spec beschrieb sie falsch):
+  - `GET /link/{platform}/status`: die Spec behauptete, der Handler ignoriere
+    das Pfad-Segment und liefere `{links:[...]}`. Tatsaechlich filtert er auf
+    die Plattform und liefert die flache Form `{linked, platform,
+    external_display_name?, linked_at?}` — genau `AccountLinkStatus` im FE.
+    Spec korrigiert; "kein Link" ist 200 mit `linked:false`, nicht 404.
+  - `POST /configs/{platform}/test`: siehe Hauptbefund.
+  - Der Rest passt: `{configs}` / `{config}` / `{mappings}` / `{mapping}` sind
+    Proto-Feldnamen und deckungsgleich mit den FE-Typen — hier bewusst NICHT
+    auf `{items,total}` normalisiert, das waere ein FE-Bruch ohne Gewinn.
+  - Offen fuer Luke, FE-seitig: `LinkAccountResponse` im FE typt
+    `{status, platform, external_id}`, das Proto liefert
+    `{platform, external_display_name}`. Kein Konsument liest `external_id`,
+    darum nicht am Backend gedreht — der FE-Typ ist der veraltete Teil.
+    Ebenso `TestNotificationResponse.message` vs. Proto `error_message`.
+  - `components.schemas.IntegrationAccountLink` ist durch die
+    Status-Korrektur referenzlos geworden. Absichtlich stehengelassen: es
+    beschreibt die Proto-Message `AccountLinkInfo`, und Loeschen wuerde
+    generierte FE-Typen anfassen. Kandidat fuer den Reverse-Drift-Guard.
+- **Platform-Validierung** liegt bereits an der richtigen Stelle
+  (`integration.ValidPlatforms` in `CreateIntegrationConfig`); im Gateway
+  nichts dupliziert. Ein unbekanntes `{platform}` laeuft ueber Prepared
+  Statements in ein 404, nicht in einen 500.
+- **Neuer Guard gegen zu weite Rollen:**
+  `TestIntegrationRoutes_AdminRoutesRequireRole` pinnt fuer alle zehn
+  Config-/Mapping-Routen 403 ohne Admin-Rolle. Ein Reshuffle, der einen
+  Handler aus der `r.Group` mit `middleware.RequireRole("admin")` heraustraegt,
+  wuerde sonst Integrations-Credential-Metadaten fuer jeden authentifizierten
+  Nutzer oeffnen.
+- **Falsifikation:** Registrar-Eintrag testweise entfernt →
+  `TestIntegrationRoutes_ReachableFromGatewayRouter` meldet alle 13 Pfade als
+  nicht registriert; `TestOpenAPIRouteDrift` bleibt dabei gruen (prueft nur
+  "registriert ⊆ dokumentiert"). Zustand danach wiederhergestellt und
+  nachgeprueft.
+- gate: `go build -p 2 ./internal/... ./cmd/gateway/... ./cmd/notification/...`
+  gruen, `go vet ./internal/gateway/... ./internal/server/...` gruen,
+  `golangci-lint run ./internal/gateway/... ./internal/server/...
+  ./cmd/gateway/... ./cmd/notification/...` 0 issues,
+  `go test ./internal/gateway/... ./internal/server/...
+  ./internal/notification/... -count=1` gruen,
+  `npx @apidevtools/swagger-cli validate backend/api/openapi.yaml` valid
+  (dasselbe Kommando wie der CI-Job "openapi-validate").
+  Keine Migration, kein Proto, keine neue Dependency, keine neue
+  `config.RequireX`, kein Flag scharfgeschaltet.
+- offen / fuer Luke:
+  - `p3-integration-webhook-adapters` (neu, opus): die fuenf Webhook-Routen
+    antworten bis dahin 404 "not configured".
+  - `p3-integration-test-connection` (neu): der Test-Button liefert bis dahin
+    501.
+  - Naechste freie Unit: `p3-openapi-reverse-drift-guard` — die drei
+    Verdrahtungs-Units sind jetzt alle durch, der Test startet also nicht mehr
+    zwangslaeufig rot. Keine neuen Allowlist-Kandidaten aus dieser Iteration.
+  - Unveraendert offen: `p3-datev-upload-orchestration` (DATEV-Upload 501);
+    Rollen-Zuschnitt der produktion-ext-Permissions (nur `admin`, Iteration 25);
+    `p3-fe-only-features-scope-decision` wartet auf Lukes Entscheid; HR-Status
+    als Enum-Zahl gegen den String-lesenden FE-Adapter; Modul-Aktivierung wird
+    nicht durchgesetzt (Iteration 20); `platform_admin` haelt niemand
+    (Iteration 21); lokale `deploy/docker/.env` laeuft als Superuser `kmuhub`
+    statt `kmuhub_app`, darum drei HR-RLS-Tests dauerhaft rot.

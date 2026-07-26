@@ -796,12 +796,25 @@ func (s *NotificationGRPCServer) DeleteIntegrationConfig(ctx context.Context, re
 	return &notificationv1.DeleteIntegrationConfigResponse{}, nil
 }
 
+// TestIntegrationConfig is not implemented yet.
+//
+// It used to return Success=true unconditionally — without probing the platform,
+// without sending anything, without even checking that a config for the platform
+// exists. SlackSetupWizard/TeamsSetupWizard show a green "connection successful"
+// on exactly that field, so the admin finished the wizard believing the
+// integration worked while nothing had been verified. Refusing is the honest
+// answer: the gateway maps Unimplemented to 501 and the wizard falls into its
+// error branch.
+//
+// Implementing it needs the platform clients (built from SLACK_BOT_TOKEN /
+// TEAMS_APP_ID+PASSWORD in cmd/notification/main.go) passed in as a functional
+// option, plus a decision on what a test posts — integration.PlatformPoster only
+// exposes PostNotification(mapping, notification, actions), so it requires a
+// synthetic notification and a target channel mapping. See the backend loop
+// backlog.
 func (s *NotificationGRPCServer) TestIntegrationConfig(_ context.Context, _ *notificationv1.TestIntegrationConfigRequest) (*notificationv1.TestIntegrationConfigResponse, error) {
-	// Test notification sending will be wired in cmd/notification/main.go
-	// where the forwarder and platform clients are available.
-	return &notificationv1.TestIntegrationConfigResponse{
-		Success: true,
-	}, nil
+	return nil, status.Error(codes.Unimplemented,
+		"integration connection test is not implemented yet")
 }
 
 // ============================================================================

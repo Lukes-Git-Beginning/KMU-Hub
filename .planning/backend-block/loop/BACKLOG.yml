@@ -974,7 +974,7 @@ units:
     service: notification
     model: sonnet
     deps: [p3-gateway-wire-datev-upload]
-    status: todo
+    status: done   # Iteration 27 — 13 authentifizierte Routen live, Webhook-Setter bewusst unbelegt (siehe p3-integration-webhook-adapters)
     scope: >
       `NewIntegrationRoutes` (route_integration.go:28) wird nirgends
       aufgerufen. Damit fehlen 12 Routen: /integrations/configs(+{platform},
@@ -1001,6 +1001,88 @@ units:
       - Routen im gewalkten Router enthalten, Setter mit echten Adaptern belegt
       - Slack/Teams-Webhook prueft die Signatur, bevor er etwas tut
       - Keine neue config.RequireX (sonst blocked)
+      - go build/vet/lint/test gruen
+
+  - id: p3-integration-webhook-adapters
+    phase: 3
+    service: notification
+    model: opus
+    deps: [p3-gateway-wire-integration-routes]
+    status: todo
+    scope: >
+      Die drei Setter von IntegrationRoutes (SetTeamsWebhookHandler,
+      SetSlackWebhookHandler, SetSlackOAuthHandler) sind in main.go bewusst
+      unbelegt geblieben — die fuenf Webhook-Routen antworten darum 404
+      "not configured". Zum Scharfschalten braucht es eine echte Entscheidung,
+      keine Verdrahtungszeile.
+    sources:
+      - backend/internal/gateway/route_integration.go:32
+      - backend/internal/notification/integration/slack/webhook_handler.go
+      - backend/internal/notification/integration/teams/webhook_handler.go
+      - backend/internal/database/postgres.go:28
+    notes: >
+      Zwei Huerden, beide inhaltlich:
+      (1) TENANT. Die Handler brauchen `integration.Repository` — ein direktes
+      DB-Repo im Gateway, also am gRPC-Layer vorbei. Und der Request kommt
+      unauthentifiziert: PrepareConn setzt `app.tenant_id` dann leer, RLS
+      filtert jede Zeile weg. `GetAccountLink(ctx, platform, external_user_id)`
+      ist ausserdem bauartbedingt tenant-uebergreifend. Der ehrliche Weg ist
+      erst Tenant aus der Plattform-Identitaet aufloesen (Slack `team_id` bzw.
+      Teams `tenant`-Claim gegen integration_configs.metadata, im
+      System-Context), dann alles Weitere unter WithTenantContext. Alternativ
+      neue notification-RPCs, die die Webhook-Payload verarbeiten, und das
+      Gateway bleibt reiner Proxy — das ist die architektonisch saubere Form
+      und vermutlich die richtige.
+      (2) SECRETS. Slack-Signing-Secret und OAuth-Client-ID/-Secret sind neue
+      Env-Vars. Nur als os.Getenv-Opt-in bauen (Vorbild cmd/notification/main.go
+      SLACK_BOT_TOKEN), NIE als config.RequireX — das waere ein Prod-Hazard.
+      Ohne Secret bleibt es beim heutigen 404, das ist die richtige Antwort.
+      Der OAuth-Callback persistiert den Bot-Token heute nicht (er loggt ihn) —
+      das gehoert mit geklaert, siehe openapi.yaml-Note am Pfad.
+    done_when:
+      - Tenant wird aus der Plattform-Identitaet aufgeloest, nicht geraten
+      - Signaturpruefung vor jedem Datenzugriff (heute schon so, nicht kaputtmachen)
+      - Kein direkter Repo-Zugriff im Gateway ohne dokumentierte Begruendung
+      - Keine neue config.RequireX
+      - openapi.yaml-Beschreibungen der fuenf Webhook-Pfade auf den neuen Stand
+      - go build/vet/lint/test gruen
+
+  - id: p3-integration-test-connection
+    phase: 3
+    service: notification
+    model: sonnet
+    deps: [p3-gateway-wire-integration-routes]
+    status: todo
+    scope: >
+      `POST /api/v1/integrations/configs/{platform}/test` antwortet seit
+      Iteration 27 mit 501. Vorher gab `TestIntegrationConfig` bedingungslos
+      `success=true` zurueck — ohne die Plattform zu kontaktieren, ohne etwas
+      zu senden, ohne zu pruefen ob ueberhaupt eine Config existiert. Slack-
+      und Teams-SetupWizard zeigen genau auf diesem Feld ein gruenes
+      "Verbindung erfolgreich". Echten Probe-Pfad bauen.
+    sources:
+      - backend/internal/server/notification_grpc.go
+      - backend/internal/notification/integration/forwarder.go:17
+      - desktop/src/renderer/src/modules/settings/integrations/SlackSetupWizard.tsx:99
+    notes: >
+      Die Plattform-Clients entstehen heute nur in cmd/notification/main.go aus
+      SLACK_BOT_TOKEN / TEAMS_APP_ID+PASSWORD; sie muessen als Functional
+      Option (Vorbild `WithIntegration`) in den NotificationGRPCServer.
+      `integration.PlatformPoster` kennt nur
+      PostNotification(mapping, notification, actions) — also entweder eine
+      synthetische Notification an das erste aktive Channel-Mapping posten,
+      oder das Interface um einen echten Konnektivitaets-Check erweitern
+      (Slack `auth.test`) und nichts in den Kanal schreiben. Zweites ist
+      vermutlich das, was ein Admin unter "Testen" erwartet, und hat keine
+      Nebenwirkung im Kanal. Ohne konfigurierten Client bleibt 501/503 —
+      kein `success=true` ohne Kontakt. Bei Erfolg openapi.yaml mitziehen
+      (501 raus, "NOT IMPLEMENTED" aus Summary und Beschreibung).
+      TestNotificationResponse im FE traegt `message`, das Proto `error_message`
+      — beim Bauen angleichen.
+    done_when:
+      - Kein Erfolgssignal ohne tatsaechlichen Plattform-Kontakt
+      - Fehlender/ungueltiger Token ist ein sprechender Fehler, kein success=false-Schweigen
+      - openapi.yaml im selben Commit auf den neuen Stand
       - go build/vet/lint/test gruen
 
   - id: p3-openapi-reverse-drift-guard
