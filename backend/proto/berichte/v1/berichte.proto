@@ -31,6 +31,13 @@ service BerichteService {
 
   // KPIs (Dashboard convenience)
   rpc GetDashboardKPIs(DashboardKPIsRequest) returns (DashboardKPIsResponse);
+
+  // Documents (multi-page authoring)
+  rpc CreateDocument(CreateDocumentRequest) returns (DocumentResponse);
+  rpc GetDocument(GetDocumentRequest) returns (DocumentResponse);
+  rpc UpdateDocument(UpdateDocumentRequest) returns (DocumentResponse);
+  rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
+  rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse);
 }
 
 // ============================================================================
@@ -277,4 +284,76 @@ message DashboardKPIsRequest {
 message DashboardKPIsResponse {
   repeated KPI kpis = 1;
   google.protobuf.Timestamp generated_at = 2;
+}
+
+// ============================================================================
+// Documents (multi-page authoring, "Schicht 4")
+// ============================================================================
+
+message Document {
+  string id = 1;
+  string tenant_id = 2;
+  string title = 3;
+  string description = 4;
+  string module = 5;              // finanzen|crm|helpdesk|inventar|produktion|cross
+  string status = 6;              // draft|final|released|archived
+  bytes rows = 7;                 // raw JSONB array: rows -> columns -> blocks
+  bytes settings = 8;             // raw JSONB object: page setup
+  optional string template_id = 9;
+  optional string created_by = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  optional google.protobuf.Timestamp released_at = 13;
+}
+
+message CreateDocumentRequest {
+  string tenant_id = 1;
+  string title = 2;               // empty defaults to "Neuer Bericht"
+  string description = 3;
+  string module = 4;              // empty defaults to "cross"
+  optional string template_id = 5;
+  bytes rows = 6;                 // empty defaults to []
+  bytes settings = 7;             // empty defaults to {}
+  optional string created_by = 8;
+}
+
+message GetDocumentRequest {
+  string tenant_id = 1;
+  string document_id = 2;
+}
+
+message UpdateDocumentRequest {
+  string tenant_id = 1;
+  string document_id = 2;
+  optional string title = 3;
+  optional string description = 4;
+  optional string module = 5;
+  optional string status = 6;
+  bytes rows = 7;                 // empty = no change
+  bytes settings = 8;             // empty = no change
+}
+
+message DeleteDocumentRequest {
+  string tenant_id = 1;
+  string document_id = 2;
+}
+
+message DeleteDocumentResponse {}
+
+message DocumentResponse {
+  Document document = 1;
+}
+
+message ListDocumentsRequest {
+  string tenant_id = 1;
+  optional string module = 2;
+  optional string status = 3;
+  string search = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListDocumentsResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
 }

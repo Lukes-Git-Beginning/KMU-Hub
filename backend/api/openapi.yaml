@@ -20626,6 +20626,175 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/berichte/documents:
+    get:
+      summary: List report documents
+      description: >
+        Requires berichte:reports:read permission. Returns the tenant's report
+        documents, newest first. The library view has no pager, so page_size
+        defaults to 100 (capped at 100 server-side).
+      tags: [berichte]
+      operationId: listBerichteDocuments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, description: Case-insensitive title match, schema: { type: string } }
+        - name: module
+          in: query
+          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross"
+          schema: { type: string }
+        - name: status
+          in: query
+          description: "Filter by status: draft|final|released|archived"
+          schema: { type: string }
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Report document list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items: { $ref: "#/components/schemas/BerichtDocument" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a report document
+      description: >
+        Requires berichte:reports:write permission. Every field is optional:
+        the title falls back to "Neuer Bericht", the module to "cross", rows to
+        an empty array and settings to an empty object. New documents always
+        start in status "draft".
+      tags: [berichte]
+      operationId: createBerichteDocument
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                module:
+                  type: string
+                  description: "finanzen|crm|helpdesk|inventar|produktion|cross (defaults to cross)"
+                template_id:
+                  type: string
+                  nullable: true
+                rows:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                settings:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: Report document created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/berichte/documents/{id}:
+    get:
+      summary: Get a report document by ID
+      description: Requires berichte:reports:read permission.
+      tags: [berichte]
+      operationId: getBerichteDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Report document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a report document
+      description: >
+        Requires berichte:reports:write permission. Only present fields are
+        changed; omitted rows/settings keep their stored value. The first
+        transition to status "released" stamps released_at, later edits leave
+        it untouched.
+      tags: [berichte]
+      operationId: updateBerichteDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                module:
+                  type: string
+                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                status:
+                  type: string
+                  description: "draft|final|released|archived"
+                rows:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                settings:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Report document updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a report document
+      description: Requires berichte:reports:write permission.
+      tags: [berichte]
+      operationId: deleteBerichteDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Report document deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/berichte/kpis:
     get:
       summary: Get dashboard KPI tiles
@@ -35866,6 +36035,65 @@ components:
           $ref: "#/components/schemas/ProtoTimestamp"
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
+
+    BerichtDocument:
+      type: object
+      description: >
+        A multi-page report authoring document ("Schicht 4"): cover page,
+        headings, rich text and embedded chart/table/KPI blocks. Distinct from
+        BerichtDefinition, which is a single data widget. Unlike the other
+        berichte endpoints, the document handlers serialize a hand-built wire
+        struct (encoding/json), so timestamps are RFC3339 strings and
+        rows/settings are nested JSON, not base64.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+        status:
+          type: string
+          description: "draft|final|released|archived"
+        rows:
+          type: array
+          description: >
+            Block tree (rows -> columns -> blocks). Stored and returned as
+            opaque JSONB; the block structure is owned by the editor and its
+            keys are camelCase.
+          items:
+            type: object
+            additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
+          description: Document-level page setup (header/footer/page numbers, palette).
+        template_id:
+          type: string
+          nullable: true
+          description: Frontend-side starter template key; not a foreign key.
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        released_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when the status first transitions to "released".
 
     BerichtSchedule:
       type: object

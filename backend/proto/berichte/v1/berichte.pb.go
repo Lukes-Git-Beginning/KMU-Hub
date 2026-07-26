@@ -2206,6 +2206,666 @@ func (x *DashboardKPIsResponse) GetGeneratedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type Document struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Module        string                 `protobuf:"bytes,5,opt,name=module,proto3" json:"module,omitempty"`     // finanzen|crm|helpdesk|inventar|produktion|cross
+	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`     // draft|final|released|archived
+	Rows          []byte                 `protobuf:"bytes,7,opt,name=rows,proto3" json:"rows,omitempty"`         // raw JSONB array: rows -> columns -> blocks
+	Settings      []byte                 `protobuf:"bytes,8,opt,name=settings,proto3" json:"settings,omitempty"` // raw JSONB object: page setup
+	TemplateId    *string                `protobuf:"bytes,9,opt,name=template_id,json=templateId,proto3,oneof" json:"template_id,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,10,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	ReleasedAt    *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=released_at,json=releasedAt,proto3,oneof" json:"released_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Document) Reset() {
+	*x = Document{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Document) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Document) ProtoMessage() {}
+
+func (x *Document) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Document.ProtoReflect.Descriptor instead.
+func (*Document) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *Document) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Document) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *Document) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Document) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Document) GetModule() string {
+	if x != nil {
+		return x.Module
+	}
+	return ""
+}
+
+func (x *Document) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Document) GetRows() []byte {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *Document) GetSettings() []byte {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *Document) GetTemplateId() string {
+	if x != nil && x.TemplateId != nil {
+		return *x.TemplateId
+	}
+	return ""
+}
+
+func (x *Document) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *Document) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Document) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *Document) GetReleasedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ReleasedAt
+	}
+	return nil
+}
+
+type CreateDocumentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"` // empty defaults to "Neuer Bericht"
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Module        string                 `protobuf:"bytes,4,opt,name=module,proto3" json:"module,omitempty"` // empty defaults to "cross"
+	TemplateId    *string                `protobuf:"bytes,5,opt,name=template_id,json=templateId,proto3,oneof" json:"template_id,omitempty"`
+	Rows          []byte                 `protobuf:"bytes,6,opt,name=rows,proto3" json:"rows,omitempty"`         // empty defaults to []
+	Settings      []byte                 `protobuf:"bytes,7,opt,name=settings,proto3" json:"settings,omitempty"` // empty defaults to {}
+	CreatedBy     *string                `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDocumentRequest) Reset() {
+	*x = CreateDocumentRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDocumentRequest) ProtoMessage() {}
+
+func (x *CreateDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDocumentRequest.ProtoReflect.Descriptor instead.
+func (*CreateDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *CreateDocumentRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateDocumentRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *CreateDocumentRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreateDocumentRequest) GetModule() string {
+	if x != nil {
+		return x.Module
+	}
+	return ""
+}
+
+func (x *CreateDocumentRequest) GetTemplateId() string {
+	if x != nil && x.TemplateId != nil {
+		return *x.TemplateId
+	}
+	return ""
+}
+
+func (x *CreateDocumentRequest) GetRows() []byte {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *CreateDocumentRequest) GetSettings() []byte {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *CreateDocumentRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+type GetDocumentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDocumentRequest) Reset() {
+	*x = GetDocumentRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDocumentRequest) ProtoMessage() {}
+
+func (x *GetDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDocumentRequest.ProtoReflect.Descriptor instead.
+func (*GetDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *GetDocumentRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetDocumentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+type UpdateDocumentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Module        *string                `protobuf:"bytes,5,opt,name=module,proto3,oneof" json:"module,omitempty"`
+	Status        *string                `protobuf:"bytes,6,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Rows          []byte                 `protobuf:"bytes,7,opt,name=rows,proto3" json:"rows,omitempty"`         // empty = no change
+	Settings      []byte                 `protobuf:"bytes,8,opt,name=settings,proto3" json:"settings,omitempty"` // empty = no change
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDocumentRequest) Reset() {
+	*x = UpdateDocumentRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDocumentRequest) ProtoMessage() {}
+
+func (x *UpdateDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDocumentRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *UpdateDocumentRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateDocumentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *UpdateDocumentRequest) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *UpdateDocumentRequest) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *UpdateDocumentRequest) GetModule() string {
+	if x != nil && x.Module != nil {
+		return *x.Module
+	}
+	return ""
+}
+
+func (x *UpdateDocumentRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *UpdateDocumentRequest) GetRows() []byte {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *UpdateDocumentRequest) GetSettings() []byte {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type DeleteDocumentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDocumentRequest) Reset() {
+	*x = DeleteDocumentRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDocumentRequest) ProtoMessage() {}
+
+func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *DeleteDocumentRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteDocumentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+type DeleteDocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDocumentResponse) Reset() {
+	*x = DeleteDocumentResponse{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDocumentResponse) ProtoMessage() {}
+
+func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDocumentResponse.ProtoReflect.Descriptor instead.
+func (*DeleteDocumentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{35}
+}
+
+type DocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Document      *Document              `protobuf:"bytes,1,opt,name=document,proto3" json:"document,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentResponse) Reset() {
+	*x = DocumentResponse{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentResponse) ProtoMessage() {}
+
+func (x *DocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentResponse.ProtoReflect.Descriptor instead.
+func (*DocumentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *DocumentResponse) GetDocument() *Document {
+	if x != nil {
+		return x.Document
+	}
+	return nil
+}
+
+type ListDocumentsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Module        *string                `protobuf:"bytes,2,opt,name=module,proto3,oneof" json:"module,omitempty"`
+	Status        *string                `protobuf:"bytes,3,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Search        string                 `protobuf:"bytes,4,opt,name=search,proto3" json:"search,omitempty"`
+	Page          int32                  `protobuf:"varint,5,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDocumentsRequest) Reset() {
+	*x = ListDocumentsRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDocumentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDocumentsRequest) ProtoMessage() {}
+
+func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDocumentsRequest.ProtoReflect.Descriptor instead.
+func (*ListDocumentsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListDocumentsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListDocumentsRequest) GetModule() string {
+	if x != nil && x.Module != nil {
+		return *x.Module
+	}
+	return ""
+}
+
+func (x *ListDocumentsRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *ListDocumentsRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListDocumentsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListDocumentsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListDocumentsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Documents     []*Document            `protobuf:"bytes,1,rep,name=documents,proto3" json:"documents,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDocumentsResponse) Reset() {
+	*x = ListDocumentsResponse{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDocumentsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDocumentsResponse) ProtoMessage() {}
+
+func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDocumentsResponse.ProtoReflect.Descriptor instead.
+func (*ListDocumentsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ListDocumentsResponse) GetDocuments() []*Document {
+	if x != nil {
+		return x.Documents
+	}
+	return nil
+}
+
+func (x *ListDocumentsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_proto_berichte_v1_berichte_proto protoreflect.FileDescriptor
 
 const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
@@ -2433,8 +3093,80 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\amodules\x18\x02 \x03(\tR\amodules\"|\n" +
 	"\x15DashboardKPIsResponse\x12$\n" +
 	"\x04kpis\x18\x01 \x03(\v2\x10.berichte.v1.KPIR\x04kpis\x12=\n" +
-	"\fgenerated_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt2\xbf\n" +
+	"\fgenerated_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\"\x80\x04\n" +
+	"\bDocument\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06module\x18\x05 \x01(\tR\x06module\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x12\n" +
+	"\x04rows\x18\a \x01(\fR\x04rows\x12\x1a\n" +
+	"\bsettings\x18\b \x01(\fR\bsettings\x12$\n" +
+	"\vtemplate_id\x18\t \x01(\tH\x00R\n" +
+	"templateId\x88\x01\x01\x12\"\n" +
 	"\n" +
+	"created_by\x18\n" +
+	" \x01(\tH\x01R\tcreatedBy\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12@\n" +
+	"\vreleased_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x02R\n" +
+	"releasedAt\x88\x01\x01B\x0e\n" +
+	"\f_template_idB\r\n" +
+	"\v_created_byB\x0e\n" +
+	"\f_released_at\"\x9d\x02\n" +
+	"\x15CreateDocumentRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06module\x18\x04 \x01(\tR\x06module\x12$\n" +
+	"\vtemplate_id\x18\x05 \x01(\tH\x00R\n" +
+	"templateId\x88\x01\x01\x12\x12\n" +
+	"\x04rows\x18\x06 \x01(\fR\x04rows\x12\x1a\n" +
+	"\bsettings\x18\a \x01(\fR\bsettings\x12\"\n" +
+	"\n" +
+	"created_by\x18\b \x01(\tH\x01R\tcreatedBy\x88\x01\x01B\x0e\n" +
+	"\f_template_idB\r\n" +
+	"\v_created_by\"R\n" +
+	"\x12GetDocumentRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\"\xb1\x02\n" +
+	"\x15UpdateDocumentRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\x12\x19\n" +
+	"\x05title\x18\x03 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x04 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1b\n" +
+	"\x06module\x18\x05 \x01(\tH\x02R\x06module\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x06 \x01(\tH\x03R\x06status\x88\x01\x01\x12\x12\n" +
+	"\x04rows\x18\a \x01(\fR\x04rows\x12\x1a\n" +
+	"\bsettings\x18\b \x01(\fR\bsettingsB\b\n" +
+	"\x06_titleB\x0e\n" +
+	"\f_descriptionB\t\n" +
+	"\a_moduleB\t\n" +
+	"\a_status\"U\n" +
+	"\x15DeleteDocumentRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\"\x18\n" +
+	"\x16DeleteDocumentResponse\"E\n" +
+	"\x10DocumentResponse\x121\n" +
+	"\bdocument\x18\x01 \x01(\v2\x15.berichte.v1.DocumentR\bdocument\"\xcc\x01\n" +
+	"\x14ListDocumentsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\x06module\x18\x02 \x01(\tH\x00R\x06module\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x03 \x01(\tH\x01R\x06status\x88\x01\x01\x12\x16\n" +
+	"\x06search\x18\x04 \x01(\tR\x06search\x12\x12\n" +
+	"\x04page\x18\x05 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x06 \x01(\x05R\bpageSizeB\t\n" +
+	"\a_moduleB\t\n" +
+	"\a_status\"b\n" +
+	"\x15ListDocumentsResponse\x123\n" +
+	"\tdocuments\x18\x01 \x03(\v2\x15.berichte.v1.DocumentR\tdocuments\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total2\xeb\r\n" +
 	"\x0fBerichteService\x12Y\n" +
 	"\x10CreateDefinition\x12$.berichte.v1.CreateDefinitionRequest\x1a\x1f.berichte.v1.DefinitionResponse\x12S\n" +
 	"\rGetDefinition\x12!.berichte.v1.GetDefinitionRequest\x1a\x1f.berichte.v1.DefinitionResponse\x12Y\n" +
@@ -2450,7 +3182,12 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\x0eDeleteSchedule\x12\".berichte.v1.DeleteScheduleRequest\x1a#.berichte.v1.DeleteScheduleResponse\x12V\n" +
 	"\rListSchedules\x12!.berichte.v1.ListSchedulesRequest\x1a\".berichte.v1.ListSchedulesResponse\x12S\n" +
 	"\x0eToggleSchedule\x12\".berichte.v1.ToggleScheduleRequest\x1a\x1d.berichte.v1.ScheduleResponse\x12Y\n" +
-	"\x10GetDashboardKPIs\x12!.berichte.v1.DashboardKPIsRequest\x1a\".berichte.v1.DashboardKPIsResponseB7Z5github.com/kmuhub/kmuhub/proto/berichte/v1;berichtev1b\x06proto3"
+	"\x10GetDashboardKPIs\x12!.berichte.v1.DashboardKPIsRequest\x1a\".berichte.v1.DashboardKPIsResponse\x12S\n" +
+	"\x0eCreateDocument\x12\".berichte.v1.CreateDocumentRequest\x1a\x1d.berichte.v1.DocumentResponse\x12M\n" +
+	"\vGetDocument\x12\x1f.berichte.v1.GetDocumentRequest\x1a\x1d.berichte.v1.DocumentResponse\x12S\n" +
+	"\x0eUpdateDocument\x12\".berichte.v1.UpdateDocumentRequest\x1a\x1d.berichte.v1.DocumentResponse\x12Y\n" +
+	"\x0eDeleteDocument\x12\".berichte.v1.DeleteDocumentRequest\x1a#.berichte.v1.DeleteDocumentResponse\x12V\n" +
+	"\rListDocuments\x12!.berichte.v1.ListDocumentsRequest\x1a\".berichte.v1.ListDocumentsResponseB7Z5github.com/kmuhub/kmuhub/proto/berichte/v1;berichtev1b\x06proto3"
 
 var (
 	file_proto_berichte_v1_berichte_proto_rawDescOnce sync.Once
@@ -2464,7 +3201,7 @@ func file_proto_berichte_v1_berichte_proto_rawDescGZIP() []byte {
 	return file_proto_berichte_v1_berichte_proto_rawDescData
 }
 
-var file_proto_berichte_v1_berichte_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_proto_berichte_v1_berichte_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_proto_berichte_v1_berichte_proto_goTypes = []any{
 	(*Definition)(nil),               // 0: berichte.v1.Definition
 	(*Schedule)(nil),                 // 1: berichte.v1.Schedule
@@ -2496,17 +3233,26 @@ var file_proto_berichte_v1_berichte_proto_goTypes = []any{
 	(*ToggleScheduleRequest)(nil),    // 27: berichte.v1.ToggleScheduleRequest
 	(*DashboardKPIsRequest)(nil),     // 28: berichte.v1.DashboardKPIsRequest
 	(*DashboardKPIsResponse)(nil),    // 29: berichte.v1.DashboardKPIsResponse
-	(*timestamppb.Timestamp)(nil),    // 30: google.protobuf.Timestamp
+	(*Document)(nil),                 // 30: berichte.v1.Document
+	(*CreateDocumentRequest)(nil),    // 31: berichte.v1.CreateDocumentRequest
+	(*GetDocumentRequest)(nil),       // 32: berichte.v1.GetDocumentRequest
+	(*UpdateDocumentRequest)(nil),    // 33: berichte.v1.UpdateDocumentRequest
+	(*DeleteDocumentRequest)(nil),    // 34: berichte.v1.DeleteDocumentRequest
+	(*DeleteDocumentResponse)(nil),   // 35: berichte.v1.DeleteDocumentResponse
+	(*DocumentResponse)(nil),         // 36: berichte.v1.DocumentResponse
+	(*ListDocumentsRequest)(nil),     // 37: berichte.v1.ListDocumentsRequest
+	(*ListDocumentsResponse)(nil),    // 38: berichte.v1.ListDocumentsResponse
+	(*timestamppb.Timestamp)(nil),    // 39: google.protobuf.Timestamp
 }
 var file_proto_berichte_v1_berichte_proto_depIdxs = []int32{
-	30, // 0: berichte.v1.Definition.created_at:type_name -> google.protobuf.Timestamp
-	30, // 1: berichte.v1.Definition.updated_at:type_name -> google.protobuf.Timestamp
-	30, // 2: berichte.v1.Schedule.last_run_at:type_name -> google.protobuf.Timestamp
-	30, // 3: berichte.v1.Schedule.created_at:type_name -> google.protobuf.Timestamp
-	30, // 4: berichte.v1.Schedule.updated_at:type_name -> google.protobuf.Timestamp
-	30, // 5: berichte.v1.Run.started_at:type_name -> google.protobuf.Timestamp
-	30, // 6: berichte.v1.Run.completed_at:type_name -> google.protobuf.Timestamp
-	30, // 7: berichte.v1.ReportResult.generated_at:type_name -> google.protobuf.Timestamp
+	39, // 0: berichte.v1.Definition.created_at:type_name -> google.protobuf.Timestamp
+	39, // 1: berichte.v1.Definition.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 2: berichte.v1.Schedule.last_run_at:type_name -> google.protobuf.Timestamp
+	39, // 3: berichte.v1.Schedule.created_at:type_name -> google.protobuf.Timestamp
+	39, // 4: berichte.v1.Schedule.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 5: berichte.v1.Run.started_at:type_name -> google.protobuf.Timestamp
+	39, // 6: berichte.v1.Run.completed_at:type_name -> google.protobuf.Timestamp
+	39, // 7: berichte.v1.ReportResult.generated_at:type_name -> google.protobuf.Timestamp
 	0,  // 8: berichte.v1.DefinitionResponse.definition:type_name -> berichte.v1.Definition
 	0,  // 9: berichte.v1.ListDefinitionsResponse.definitions:type_name -> berichte.v1.Definition
 	3,  // 10: berichte.v1.RunReportResponse.result:type_name -> berichte.v1.ReportResult
@@ -2514,42 +3260,57 @@ var file_proto_berichte_v1_berichte_proto_depIdxs = []int32{
 	1,  // 12: berichte.v1.ScheduleResponse.schedule:type_name -> berichte.v1.Schedule
 	1,  // 13: berichte.v1.ListSchedulesResponse.schedules:type_name -> berichte.v1.Schedule
 	4,  // 14: berichte.v1.DashboardKPIsResponse.kpis:type_name -> berichte.v1.KPI
-	30, // 15: berichte.v1.DashboardKPIsResponse.generated_at:type_name -> google.protobuf.Timestamp
-	5,  // 16: berichte.v1.BerichteService.CreateDefinition:input_type -> berichte.v1.CreateDefinitionRequest
-	6,  // 17: berichte.v1.BerichteService.GetDefinition:input_type -> berichte.v1.GetDefinitionRequest
-	7,  // 18: berichte.v1.BerichteService.UpdateDefinition:input_type -> berichte.v1.UpdateDefinitionRequest
-	8,  // 19: berichte.v1.BerichteService.DeleteDefinition:input_type -> berichte.v1.DeleteDefinitionRequest
-	11, // 20: berichte.v1.BerichteService.ListDefinitions:input_type -> berichte.v1.ListDefinitionsRequest
-	13, // 21: berichte.v1.BerichteService.RunReport:input_type -> berichte.v1.RunReportRequest
-	15, // 22: berichte.v1.BerichteService.GetCachedResult:input_type -> berichte.v1.GetCachedResultRequest
-	16, // 23: berichte.v1.BerichteService.InvalidateCache:input_type -> berichte.v1.InvalidateCacheRequest
-	18, // 24: berichte.v1.BerichteService.ExportReport:input_type -> berichte.v1.ExportReportRequest
-	20, // 25: berichte.v1.BerichteService.CreateSchedule:input_type -> berichte.v1.CreateScheduleRequest
-	21, // 26: berichte.v1.BerichteService.UpdateSchedule:input_type -> berichte.v1.UpdateScheduleRequest
-	22, // 27: berichte.v1.BerichteService.DeleteSchedule:input_type -> berichte.v1.DeleteScheduleRequest
-	25, // 28: berichte.v1.BerichteService.ListSchedules:input_type -> berichte.v1.ListSchedulesRequest
-	27, // 29: berichte.v1.BerichteService.ToggleSchedule:input_type -> berichte.v1.ToggleScheduleRequest
-	28, // 30: berichte.v1.BerichteService.GetDashboardKPIs:input_type -> berichte.v1.DashboardKPIsRequest
-	10, // 31: berichte.v1.BerichteService.CreateDefinition:output_type -> berichte.v1.DefinitionResponse
-	10, // 32: berichte.v1.BerichteService.GetDefinition:output_type -> berichte.v1.DefinitionResponse
-	10, // 33: berichte.v1.BerichteService.UpdateDefinition:output_type -> berichte.v1.DefinitionResponse
-	9,  // 34: berichte.v1.BerichteService.DeleteDefinition:output_type -> berichte.v1.DeleteDefinitionResponse
-	12, // 35: berichte.v1.BerichteService.ListDefinitions:output_type -> berichte.v1.ListDefinitionsResponse
-	14, // 36: berichte.v1.BerichteService.RunReport:output_type -> berichte.v1.RunReportResponse
-	14, // 37: berichte.v1.BerichteService.GetCachedResult:output_type -> berichte.v1.RunReportResponse
-	17, // 38: berichte.v1.BerichteService.InvalidateCache:output_type -> berichte.v1.InvalidateCacheResponse
-	19, // 39: berichte.v1.BerichteService.ExportReport:output_type -> berichte.v1.ExportReportResponse
-	24, // 40: berichte.v1.BerichteService.CreateSchedule:output_type -> berichte.v1.ScheduleResponse
-	24, // 41: berichte.v1.BerichteService.UpdateSchedule:output_type -> berichte.v1.ScheduleResponse
-	23, // 42: berichte.v1.BerichteService.DeleteSchedule:output_type -> berichte.v1.DeleteScheduleResponse
-	26, // 43: berichte.v1.BerichteService.ListSchedules:output_type -> berichte.v1.ListSchedulesResponse
-	24, // 44: berichte.v1.BerichteService.ToggleSchedule:output_type -> berichte.v1.ScheduleResponse
-	29, // 45: berichte.v1.BerichteService.GetDashboardKPIs:output_type -> berichte.v1.DashboardKPIsResponse
-	31, // [31:46] is the sub-list for method output_type
-	16, // [16:31] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	39, // 15: berichte.v1.DashboardKPIsResponse.generated_at:type_name -> google.protobuf.Timestamp
+	39, // 16: berichte.v1.Document.created_at:type_name -> google.protobuf.Timestamp
+	39, // 17: berichte.v1.Document.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 18: berichte.v1.Document.released_at:type_name -> google.protobuf.Timestamp
+	30, // 19: berichte.v1.DocumentResponse.document:type_name -> berichte.v1.Document
+	30, // 20: berichte.v1.ListDocumentsResponse.documents:type_name -> berichte.v1.Document
+	5,  // 21: berichte.v1.BerichteService.CreateDefinition:input_type -> berichte.v1.CreateDefinitionRequest
+	6,  // 22: berichte.v1.BerichteService.GetDefinition:input_type -> berichte.v1.GetDefinitionRequest
+	7,  // 23: berichte.v1.BerichteService.UpdateDefinition:input_type -> berichte.v1.UpdateDefinitionRequest
+	8,  // 24: berichte.v1.BerichteService.DeleteDefinition:input_type -> berichte.v1.DeleteDefinitionRequest
+	11, // 25: berichte.v1.BerichteService.ListDefinitions:input_type -> berichte.v1.ListDefinitionsRequest
+	13, // 26: berichte.v1.BerichteService.RunReport:input_type -> berichte.v1.RunReportRequest
+	15, // 27: berichte.v1.BerichteService.GetCachedResult:input_type -> berichte.v1.GetCachedResultRequest
+	16, // 28: berichte.v1.BerichteService.InvalidateCache:input_type -> berichte.v1.InvalidateCacheRequest
+	18, // 29: berichte.v1.BerichteService.ExportReport:input_type -> berichte.v1.ExportReportRequest
+	20, // 30: berichte.v1.BerichteService.CreateSchedule:input_type -> berichte.v1.CreateScheduleRequest
+	21, // 31: berichte.v1.BerichteService.UpdateSchedule:input_type -> berichte.v1.UpdateScheduleRequest
+	22, // 32: berichte.v1.BerichteService.DeleteSchedule:input_type -> berichte.v1.DeleteScheduleRequest
+	25, // 33: berichte.v1.BerichteService.ListSchedules:input_type -> berichte.v1.ListSchedulesRequest
+	27, // 34: berichte.v1.BerichteService.ToggleSchedule:input_type -> berichte.v1.ToggleScheduleRequest
+	28, // 35: berichte.v1.BerichteService.GetDashboardKPIs:input_type -> berichte.v1.DashboardKPIsRequest
+	31, // 36: berichte.v1.BerichteService.CreateDocument:input_type -> berichte.v1.CreateDocumentRequest
+	32, // 37: berichte.v1.BerichteService.GetDocument:input_type -> berichte.v1.GetDocumentRequest
+	33, // 38: berichte.v1.BerichteService.UpdateDocument:input_type -> berichte.v1.UpdateDocumentRequest
+	34, // 39: berichte.v1.BerichteService.DeleteDocument:input_type -> berichte.v1.DeleteDocumentRequest
+	37, // 40: berichte.v1.BerichteService.ListDocuments:input_type -> berichte.v1.ListDocumentsRequest
+	10, // 41: berichte.v1.BerichteService.CreateDefinition:output_type -> berichte.v1.DefinitionResponse
+	10, // 42: berichte.v1.BerichteService.GetDefinition:output_type -> berichte.v1.DefinitionResponse
+	10, // 43: berichte.v1.BerichteService.UpdateDefinition:output_type -> berichte.v1.DefinitionResponse
+	9,  // 44: berichte.v1.BerichteService.DeleteDefinition:output_type -> berichte.v1.DeleteDefinitionResponse
+	12, // 45: berichte.v1.BerichteService.ListDefinitions:output_type -> berichte.v1.ListDefinitionsResponse
+	14, // 46: berichte.v1.BerichteService.RunReport:output_type -> berichte.v1.RunReportResponse
+	14, // 47: berichte.v1.BerichteService.GetCachedResult:output_type -> berichte.v1.RunReportResponse
+	17, // 48: berichte.v1.BerichteService.InvalidateCache:output_type -> berichte.v1.InvalidateCacheResponse
+	19, // 49: berichte.v1.BerichteService.ExportReport:output_type -> berichte.v1.ExportReportResponse
+	24, // 50: berichte.v1.BerichteService.CreateSchedule:output_type -> berichte.v1.ScheduleResponse
+	24, // 51: berichte.v1.BerichteService.UpdateSchedule:output_type -> berichte.v1.ScheduleResponse
+	23, // 52: berichte.v1.BerichteService.DeleteSchedule:output_type -> berichte.v1.DeleteScheduleResponse
+	26, // 53: berichte.v1.BerichteService.ListSchedules:output_type -> berichte.v1.ListSchedulesResponse
+	24, // 54: berichte.v1.BerichteService.ToggleSchedule:output_type -> berichte.v1.ScheduleResponse
+	29, // 55: berichte.v1.BerichteService.GetDashboardKPIs:output_type -> berichte.v1.DashboardKPIsResponse
+	36, // 56: berichte.v1.BerichteService.CreateDocument:output_type -> berichte.v1.DocumentResponse
+	36, // 57: berichte.v1.BerichteService.GetDocument:output_type -> berichte.v1.DocumentResponse
+	36, // 58: berichte.v1.BerichteService.UpdateDocument:output_type -> berichte.v1.DocumentResponse
+	35, // 59: berichte.v1.BerichteService.DeleteDocument:output_type -> berichte.v1.DeleteDocumentResponse
+	38, // 60: berichte.v1.BerichteService.ListDocuments:output_type -> berichte.v1.ListDocumentsResponse
+	41, // [41:61] is the sub-list for method output_type
+	21, // [21:41] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_proto_berichte_v1_berichte_proto_init() }
@@ -2567,13 +3328,17 @@ func file_proto_berichte_v1_berichte_proto_init() {
 	file_proto_berichte_v1_berichte_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[21].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[25].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[30].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[31].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[33].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[37].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_berichte_v1_berichte_proto_rawDesc), len(file_proto_berichte_v1_berichte_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   30,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

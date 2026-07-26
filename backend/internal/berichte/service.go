@@ -1,6 +1,7 @@
 package berichte
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -614,6 +615,237 @@ func (s *Service) GetDashboardKPIs(ctx context.Context, tenantID uuid.UUID, modu
 	}
 	mods := sanitizeModules(modules)
 	return s.executor.DashboardKPIs(ctx, tenantID, mods)
+}
+
+// ============================================================================
+// Documents (multi-page authoring)
+// ============================================================================
+
+const (
+	maxDocumentTitleLen = 200
+	// lean: one flat size cap for the whole block tree instead of per-block
+	// limits; revisit when a real report hits it (the editor has no cap today).
+	maxDocumentPayloadBytes = 4 << 20 // 4 MiB
+)
+
+var validDocStatuses = map[string]struct{}{
+	"draft": {}, "final": {}, "released": {}, "archived": {},
+}
+
+func isValidDocStatus(s string) bool { _, ok := validDocStatuses[s]; return ok }
+
+// CreateDocumentInput captures data for creating a report document.
+type CreateDocumentInput struct {
+	TenantID    uuid.UUID
+	Title       string // "" defaults to "Neuer Bericht"
+	Description string
+	Module      string // "" defaults to "cross"
+	TemplateID  *string
+	Rows        json.RawMessage // empty defaults to []
+	Settings    json.RawMessage // empty defaults to {}
+	CreatedBy   *uuid.UUID
+}
+
+// UpdateDocumentInput captures partial updates on a report document.
+type UpdateDocumentInput struct {
+	TenantID    uuid.UUID
+	DocumentID  uuid.UUID
+	Title       *string
+	Description *string
+	Module      *string
+	Status      *string
+	Rows        json.RawMessage // empty = no change
+	Settings    json.RawMessage // empty = no change
+}
+
+// ListDocumentsInput is the user-facing document list request.
+type ListDocumentsInput struct {
+	TenantID uuid.UUID
+	Module   *string
+	Status   *string
+	Search   string
+	Page     int
+	PageSize int
+}
+
+func (s *Service) CreateDocument(ctx context.Context, in CreateDocumentInput) (*Document, error) {
+	title := strings.TrimSpace(in.Title)
+	if title == "" {
+		title = "Neuer Bericht"
+	}
+	if len(title) > maxDocumentTitleLen {
+		return nil, ErrInvalidTitle
+	}
+
+	module := in.Module
+	if module == "" {
+		module = "cross"
+	}
+	if !isValidModule(module) {
+		return nil, ErrInvalidModule
+	}
+
+	rows, err := normalizeDocumentRows(in.Rows)
+	if err != nil {
+		return nil, err
+	}
+	settings, err := normalizeDocumentSettings(in.Settings)
+	if err != nil {
+		return nil, err
+	}
+
+	now := s.clock.Now()
+	doc := &Document{
+		ID:          uuid.New(),
+		TenantID:    in.TenantID,
+		Title:       title,
+		Description: strings.TrimSpace(in.Description),
+		Module:      module,
+		Status:      "draft",
+		Rows:        rows,
+		Settings:    settings,
+		TemplateID:  in.TemplateID,
+		CreatedBy:   in.CreatedBy,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := s.repo.CreateDocument(ctx, doc); err != nil {
+		return nil, fmt.Errorf("create document: %w", err)
+	}
+
+	slog.Info("berichte document created",
+		"document_id", doc.ID,
+		"tenant_id", doc.TenantID,
+		"module", doc.Module,
+	)
+	return doc, nil
+}
+
+func (s *Service) UpdateDocument(ctx context.Context, in UpdateDocumentInput) (*Document, error) {
+	doc, err := s.repo.GetDocument(ctx, in.TenantID, in.DocumentID)
+	if err != nil {
+		return nil, err
+	}
+
+	if in.Title != nil {
+		t := strings.TrimSpace(*in.Title)
+		if t == "" || len(t) > maxDocumentTitleLen {
+			return nil, ErrInvalidTitle
+		}
+		doc.Title = t
+	}
+	if in.Description != nil {
+		doc.Description = strings.TrimSpace(*in.Description)
+	}
+	if in.Module != nil {
+		if !isValidModule(*in.Module) {
+			return nil, ErrInvalidModule
+		}
+		doc.Module = *in.Module
+	}
+	if in.Status != nil {
+		if !isValidDocStatus(*in.Status) {
+			return nil, ErrInvalidStatus
+		}
+		doc.Status = *in.Status
+	}
+	if len(in.Rows) > 0 {
+		rows, rowsErr := normalizeDocumentRows(in.Rows)
+		if rowsErr != nil {
+			return nil, rowsErr
+		}
+		doc.Rows = rows
+	}
+	if len(in.Settings) > 0 {
+		settings, settingsErr := normalizeDocumentSettings(in.Settings)
+		if settingsErr != nil {
+			return nil, settingsErr
+		}
+		doc.Settings = settings
+	}
+
+	now := s.clock.Now()
+	doc.UpdatedAt = now
+	// Stamp the release date once, on the first transition into "released".
+	if doc.Status == "released" && doc.ReleasedAt == nil {
+		doc.ReleasedAt = pointerTime(now)
+	}
+
+	if err := s.repo.UpdateDocument(ctx, doc); err != nil {
+		return nil, err
+	}
+
+	slog.Info("berichte document updated",
+		"document_id", doc.ID,
+		"tenant_id", doc.TenantID,
+		"status", doc.Status,
+	)
+	return doc, nil
+}
+
+func (s *Service) GetDocument(ctx context.Context, tenantID, documentID uuid.UUID) (*Document, error) {
+	return s.repo.GetDocument(ctx, tenantID, documentID)
+}
+
+func (s *Service) DeleteDocument(ctx context.Context, tenantID, documentID uuid.UUID) error {
+	if err := s.repo.DeleteDocument(ctx, tenantID, documentID); err != nil {
+		return err
+	}
+	slog.Info("berichte document deleted", "document_id", documentID, "tenant_id", tenantID)
+	return nil
+}
+
+func (s *Service) ListDocuments(ctx context.Context, in ListDocumentsInput) ([]*Document, int, error) {
+	if in.Module != nil && !isValidModule(*in.Module) {
+		return nil, 0, ErrInvalidModule
+	}
+	if in.Status != nil && !isValidDocStatus(*in.Status) {
+		return nil, 0, ErrInvalidStatus
+	}
+
+	page, pageSize := in.Page, in.PageSize
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	return s.repo.ListDocuments(ctx, in.TenantID, ListDocumentsFilter{
+		Module: in.Module,
+		Status: in.Status,
+		Search: strings.TrimSpace(in.Search),
+	}, (page-1)*pageSize, pageSize)
+}
+
+// normalizeDocumentRows validates the opaque block tree: it must be a JSON
+// array within the size cap. Block semantics stay frontend-owned.
+func normalizeDocumentRows(raw json.RawMessage) ([]byte, error) {
+	return normalizeDocumentJSON(raw, '[', "[]", ErrInvalidRows)
+}
+
+// normalizeDocumentSettings validates the document-level page setup: it must be
+// a JSON object within the size cap.
+func normalizeDocumentSettings(raw json.RawMessage) ([]byte, error) {
+	return normalizeDocumentJSON(raw, '{', "{}", ErrInvalidSettings)
+}
+
+func normalizeDocumentJSON(raw json.RawMessage, prefix byte, empty string, shapeErr error) ([]byte, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return []byte(empty), nil
+	}
+	if len(trimmed) > maxDocumentPayloadBytes {
+		return nil, ErrDocumentTooLarge
+	}
+	if trimmed[0] != prefix || !json.Valid(trimmed) {
+		return nil, shapeErr
+	}
+	return append([]byte(nil), trimmed...), nil
 }
 
 // ============================================================================

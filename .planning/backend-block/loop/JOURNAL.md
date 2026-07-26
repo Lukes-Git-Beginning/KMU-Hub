@@ -559,3 +559,77 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   - `p3-berichte-share-token` (deps: [p3-berichte-server-pdf]) haengt jetzt
     transitiv auch von der neuen Persistenz-Unit ab — keine Aenderung an
     ihren `deps` noetig, die Kette laeuft schon darueber.
+
+## Iteration 10 — p3-berichte-document-persistence — done — 2026-07-26
+- commit: (siehe Git-Historie, folgt direkt auf diesen Eintrag)
+- Verify-Vorspann: Commit `548e4468` (Iteration 9) geprueft — reiner
+  Planning-Commit (nur `.planning/backend-block/loop/BACKLOG.yml`), kein Code,
+  also keine der sechs Fehlerklassen anwendbar. `go build ./...` sauber.
+  `git merge origin/main` = already up to date.
+- gebaut: Backend-Persistenz fuer ReportDocument (Schicht 4) — das war die
+  von Iteration 9 als Vorbedingung eingezogene Unit.
+  - Migration `000245_create_report_documents` (up+down): Tabelle
+    `report_documents` mit `tenant_id UUID NOT NULL REFERENCES tenants`,
+    Status-/Modul-CHECK, drei tenant-gescopte Indizes, RLS ENABLE + FORCE +
+    `tenant_isolation`-Policy nach dem Muster aus 000238.
+  - `berichte.Document`-Modell, Repository-Interface + Postgres-Impl
+    (Create/Update/Delete/Get/List, jede Query mit `tenant_id = $1`),
+    Service-Schicht mit Validierung, fuenf gRPC-RPCs (.proto + regeneriert im
+    selben Commit), fuenf Gateway-Routen unter `/api/v1/berichte/documents`,
+    zwei OpenAPI-Pfade + Schema `BerichtDocument`.
+- Entscheidungen (die drei offenen Punkte aus Iteration 9):
+  - **(a) JSONB-Passthrough statt Blocktyp-Validierung.** `rows`/`settings`
+    werden nur auf Form (Array bzw. Objekt), JSON-Gueltigkeit und einen
+    4-MiB-Deckel geprueft. Grund: die Blockstruktur ist FE-Eigentum und ihre
+    Keys sind camelCase (`showDate`, `definitionId`, `changePercent`) — jede
+    serverseitige Typisierung waere eine zweite Wahrheit und ein
+    Wire-Drift-Risiko. Ein Unit-Test haelt fest, dass der Baum byte-genau
+    zurueckkommt. `lean:`-Marker mit Upgrade-Trigger steht in der Migration
+    und am Groessen-Deckel.
+  - **(b) `template_id` ist TEXT ohne FK.** Es gibt keine
+    `report_templates`-Tabelle; Templates sind FE-Startstrukturen
+    (`DEMO_TEMPLATES` im MSW-Handler). Neue Unit `p3-berichte-templates`
+    angelegt (GET /berichte/templates fehlt serverseitig komplett — die
+    Bibliothek blendet den Bereich heute still aus, `?? []`, kein Crash).
+  - **(c) Wire-Shape ohne `response.Proto`.** Die Dokument-Handler bauen ein
+    `reportDocumentWire`-Struct und antworten via `response.JSON`. Grund:
+    protojson wuerde die Proto-`bytes`-Felder base64-kodieren — genau der
+    Bug, den die Definitions-Endpoints heute mit `query_config` haben (dort
+    dokumentiert die openapi.yaml `format: byte`, der FE-Typ sagt Objekt).
+    Fuer Dokumente war das keine Option, weil der Editor `rows` iteriert.
+    Timestamps sind damit RFC3339, `rows`/`settings` nie `null` (leer → `[]`
+    bzw. `{}`), Listen `{documents,total}`, Single-Entity `{document}` —
+    exakt `ListReportDocumentsResponse`/`ReportDocumentResponse`.
+- Permissions: bewusst kein neuer Guard — die Routen haengen an dem bereits
+  geseedeten `berichte:reports` read/write. Keine Seed-Migration noetig, kein
+  403-Risiko.
+- Semantik gegen den MSW-Handler abgeglichen: Titel-Fallback "Neuer Bericht",
+  Modul-Fallback `cross`, neue Dokumente immer `draft`, `released_at` wird
+  beim ersten Uebergang nach `released` einmalig gestempelt und von spaeteren
+  Edits nicht mehr bewegt (Test deckt beides ab). Sortierung `updated_at DESC`
+  wie im Mock. Der Template-Merge (Titel/rows aus der Vorlage uebernehmen)
+  liegt bewusst NICHT im BE — das FE schickt die aufgeloesten rows mit.
+- gate: `go build ./...` OK · `go vet` (berichte, server, gateway) OK ·
+  `golangci-lint run` auf denselben drei Paketen: 0 issues ·
+  `go test ./internal/berichte/... ./internal/server/... ./internal/gateway/...`
+  gruen (inkl. `TestOpenAPIRouteDrift`, das die fuenf neuen Routen gegen die
+  Spec prueft). 8 neue Service-Tests (Defaults, Payload-Ablehnung,
+  Baum-Unversehrtheit, released_at-Stempel, Status-Guard, Tenant-Isolation
+  ueber Get/Update/Delete/List, Filter).
+- offen / naechste Iteration:
+  - `TestTenantIsolation_Berichte` wurde um `report_documents` erweitert,
+    laeuft aber nur mit DB (`testutil.SkipIfNoDB`) — lokal in diesem Lauf
+    also uebersprungen. Der RLS-Nachweis kommt aus nightly/CI mit DB.
+  - Die Spalte heisst `"rows"` und wird in Migration und Repository
+    durchgehend gequotet (ROWS ist in Postgres non-reserved, das Quoting ist
+    Guertel-und-Hosentraeger). Wer die Tabelle spaeter anfasst: Quoting
+    beibehalten.
+  - `p3-berichte-server-pdf` ist jetzt nur noch an der Chart-Frage blockiert,
+    nicht mehr an fehlender Persistenz — `blocked_reason` entsprechend
+    gekuerzt.
+  - Bestandsdrift, nicht angefasst (ausserhalb dieser Unit): der
+    openapi.yaml-Kommentarblock ueber den berichte-Pfaden behauptet, alle
+    Handler nutzten `response.JSON` mit `{seconds,nanos}`-Timestamps. Seit der
+    ProtoTimestamp-Welle nutzen die Definitions-/Schedule-Handler
+    `response.Proto` (RFC3339). Die `ProtoTimestamp`-`$ref`s dort sind damit
+    falsch. Lohnt eine eigene kleine Doku-Unit.

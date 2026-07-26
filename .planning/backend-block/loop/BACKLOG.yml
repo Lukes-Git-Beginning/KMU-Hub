@@ -252,7 +252,7 @@ units:
     service: berichte
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Backend-Persistenz fuer "Bericht-Authoring-Dokumente" (Schicht 4,
       unterscheidet sich von ReportDefinition/Schicht 3). Existiert serverseitig
@@ -284,6 +284,15 @@ units:
       vermutlich eine noch fehlende `report_templates`-Tabelle/Seed-Daten (siehe
       ReportTemplate im selben FE-Typfile) — pruefen, ob Templates hart im FE
       liegen oder ebenfalls Backend brauchen, bevor template_id als FK gebaut wird.
+      ERLEDIGT Iteration 10 (Migration 000245). Getroffene Entscheidungen:
+      (a) JSONB-Passthrough — rows/settings werden nur auf Form (Array/Objekt),
+      JSON-Gueltigkeit und 4-MiB-Deckel geprueft, nie auf Blocktypen; die
+      camelCase-Keys des Editors bleiben unveraendert. (b) template_id ist
+      TEXT ohne FK, weil Templates FE-seitige Starter-Strukturen sind
+      (DEMO_TEMPLATES im MSW-Handler, keine Tabelle) — siehe neue Unit
+      p3-berichte-templates. (c) Dokumente gehen NICHT ueber response.Proto:
+      protojson wuerde die JSONB-bytes base64-kodieren, darum ein
+      handgebautes Wire-Struct (RFC3339-Timestamps, verschachteltes JSON).
     done_when:
       - report_documents-Tabelle, tenant_id NOT NULL + RLS-Policy
       - Create/Get/Update/Delete/List-RPCs + Gateway-Routen, tenant-gescoped
@@ -299,12 +308,10 @@ units:
     deps: [p3-berichte-document-persistence]
     status: blocked
     blocked_reason: >
-      Architektur-Entscheidung, nicht Mechanik — braucht Luke. Backlog-Annahme
-      war "nur der PDF-Render fehlt" (analog CRM-Advisory 1c639adf, wo
-      GeneratePDF schon existierte). Real fehlt die komplette
-      ReportDocument-Persistenz serverseitig (siehe neue Vorgaenger-Unit
-      p3-berichte-document-persistence) — ohne sie gibt es nichts zu
-      exportieren. Zusaetzlich: ein "chart"-Block laesst sich nicht ueber
+      Architektur-Entscheidung, nicht Mechanik — braucht Luke. Die
+      Persistenz-Haelfte ist seit Iteration 10 erledigt
+      (p3-berichte-document-persistence, Migration 000245), offen bleibt allein
+      die Chart-Frage: ein "chart"-Block laesst sich nicht ueber
       maroto/v2 rendern (kein Chart-Rendering in reinem Go ohne neue
       Dependency wie go-chart/gonum-plot) — Verstoss gegen die
       "keine neue Dependency ohne Not"-Vorgabe dieser Unit. Lean-Vorschlag fuer
@@ -331,6 +338,39 @@ units:
     done_when:
       - GET /berichte/documents/{id}/export/pdf liefert application/pdf
       - Erzeugt ueber maroto, keine neue Dependency
+      - go build/vet/lint/test gruen
+
+  - id: p3-berichte-templates
+    phase: 3
+    service: berichte
+    model: sonnet
+    deps: [p3-berichte-document-persistence]
+    status: todo
+    scope: >
+      GET /berichte/templates existiert serverseitig nicht — das FE ruft es
+      ueber `listReportTemplates` (berichte-client.ts) und die
+      Berichts-Bibliothek blendet den Template-Bereich stillschweigend aus
+      (`templatesData?.templates ?? []`, kein Crash). Startvorlagen
+      (Titel/Beschreibung/Modul/Icon + fertiger rows-Baum) serverseitig
+      ausliefern, damit "Neuer Bericht aus Vorlage" gegen echtes BE
+      funktioniert.
+    sources:
+      - desktop/src/renderer/src/api/berichte-client.ts (listReportTemplates)
+      - desktop/src/renderer/src/mocks/handlers/berichte.ts (DEMO_TEMPLATES)
+      - desktop/src/renderer/src/modules/berichte/components/documents/BerichtLibrary.tsx
+      - backend/internal/berichte/
+    notes: >
+      Lean-Pfad: Templates sind statische Startstrukturen, keine Nutzerdaten —
+      also KEINE Tabelle und kein tenant_id, sondern eine serverseitige
+      Konstante (analog der system-Definitionen), aus DEMO_TEMPLATES
+      uebernommen. Erst wenn Kunden eigene Vorlagen speichern wollen, wird
+      daraus eine tenant-gescopte Tabelle; das dann als eigene Unit mit
+      RLS-Policy. `report_documents.template_id` ist bewusst TEXT ohne FK
+      (Migration 000245), passt also zu beiden Auspraegungen.
+    done_when:
+      - GET /berichte/templates liefert {templates:[...]} im FE-Typ ReportTemplate
+      - Wire-Shape der rows-Baeume identisch zu ReportDocument.rows
+      - Pfad-Eintrag in backend/api/openapi.yaml
       - go build/vet/lint/test gruen
 
   - id: p3-berichte-kpi-service

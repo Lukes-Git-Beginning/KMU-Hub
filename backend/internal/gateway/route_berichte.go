@@ -1,8 +1,10 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -71,6 +73,18 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Patch("/", br.HandleUpdateSchedule)
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/", br.HandleDeleteSchedule)
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/toggle", br.HandleToggleSchedule)
+			})
+		})
+
+		// Documents (multi-page authoring)
+		r.Route("/documents", func(r chi.Router) {
+			r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleListDocuments)
+			r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/", br.HandleCreateDocument)
+
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleGetDocument)
+				r.With(middleware.RequirePermission("berichte:reports", "write")).Patch("/", br.HandleUpdateDocument)
+				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/", br.HandleDeleteDocument)
 			})
 		})
 
@@ -317,6 +331,252 @@ func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.
 		DefinitionId: id,
 	})
 	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Document Handlers (multi-page authoring)
+// ============================================================================
+
+// reportDocumentWire is the JSON shape the frontend types as ReportDocument
+// (berichte-types.ts). Documents are not served through response.Proto because
+// `rows`/`settings` are raw JSONB: protojson would emit the proto `bytes`
+// fields as base64 strings instead of the nested block tree the editor reads.
+type reportDocumentWire struct {
+	ID          string          `json:"id"`
+	TenantID    string          `json:"tenant_id"`
+	Title       string          `json:"title"`
+	Description string          `json:"description"`
+	Module      string          `json:"module"`
+	Status      string          `json:"status"`
+	Rows        json.RawMessage `json:"rows"`
+	Settings    json.RawMessage `json:"settings"`
+	TemplateID  *string         `json:"template_id"`
+	CreatedBy   *string         `json:"created_by"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	ReleasedAt  *time.Time      `json:"released_at"`
+}
+
+func toReportDocumentWire(d *berichtev1.Document) reportDocumentWire {
+	wire := reportDocumentWire{
+		ID:          d.GetId(),
+		TenantID:    d.GetTenantId(),
+		Title:       d.GetTitle(),
+		Description: d.GetDescription(),
+		Module:      d.GetModule(),
+		Status:      d.GetStatus(),
+		Rows:        json.RawMessage(d.GetRows()),
+		Settings:    json.RawMessage(d.GetSettings()),
+		TemplateID:  d.TemplateId,
+		CreatedBy:   d.CreatedBy,
+		CreatedAt:   d.GetCreatedAt().AsTime(),
+		UpdatedAt:   d.GetUpdatedAt().AsTime(),
+	}
+	// Never emit a JSON `null` for the block tree: the editor iterates it.
+	if len(wire.Rows) == 0 {
+		wire.Rows = json.RawMessage("[]")
+	}
+	if len(wire.Settings) == 0 {
+		wire.Settings = json.RawMessage("{}")
+	}
+	if d.ReleasedAt != nil {
+		released := d.GetReleasedAt().AsTime()
+		wire.ReleasedAt = &released
+	}
+	return wire
+}
+
+type createReportDocumentRequest struct {
+	Title       string          `json:"title,omitempty"`
+	Description string          `json:"description,omitempty"`
+	Module      string          `json:"module,omitempty"      validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion cross"`
+	TemplateID  *string         `json:"template_id,omitempty"`
+	Rows        json.RawMessage `json:"rows,omitempty"`
+	Settings    json.RawMessage `json:"settings,omitempty"`
+}
+
+type updateReportDocumentRequest struct {
+	Title       *string         `json:"title,omitempty"`
+	Description *string         `json:"description,omitempty"`
+	Module      *string         `json:"module,omitempty"   validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion cross"`
+	Status      *string         `json:"status,omitempty"   validate:"omitempty,oneof=draft final released archived"`
+	Rows        json.RawMessage `json:"rows,omitempty"`
+	Settings    json.RawMessage `json:"settings,omitempty"`
+}
+
+func (br *BerichteRoutes) HandleListDocuments(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	// The library view has no pager; default to a page large enough for it.
+	page, pageSize := parsePagination(r, 1, 100)
+	q := r.URL.Query()
+
+	grpcReq := &berichtev1.ListDocumentsRequest{
+		TenantId: tenantID.String(),
+		Search:   q.Get("search"),
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	}
+	if module := q.Get("module"); module != "" {
+		grpcReq.Module = &module
+	}
+	if docStatus := q.Get("status"); docStatus != "" {
+		grpcReq.Status = &docStatus
+	}
+
+	resp, err := client.ListDocuments(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	documents := make([]reportDocumentWire, 0, len(resp.GetDocuments()))
+	for _, d := range resp.GetDocuments() {
+		documents = append(documents, toReportDocumentWire(d))
+	}
+	response.JSON(w, http.StatusOK, map[string]any{
+		"documents": documents,
+		"total":     resp.GetTotal(),
+	})
+}
+
+func (br *BerichteRoutes) HandleGetDocument(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetDocument(r.Context(), &berichtev1.GetDocumentRequest{
+		TenantId:   tenantID.String(),
+		DocumentId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"document": toReportDocumentWire(resp.GetDocument())})
+}
+
+func (br *BerichteRoutes) HandleCreateDocument(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[createReportDocumentRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateDocument(r.Context(), &berichtev1.CreateDocumentRequest{
+		TenantId:    tenantID.String(),
+		Title:       req.Title,
+		Description: req.Description,
+		Module:      req.Module,
+		TemplateId:  req.TemplateID,
+		Rows:        req.Rows,
+		Settings:    req.Settings,
+		CreatedBy:   &userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, map[string]any{"document": toReportDocumentWire(resp.GetDocument())})
+}
+
+func (br *BerichteRoutes) HandleUpdateDocument(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateReportDocumentRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateDocument(r.Context(), &berichtev1.UpdateDocumentRequest{
+		TenantId:    tenantID.String(),
+		DocumentId:  id,
+		Title:       req.Title,
+		Description: req.Description,
+		Module:      req.Module,
+		Status:      req.Status,
+		Rows:        req.Rows,
+		Settings:    req.Settings,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"document": toReportDocumentWire(resp.GetDocument())})
+}
+
+func (br *BerichteRoutes) HandleDeleteDocument(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	if _, err := client.DeleteDocument(r.Context(), &berichtev1.DeleteDocumentRequest{
+		TenantId:   tenantID.String(),
+		DocumentId: id,
+	}); err != nil {
 		respondGRPCError(w, err)
 		return
 	}

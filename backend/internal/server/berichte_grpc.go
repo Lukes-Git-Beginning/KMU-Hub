@@ -500,6 +500,151 @@ func (s *BerichteGRPCServer) GetDashboardKPIs(ctx context.Context, req *berichte
 // Conversion helpers
 // ============================================================================
 
+// ============================================================================
+// Document RPCs (multi-page authoring)
+// ============================================================================
+
+func (s *BerichteGRPCServer) CreateDocument(ctx context.Context, req *berichtev1.CreateDocumentRequest) (*berichtev1.DocumentResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	input := berichte.CreateDocumentInput{
+		TenantID:    tenantID,
+		Title:       req.GetTitle(),
+		Description: req.GetDescription(),
+		Module:      req.GetModule(),
+		TemplateID:  req.TemplateId,
+		Rows:        json.RawMessage(req.GetRows()),
+		Settings:    json.RawMessage(req.GetSettings()),
+	}
+	if req.CreatedBy != nil {
+		id, parseErr := uuid.Parse(*req.CreatedBy)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		input.CreatedBy = &id
+	}
+
+	doc, err := s.svc.CreateDocument(ctx, input)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+func (s *BerichteGRPCServer) GetDocument(ctx context.Context, req *berichtev1.GetDocumentRequest) (*berichtev1.DocumentResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	doc, err := s.svc.GetDocument(ctx, tenantID, documentID)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+func (s *BerichteGRPCServer) UpdateDocument(ctx context.Context, req *berichtev1.UpdateDocumentRequest) (*berichtev1.DocumentResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	doc, err := s.svc.UpdateDocument(ctx, berichte.UpdateDocumentInput{
+		TenantID:    tenantID,
+		DocumentID:  documentID,
+		Title:       req.Title,
+		Description: req.Description,
+		Module:      req.Module,
+		Status:      req.Status,
+		Rows:        json.RawMessage(req.GetRows()),
+		Settings:    json.RawMessage(req.GetSettings()),
+	})
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+func (s *BerichteGRPCServer) DeleteDocument(ctx context.Context, req *berichtev1.DeleteDocumentRequest) (*berichtev1.DeleteDocumentResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.svc.DeleteDocument(ctx, tenantID, documentID); err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DeleteDocumentResponse{}, nil
+}
+
+func (s *BerichteGRPCServer) ListDocuments(ctx context.Context, req *berichtev1.ListDocumentsRequest) (*berichtev1.ListDocumentsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	docs, total, err := s.svc.ListDocuments(ctx, berichte.ListDocumentsInput{
+		TenantID: tenantID,
+		Module:   req.Module,
+		Status:   req.Status,
+		Search:   req.GetSearch(),
+		Page:     int(req.GetPage()),
+		PageSize: int(req.GetPageSize()),
+	})
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+
+	out := make([]*berichtev1.Document, 0, len(docs))
+	for _, d := range docs {
+		out = append(out, documentToProto(d))
+	}
+	return &berichtev1.ListDocumentsResponse{Documents: out, Total: int32(total)}, nil
+}
+
+func parseTenantAndDocumentID(rawTenantID, rawDocumentID string) (uuid.UUID, uuid.UUID, error) {
+	tenantID, err := uuid.Parse(rawTenantID)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	documentID, err := uuid.Parse(rawDocumentID)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, status.Errorf(codes.InvalidArgument, "invalid document_id: %v", err)
+	}
+	return tenantID, documentID, nil
+}
+
+func documentToProto(d *berichte.Document) *berichtev1.Document {
+	if d == nil {
+		return nil
+	}
+	proto := &berichtev1.Document{
+		Id:          d.ID.String(),
+		TenantId:    d.TenantID.String(),
+		Title:       d.Title,
+		Description: d.Description,
+		Module:      d.Module,
+		Status:      d.Status,
+		Rows:        d.Rows,
+		Settings:    d.Settings,
+		TemplateId:  d.TemplateID,
+		CreatedAt:   timestamppb.New(d.CreatedAt),
+		UpdatedAt:   timestamppb.New(d.UpdatedAt),
+	}
+	if d.CreatedBy != nil {
+		s := d.CreatedBy.String()
+		proto.CreatedBy = &s
+	}
+	if d.ReleasedAt != nil {
+		proto.ReleasedAt = timestamppb.New(*d.ReleasedAt)
+	}
+	return proto
+}
+
 func definitionToProto(d *berichte.Definition) *berichtev1.Definition {
 	if d == nil {
 		return nil
@@ -645,6 +790,14 @@ func mapBerichteError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, berichte.ErrExecutorUnavailable):
 		return status.Error(codes.Unavailable, err.Error())
+	case errors.Is(err, berichte.ErrDocumentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, berichte.ErrInvalidTitle),
+		errors.Is(err, berichte.ErrInvalidStatus),
+		errors.Is(err, berichte.ErrInvalidRows),
+		errors.Is(err, berichte.ErrInvalidSettings),
+		errors.Is(err, berichte.ErrDocumentTooLarge):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled berichte service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

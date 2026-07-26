@@ -34,6 +34,11 @@ const (
 	BerichteService_ListSchedules_FullMethodName    = "/berichte.v1.BerichteService/ListSchedules"
 	BerichteService_ToggleSchedule_FullMethodName   = "/berichte.v1.BerichteService/ToggleSchedule"
 	BerichteService_GetDashboardKPIs_FullMethodName = "/berichte.v1.BerichteService/GetDashboardKPIs"
+	BerichteService_CreateDocument_FullMethodName   = "/berichte.v1.BerichteService/CreateDocument"
+	BerichteService_GetDocument_FullMethodName      = "/berichte.v1.BerichteService/GetDocument"
+	BerichteService_UpdateDocument_FullMethodName   = "/berichte.v1.BerichteService/UpdateDocument"
+	BerichteService_DeleteDocument_FullMethodName   = "/berichte.v1.BerichteService/DeleteDocument"
+	BerichteService_ListDocuments_FullMethodName    = "/berichte.v1.BerichteService/ListDocuments"
 )
 
 // BerichteServiceClient is the client API for BerichteService service.
@@ -60,6 +65,12 @@ type BerichteServiceClient interface {
 	ToggleSchedule(ctx context.Context, in *ToggleScheduleRequest, opts ...grpc.CallOption) (*ScheduleResponse, error)
 	// KPIs (Dashboard convenience)
 	GetDashboardKPIs(ctx context.Context, in *DashboardKPIsRequest, opts ...grpc.CallOption) (*DashboardKPIsResponse, error)
+	// Documents (multi-page authoring)
+	CreateDocument(ctx context.Context, in *CreateDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error)
+	GetDocument(ctx context.Context, in *GetDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error)
+	UpdateDocument(ctx context.Context, in *UpdateDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error)
+	DeleteDocument(ctx context.Context, in *DeleteDocumentRequest, opts ...grpc.CallOption) (*DeleteDocumentResponse, error)
+	ListDocuments(ctx context.Context, in *ListDocumentsRequest, opts ...grpc.CallOption) (*ListDocumentsResponse, error)
 }
 
 type berichteServiceClient struct {
@@ -220,6 +231,56 @@ func (c *berichteServiceClient) GetDashboardKPIs(ctx context.Context, in *Dashbo
 	return out, nil
 }
 
+func (c *berichteServiceClient) CreateDocument(ctx context.Context, in *CreateDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DocumentResponse)
+	err := c.cc.Invoke(ctx, BerichteService_CreateDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *berichteServiceClient) GetDocument(ctx context.Context, in *GetDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DocumentResponse)
+	err := c.cc.Invoke(ctx, BerichteService_GetDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *berichteServiceClient) UpdateDocument(ctx context.Context, in *UpdateDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DocumentResponse)
+	err := c.cc.Invoke(ctx, BerichteService_UpdateDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *berichteServiceClient) DeleteDocument(ctx context.Context, in *DeleteDocumentRequest, opts ...grpc.CallOption) (*DeleteDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteDocumentResponse)
+	err := c.cc.Invoke(ctx, BerichteService_DeleteDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *berichteServiceClient) ListDocuments(ctx context.Context, in *ListDocumentsRequest, opts ...grpc.CallOption) (*ListDocumentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDocumentsResponse)
+	err := c.cc.Invoke(ctx, BerichteService_ListDocuments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BerichteServiceServer is the server API for BerichteService service.
 // All implementations must embed UnimplementedBerichteServiceServer
 // for forward compatibility.
@@ -244,6 +305,12 @@ type BerichteServiceServer interface {
 	ToggleSchedule(context.Context, *ToggleScheduleRequest) (*ScheduleResponse, error)
 	// KPIs (Dashboard convenience)
 	GetDashboardKPIs(context.Context, *DashboardKPIsRequest) (*DashboardKPIsResponse, error)
+	// Documents (multi-page authoring)
+	CreateDocument(context.Context, *CreateDocumentRequest) (*DocumentResponse, error)
+	GetDocument(context.Context, *GetDocumentRequest) (*DocumentResponse, error)
+	UpdateDocument(context.Context, *UpdateDocumentRequest) (*DocumentResponse, error)
+	DeleteDocument(context.Context, *DeleteDocumentRequest) (*DeleteDocumentResponse, error)
+	ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error)
 	mustEmbedUnimplementedBerichteServiceServer()
 }
 
@@ -298,6 +365,21 @@ func (UnimplementedBerichteServiceServer) ToggleSchedule(context.Context, *Toggl
 }
 func (UnimplementedBerichteServiceServer) GetDashboardKPIs(context.Context, *DashboardKPIsRequest) (*DashboardKPIsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetDashboardKPIs not implemented")
+}
+func (UnimplementedBerichteServiceServer) CreateDocument(context.Context, *CreateDocumentRequest) (*DocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateDocument not implemented")
+}
+func (UnimplementedBerichteServiceServer) GetDocument(context.Context, *GetDocumentRequest) (*DocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDocument not implemented")
+}
+func (UnimplementedBerichteServiceServer) UpdateDocument(context.Context, *UpdateDocumentRequest) (*DocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDocument not implemented")
+}
+func (UnimplementedBerichteServiceServer) DeleteDocument(context.Context, *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteDocument not implemented")
+}
+func (UnimplementedBerichteServiceServer) ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDocuments not implemented")
 }
 func (UnimplementedBerichteServiceServer) mustEmbedUnimplementedBerichteServiceServer() {}
 func (UnimplementedBerichteServiceServer) testEmbeddedByValue()                         {}
@@ -590,6 +672,96 @@ func _BerichteService_GetDashboardKPIs_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BerichteService_CreateDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).CreateDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_CreateDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).CreateDocument(ctx, req.(*CreateDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BerichteService_GetDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).GetDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_GetDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).GetDocument(ctx, req.(*GetDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BerichteService_UpdateDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).UpdateDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_UpdateDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).UpdateDocument(ctx, req.(*UpdateDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BerichteService_DeleteDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).DeleteDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_DeleteDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).DeleteDocument(ctx, req.(*DeleteDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BerichteService_ListDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDocumentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).ListDocuments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_ListDocuments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).ListDocuments(ctx, req.(*ListDocumentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BerichteService_ServiceDesc is the grpc.ServiceDesc for BerichteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -656,6 +828,26 @@ var BerichteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDashboardKPIs",
 			Handler:    _BerichteService_GetDashboardKPIs_Handler,
+		},
+		{
+			MethodName: "CreateDocument",
+			Handler:    _BerichteService_CreateDocument_Handler,
+		},
+		{
+			MethodName: "GetDocument",
+			Handler:    _BerichteService_GetDocument_Handler,
+		},
+		{
+			MethodName: "UpdateDocument",
+			Handler:    _BerichteService_UpdateDocument_Handler,
+		},
+		{
+			MethodName: "DeleteDocument",
+			Handler:    _BerichteService_DeleteDocument_Handler,
+		},
+		{
+			MethodName: "ListDocuments",
+			Handler:    _BerichteService_ListDocuments_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

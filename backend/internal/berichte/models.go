@@ -22,6 +22,25 @@ type Definition struct {
 	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
+// Document represents a multi-page report authoring document stored in
+// report_documents ("Schicht 4"). Rows and Settings stay opaque JSONB: the
+// block tree (rows -> columns -> blocks) is owned by the frontend.
+type Document struct {
+	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Module      string     `json:"module"` // finanzen|crm|helpdesk|inventar|produktion|cross
+	Status      string     `json:"status"` // draft|final|released|archived
+	Rows        []byte     `json:"rows"`   // raw JSONB array of rows
+	Settings    []byte     `json:"settings"`
+	TemplateID  *string    `json:"template_id,omitempty"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleasedAt  *time.Time `json:"released_at,omitempty"`
+}
+
 // CacheEntry represents a cached report result.
 type CacheEntry struct {
 	ID           uuid.UUID `json:"id"`

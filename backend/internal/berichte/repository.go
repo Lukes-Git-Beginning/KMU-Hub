@@ -23,6 +23,13 @@ type ListSchedulesFilter struct {
 	Active       *bool
 }
 
+// ListDocumentsFilter narrows a report document listing.
+type ListDocumentsFilter struct {
+	Module *string
+	Status *string
+	Search string
+}
+
 // Repository defines the persistence interface for the berichte module.
 type Repository interface {
 	// Definitions
@@ -50,4 +57,11 @@ type Repository interface {
 
 	// Runs
 	InsertRun(ctx context.Context, run *Run) error
+
+	// Documents (multi-page authoring)
+	CreateDocument(ctx context.Context, doc *Document) error
+	UpdateDocument(ctx context.Context, doc *Document) error
+	DeleteDocument(ctx context.Context, tenantID, documentID uuid.UUID) error
+	GetDocument(ctx context.Context, tenantID, documentID uuid.UUID) (*Document, error)
+	ListDocuments(ctx context.Context, tenantID uuid.UUID, filter ListDocumentsFilter, offset, limit int) ([]*Document, int, error)
 }

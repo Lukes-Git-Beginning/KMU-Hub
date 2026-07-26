@@ -35,8 +35,9 @@ func newTestBerichteServerWithSvc(repo berichte.Repository, exec berichte.Execut
 
 // stubBerichteRepo is a minimal in-memory repository for service-layer tests.
 type stubBerichteRepo struct {
-	def  *berichte.Definition
-	sch  *berichte.Schedule
+	def *berichte.Definition
+	sch *berichte.Schedule
+	doc *berichte.Document
 }
 
 func (r *stubBerichteRepo) CreateDefinition(_ context.Context, def *berichte.Definition) error {
@@ -99,6 +100,28 @@ func (r *stubBerichteRepo) UpdateScheduleLastRun(_ context.Context, _ uuid.UUID,
 	return nil
 }
 func (r *stubBerichteRepo) InsertRun(_ context.Context, _ *berichte.Run) error { return nil }
+
+func (r *stubBerichteRepo) CreateDocument(_ context.Context, doc *berichte.Document) error {
+	r.doc = doc
+	return nil
+}
+func (r *stubBerichteRepo) UpdateDocument(_ context.Context, doc *berichte.Document) error {
+	r.doc = doc
+	return nil
+}
+func (r *stubBerichteRepo) DeleteDocument(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (r *stubBerichteRepo) GetDocument(_ context.Context, _, _ uuid.UUID) (*berichte.Document, error) {
+	if r.doc == nil {
+		return nil, berichte.ErrDocumentNotFound
+	}
+	return r.doc, nil
+}
+func (r *stubBerichteRepo) ListDocuments(_ context.Context, _ uuid.UUID, _ berichte.ListDocumentsFilter, _, _ int) ([]*berichte.Document, int, error) {
+	if r.doc == nil {
+		return nil, 0, nil
+	}
+	return []*berichte.Document{r.doc}, 1, nil
+}
 
 // ============================================================================
 // UUID-Validation tests — these never reach the service layer
