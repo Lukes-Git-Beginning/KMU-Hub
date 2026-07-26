@@ -35,6 +35,10 @@ Arbeitsverzeichnis: das Repo-Root. Loop-Verzeichnis: `.planning/backend-block/lo
   bekommen ALLE 403, auch Admin.
 - **Wire-Shape:** Listen gewrappt `{items,total}`, leere Liste `[]` nicht `null`, snake_case,
   Single-Entity gewrappt. Gegen den FE-Typ pruefen, nicht raten.
+- **Jede neue `/api/v1/*`-Route braucht einen Pfad-Eintrag in `backend/api/openapi.yaml`** — im selben
+  Commit. `TestOpenAPIRouteDrift` in `internal/gateway` erzwingt das und ist in CI ein harter Fehler.
+  Style von den Nachbar-Routen abschauen, alle Status-Codes dokumentieren, die der Handler wirklich
+  liefert (auch 409).
 - **Lean Code:** erst pruefen, ob es das schon gibt. PDF laeuft ueber `internal/biz/pdf/` bzw.
   `internal/berichte/export/pdf.go` (maroto/v2 — **kein** chromedp, **kein** gotenberg). Uploads ueber das
   Presign-Muster in `internal/chat/file/minio_store.go`. Keine neue Dependency ohne Not.
@@ -78,6 +82,9 @@ jede dieser Klassen ist in diesem Repo schon real passiert:
    INSERT **und SELECT**.
 6. **Wire-Shape** — Response-Form weicht vom FE-Typ ab (nackt statt gewrappt, `null` statt `[]`,
    camelCase statt snake_case, verschachteltes Proto-JSON gegen flachen FE-Typ).
+7. **Route ohne Spec-Eintrag** — neue `/api/v1/*`-Route ohne Pfad in `backend/api/openapi.yaml`.
+   Lokal unsichtbar, wenn du nur die Service-Tests laufen laesst; in CI rot. Pruefen mit
+   `go test ./internal/gateway/ -run TestOpenAPIRouteDrift`.
 
 Fund → leg eine **Fix-Unit ganz vorne** in `BACKLOG.yml` an (`id: fix-<original-id>`, `status: todo`),
 notier den Befund im Journal, und **arbeite diese Fix-Unit sofort als deine Unit dieser Iteration ab**.
@@ -126,7 +133,12 @@ go build -p 2 ./internal/<svc>/... ./internal/gateway/... ./cmd/<svc>/... ./cmd/
 go vet ./internal/<svc>/... ./internal/gateway/...
 golangci-lint run --config .golangci.yml ./internal/<svc>/... ./internal/gateway/...
 go test ./internal/<svc>/...
+go test ./internal/gateway/          # PFLICHT sobald du eine Route angefasst hast
 ```
+
+`go test ./internal/gateway/` ist nicht optional: dort liegt `TestOpenAPIRouteDrift`, der jede
+registrierte `/api/v1/*`-Route gegen `api/openapi.yaml` abgleicht. Nur die Service-Tests zu fahren
+laesst eine fehlende Spec-Zeile durch — sie schlaegt dann erst in CI auf, Stunden spaeter.
 
 Lokale DB (laeuft in Docker, Credentials in `deploy/docker/.env`):
 
