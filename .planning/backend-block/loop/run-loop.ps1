@@ -168,8 +168,21 @@ while ($i -lt $MaxIterations) {
     if (Test-Path $logFile) { $body = Get-Content $logFile -Raw }
 
     # Rate-Limit / Ueberlast: warten statt weiterbrennen.
+    #
+    # Zwei Bedingungen, beide noetig. Der Lauf muss FEHLGESCHLAGEN sein - eine
+    # erfolgreiche Iteration ist per Definition nicht rate-limitiert - und der
+    # Text muss eine Limit-Formulierung enthalten.
+    #
+    # Warum so streng: die erste Fassung suchte '429' irgendwo im JSON und traf
+    # damit die Ziffernfolge in Kosten-Floats und Tokenzahlen
+    # ("total_cost_usd":5.367324299999998 enthaelt 429). Ergebnis war ein
+    # 20-Minuten-Backoff nach einer voellig erfolgreichen Iteration. Deshalb
+    # jetzt HTTP-429 nur noch in Feldkontext, und nie ohne Fehlerzustand.
     $isRateLimited = $false
-    if ($body -match '(?i)(rate.?limit|usage limit|overloaded|429|resets at)') { $isRateLimited = $true }
+    $runFailed = ($exitCode -ne 0) -or ($body -match '"is_error"\s*:\s*true')
+    if ($runFailed -and $body -match '(?i)(rate.?limit|usage limit|overloaded|resets at|"status"\s*:\s*429|\b429\b)') {
+        $isRateLimited = $true
+    }
 
     if ($isRateLimited) {
         $rateLimitBackoffs++
