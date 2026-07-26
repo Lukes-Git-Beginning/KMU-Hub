@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
@@ -279,7 +280,12 @@ func (s *AuthGRPCServer) CreateInvitation(ctx context.Context, req *authv1.Creat
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
 	}
 
-	inv, token, err := s.authService.CreateInvitation(ctx, req.Email, req.Role, createdBy)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
+	inv, token, err := s.authService.CreateInvitation(ctx, tenantID, req.Email, req.Role, createdBy)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -291,7 +297,12 @@ func (s *AuthGRPCServer) CreateInvitation(ctx context.Context, req *authv1.Creat
 }
 
 func (s *AuthGRPCServer) ListInvitations(ctx context.Context, req *authv1.ListInvitationsRequest) (*authv1.ListInvitationsResponse, error) {
-	invs, err := s.authService.ListInvitations(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
+	invs, err := s.authService.ListInvitations(ctx, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list invitations")
 	}
@@ -326,7 +337,12 @@ func (s *AuthGRPCServer) CancelInvitation(ctx context.Context, req *authv1.Cance
 		return nil, status.Error(codes.InvalidArgument, "invalid invitation id")
 	}
 
-	if err := s.authService.CancelInvitation(ctx, invID); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
+	if err := s.authService.CancelInvitation(ctx, tenantID, invID); err != nil {
 		return nil, mapError(err)
 	}
 
@@ -652,6 +668,12 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrInvitationExists):
 		return status.Error(codes.AlreadyExists, err.Error())
+	// FailedPrecondition, not ResourceExhausted: the gateway maps the latter to
+	// 429, which reads as "retry in a moment" — a full seat plan is not.
+	case errors.Is(err, auth.ErrSeatLimitReached):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrRoleNotFound):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorAlreadyEnabled):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrTwoFactorNotEnabled):

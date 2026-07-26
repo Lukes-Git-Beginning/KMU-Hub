@@ -150,13 +150,16 @@ func TestService_AcceptInvitation_WrapsWithSystemContext(t *testing.T) {
 	svc, repo := newCtxCapturingService(t)
 
 	tokenHash := HashToken("invite-token")
-	repo.invByToken[tokenHash] = &models.Invitation{
+	inv := &models.Invitation{
 		ID:        uuid.New(),
+		TenantID:  models.DefaultTenantID,
 		Email:     "rls-invite@test.local",
 		Role:      "member",
 		TokenHash: tokenHash,
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
+	repo.invByToken[tokenHash] = inv
+	repo.invitations[inv.ID] = inv
 
 	if _, _, err := svc.AcceptInvitation(context.Background(), "invite-token", "pw12345678", "A", "B"); err != nil {
 		t.Fatalf("accept: %v", err)

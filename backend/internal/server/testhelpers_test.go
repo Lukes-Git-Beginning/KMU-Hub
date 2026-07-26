@@ -216,37 +216,49 @@ func (m *authMockRepo) GetInvitationByToken(_ context.Context, tokenHash string)
 	return inv, nil
 }
 
-func (m *authMockRepo) GetInvitationByID(_ context.Context, id uuid.UUID) (*models.Invitation, error) {
+func (m *authMockRepo) GetInvitationByID(_ context.Context, tenantID, id uuid.UUID) (*models.Invitation, error) {
 	inv, ok := m.invitations[id]
-	if !ok {
+	if !ok || inv.TenantID != tenantID {
 		return nil, auth.ErrInvitationNotFound
 	}
 	return inv, nil
 }
 
-func (m *authMockRepo) ListPendingInvitations(_ context.Context) ([]*models.Invitation, error) {
-	var pending []*models.Invitation
+func (m *authMockRepo) ListPendingInvitations(_ context.Context, tenantID uuid.UUID) ([]*models.Invitation, error) {
+	pending := []*models.Invitation{}
 	for _, inv := range m.invitations {
-		if inv.AcceptedAt == nil {
+		if inv.AcceptedAt == nil && inv.TenantID == tenantID {
 			pending = append(pending, inv)
 		}
 	}
 	return pending, nil
 }
 
-func (m *authMockRepo) MarkInvitationAccepted(_ context.Context, id uuid.UUID) error {
-	inv, ok := m.invitations[id]
+func (m *authMockRepo) AcceptInvitation(ctx context.Context, inv *models.Invitation, user *models.User) error {
+	stored, ok := m.invitations[inv.ID]
 	if !ok {
 		return auth.ErrInvitationNotFound
 	}
+	if stored.AcceptedAt != nil {
+		return auth.ErrInvitationAlreadyUsed
+	}
 	now := time.Now()
-	inv.AcceptedAt = &now
-	return nil
+	stored.AcceptedAt = &now
+	if err := m.CreateUser(ctx, user); err != nil {
+		return err
+	}
+	return m.AssignRole(ctx, user.ID, inv.Role)
 }
 
-func (m *authMockRepo) DeleteInvitation(_ context.Context, id uuid.UUID) error {
+// CountSeatsInUse: the mock tenant has no seat cap booked (nil limit), so the
+// invite path is never blocked here.
+func (m *authMockRepo) CountSeatsInUse(_ context.Context, _ uuid.UUID, _ *uuid.UUID) (int, *int, error) {
+	return 0, nil, nil
+}
+
+func (m *authMockRepo) DeleteInvitation(_ context.Context, tenantID, id uuid.UUID) error {
 	inv, ok := m.invitations[id]
-	if !ok {
+	if !ok || inv.TenantID != tenantID {
 		return auth.ErrInvitationNotFound
 	}
 	delete(m.invByToken, inv.TokenHash)

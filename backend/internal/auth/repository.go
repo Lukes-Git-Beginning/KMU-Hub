@@ -28,13 +28,15 @@ type Repository interface {
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
 	UserHasPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
 
-	// Invitation methods
+	// Invitation methods. Everything but the token lookup is tenant-scoped:
+	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error
 	GetInvitationByToken(ctx context.Context, tokenHash string) (*models.Invitation, error)
-	GetInvitationByID(ctx context.Context, id uuid.UUID) (*models.Invitation, error)
-	ListPendingInvitations(ctx context.Context) ([]*models.Invitation, error)
-	MarkInvitationAccepted(ctx context.Context, id uuid.UUID) error
-	DeleteInvitation(ctx context.Context, id uuid.UUID) error
+	GetInvitationByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invitation, error)
+	ListPendingInvitations(ctx context.Context, tenantID uuid.UUID) ([]*models.Invitation, error)
+	AcceptInvitation(ctx context.Context, inv *models.Invitation, user *models.User) error
+	CountSeatsInUse(ctx context.Context, tenantID uuid.UUID, excludeInvitation *uuid.UUID) (used int, limit *int, err error)
+	DeleteInvitation(ctx context.Context, tenantID, id uuid.UUID) error
 
 	// Two-factor authentication methods
 	StorePending2FASecret(ctx context.Context, userID uuid.UUID, encryptedSecret string) error

@@ -12,11 +12,14 @@ var (
 	ErrUserInactive       = errors.New("user account is inactive")
 	ErrRoleNotFound       = errors.New("role not found")
 
+	ErrTenantNotFound     = errors.New("tenant not found")
+
 	// Invitation errors
 	ErrInvitationNotFound    = errors.New("invitation not found")
 	ErrInvitationExpired     = errors.New("invitation expired")
 	ErrInvitationAlreadyUsed = errors.New("invitation already used")
 	ErrInvitationExists      = errors.New("pending invitation already exists for this email")
+	ErrSeatLimitReached      = errors.New("no seat available: the booked seats are all taken by active users and pending invitations")
 
 	// Two-factor authentication errors
 	ErrTwoFactorAlreadyEnabled = errors.New("two-factor authentication is already enabled")

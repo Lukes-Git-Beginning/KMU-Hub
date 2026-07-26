@@ -485,7 +485,11 @@ paths:
   /api/v1/invitations:
     post:
       summary: Create user invitation
-      description: Creates an invitation to join the system. Requires admin or manager role.
+      description: >-
+        Creates an invitation to join the caller's tenant. Requires admin or
+        manager role. An active user and a pending, unexpired invitation each
+        occupy one seat; if the tenant has a seat limit booked and no seat is
+        free, the request is rejected with 409.
       tags: [users]
       operationId: createInvitation
       security:
@@ -564,9 +568,10 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           description: >-
-            Invitation expired or already used. The backend maps both cases to
-            gRPC FailedPrecondition, which the gateway returns as 409 Conflict
-            (changed from 410 in the R3 hardening wave).
+            Invitation expired, already used, or the tenant has no free seat
+            left. The backend maps these cases to gRPC FailedPrecondition,
+            which the gateway returns as 409 Conflict (changed from 410 in the
+            R3 hardening wave).
           content:
             application/json:
               schema:

@@ -228,75 +228,152 @@ func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.
 
 // Invitation methods
 
+// invitationColumns is the read shape of an invitation; every invitation query
+// selects exactly these, in this order, and scans through scanInvitation.
+const invitationColumns = `id, tenant_id, email, role, token_hash, created_by, expires_at, accepted_at, created_at`
+
+func scanInvitation(row pgx.Row) (*models.Invitation, error) {
+	var inv models.Invitation
+	err := row.Scan(&inv.ID, &inv.TenantID, &inv.Email, &inv.Role, &inv.TokenHash,
+		&inv.CreatedBy, &inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrInvitationNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &inv, nil
+}
+
 func (r *PostgresRepository) CreateInvitation(ctx context.Context, inv *models.Invitation) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO invitations (id, email, role, token_hash, created_by, expires_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		inv.ID, inv.Email, inv.Role, inv.TokenHash, inv.CreatedBy, inv.ExpiresAt, inv.CreatedAt,
+		`INSERT INTO invitations (id, tenant_id, email, role, token_hash, created_by, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		inv.ID, inv.TenantID, inv.Email, inv.Role, inv.TokenHash, inv.CreatedBy, inv.ExpiresAt, inv.CreatedAt,
 	)
 	return err
 }
 
+// GetInvitationByToken looks the invitation up by token hash alone. The caller
+// has no tenant yet — the token is what carries the tenant, and the row it
+// finds is what determines which tenant the account is created in.
 func (r *PostgresRepository) GetInvitationByToken(ctx context.Context, tokenHash string) (*models.Invitation, error) {
-	var inv models.Invitation
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, role, token_hash, created_by, expires_at, accepted_at, created_at
-		 FROM invitations WHERE token_hash = $1`, tokenHash,
-	).Scan(&inv.ID, &inv.Email, &inv.Role, &inv.TokenHash, &inv.CreatedBy,
-		&inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrInvitationNotFound
-	}
-	return &inv, err
+	return scanInvitation(r.pool.QueryRow(ctx,
+		`SELECT `+invitationColumns+` FROM invitations WHERE token_hash = $1`, tokenHash,
+	))
 }
 
-func (r *PostgresRepository) GetInvitationByID(ctx context.Context, id uuid.UUID) (*models.Invitation, error) {
-	var inv models.Invitation
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, role, token_hash, created_by, expires_at, accepted_at, created_at
-		 FROM invitations WHERE id = $1`, id,
-	).Scan(&inv.ID, &inv.Email, &inv.Role, &inv.TokenHash, &inv.CreatedBy,
-		&inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrInvitationNotFound
-	}
-	return &inv, err
+func (r *PostgresRepository) GetInvitationByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invitation, error) {
+	return scanInvitation(r.pool.QueryRow(ctx,
+		`SELECT `+invitationColumns+` FROM invitations WHERE id = $1 AND tenant_id = $2`, id, tenantID,
+	))
 }
 
-func (r *PostgresRepository) ListPendingInvitations(ctx context.Context) ([]*models.Invitation, error) {
+func (r *PostgresRepository) ListPendingInvitations(ctx context.Context, tenantID uuid.UUID) ([]*models.Invitation, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, role, token_hash, created_by, expires_at, accepted_at, created_at
+		`SELECT `+invitationColumns+`
 		 FROM invitations
-		 WHERE accepted_at IS NULL
-		 ORDER BY created_at DESC`,
+		 WHERE tenant_id = $1 AND accepted_at IS NULL
+		 ORDER BY created_at DESC`, tenantID,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var invitations []*models.Invitation
+	// Non-nil so an empty list marshals as [] rather than null.
+	invitations := []*models.Invitation{}
 	for rows.Next() {
-		var inv models.Invitation
-		if err := rows.Scan(&inv.ID, &inv.Email, &inv.Role, &inv.TokenHash, &inv.CreatedBy,
-			&inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt); err != nil {
-			return nil, err
+		inv, scanErr := scanInvitation(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
-		invitations = append(invitations, &inv)
+		invitations = append(invitations, inv)
 	}
 	return invitations, rows.Err()
 }
 
-func (r *PostgresRepository) MarkInvitationAccepted(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE invitations SET accepted_at = NOW() WHERE id = $1`, id,
+// AcceptInvitation claims the invitation, creates the account and assigns the
+// invited role in one transaction.
+//
+// The claim is the conditional UPDATE, not a preceding read: two accepts
+// arriving together would both pass a read-then-write check and create two
+// accounts from one invitation. The UPDATE takes the row lock, so the second
+// transaction sees accepted_at already set and gets ErrInvitationAlreadyUsed.
+// Everything after it shares the transaction — a failure while writing the
+// user rolls the claim back instead of burning the invitation.
+func (r *PostgresRepository) AcceptInvitation(ctx context.Context, inv *models.Invitation, user *models.User) error {
+	// Plain Begin: the pool's PrepareConn hook already stamps the session GUCs
+	// from ctx, and the accept path runs under sysctx.With — the connection
+	// carries app.role='system' before the first statement. Importing
+	// internal/database here is not an option (database → middleware → auth).
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	claim, err := tx.Exec(ctx,
+		`UPDATE invitations SET accepted_at = NOW() WHERE id = $1 AND accepted_at IS NULL`, inv.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if claim.RowsAffected() == 0 {
+		return ErrInvitationAlreadyUsed
+	}
+
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		user.ID, user.TenantID, user.Email, user.PasswordHash, user.FirstName, user.LastName,
+		user.IsActive, user.CreatedAt, user.UpdatedAt,
+	); err != nil {
+		return err
+	}
+
+	// The account is new, so nothing can conflict here: zero rows means the
+	// invited role does not exist. Letting that pass would create an account
+	// with no role at all, which is a support case, not a login.
+	assigned, err := tx.Exec(ctx,
+		`INSERT INTO user_roles (user_id, role_id)
+		 SELECT $1, r.id FROM roles r WHERE r.name = $2`, user.ID, inv.Role,
+	)
+	if err != nil {
+		return err
+	}
+	if assigned.RowsAffected() == 0 {
+		return ErrRoleNotFound
+	}
+
+	return tx.Commit(ctx)
 }
 
-func (r *PostgresRepository) DeleteInvitation(ctx context.Context, id uuid.UUID) error {
+// CountSeatsInUse returns the tenant's booked seats and how many are taken. An
+// active user and a pending, unexpired invitation each take one — an expired
+// invitation does not, so a seat comes back on its own once the invite lapses.
+// A nil limit means the tenant has no seat cap.
+func (r *PostgresRepository) CountSeatsInUse(ctx context.Context, tenantID uuid.UUID, excludeInvitation *uuid.UUID) (used int, limit *int, err error) {
+	err = r.pool.QueryRow(ctx,
+		`SELECT t.seat_limit,
+		        (SELECT COUNT(*) FROM users u
+		          WHERE u.tenant_id = t.id AND u.is_active)
+		      + (SELECT COUNT(*) FROM invitations i
+		          WHERE i.tenant_id = t.id
+		            AND i.accepted_at IS NULL
+		            AND i.expires_at > NOW()
+		            AND ($2::uuid IS NULL OR i.id <> $2))
+		 FROM tenants t WHERE t.id = $1`, tenantID, excludeInvitation,
+	).Scan(&limit, &used)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil, ErrTenantNotFound
+	}
+	return used, limit, err
+}
+
+func (r *PostgresRepository) DeleteInvitation(ctx context.Context, tenantID, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`DELETE FROM invitations WHERE id = $1`, id,
+		`DELETE FROM invitations WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return err
 }

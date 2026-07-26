@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 )
@@ -504,8 +505,17 @@ func TestAuthGRPC_ChangePassword(t *testing.T) {
 // Invitations
 // ============================================================================
 
+// invitationTestTenant is the tenant every invitation test acts as. The
+// invitation RPCs read it from the context — an invitation without a tenant is
+// exactly what migration 000249 removed.
+var invitationTestTenant = uuid.MustParse("b2b2b2b2-0000-4000-8000-000000000002")
+
+func invitationCtx() context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, invitationTestTenant.String())
+}
+
 func TestAuthGRPC_CreateInvitation(t *testing.T) {
-	ctx := context.Background()
+	ctx := invitationCtx()
 
 	t.Run("success", func(t *testing.T) {
 		srv, _ := newTestAuthGRPCServer()
@@ -547,7 +557,7 @@ func TestAuthGRPC_CreateInvitation(t *testing.T) {
 }
 
 func TestAuthGRPC_ListInvitations(t *testing.T) {
-	ctx := context.Background()
+	ctx := invitationCtx()
 
 	t.Run("returns pending invitations", func(t *testing.T) {
 		srv, _ := newTestAuthGRPCServer()
@@ -566,7 +576,7 @@ func TestAuthGRPC_ListInvitations(t *testing.T) {
 }
 
 func TestAuthGRPC_AcceptInvitation(t *testing.T) {
-	ctx := context.Background()
+	ctx := invitationCtx()
 
 	t.Run("success", func(t *testing.T) {
 		srv, _ := newTestAuthGRPCServer()
@@ -620,7 +630,7 @@ func TestAuthGRPC_AcceptInvitation(t *testing.T) {
 }
 
 func TestAuthGRPC_CancelInvitation(t *testing.T) {
-	ctx := context.Background()
+	ctx := invitationCtx()
 
 	t.Run("success", func(t *testing.T) {
 		srv, _ := newTestAuthGRPCServer()

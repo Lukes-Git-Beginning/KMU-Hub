@@ -1355,3 +1355,82 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   - Naechste freie Unit: `p3-admin-invite-flow` (opus, deps leer).
     `p3-berichte-share-token` bleibt durch das blockierte
     `p3-berichte-server-pdf` gesperrt.
+
+## Iteration 19 — p3-admin-invite-flow — done — 2026-07-26 23:5x
+- commit: <s.u. — im Folge-Commit nachgetragen>
+- verify vorgaenger (`b871bbba`, Iteration 18): **sauber**. `.proto` + `hr.pb.go`
+  im selben Commit (Enum `WORK_TIME_SUPERSEDED = 5` in beiden), Migration 000248
+  mit tenant-gescoptem Backfill-Join, Supersede-UPDATE auf `correction.TenantID`
+  gescoped, keine neue Route (nur ein Enum-Wert in `openapi.yaml`), kein neuer
+  `RequirePermission`-Guard, kein Stub. Nichts anzulegen.
+- gebaut: Der Invite-Flow existierte strukturell schon (Create/List/Accept/Cancel
+  ueber `authClient`, Routen registriert, 32-Byte-Token, SHA-256-Hash, 7-Tage-
+  Ablauf). Was fehlte, waren die drei Dinge, an denen er in Produktion falsch
+  gewesen waere:
+  - **Tenant.** `invitations` stammt aus Migration 000004 und hatte **kein
+    `tenant_id`** — die Pending-Liste war global (Admin von Tenant A sah die
+    offenen Einladungen inkl. Adressen von Tenant B), der Unique-Index auf
+    `(email) WHERE accepted_at IS NULL` war global (B konnte eine Adresse nicht
+    einladen, die A offen hatte), und `AcceptInvitation` schrieb den neuen User
+    hart nach `models.DefaultTenantID` — unabhaengig davon, wer eingeladen hat.
+    Migration **000249** ergaenzt `tenant_id NOT NULL` (Backfill ueber
+    `created_by → users.tenant_id`, Rest Default-Tenant), FK auf `tenants`,
+    RLS-Policy `tenant_isolation` (`current_tenant_id() OR is_system_context()`,
+    FORCE) und den Unique-Index auf `(tenant_id, email)`. Repo: jeder SELECT/
+    DELETE tenant-gescoped, nur `GetInvitationByToken` bleibt global — der
+    Annehmende hat noch keinen Tenant, das Token traegt ihn. Der Account landet
+    jetzt in `inv.TenantID`.
+  - **Einmaligkeit.** `AcceptInvitation` las `AcceptedAt`, schrieb dann User +
+    Rolle und markierte zuletzt — `MarkInvitationAccepted`-Fehler wurde **nur
+    geloggt**. Zwei gleichzeitige Annahmen kamen damit beide durch (zwei
+    Accounts aus einer Einladung), und ein Fehler beim Markieren liess das
+    Token offen. Jetzt eine Transaktion im Repo: `UPDATE ... WHERE id = $1 AND
+    accepted_at IS NULL` als Claim (Row-Lock serialisiert), danach User-INSERT
+    und Rollen-INSERT; 0 Rows beim Claim → `ErrInvitationAlreadyUsed`, 0 Rows
+    bei der Rolle → `ErrRoleNotFound` (vorher entstand still ein Account ohne
+    jede Rolle, weil `AssignRole` mit `ON CONFLICT DO NOTHING` keinen Fehler
+    warf).
+  - **Seats.** `tenants.seat_limit INTEGER NULL` (NULL = unbegrenzt, alle
+    Bestands-Tenants). Ein aktiver User und eine offene, **nicht abgelaufene**
+    Einladung belegen je einen Platz; geprueft beim Erzeugen der Einladung und
+    erneut bei der Annahme (dort ohne die eigene Einladung, die gerade in einen
+    User uebergeht) — der zweite Check faengt einen zwischenzeitlichen
+    Plan-Downgrade. `ErrSeatLimitReached` → `FailedPrecondition` → 409 (nicht
+    `ResourceExhausted`/429, das liest sich als "gleich nochmal versuchen").
+    Die Zahl schreibt spaeter `p3-admin-billing-license`; hier entsteht nur die
+    Stelle plus die Durchsetzung.
+  - Schnitt: `internal/auth` kann `internal/middleware` nicht importieren
+    (middleware → auth), darum nimmt der Service `tenantID` als Parameter und
+    die gRPC-Schicht loest ihn per `middleware.GetTenantID(ctx)` auf — wie in
+    `automation_grpc.go`.
+- gate: build ok | vet ok | golangci-lint 0 issues | `go test ./internal/auth/...
+  ./internal/server/ ./internal/gateway/` ok | `TestOpenAPIRouteDrift` ok (keine
+  neue Route; 409-Beschreibungen der beiden Invitation-Pfade ergaenzt) |
+  migration ok (`up` → 249, `down 1` → 248 mit wiederhergestelltem globalem
+  Index, `up` → 249) | rls-smoke ok
+- rls-smoke (lokal als `kmuhub_app`, NOSUPERUSER NOBYPASSRLS): fremder Tenant
+  sieht die Einladung **0**-mal, eigener Tenant **1**-mal, System-Context
+  **1**-mal (das ist der Accept-Pfad), und ein `UPDATE ... accepted_at` aus
+  fremdem Tenant trifft **0 Zeilen**. Neue Tests in
+  `internal/auth/rls_invitations_test.go`.
+- offen / fuer Luke:
+  - **Lokale Dev-DB angefasst:** `ALTER ROLE kmuhub_app WITH LOGIN PASSWORD
+    'kmuhub_dev'` — die Rolle hatte lokal kein Passwort, sonst laeuft der
+    RLS-Smoke nicht. Nur der Docker-Container, nichts im Repo, Production nicht
+    beruehrt.
+  - **Rollen-Eskalation beim Einladen ungeprueft:** `POST /api/v1/invitations`
+    steht hinter `RequireRole("admin","manager")`, aber ein `manager` darf
+    weiterhin `role: "admin"` einladen. Der Guard gehoert in die
+    RBAC-Phase 1 (Privilege-Escalation-Guard, `.planning/backend-gaps.md`
+    Zeile 43) — bewusst nicht hier gebaut, Phase 1 macht Luke.
+  - **`down`-Migration kann scheitern**, wenn nach dem Rollout zwei Tenants
+    dieselbe Adresse offen eingeladen haben: der globale Unique-Index laesst
+    sich dann nicht wiederherstellen. Bewusst so — die Alternative waere, eine
+    der beiden Einladungen still zu loeschen.
+  - Kein FE-Contract-Bruch: `InvitationInfo` im Proto ist unveraendert, der
+    neue `tenant_id` steht nur im Go-Modell und in der DB.
+  - Unveraendert offen aus frueheren Iterationen: `aggregateDailyBuckets` /
+    `GetDailySummary` ohne `tenant_id`-Filter (Signaturschnitt);
+    `finance-client.ts:229` ruft `mark-paid`, die Route heisst `/pay`;
+    HR-Status als Enum-Zahl gegen den String-lesenden FE-Adapter.
+  - Naechste freie Unit: `p3-admin-billing-license` (deps jetzt erfuellt).

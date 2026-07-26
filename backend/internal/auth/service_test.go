@@ -13,6 +13,11 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// testInviteTenant is deliberately not models.DefaultTenantID: an account
+// created from an invitation must land in the inviting tenant, and only a
+// non-default tenant can tell the two apart.
+var testInviteTenant = uuid.MustParse("a1a1a1a1-0000-4000-8000-000000000001")
+
 // mockRepository implements Repository for testing
 type mockRepository struct {
 	users               map[uuid.UUID]*models.User
@@ -25,6 +30,7 @@ type mockRepository struct {
 	sessions            []*models.UserSession
 	recoveryCodes       []*models.RecoveryCode
 	passwordResetTokens map[string]*models.PasswordResetToken // keyed by token_hash
+	seatLimits          map[uuid.UUID]*int                   // tenant → booked seats, absent = unlimited
 }
 
 func newMockRepository() *mockRepository {
@@ -39,6 +45,7 @@ func newMockRepository() *mockRepository {
 		sessions:            nil,
 		recoveryCodes:       nil,
 		passwordResetTokens: make(map[string]*models.PasswordResetToken),
+		seatLimits:          make(map[uuid.UUID]*int),
 	}
 }
 
@@ -181,37 +188,67 @@ func (m *mockRepository) GetInvitationByToken(_ context.Context, tokenHash strin
 	return inv, nil
 }
 
-func (m *mockRepository) GetInvitationByID(_ context.Context, id uuid.UUID) (*models.Invitation, error) {
+func (m *mockRepository) GetInvitationByID(_ context.Context, tenantID, id uuid.UUID) (*models.Invitation, error) {
 	inv, ok := m.invitations[id]
-	if !ok {
+	if !ok || inv.TenantID != tenantID {
 		return nil, ErrInvitationNotFound
 	}
 	return inv, nil
 }
 
-func (m *mockRepository) ListPendingInvitations(_ context.Context) ([]*models.Invitation, error) {
-	var pending []*models.Invitation
+func (m *mockRepository) ListPendingInvitations(_ context.Context, tenantID uuid.UUID) ([]*models.Invitation, error) {
+	pending := []*models.Invitation{}
 	for _, inv := range m.invitations {
-		if inv.AcceptedAt == nil {
+		if inv.AcceptedAt == nil && inv.TenantID == tenantID {
 			pending = append(pending, inv)
 		}
 	}
 	return pending, nil
 }
 
-func (m *mockRepository) MarkInvitationAccepted(_ context.Context, id uuid.UUID) error {
-	inv, ok := m.invitations[id]
+// AcceptInvitation mirrors the repository's transaction: the claim is
+// conditional on the invitation still being pending, and nothing is written
+// when it is not.
+func (m *mockRepository) AcceptInvitation(ctx context.Context, inv *models.Invitation, user *models.User) error {
+	stored, ok := m.invitations[inv.ID]
 	if !ok {
 		return ErrInvitationNotFound
 	}
+	if stored.AcceptedAt != nil {
+		return ErrInvitationAlreadyUsed
+	}
 	now := time.Now()
-	inv.AcceptedAt = &now
-	return nil
+	stored.AcceptedAt = &now
+	if err := m.CreateUser(ctx, user); err != nil {
+		return err
+	}
+	return m.AssignRole(ctx, user.ID, inv.Role)
 }
 
-func (m *mockRepository) DeleteInvitation(_ context.Context, id uuid.UUID) error {
+// CountSeatsInUse counts the same two populations as the SQL: active users of
+// the tenant plus its pending, unexpired invitations.
+func (m *mockRepository) CountSeatsInUse(_ context.Context, tenantID uuid.UUID, excludeInvitation *uuid.UUID) (int, *int, error) {
+	used := 0
+	for _, u := range m.users {
+		if u.TenantID == tenantID && u.IsActive {
+			used++
+		}
+	}
+	for _, inv := range m.invitations {
+		if inv.TenantID != tenantID || inv.AcceptedAt != nil || !inv.ExpiresAt.After(time.Now()) {
+			continue
+		}
+		if excludeInvitation != nil && inv.ID == *excludeInvitation {
+			continue
+		}
+		used++
+	}
+	return used, m.seatLimits[tenantID], nil
+}
+
+func (m *mockRepository) DeleteInvitation(_ context.Context, tenantID, id uuid.UUID) error {
 	inv, ok := m.invitations[id]
-	if !ok {
+	if !ok || inv.TenantID != tenantID {
 		return ErrInvitationNotFound
 	}
 	delete(m.invByToken, inv.TokenHash)
@@ -844,7 +881,7 @@ func TestService_CreateInvitation(t *testing.T) {
 			tt.setup(repo)
 			createdBy := uuid.New()
 
-			inv, token, err := svc.CreateInvitation(context.Background(), tt.email, tt.role, createdBy)
+			inv, token, err := svc.CreateInvitation(context.Background(), testInviteTenant, tt.email, tt.role, createdBy)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -853,6 +890,7 @@ func TestService_CreateInvitation(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, inv)
+				assert.Equal(t, testInviteTenant, inv.TenantID)
 				assert.Equal(t, tt.email, inv.Email)
 				assert.Equal(t, tt.role, inv.Role)
 				assert.NotEmpty(t, token)
@@ -871,7 +909,7 @@ func TestService_AcceptInvitation(t *testing.T) {
 		{
 			name: "success",
 			setup: func(svc *Service, repo *mockRepository) string {
-				inv, token, _ := svc.CreateInvitation(context.Background(), "new@example.com", "member", uuid.New())
+				inv, token, _ := svc.CreateInvitation(context.Background(), testInviteTenant, "new@example.com", "member", uuid.New())
 				_ = inv
 				return token
 			},
@@ -888,6 +926,7 @@ func TestService_AcceptInvitation(t *testing.T) {
 			setup: func(svc *Service, repo *mockRepository) string {
 				inv := &models.Invitation{
 					ID:        uuid.New(),
+					TenantID:  testInviteTenant,
 					Email:     "expired@example.com",
 					Role:      "member",
 					TokenHash: HashToken("expired-token"),
@@ -907,6 +946,7 @@ func TestService_AcceptInvitation(t *testing.T) {
 				now := time.Now()
 				inv := &models.Invitation{
 					ID:         uuid.New(),
+					TenantID:   testInviteTenant,
 					Email:      "used@example.com",
 					Role:       "member",
 					TokenHash:  HashToken("used-token"),
@@ -940,9 +980,10 @@ func TestService_AcceptInvitation(t *testing.T) {
 				assert.NotNil(t, tokens)
 				assert.NotEmpty(t, tokens.AccessToken)
 				assert.NotEmpty(t, tokens.RefreshToken)
-				// Default tenant assigned (sprint-4 welle-0.5: prevent uuid.Nil tenant)
-				assert.Equal(t, models.DefaultTenantID, user.TenantID,
-					"AcceptInvitation must set TenantID to models.DefaultTenantID, got %s", user.TenantID)
+				// The account belongs to the tenant that invited it, not to the
+				// default tenant (migration 000249).
+				assert.Equal(t, testInviteTenant, user.TenantID,
+					"AcceptInvitation must take the tenant from the invitation, got %s", user.TenantID)
 			}
 		})
 	}
@@ -952,8 +993,8 @@ func TestService_ListInvitations(t *testing.T) {
 	svc, repo := newTestService()
 
 	// Create some invitations
-	_, _, _ = svc.CreateInvitation(context.Background(), "a@example.com", "member", uuid.New())
-	_, _, _ = svc.CreateInvitation(context.Background(), "b@example.com", "admin", uuid.New())
+	_, _, _ = svc.CreateInvitation(context.Background(), testInviteTenant, "a@example.com", "member", uuid.New())
+	_, _, _ = svc.CreateInvitation(context.Background(), testInviteTenant, "b@example.com", "admin", uuid.New())
 
 	// Mark one as accepted
 	for id, inv := range repo.invitations {
@@ -965,7 +1006,7 @@ func TestService_ListInvitations(t *testing.T) {
 		}
 	}
 
-	invs, err := svc.ListInvitations(context.Background())
+	invs, err := svc.ListInvitations(context.Background(), testInviteTenant)
 	require.NoError(t, err)
 	assert.Len(t, invs, 1)
 	assert.Equal(t, "b@example.com", invs[0].Email)
@@ -980,7 +1021,7 @@ func TestService_CancelInvitation(t *testing.T) {
 		{
 			name: "success",
 			setup: func(svc *Service, repo *mockRepository) uuid.UUID {
-				inv, _, _ := svc.CreateInvitation(context.Background(), "cancel@example.com", "member", uuid.New())
+				inv, _, _ := svc.CreateInvitation(context.Background(), testInviteTenant, "cancel@example.com", "member", uuid.New())
 				return inv.ID
 			},
 		},
@@ -994,7 +1035,7 @@ func TestService_CancelInvitation(t *testing.T) {
 		{
 			name: "already accepted",
 			setup: func(svc *Service, repo *mockRepository) uuid.UUID {
-				inv, _, _ := svc.CreateInvitation(context.Background(), "accepted@example.com", "member", uuid.New())
+				inv, _, _ := svc.CreateInvitation(context.Background(), testInviteTenant, "accepted@example.com", "member", uuid.New())
 				now := time.Now()
 				inv.AcceptedAt = &now
 				return inv.ID
@@ -1008,7 +1049,7 @@ func TestService_CancelInvitation(t *testing.T) {
 			svc, repo := newTestService()
 			invID := tt.setup(svc, repo)
 
-			err := svc.CancelInvitation(context.Background(), invID)
+			err := svc.CancelInvitation(context.Background(), testInviteTenant, invID)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -1075,4 +1116,118 @@ func TestService_RecoveryCode_TenantID(t *testing.T) {
 		assert.NotEmpty(t, rc.CodeHash,
 			"RecoveryCode[%d] must have non-empty CodeHash", i)
 	}
+}
+
+// TestService_AcceptInvitation_IsSingleUse redeems the same token twice. The
+// second attempt must be rejected and must not leave a second account behind:
+// before the claim moved into the repository transaction, two accepts could
+// both pass the AcceptedAt check and create two users from one invitation.
+func TestService_AcceptInvitation_IsSingleUse(t *testing.T) {
+	svc, repo := newTestService()
+
+	_, token, err := svc.CreateInvitation(context.Background(), testInviteTenant, "single@example.com", "member", uuid.New())
+	require.NoError(t, err)
+
+	user, _, err := svc.AcceptInvitation(context.Background(), token, "password123", "First", "Last")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+
+	_, _, err = svc.AcceptInvitation(context.Background(), token, "password123", "Second", "Try")
+	assert.ErrorIs(t, err, ErrInvitationAlreadyUsed)
+	assert.Len(t, repo.users, 1, "a redeemed invitation must not create a second account")
+}
+
+// TestService_CancelInvitation_ForeignTenant guards the read side: cancelling
+// takes a tenant, and an invitation of another tenant must be invisible rather
+// than deletable.
+func TestService_CancelInvitation_ForeignTenant(t *testing.T) {
+	svc, _ := newTestService()
+
+	inv, _, err := svc.CreateInvitation(context.Background(), testInviteTenant, "foreign@example.com", "member", uuid.New())
+	require.NoError(t, err)
+
+	err = svc.CancelInvitation(context.Background(), uuid.New(), inv.ID)
+	assert.ErrorIs(t, err, ErrInvitationNotFound)
+}
+
+// TestService_ListInvitations_ScopedToTenant verifies that the pending list is
+// per tenant — the pre-000249 list was global.
+func TestService_ListInvitations_ScopedToTenant(t *testing.T) {
+	svc, _ := newTestService()
+	otherTenant := uuid.New()
+
+	_, _, err := svc.CreateInvitation(context.Background(), testInviteTenant, "mine@example.com", "member", uuid.New())
+	require.NoError(t, err)
+	_, _, err = svc.CreateInvitation(context.Background(), otherTenant, "theirs@example.com", "member", uuid.New())
+	require.NoError(t, err)
+
+	invs, err := svc.ListInvitations(context.Background(), testInviteTenant)
+	require.NoError(t, err)
+	require.Len(t, invs, 1)
+	assert.Equal(t, "mine@example.com", invs[0].Email)
+}
+
+func TestService_CreateInvitation_SeatLimit(t *testing.T) {
+	limit := func(n int) *int { return &n }
+
+	t.Run("pending invitation occupies a seat", func(t *testing.T) {
+		svc, repo := newTestService()
+		repo.seatLimits[testInviteTenant] = limit(1)
+
+		_, _, err := svc.CreateInvitation(context.Background(), testInviteTenant, "first@example.com", "member", uuid.New())
+		require.NoError(t, err)
+
+		_, _, err = svc.CreateInvitation(context.Background(), testInviteTenant, "second@example.com", "member", uuid.New())
+		assert.ErrorIs(t, err, ErrSeatLimitReached,
+			"the pending invitation holds the only seat")
+	})
+
+	t.Run("active user occupies a seat", func(t *testing.T) {
+		svc, repo := newTestService()
+		repo.seatLimits[testInviteTenant] = limit(1)
+		occupant := createTestUser(repo, "active@example.com", "pass", true)
+		occupant.TenantID = testInviteTenant
+
+		_, _, err := svc.CreateInvitation(context.Background(), testInviteTenant, "next@example.com", "member", uuid.New())
+		assert.ErrorIs(t, err, ErrSeatLimitReached)
+	})
+
+	t.Run("another tenant's seats do not count", func(t *testing.T) {
+		svc, repo := newTestService()
+		repo.seatLimits[testInviteTenant] = limit(1)
+		occupant := createTestUser(repo, "elsewhere@example.com", "pass", true)
+		occupant.TenantID = uuid.New()
+
+		_, _, err := svc.CreateInvitation(context.Background(), testInviteTenant, "ours@example.com", "member", uuid.New())
+		require.NoError(t, err)
+	})
+
+	t.Run("no limit booked means unlimited", func(t *testing.T) {
+		svc, repo := newTestService()
+		for i := 0; i < 3; i++ {
+			occupant := createTestUser(repo, "u"+string(rune('a'+i))+"@example.com", "pass", true)
+			occupant.TenantID = testInviteTenant
+		}
+
+		_, _, err := svc.CreateInvitation(context.Background(), testInviteTenant, "more@example.com", "member", uuid.New())
+		require.NoError(t, err)
+	})
+}
+
+// TestService_AcceptInvitation_SeatWithdrawn covers the downgrade case: the
+// invitation was issued while a seat was free, the plan shrank in the meantime,
+// and the account must not be created past the limit.
+func TestService_AcceptInvitation_SeatWithdrawn(t *testing.T) {
+	svc, repo := newTestService()
+
+	_, token, err := svc.CreateInvitation(context.Background(), testInviteTenant, "late@example.com", "member", uuid.New())
+	require.NoError(t, err)
+
+	occupant := createTestUser(repo, "incumbent@example.com", "pass", true)
+	occupant.TenantID = testInviteTenant
+	seats := 1
+	repo.seatLimits[testInviteTenant] = &seats
+
+	_, _, err = svc.AcceptInvitation(context.Background(), token, "password123", "Late", "Comer")
+	assert.ErrorIs(t, err, ErrSeatLimitReached)
 }
