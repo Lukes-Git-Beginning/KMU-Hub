@@ -350,9 +350,17 @@ export function resolveValueSet(
   draftOverlay?: Record<string, Omit<ValueSet, 'layer'>>,
 ): ResolvedValueSet | null {
   const def = DEFAULT_VALUE_SETS[id]
-  if (!def) return null
+  const vendorSet = vendorValueSets[id]
+  const tenantSet = tenantValueSets[id]
+  const draftSet = draftOverlay?.[id]
+
+  // A set may have no code default and still exist — a tenant-created list, or a
+  // brand-new draft-only list authored in the editor. Only bail if no layer has it.
+  if (!def && !vendorSet && !tenantSet && !draftSet) return null
 
   if (base) {
+    // base = the code default only; a set without one has no baseline.
+    if (!def) return null
     return {
       id: def.id,
       name: def.name,
@@ -364,18 +372,18 @@ export function resolveValueSet(
   // Build a merged option map: default → vendor → tenant → draft
   const merged: Record<string, ResolvedValueSetOption> = {}
 
-  for (const opt of def.options) {
-    merged[opt.id] = { ...opt, provenance: 'default' }
+  if (def) {
+    for (const opt of def.options) {
+      merged[opt.id] = { ...opt, provenance: 'default' }
+    }
   }
 
-  const vendorSet = vendorValueSets[id]
   if (vendorSet) {
     for (const opt of vendorSet.options) {
       merged[opt.id] = { ...opt, provenance: 'vendor' }
     }
   }
 
-  const tenantSet = tenantValueSets[id]
   if (tenantSet) {
     for (const opt of tenantSet.options) {
       merged[opt.id] = { ...opt, provenance: 'tenant' }
@@ -383,7 +391,6 @@ export function resolveValueSet(
   }
 
   // draft wins per option (4th layer, only supplied inside the editor sandbox).
-  const draftSet = draftOverlay?.[id]
   if (draftSet) {
     for (const opt of draftSet.options) {
       merged[opt.id] = { ...opt, provenance: 'draft' }
@@ -394,7 +401,7 @@ export function resolveValueSet(
   const draftName = draftSet?.name
   const tenantName = tenantSet?.name
   const vendorName = vendorSet?.name
-  const effectiveName = draftName ?? tenantName ?? vendorName ?? def.name
+  const effectiveName = draftName ?? tenantName ?? vendorName ?? def?.name ?? id
   const nameProvenance: ConfigProvenance = draftName
     ? 'draft'
     : tenantName

@@ -19,7 +19,6 @@ import {
   Lock,
   Zap,
   Route,
-  Settings2,
   Pencil,
   Tag,
   Bot,
@@ -1191,9 +1190,7 @@ function TicketDetailPanel({
             in context (G2). Values persist in the session overlay (backend-gaps). */}
         {customFieldDefs.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-              <Settings2 className="h-3 w-3" /> <EditableText as="span" dkey="helpdesk.ticket.customFields" />
-            </h4>
+            <h4 className="text-xs font-medium text-muted-foreground mb-2"><EditableText as="span" dkey="helpdesk.ticket.customFields" /></h4>
             <div className="grid grid-cols-2 gap-3">
               {customFieldDefs.map((def) => (
                 <div key={def.id} className="space-y-1">

@@ -45,7 +45,7 @@ function toEditable(resolved: ResolvedValueSet): {
   }
 }
 
-function ValueSetEditor({ id }: { id: string }): React.ReactElement | null {
+function ValueSetEditor({ id, predefined }: { id: string; predefined: boolean }): React.ReactElement | null {
   const { t } = useTranslation()
   const {
     valueSets: draftSets,
@@ -120,20 +120,31 @@ function ValueSetEditor({ id }: { id: string }): React.ReactElement | null {
 
   return (
     <div className="rounded-lg border bg-card">
-      {/* Set header: name + provenance + reset */}
+      {/* Set header. Predefined sets (module-anchored) show a static title — their
+          module-facing label is renamed by clicking it in the preview (edit-in-
+          place), so a separate name field here would be a dead control. Newly
+          created sets have no module anchor yet, so their name IS editable here. */}
       <div className="flex items-center gap-2 border-b px-3 py-2.5">
-        <input
-          value={editable.name}
-          onChange={(e) => commit({ ...editable, name: e.target.value })}
-          aria-label={t('customization.editor.wertelisten.setNameLabel')}
-          className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-sm font-medium outline-none focus:border-primary"
-        />
-        {resolved.provenance !== 'default' && (
+        {predefined ? (
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">{editable.name}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{t('customization.editor.wertelisten.renameInModule')}</p>
+          </div>
+        ) : (
+          <input
+            value={editable.name}
+            onChange={(e) => commit({ ...editable, name: e.target.value })}
+            aria-label={t('customization.editor.wertelisten.setNameLabel')}
+            placeholder={t('customization.editor.wertelisten.newSetName')}
+            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-sm font-medium outline-none focus:border-primary"
+          />
+        )}
+        {predefined && resolved.provenance !== 'default' && (
           <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${PROVENANCE_STYLE[resolved.provenance] ?? ''}`}>
             {t(`customization.labels.provenance.${resolved.provenance}`)}
           </span>
         )}
-        {isDraft && (
+        {predefined && isDraft && (
           <button
             type="button"
             onClick={() => resetDraftValueSet(id)}
@@ -142,6 +153,17 @@ function ValueSetEditor({ id }: { id: string }): React.ReactElement | null {
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
+        {!predefined && (
+          <button
+            type="button"
+            onClick={() => resetDraftValueSet(id)}
+            aria-label={t('customization.editor.wertelisten.deleteSet')}
+            title={t('customization.editor.wertelisten.deleteSet')}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-error-light hover:text-error"
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -299,13 +321,43 @@ function ValueSetEditor({ id }: { id: string }): React.ReactElement | null {
 }
 
 export function WertelistenPanel({ moduleKey }: { moduleKey: string }): React.ReactElement {
+  const { t } = useTranslation()
   const module = getEditorModule(moduleKey)
-  const ids = module?.valueSetIds ?? []
+  const predefinedIds = module?.valueSetIds ?? []
+  const { valueSets: draftSets, setDraftValueSet } = useDraftConfig()
+  // Sets present in the draft but not part of the module's fixed list are ones
+  // the user created here — rendered below the predefined ones, fully editable.
+  const newIds = Object.keys(draftSets).filter((id) => !predefinedIds.includes(id))
+
+  const createValueSet = (): void => {
+    const stamp = Date.now().toString(36)
+    const rand = Math.random().toString(36).slice(2, 6)
+    const setId = `vs-${stamp}-${rand}`
+    setDraftValueSet(setId, {
+      id: setId,
+      name: t('customization.editor.wertelisten.newSetName'),
+      options: [
+        { id: `opt-${stamp}`, label: t('customization.editor.wertelisten.newOption'), color: SWATCHES[1], order: 0, active: true },
+      ],
+    })
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
-      {ids.map((id) => (
-        <ValueSetEditor key={id} id={id} />
+      {predefinedIds.map((id) => (
+        <ValueSetEditor key={id} id={id} predefined />
       ))}
+      {newIds.map((id) => (
+        <ValueSetEditor key={id} id={id} predefined={false} />
+      ))}
+      <button
+        type="button"
+        onClick={createValueSet}
+        className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+        {t('customization.editor.wertelisten.addSet')}
+      </button>
     </div>
   )
 }

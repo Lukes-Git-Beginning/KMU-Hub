@@ -16,7 +16,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
-import { X, Undo2, Redo2, Eye, EyeOff, Wand2, ChevronDown } from 'lucide-react'
+import { X, Undo2, Redo2, Wand2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import { saveDraft } from '@/mocks/data/customization-drafts'
@@ -52,7 +52,6 @@ function EditorLayout({
   const { t } = useTranslation()
   const { isDirty, changeCount, buildPayload } = useDraftConfig()
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
-  const [previewOnly, setPreviewOnly] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
 
   // Editor is for editing, not using: block any in-module action that navigates
@@ -105,17 +104,6 @@ function EditorLayout({
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled aria-label={t('customization.editor.redo')}>
             <Redo2 className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <div className="mx-1 h-5 w-px bg-border" />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5"
-            onClick={() => setPreviewOnly((v) => !v)}
-            aria-pressed={previewOnly}
-          >
-            {previewOnly ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
-            <span className="text-xs">{t('customization.editor.preview')}</span>
-          </Button>
         </div>
       </div>
 
@@ -129,11 +117,11 @@ function EditorLayout({
 
       {/* ── Body: trio-nav · preview · properties ──────────────────────── */}
       <div className="flex min-h-0 flex-1">
-        {!previewOnly && <EditorTrioNav active={activeSection} onSelect={setActiveSection} />}
+        <EditorTrioNav active={activeSection} onSelect={setActiveSection} />
         <div className="min-w-0 flex-1">
           <ModuleSandbox module={module} />
         </div>
-        {!previewOnly && <EditorPropertiesPanel section={activeSection} moduleKey={module.key} />}
+        <EditorPropertiesPanel section={activeSection} moduleKey={module.key} />
       </div>
 
       {/* ── Commit footer (48px) ───────────────────────────────────────── */}
