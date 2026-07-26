@@ -2624,6 +2624,10 @@ func mapBizError(err error) error {
 		errors.Is(err, recurring.ErrScheduleExhausted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 
+	// Open items (Offene Posten)
+	case errors.Is(err, models.ErrUnknownAgingBucket):
+		return status.Error(codes.InvalidArgument, err.Error())
+
 	// Invoice errors
 	case errors.Is(err, invoice.ErrInvoiceNotFound):
 		return status.Error(codes.NotFound, err.Error())

@@ -51,6 +51,7 @@ const (
 	FinanceService_EscalateDunning_FullMethodName              = "/biz.v1.FinanceService/EscalateDunning"
 	FinanceService_GetDunningConfig_FullMethodName             = "/biz.v1.FinanceService/GetDunningConfig"
 	FinanceService_UpdateDunningConfig_FullMethodName          = "/biz.v1.FinanceService/UpdateDunningConfig"
+	FinanceService_ListOpenItems_FullMethodName                = "/biz.v1.FinanceService/ListOpenItems"
 	FinanceService_GetFinanceDashboard_FullMethodName          = "/biz.v1.FinanceService/GetFinanceDashboard"
 	FinanceService_ExportDATEV_FullMethodName                  = "/biz.v1.FinanceService/ExportDATEV"
 	FinanceService_GenerateQuotePDF_FullMethodName             = "/biz.v1.FinanceService/GenerateQuotePDF"
@@ -128,6 +129,8 @@ type FinanceServiceClient interface {
 	EscalateDunning(ctx context.Context, in *EscalateDunningRequest, opts ...grpc.CallOption) (*EscalateDunningResponse, error)
 	GetDunningConfig(ctx context.Context, in *GetDunningConfigRequest, opts ...grpc.CallOption) (*GetDunningConfigResponse, error)
 	UpdateDunningConfig(ctx context.Context, in *UpdateDunningConfigRequest, opts ...grpc.CallOption) (*UpdateDunningConfigResponse, error)
+	// Open items (Offene Posten): the receivables the dunning run escalates.
+	ListOpenItems(ctx context.Context, in *ListOpenItemsRequest, opts ...grpc.CallOption) (*ListOpenItemsResponse, error)
 	// ==================== Dashboard ====================
 	GetFinanceDashboard(ctx context.Context, in *GetFinanceDashboardRequest, opts ...grpc.CallOption) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
@@ -497,6 +500,16 @@ func (c *financeServiceClient) UpdateDunningConfig(ctx context.Context, in *Upda
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateDunningConfigResponse)
 	err := c.cc.Invoke(ctx, FinanceService_UpdateDunningConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListOpenItems(ctx context.Context, in *ListOpenItemsRequest, opts ...grpc.CallOption) (*ListOpenItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOpenItemsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListOpenItems_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -875,6 +888,8 @@ type FinanceServiceServer interface {
 	EscalateDunning(context.Context, *EscalateDunningRequest) (*EscalateDunningResponse, error)
 	GetDunningConfig(context.Context, *GetDunningConfigRequest) (*GetDunningConfigResponse, error)
 	UpdateDunningConfig(context.Context, *UpdateDunningConfigRequest) (*UpdateDunningConfigResponse, error)
+	// Open items (Offene Posten): the receivables the dunning run escalates.
+	ListOpenItems(context.Context, *ListOpenItemsRequest) (*ListOpenItemsResponse, error)
 	// ==================== Dashboard ====================
 	GetFinanceDashboard(context.Context, *GetFinanceDashboardRequest) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
@@ -1025,6 +1040,9 @@ func (UnimplementedFinanceServiceServer) GetDunningConfig(context.Context, *GetD
 }
 func (UnimplementedFinanceServiceServer) UpdateDunningConfig(context.Context, *UpdateDunningConfigRequest) (*UpdateDunningConfigResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateDunningConfig not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListOpenItems(context.Context, *ListOpenItemsRequest) (*ListOpenItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListOpenItems not implemented")
 }
 func (UnimplementedFinanceServiceServer) GetFinanceDashboard(context.Context, *GetFinanceDashboardRequest) (*GetFinanceDashboardResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetFinanceDashboard not implemented")
@@ -1718,6 +1736,24 @@ func _FinanceService_UpdateDunningConfig_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FinanceServiceServer).UpdateDunningConfig(ctx, req.(*UpdateDunningConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListOpenItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOpenItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListOpenItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListOpenItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListOpenItems(ctx, req.(*ListOpenItemsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2450,6 +2486,10 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateDunningConfig",
 			Handler:    _FinanceService_UpdateDunningConfig_Handler,
+		},
+		{
+			MethodName: "ListOpenItems",
+			Handler:    _FinanceService_ListOpenItems_Handler,
 		},
 		{
 			MethodName: "GetFinanceDashboard",

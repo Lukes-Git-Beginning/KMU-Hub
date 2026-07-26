@@ -951,3 +951,116 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   - Naechste freie Unit in Reihenfolge: `p3-finance-op-mahnwesen` (opus, deps
     jetzt erfuellt), `p3-zeiterfassung-entries` (sonnet, vorher verifizieren)
     oder `p3-admin-invite-flow` (opus).
+
+## Iteration 15 — p3-finance-op-mahnwesen — done — 2026-07-26
+
+- commit: (siehe naechste Zeile im Journal-Nachtrag)
+- verify vorgaenger: sauber. `598e8301` (recurring invoices) gegen die sechs
+  Fehlerklassen geprueft: Migration 000246 setzt auf beiden neuen Tabellen
+  `tenant_id UUID NOT NULL` + `ENABLE`/`FORCE ROW LEVEL SECURITY` +
+  `tenant_isolation`-Policy mit USING **und** WITH CHECK; der Gateway-Handler
+  geht ueber `b.getBizClient()`, nicht ueber eine injizierte Service-Instanz;
+  alle acht Routen haengen an bestehenden `finance` read/write/delete-Guards,
+  also kein Seed noetig; `.proto` + `.pb.go` + `openapi.yaml` liegen im selben
+  Commit. Build gruen.
+- Befund vor dem Bauen — die Unit war zur Haelfte schon erledigt, das musste
+  erst festgestellt werden, bevor etwas doppelt entstand:
+  - **Mahnwesen: vollstaendig vorhanden.** `internal/biz/dunning` hat Config
+    (Stufen, Fristen, Gebuehren), `DetectAndCreateDunnings` mit serverseitigem
+    Stufen-Guard (`highestSentLevel >= MaxDunningLevel || hasDraft` — keine
+    vierte Stufe, kein zweiter Draft auf derselben Rechnung), Verzugszinsen nach
+    BGB §288 (B2B +9, B2C +5 Punkte, pro rata), `Send` inkl. Notice-Mail und
+    `GenerateDunningPDF` **ueber den vorhandenen maroto-Generator**
+    (`internal/biz/pdf/generator.go` + `buildDunningBody` mit stufenabhaengigem
+    Ton und Gebuehrenblock), exponiert als `GET /finance/dunning/{id}/pdf`.
+    Nichts davon neu gebaut, alles nachgelesen und als erfuellt vermerkt.
+  - **Offene Posten: existierten serverseitig nicht.** Das FE
+    (`modules/finanzen/OpenItemsTab.tsx`) rechnet die Liste selbst aus
+    `useInvoices()`. Das ist gegen echtes BE zweimal falsch: (1) `useInvoices()`
+    holt EINE Seite (Default 50), die drei KPI-Karten und die vier
+    Aging-Buckets zeigen also einen Seiten-Betrag als Tenant-Betrag, und (2) der
+    Posten wird mit `tax_breakdown.gross_total` bewertet, obwohl `finance_payments`
+    Teilzahlungen fuehrt — eine zu 40 % bezahlte Rechnung steht mit dem vollen
+    Betrag in der OP-Liste. Beides sind falsche Zahlen im Debitorenbild, keine
+    Darstellungsfehler.
+- gebaut: `GET /api/v1/finance/open-items?bucket=&overdue_only=&page=&per_page=`
+  (Guard `finance:read`), RPC `ListOpenItems` auf FinanceService,
+  `dunning.Service.ListOpenItems` + `invoice.PostgresRepository.ListOpenItems` /
+  `SummarizeOpenItems`, Wire-Shape `{items, total, summary:{totals, buckets}}`.
+- Entscheidungen:
+  - **Keine neue Tabelle, keine Migration.** Offene Posten sind eine
+    Read-Model-Sicht auf `finance_invoices` + `finance_payments` +
+    `finance_dunning_records`. Eine eigene Tabelle waere ein zweiter
+    Wahrheitsstand fuer Betraege, die schon geschrieben stehen.
+  - **`open_amount` = `gross_total` minus Zahlungssumme**, Filter `> 0`. Die
+    Zahlungen werden pro Rechnung vorab gefaltet, sonst dupliziert die zweite
+    Zahlung die Rechnungszeile. Nebeneffekt, der die Liste ehrlicher macht als
+    das FE: eine faktisch voll bezahlte Rechnung, deren Status noch nicht auf
+    `paid` geflippt ist, faellt automatisch heraus.
+  - **Die Summary ist immer tenant-weit**, ueber eine eigene Aggregat-Query, und
+    ignoriert Bucket-Filter und Paging bewusst. Genau die Kopplung von Summe an
+    Seite war der FE-Fehler; sie im Backend zu wiederholen waere nur eine
+    Verlagerung.
+  - **Summen pro Waehrung, nicht in EUR gefaltet.** Es gibt keinen gespeicherten
+    Umrechnungskurs: das FE liest `inv.exchange_rate ?? 1`, dieses Feld
+    existiert im Backend ueberhaupt nicht — der Faktor war also immer 1 und
+    CHF-Bexio-Spiegel wurden als EUR mitaddiert. Solange kein Kurs persistiert
+    ist, gibt es keine einzige richtige Gesamtzahl; `summary.totals` ist darum
+    eine Liste pro Waehrung. Upgrade-Pfad: existiert eine Kurstabelle, kommt ein
+    zusaetzlicher konvertierter Gesamtbetrag dazu, ohne die Liste zu brechen.
+  - **Aging-Grenzen an genau einer Stelle.** 0/30/60 stehen in
+    `models.AgingBucketUpperDays()` und wandern als Query-**Parameter** in die
+    SQL-CASE, die den Bucket-Index bildet; das Label kommt danach in Go aus
+    demselben Array (`AgingBucketKeyAt`). Zeilen-Bucket und Summary-Bucket
+    koennen damit nicht auseinanderlaufen — waeren die Grenzen einmal in SQL und
+    einmal in Go geschrieben, wuerde dieselbe Rechnung in Liste und Summe
+    unterschiedlich einsortiert. `TestAgingBucketIndex_MatchesKeyOrder` pinnt
+    Grenzen und Reihenfolge.
+  - **Aging-Referenz ist ein Datum, kein Zeitpunkt** (`AsOf.Truncate(24h)`),
+    sonst altert dieselbe Rechnung je nach Tageszeit des Requests anders.
+  - **`status` im Proto als String**, nicht als `InvoiceStatus`-Enum: der
+    Gateway marshalt mit `UseEnumNumbers: true`, die Rechnungsliste liefert
+    `status` also als **Zahl** und das FE mappt sie in `finance-status.ts`
+    zurueck. Dieselbe Drift in eine neue Route zu uebernehmen waere sinnlos —
+    gleiche Entscheidung wie bei `recurring.status` in Iteration 14.
+  - **Unbekannter Bucket ist 400, nicht leere Liste.** Ein Tippfehler im
+    Query-Parameter darf nicht wie "keine offenen Posten" aussehen. Validierung
+    im Service, der Repo prueft nochmal (`models.ErrUnknownAgingBucket` →
+    `InvalidArgument` in `mapBizError`).
+  - Beide Queries filtern **explizit** auf `tenant_id`, auch auf der
+    Payment-Seite, obwohl RLS greift: ein Read-Pfad, der sich allein auf RLS
+    verlaesst, liefert im System-Kontext stillschweigend fremde oder alle
+    Zeilen.
+- gate: `go build ./...` OK (`-p 2` — mit Default-Parallelitaet OOMt der Build in
+  dieser Umgebung, `cannot allocate memory` in `cmd/gateway`; kein Code-Fehler) ·
+  `go vet` (models/biz/server/gateway) OK · `golangci-lint run` auf
+  dunning/invoice/gateway/server/models: 0 issues ·
+  `go test -p 1 ./internal/gateway/... ./internal/biz/... ./internal/server/...
+  ./internal/models/...` gruen (inkl. `TestOpenAPIRouteDrift`) ·
+  `swagger-cli validate backend/api/openapi.yaml` → valid · Tenant-Isolation:
+  `internal/biz/tenant_isolation_open_items_test.go` prueft Restbetrag,
+  Tage-Ueberfaelligkeit und dass Tenant B weder die Zeile noch ihren Betrag in
+  der Summary sieht — skippt lokal ohne `DATABASE_URL`, laeuft im
+  Compose-/CI-Lauf mit DB.
+- offen / naechste Iteration:
+  - **FE-Umbau steht aus:** `OpenItemsTab.tsx` rechnet weiter selbst. Bis das
+    umgestellt ist, zeigt die UI gegen echtes BE die falschen Summen — der
+    Backend-Endpunkt ist da, das Wire-Shape steht in `openapi.yaml`
+    (`OpenItem`, `OpenItemsSummary`). Das ist eine FE-Aufgabe, kein Loop-Scope.
+  - Es gibt weiterhin **keinen automatischen Mahnlauf**: `POST
+    /finance/dunning/detect` muss geklickt werden. Mit der OP-Liste liegt jetzt
+    die Faelligkeits-Sicht dafuer bereit; ein pg_cron-Tick waere die naechste
+    Stufe (dieselbe Frage wie beim Recurring-Scheduler aus Iteration 14 — beide
+    zusammen loesen).
+  - **Fuer Luke, unveraendert offen aus Iteration 13/14:**
+    `finance-client.ts:229` ruft `POST /finance/invoices/{id}/mark-paid`, die
+    Route heisst `/pay` → 404 gegen echtes BE.
+  - Unveraendert aus Iteration 14: die drei `zeiterfassung`-Units sind
+    wahrscheinlich weitgehend erledigt (`route_hr.go` registriert
+    `/hr/time/entries|projects|balance|analytics|team` und die Wochen-Freigabe,
+    `cmd/biz` wiret `timeProjectRepo`/`weekApprovalRepo`) — vor dem Bauen
+    verifizieren, so wie hier beim Mahnwesen.
+  - Naechste freie Unit in Reihenfolge: `p3-finance-camt-import` (opus, deps
+    jetzt erfuellt), `p3-zeiterfassung-entries` (sonnet, vorher verifizieren)
+    oder `p3-admin-invite-flow` (opus). `p3-berichte-share-token` bleibt durch
+    das blockierte `p3-berichte-server-pdf` gesperrt.

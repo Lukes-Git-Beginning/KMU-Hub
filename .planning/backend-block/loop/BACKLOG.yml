@@ -522,7 +522,7 @@ units:
     service: finance
     model: opus
     deps: [p3-finance-recurring]
-    status: todo
+    status: done
     scope: >
       Offene-Posten-Liste und mehrstufiges Mahnwesen (Stufen, Fristen,
       Gebuehren). PDF ueber den vorhandenen maroto-Generator in
@@ -530,6 +530,37 @@ units:
     sources:
       - .planning/backend-gaps.md
       - backend/internal/biz/pdf/
+    notes: >
+      ERLEDIGT Iteration 15. Die Mahnwesen-Haelfte war bereits komplett und ist
+      verifiziert, nicht neu gebaut: `internal/biz/dunning` hat Config
+      (Stufen/Fristen/Gebuehren), DetectAndCreateDunnings mit Stufen-Guard
+      (`highestSentLevel >= MaxDunningLevel || hasDraft` → keine vierte Stufe,
+      kein zweiter Draft), Verzugszinsen nach BGB §288, Send + Notice-Mail und
+      GenerateDunningPDF ueber den maroto-Generator in `internal/biz/pdf`
+      (Route `GET /finance/dunning/{id}/pdf`). Offen war allein die
+      Offene-Posten-Liste: die gab es serverseitig NICHT, das FE
+      (`OpenItemsTab.tsx`) rechnete sie aus `useInvoices()` selbst — also aus
+      EINER Seite der Rechnungsliste (Default 50) mit dem Bruttobetrag statt dem
+      Restbetrag. Beide Fehler sind gegen echtes BE fachlich falsch, nicht
+      kosmetisch. Neu: `GET /api/v1/finance/open-items`. Entscheidungen:
+      (a) KEINE neue Tabelle, keine Migration — offene Posten sind eine
+      Read-Model-Sicht auf finance_invoices + finance_payments +
+      finance_dunning_records. (b) open_amount = gross_total minus Summe der
+      Zahlungen, Filter `> 0`: eine voll bezahlte Rechnung mit noch nicht
+      geflipptem Status verschwindet damit von selbst. (c) Summary ist
+      IMMER tenant-weit (eigene Aggregat-Query), nie seiten-basiert — genau der
+      Fehler der FE-Variante. (d) Summen PRO WAEHRUNG: es gibt keinen
+      gespeicherten Umrechnungskurs (das FE liest `inv.exchange_rate`, das Feld
+      existiert im Backend gar nicht → Faktor immer 1, CHF-Spiegel wurden als
+      EUR mitsummiert). (e) Aging-Grenzen (0/30/60) stehen EINMAL in
+      `models.AgingBucketUpperDays()` und wandern als Query-Parameter in die
+      SQL-CASE — die SQL-Klassifikation kann nicht von der Go-Variante
+      abdriften; ein Test pinnt die Grenzen. (f) `status` im Proto als String,
+      nicht als InvoiceStatus-Enum: der Gateway marshalt Enums als Zahlen
+      (UseEnumNumbers), das FE typt Status als String-Union. NICHT enthalten:
+      der FE-Umbau von OpenItemsTab auf die neue Route (FE-Aufgabe, Wire-Shape
+      steht in openapi.yaml) und ein Scheduler fuer die automatische
+      Mahnlauf-Erkennung.
     done_when:
       - OP-Liste tenant-gescoped und korrekt sortiert
       - Mahnstufen serverseitig durchgesetzt

@@ -8148,6 +8148,57 @@ paths:
   # ===========================================================================
   # Finance: Dunning
   # ===========================================================================
+  /api/v1/finance/open-items:
+    get:
+      summary: List open items (Offene Posten) with receivables aging
+      description: >
+        Unpaid receivables — sent or overdue invoices whose gross total is not
+        yet covered by recorded payments. open_amount is the residual, so a
+        partially paid invoice appears for the remainder only. The summary always
+        covers every open item of the tenant, not just the returned page, and is
+        reported per currency: without a stored exchange rate the server cannot
+        fold CHF mirrors and EUR invoices into a single figure.
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: bucket
+          in: query
+          description: Restrict to one aging bucket
+          schema:
+            type: string
+            enum: [current, d30, d60, d60plus]
+        - name: overdue_only
+          in: query
+          description: Drop items that are not past due yet
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Open items with the tenant-wide aging summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OpenItem"
+                  total:
+                    type: integer
+                  summary:
+                    $ref: "#/components/schemas/OpenItemsSummary"
+        "400":
+          description: Unknown aging bucket
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing finance read permission
+        "503":
+          description: Finance service unavailable
+
   /api/v1/finance/dunning:
     get:
       summary: List dunning records
@@ -32062,6 +32113,106 @@ components:
           type: string
         notes:
           type: string
+
+    OpenItem:
+      type: object
+      description: One unpaid receivable with its aging and dunning state.
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        invoice_number:
+          type: string
+        status:
+          type: string
+          enum: [sent, overdue]
+        customer_name:
+          type: string
+        customer_email:
+          type: string
+        currency:
+          type: string
+          description: ISO 4217 code
+        gross_total:
+          type: string
+          description: Decimal as string
+        paid_amount:
+          type: string
+          description: Decimal as string — everything recorded in finance_payments
+        open_amount:
+          type: string
+          description: Decimal as string — gross_total minus paid_amount
+        invoice_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        days_overdue:
+          type: integer
+          description: Negative when the item is not due yet
+        aging_bucket:
+          type: string
+          enum: [current, d30, d60, d60plus]
+        dunning_level:
+          type: integer
+          description: Highest dunning level reached, 0 when never dunned
+        dunning_status:
+          type: string
+          description: Empty when never dunned
+        last_dunned_at:
+          type: string
+          format: date-time
+        contact_id:
+          type: string
+          format: uuid
+
+    OpenItemBucketTotal:
+      type: object
+      description: One aging bucket in one currency, over all open items.
+      properties:
+        currency:
+          type: string
+        bucket:
+          type: string
+          enum: [current, d30, d60, d60plus]
+        count:
+          type: integer
+        amount:
+          type: string
+          description: Decimal as string
+
+    OpenItemCurrencyTotal:
+      type: object
+      description: Receivables totals for one currency.
+      properties:
+        currency:
+          type: string
+        open_amount:
+          type: string
+          description: Decimal as string
+        open_count:
+          type: integer
+        overdue_amount:
+          type: string
+          description: Decimal as string
+        overdue_count:
+          type: integer
+        avg_days_overdue:
+          type: integer
+
+    OpenItemsSummary:
+      type: object
+      description: Tenant-wide receivables aggregates, never page-scoped.
+      properties:
+        totals:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenItemCurrencyTotal"
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenItemBucketTotal"
 
     DunningRecord:
       type: object

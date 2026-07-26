@@ -134,6 +134,12 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/notice", b.HandleSendDunningNotice)
 	})
 
+	// Open items (Offene Posten) — receivables aging, the read side of dunning
+	r.Route("/api/v1/finance/open-items", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListOpenItems)
+	})
+
 	// Dashboard
 	r.Route("/api/v1/finance/dashboard", func(r chi.Router) {
 		r.Use(authMiddleware)

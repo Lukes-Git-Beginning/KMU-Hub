@@ -50,6 +50,8 @@ service FinanceService {
   rpc EscalateDunning(EscalateDunningRequest) returns (EscalateDunningResponse);
   rpc GetDunningConfig(GetDunningConfigRequest) returns (GetDunningConfigResponse);
   rpc UpdateDunningConfig(UpdateDunningConfigRequest) returns (UpdateDunningConfigResponse);
+  // Open items (Offene Posten): the receivables the dunning run escalates.
+  rpc ListOpenItems(ListOpenItemsRequest) returns (ListOpenItemsResponse);
 
   // ==================== Dashboard ====================
   rpc GetFinanceDashboard(GetFinanceDashboardRequest) returns (GetFinanceDashboardResponse);
@@ -746,6 +748,79 @@ message UpdateDunningConfigRequest {
 
 message UpdateDunningConfigResponse {
   DunningConfig config = 1;
+}
+
+// ============================================================================
+// Open Items (Offene Posten)
+// ============================================================================
+
+// OpenItem is one unpaid receivable. open_amount is the gross total minus every
+// payment recorded against the invoice, so a partially paid invoice reports the
+// residual rather than the full amount.
+message OpenItem {
+  string invoice_id = 1;
+  string invoice_number = 2;
+  // Plain string, not InvoiceStatus: the gateway marshals enums as numbers
+  // (UseEnumNumbers), and the frontend types invoice status as a string union.
+  // A string here keeps the receivables wire readable without a mapping table
+  // on the client — same call as recurring.status.
+  string status = 3;                // sent | overdue
+  string customer_name = 4;
+  string customer_email = 5;
+  string currency = 6;              // ISO 4217
+  string gross_total = 7;           // Decimal as string
+  string paid_amount = 8;           // Decimal as string
+  string open_amount = 9;           // Decimal as string
+  string invoice_date = 10;         // Date string YYYY-MM-DD
+  string due_date = 11;             // Date string YYYY-MM-DD
+  int32 days_overdue = 12;          // Negative when not due yet
+  string aging_bucket = 13;         // current | d30 | d60 | d60plus
+  int32 dunning_level = 14;         // 0 when never dunned
+  string dunning_status = 15;       // Empty when never dunned
+  optional string last_dunned_at = 16; // RFC3339, absent when never dunned
+  optional string contact_id = 17;
+}
+
+// OpenItemBucketTotal is one aging bucket in one currency, over all of the
+// tenant's open items.
+message OpenItemBucketTotal {
+  string currency = 1;
+  string bucket = 2;                // current | d30 | d60 | d60plus
+  int32 count = 3;
+  string amount = 4;                // Decimal as string
+}
+
+// OpenItemCurrencyTotal sums the receivables of one currency. There is one entry
+// per currency in use: without a stored exchange rate the server cannot fold CHF
+// mirrors and EUR invoices into a single honest figure.
+message OpenItemCurrencyTotal {
+  string currency = 1;
+  string open_amount = 2;           // Decimal as string
+  int32 open_count = 3;
+  string overdue_amount = 4;        // Decimal as string
+  int32 overdue_count = 5;
+  int32 avg_days_overdue = 6;
+}
+
+// OpenItemsSummary always covers every open item of the tenant, never just the
+// returned page.
+message OpenItemsSummary {
+  repeated OpenItemCurrencyTotal totals = 1;
+  repeated OpenItemBucketTotal buckets = 2;
+}
+
+message ListOpenItemsRequest {
+  string tenant_id = 1;
+  string bucket = 2;                // Optional aging bucket filter
+  bool overdue_only = 3;
+  int32 page = 4;
+  int32 per_page = 5;
+}
+
+message ListOpenItemsResponse {
+  repeated OpenItem items = 1;
+  int32 total = 2;
+  OpenItemsSummary summary = 3;
 }
 
 // ============================================================================

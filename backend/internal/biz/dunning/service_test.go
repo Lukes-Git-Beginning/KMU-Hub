@@ -19,16 +19,16 @@ import (
 // ---------------------------------------------------------------------------
 
 type MockRepository struct {
-	records       map[uuid.UUID]*models.DunningRecord
-	byInvoice     map[uuid.UUID][]*models.DunningRecord
-	createErr     error
-	getErr        error
-	listErr       error
-	updateErr     error
-	byInvoiceErr  error
-	highestErr    error
-	createdCalls  []*models.DunningRecord
-	updatedCalls  []updateStatusCall
+	records      map[uuid.UUID]*models.DunningRecord
+	byInvoice    map[uuid.UUID][]*models.DunningRecord
+	createErr    error
+	getErr       error
+	listErr      error
+	updateErr    error
+	byInvoiceErr error
+	highestErr   error
+	createdCalls []*models.DunningRecord
+	updatedCalls []updateStatusCall
 
 	getByInvoiceIDsCalls int
 }
@@ -171,10 +171,18 @@ func (m *MockConfigRepository) Upsert(_ context.Context, config *models.DunningC
 // ---------------------------------------------------------------------------
 
 type MockInvoiceReader struct {
-	invoices    map[uuid.UUID]*models.Invoice
-	overdue     []*models.Invoice
-	getErr      error
-	overdueErr  error
+	invoices   map[uuid.UUID]*models.Invoice
+	overdue    []*models.Invoice
+	getErr     error
+	overdueErr error
+
+	// Open items (Offene Posten)
+	openItems     []*models.OpenItem
+	openTotal     int
+	openBuckets   []*models.OpenItemBucketTotal
+	openErr       error
+	summaryErr    error
+	lastOpenAsOf  time.Time
 }
 
 func NewMockInvoiceReader() *MockInvoiceReader {

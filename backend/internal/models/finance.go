@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,8 +51,8 @@ const (
 
 // Tax modes
 const (
-	TaxModeStandard        = "standard"
-	TaxModeReverseCharge   = "reverse_charge"
+	TaxModeStandard         = "standard"
+	TaxModeReverseCharge    = "reverse_charge"
 	TaxModeKleinunternehmer = "kleinunternehmer"
 )
 
@@ -91,33 +92,33 @@ const (
 
 // CompanySettings holds per-tenant company information used on invoices and quotes.
 type CompanySettings struct {
-	ID                      uuid.UUID       `json:"id"`
-	TenantID                uuid.UUID       `json:"tenant_id"`
-	Name                    string          `json:"name"`
-	Street                  string          `json:"street"`
-	PLZ                     string          `json:"plz"`
-	City                    string          `json:"city"`
-	Country                 string          `json:"country"`
-	Steuernummer            string          `json:"steuernummer"`
-	UStIDNr                 string          `json:"ust_id_nr"`
-	Handelsregister         string          `json:"handelsregister"`
-	BankName                string          `json:"bank_name"`
-	IBAN                    string          `json:"iban"`
-	BIC                     string          `json:"bic"`
-	LogoURL                 string          `json:"logo_url"`
-	AccentColor             string          `json:"accent_color"`
-	IsKleinunternehmer      bool            `json:"is_kleinunternehmer"`
-	DefaultPaymentTermsDays int             `json:"default_payment_terms_days"`
-	DefaultQuoteValidityDays int            `json:"default_quote_validity_days"`
-	Basiszinssatz           decimal.Decimal `json:"basiszinssatz"`
+	ID                       uuid.UUID       `json:"id"`
+	TenantID                 uuid.UUID       `json:"tenant_id"`
+	Name                     string          `json:"name"`
+	Street                   string          `json:"street"`
+	PLZ                      string          `json:"plz"`
+	City                     string          `json:"city"`
+	Country                  string          `json:"country"`
+	Steuernummer             string          `json:"steuernummer"`
+	UStIDNr                  string          `json:"ust_id_nr"`
+	Handelsregister          string          `json:"handelsregister"`
+	BankName                 string          `json:"bank_name"`
+	IBAN                     string          `json:"iban"`
+	BIC                      string          `json:"bic"`
+	LogoURL                  string          `json:"logo_url"`
+	AccentColor              string          `json:"accent_color"`
+	IsKleinunternehmer       bool            `json:"is_kleinunternehmer"`
+	DefaultPaymentTermsDays  int             `json:"default_payment_terms_days"`
+	DefaultQuoteValidityDays int             `json:"default_quote_validity_days"`
+	Basiszinssatz            decimal.Decimal `json:"basiszinssatz"`
 	// DefaultCurrency is the ISO 4217 code applied to new finance documents (B6).
-	DefaultCurrency         string          `json:"default_currency"`
+	DefaultCurrency string `json:"default_currency"`
 	// DatevBeraterNr / DatevMandantNr fill the DATEV EXTF header so an imported
 	// Buchungsstapel is assigned to the right client. Empty until configured.
-	DatevBeraterNr          string          `json:"datev_berater_nr"`
-	DatevMandantNr          string          `json:"datev_mandant_nr"`
-	CreatedAt               time.Time       `json:"created_at"`
-	UpdatedAt               time.Time       `json:"updated_at"`
+	DatevBeraterNr string    `json:"datev_berater_nr"`
+	DatevMandantNr string    `json:"datev_mandant_nr"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // NumberSequence tracks auto-incrementing document numbers per tenant and fiscal year.
@@ -158,10 +159,10 @@ type TaxBreakdown struct {
 // CustomerSnapshot captures customer details at document creation time.
 // Embedded in quotes, invoices, and credit notes as denormalized data.
 type CustomerSnapshot struct {
-	Name     string `json:"name"`
-	Address  string `json:"address"`
-	Email    string `json:"email"`
-	UStIDNr  string `json:"ust_id_nr"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Email   string `json:"email"`
+	UStIDNr string `json:"ust_id_nr"`
 }
 
 // CompanySnapshot captures company details at invoice send time.
@@ -210,51 +211,51 @@ type Quote struct {
 
 // Invoice represents a bill (Rechnung) sent to a customer.
 type Invoice struct {
-	ID                uuid.UUID       `json:"id"`
-	TenantID          uuid.UUID       `json:"tenant_id"`
-	InvoiceNumber     string          `json:"invoice_number"`
-	Status            string          `json:"status"`
-	CustomerName      string          `json:"customer_name"`
-	CustomerAddress   string          `json:"customer_address"`
-	CustomerEmail     string          `json:"customer_email"`
-	CustomerUStIDNr   string          `json:"customer_ust_id_nr"`
+	ID                 uuid.UUID       `json:"id"`
+	TenantID           uuid.UUID       `json:"tenant_id"`
+	InvoiceNumber      string          `json:"invoice_number"`
+	Status             string          `json:"status"`
+	CustomerName       string          `json:"customer_name"`
+	CustomerAddress    string          `json:"customer_address"`
+	CustomerEmail      string          `json:"customer_email"`
+	CustomerUStIDNr    string          `json:"customer_ust_id_nr"`
 	CompanySnapshotRaw json.RawMessage `json:"company_snapshot"`
-	TaxMode           string          `json:"tax_mode"`
-	LineItems         json.RawMessage `json:"line_items"`
-	TaxBreakdownRaw   json.RawMessage `json:"tax_breakdown"`
-	Subtotal          decimal.Decimal `json:"subtotal"`
-	TotalTax          decimal.Decimal `json:"total_tax"`
-	GrossTotal        decimal.Decimal `json:"gross_total"`
-	Currency          string          `json:"currency"`
-	InvoiceDate       time.Time       `json:"invoice_date"`
-	DeliveryDate      *time.Time      `json:"delivery_date,omitempty"`
-	DueDate           time.Time       `json:"due_date"`
-	PaymentTerms      string          `json:"payment_terms"`
-	SnapshotData      json.RawMessage `json:"snapshot_data"`
-	SourceQuoteID     *uuid.UUID      `json:"source_quote_id,omitempty"`
-	Notes             string          `json:"notes"`
-	ZUGFeRDProfile    *string         `json:"zugferd_profile,omitempty"`
+	TaxMode            string          `json:"tax_mode"`
+	LineItems          json.RawMessage `json:"line_items"`
+	TaxBreakdownRaw    json.RawMessage `json:"tax_breakdown"`
+	Subtotal           decimal.Decimal `json:"subtotal"`
+	TotalTax           decimal.Decimal `json:"total_tax"`
+	GrossTotal         decimal.Decimal `json:"gross_total"`
+	Currency           string          `json:"currency"`
+	InvoiceDate        time.Time       `json:"invoice_date"`
+	DeliveryDate       *time.Time      `json:"delivery_date,omitempty"`
+	DueDate            time.Time       `json:"due_date"`
+	PaymentTerms       string          `json:"payment_terms"`
+	SnapshotData       json.RawMessage `json:"snapshot_data"`
+	SourceQuoteID      *uuid.UUID      `json:"source_quote_id,omitempty"`
+	Notes              string          `json:"notes"`
+	ZUGFeRDProfile     *string         `json:"zugferd_profile,omitempty"`
 	TimeTrackingSource json.RawMessage `json:"time_tracking_source,omitempty"`
 	// LockedAt and LockedBy replace the snapshot_data lock hack (ADR-0007 / Migration 000132).
 	// Set by LockInvoice; non-nil means the invoice is administratively locked (GoBD §146).
-	LockedAt          *time.Time      `json:"locked_at,omitempty"`
-	LockedBy          *uuid.UUID      `json:"locked_by,omitempty"`
+	LockedAt *time.Time `json:"locked_at,omitempty"`
+	LockedBy *uuid.UUID `json:"locked_by,omitempty"`
 	// ContactID links this invoice to a CRM contact for Contact-360 view (Migration 000141).
 	// Populated via backfill (source_quote_id→deal→contact) and on manual creation.
-	ContactID         *uuid.UUID      `json:"contact_id,omitempty"`
+	ContactID *uuid.UUID `json:"contact_id,omitempty"`
 	// Source is the invoice provenance (Migration 000243): InvoiceSourceCosmi for
 	// Cosmi-issued invoices (own GoBD RE-YYYY-NNNN number space) or InvoiceSourceBexio
 	// for read-only mirrors pulled from Bexio. ExternalID/ExternalNumber carry the
 	// source-system identity and are NULL for Cosmi invoices.
-	Source            string          `json:"source"`
-	ExternalID        *string         `json:"external_id,omitempty"`
-	ExternalNumber    *string         `json:"external_number,omitempty"`
+	Source         string  `json:"source"`
+	ExternalID     *string `json:"external_id,omitempty"`
+	ExternalNumber *string `json:"external_number,omitempty"`
 	// RecurringID links this invoice to the schedule that emitted it
 	// (Migration 000246). NULL for manually created invoices.
-	RecurringID       *uuid.UUID      `json:"recurring_id,omitempty"`
-	CreatedBy         uuid.UUID       `json:"created_by"`
-	CreatedAt         time.Time       `json:"created_at"`
-	UpdatedAt         time.Time       `json:"updated_at"`
+	RecurringID *uuid.UUID `json:"recurring_id,omitempty"`
+	CreatedBy   uuid.UUID  `json:"created_by"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // CreditNote represents a credit (Gutschrift) against an invoice.
@@ -351,8 +352,8 @@ type RevenueMetrics struct {
 
 // PipelineMetrics holds the sales pipeline aggregation data.
 type PipelineMetrics struct {
-	QuotesPending  int             `json:"quotes_pending"`
-	ConversionRate decimal.Decimal `json:"conversion_rate"`
+	QuotesPending   int             `json:"quotes_pending"`
+	ConversionRate  decimal.Decimal `json:"conversion_rate"`
 	AverageDealSize decimal.Decimal `json:"average_deal_size"`
 }
 
@@ -393,4 +394,152 @@ type InvoiceStatusBreakdown struct {
 	Overdue   int `json:"overdue"`
 	Paid      int `json:"paid"`
 	Cancelled int `json:"cancelled"`
+}
+
+// ============================================================================
+// Open Items (Offene Posten) — receivables aging
+// ============================================================================
+
+// Aging bucket keys. A receivable falls into exactly one bucket, by how many
+// days it is past its due date.
+const (
+	AgingBucketCurrent = "current" // not yet due
+	AgingBucketD30     = "d30"     // 1-30 days overdue
+	AgingBucketD60     = "d60"     // 31-60 days overdue
+	AgingBucketD60Plus = "d60plus" // more than 60 days overdue
+)
+
+// agingBucketKeys is indexed by bucket index; agingBucketUpperDays holds the
+// inclusive upper day bound of every bucket except the last (which is open
+// ended). Both the Go classification below and the SQL aggregation in the
+// invoice repository derive from these two slices — the repository passes the
+// bounds as query parameters instead of restating them, so there is one source
+// of truth for where a bucket starts.
+var (
+	agingBucketKeys      = []string{AgingBucketCurrent, AgingBucketD30, AgingBucketD60, AgingBucketD60Plus}
+	agingBucketUpperDays = []int{0, 30, 60}
+)
+
+// AgingBucketUpperDays returns the inclusive upper day bounds of all buckets
+// except the open-ended last one.
+func AgingBucketUpperDays() []int {
+	out := make([]int, len(agingBucketUpperDays))
+	copy(out, agingBucketUpperDays)
+	return out
+}
+
+// AgingBucketFor classifies a day count past due into a bucket key. A negative
+// or zero count means the item is not due yet.
+func AgingBucketFor(daysOverdue int) string {
+	return AgingBucketKeyAt(AgingBucketIndexFor(daysOverdue))
+}
+
+// AgingBucketIndexFor returns the bucket index for a day count past due.
+func AgingBucketIndexFor(daysOverdue int) int {
+	for i, upper := range agingBucketUpperDays {
+		if daysOverdue <= upper {
+			return i
+		}
+	}
+	return len(agingBucketUpperDays)
+}
+
+// AgingBucketIndexOf returns the index of a bucket key, or -1 if the key names
+// no bucket.
+func AgingBucketIndexOf(key string) int {
+	for i, candidate := range agingBucketKeys {
+		if candidate == key {
+			return i
+		}
+	}
+	return -1
+}
+
+// AgingBucketKeyAt maps a bucket index to its key, falling back to the
+// open-ended bucket for an index out of range (a repository that returns an
+// unexpected index must not silently produce an empty bucket label).
+func AgingBucketKeyAt(index int) string {
+	if index < 0 || index >= len(agingBucketKeys) {
+		return agingBucketKeys[len(agingBucketKeys)-1]
+	}
+	return agingBucketKeys[index]
+}
+
+// ErrUnknownAgingBucket is returned when a caller asks for a bucket key that is
+// not one of the four above. The service validates the key at the boundary; the
+// repository repeats the check so a future caller cannot turn a typo into an
+// empty receivables list.
+var ErrUnknownAgingBucket = errors.New("unknown aging bucket")
+
+// OpenItemFilter selects and pages the open-items list. It lives here rather
+// than in the dunning package so the invoice repository can satisfy the reader
+// interface without importing dunning.
+type OpenItemFilter struct {
+	// AsOf is the reference date for days-overdue and bucket classification.
+	// Passed in rather than taken from NOW() in SQL so the aging of a given data
+	// set is reproducible in a test.
+	AsOf time.Time
+	// Bucket restricts the page to one aging bucket key (empty = all buckets).
+	Bucket string
+	// OverdueOnly drops items that are not past their due date yet.
+	OverdueOnly bool
+	Limit       int
+	Offset      int
+}
+
+// OpenItem is one unpaid receivable: a sent or overdue invoice with its
+// remaining amount. OpenAmount is the invoice gross total minus everything
+// already recorded against it in finance_payments — an invoice with a partial
+// payment is still an open item, for the residual only.
+type OpenItem struct {
+	InvoiceID     uuid.UUID       `json:"invoice_id"`
+	InvoiceNumber string          `json:"invoice_number"`
+	Status        string          `json:"status"`
+	CustomerName  string          `json:"customer_name"`
+	CustomerEmail string          `json:"customer_email"`
+	Currency      string          `json:"currency"`
+	GrossTotal    decimal.Decimal `json:"gross_total"`
+	PaidAmount    decimal.Decimal `json:"paid_amount"`
+	OpenAmount    decimal.Decimal `json:"open_amount"`
+	InvoiceDate   time.Time       `json:"invoice_date"`
+	DueDate       time.Time       `json:"due_date"`
+	DaysOverdue   int             `json:"days_overdue"`
+	AgingBucket   string          `json:"aging_bucket"`
+	DunningLevel  int             `json:"dunning_level"`
+	DunningStatus string          `json:"dunning_status,omitempty"`
+	LastDunnedAt  *time.Time      `json:"last_dunned_at,omitempty"`
+	ContactID     *uuid.UUID      `json:"contact_id,omitempty"`
+}
+
+// OpenItemBucketTotal is the aggregate of one aging bucket in one currency,
+// over all open items of the tenant — not just the requested page.
+type OpenItemBucketTotal struct {
+	Currency string          `json:"currency"`
+	Bucket   string          `json:"bucket"`
+	Count    int             `json:"count"`
+	Amount   decimal.Decimal `json:"amount"`
+	// DaysOverdueSum is the summed day count of the bucket's items, used to
+	// derive the average. Repository-internal, never on the wire.
+	DaysOverdueSum int `json:"-"`
+	// BucketIndex is what the repository actually groups by; the key above is
+	// resolved from it in the service.
+	BucketIndex int `json:"-"`
+}
+
+// OpenItemCurrencyTotal sums a tenant's receivables in one currency. There is
+// one entry per currency in use: without a stored exchange rate the backend has
+// no honest way to fold CHF mirrors and EUR invoices into a single figure.
+type OpenItemCurrencyTotal struct {
+	Currency       string          `json:"currency"`
+	OpenAmount     decimal.Decimal `json:"open_amount"`
+	OpenCount      int             `json:"open_count"`
+	OverdueAmount  decimal.Decimal `json:"overdue_amount"`
+	OverdueCount   int             `json:"overdue_count"`
+	AvgDaysOverdue int             `json:"avg_days_overdue"`
+}
+
+// OpenItemsSummary carries the tenant-wide aggregates alongside a page of items.
+type OpenItemsSummary struct {
+	Totals  []*OpenItemCurrencyTotal `json:"totals"`
+	Buckets []*OpenItemBucketTotal   `json:"buckets"`
 }
