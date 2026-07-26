@@ -549,5 +549,15 @@ FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und 
 - **🟡 Zeit-Regeln (billable-Default, Stundensatz):** `stores/workSettings.billableByDefault`/`defaultHourlyRate` mock-first. → tenant-Setting; Anwendung beim Anlegen von Time-Entries + Stunden→Rechnung (P4).
 - **🟢 P5 (Kalender-Sicht):** KEIN neuer Backend-Bedarf. `WorkCalendarView` bucketet `useTasks({project_id})` nach `due_date`; Drag = Fälligkeit ändern via bestehendes `PUT /tasks/{id}` (`due_date`). Nur ein latentes Komfort-Feld offen: ein `due_date`-Bereichsfilter im `listTasks`-Query (`due_from`/`due_to`) würde bei sehr vielen Tasks das clientseitige Bucketing entlasten — heute irrelevant (page_size 500).
 
+## 🔴 helpdesk — CSAT / Kundenzufriedenheit (neu 2026-07-26, TERMINIERT vor Team-Review)
+
+> **Darien-Vorgabe 2026-07-26:** CSAT muss FERTIG sein, bevor das Team (Darien+Luke+Nico) die grosse Review-Runde fährt — nur der Onboarding-Wizard darf danach kommen. Aktuell zeigt der Statistik-Tab „Kundenzufriedenheit" nur einen Mock-Wert (`mocks/handlers/helpdesk.ts` stats-Handler, hartcodiert `4.6/5`); es gibt keine echte Datenquelle. Kachel + Verteilungs-Chart sind im FE **gesperrt ausgeblendet** (`CSAT_FEATURE_ENABLED=false` in `HelpdeskPage.tsx`; im Editor-Statistik-Katalog `locked` in `editorModules.ts` helpdesk.statWidgets). Flag flippen, sobald das BE liefert.
+> Markt-Recherche (Zendesk/Freshdesk/Zoho, `.planning/customization-block/STATISTIK-RECHERCHE.md`): überall derselbe Mechanismus — Ticket schliesst → Umfrage-Mail mit 1-Klick-Bewertungslink → aggregiert zu %. ~3–5 Tage BE.
+
+- 🔴 **CSAT-Erhebung:** Ticket-Close-Trigger → Survey-Job (konfigurierbarer Delay) → E-Mail mit tokenisiertem 1-Klick-Bewertungslink (Skala 1–5, intern auf gut/schlecht mapbar) → Response-Endpoint (kein Login) → Speicherung am Ticket (`ticket_csat_responses`: ticket_id, rating, comment?, submitted_at, token; tenant-scoped + RLS).
+- 🔴 **Aggregation:** `GET /helpdesk/stats` um echte CSAT-Werte erweitern (Durchschnitt + Sterne-Verteilung + Antwortzahl), tenant-gescopt. Ersetzt den Mock `customer_satisfaction`.
+- 🟠 **CSAT-Konfiguration** (tenant-Setting): an/aus, Delay, Mail-Text/Skala. Gehört in die Helpdesk-Moduleinstellungen.
+- ⚪ FE nach BE: `CSAT_FEATURE_ENABLED` auf `true`, `locked` an den 2 Statistik-Widgets entfernen, Kachel/Chart konsumieren echte Daten.
+
 # Hinweis zur Arbeitsweise (Claude = FE, Luke = BE)
 Die meisten 🟡-Punkte (FE-Page von Mock-Store auf fertige TanStack-Hooks umstellen) brauchen KEIN Backend von Luke — die Hooks + Endpoints existieren bereits. Luke-Bedarf = nur die 🔴- und cross-cutting-Punkte oben.
