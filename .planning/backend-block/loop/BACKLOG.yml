@@ -1,0 +1,525 @@
+# Backend-Nachtloop — Arbeitsqueue
+#
+# Eine Unit = eine Iteration = ein Commit. Reihenfolge ist Absicht: klein und
+# konkret zuerst, damit fruehe Iterationen den Zyklus vollstaendig durchspielen.
+#
+# status: todo | in_progress | done | blocked
+# model:  sonnet (Default) | opus (architektonisch schwer)
+#
+# Quelle: .planning/backend-block/WELLEN-BRIEFING.md §4 Phase 3
+#         + .planning/backend-gaps.md (Zeilennummern in `sources`)
+#
+# Phase 1 (RBAC-Fundament) und Phase 4 (Branchen-BE) stehen bewusst NICHT hier.
+# Phase 2 (RBAC-Enforcement pro Modul) wird nachgetragen, sobald Phase 1 steht.
+
+units:
+
+  # --- einkauf: drei kleine, exakt umrissene Defekte ------------------------
+
+  - id: p3-einkauf-total-amount
+    phase: 3
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      PurchaseOrder.total_amount wird nie berechnet: CreatePO setzt "0",
+      Add/Update/DeletePOLine rechnen den Kopfbetrag nicht nach. Gegen echtes BE
+      zeigen darum alle Bestellungen 0,00 EUR. Kopfbetrag als Netto-Zeilensumme
+      nach jeder Zeilenmutation neu berechnen — gleiche Semantik wie der
+      MSW-Handler sie vormacht.
+    sources:
+      - .planning/backend-gaps.md:404
+      - backend/internal/einkauf/service.go
+      - desktop/src/renderer/src/mocks/handlers/einkauf.ts
+    done_when:
+      - CreatePO, AddPOLine, UpdatePOLine, DeletePOLine halten total_amount konsistent
+      - Recompute liegt im Service, nicht im Handler
+      - Unit-Test deckt Zeile hinzufuegen / aendern / loeschen ab
+      - go build/vet/lint/test gruen
+
+  - id: p3-einkauf-cancel
+    phase: 3
+    service: einkauf
+    model: sonnet
+    deps: [p3-einkauf-total-amount]
+    status: todo
+    scope: >
+      POST /pos/{id}/cancel fehlt komplett — UpdatePOInput traegt kein
+      Status-Feld, es gibt keinen Cancel-Uebergang. Endpoint mit Status-Guard
+      bauen: nur offene Bestellungen sind stornierbar, alles andere 409.
+      FE laeuft dafuer heute mock-first (einkauf-client.ts cancelPO).
+    sources:
+      - .planning/backend-gaps.md:403
+      - backend/internal/einkauf/service.go
+      - desktop/src/renderer/src/modules/einkauf/einkauf-client.ts
+    notes: >
+      Neue gRPC-RPC noetig -> .proto aendern UND im selben Commit regenerieren
+      (make proto-* Target). Route-Datei anlegen; die Registrierung in
+      cmd/gateway/main.go gehoert mit in denselben Commit, weil du hier die
+      Hauptsession bist.
+    done_when:
+      - POST /pos/{id}/cancel storniert eine offene Bestellung
+      - Nicht-offene Bestellung liefert 409 mit sprechendem Fehlercode
+      - .proto und .pb.go im selben Commit
+      - go build/vet/lint/test gruen
+
+  - id: p3-einkauf-exportpo-remove
+    phase: 3
+    service: einkauf
+    model: sonnet
+    deps: [p3-einkauf-cancel]
+    status: todo
+    scope: >
+      ExportPO (service.go:716) ist ein Stub. Das FE erzeugt Bestell-PDF/CSV
+      seit 2026-07-16 clientseitig (modules/einkauf/einkauf-export.ts), exportPO
+      wurde aus dem FE-Client entfernt. Toten Pfad entfernen statt ihn zu
+      pflegen — inklusive RPC, Route und Proto-Eintrag.
+    sources:
+      - .planning/backend-gaps.md:405
+      - backend/internal/einkauf/service.go
+    notes: >
+      Vor dem Loeschen verifizieren, dass wirklich kein Aufrufer mehr existiert
+      (grep ueber desktop/ und backend/). Findest du einen, markier blocked
+      statt zu loeschen.
+    done_when:
+      - Kein Aufrufer mehr im Repo
+      - RPC, Route, Proto-Eintrag und Service-Methode entfernt
+      - go build/vet/lint gruen
+
+  # --- document: Wire-Shape-Drift ------------------------------------------
+
+  - id: p3-document-wire-shape
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Gateway-Responses driften vom FE-Typ ab; das FE faengt es heute mit einem
+      Normalizer in document-client.ts ab. Kanonisch gehoert der Fix ins
+      Gateway (route_document.go), danach kann der FE-Normalizer weg.
+      Konkret: POST /documents/shares, /documents/tags und
+      /documents/files/{id}/links antworten nackt (resp.Share/Tag/Link) statt
+      gewrappt {share}/{tag}/{link}. Ausserdem Listen konsistent {items,total},
+      leere Slices [] statt null, Single-Entity gewrappt.
+    sources:
+      - .planning/backend-gaps.md:143
+      - .planning/backend-gaps.md:203
+      - backend/internal/gateway/route_document.go
+      - desktop/src/renderer/src/modules/dokumente/document-client.ts
+    notes: >
+      Zwei Punkte sind Klaerung, keine reine Mechanik: (b) POST
+      .../versions/revert gibt {file}, der FE-Typ sagt {version}; (c) GET
+      /documents/shares/shared-with-me gibt {files,folders,total}, das FE
+      erwartet {shares}. Entscheide dich fuer die Form, die der FE-Typ
+      beschreibt, und notier die Entscheidung im Journal — der FE-Normalizer
+      wird spaeter danach zurueckgebaut.
+    done_when:
+      - Alle Create-Responses gewrappt
+      - Leere Liste ist [] nicht null
+      - Abweichung revert/shared-with-me im Journal begruendet
+      - go build/vet/lint/test gruen
+
+  # --- helpdesk -------------------------------------------------------------
+
+  - id: p3-helpdesk-wire-ticket
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      WireTicket liefert nur assignee_id/requester_id als UUID, keine Namen —
+      die Ticket-Liste rendert rohe UUIDs in "Zugewiesen an", und ein
+      FE-Lookup ist unmoeglich (kein tenant-weites User-Verzeichnis).
+      assignee_name und requester_name denormalisiert mitliefern. Ausserdem
+      fehlen description (Detail-Body immer leer) und category (Spalte immer
+      leer) komplett im WireTicket.
+    sources:
+      - .planning/backend-gaps.md:142
+      - backend/internal/helpdesk/
+      - backend/internal/gateway/route_helpdesk.go
+    notes: >
+      Proto-Touch am WireTicket -> im selben Commit regenerieren. Achtung
+      Vorbestand: der Assign-Flow schreibt heute Agent-NAMEN als assignee_id
+      (Freitext). Beim Join auf users darauf gefasst sein und den Fall sauber
+      behandeln statt zu crashen.
+    done_when:
+      - WireTicket traegt assignee_name, requester_name, description, category
+      - Join laeuft tenant-gescoped
+      - Nicht aufloesbare Referenz liefert leeren Namen statt Fehler
+      - .proto und .pb.go im selben Commit
+      - go build/vet/lint/test gruen
+
+  - id: p3-helpdesk-ticket-number
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: [p3-helpdesk-wire-ticket]
+    status: todo
+    scope: >
+      Es gibt kein ticket_number-Feld. Das FE bastelt eine Pseudo-Nummer aus
+      den ersten vier Hex-Zeichen der UUID (HD-YYYY-NNNN) — kollisionsanfaellig.
+      Fortlaufende ticket_number pro Tenant serverseitig vergeben und im
+      WireTicket ausliefern.
+    sources:
+      - .planning/backend-gaps.md:142
+      - backend/internal/helpdesk/
+    notes: >
+      Migration noetig (Nummer zur Laufzeit ermitteln). Pro Tenant fortlaufend,
+      nicht global — die Sequenz muss tenant-gescoped und luecken-tolerant sein.
+      Bestandstickets ruckwirkend nummerieren.
+    done_when:
+      - Neue Tickets bekommen eine fortlaufende Nummer pro Tenant
+      - Bestandstickets sind nummeriert
+      - ticket_number im WireTicket
+      - Migration hat tenant-gescopte Semantik, up und down gefuellt
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  # --- security: Spec-Luecke ------------------------------------------------
+
+  - id: p3-security-openapi
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      31 security-Endpoints fehlen in backend/api/openapi.yaml (X-3-Spec-Luecke).
+      Nachziehen und dabei Pfade und Response-Shapes gegen die tatsaechliche
+      Implementierung abgleichen — Abweichungen sind Befunde, keine
+      Schoenheitsfehler.
+    sources:
+      - .planning/backend-gaps.md
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_security.go
+    notes: >
+      CI hat einen openapi-validate-Job — der ist hier der eigentliche Gate.
+      Findest du beim Abgleich eine echte Pfad- oder Shape-Abweichung zwischen
+      Spec und Code, dokumentier sie im Journal statt sie still zu glaetten.
+    done_when:
+      - Alle 31 Endpoints in der Spec
+      - Spec validiert lokal
+      - Gefundene Drift-Punkte im Journal gelistet
+
+  # --- inbox: Tabellen liegen bereits ---------------------------------------
+
+  - id: p3-inbox-status-thread
+    phase: 3
+    service: inbox
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Status- und Thread-RPCs fuer den Posteingang. Die Tabellen existieren
+      bereits (Migration 000237 inbox_thread_messages, 000238
+      inbox_canned_responses) — hier fehlt die Service- und Gateway-Schicht.
+    sources:
+      - .planning/backend-gaps.md
+      - backend/migrations/000237_inbox_thread_messages.up.sql
+      - backend/migrations/000238_inbox_canned_responses.up.sql
+      - desktop/src/renderer/src/modules/kommunikation/
+    done_when:
+      - Status setzen und Thread lesen laufen gegen echte Tabellen
+      - Alle Reads tenant-gescoped
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  - id: p3-inbox-tags-forward
+    phase: 3
+    service: inbox
+    model: sonnet
+    deps: [p3-inbox-status-thread]
+    status: todo
+    scope: >
+      Tag- und Forward-RPCs plus CRUD fuer Canned Responses
+      (Tabelle 000238 liegt).
+    sources:
+      - .planning/backend-gaps.md
+      - backend/migrations/000238_inbox_canned_responses.up.sql
+    done_when:
+      - Tags setzen/entfernen, Forward, Canned-CRUD funktionieren
+      - Alle Reads tenant-gescoped
+      - go build/vet/lint/test gruen
+
+  # --- berichte -------------------------------------------------------------
+
+  - id: p3-berichte-server-pdf
+    phase: 3
+    service: berichte
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Server-PDF fuer Berichte. Das FE hat heute nur window.print() mit
+      Print-CSS; fuer einen echten Download fehlt der Server-Render.
+    sources:
+      - .planning/backend-gaps.md:236
+      - backend/internal/berichte/export/pdf.go
+      - backend/internal/biz/pdf/
+    notes: >
+      WICHTIG — der Gaps-Eintrag schlaegt Playwright/Chromium vor. Das ist
+      ueberholt: im Repo liegt maroto/v2 als reine-Go-Loesung mit zwei
+      funktionierenden Generatoren (internal/biz/pdf fuer Rechnungen und
+      Mahnungen, internal/berichte/export/pdf.go). Kein chromedp, kein
+      gotenberg, keine neue Dependency. Muster: CRM-Advisory-PDF in Commit
+      1c639adf — vorhandenen Generator ueber eine gRPC-RPC exponieren und den
+      Gateway-501 ersetzen.
+    done_when:
+      - GET /berichte/documents/{id}/export/pdf liefert application/pdf
+      - Erzeugt ueber maroto, keine neue Dependency
+      - go build/vet/lint/test gruen
+
+  - id: p3-berichte-kpi-service
+    phase: 3
+    service: berichte
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      Echter KPI-Service statt vorberechneter Platzhalter — Kennzahlen aus den
+      echten Modul-Tabellen aggregieren.
+    sources:
+      - .planning/backend-gaps.md
+      - backend/internal/berichte/
+    notes: >
+      Als opus eingestuft, weil der Zuschnitt der Aggregate und ihre
+      Tenant-Isolation Entwurfsarbeit ist, keine Mechanik. Jede Aggregat-Query
+      muss tenant-gescoped sein — ein vergessener Scope ist hier ein Datenleck
+      ueber Tenant-Grenzen, kein Anzeigefehler.
+    done_when:
+      - KPIs kommen aus echten Tabellen
+      - Jede Aggregat-Query tenant-gescoped
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  - id: p3-berichte-share-token
+    phase: 3
+    service: berichte
+    model: opus
+    deps: [p3-berichte-server-pdf]
+    status: todo
+    scope: >
+      Externer, unauthentifizierter Zugriff auf einen geteilten Bericht:
+      share_token-Persistenz serverseitig, oeffentliche Lese-Route ohne Auth,
+      Passwort-Pruefung, Ablauf-Enforcement, view_count-Zaehlung.
+    sources:
+      - .planning/backend-gaps.md:238
+      - backend/internal/berichte/
+    notes: >
+      Sicherheitskritisch — das ist der einzige unauthentifizierte Lesepfad in
+      diesem Backlog. Token mit ausreichender Entropie, konstantzeitiger
+      Vergleich, Ablauf hart serverseitig, kein Enumerieren ueber die Route,
+      Rate-Limit. Der Pfad darf nur genau den freigegebenen Bericht sehen,
+      niemals tenant-weit lesen.
+    done_when:
+      - Token-Erzeugung, Widerruf und Ablauf laufen serverseitig
+      - Unauth-Route liefert ausschliesslich den freigegebenen Bericht
+      - Abgelaufener oder widerrufener Token liefert 404, nicht 403
+      - Rate-Limit auf der Unauth-Route
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  # --- finance --------------------------------------------------------------
+
+  - id: p3-finance-list-amounts
+    phase: 3
+    service: finance
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Rechnungsliste zeigt durchgehend 0,00 EUR (Gaps-Punkt 17). Betragsfeld im
+      Listen-Pfad korrekt befuellen — verwandt mit dem einkauf-Defekt, aber
+      eigener Service und eigener Pfad.
+    sources:
+      - .planning/backend-gaps.md
+      - backend/internal/biz/
+    done_when:
+      - Liste zeigt echte Betraege
+      - Unit-Test auf den Listen-Pfad
+      - go build/vet/lint/test gruen
+
+  - id: p3-finance-recurring
+    phase: 3
+    service: finance
+    model: opus
+    deps: [p3-finance-list-amounts]
+    status: todo
+    scope: >
+      Wiederkehrende Rechnungen: Definition, Zeitplan, Erzeugung.
+    sources:
+      - .planning/backend-gaps.md
+      - backend/internal/biz/
+    notes: >
+      Idempotenz ist hier Pflicht, keine Kuer — eine doppelt erzeugte Rechnung
+      ist ein echter Geschaeftsvorfall. Idempotency-Key-Muster aus dem Repo
+      wiederverwenden (Dialer-Outcomes, Finance-Postings).
+    done_when:
+      - Wiederkehrende Definitionen persistiert, tenant-gescoped
+      - Erzeugung idempotent, doppelter Lauf erzeugt keine zweite Rechnung
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  - id: p3-finance-op-mahnwesen
+    phase: 3
+    service: finance
+    model: opus
+    deps: [p3-finance-recurring]
+    status: todo
+    scope: >
+      Offene-Posten-Liste und mehrstufiges Mahnwesen (Stufen, Fristen,
+      Gebuehren). PDF ueber den vorhandenen maroto-Generator in
+      internal/biz/pdf, der Mahnungen bereits kann.
+    sources:
+      - .planning/backend-gaps.md
+      - backend/internal/biz/pdf/
+    done_when:
+      - OP-Liste tenant-gescoped und korrekt sortiert
+      - Mahnstufen serverseitig durchgesetzt
+      - Mahnungs-PDF ueber den vorhandenen Generator
+      - go build/vet/lint/test gruen
+
+  - id: p3-finance-camt-import
+    phase: 3
+    service: finance
+    model: opus
+    deps: [p3-finance-op-mahnwesen]
+    status: todo
+    scope: >
+      Kontoauszug-Import CAMT.053 und MT940 mit Zuordnung zu offenen Posten.
+    sources:
+      - .planning/backend-gaps.md
+    notes: >
+      Parser fuer fremdes Dateiformat = Trust-Boundary. Eingabegroesse
+      begrenzen, Struktur strikt validieren, Parse-Fehler als saubere 4xx
+      zurueckgeben statt zu paniken. Import muss idempotent sein: dieselbe
+      Datei zweimal eingespielt darf keine Doppelbuchung erzeugen.
+    done_when:
+      - Beide Formate werden geparst, defekte Datei liefert 4xx statt Panic
+      - Import idempotent
+      - Zuordnung zu offenen Posten nachvollziehbar
+      - go build/vet/lint/test gruen
+
+  # --- zeiterfassung --------------------------------------------------------
+
+  - id: p3-zeiterfassung-entries
+    phase: 3
+    service: zeiterfassung
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      /hr/time/entries und /hr/time/projects — Erfassung und Lesen von
+      Zeiteintraegen gegen echte Tabellen.
+    sources:
+      - .planning/backend-gaps.md
+      - desktop/src/renderer/src/modules/zeiterfassung/
+    done_when:
+      - Eintraege anlegen, aendern, lesen — tenant-gescoped
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  - id: p3-zeiterfassung-balance-analytics
+    phase: 3
+    service: zeiterfassung
+    model: sonnet
+    deps: [p3-zeiterfassung-entries]
+    status: todo
+    scope: >
+      /hr/time/balance, /hr/time/analytics und /hr/time/team — Salden und
+      Auswertungen.
+    sources:
+      - .planning/backend-gaps.md
+    done_when:
+      - Saldo stimmt gegen manuell nachgerechnete Testdaten
+      - Team-Sicht liefert nur Mitarbeitende des eigenen Tenants
+      - go build/vet/lint/test gruen
+
+  - id: p3-zeiterfassung-week-submission
+    phase: 3
+    service: zeiterfassung
+    model: opus
+    deps: [p3-zeiterfassung-balance-analytics]
+    status: todo
+    scope: >
+      Tabelle time_week_submissions plus Wochen-Freigabe-Workflow
+      (einreichen, genehmigen, ablehnen, wieder oeffnen).
+    sources:
+      - .planning/backend-gaps.md
+    notes: >
+      Zustandsuebergaenge serverseitig erzwingen, nicht im FE. Eine freigegebene
+      Woche darf nicht stillschweigend wieder editierbar werden. Migration
+      noetig — Nummer zur Laufzeit ermitteln.
+    done_when:
+      - Tabelle mit tenant_id NOT NULL und RLS-Policy
+      - Uebergaenge serverseitig erzwungen, ungueltiger Uebergang 409
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  # --- admin ----------------------------------------------------------------
+
+  - id: p3-admin-invite-flow
+    phase: 3
+    service: admin
+    model: opus
+    deps: []
+    status: todo
+    scope: >
+      User-Invite-Flow: Einladung erzeugen, Token, Annahme, Seat-Verbrauch.
+    sources:
+      - .planning/backend-gaps.md
+    notes: >
+      Sicherheitskritisch: Einladungs-Token mit ausreichender Entropie,
+      einmalig verwendbar, mit hartem Ablauf. Eine angenommene Einladung darf
+      nicht erneut einloesbar sein. Kein Enumerieren ueber die Annahme-Route.
+    done_when:
+      - Einladung erzeugen, annehmen, widerrufen
+      - Token einmalig, mit Ablauf, konstantzeitiger Vergleich
+      - Seat-Verbrauch beim Annehmen
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  - id: p3-admin-billing-license
+    phase: 3
+    service: admin
+    model: opus
+    deps: [p3-admin-invite-flow]
+    status: todo
+    scope: >
+      Billing- und License-Service: Plan, Seats, Modul-Aktivierung tenant-weit.
+    sources:
+      - .planning/backend-gaps.md
+      - docs/PRICING.md
+    notes: >
+      Beruehrt die Modul-Aktivierung — aber KEINE neuen modules.*-Flags
+      scharfschalten und KEINE neue config.RequireX-Assertion hinzufuegen.
+      Braucht die Unit das, markier sie blocked mit Begruendung; Luke rollt
+      solche Aenderungen kontrolliert mit dem Compose-Passthrough aus.
+    done_when:
+      - Plan und Seats persistiert, tenant-gescoped
+      - Modul-Aktivierung liest bestehende Flag-Registry, schaltet nichts scharf
+      - RLS-Smoke gruen
+      - go build/vet/lint/test gruen
+
+  - id: p3-admin-tenant-provisioning
+    phase: 3
+    service: admin
+    model: opus
+    deps: [p3-admin-billing-license]
+    status: todo
+    scope: >
+      POST /tenants — Tenant-Provisionierung inklusive Grundausstattung
+      (Rollen, Default-Einstellungen).
+    sources:
+      - .planning/backend-gaps.md
+    notes: >
+      Der heikelste Pfad im Backlog: hier entsteht ein Tenant, und jeder Fehler
+      wirkt sich auf die Isolation aller folgenden Daten aus. Provisionierung
+      transaktional, mit RLS-Smoke gegen den frisch erzeugten Tenant.
+    done_when:
+      - Tenant-Erzeugung transaktional, Teilfehler hinterlaesst nichts
+      - Frisch erzeugter Tenant sieht keine Fremddaten (RLS-Smoke explizit)
+      - go build/vet/lint/test gruen

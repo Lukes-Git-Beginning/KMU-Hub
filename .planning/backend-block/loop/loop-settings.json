@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .planning/backend-block/loop/hooks/loop-guard.sh",
+            "description": "Backend-Nachtloop: harte Git-/Deploy-Grenzen (exit 2)",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}
