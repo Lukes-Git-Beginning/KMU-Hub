@@ -42,7 +42,7 @@ Format:
 
 ## Iteration 2 — p3-einkauf-cancel — done — 2026-07-26
 
-- commit: 22883d50
+- commit: 5901a151
 - gebaut: `Service.CancelPO` (analog zu SubmitPO/ReceiveGoods) storniert eine PO nur aus
   den Status draft/submitted/sent (POStatusCancelled existierte bereits im Enum),
   alles andere liefert `ErrPONotCancellable`. Neue RPC `CancelPO` im .proto (Request
