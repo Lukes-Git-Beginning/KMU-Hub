@@ -1436,7 +1436,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   - Naechste freie Unit: `p3-admin-billing-license` (deps jetzt erfuellt).
 
 ## Iteration 20 — p3-admin-billing-license — done — 2026-07-27 00:4x
-- commit: <wird nachgetragen>
+- commit: 08e29e52
 - verify vorgaenger (`41bf1080`, Invitations-Tenant-Scope): **sauber**. Kein
   direkter Service-Aufruf im Gateway (die Routen sind unveraendert), kein Stub,
   kein `.proto` angefasst, kein neuer `RequirePermission`-Guard. Migration 000249
