@@ -1,4 +1,4 @@
-# Backend-Nachtloop — Treiber.
+# Backend-Nachtloop - Treiber.
 #
 # Startet in einer eigenen Shell wiederholt `claude -p`. Jede Iteration ist ein
 # frischer Prozess mit frischem Kontext; der Zustand liegt in BACKLOG.yml,
@@ -17,7 +17,7 @@
 [CmdletBinding()]
 param(
     [int]    $MaxIterations = 100,
-    [string] $UntilTime     = "",        # "HH:mm", z.B. "07:30" — naechstes Auftreten
+    [string] $UntilTime     = "",        # "HH:mm", z.B. "07:30" - naechstes Auftreten
     [double] $BudgetUsd     = 12,        # Deckel pro Iteration
     [string] $Effort        = "high",
     [string] $ForceModel    = "",        # ueberschreibt das Modell aus BACKLOG.yml
@@ -44,11 +44,27 @@ function Write-Line([string]$msg, [string]$color = "Gray") {
     Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) -ForegroundColor $color
 }
 
+# --- Git Bash aufloesen ------------------------------------------------------
+# Aus PowerShell heraus loest ein blankes `bash` auf WSL auf, nicht auf Git Bash
+# ("execvpe(/bin/bash) failed"). Deshalb hier explizit den Git-Bash-Wrapper
+# nehmen (bin\bash.exe, nicht usr\bin\bash.exe - letzterer hat die Utilities
+# nicht im PATH).
+$GitBash = ""
+foreach ($c in @("C:\Program Files\Git\bin\bash.exe",
+                 "C:\Program Files (x86)\Git\bin\bash.exe",
+                 "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe")) {
+    if (Test-Path $c) { $GitBash = $c; break }
+}
+if ($GitBash -eq "") {
+    Write-Line "ABBRUCH: Git Bash nicht gefunden. Der Guard-Test braucht bash." "Red"
+    exit 1
+}
+
 # --- Vorflug-Checks ----------------------------------------------------------
 # Der Guard ist die einzige harte Grenze zum Production-Deploy. Laeuft er nicht
 # oder ist er loechrig, startet hier nichts.
 Write-Line "Vorflug: Guard-Regressionstest" "Cyan"
-& bash ".planning/backend-block/loop/hooks/test-loop-guard.sh" | Out-Null
+& $GitBash ".planning/backend-block/loop/hooks/test-loop-guard.sh" | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Line "ABBRUCH: loop-guard.sh ist rot. Ohne Guard kein Lauf." "Red"
     exit 1
@@ -65,7 +81,7 @@ foreach ($f in @($Prompt, $Backlog)) {
 }
 
 if (Test-Path $StopFile) {
-    Write-Line "STOP-Datei existiert noch vom letzten Lauf — wird entfernt." "Yellow"
+    Write-Line "STOP-Datei existiert noch vom letzten Lauf - wird entfernt." "Yellow"
     Remove-Item $StopFile -Force
 }
 
@@ -109,11 +125,11 @@ Write-Line "Start. MaxIterations=$MaxIterations BudgetUsd=$BudgetUsd Effort=$Eff
 
 while ($i -lt $MaxIterations) {
 
-    if (Test-Path $StopFile) { Write-Line "STOP-Datei gefunden — Lauf beendet." "Yellow"; break }
-    if ((Get-Date) -ge $Deadline) { Write-Line "Deadline erreicht — Lauf beendet." "Yellow"; break }
+    if (Test-Path $StopFile) { Write-Line "STOP-Datei gefunden - Lauf beendet." "Yellow"; break }
+    if ((Get-Date) -ge $Deadline) { Write-Line "Deadline erreicht - Lauf beendet." "Yellow"; break }
 
     $open = Get-OpenUnitCount
-    if ($open -eq 0) { Write-Line "Keine offenen Units mehr im Backlog — Lauf beendet." "Green"; break }
+    if ($open -eq 0) { Write-Line "Keine offenen Units mehr im Backlog - Lauf beendet." "Green"; break }
 
     $i++
     $model = Get-NextUnitModel
@@ -129,7 +145,7 @@ while ($i -lt $MaxIterations) {
     $started = Get-Date
 
     # --permission-mode bypassPermissions ist zwingend explizit: die globale
-    # settings.json hat defaultMode "plan" — ohne Override wuerde die Iteration
+    # settings.json hat defaultMode "plan" - ohne Override wuerde die Iteration
     # nur planen statt bauen.
     & claude -p $promptText `
         --model $model `
@@ -151,7 +167,7 @@ while ($i -lt $MaxIterations) {
     if ($isRateLimited) {
         $rateLimitBackoffs++
         if ($rateLimitBackoffs -gt 6) {
-            Write-Line "Rate-Limit haelt an (6 Backoffs) — Lauf beendet." "Red"
+            Write-Line "Rate-Limit haelt an (6 Backoffs) - Lauf beendet." "Red"
             break
         }
         Write-Line "Rate-Limit erkannt. Backoff 20 Minuten (Nr. $rateLimitBackoffs)." "Yellow"
@@ -165,7 +181,7 @@ while ($i -lt $MaxIterations) {
         $consecutiveFailures++
         Write-Line "Iteration $i endete mit Exit $exitCode nach $elapsed min (Fehler in Folge: $consecutiveFailures)" "Red"
         if ($consecutiveFailures -ge 3) {
-            Write-Line "Drei Fehlschlaege in Folge — Lauf beendet. Siehe $LogDir." "Red"
+            Write-Line "Drei Fehlschlaege in Folge - Lauf beendet. Siehe $LogDir." "Red"
             break
         }
         Start-Sleep -Seconds 60
