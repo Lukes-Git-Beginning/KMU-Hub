@@ -707,6 +707,43 @@ units:
       - Test rechnet den Saldo ueber Original + genehmigte Korrektur nach
       - go build/vet/lint/test gruen
 
+  - id: p3-zeiterfassung-tenant-scope
+    phase: 3
+    service: zeiterfassung
+    model: sonnet
+    deps: [p3-zeiterfassung-correction-supersede]
+    status: done   # Iteration 22 — 10 Queries gescoped, Falsifikation gegen echte DB belegt
+    scope: >
+      Zehn Queries in PostgresWorkTimeRepo laufen ohne tenant_id-Praedikat und
+      verlassen sich allein auf die RLS-Policy aus Migration 000123 — darunter
+      zwei Schreibpfade (Update, das erste UPDATE in ApproveCorrection) und alle
+      Saldo-Aggregate (GetDailySummary, aggregateDailyBuckets,
+      GetActiveShiftEmployeeIDs, GetPreviousShiftEnd, GetByID, GetActiveShift).
+      Die zwei juengeren Aggregate im selben File (GetProjectBreakdown,
+      AggregateWorkTimeForInvoice) nehmen tenantID explizit und filtern — die
+      aelteren sind der Rest eines frueheren Schnitts. Projektregel ist "jeder
+      SELECT tenant-gescoped"; ein UPDATE mit `WHERE id = $1` allein ist die
+      Stelle, an der ein Bug oder ein Kontext ohne gesetztes app.tenant_id
+      Fremddaten trifft, statt nur nichts zu finden.
+    sources:
+      - backend/internal/biz/hr/timetracking/postgres_repository.go
+      - backend/internal/biz/hr/timetracking/repository.go
+      - backend/internal/biz/hr/timetracking/service.go
+      - backend/internal/server/hr_grpc.go
+      - backend/migrations/000123_rls_phase2c_hr.up.sql
+    notes: >
+      Kein Deploy-Hazard: keine Migration, keine Proto-Aenderung, keine neue
+      Route. tenantID kommt wie bei den Nachbar-Handlern aus
+      middleware.GetTenantID(ctx) und wird explizit durchgereicht — nicht im
+      Repo aus dem Context gelesen, damit das Repo bei den zwei bereits
+      gescopten Methoden bleibt. Update/ApproveCorrection brauchen keinen neuen
+      Parameter, die tragen TenantID am Entry.
+    done_when:
+      - Jede Query in PostgresWorkTimeRepo traegt ein tenant_id-Praedikat
+      - Betroffene Service- und gRPC-Handler reichen tenantID explizit durch
+      - Test pinnt, dass ein fremder Tenant weder liest noch schreibt
+      - go build/vet/lint/test gruen
+
   # --- admin ----------------------------------------------------------------
 
   - id: p3-admin-invite-flow

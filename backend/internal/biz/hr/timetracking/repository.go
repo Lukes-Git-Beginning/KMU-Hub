@@ -30,10 +30,16 @@ var billableStatuses = []string{
 }
 
 // WorkTimeRepository defines the interface for work time entry persistence.
+//
+// Every method scopes to a tenant. Where no tenantID parameter appears the entry
+// itself carries one (Create, Update, ApproveCorrection) or the filter does
+// (List). The RLS policy on hr_work_time_entries (migration 000123) is the second
+// line, not the first: a write with `WHERE id = $1` alone would reach another
+// tenant's row in any context where app.tenant_id is unset.
 type WorkTimeRepository interface {
 	Create(ctx context.Context, entry *models.HRWorkTimeEntry) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.HRWorkTimeEntry, error)
-	GetActiveShift(ctx context.Context, employeeID uuid.UUID) (*models.HRWorkTimeEntry, error)
+	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.HRWorkTimeEntry, error)
+	GetActiveShift(ctx context.Context, tenantID, employeeID uuid.UUID) (*models.HRWorkTimeEntry, error)
 	Update(ctx context.Context, entry *models.HRWorkTimeEntry) error
 	// ApproveCorrection writes the approved correction and marks the entry it
 	// replaces as superseded in one transaction. Split into two writes, a failure
@@ -41,18 +47,18 @@ type WorkTimeRepository interface {
 	// originalID may be nil for a correction without a resolvable original.
 	ApproveCorrection(ctx context.Context, correction *models.HRWorkTimeEntry, originalID *uuid.UUID) error
 	List(ctx context.Context, filter WorkTimeFilter) ([]*models.HRWorkTimeEntry, int, error)
-	GetPreviousShiftEnd(ctx context.Context, employeeID uuid.UUID, before time.Time) (*time.Time, error)
-	GetDailySummary(ctx context.Context, employeeID uuid.UUID, date time.Time) (*DailySummary, error)
+	GetPreviousShiftEnd(ctx context.Context, tenantID, employeeID uuid.UUID, before time.Time) (*time.Time, error)
+	GetDailySummary(ctx context.Context, tenantID, employeeID uuid.UUID, date time.Time) (*DailySummary, error)
 	// GetDailySummaryRange returns one DailySummary per day for [start, start+numDays)
 	// in a single aggregated query (replaces numDays per-day GetDailySummary calls).
-	GetDailySummaryRange(ctx context.Context, employeeID uuid.UUID, start time.Time, numDays int) ([]DailySummary, error)
-	GetWeeklySummary(ctx context.Context, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error)
+	GetDailySummaryRange(ctx context.Context, tenantID, employeeID uuid.UUID, start time.Time, numDays int) ([]DailySummary, error)
+	GetWeeklySummary(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error)
 	// GetWeeklySummaryBatch returns the weekly summary for each employee in a single
 	// aggregated query, replacing N per-employee GetWeeklySummary calls.
-	GetWeeklySummaryBatch(ctx context.Context, employeeIDs []uuid.UUID, weekStart time.Time) (map[uuid.UUID]*WeeklySummary, error)
+	GetWeeklySummaryBatch(ctx context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID, weekStart time.Time) (map[uuid.UUID]*WeeklySummary, error)
 	// GetActiveShiftEmployeeIDs returns the set of employee IDs that currently have an
 	// active shift, in a single query, replacing N per-employee GetActiveShift calls.
-	GetActiveShiftEmployeeIDs(ctx context.Context, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error)
+	GetActiveShiftEmployeeIDs(ctx context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 	// AggregateWorkTimeForInvoice returns the total completed net_work_minutes and the
 	// individual entry IDs for an employee in the given inclusive date range.
 	// Only billable entries (see billableStatuses) with a non-NULL net_work_minutes count.

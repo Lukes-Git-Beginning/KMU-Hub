@@ -168,7 +168,7 @@ func TestApproveTimeCorrection_WeekApprovedAfterRequest_IsRefused(t *testing.T) 
 
 	// Approval is what makes the correction count towards the week, so it is a
 	// write into a signed-off total even though the request predates the lock.
-	_, err = svc.ApproveTimeCorrection(ctx, correction.ID, uuid.New())
+	_, err = svc.ApproveTimeCorrection(ctx, correction.TenantID, correction.ID, uuid.New())
 	assert.ErrorIs(t, err, ErrWeekLocked)
 }
 

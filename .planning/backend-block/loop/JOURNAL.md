@@ -1626,3 +1626,100 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     `p3-berichte-server-pdf` (blocked, braucht Lukes Chart-Entscheidung) — damit
     ist die Phase-3-Queue leer, bis Luke den Blocker aufloest oder Phase 2
     nachtraegt.
+
+## Iteration 22 — 2026-07-27 — p3-zeiterfassung-tenant-scope
+
+- verify-vorspann (Iteration 21, `8ae15124`): gruen. Handler geht ueber
+  `client.ProvisionTenant` (kein Direct-Svc), Permission-Seed `tenants:write`
+  liegt in Migration 000251, `auth.pb.go` im selben Commit regeneriert,
+  openapi-Pfad `/api/v1/tenants` vorhanden, keine neue Tabelle,
+  `response.Proto` marshalt snake_case. build/vet/test der beruehrten Pakete
+  nachgelaufen und gruen. Kein Nachtrag noetig.
+- neue Unit angelegt, weil die Queue leer war: der einzige `todo`
+  (`p3-berichte-share-token`) haengt an `p3-berichte-server-pdf` (blocked,
+  Lukes Chart-Entscheidung). Statt zu stoppen den ersten Eintrag aus der
+  "unveraendert offen"-Liste des Journals abgearbeitet — er ist rein backend,
+  ohne Deploy-Hazard und sicherheitsnah.
+- befund: zehn Queries in `PostgresWorkTimeRepo` liefen ohne
+  `tenant_id`-Praedikat und verliessen sich allein auf die RLS-Policy aus
+  Migration 000123 — `GetByID`, `GetActiveShift`, `GetPreviousShiftEnd`,
+  `GetDailySummary`, `aggregateDailyBuckets`, `GetActiveShiftEmployeeIDs`,
+  `Update` und das erste `UPDATE` in `ApproveCorrection`. Die zwei juengeren
+  Aggregate im selben File (`GetProjectBreakdown`,
+  `AggregateWorkTimeForInvoice`) nehmen `tenantID` explizit und filtern; die
+  aelteren waren der Rest eines frueheren Schnitts. Auffaellig war die
+  Inkonsistenz *innerhalb* von `ApproveCorrection`: das zweite UPDATE
+  (Supersede des Originals) war gescoped, das erste nicht.
+- entscheidungen:
+  - **`tenantID` explizit als Parameter, nicht aus dem Context im Repo
+    gelesen.** Die zwei bereits gescopten Methoden nehmen ihn so, und jeder
+    Nachbar-Handler in `hr_grpc.go` holt ihn ohnehin mit
+    `middleware.GetTenantID(ctx)`. Ein Context-Read im Repo waere eine zweite,
+    unsichtbare Bezugsquelle geworden.
+  - **`Update` und `ApproveCorrection` bekommen keinen neuen Parameter** — die
+    Entry-Struct traegt `TenantID`. Ein zusaetzlicher Parameter haette zwei
+    Wahrheiten fuer denselben Wert erzeugt.
+  - **Kein Deploy-Hazard, mit Absicht:** keine Migration, keine
+    Proto-Aenderung, keine neue Route, keine `config.RequireX`. Die tenantID
+    kommt aus dem Context, nicht aus dem Request, also blieb der Wire-Shape
+    unberuehrt und `openapi.yaml` unangetastet.
+  - **Der DB-Test laeuft in SYSTEM-Context, nicht in Tenant-Context.** System
+    context erfuellt `is_system_context()` und schaltet die RLS-Policy ab —
+    nur so beweist ein Nicht-Treffer, dass das *Praedikat* gefiltert hat.
+    Unter Tenant-Context waere jede Assertion auch mit entfernten Praedikaten
+    gruen geblieben, der Test also wertlos.
+  - **Zwei Testebenen, weil eine nicht reicht:** die Queries gegen echtes
+    Postgres (`postgres_tenant_scope_test.go`), die Weitergabe gegen den Mock
+    (`TestServicePassesCallerTenantToRepo`). Ein Praedikat ohne Weitergabe
+    ergibt `uuid.Nil` und damit Phantom-404 statt Isolation.
+  - **Verschiedene `employee_id` pro Tenant im Fixture.** `employee_id` ist FK
+    auf `users`, ein User gehoert genau einem Tenant — dieselbe ID in zwei
+    Tenants ist gar nicht herstellbar. Der reale Angriff ist auch nicht die
+    geteilte ID, sondern ein Aufrufer in TenantA, der eine fremde
+    Employee- oder Entry-ID nennt; genau das pinnen die Tests.
+- falsifikation (der eigentliche Beweis, dass die Tests greifen): Praedikat
+  einzeln durch `OR TRUE` aufgeweicht und gegen die echte DB laufen lassen —
+  `TestGetByID_ForeignTenantNotFound` faellt mit "TenantA read TenantB's work
+  time entry", `TestUpdate_ForeignTenantWriteMissesRow` mit "TenantA's write
+  reached TenantB's row". Beide Aufweichungen danach zurueckgenommen
+  (`grep "OR TRUE"` = 0 auf dem finalen Tree).
+- gate: build ok (`-p 2`, voller `go build ./...`) | vet ok |
+  golangci-lint 0 issues | `go test ./internal/biz/hr/timetracking/...
+  ./internal/server/... ./internal/gateway/...` ok | DB-Tests einzeln gegen
+  laufendes Postgres verifiziert (5× PASS, nicht geskippt) | keine Migration,
+  darum kein up/down-Lauf | kein Proto-Regen noetig
+- **vorbestehend rot, nicht von dieser Unit:** `internal/biz/hr`
+  (`TestTenantIsolation_HR_Standard`, `TestHRRoleBased_DocumentAccess_DB`)
+  faellt lokal mit "expected 0 row(s), got 1". Ursache ist die lokale
+  `deploy/docker/.env`: sie setzt `DATABASE_URL` auf die Superuser-Rolle
+  `kmuhub` (BYPASSRLS), diese Tests brauchen `kmuhub_app`
+  (NOSUPERUSER NOBYPASSRLS). Per `git stash -u` auf dem unveraenderten Tree
+  gegengeprueft — identische Fehler. Nichts an dieser Unit kann RLS
+  abschalten; sie fuegt nur Praedikate hinzu.
+- offen / fuer Luke:
+  - **Lokale `.env` ist irrefuehrend.** `DATABASE_URL` sollte lokal auf
+    `kmuhub_app` zeigen, sonst laufen die RLS-Isolationstests dauerhaft rot
+    und die naechste Iteration haelt das fuer ein Regression. Einzeiler in
+    `deploy/docker/.env`, aber Lukes Datei.
+  - **`hr_break_entries` bleibt ungescoped.** `GetActiveBreak` und
+    `ListByWorkTimeEntry` filtern nur auf `work_time_entry_id`. Indirekt
+    gescoped, weil die Entry-ID vorher tenant-gescoped geholt wird — also
+    deutlich weniger dringend, aber dieselbe Klasse. Bewusst nicht in diese
+    Unit gezogen, damit der Diff pruefbar bleibt; als eigene Unit sinnvoll.
+  - **`GetWorkTimeStatus` hat keinen Aufrufer** ausser dem Test. Faellt beim
+    Signaturschnitt auf; entweder fehlt die Route oder die Methode ist tot.
+    Nicht angefasst, weil Loeschen eine Produktentscheidung ist.
+  - **`idx_hr_work_time_entries_active`** ist UNIQUE auf `employee_id` ohne
+    `tenant_id`. Faktisch aequivalent, weil `employee_id` FK auf `users` ist
+    und ein User genau einem Tenant gehoert — kein Befund, nur notiert, damit
+    es nicht zweimal geprueft wird.
+  - Unveraendert offen aus frueheren Iterationen:
+    `finance-client.ts:229` ruft `mark-paid`, die Route heisst `/pay`;
+    HR-Status als Enum-Zahl gegen den String-lesenden FE-Adapter;
+    Rollen-Eskalation beim Einladen ungeprueft (RBAC-Phase 1);
+    Modul-Aktivierung wird nicht durchgesetzt (Iteration 20);
+    `platform_admin` haelt niemand (Iteration 21).
+  - Naechste freie Unit: **keine.** `p3-berichte-share-token` haengt weiter an
+    `p3-berichte-server-pdf`. Die Queue bleibt leer, bis Luke die
+    Chart-Entscheidung trifft oder Phase 2 nachtraegt — die "offen"-Liste in
+    diesem Journal ist die naechstbeste Quelle fuer Units.

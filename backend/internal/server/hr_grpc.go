@@ -397,12 +397,17 @@ func (s *HRGRPCServer) ClockOut(ctx context.Context, req *hrv1.ClockOutReq) (*hr
 }
 
 func (s *HRGRPCServer) StartBreak(ctx context.Context, req *hrv1.StartBreakReq) (*hrv1.StartBreakResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	breakEntry, err := s.timetrackingService.StartBreak(ctx, userID)
+	breakEntry, err := s.timetrackingService.StartBreak(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -413,12 +418,17 @@ func (s *HRGRPCServer) StartBreak(ctx context.Context, req *hrv1.StartBreakReq) 
 }
 
 func (s *HRGRPCServer) EndBreak(ctx context.Context, req *hrv1.EndBreakReq) (*hrv1.EndBreakResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	breakEntry, err := s.timetrackingService.EndBreak(ctx, userID)
+	breakEntry, err := s.timetrackingService.EndBreak(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -429,12 +439,17 @@ func (s *HRGRPCServer) EndBreak(ctx context.Context, req *hrv1.EndBreakReq) (*hr
 }
 
 func (s *HRGRPCServer) GetActiveShift(ctx context.Context, req *hrv1.GetActiveShiftReq) (*hrv1.GetActiveShiftResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	shift, breaks, err := s.timetrackingService.GetActiveShift(ctx, userID)
+	shift, breaks, err := s.timetrackingService.GetActiveShift(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -512,6 +527,11 @@ func (s *HRGRPCServer) ListWorkTimeEntries(ctx context.Context, req *hrv1.ListWo
 }
 
 func (s *HRGRPCServer) GetDailySummary(ctx context.Context, req *hrv1.GetDailySummaryReq) (*hrv1.GetDailySummaryResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -522,7 +542,7 @@ func (s *HRGRPCServer) GetDailySummary(ctx context.Context, req *hrv1.GetDailySu
 		return nil, status.Error(codes.InvalidArgument, "invalid date")
 	}
 
-	summary, err := s.timetrackingService.GetDailySummary(ctx, userID, date)
+	summary, err := s.timetrackingService.GetDailySummary(ctx, tenantID, userID, date)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -533,6 +553,11 @@ func (s *HRGRPCServer) GetDailySummary(ctx context.Context, req *hrv1.GetDailySu
 }
 
 func (s *HRGRPCServer) GetWeeklySummary(ctx context.Context, req *hrv1.GetWeeklySummaryReq) (*hrv1.GetWeeklySummaryResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -543,7 +568,7 @@ func (s *HRGRPCServer) GetWeeklySummary(ctx context.Context, req *hrv1.GetWeekly
 		return nil, status.Error(codes.InvalidArgument, "invalid week_start")
 	}
 
-	summary, err := s.timetrackingService.GetWeeklySummary(ctx, userID, weekStart)
+	summary, err := s.timetrackingService.GetWeeklySummary(ctx, tenantID, userID, weekStart)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -588,6 +613,11 @@ func (s *HRGRPCServer) SubmitTimeCorrection(ctx context.Context, req *hrv1.Submi
 }
 
 func (s *HRGRPCServer) ApproveTimeCorrection(ctx context.Context, req *hrv1.ApproveTimeCorrectionReq) (*hrv1.ApproveTimeCorrectionResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.GetId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid id")
@@ -598,7 +628,7 @@ func (s *HRGRPCServer) ApproveTimeCorrection(ctx context.Context, req *hrv1.Appr
 		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
 	}
 
-	correction, err := s.timetrackingService.ApproveTimeCorrection(ctx, id, approverID)
+	correction, err := s.timetrackingService.ApproveTimeCorrection(ctx, tenantID, id, approverID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
