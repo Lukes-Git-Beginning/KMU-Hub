@@ -50,7 +50,7 @@ function EditorLayout({
   onClose: () => void
 }): React.ReactElement {
   const { t } = useTranslation()
-  const { isDirty, changeCount, buildPayload } = useDraftConfig()
+  const { isDirty, changeCount, buildPayload, canUndo, canRedo, undo, redo } = useDraftConfig()
   const [activeSection, setActiveSection] = useState<EditorSection | null>(null)
   const [deployOpen, setDeployOpen] = useState(false)
 
@@ -98,10 +98,10 @@ function EditorLayout({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" disabled aria-label={t('customization.editor.undo')}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!canUndo} onClick={undo} aria-label={t('customization.editor.undo')}>
             <Undo2 className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" disabled aria-label={t('customization.editor.redo')}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!canRedo} onClick={redo} aria-label={t('customization.editor.redo')}>
             <Redo2 className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>

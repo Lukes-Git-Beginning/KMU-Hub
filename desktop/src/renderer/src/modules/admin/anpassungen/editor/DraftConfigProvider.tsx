@@ -107,6 +107,73 @@ function reducer(state: DraftState, action: DraftAction): DraftState {
   }
 }
 
+// ── Undo/redo history ──────────────────────────────────────────────────────
+// Wraps the draft reducer in a past/present/future stack so the toolbar arrows
+// step through changes. Consecutive edits to the SAME target (typing one label,
+// tweaking one value-set) coalesce into a single undo step via a coalesce key;
+// distinct targets and one-shot actions (reset, area toggle) each get their own.
+interface HistoryState {
+  past: DraftState[]
+  present: DraftState
+  future: DraftState[]
+  lastCoalesceKey: string | null
+}
+
+type HistoryAction = DraftAction | { type: 'undo' } | { type: 'redo' }
+
+function coalesceKeyOf(action: DraftAction): string | null {
+  switch (action.type) {
+    case 'setLabel':
+    case 'resetLabel':
+      return `label:${action.locale}:${action.key}`
+    case 'setValueSet':
+    case 'resetValueSet':
+      return `vs:${action.id}`
+    case 'setEntityFields':
+    case 'resetEntityFields':
+      return `fields:${action.entity}`
+    case 'setValueSetMigration':
+    case 'clearValueSetMigration':
+      return `mig:${action.setId}`
+    default:
+      return null
+  }
+}
+
+function undoableReducer(state: HistoryState, action: HistoryAction): HistoryState {
+  if (action.type === 'undo') {
+    if (state.past.length === 0) return state
+    const previous = state.past[state.past.length - 1]
+    return {
+      past: state.past.slice(0, -1),
+      present: previous,
+      future: [state.present, ...state.future],
+      lastCoalesceKey: null,
+    }
+  }
+  if (action.type === 'redo') {
+    if (state.future.length === 0) return state
+    const next = state.future[0]
+    return {
+      past: [...state.past, state.present],
+      present: next,
+      future: state.future.slice(1),
+      lastCoalesceKey: null,
+    }
+  }
+  if (action.type === 'load') {
+    // Loading a saved blueprint is a fresh baseline — history starts empty.
+    return { past: [], present: reducer(state.present, action), future: [], lastCoalesceKey: null }
+  }
+  const nextPresent = reducer(state.present, action)
+  if (nextPresent === state.present) return state
+  const key = coalesceKeyOf(action)
+  if (key !== null && key === state.lastCoalesceKey) {
+    return { ...state, present: nextPresent, future: [], lastCoalesceKey: key }
+  }
+  return { past: [...state.past, state.present], present: nextPresent, future: [], lastCoalesceKey: key }
+}
+
 function countLabels(labels: LocaleLabelMap): number {
   return Object.values(labels).reduce((acc, map) => acc + Object.keys(map).length, 0)
 }
@@ -129,6 +196,12 @@ export interface DraftConfigContextValue {
   isDirty: boolean
   /** Total touched entries (labels + value-sets + field entities) for the footer counter. */
   changeCount: number
+  /** Whether an undo / redo step is available (drives the toolbar arrows). */
+  canUndo: boolean
+  canRedo: boolean
+  /** Step the draft back / forward through the change history. */
+  undo: () => void
+  redo: () => void
   setDraftLabel: (locale: string, key: string, value: string) => void
   resetDraftLabel: (locale: string, key: string) => void
   setDraftValueSet: (id: string, set: Omit<ValueSet, 'layer'>) => void
@@ -168,8 +241,8 @@ export function DraftConfigProvider({
   children,
 }: DraftConfigProviderProps): ReactElement {
   const locale = previewLocale ?? i18n.language
-  const [state, dispatch] = useReducer(
-    reducer,
+  const [history, dispatch] = useReducer(
+    undoableReducer,
     initialPayload
       ? {
           labels: structuredClone(initialPayload.labels),
@@ -179,7 +252,9 @@ export function DraftConfigProvider({
           valueSetMigrations: structuredClone(initialPayload.valueSetMigrations ?? {}),
         }
       : { labels: {}, valueSets: {}, customFields: {}, moduleAreas: {}, valueSetMigrations: {} },
+    (initial): HistoryState => ({ past: [], present: initial, future: [], lastCoalesceKey: null }),
   )
+  const state = history.present
 
   // Every i18n key we ever wrote to the global bundle — scrubbed on unmount so a
   // draft that is discarded leaves no residue in the live app (R-1 mitigation).
@@ -236,6 +311,10 @@ export function DraftConfigProvider({
       valueSetMigrations: state.valueSetMigrations,
       isDirty: changeCount > 0,
       changeCount,
+      canUndo: history.past.length > 0,
+      canRedo: history.future.length > 0,
+      undo: () => dispatch({ type: 'undo' }),
+      redo: () => dispatch({ type: 'redo' }),
       setDraftLabel: (l, key, val) => dispatch({ type: 'setLabel', locale: l, key, value: val }),
       resetDraftLabel: (l, key) => dispatch({ type: 'resetLabel', locale: l, key }),
       setDraftValueSet: (id, set) => dispatch({ type: 'setValueSet', id, set }),
@@ -264,7 +343,7 @@ export function DraftConfigProvider({
       }),
       loadDraft: (payload) => dispatch({ type: 'load', payload }),
     }
-  }, [moduleKey, state])
+  }, [moduleKey, history, state])
 
   return <DraftConfigContext.Provider value={value}>{children}</DraftConfigContext.Provider>
 }

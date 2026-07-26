@@ -1179,10 +1179,12 @@ function TicketDetailPanel({
         </div>
 
         {/* Description */}
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground mb-1"><EditableText as="span" dkey="helpdesk.ticket.description" /></h4>
-          <p className="text-sm text-foreground leading-relaxed">{ticket.description}</p>
-        </div>
+        {ticket.description && (
+          <div>
+            <h4 className="text-xs font-medium text-muted-foreground mb-1"><EditableText as="span" dkey="helpdesk.ticket.description" /></h4>
+            <p className="text-sm text-foreground leading-relaxed">{ticket.description}</p>
+          </div>
+        )}
 
         {/* Zusatzfelder — tenant-defined custom fields (customization layer),
             editable in place: pick a value from the dropdown, type a note, etc.
