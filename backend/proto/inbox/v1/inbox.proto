@@ -9,7 +9,7 @@ import "google/protobuf/struct.proto";
 
 service InboxService {
   // =========================================================================
-  // Messages (15 RPCs)
+  // Messages (18 RPCs)
   // =========================================================================
   rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
@@ -17,11 +17,14 @@ service InboxService {
   rpc MarkUnread(MarkUnreadRequest) returns (MarkUnreadResponse);
   rpc ToggleStar(ToggleStarRequest) returns (ToggleStarResponse);
   rpc SetMessageStatus(SetMessageStatusRequest) returns (SetMessageStatusResponse);
+  rpc AddMessageTag(AddMessageTagRequest) returns (AddMessageTagResponse);
+  rpc RemoveMessageTag(RemoveMessageTagRequest) returns (RemoveMessageTagResponse);
   rpc ArchiveMessage(ArchiveMessageRequest) returns (ArchiveMessageResponse);
   rpc UnarchiveMessage(UnarchiveMessageRequest) returns (UnarchiveMessageResponse);
   rpc SnoozeMessage(SnoozeMessageRequest) returns (SnoozeMessageResponse);
   rpc UnsnoozeMessage(UnsnoozeMessageRequest) returns (UnsnoozeMessageResponse);
   rpc ReplyToMessage(ReplyToMessageRequest) returns (ReplyToMessageResponse);
+  rpc ForwardMessage(ForwardMessageRequest) returns (ForwardMessageResponse);
   rpc AssignMessage(AssignMessageRequest) returns (AssignMessageResponse);
   rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
   rpc BulkMarkRead(BulkMarkReadRequest) returns (BulkMarkReadResponse);
@@ -230,6 +233,26 @@ message SetMessageStatusResponse {
   InboxMessageInfo message = 1;
 }
 
+message AddMessageTagRequest {
+  string message_id = 1;
+  string user_id = 2;
+  string tag = 3;
+}
+
+message AddMessageTagResponse {
+  InboxMessageInfo message = 1;
+}
+
+message RemoveMessageTagRequest {
+  string message_id = 1;
+  string user_id = 2;
+  string tag = 3;
+}
+
+message RemoveMessageTagResponse {
+  InboxMessageInfo message = 1;
+}
+
 message ArchiveMessageRequest {
   string message_id = 1;
   string user_id = 2;
@@ -274,6 +297,18 @@ message ReplyToMessageRequest {
 }
 
 message ReplyToMessageResponse {
+  bool success = 1;
+}
+
+message ForwardMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+  // Recipient — email address or free-text name/handle, channel-dependent.
+  string to = 3;
+  optional string note = 4;
+}
+
+message ForwardMessageResponse {
   bool success = 1;
 }
 

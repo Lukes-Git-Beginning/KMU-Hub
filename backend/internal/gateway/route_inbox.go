@@ -71,6 +71,9 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/unread", ir.HandleMarkUnread)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/star", ir.HandleToggleStar)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/status", ir.HandleSetMessageStatus)
+		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/tags", ir.HandleAddMessageTag)
+		r.With(middleware.RequirePermission("inbox", "write")).Delete("/messages/{id}/tags", ir.HandleRemoveMessageTag)
+		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/forward", ir.HandleForwardMessage)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/archive", ir.HandleArchiveMessage)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/unarchive", ir.HandleUnarchiveMessage)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/snooze", ir.HandleSnoozeMessage)
@@ -296,6 +299,112 @@ func (ir *InboxRoutes) HandleSetMessageStatus(w http.ResponseWriter, r *http.Req
 		MessageId: messageID,
 		UserId:    userID,
 		Status:    body.Status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+type inboxMessageTagRequest struct {
+	Tag string `json:"tag" validate:"required"`
+}
+
+func (ir *InboxRoutes) HandleAddMessageTag(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	body, ok := decodeAndValidate[inboxMessageTagRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.AddMessageTag(r.Context(), &inboxv1.AddMessageTagRequest{
+		MessageId: messageID,
+		UserId:    userID,
+		Tag:       body.Tag,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+func (ir *InboxRoutes) HandleRemoveMessageTag(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	body, ok := decodeAndValidate[inboxMessageTagRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.RemoveMessageTag(r.Context(), &inboxv1.RemoveMessageTagRequest{
+		MessageId: messageID,
+		UserId:    userID,
+		Tag:       body.Tag,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp)
+}
+
+type forwardMessageRequest struct {
+	To   string  `json:"to" validate:"required"`
+	Note *string `json:"note"`
+}
+
+func (ir *InboxRoutes) HandleForwardMessage(w http.ResponseWriter, r *http.Request) {
+	client, err := ir.getInboxClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	body, ok := decodeAndValidate[forwardMessageRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.ForwardMessage(r.Context(), &inboxv1.ForwardMessageRequest{
+		MessageId: messageID,
+		UserId:    userID,
+		To:        body.To,
+		Note:      body.Note,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

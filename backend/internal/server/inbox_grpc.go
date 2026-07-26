@@ -248,6 +248,56 @@ func (s *InboxGRPCServer) SetMessageStatus(ctx context.Context, req *inboxv1.Set
 	}, nil
 }
 
+func (s *InboxGRPCServer) AddMessageTag(ctx context.Context, req *inboxv1.AddMessageTagRequest) (*inboxv1.AddMessageTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	msgID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	if err := s.messageService.AddTag(ctx, msgID, req.Tag); err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	return &inboxv1.AddMessageTagResponse{
+		Message: toInboxMessageInfo(msg),
+	}, nil
+}
+
+func (s *InboxGRPCServer) RemoveMessageTag(ctx context.Context, req *inboxv1.RemoveMessageTagRequest) (*inboxv1.RemoveMessageTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	msgID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	if err := s.messageService.RemoveTag(ctx, msgID, req.Tag); err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	return &inboxv1.RemoveMessageTagResponse{
+		Message: toInboxMessageInfo(msg),
+	}, nil
+}
+
 func (s *InboxGRPCServer) ArchiveMessage(ctx context.Context, req *inboxv1.ArchiveMessageRequest) (*inboxv1.ArchiveMessageResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -382,6 +432,36 @@ func (s *InboxGRPCServer) ReplyToMessage(ctx context.Context, req *inboxv1.Reply
 	}
 
 	return &inboxv1.ReplyToMessageResponse{
+		Success: true,
+	}, nil
+}
+
+func (s *InboxGRPCServer) ForwardMessage(ctx context.Context, req *inboxv1.ForwardMessageRequest) (*inboxv1.ForwardMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	msgID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	var note string
+	if req.Note != nil {
+		note = *req.Note
+	}
+
+	if err := s.messageService.Forward(ctx, msgID, tenantID, userID, req.To, note); err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	return &inboxv1.ForwardMessageResponse{
 		Success: true,
 	}, nil
 }
@@ -1336,6 +1416,10 @@ func mapInboxError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, message.ErrInvalidStatus):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, message.ErrInvalidTag):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, message.ErrForwardNotSupported):
+		return status.Error(codes.Unimplemented, err.Error())
 	case errors.Is(err, thread.ErrCannedResponseNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, team.ErrTeamInboxNotFound):

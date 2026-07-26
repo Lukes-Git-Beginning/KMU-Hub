@@ -2,6 +2,7 @@ package message
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +31,8 @@ type mockRepository struct {
 	markUnreadErr      error
 	toggleStarErr      error
 	setStatusErr       error
+	addTagErr          error
+	removeTagErr       error
 	archiveErr         error
 	unarchiveErr       error
 	snoozeErr          error
@@ -156,6 +159,43 @@ func (m *mockRepository) SetStatus(_ context.Context, id uuid.UUID, status strin
 		return ErrMessageNotFound
 	}
 	msg.Status = status
+	return nil
+}
+
+func (m *mockRepository) AddTag(_ context.Context, id uuid.UUID, tag string) error {
+	if m.addTagErr != nil {
+		return m.addTagErr
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	msg, ok := m.messages[id]
+	if !ok {
+		return ErrMessageNotFound
+	}
+	if slices.Contains(msg.Tags, tag) {
+		return nil
+	}
+	msg.Tags = append(msg.Tags, tag)
+	return nil
+}
+
+func (m *mockRepository) RemoveTag(_ context.Context, id uuid.UUID, tag string) error {
+	if m.removeTagErr != nil {
+		return m.removeTagErr
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	msg, ok := m.messages[id]
+	if !ok {
+		return ErrMessageNotFound
+	}
+	filtered := make([]string, 0, len(msg.Tags))
+	for _, t := range msg.Tags {
+		if t != tag {
+			filtered = append(filtered, t)
+		}
+	}
+	msg.Tags = filtered
 	return nil
 }
 
@@ -475,6 +515,148 @@ func TestSetStatus_NotFound(t *testing.T) {
 	err := svc.SetStatus(context.Background(), uuid.New(), "closed")
 
 	require.ErrorIs(t, err, ErrMessageNotFound)
+}
+
+func TestAddTag_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.AddTag(context.Background(), msg.ID, "  Demo  ")
+
+	require.NoError(t, err)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	assert.Equal(t, []string{"Demo"}, stored.Tags, "tag must be trimmed")
+}
+
+func TestAddTag_Idempotent(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	msg.Tags = []string{"Demo"}
+	seedMessage(repo, msg)
+
+	err := svc.AddTag(context.Background(), msg.ID, "Demo")
+
+	require.NoError(t, err)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	assert.Equal(t, []string{"Demo"}, stored.Tags, "adding an existing tag must not duplicate it")
+}
+
+func TestAddTag_EmptyRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.AddTag(context.Background(), msg.ID, "   ")
+
+	require.ErrorIs(t, err, ErrInvalidTag)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	assert.Empty(t, stored.Tags, "an empty tag must not be persisted")
+}
+
+func TestRemoveTag_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	msg.Tags = []string{"Demo", "Lead"}
+	seedMessage(repo, msg)
+
+	err := svc.RemoveTag(context.Background(), msg.ID, "Demo")
+
+	require.NoError(t, err)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	assert.Equal(t, []string{"Lead"}, stored.Tags)
+}
+
+func TestRemoveTag_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	err := svc.RemoveTag(context.Background(), uuid.New(), "Demo")
+
+	require.ErrorIs(t, err, ErrMessageNotFound)
+}
+
+// mockForwardAdapter is a minimal ChannelAdapter stub for exercising Service.Forward.
+type mockForwardAdapter struct {
+	channel   string
+	forwardFn func(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error
+}
+
+func (a *mockForwardAdapter) Channel() string { return a.channel }
+func (a *mockForwardAdapter) FetchNewMessages(_ context.Context, _ uuid.UUID, _ time.Time) ([]models.InboxMessage, error) {
+	return nil, nil
+}
+func (a *mockForwardAdapter) HandleReply(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ string) error {
+	return nil
+}
+func (a *mockForwardAdapter) HandleForward(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error {
+	return a.forwardFn(ctx, messageID, userID, to, note)
+}
+func (a *mockForwardAdapter) MarkReadOnSource(_ context.Context, _ string, _ uuid.UUID) error {
+	return nil
+}
+
+func TestForward_Success(t *testing.T) {
+	repo := newMockRepository()
+	registry := adapter.NewAdapterRegistry()
+
+	var gotTo, gotNote string
+	registry.Register(&mockForwardAdapter{
+		channel: "email",
+		forwardFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, to string, note string) error {
+			gotTo, gotNote = to, note
+			return nil
+		},
+	})
+	svc := NewService(repo, registry)
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, uuid.New(), "colleague@example.com", "FYI")
+
+	require.NoError(t, err)
+	assert.Equal(t, "colleague@example.com", gotTo)
+	assert.Equal(t, "FYI", gotNote)
+}
+
+func TestForward_NoAdapter(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, uuid.New(), "colleague@example.com", "")
+
+	require.ErrorIs(t, err, ErrAdapterNotFound)
+}
+
+func TestForward_NotSupportedByChannel(t *testing.T) {
+	repo := newMockRepository()
+	registry := adapter.NewAdapterRegistry()
+	registry.Register(&mockForwardAdapter{
+		channel: "email",
+		forwardFn: func(context.Context, uuid.UUID, uuid.UUID, string, string) error {
+			return adapter.ErrForwardNotSupported
+		},
+	})
+	svc := NewService(repo, registry)
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, uuid.New(), "colleague@example.com", "")
+
+	require.ErrorIs(t, err, ErrForwardNotSupported)
 }
 
 func TestArchive_Success(t *testing.T) {

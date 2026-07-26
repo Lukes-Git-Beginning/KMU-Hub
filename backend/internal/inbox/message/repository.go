@@ -53,6 +53,12 @@ type Repository interface {
 	// SetStatus sets the conversation-level status of an inbox message.
 	SetStatus(ctx context.Context, id uuid.UUID, status string) error
 
+	// AddTag adds a tag to an inbox message. Idempotent: adding an existing tag is a no-op.
+	AddTag(ctx context.Context, id uuid.UUID, tag string) error
+
+	// RemoveTag removes a tag from an inbox message. Idempotent: removing an absent tag is a no-op.
+	RemoveTag(ctx context.Context, id uuid.UUID, tag string) error
+
 	// Archive archives an inbox message.
 	Archive(ctx context.Context, id uuid.UUID) error
 

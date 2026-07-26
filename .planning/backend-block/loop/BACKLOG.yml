@@ -233,7 +233,7 @@ units:
     service: inbox
     model: sonnet
     deps: [p3-inbox-status-thread]
-    status: todo
+    status: done
     scope: >
       Tag- und Forward-RPCs plus CRUD fuer Canned Responses
       (Tabelle 000238 liegt).

@@ -164,6 +164,8 @@ func (m *mockMessageRepository) ToggleStar(_ context.Context, _ uuid.UUID) error
 func (m *mockMessageRepository) SetStatus(_ context.Context, _ uuid.UUID, _ string) error {
 	return nil
 }
+func (m *mockMessageRepository) AddTag(_ context.Context, _ uuid.UUID, _ string) error    { return nil }
+func (m *mockMessageRepository) RemoveTag(_ context.Context, _ uuid.UUID, _ string) error { return nil }
 func (m *mockMessageRepository) Archive(_ context.Context, _ uuid.UUID) error    { return nil }
 func (m *mockMessageRepository) Unarchive(_ context.Context, _ uuid.UUID) error  { return nil }
 func (m *mockMessageRepository) Snooze(_ context.Context, _ uuid.UUID, _ time.Time) error {

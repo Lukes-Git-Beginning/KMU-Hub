@@ -3,8 +3,10 @@ package message
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -121,6 +123,20 @@ func (s *Service) SetStatus(ctx context.Context, id uuid.UUID, status string) er
 	return s.repo.SetStatus(ctx, id, status)
 }
 
+// AddTag adds a tag to an inbox message. Empty (after trimming) tags are rejected.
+func (s *Service) AddTag(ctx context.Context, id uuid.UUID, tag string) error {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return ErrInvalidTag
+	}
+	return s.repo.AddTag(ctx, id, tag)
+}
+
+// RemoveTag removes a tag from an inbox message.
+func (s *Service) RemoveTag(ctx context.Context, id uuid.UUID, tag string) error {
+	return s.repo.RemoveTag(ctx, id, tag)
+}
+
 // Archive archives an inbox message.
 func (s *Service) Archive(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Archive(ctx, id)
@@ -154,6 +170,29 @@ func (s *Service) Reply(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, u
 	}
 
 	return a.HandleReply(ctx, msg.ID, userID, body)
+}
+
+// Forward routes a message to a new recipient through the originating channel's
+// adapter, e.g. forwarding an email to an external address with an optional note.
+// tenantID is used for the initial GetByID isolation check.
+func (s *Service) Forward(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, to string, note string) error {
+	msg, err := s.repo.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return err
+	}
+
+	a, ok := s.adapters.Get(msg.Channel)
+	if !ok {
+		return ErrAdapterNotFound
+	}
+
+	if err := a.HandleForward(ctx, msg.ID, userID, to, note); err != nil {
+		if errors.Is(err, adapter.ErrForwardNotSupported) {
+			return ErrForwardNotSupported
+		}
+		return err
+	}
+	return nil
 }
 
 // AssignMessage assigns an inbox message to a user.

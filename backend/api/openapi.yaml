@@ -8900,6 +8900,96 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /api/v1/inbox/messages/{id}/tags:
+    post:
+      summary: Add a tag to a message
+      tags: [inbox-messages]
+      operationId: addInboxMessageTag
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tag]
+              properties:
+                tag: { type: string }
+      responses:
+        "200":
+          description: Tag added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Remove a tag from a message
+      tags: [inbox-messages]
+      operationId: removeInboxMessageTag
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tag]
+              properties:
+                tag: { type: string }
+      responses:
+        "200":
+          description: Tag removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/inbox/messages/{id}/forward:
+    post:
+      summary: Forward message to a new recipient through the originating channel
+      tags: [inbox-messages]
+      operationId: forwardInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string, description: "Recipient — email address or free-text name/handle" }
+                note: { type: string }
+      responses:
+        "200":
+          description: Message forwarded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "501":
+          description: Forwarding is not supported for this message's channel
+
   /api/v1/inbox/messages/{id}/archive:
     post:
       summary: Archive message

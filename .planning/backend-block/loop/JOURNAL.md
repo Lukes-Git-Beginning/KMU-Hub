@@ -415,3 +415,92 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   bestehenden (falschen) Nachbar-Stil gefolgt statt allein abzuweichen —
   eine Spec-Korrektur wuerde alle acht Endpoints gleichzeitig betreffen und
   ist eine eigene, groessere Aufraeum-Unit, kein Nebenprodukt dieser Iteration.
+
+## Iteration 8 — p3-inbox-tags-forward — done — 2026-07-26 20:47
+- commit: (siehe unten)
+- Verify-Vorspann: Commit `8c133f25` (Iteration 7, SetMessageStatus) gegen
+  die sechs Fehlerklassen geprueft — Handler geht ueber den gRPC-Client,
+  Migration 000244 ist additiv auf einer bestehenden RLS-geschuetzten
+  Tabelle (keine neue Policy noetig, korrekt so gelassen), kein neuer
+  Permission-Guard. `go build ./...` (GOFLAGS=-p=2) lief sauber durch, bevor
+  diese Iteration angefangen hat.
+- Scope-Klärung zuerst: Canned-Response-CRUD (Teil des urspruenglichen
+  Backlog-Eintrags) war bereits durch `a851c675` gebaut (siehe Iteration 7 /
+  `p3-inbox-status-thread`-Notiz) — real offen waren nur Tag-Add/Remove
+  (backend-gaps.md:456) und Forward (backend-gaps.md:457).
+- gebaut:
+  - **Tags:** `tags TEXT[]` existierte schon seit Migration 000047 — keine
+    neue Migration noetig. `message.Repository.AddTag`/`RemoveTag` (Postgres:
+    `array_append`/`array_remove`, beide idempotent — Add auf einen
+    vorhandenen Tag und Remove eines abwesenden Tags sind No-Ops, kein
+    Fehler), `message.Service.AddTag` trimmt Whitespace und lehnt leere Tags
+    mit `ErrInvalidTag` ab. Neue RPCs `AddMessageTag`/`RemoveMessageTag`
+    (Request/Response mit `InboxMessageInfo`, gleiches Pattern wie
+    `ToggleStar`), Gateway `POST` + `DELETE /inbox/messages/{id}/tags` (Body
+    `{tag}`) — URL-Form von den CRM-Contact/Deal/Activity-Tag-Routen
+    abgeschaut (`route_crm.go`: `POST`/`DELETE .../{id}/tags`).
+  - **Forward:** `ChannelAdapter`-Interface um `HandleForward(ctx,
+    messageID, userID, to, note) error` erweitert (mirrors `HandleReply`).
+    `EmailAdapter.HandleForward` ruft eine neue `EmailClient.ForwardEmail`-
+    Methode (lokales Interface, noch kein echter Klient dahinter — die
+    Notification->Email-Cross-Service-Verdrahtung ist ein separates,
+    groesseres Architektur-Thema, siehe "offen" unten). Chat-/Guest-/
+    Notification-Adapter geben `adapter.ErrForwardNotSupported` zurueck
+    (kein Konzept von "an beliebigen externen Empfaenger weiterleiten" in
+    diesen Kanaelen). `message.Service.Forward` uebersetzt das zu
+    `message.ErrForwardNotSupported` (-> `Unimplemented`/501, gleiche
+    Semantik wie `ErrAdapterNotFound`). Neue RPC `ForwardMessage`
+    (`message_id`, `user_id`, `to`, optional `note`) + Gateway
+    `POST /inbox/messages/{id}/forward`. `to` ist `validate:"required"` ohne
+    `email`-Format-Zwang — FE-Placeholder (`kommunikation.forward.
+    recipientPlaceholder` = "E-Mail oder Name") sagt ausdruecklich, dass
+    freier Text erlaubt ist.
+  - Proto: 3 neue RPCs (`AddMessageTag`, `RemoveMessageTag`,
+    `ForwardMessage`) + 6 neue Message-Typen; `protoc` manuell regeneriert
+    (`make`-Target `proto` deckt `inbox.proto` mit ab, kein eigenes
+    `proto-inbox`-Target).
+  - `mapInboxError` um `ErrInvalidTag -> InvalidArgument` und
+    `ErrForwardNotSupported -> Unimplemented` erweitert.
+  - `openapi.yaml`: `/tags` (POST+DELETE) und `/forward` (POST, inkl. 501
+    fuer den Not-Supported-Fall) im Stil der Nachbar-Endpoints.
+  - Tests: 8 neue Unit-Tests in `message/service_test.go` (Add/Remove/
+    Idempotenz/leerer Tag/Forward-Success/-NoAdapter/-NotSupported, inkl.
+    eines minimalen `mockForwardAdapter` fuer den Adapter-Pfad) + `AddTag`/
+    `RemoveTag`-Stubs in den zwei Cross-Package-Mocks (`inbox/routing`,
+    `inbox/team`), die `message.Repository` ebenfalls implementieren.
+- bewusst NICHT angefasst: FE-Wiring (`stores/inboxTags.ts` bleibt lokales
+  Overlay, `ForwardDialog.tsx` bleibt Toast-only) — dieser Loop ist
+  Backend-only, das FE-Rueckbau-Backlog gehoert Luke.
+- gate: build ok (`GOFLAGS=-p=2 go build ./...`) | vet ok
+  (`./internal/inbox/... ./internal/gateway/... ./internal/server/...`) |
+  lint ok (0 issues, gleiche drei Packages) | test ok (`go test
+  ./internal/inbox/... ./internal/gateway/... ./internal/server/...
+  ./internal/models/...`, inkl. `TestOpenAPIRouteDrift`) | openapi ok
+  (`swagger-cli validate` lokal gruen) | rls-smoke ok — manuell per `psql`
+  gegen die laufende `docker-postgres-1`: Zeile mit Tenant
+  `...0001` angelegt, als `kmuhub_app` unter `app.tenant_id=...0001`
+  AddTag+RemoveTag ausgefuehrt (beide `UPDATE 1`, Tags wie erwartet
+  `{Initial,Demo}` -> `{Demo}`), danach `app.tenant_id` auf einen fremden
+  Tenant `...0202` umgestellt und denselben AddTag-Mutationsversuch
+  wiederholt (`UPDATE 0` — RLS blockiert), Transaktion per `ROLLBACK`
+  wieder sauber entfernt. Keine neue Migration noetig, also kein
+  up/down-Test.
+- offen:
+  - **Email-Forward ist noch nicht produktiv verdrahtet:** `EmailAdapter`
+    wird in `cmd/notification/main.go:140` mit `client=nil` registriert
+    (bestehender Zustand, nicht neu durch diese Iteration) — die
+    Notification<->Email-Cross-Service-Verdrahtung existiert fuer keinen
+    Adapter (`Reply` hat dasselbe Problem). `ForwardMessage` liefert daher
+    heute immer "email adapter: client not configured" (Internal), bis
+    dieser Cross-Service-Client existiert. Das ist eine eigene,
+    groessere Unit (echten `EmailServiceClient` in den Notification-Service
+    injizieren) — aus Scope-Gruenden hier nicht mitgezogen, da sie ueber
+    RPC/Gateway/Proto dieser Unit hinausgeht.
+  - `EmailAdapter.HandleReply` hat denselben, vorbestehenden Verdacht: es
+    wird `msg.ID` (die lokale Inbox-UUID) als `threadID`-Parameter an
+    `SendReply` durchgereicht, obwohl `FetchNewMessages` `SourceID` auf die
+    echte Email-Thread-ID setzt (`msg.ThreadID`) — die beiden IDs sind
+    unterschiedliche Werte. `HandleForward` folgt demselben (moeglicherweise
+    fehlerhaften) Muster bewusst fuer Konsistenz. Bleibt irrelevant, solange
+    der Cross-Service-Client nicht existiert; sobald er gebaut wird, sollte
+    diese ID-Verwechslung mitgeprueft werden.

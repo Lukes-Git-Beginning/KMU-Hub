@@ -263,6 +263,8 @@ func (m *mockMessageRepo) ToggleStar(_ context.Context, _ uuid.UUID) error { ret
 func (m *mockMessageRepo) SetStatus(_ context.Context, _ uuid.UUID, _ string) error {
 	return nil
 }
+func (m *mockMessageRepo) AddTag(_ context.Context, _ uuid.UUID, _ string) error    { return nil }
+func (m *mockMessageRepo) RemoveTag(_ context.Context, _ uuid.UUID, _ string) error { return nil }
 func (m *mockMessageRepo) Archive(_ context.Context, _ uuid.UUID) error    { return nil }
 func (m *mockMessageRepo) Unarchive(_ context.Context, _ uuid.UUID) error  { return nil }
 func (m *mockMessageRepo) Snooze(_ context.Context, _ uuid.UUID, _ time.Time) error {

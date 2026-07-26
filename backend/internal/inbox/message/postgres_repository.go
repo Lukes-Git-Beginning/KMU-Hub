@@ -294,6 +294,37 @@ func (r *PostgresRepository) SetStatus(ctx context.Context, id uuid.UUID, status
 	return nil
 }
 
+func (r *PostgresRepository) AddTag(ctx context.Context, id uuid.UUID, tag string) error {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE inbox_messages
+		 SET tags = CASE WHEN $2 = ANY(tags) THEN tags ELSE array_append(tags, $2) END,
+		     updated_at = NOW()
+		 WHERE id = $1`,
+		id, tag,
+	)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrMessageNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) RemoveTag(ctx context.Context, id uuid.UUID, tag string) error {
+	ct, err := r.pool.Exec(ctx,
+		"UPDATE inbox_messages SET tags = array_remove(tags, $2), updated_at = NOW() WHERE id = $1",
+		id, tag,
+	)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrMessageNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) Archive(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
 		"UPDATE inbox_messages SET is_archived = true, updated_at = NOW() WHERE id = $1",
