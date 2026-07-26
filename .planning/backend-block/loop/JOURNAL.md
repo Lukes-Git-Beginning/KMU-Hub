@@ -1173,7 +1173,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
 
 ## Iteration 17 — p3-finance-camt-import — done — 2026-07-26
 
-- commit: <wird nachgetragen>
+- commit: ba944edb
 - verify vorgaenger (`7d612aa3`, Iteration 16): sauber. Handler geht ueber
   `client.ReopenWeek` (kein Direct-Svc), `.proto` + `.pb.go` + `_grpc.pb.go` im
   selben Commit, Pfad in `openapi.yaml`, `RequirePermission("hr","write")` war
