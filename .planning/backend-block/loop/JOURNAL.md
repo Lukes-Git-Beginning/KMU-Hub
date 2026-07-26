@@ -2350,3 +2350,5 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     (Iteration 20); `platform_admin` haelt niemand (Iteration 21); lokale
     `deploy/docker/.env` laeuft als Superuser `kmuhub` statt `kmuhub_app`, darum
     drei HR-RLS-Tests dauerhaft rot.
+
+- iteration 28 commit: `21bf691e`
