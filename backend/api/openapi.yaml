@@ -13929,6 +13929,32 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/einkauf/pos/{id}/cancel:
+    post:
+      summary: Cancel a purchase order
+      description: >
+        Cancels a purchase order that has not been received yet. Only orders in
+        draft, submitted or sent state can be cancelled; any other state is
+        rejected with 409.
+      tags: [einkauf]
+      operationId: cancelPurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Purchase order cancelled
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Purchase order is not in a cancellable state
+          content:
+            application/json:
+              schema: { type: object }
+
   /api/v1/einkauf/pos/{id}/receive:
     post:
       summary: Mark a purchase order as fully received
