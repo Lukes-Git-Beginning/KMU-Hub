@@ -1357,7 +1357,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     `p3-berichte-server-pdf` gesperrt.
 
 ## Iteration 19 — p3-admin-invite-flow — done — 2026-07-26 23:5x
-- commit: <s.u. — im Folge-Commit nachgetragen>
+- commit: `41bf1080`
 - verify vorgaenger (`b871bbba`, Iteration 18): **sauber**. `.proto` + `hr.pb.go`
   im selben Commit (Enum `WORK_TIME_SUPERSEDED = 5` in beiden), Migration 000248
   mit tenant-gescoptem Backfill-Join, Supersede-UPDATE auf `correction.TenantID`
