@@ -134,6 +134,48 @@ func (r *PostgresWorkTimeRepo) Update(ctx context.Context, entry *models.HRWorkT
 	return err
 }
 
+// ApproveCorrection stores the approved correction and retires the entry it
+// replaces in one transaction, so the two writes that together keep the balance
+// correct can never land separately.
+func (r *PostgresWorkTimeRepo) ApproveCorrection(ctx context.Context, correction *models.HRWorkTimeEntry, originalID *uuid.UUID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE hr_work_time_entries SET
+			clock_out = $2, break_minutes = $3, auto_break_deducted = $4,
+			net_work_minutes = $5, status = $6,
+			correction_approved_by = $7, correction_approved_at = $8,
+			updated_at = $9
+		WHERE id = $1`,
+		correction.ID, correction.ClockOut, correction.BreakMinutes, correction.AutoBreakDeducted,
+		correction.NetWorkMinutes, correction.Status,
+		correction.CorrectionApprovedBy, correction.CorrectionApprovedAt,
+		correction.UpdatedAt,
+	); err != nil {
+		return err
+	}
+
+	if originalID != nil {
+		// Scoped to the correction's tenant and to the states an original can be in:
+		// a second approval must not pull an already superseded entry around again.
+		if _, err = tx.Exec(ctx,
+			`UPDATE hr_work_time_entries
+			SET status = $3, updated_at = $4
+			WHERE id = $1 AND tenant_id = $2 AND status = ANY($5)`,
+			*originalID, correction.TenantID, models.WorkTimeStatusSuperseded, correction.UpdatedAt,
+			[]string{string(models.WorkTimeStatusActive), string(models.WorkTimeStatusCompleted)},
+		); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) ([]*models.HRWorkTimeEntry, int, error) {
 	var conditions []string
 	var args []interface{}
@@ -267,8 +309,8 @@ func (r *PostgresWorkTimeRepo) GetDailySummary(ctx context.Context, employeeID u
 		FROM hr_work_time_entries
 		WHERE employee_id = $1
 			AND clock_in >= $2 AND clock_in < $3
-			AND status IN ('active', 'completed', 'correction_approved')`,
-		employeeID, dayStart, dayEnd,
+			AND status = ANY($4)`,
+		employeeID, dayStart, dayEnd, balanceStatuses,
 	).Scan(
 		&summary.TotalWorkedMinutes,
 		&summary.TotalBreakMinutes,
@@ -378,9 +420,9 @@ func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, employ
 		FROM hr_work_time_entries
 		WHERE employee_id = ANY($1)
 			AND clock_in >= $2 AND clock_in < $3
-			AND status IN ('active', 'completed', 'correction_approved')
+			AND status = ANY($4)
 		GROUP BY employee_id, day_idx`,
-		employeeIDs, start, end,
+		employeeIDs, start, end, balanceStatuses,
 	)
 	if err != nil {
 		return nil, err
@@ -456,10 +498,10 @@ func (r *PostgresWorkTimeRepo) GetProjectBreakdown(ctx context.Context, tenantID
 		LEFT JOIN hr_time_projects p ON w.project_id = p.id
 		WHERE w.tenant_id = $1 AND w.employee_id = $2
 			AND w.clock_in >= $3 AND w.clock_in < $4
-			AND w.status = 'completed'
+			AND w.status = ANY($5)
 		GROUP BY w.project_id, p.name
 		ORDER BY minutes DESC`,
-		tenantID, employeeID, dateFrom, dateTo.Add(24*time.Hour),
+		tenantID, employeeID, dateFrom, dateTo.Add(24*time.Hour), billableStatuses,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get project breakdown: %w", err)
@@ -485,18 +527,19 @@ func (r *PostgresWorkTimeRepo) GetProjectBreakdown(ctx context.Context, tenantID
 }
 
 // AggregateWorkTimeForInvoice returns the total net_work_minutes and entry IDs
-// for all completed work time entries of the given employee within [from, to].
+// for the billable work time entries of the given employee within [from, to] —
+// finished entries and approved corrections, never the originals they replaced.
 func (r *PostgresWorkTimeRepo) AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (int, []string, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, net_work_minutes
 		 FROM hr_work_time_entries
 		 WHERE tenant_id = $1
 		   AND employee_id = $2
-		   AND status = 'completed'
+		   AND status = ANY($5)
 		   AND clock_in >= $3
 		   AND clock_in <= $4
 		   AND net_work_minutes IS NOT NULL`,
-		tenantID, employeeID, from, to,
+		tenantID, employeeID, from, to, billableStatuses,
 	)
 	if err != nil {
 		return 0, nil, err

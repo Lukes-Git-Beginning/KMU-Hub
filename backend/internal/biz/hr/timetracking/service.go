@@ -460,7 +460,10 @@ func (s *Service) ApproveTimeCorrection(ctx context.Context, correctionID, appro
 	correction.CorrectionApprovedAt = &now
 	correction.UpdatedAt = now
 
-	if updateErr := s.workTimeRepo.Update(ctx, correction); updateErr != nil {
+	// The original has to leave the balance in the same step: both it and the
+	// approved correction are summed by the daily and weekly aggregates, so an
+	// original left at 'completed' makes the corrected day count twice.
+	if updateErr := s.workTimeRepo.ApproveCorrection(ctx, correction, correction.OriginalEntryID); updateErr != nil {
 		return nil, updateErr
 	}
 

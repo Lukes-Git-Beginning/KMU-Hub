@@ -29,6 +29,9 @@ const (
 	WorkTimeStatusCompleted          WorkTimeEntryStatus = "completed"
 	WorkTimeStatusCorrectionPending  WorkTimeEntryStatus = "correction_pending"
 	WorkTimeStatusCorrectionApproved WorkTimeEntryStatus = "correction_approved"
+	// WorkTimeStatusSuperseded marks an original entry that an approved correction
+	// replaced. It is kept for the audit trail but counts towards no balance.
+	WorkTimeStatusSuperseded WorkTimeEntryStatus = "superseded"
 )
 
 // HRContractType represents the type of employment contract.

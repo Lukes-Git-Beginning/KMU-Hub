@@ -667,7 +667,7 @@ units:
     service: zeiterfassung
     model: sonnet
     deps: [p3-zeiterfassung-week-submission]
-    status: todo
+    status: done   # Iteration 18
     scope: >
       Genehmigte Zeitkorrektur zaehlt doppelt. aggregateDailyBuckets summiert
       status IN ('active','completed','correction_approved'); ApproveTimeCorrection
@@ -685,6 +685,23 @@ units:
       auf. Migrationsnummer zur Laufzeit ermitteln. Alternative ohne neuen
       Status waere ein Filter auf original_entry_id in der Aggregation — dann
       aber an genau einer Stelle, nicht in jeder Query.
+      ERLEDIGT Iteration 18 (Migration 000248). Der neue Status-Weg wurde
+      gewaehlt, weil er an EINER Stelle wirkt: 'superseded' faellt aus jeder
+      vorhandenen Summe heraus, waehrend ein Anti-Join in jede Aggregat-Query
+      einzeln haette eingebaut werden muessen. Entscheidungen: (a) Die zwei
+      Status-Mengen stehen einmal in Go (`balanceStatuses`, `billableStatuses`
+      in repository.go) und wandern als Query-Parameter (`status = ANY($n)`) in
+      die vier Aggregate — keine Query kann von der Definition abdriften, und der
+      Test rechnet gegen dieselbe Menge nach. (b) `billableStatuses` schliesst
+      jetzt `correction_approved` ein: Rechnung und Projekt-Breakdown filterten
+      auf `status = 'completed'` und haetten nach dem Supersede gar keine Zeit
+      mehr gesehen (vorher: die unkorrigierte). (c) Genehmigung und Supersede
+      laufen in EINER Transaktion (`WorkTimeRepository.ApproveCorrection`) —
+      getrennt geschrieben liesse ein Fehler dazwischen den Tag entweder doppelt
+      oder gar nicht gezaehlt. (d) Proto-Enum `WORK_TIME_SUPERSEDED = 5`
+      ergaenzt und regeneriert, sonst waere der neue Status als UNSPECIFIED ueber
+      die Leitung gegangen. (e) Migration enthaelt einen Backfill fuer bereits
+      genehmigte Korrekturen (tenant-gescopter Join).
     done_when:
       - Wochensaldo nach genehmigter Korrektur entspricht der korrigierten Dauer
       - Test rechnet den Saldo ueber Original + genehmigte Korrektur nach

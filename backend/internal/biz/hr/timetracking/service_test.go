@@ -2,6 +2,7 @@ package timetracking
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -62,6 +63,22 @@ func (m *mockWorkTimeRepo) Update(_ context.Context, entry *models.HRWorkTimeEnt
 		if m.activeShift != nil && m.activeShift.ID == entry.ID {
 			m.activeShift = nil
 		}
+	}
+	return nil
+}
+
+func (m *mockWorkTimeRepo) ApproveCorrection(_ context.Context, correction *models.HRWorkTimeEntry, originalID *uuid.UUID) error {
+	m.entries[correction.ID] = correction
+	if originalID == nil {
+		return nil
+	}
+	original, ok := m.entries[*originalID]
+	if !ok || original.TenantID != correction.TenantID {
+		return nil
+	}
+	if original.Status == models.WorkTimeStatusActive || original.Status == models.WorkTimeStatusCompleted {
+		original.Status = models.WorkTimeStatusSuperseded
+		original.UpdatedAt = correction.UpdatedAt
 	}
 	return nil
 }
@@ -507,6 +524,118 @@ func TestApproveTimeCorrection_TransitionsStatus(t *testing.T) {
 	assert.Equal(t, models.WorkTimeStatusCorrectionApproved, approved.Status)
 	assert.Equal(t, &approverID, approved.CorrectionApprovedBy)
 	assert.NotNil(t, approved.CorrectionApprovedAt)
+}
+
+// sumBalanceMinutes mirrors what the daily and weekly aggregates do in SQL: sum
+// net_work_minutes over the entries whose status counts towards a balance. It reads
+// the same balanceStatuses the queries are parameterised with, so the expectation
+// here cannot drift away from the one the database applies.
+func sumBalanceMinutes(entries map[uuid.UUID]*models.HRWorkTimeEntry) int {
+	var total int
+	for _, e := range entries {
+		if !slices.Contains(balanceStatuses, string(e.Status)) {
+			continue
+		}
+		if e.NetWorkMinutes != nil {
+			total += *e.NetWorkMinutes
+		}
+	}
+	return total
+}
+
+func TestApproveTimeCorrection_SupersedesOriginal(t *testing.T) {
+	svc, workRepo, _ := newTestService()
+	ctx := context.Background()
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+	approverID := uuid.New()
+
+	now := time.Now()
+	originalNet := 480
+	originalOut := now.Add(-1 * time.Hour)
+	original := &models.HRWorkTimeEntry{
+		ID:             uuid.New(),
+		TenantID:       tenantID,
+		EmployeeID:     employeeID,
+		ClockIn:        now.Add(-9 * time.Hour),
+		ClockOut:       &originalOut,
+		NetWorkMinutes: &originalNet,
+		Status:         models.WorkTimeStatusCompleted,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	workRepo.entries[original.ID] = original
+
+	correctedNet := 360
+	correctedOut := now.Add(-3 * time.Hour)
+	correction := &models.HRWorkTimeEntry{
+		ID:               uuid.New(),
+		TenantID:         tenantID,
+		EmployeeID:       employeeID,
+		ClockIn:          now.Add(-9 * time.Hour),
+		ClockOut:         &correctedOut,
+		NetWorkMinutes:   &correctedNet,
+		Status:           models.WorkTimeStatusCorrectionPending,
+		IsCorrection:     true,
+		OriginalEntryID:  &original.ID,
+		CorrectionReason: "Left three hours earlier than recorded",
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	workRepo.entries[correction.ID] = correction
+
+	// A pending correction is a proposal: until it is approved the day still counts
+	// the original alone.
+	assert.Equal(t, originalNet, sumBalanceMinutes(workRepo.entries))
+
+	approved, err := svc.ApproveTimeCorrection(ctx, correction.ID, approverID)
+	require.NoError(t, err)
+	assert.Equal(t, models.WorkTimeStatusCorrectionApproved, approved.Status)
+
+	assert.Equal(t, models.WorkTimeStatusSuperseded, workRepo.entries[original.ID].Status,
+		"the replaced original must leave the balance")
+	assert.Equal(t, correctedNet, sumBalanceMinutes(workRepo.entries),
+		"an approved correction replaces the original, it does not add to it")
+}
+
+func TestApproveTimeCorrection_LeavesForeignOriginalAlone(t *testing.T) {
+	svc, workRepo, _ := newTestService()
+	ctx := context.Background()
+
+	now := time.Now()
+	foreignNet := 480
+	foreign := &models.HRWorkTimeEntry{
+		ID:             uuid.New(),
+		TenantID:       uuid.New(),
+		EmployeeID:     uuid.New(),
+		ClockIn:        now.Add(-9 * time.Hour),
+		NetWorkMinutes: &foreignNet,
+		Status:         models.WorkTimeStatusCompleted,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	workRepo.entries[foreign.ID] = foreign
+
+	correctedNet := 360
+	correction := &models.HRWorkTimeEntry{
+		ID:              uuid.New(),
+		TenantID:        uuid.New(),
+		EmployeeID:      uuid.New(),
+		ClockIn:         now.Add(-9 * time.Hour),
+		NetWorkMinutes:  &correctedNet,
+		Status:          models.WorkTimeStatusCorrectionPending,
+		IsCorrection:    true,
+		OriginalEntryID: &foreign.ID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	workRepo.entries[correction.ID] = correction
+
+	_, err := svc.ApproveTimeCorrection(ctx, correction.ID, uuid.New())
+	require.NoError(t, err)
+
+	assert.Equal(t, models.WorkTimeStatusCompleted, workRepo.entries[foreign.ID].Status,
+		"a correction must never retire an entry of another tenant")
 }
 
 func TestClockOut_NotClockedIn(t *testing.T) {

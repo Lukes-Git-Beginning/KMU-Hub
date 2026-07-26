@@ -85,6 +85,9 @@ const (
 	WorkTimeEntryStatus_WORK_TIME_COMPLETED                WorkTimeEntryStatus = 2
 	WorkTimeEntryStatus_WORK_TIME_CORRECTION_PENDING       WorkTimeEntryStatus = 3
 	WorkTimeEntryStatus_WORK_TIME_CORRECTION_APPROVED      WorkTimeEntryStatus = 4
+	// An entry an approved correction replaced. Kept for the audit trail, counted
+	// towards no balance.
+	WorkTimeEntryStatus_WORK_TIME_SUPERSEDED WorkTimeEntryStatus = 5
 )
 
 // Enum value maps for WorkTimeEntryStatus.
@@ -95,6 +98,7 @@ var (
 		2: "WORK_TIME_COMPLETED",
 		3: "WORK_TIME_CORRECTION_PENDING",
 		4: "WORK_TIME_CORRECTION_APPROVED",
+		5: "WORK_TIME_SUPERSEDED",
 	}
 	WorkTimeEntryStatus_value = map[string]int32{
 		"WORK_TIME_ENTRY_STATUS_UNSPECIFIED": 0,
@@ -102,6 +106,7 @@ var (
 		"WORK_TIME_COMPLETED":                2,
 		"WORK_TIME_CORRECTION_PENDING":       3,
 		"WORK_TIME_CORRECTION_APPROVED":      4,
+		"WORK_TIME_SUPERSEDED":               5,
 	}
 )
 
@@ -8941,13 +8946,14 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\rLEAVE_PENDING\x10\x01\x12\x12\n" +
 	"\x0eLEAVE_APPROVED\x10\x02\x12\x12\n" +
 	"\x0eLEAVE_REJECTED\x10\x03\x12\x13\n" +
-	"\x0fLEAVE_CANCELLED\x10\x04*\xb1\x01\n" +
+	"\x0fLEAVE_CANCELLED\x10\x04*\xcb\x01\n" +
 	"\x13WorkTimeEntryStatus\x12&\n" +
 	"\"WORK_TIME_ENTRY_STATUS_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10WORK_TIME_ACTIVE\x10\x01\x12\x17\n" +
 	"\x13WORK_TIME_COMPLETED\x10\x02\x12 \n" +
 	"\x1cWORK_TIME_CORRECTION_PENDING\x10\x03\x12!\n" +
-	"\x1dWORK_TIME_CORRECTION_APPROVED\x10\x04*\xa1\x01\n" +
+	"\x1dWORK_TIME_CORRECTION_APPROVED\x10\x04\x12\x18\n" +
+	"\x14WORK_TIME_SUPERSEDED\x10\x05*\xa1\x01\n" +
 	"\fContractType\x12\x1d\n" +
 	"\x19CONTRACT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12CONTRACT_FULL_TIME\x10\x01\x12\x16\n" +

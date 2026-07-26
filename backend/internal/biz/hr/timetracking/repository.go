@@ -9,12 +9,37 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// balanceStatuses are the entry states that count towards a daily or weekly
+// balance. 'correction_pending' does not (it is a proposal) and neither does
+// 'superseded' (an approved correction already replaced it) — leaving the original
+// in here is what made a corrected day count twice.
+//
+// The set lives here once and travels into every aggregate as a query parameter,
+// so no single query can drift away from the definition.
+var balanceStatuses = []string{
+	string(models.WorkTimeStatusActive),
+	string(models.WorkTimeStatusCompleted),
+	string(models.WorkTimeStatusCorrectionApproved),
+}
+
+// billableStatuses are the states an invoice or a project breakdown may bill.
+// Same set minus 'active': a running shift has no final duration yet.
+var billableStatuses = []string{
+	string(models.WorkTimeStatusCompleted),
+	string(models.WorkTimeStatusCorrectionApproved),
+}
+
 // WorkTimeRepository defines the interface for work time entry persistence.
 type WorkTimeRepository interface {
 	Create(ctx context.Context, entry *models.HRWorkTimeEntry) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.HRWorkTimeEntry, error)
 	GetActiveShift(ctx context.Context, employeeID uuid.UUID) (*models.HRWorkTimeEntry, error)
 	Update(ctx context.Context, entry *models.HRWorkTimeEntry) error
+	// ApproveCorrection writes the approved correction and marks the entry it
+	// replaces as superseded in one transaction. Split into two writes, a failure
+	// between them leaves the day either double-counted or missing entirely.
+	// originalID may be nil for a correction without a resolvable original.
+	ApproveCorrection(ctx context.Context, correction *models.HRWorkTimeEntry, originalID *uuid.UUID) error
 	List(ctx context.Context, filter WorkTimeFilter) ([]*models.HRWorkTimeEntry, int, error)
 	GetPreviousShiftEnd(ctx context.Context, employeeID uuid.UUID, before time.Time) (*time.Time, error)
 	GetDailySummary(ctx context.Context, employeeID uuid.UUID, date time.Time) (*DailySummary, error)
@@ -30,7 +55,7 @@ type WorkTimeRepository interface {
 	GetActiveShiftEmployeeIDs(ctx context.Context, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 	// AggregateWorkTimeForInvoice returns the total completed net_work_minutes and the
 	// individual entry IDs for an employee in the given inclusive date range.
-	// Only entries with status='completed' and a non-NULL net_work_minutes are considered.
+	// Only billable entries (see billableStatuses) with a non-NULL net_work_minutes count.
 	AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (totalMinutes int, entryIDs []string, err error)
 	// GetProjectBreakdown returns per-project aggregated net_work_minutes for the given employee and date range.
 	GetProjectBreakdown(ctx context.Context, tenantID, employeeID uuid.UUID, dateFrom, dateTo time.Time) ([]ProjectBreakdown, error)

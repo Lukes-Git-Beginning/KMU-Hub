@@ -1263,3 +1263,95 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     (sonnet, deps erfuellt) oder `p3-admin-invite-flow` (opus).
     `p3-berichte-share-token` bleibt durch das blockierte
     `p3-berichte-server-pdf` gesperrt.
+
+## Iteration 18 — p3-zeiterfassung-correction-supersede — done — 2026-07-26
+
+- commit: (siehe naechste Zeile nach dem Commit)
+- verify vorgaenger (`ba944edb`, Iteration 17): sauber. Alle sechs Gateway-Handler
+  in `route_biz_banking.go` gehen ueber `b.getBizClient()` (kein Direct-Svc),
+  jeder SELECT in `banking/postgres_repository.go` traegt `tenant_id = $1`,
+  `.proto` + `.pb.go` + `_grpc.pb.go` im selben Commit, 405 Zeilen `openapi.yaml`
+  fuer die neuen Routen. Das einzige `Unimplemented` ist ein nil-Guard
+  (`requireBanking`), kein Stub — `cmd/biz/main.go:263` verdrahtet den Service
+  wirklich. `go build -p 2` + `go test ./internal/biz/banking/... ./internal/gateway/`
+  gruen.
+- unit: `p3-zeiterfassung-correction-supersede` — genehmigte Zeitkorrektur zaehlt
+  doppelt.
+- befund: Der Bug war exakt wie im Backlog beschrieben, aber er endete nicht bei
+  der Aggregation. `ApproveTimeCorrection` setzte die Korrekturzeile auf
+  `correction_approved` und liess das Original auf `completed` stehen; beide
+  Status sind in `aggregateDailyBuckets` und `GetDailySummary` summiert. Ein
+  korrigierter Tag zaehlte damit die urspruengliche PLUS die korrigierte Dauer —
+  gegen echtes BE nachgewiesen: 480 + 360 = 840 statt 360 Minuten.
+- entscheidungen:
+  - **Neuer Status `superseded` statt eines Anti-Joins.** Der Backlog nannte
+    beide Wege. Der Status wirkt an einer Stelle: das Original faellt aus jeder
+    bestehenden Summe heraus, weil keine Summe ihn kennt. Ein Filter auf
+    `original_entry_id` haette in jede Aggregat-Query einzeln gemusst — vier
+    Stellen heute, jede kuenftige zusaetzlich. Fachlich ist das Original nach
+    einer genehmigten Korrektur auch nicht "abgeschlossen", sondern ersetzt; die
+    Zeile bleibt fuer die Pruefspur erhalten (ArbZG/GoBD), zaehlt aber nirgends.
+  - **Die zwei Status-Mengen stehen genau einmal in Go.** `balanceStatuses`
+    (active/completed/correction_approved) und `billableStatuses`
+    (completed/correction_approved) liegen in `repository.go` und wandern als
+    `status = ANY($n)`-Parameter in alle vier Aggregate. Dasselbe Muster wie die
+    Aging-Grenzen aus Iteration 15: die SQL kann nicht von der Go-Definition
+    abdriften, und der Test rechnet gegen dieselbe Menge nach statt gegen eine
+    Kopie.
+  - **`billableStatuses` schliesst `correction_approved` mit ein.** Das war ein
+    zweiter, bereits vorhandener Fehler: `AggregateWorkTimeForInvoice` und
+    `GetProjectBreakdown` filterten auf `status = 'completed'` und fakturierten
+    damit die UNkorrigierte Zeit. Nach dem Supersede haetten sie gar keine mehr
+    gesehen — der Fix haette den Bug also verschoben statt behoben, darum gehoert
+    er in denselben Commit.
+  - **Genehmigen und Supersede laufen in einer Transaktion.** Neue Repo-Methode
+    `ApproveCorrection(ctx, correction, originalID)`. Als zwei getrennte
+    `Update`-Aufrufe waere ein Fehler dazwischen entweder eine Doppelzaehlung
+    (Original geblieben) oder eine verschwundene Arbeitszeit (Korrektur noch
+    pending) — bei Arbeitszeit ist beides ein Datenfehler, kein Anzeigefehler.
+    Das UPDATE auf das Original ist auf `correction.TenantID` gescoped und nur
+    auf `active`/`completed` erlaubt, damit weder ein fremder Tenant getroffen
+    noch ein bereits ersetzter Eintrag erneut angefasst wird.
+  - **Proto-Enum ergaenzt.** `WorkTimeEntry.status` ist ein Enum
+    (`hrv1.WorkTimeEntryStatus`), kein String — ohne `WORK_TIME_SUPERSEDED = 5`
+    waere jeder ersetzte Eintrag als `UNSPECIFIED` ueber die Leitung gegangen.
+    `.proto`, `.pb.go` und `workTimeStatusToProto` im selben Commit; Enum in
+    `openapi.yaml` erweitert.
+  - **Migration 000248 backfillt.** Jede bereits genehmigte Korrektur im Bestand
+    hat seit ihrer Genehmigung doppelt gezaehlt. Der Backfill-Join traegt
+    `tenant_id`, damit eine Korrektur nie ein Original eines fremden Tenants
+    ersetzen kann. `down` setzt `superseded` zurueck auf `completed`, bevor die
+    CHECK-Constraint wieder enger wird — sonst scheiterte das ADD CONSTRAINT an
+    genau den Zeilen, die `up` geschrieben hat.
+- gates: `go build -p 2` / `go vet` / `golangci-lint` (0 issues) /
+  `go test ./internal/biz/hr/... ./internal/server/... ./internal/gateway/`
+  gruen. `TestOpenAPIRouteDrift` gruen (keine neue Route, nur ein Enum-Wert).
+  Migration `up` → 248, `down 1` → 247 (Constraint verifiziert wieder eng),
+  `up` → 248.
+- db-verifikation (lokal, in einer zurueckgerollten Transaktion, damit die DB
+  unveraendert bleibt): Original 480 min `completed` + Korrektur 360 min
+  `correction_approved` → Saldo nach alter Semantik **840**, nach dem Supersede
+  **360**; `billableStatuses` ebenfalls 360. RLS-Smoke auf
+  `hr_work_time_entries`: eigener Tenant 2, fremder Tenant 0.
+- offen / fuer Luke:
+  - **Wire-Befund, nicht in dieser Unit gefixt:** der Gateway marshalt
+    HR-Antworten mit `UseEnumNumbers: true` (`cannedResponseMarshaler`), das
+    FE liest den Status aber roh als String
+    (`hr-client.ts:455`, `normalised.status ?? 'completed'` gegen die Union
+    `'active' | 'completed' | ...`). Ein Eintrag kommt damit als `2` an und wird
+    blind zu `WorkTimeEntry['status']` gecastet. Das ist die bekannte
+    FE/BE-Contract-Klasse und betrifft alle vier Status gleichermassen, nicht
+    nur den neuen — Fix gehoert an den Adapter (Enum-Namen mappen) oder an den
+    Marshaler, beides FE-/Gateway-Entscheidung.
+  - `hr-types.ts:69` (`WorkTimeEntryStatus`-Union) kennt `superseded` noch nicht;
+    `api/types.ts` wird aus `openapi.yaml` generiert und zieht den Wert beim
+    naechsten Regen nach. FE-Aufgabe, kein Loop-Scope.
+  - `aggregateDailyBuckets` und `GetDailySummary` filtern weiterhin nicht auf
+    `tenant_id` (nur auf `employee_id`) — unveraendert offen aus Iteration 16.
+    Nicht in dieser Unit angefasst, weil der Fix am Signaturschnitt haengt
+    (`GetDailySummary(ctx, employeeID, date)` traegt keine Tenant-ID).
+  - `finance-client.ts:229` ruft weiter `POST /finance/invoices/{id}/mark-paid`,
+    die Route heisst `/pay` → 404 gegen echtes BE (aus Iteration 13/14/16/17).
+  - Naechste freie Unit: `p3-admin-invite-flow` (opus, deps leer).
+    `p3-berichte-share-token` bleibt durch das blockierte
+    `p3-berichte-server-pdf` gesperrt.

@@ -32841,7 +32841,7 @@ components:
         break_minutes: { type: integer }
         auto_break_deducted: { type: integer }
         net_work_minutes: { type: integer }
-        status: { type: string, enum: [active, completed, correction_pending, correction_approved] }
+        status: { type: string, enum: [active, completed, correction_pending, correction_approved, superseded] }
         is_correction: { type: boolean }
         original_entry_id: { type: string, format: uuid }
         correction_reason: { type: string }

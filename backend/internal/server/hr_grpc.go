@@ -1730,6 +1730,8 @@ func workTimeStatusToProto(s models.WorkTimeEntryStatus) hrv1.WorkTimeEntryStatu
 		return hrv1.WorkTimeEntryStatus_WORK_TIME_CORRECTION_PENDING
 	case models.WorkTimeStatusCorrectionApproved:
 		return hrv1.WorkTimeEntryStatus_WORK_TIME_CORRECTION_APPROVED
+	case models.WorkTimeStatusSuperseded:
+		return hrv1.WorkTimeEntryStatus_WORK_TIME_SUPERSEDED
 	default:
 		return hrv1.WorkTimeEntryStatus_WORK_TIME_ENTRY_STATUS_UNSPECIFIED
 	}

@@ -89,6 +89,9 @@ enum WorkTimeEntryStatus {
   WORK_TIME_COMPLETED = 2;
   WORK_TIME_CORRECTION_PENDING = 3;
   WORK_TIME_CORRECTION_APPROVED = 4;
+  // An entry an approved correction replaced. Kept for the audit trail, counted
+  // towards no balance.
+  WORK_TIME_SUPERSEDED = 5;
 }
 
 enum ContractType {
