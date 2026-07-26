@@ -112,6 +112,15 @@ func (s *Service) ToggleStar(ctx context.Context, id uuid.UUID) error {
 	return s.repo.ToggleStar(ctx, id)
 }
 
+// SetStatus sets the conversation-level status of an inbox message.
+// status must be one of open, pending, resolved, closed.
+func (s *Service) SetStatus(ctx context.Context, id uuid.UUID, status string) error {
+	if !ValidStatuses[status] {
+		return ErrInvalidStatus
+	}
+	return s.repo.SetStatus(ctx, id, status)
+}
+
 // Archive archives an inbox message.
 func (s *Service) Archive(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Archive(ctx, id)

@@ -29,6 +29,7 @@ type mockRepository struct {
 	markReadErr        error
 	markUnreadErr      error
 	toggleStarErr      error
+	setStatusErr       error
 	archiveErr         error
 	unarchiveErr       error
 	snoozeErr          error
@@ -141,6 +142,20 @@ func (m *mockRepository) ToggleStar(_ context.Context, id uuid.UUID) error {
 	if msg, ok := m.messages[id]; ok {
 		msg.IsStarred = !msg.IsStarred
 	}
+	return nil
+}
+
+func (m *mockRepository) SetStatus(_ context.Context, id uuid.UUID, status string) error {
+	if m.setStatusErr != nil {
+		return m.setStatusErr
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	msg, ok := m.messages[id]
+	if !ok {
+		return ErrMessageNotFound
+	}
+	msg.Status = status
 	return nil
 }
 
@@ -421,6 +436,45 @@ func TestToggleStar_Success(t *testing.T) {
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	assert.True(t, stored.IsStarred)
+}
+
+func TestSetStatus_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	msg.Status = "open"
+	seedMessage(repo, msg)
+
+	err := svc.SetStatus(context.Background(), msg.ID, "resolved")
+
+	require.NoError(t, err)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	assert.Equal(t, "resolved", stored.Status)
+}
+
+func TestSetStatus_InvalidValue(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	msg := newTestMessage()
+	msg.Status = "open"
+	seedMessage(repo, msg)
+
+	err := svc.SetStatus(context.Background(), msg.ID, "archived")
+
+	require.ErrorIs(t, err, ErrInvalidStatus)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	assert.Equal(t, "open", stored.Status, "invalid status must not be persisted")
+}
+
+func TestSetStatus_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	err := svc.SetStatus(context.Background(), uuid.New(), "closed")
+
+	require.ErrorIs(t, err, ErrMessageNotFound)
 }
 
 func TestArchive_Success(t *testing.T) {

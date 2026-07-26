@@ -24,6 +24,8 @@ type InboxMessage struct {
 	IsRead        bool             `json:"is_read"`
 	IsStarred     bool             `json:"is_starred"`
 	IsArchived    bool             `json:"is_archived"`
+	// Status is the conversation-level status: open, pending, resolved, closed.
+	Status        string           `json:"status"`
 	SnoozedUntil  *time.Time       `json:"snoozed_until,omitempty"`
 	AssignedTo    *uuid.UUID       `json:"assigned_to,omitempty"`
 	TeamInboxID   *uuid.UUID       `json:"team_inbox_id,omitempty"`

@@ -17,6 +17,7 @@ type ListFilter struct {
 	IsRead      *bool
 	IsStarred   *bool
 	IsArchived  *bool
+	Status      *string
 	TeamInboxID *uuid.UUID
 	Search      *string
 	PageSize    int
@@ -48,6 +49,9 @@ type Repository interface {
 
 	// ToggleStar toggles the starred status of an inbox message.
 	ToggleStar(ctx context.Context, id uuid.UUID) error
+
+	// SetStatus sets the conversation-level status of an inbox message.
+	SetStatus(ctx context.Context, id uuid.UUID, status string) error
 
 	// Archive archives an inbox message.
 	Archive(ctx context.Context, id uuid.UUID) error

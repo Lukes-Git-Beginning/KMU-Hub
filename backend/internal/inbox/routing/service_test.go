@@ -161,6 +161,9 @@ func (m *mockMessageRepository) Update(_ context.Context, msg *models.InboxMessa
 func (m *mockMessageRepository) MarkRead(_ context.Context, _ uuid.UUID) error   { return nil }
 func (m *mockMessageRepository) MarkUnread(_ context.Context, _ uuid.UUID) error { return nil }
 func (m *mockMessageRepository) ToggleStar(_ context.Context, _ uuid.UUID) error { return nil }
+func (m *mockMessageRepository) SetStatus(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
 func (m *mockMessageRepository) Archive(_ context.Context, _ uuid.UUID) error    { return nil }
 func (m *mockMessageRepository) Unarchive(_ context.Context, _ uuid.UUID) error  { return nil }
 func (m *mockMessageRepository) Snooze(_ context.Context, _ uuid.UUID, _ time.Time) error {

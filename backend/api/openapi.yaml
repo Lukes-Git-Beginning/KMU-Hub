@@ -8796,6 +8796,7 @@ paths:
         - { name: channel, in: query, schema: { type: string, enum: [email, chat, notification] } }
         - { name: is_read, in: query, schema: { type: boolean } }
         - { name: is_starred, in: query, schema: { type: boolean } }
+        - { name: status, in: query, schema: { type: string, enum: [open, pending, resolved, closed] } }
         - { name: team_inbox_id, in: query, schema: { type: string, format: uuid } }
         - { name: search, in: query, schema: { type: string } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
@@ -8871,6 +8872,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/status:
+    post:
+      summary: Set conversation-level status on a message
+      tags: [inbox-messages]
+      operationId: setInboxMessageStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [open, pending, resolved, closed] }
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/v1/inbox/messages/{id}/archive:
     post:
@@ -31795,6 +31823,7 @@ components:
         is_read: { type: boolean }
         is_starred: { type: boolean }
         is_archived: { type: boolean }
+        status: { type: string, enum: [open, pending, resolved, closed] }
         snoozed_until: { type: string, format: date-time }
         assigned_to: { type: string, format: uuid }
         team_inbox_id: { type: string, format: uuid }

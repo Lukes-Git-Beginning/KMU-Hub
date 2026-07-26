@@ -17,4 +17,15 @@ var (
 
 	// ErrDuplicateMessage is returned when a source_id already exists for the user+channel.
 	ErrDuplicateMessage = errors.New("duplicate inbox message for this user and channel")
+
+	// ErrInvalidStatus is returned when a status value is not one of the allowed states.
+	ErrInvalidStatus = errors.New("status must be one of: open, pending, resolved, closed")
 )
+
+// ValidStatuses lists the allowed conversation-level status values.
+var ValidStatuses = map[string]bool{
+	"open":     true,
+	"pending":  true,
+	"resolved": true,
+	"closed":   true,
+}

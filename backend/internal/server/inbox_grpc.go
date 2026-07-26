@@ -90,6 +90,9 @@ func (s *InboxGRPCServer) ListMessages(ctx context.Context, req *inboxv1.ListMes
 	if req.SearchQuery != nil {
 		filter.Search = req.SearchQuery
 	}
+	if req.Status != nil {
+		filter.Status = req.Status
+	}
 
 	// Decode page_token as cursor (received_at:id)
 	if req.PageToken != "" {
@@ -216,6 +219,31 @@ func (s *InboxGRPCServer) ToggleStar(ctx context.Context, req *inboxv1.ToggleSta
 	}
 
 	return &inboxv1.ToggleStarResponse{
+		Message: toInboxMessageInfo(msg),
+	}, nil
+}
+
+func (s *InboxGRPCServer) SetMessageStatus(ctx context.Context, req *inboxv1.SetMessageStatusRequest) (*inboxv1.SetMessageStatusResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	msgID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	if err := s.messageService.SetStatus(ctx, msgID, req.Status); err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
+	if err != nil {
+		return nil, mapInboxError(err)
+	}
+
+	return &inboxv1.SetMessageStatusResponse{
 		Message: toInboxMessageInfo(msg),
 	}, nil
 }
@@ -1000,6 +1028,7 @@ func toInboxMessageInfo(m *models.InboxMessage) *inboxv1.InboxMessageInfo {
 		IsRead:     m.IsRead,
 		IsStarred:  m.IsStarred,
 		IsArchived: m.IsArchived,
+		Status:     m.Status,
 		Tags:       m.Tags,
 		DeepLink:   m.DeepLink,
 		ReceivedAt: timestamppb.New(m.ReceivedAt),
@@ -1112,6 +1141,7 @@ func protoMessageToInboxMessage(p *inboxv1.InboxMessageInfo) *models.InboxMessag
 		IsRead:     p.IsRead,
 		IsStarred:  p.IsStarred,
 		IsArchived: p.IsArchived,
+		Status:     p.Status,
 		Tags:       p.Tags,
 		DeepLink:   p.DeepLink,
 	}
@@ -1304,6 +1334,8 @@ func mapInboxError(err error) error {
 		return status.Error(codes.Unimplemented, err.Error())
 	case errors.Is(err, message.ErrDuplicateMessage):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, message.ErrInvalidStatus):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, thread.ErrCannedResponseNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, team.ErrTeamInboxNotFound):

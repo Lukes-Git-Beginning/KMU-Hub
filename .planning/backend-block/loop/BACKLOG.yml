@@ -207,7 +207,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Status- und Thread-RPCs fuer den Posteingang. Die Tabellen existieren
       bereits (Migration 000237 inbox_thread_messages, 000238
@@ -217,6 +217,11 @@ units:
       - backend/migrations/000237_inbox_thread_messages.up.sql
       - backend/migrations/000238_inbox_canned_responses.up.sql
       - desktop/src/renderer/src/modules/kommunikation/
+    notes: >
+      Thread + Canned-Response-Teil war bereits durch `a851c675` (2026-06-28,
+      vor dem backend-gaps.md-Audit) gebaut. Der reale Rest war der
+      Konversations-Status (backend-gaps.md:454) — Migration 000244 +
+      SetStatus-RPC + Filter, siehe Iteration 7 im Journal.
     done_when:
       - Status setzen und Thread lesen laufen gegen echte Tabellen
       - Alle Reads tenant-gescoped

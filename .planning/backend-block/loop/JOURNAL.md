@@ -333,3 +333,85 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   Zaehlstand aus einer frueheren Iteration von backend-gaps.md. Kein
   Handlungsbedarf, nur fuer Luke als Hinweis, falls das Dokument nochmal als
   Zaehlbasis fuer andere Units herangezogen wird.
+
+## Iteration 7 — p3-inbox-status-thread — done — 2026-07-26 20:47
+
+- commit: -
+- verify vorgaenger: sauber. `6a99b5a7`/`e787e737` sind reines
+  BACKLOG/JOURNAL-Docs (kein Code), Verify-Vorspann entfaellt.
+- Bestandsaufnahme vor dem Bauen: Der BACKLOG-Scope-Text ("Status- und
+  Thread-RPCs ... hier fehlt die Service- und Gateway-Schicht") war zur
+  Haelfte stale. `a851c675` (2026-06-28, vor backend-gaps.md-Audit) hatte
+  Thread-Persistenz (`ListThreadMessages`, `AppendReply` beim Reply) und
+  Canned-Response-CRUD bereits vollstaendig gebaut — beides tenant-gescoped,
+  RLS aktiv (Migration 000237). Das reale Restproblem war ausschliesslich
+  der in backend-gaps.md:454 explizit benannte Punkt: ein
+  Konversations-Status (offen/wartend/gelöst/geschlossen), den das FE bisher
+  rein clientseitig ueberlagert (`stores/inboxStatus.ts`, Kommentar dort
+  bestaetigt "The backend InboxMessage has no `status` field yet"). Verifiziert
+  per `type ConversationStatus = 'open' | 'pending' | 'resolved' | 'closed'`
+  in `desktop/src/renderer/src/types/communication.ts` — das sind die vier
+  Werte, gegen die gebaut wurde.
+- gebaut:
+  - Migration `000244_add_inbox_message_status`: `inbox_messages.status`
+    VARCHAR(20) NOT NULL DEFAULT 'open' mit CHECK-Constraint auf die vier
+    Werte, plus Index `idx_inbox_messages_user_status` (mirrors das
+    bestehende Channel-Index-Muster). Keine neue Tabelle, also keine neue
+    RLS-Policy noetig — die bestehende `tenant_isolation`-Policy auf
+    `inbox_messages` (Migration 000122) deckt die neue Spalte automatisch ab.
+  - `models.InboxMessage.Status` + `message.Repository.SetStatus` +
+    `ListFilter.Status`-Filter; Postgres-Repository: `status` in
+    Create/GetByID/List(Data+Count)/GetBySourceID mitgezogen, neue
+    `SetStatus`-Methode (gleiches Muster wie `Archive`/`ToggleStar`).
+  - `message.Service.SetStatus` validiert gegen `ValidStatuses` (open/
+    pending/resolved/closed) *vor* dem Repo-Call — ungueltiger Wert bleibt
+    ein sauberer `ErrInvalidStatus`/400, nicht ein DB-CHECK-Constraint-500.
+  - Proto: `InboxMessageInfo.status` (Feld 23), `ListMessagesRequest.status`
+    (Filter, Feld 10), neue RPC `SetMessageStatus` + Request/Response-Paar.
+    `protoc` manuell regeneriert (kein `proto-inbox`-Einzelziel im
+    Makefile), Diff sauber (nur die neuen Felder/Message-Typen + Index-
+    Verschiebungen).
+  - gRPC-Handler `InboxGRPCServer.SetMessageStatus` (gleiches Fehler-Mapping-
+    Muster wie die anderen Mutations-RPCs), `status`-Filter in `ListMessages`
+    verdrahtet, `toInboxMessageInfo`/`protoMessageToInboxMessage` um `Status`
+    ergaenzt, `mapInboxError` um `ErrInvalidStatus -> InvalidArgument`.
+  - Gateway: `POST /api/v1/inbox/messages/{id}/status` (Handler geht ueber
+    `client.SetMessageStatus`, kein gRPC-Bypass), Body-Validierung
+    `oneof=open pending resolved closed`; `status`-Query-Param in
+    `HandleListMessages` durchgereicht.
+  - `openapi.yaml`: neuer Pfad-Eintrag (200 -> `InboxMessage`, 400 ->
+    `#/components/responses/BadRequest`, Stil von `/star`/`/archive`
+    abgeschaut), `status`-Query-Param bei `GET /inbox/messages`, `status`-
+    Property im `InboxMessage`-Schema.
+  - 3 neue Unit-Tests (`TestSetStatus_Success/_InvalidValue/_NotFound`) plus
+    `SetStatus`-Stub in den zwei Cross-Package-Mocks
+    (`inbox/routing`, `inbox/team` service_test.go), die `message.Repository`
+    ebenfalls implementieren muessen.
+- bewusst NICHT angefasst: Tags-CRUD und Forward-RPC (backend-gaps.md:456,
+  `stores/inboxTags.ts`) — das ist explizit die naechste Unit
+  (`p3-inbox-tags-forward`), nicht Teil dieses Scopes.
+- gate: build ok (`GOFLAGS=-p=2 go build ./...`) | vet ok | lint ok (0
+  issues, `golangci-lint run ./internal/inbox/... ./internal/gateway/...
+  ./internal/server/... ./internal/models/...`) | test ok (`go test
+  ./internal/inbox/... ./internal/gateway/... ./internal/server/...
+  ./internal/models/...`, inkl. `TestOpenAPIRouteDrift`) | openapi ok
+  (`swagger-cli validate` lokal gruen) | migration ok — lokal gegen die
+  laufende `docker-postgres-1` angewendet (`migrate ... up` 243->244,
+  `down 1` 244->243 zum Pruefen der Rueckrichtung, danach wieder `up` auf
+  244 damit die lokale DB den Repo-Kopf spiegelt) | rls-smoke ok — manuell
+  per `psql`, `SET ROLE kmuhub_app` + `SET app.tenant_id = ...` (nicht
+  `app.current_tenant_id` — das GUC heisst `app.tenant_id`, `current_tenant_id()`
+  ist nur der Funktionsname): Testzeile mit eigenem Tenant
+  (`00000000-...-001`) eingefuegt und wieder gesehen (1 Zeile,
+  `status=pending`), fremder Tenant (`aaaa0000-...-001`) sieht 0 Zeilen;
+  Transaktion per `ROLLBACK` wieder sauber entfernt.
+- offen: Response-Shape-Drift in `openapi.yaml` fuer ALLE
+  Single-Message-Mutations-Endpoints (`/read`, `/unread`, `/star`,
+  `/archive`, `/unarchive`, `/snooze`, `/unsnooze`, `/assign`, jetzt auch
+  `/status`) ist vorbestehend: die Handler antworten tatsaechlich mit
+  `{"message": {...InboxMessage}}` (`response.Proto` marshalt die
+  `*Xxx Response`-Wrapper-Struct direkt), die Spec dokumentiert aber ein
+  bares `InboxMessage`-Objekt. Fuer den neuen `/status`-Endpoint bewusst dem
+  bestehenden (falschen) Nachbar-Stil gefolgt statt allein abzuweichen —
+  eine Spec-Korrektur wuerde alle acht Endpoints gleichzeitig betreffen und
+  ist eine eigene, groessere Aufraeum-Unit, kein Nebenprodukt dieser Iteration.

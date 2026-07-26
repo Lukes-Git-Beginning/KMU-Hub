@@ -24,6 +24,7 @@ const (
 	InboxService_MarkRead_FullMethodName             = "/inbox.v1.InboxService/MarkRead"
 	InboxService_MarkUnread_FullMethodName           = "/inbox.v1.InboxService/MarkUnread"
 	InboxService_ToggleStar_FullMethodName           = "/inbox.v1.InboxService/ToggleStar"
+	InboxService_SetMessageStatus_FullMethodName     = "/inbox.v1.InboxService/SetMessageStatus"
 	InboxService_ArchiveMessage_FullMethodName       = "/inbox.v1.InboxService/ArchiveMessage"
 	InboxService_UnarchiveMessage_FullMethodName     = "/inbox.v1.InboxService/UnarchiveMessage"
 	InboxService_SnoozeMessage_FullMethodName        = "/inbox.v1.InboxService/SnoozeMessage"
@@ -58,13 +59,14 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type InboxServiceClient interface {
 	// =========================================================================
-	// Messages (14 RPCs)
+	// Messages (15 RPCs)
 	// =========================================================================
 	ListMessages(ctx context.Context, in *ListMessagesRequest, opts ...grpc.CallOption) (*ListMessagesResponse, error)
 	GetMessage(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
 	MarkRead(ctx context.Context, in *MarkReadRequest, opts ...grpc.CallOption) (*MarkReadResponse, error)
 	MarkUnread(ctx context.Context, in *MarkUnreadRequest, opts ...grpc.CallOption) (*MarkUnreadResponse, error)
 	ToggleStar(ctx context.Context, in *ToggleStarRequest, opts ...grpc.CallOption) (*ToggleStarResponse, error)
+	SetMessageStatus(ctx context.Context, in *SetMessageStatusRequest, opts ...grpc.CallOption) (*SetMessageStatusResponse, error)
 	ArchiveMessage(ctx context.Context, in *ArchiveMessageRequest, opts ...grpc.CallOption) (*ArchiveMessageResponse, error)
 	UnarchiveMessage(ctx context.Context, in *UnarchiveMessageRequest, opts ...grpc.CallOption) (*UnarchiveMessageResponse, error)
 	SnoozeMessage(ctx context.Context, in *SnoozeMessageRequest, opts ...grpc.CallOption) (*SnoozeMessageResponse, error)
@@ -158,6 +160,16 @@ func (c *inboxServiceClient) ToggleStar(ctx context.Context, in *ToggleStarReque
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ToggleStarResponse)
 	err := c.cc.Invoke(ctx, InboxService_ToggleStar_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) SetMessageStatus(ctx context.Context, in *SetMessageStatusRequest, opts ...grpc.CallOption) (*SetMessageStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetMessageStatusResponse)
+	err := c.cc.Invoke(ctx, InboxService_SetMessageStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -439,13 +451,14 @@ func (c *inboxServiceClient) TestRoutingRule(ctx context.Context, in *TestRoutin
 // for forward compatibility.
 type InboxServiceServer interface {
 	// =========================================================================
-	// Messages (14 RPCs)
+	// Messages (15 RPCs)
 	// =========================================================================
 	ListMessages(context.Context, *ListMessagesRequest) (*ListMessagesResponse, error)
 	GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
 	MarkRead(context.Context, *MarkReadRequest) (*MarkReadResponse, error)
 	MarkUnread(context.Context, *MarkUnreadRequest) (*MarkUnreadResponse, error)
 	ToggleStar(context.Context, *ToggleStarRequest) (*ToggleStarResponse, error)
+	SetMessageStatus(context.Context, *SetMessageStatusRequest) (*SetMessageStatusResponse, error)
 	ArchiveMessage(context.Context, *ArchiveMessageRequest) (*ArchiveMessageResponse, error)
 	UnarchiveMessage(context.Context, *UnarchiveMessageRequest) (*UnarchiveMessageResponse, error)
 	SnoozeMessage(context.Context, *SnoozeMessageRequest) (*SnoozeMessageResponse, error)
@@ -509,6 +522,9 @@ func (UnimplementedInboxServiceServer) MarkUnread(context.Context, *MarkUnreadRe
 }
 func (UnimplementedInboxServiceServer) ToggleStar(context.Context, *ToggleStarRequest) (*ToggleStarResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ToggleStar not implemented")
+}
+func (UnimplementedInboxServiceServer) SetMessageStatus(context.Context, *SetMessageStatusRequest) (*SetMessageStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetMessageStatus not implemented")
 }
 func (UnimplementedInboxServiceServer) ArchiveMessage(context.Context, *ArchiveMessageRequest) (*ArchiveMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ArchiveMessage not implemented")
@@ -698,6 +714,24 @@ func _InboxService_ToggleStar_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InboxServiceServer).ToggleStar(ctx, req.(*ToggleStarRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_SetMessageStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetMessageStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).SetMessageStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_SetMessageStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).SetMessageStatus(ctx, req.(*SetMessageStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1214,6 +1248,10 @@ var InboxService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ToggleStar",
 			Handler:    _InboxService_ToggleStar_Handler,
+		},
+		{
+			MethodName: "SetMessageStatus",
+			Handler:    _InboxService_SetMessageStatus_Handler,
 		},
 		{
 			MethodName: "ArchiveMessage",

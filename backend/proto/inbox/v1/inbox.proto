@@ -9,13 +9,14 @@ import "google/protobuf/struct.proto";
 
 service InboxService {
   // =========================================================================
-  // Messages (14 RPCs)
+  // Messages (15 RPCs)
   // =========================================================================
   rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
   rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
   rpc MarkUnread(MarkUnreadRequest) returns (MarkUnreadResponse);
   rpc ToggleStar(ToggleStarRequest) returns (ToggleStarResponse);
+  rpc SetMessageStatus(SetMessageStatusRequest) returns (SetMessageStatusResponse);
   rpc ArchiveMessage(ArchiveMessageRequest) returns (ArchiveMessageResponse);
   rpc UnarchiveMessage(UnarchiveMessageRequest) returns (UnarchiveMessageResponse);
   rpc SnoozeMessage(SnoozeMessageRequest) returns (SnoozeMessageResponse);
@@ -118,6 +119,8 @@ message InboxMessageInfo {
   google.protobuf.Timestamp received_at = 20;
   google.protobuf.Timestamp created_at = 21;
   google.protobuf.Timestamp updated_at = 22;
+  // Conversation-level status: "open" | "pending" | "resolved" | "closed".
+  string status = 23;
 }
 
 message TeamInboxInfo {
@@ -170,6 +173,8 @@ message ListMessagesRequest {
   optional string search_query = 7;
   int32 page_size = 8;
   string page_token = 9;
+  // Filter by conversation status: "open" | "pending" | "resolved" | "closed".
+  optional string status = 10;
 }
 
 message ListMessagesResponse {
@@ -211,6 +216,17 @@ message ToggleStarRequest {
 }
 
 message ToggleStarResponse {
+  InboxMessageInfo message = 1;
+}
+
+message SetMessageStatusRequest {
+  string message_id = 1;
+  string user_id = 2;
+  // One of "open" | "pending" | "resolved" | "closed".
+  string status = 3;
+}
+
+message SetMessageStatusResponse {
   InboxMessageInfo message = 1;
 }
 
