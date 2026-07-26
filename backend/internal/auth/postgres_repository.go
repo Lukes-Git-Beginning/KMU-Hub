@@ -263,6 +263,21 @@ func (r *PostgresRepository) GetInvitationByToken(ctx context.Context, tokenHash
 	))
 }
 
+// GetPendingInvitationByEmail finds an unaccepted, unexpired invitation for
+// the address in any tenant. Deliberately not tenant-scoped: users.email is
+// globally unique, so an address invited into one tenant cannot become an
+// account in another. Only the provisioning path calls it, under system
+// context — RLS would otherwise hide exactly the row it needs to see.
+func (r *PostgresRepository) GetPendingInvitationByEmail(ctx context.Context, email string) (*models.Invitation, error) {
+	return scanInvitation(r.pool.QueryRow(ctx,
+		`SELECT `+invitationColumns+`
+		 FROM invitations
+		 WHERE email = $1 AND accepted_at IS NULL AND expires_at > NOW()
+		 ORDER BY created_at DESC
+		 LIMIT 1`, email,
+	))
+}
+
 func (r *PostgresRepository) GetInvitationByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invitation, error) {
 	return scanInvitation(r.pool.QueryRow(ctx,
 		`SELECT `+invitationColumns+` FROM invitations WHERE id = $1 AND tenant_id = $2`, id, tenantID,
@@ -344,6 +359,55 @@ func (r *PostgresRepository) AcceptInvitation(ctx context.Context, inv *models.I
 	}
 	if assigned.RowsAffected() == 0 {
 		return ErrRoleNotFound
+	}
+
+	return tx.Commit(ctx)
+}
+
+// ProvisionTenant creates the tenant row, its module activations and the first
+// administrator's invitation in a single transaction.
+//
+// Plain Begin, like AcceptInvitation: the pool's PrepareConn hook stamps the
+// session GUCs from ctx, and the caller runs under sysctx.With, so the
+// connection carries app.role='system' before the first statement. Without it
+// the INSERT into tenants would fail its WITH CHECK — the row being created is
+// not the caller's tenant.
+func (r *PostgresRepository) ProvisionTenant(ctx context.Context, tenant *models.Tenant, moduleIDs []string, inv *models.Invitation) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO tenants (id, name, plan_type, support_tier, subscription_status,
+		                      billing_period_end, seat_limit, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+		tenant.ID, tenant.Name, tenant.PlanType, tenant.SupportTier, tenant.SubscriptionStatus,
+		tenant.BillingPeriodEnd, tenant.SeatLimit, tenant.CreatedAt,
+	); err != nil {
+		return err
+	}
+
+	// updated_by stays NULL: the activation comes out of provisioning, not out
+	// of an administrator toggling a module, and the platform operator is not
+	// a user of this tenant.
+	if len(moduleIDs) > 0 {
+		if _, err = tx.Exec(ctx,
+			`INSERT INTO tenant_module_activations (tenant_id, module_id, active)
+			 SELECT $1, m, TRUE FROM unnest($2::text[]) AS m`,
+			tenant.ID, moduleIDs,
+		); err != nil {
+			return err
+		}
+	}
+
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO invitations (id, tenant_id, email, role, token_hash, created_by, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		inv.ID, inv.TenantID, inv.Email, inv.Role, inv.TokenHash, inv.CreatedBy, inv.ExpiresAt, inv.CreatedAt,
+	); err != nil {
+		return err
 	}
 
 	return tx.Commit(ctx)

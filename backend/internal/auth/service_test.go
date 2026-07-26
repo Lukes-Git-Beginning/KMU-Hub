@@ -31,6 +31,10 @@ type mockRepository struct {
 	recoveryCodes       []*models.RecoveryCode
 	passwordResetTokens map[string]*models.PasswordResetToken // keyed by token_hash
 	seatLimits          map[uuid.UUID]*int                   // tenant → booked seats, absent = unlimited
+
+	provisionedTenants map[uuid.UUID]*models.Tenant
+	provisionedModules map[uuid.UUID][]string
+	provisionFails     error // set to make ProvisionTenant fail
 }
 
 func newMockRepository() *mockRepository {
@@ -46,6 +50,8 @@ func newMockRepository() *mockRepository {
 		recoveryCodes:       nil,
 		passwordResetTokens: make(map[string]*models.PasswordResetToken),
 		seatLimits:          make(map[uuid.UUID]*int),
+		provisionedTenants:  make(map[uuid.UUID]*models.Tenant),
+		provisionedModules:  make(map[uuid.UUID][]string),
 	}
 }
 
@@ -186,6 +192,29 @@ func (m *mockRepository) GetInvitationByToken(_ context.Context, tokenHash strin
 		return nil, ErrInvitationNotFound
 	}
 	return inv, nil
+}
+
+func (m *mockRepository) GetPendingInvitationByEmail(_ context.Context, email string) (*models.Invitation, error) {
+	for _, inv := range m.invitations {
+		if inv.Email == email && inv.AcceptedAt == nil && inv.ExpiresAt.After(time.Now()) {
+			return inv, nil
+		}
+	}
+	return nil, ErrInvitationNotFound
+}
+
+// ProvisionTenant records the three writes the real repository does in one
+// transaction. provisionedModules doubles as the assertion target for the
+// catalogue resolution.
+func (m *mockRepository) ProvisionTenant(_ context.Context, tenant *models.Tenant, moduleIDs []string, inv *models.Invitation) error {
+	if m.provisionFails != nil {
+		return m.provisionFails
+	}
+	m.provisionedTenants[tenant.ID] = tenant
+	m.provisionedModules[tenant.ID] = moduleIDs
+	m.invitations[inv.ID] = inv
+	m.invByToken[inv.TokenHash] = inv
+	return nil
 }
 
 func (m *mockRepository) GetInvitationByID(_ context.Context, tenantID, id uuid.UUID) (*models.Invitation, error) {

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -272,6 +273,51 @@ func (s *AuthGRPCServer) ChangePassword(ctx context.Context, req *authv1.ChangeP
 	}
 
 	return &authv1.ChangePasswordResponse{}, nil
+}
+
+// ProvisionTenant creates a tenant. Unlike every other method here it takes no
+// tenant from ctx: the tenant it writes does not exist yet, and the caller's
+// own tenant is irrelevant to it. Authorisation is the tenants:write permission
+// the gateway checks, not RLS.
+func (s *AuthGRPCServer) ProvisionTenant(ctx context.Context, req *authv1.ProvisionTenantRequest) (*authv1.ProvisionTenantResponse, error) {
+	createdBy, err := uuid.Parse(req.CreatedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
+	}
+
+	in := auth.ProvisionTenantInput{
+		Name:        req.Name,
+		PlanType:    req.PlanType,
+		SupportTier: req.SupportTier,
+		Modules:     req.Modules,
+		AdminEmail:  req.AdminEmail,
+		CreatedBy:   createdBy,
+	}
+
+	if req.HasSeatLimit {
+		limit := int(req.SeatLimit)
+		in.SeatLimit = &limit
+	}
+
+	if req.BillingPeriodEnd != "" {
+		// Date only: a billing period ends on a day, and the column is DATE.
+		end, err := time.Parse("2006-01-02", req.BillingPeriodEnd)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "billing_period_end must be YYYY-MM-DD")
+		}
+		in.BillingPeriodEnd = &end
+	}
+
+	res, err := s.authService.ProvisionTenant(ctx, in)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.ProvisionTenantResponse{
+		Tenant:          toTenantInfo(res.Tenant, res.Modules),
+		Invitation:      toInvitationInfo(res.Invitation),
+		InvitationToken: res.Token,
+	}, nil
 }
 
 func (s *AuthGRPCServer) CreateInvitation(ctx context.Context, req *authv1.CreateInvitationRequest) (*authv1.CreateInvitationResponse, error) {
@@ -602,6 +648,28 @@ func toTwoFactorPolicyProto(p *models.TwoFactorPolicy) *authv1.TwoFactorPolicy {
 	return pb
 }
 
+// toTenantInfo renders a provisioned tenant. moduleIDs is the resolved
+// activation list, which the tenant row itself does not carry.
+func toTenantInfo(t *models.Tenant, moduleIDs []string) *authv1.TenantInfo {
+	info := &authv1.TenantInfo{
+		Id:                 t.ID.String(),
+		Name:               t.Name,
+		PlanType:           t.PlanType,
+		SupportTier:        t.SupportTier,
+		SubscriptionStatus: t.SubscriptionStatus,
+		CreatedAt:          t.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Modules:            moduleIDs,
+	}
+	if t.BillingPeriodEnd != nil {
+		info.BillingPeriodEnd = t.BillingPeriodEnd.Format("2006-01-02")
+	}
+	if t.SeatLimit != nil {
+		info.SeatLimit = int32(*t.SeatLimit)
+		info.HasSeatLimit = true
+	}
+	return info
+}
+
 func toInvitationInfo(inv *models.Invitation) *authv1.InvitationInfo {
 	return &authv1.InvitationInfo{
 		Id:        inv.ID.String(),
@@ -668,6 +736,17 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrInvitationExists):
 		return status.Error(codes.AlreadyExists, err.Error())
+	// Provisioning input errors. All InvalidArgument — the gateway turns that
+	// into 400, which is what a malformed provisioning request is.
+	case errors.Is(err, auth.ErrTenantNameRequired),
+		errors.Is(err, auth.ErrTenantNameTooLong),
+		errors.Is(err, auth.ErrInvalidPlanType),
+		errors.Is(err, auth.ErrInvalidSupportTier),
+		errors.Is(err, auth.ErrInvalidSeatLimit),
+		errors.Is(err, auth.ErrAdminEmailRequired),
+		errors.Is(err, auth.ErrProvisionerRequired),
+		errors.Is(err, auth.ErrUnknownModule):
+		return status.Error(codes.InvalidArgument, err.Error())
 	// FailedPrecondition, not ResourceExhausted: the gateway maps the latter to
 	// 429, which reads as "retry in a moment" — a full seat plan is not.
 	case errors.Is(err, auth.ErrSeatLimitReached):

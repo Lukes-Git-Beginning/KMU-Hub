@@ -482,6 +482,43 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/tenants:
+    post:
+      summary: Provision a tenant
+      description: >-
+        Creates a tenant, activates its modules and issues the invitation for
+        its first administrator, all in one transaction. Requires the
+        tenants:write permission, which only the platform_admin role holds —
+        a tenant administrator cannot create tenants. The plaintext invitation
+        token is returned once and never again; without it the tenant has no
+        way in. An admin_email that already has an account, or an open
+        invitation in any tenant, is rejected with 409.
+      tags: [users]
+      operationId: provisionTenant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProvisionTenantRequest"
+      responses:
+        "201":
+          description: Tenant provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProvisionTenantResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/invitations:
     post:
       summary: Create user invitation
@@ -28138,6 +28175,93 @@ components:
         new_password:
           type: string
           minLength: 8
+
+    ProvisionTenantRequest:
+      type: object
+      required: [name, admin_email]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        plan_type:
+          type: string
+          enum: [cosmi, orbit]
+          default: cosmi
+        support_tier:
+          type: string
+          enum: [standard, priority, enterprise]
+          default: standard
+        seat_limit:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: >-
+            Booked seats. Omit for an uncapped tenant. The administrator's
+            invitation takes the first seat, so 0 is rejected.
+        billing_period_end:
+          type: string
+          format: date
+          description: End of the current billing period (YYYY-MM-DD).
+        modules:
+          type: array
+          items:
+            type: string
+          description: >-
+            Catalogue module ids to activate. Omit or leave empty to activate
+            the whole catalogue. An unknown id is rejected rather than skipped.
+        admin_email:
+          type: string
+          format: email
+          description: >-
+            Receives the invitation that creates the first account. Mandatory:
+            a tenant without a way in is stranded, not provisioned.
+
+    TenantInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        planType:
+          type: string
+          enum: [cosmi, orbit]
+        supportTier:
+          type: string
+          enum: [standard, priority, enterprise]
+        subscriptionStatus:
+          type: string
+          enum: [active, past_due, paused]
+        billingPeriodEnd:
+          type: string
+          description: YYYY-MM-DD, empty when no period has been agreed.
+        seatLimit:
+          type: integer
+        hasSeatLimit:
+          type: boolean
+          description: False means the tenant is uncapped; seatLimit is then meaningless.
+        createdAt:
+          type: string
+          format: date-time
+        modules:
+          type: array
+          items:
+            type: string
+          description: The module ids activated at provisioning time.
+
+    ProvisionTenantResponse:
+      type: object
+      properties:
+        tenant:
+          $ref: "#/components/schemas/TenantInfo"
+        invitation:
+          $ref: "#/components/schemas/InvitationInfo"
+        invitationToken:
+          type: string
+          description: >-
+            Plaintext invitation token. Returned once, never stored and never
+            retrievable again.
 
     CreateInvitationRequest:
       type: object

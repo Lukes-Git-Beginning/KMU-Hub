@@ -782,7 +782,7 @@ units:
     service: admin
     model: opus
     deps: [p3-admin-billing-license]
-    status: todo
+    status: done   # Iteration 21 — Migration 000251, POST /api/v1/tenants
     scope: >
       POST /tenants — Tenant-Provisionierung inklusive Grundausstattung
       (Rollen, Default-Einstellungen).
@@ -792,6 +792,29 @@ units:
       Der heikelste Pfad im Backlog: hier entsteht ein Tenant, und jeder Fehler
       wirkt sich auf die Isolation aller folgenden Daten aus. Provisionierung
       transaktional, mit RLS-Smoke gegen den frisch erzeugten Tenant.
+      ERLEDIGT Iteration 21 (Migration 000251). Serverseitig existierte kein
+      einziger Schreibpfad, der einen Tenant erzeugt — die tenants-Zeile kam
+      ausschliesslich aus Migration 000114. Entscheidungen: (a) Autorisierung
+      ueber eine NEUE globale Rolle `platform_admin` mit `tenants:write`, NICHT
+      ueber `admin`: ein Tenant-Admin verwaltet seinen Tenant, Tenants zu
+      erzeugen ist eine Plattform-Operation. Die Rolle haelt nach der Migration
+      niemand und ist ueber die API nicht vergebbar (Invite- und
+      Rollen-Handler validieren `oneof=admin manager member`) — das ist der
+      Riegel gegen Eskalation, ohne einen zusaetzlichen Guard. (b) Die
+      Grundausstattung ist Tenant-Zeile + Modul-Aktivierungen + Admin-EINLADUNG
+      (kein serverseitig erzeugter User mit generiertem Passwort); Rollen sind
+      global (keine tenant_id) und brauchen deshalb nichts pro Tenant, und
+      tenant_settings bleiben leer, weil die Resolve-Reihenfolge
+      user > tenant > not-set sauber auf die Code-Defaults faellt. (c) Alles in
+      EINER Transaktion, deshalb liegt der Code in `internal/auth` und nicht im
+      settings-Service: zwei Services waeren zwei Transaktionen, und ein
+      halb provisionierter Tenant ist schlimmer als gar keiner. (d) Der ganze
+      Aufruf laeuft unter `sysctx.With` — der zu erzeugende Tenant ist per
+      Definition nicht der des Aufrufers; Autorisierung kommt hier folglich
+      NICHT von RLS. (e) Feature-Flags entscheiden NICHT, was geschrieben wird
+      (das Gateway maskiert beim Lesen); kein Flag wird scharfgeschaltet.
+      NICHT enthalten: Versand der Einladung (Token steht im 201-Response),
+      FE-Client, eigenes Rate-Limit auf der Route.
     done_when:
       - Tenant-Erzeugung transaktional, Teilfehler hinterlaesst nichts
       - Frisch erzeugter Tenant sieht keine Fremddaten (RLS-Smoke explizit)

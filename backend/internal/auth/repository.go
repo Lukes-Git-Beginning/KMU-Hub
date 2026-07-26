@@ -32,11 +32,20 @@ type Repository interface {
 	// the token lookup is the one call whose caller has no tenant yet.
 	CreateInvitation(ctx context.Context, inv *models.Invitation) error
 	GetInvitationByToken(ctx context.Context, tokenHash string) (*models.Invitation, error)
+	// GetPendingInvitationByEmail looks the address up across tenants and is
+	// therefore only meaningful under system context — provisioning uses it to
+	// refuse an address that is already invited somewhere else.
+	GetPendingInvitationByEmail(ctx context.Context, email string) (*models.Invitation, error)
 	GetInvitationByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invitation, error)
 	ListPendingInvitations(ctx context.Context, tenantID uuid.UUID) ([]*models.Invitation, error)
 	AcceptInvitation(ctx context.Context, inv *models.Invitation, user *models.User) error
 	CountSeatsInUse(ctx context.Context, tenantID uuid.UUID, excludeInvitation *uuid.UUID) (used int, limit *int, err error)
 	DeleteInvitation(ctx context.Context, tenantID, id uuid.UUID) error
+
+	// ProvisionTenant writes the tenant, its module activations and the first
+	// administrator's invitation in one transaction. A partial failure must
+	// leave nothing behind — a tenant nobody can log into is worse than none.
+	ProvisionTenant(ctx context.Context, tenant *models.Tenant, moduleIDs []string, inv *models.Invitation) error
 
 	// Two-factor authentication methods
 	StorePending2FASecret(ctx context.Context, userID uuid.UUID, encryptedSecret string) error

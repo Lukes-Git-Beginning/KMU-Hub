@@ -1519,3 +1519,110 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
   - Naechste freie Unit: `p3-admin-tenant-provisioning` (deps jetzt erfuellt).
     `p3-berichte-share-token` bleibt haengen, solange `p3-berichte-server-pdf`
     blocked ist.
+
+## Iteration 21 — p3-admin-tenant-provisioning — done — 2026-07-27 00:2x
+- commit: (siehe naechste Iteration)
+- verify vorgaenger (`08e29e52`, Billing/License): **sauber**. Gateway geht ueber
+  den Registry-Client, kein direkt injizierter Service; jede neue Repo-Query ist
+  tenant-gescoped (`ListModuleActivations`, `CountGrantsByModule`,
+  `GetTenantSubscription`); Permissions `license:read`/`license:write` sind in
+  Migration 000250 geseedet; die drei Routen stehen in `openapi.yaml`; Wire-Shape
+  ist camelCase mit gewrappten Single-Entities. Einziger Befund, kosmetisch: der
+  Backfill-Kommentar in 000250 verweist auf `internal/settings/modules.go`, der
+  Katalog liegt aber in `internal/modules/catalog.go`.
+- gebaut: `POST /api/v1/tenants`. Serverseitig existierte **nichts** — im ganzen
+  Repo gab es keinen einzigen Schreibpfad, der einen Tenant erzeugt; die
+  `tenants`-Zeile kam ausschliesslich aus Migration 000114 (Sentinel-Tenant).
+  - **Service:** `auth.Service.ProvisionTenant` (neue Datei
+    `internal/auth/provisioning.go`) — Validierung, Katalog-Aufloesung,
+    Token-Erzeugung; `buildProvisioning` beruehrt kein Repo und ist deshalb ohne
+    DB testbar.
+  - **Repository:** `PostgresRepository.ProvisionTenant` schreibt Tenant,
+    Modul-Aktivierungen und Admin-Einladung in **einer** Transaktion.
+    Zusaetzlich `GetPendingInvitationByEmail` (bewusst tenant-uebergreifend).
+  - **Proto:** `ProvisionTenant`-RPC + `TenantInfo`/`ProvisionTenantRequest`/
+    `ProvisionTenantResponse` in `auth.proto`, regeneriert.
+  - **Migration 000251:** Rolle `platform_admin` + Permission `tenants:write`.
+  - **openapi.yaml:** Pfad + 3 Schemas.
+- entscheidungen:
+  - **Nicht `RequireRole("admin")`, sondern `RequirePermission("tenants","write")`
+    an einer eigenen Rolle.** Ein Tenant-Admin verwaltet seinen Tenant; Tenants zu
+    erzeugen ist eine Plattform-Operation. Haette `admin` das Recht, waere jeder
+    Kunde faktisch Reseller und die Seat-/Plan-Grenzen, die das Lizenzmodell
+    ausmachen, waeren pro Tenant beliebig vermehrbar. `platform_admin` haelt
+    nach der Migration **niemand**; die Rolle wird von Hand in der DB vergeben
+    und ist ueber die API nicht erreichbar — Invite- und Rollen-Zuweisungs-Handler
+    validieren `oneof=admin manager member`. Das ist der Riegel gegen
+    Rechte-Eskalation, ohne einen zusaetzlichen Guard zu bauen.
+  - **Eine Einladung statt eines fertigen Admin-Users.** Ein serverseitig
+    erzeugter Account braeuchte ein generiertes Passwort, das irgendwo
+    transportiert werden muss. Der Invite-Flow aus Iteration 19 kann alles schon:
+    Token mit 32 Byte Entropie, Single-Use per Transaktions-Claim, harter Ablauf,
+    Seat-Verbrauch. Rolle fest `admin` — die erste Person im Tenant muss den
+    Tenant verwalten koennen.
+  - **Alles in einer Transaktion, deshalb liegt es in `internal/auth`.** Die
+    Modul-Aktivierungen gehoeren im laufenden Betrieb dem settings-Service; beim
+    Erzeugen sind sie Teil derselben Schreiboperation. Zwei Services = zwei
+    Transaktionen = ein halb provisionierter Tenant als moeglicher Endzustand,
+    und ein Tenant, in den niemand hineinkommt, ist schlimmer als gar keiner.
+  - **`sysctx.With` fuer den ganzen Aufruf.** Der zu erzeugende Tenant ist per
+    Definition nicht der Tenant des Aufrufers — ohne System-Context scheitert
+    schon das INSERT in `tenants` an seinem `WITH CHECK`. Autorisierung kommt
+    hier folglich **nicht** von RLS, sondern allein von `tenants:write`. Ein Test
+    pinnt den System-Context, damit er nicht still verlorengeht.
+  - **Zwei Vorpruefungen tenant-uebergreifend.** `users.email` ist global
+    unique. Eine Adresse mit bestehendem Account (oder offener Einladung
+    irgendwo) wuerde einen Tenant erzeugen, dessen Einladung sich nie annehmen
+    laesst — genau der gestrandete Zustand, den die Transaktion verhindern soll.
+    Beide Pruefungen brauchen den System-Context, um die Zeile ueberhaupt zu sehen.
+  - **Unbekannte Modul-ID = 400, nicht stilles Ueberspringen.** Sonst wird ein
+    Tenant ohne ein Modul provisioniert, das jemand gebucht glaubte. Leere Liste
+    heisst dagegen bewusst "ganzer Katalog".
+  - **Feature-Flags werden beim Schreiben NICHT konsultiert.** Sie beschreiben,
+    was dieses Deployment heute ausliefert; das Gateway maskiert die Aktivierung
+    ohnehin beim Lesen (Iteration 20). Wuerde ein Flag ueber das Geschriebene
+    entscheiden, verloere ein Tenant seine Buchung, sobald das Flag faellt.
+    Es wird **kein** Flag geschrieben oder scharfgeschaltet.
+  - **`seat_limit >= 1` erzwungen.** Die Admin-Einladung belegt den ersten Seat;
+    ein Tenant mit Deckel 0 koennte seinen eigenen Admin nicht annehmen.
+  - **`created_by` = der Plattform-Operator.** Die Spalte ist NOT NULL mit FK auf
+    `users`; sie protokolliert, wer provisioniert hat, nicht wem die Einladung
+    gehoert. Damit keine Schema-Aenderung noetig.
+- gate: build ok (`-p 2`; voller `go build ./...` OOM-t auf dieser Maschine) |
+  vet ok | golangci-lint 0 issues | `go test ./internal/auth/... ./internal/server/...
+  ./internal/gateway/... ./internal/settings/... ./internal/modules/...` ok |
+  `TestOpenAPIRouteDrift` ok | migration ok (`up` → 251, `down 1` → 250, `up` → 251) |
+  rls-smoke ok
+- rls-smoke (als `kmuhub_app`, NOSUPERUSER NOBYPASSRLS, echte Provisionierung
+  ueber das Repository): frisch erzeugter Tenant sieht die Fremd-Einladung **0×**;
+  der Nachbar-Tenant sieht Einladung und `tenants`-Zeile des neuen Tenants
+  **0×**; der neue Tenant sieht beide **1×**; `tenant_module_activations` eigener
+  Tenant **2**, fremder Tenant **0**; ein `UPDATE` aus dem Nachbar-Tenant trifft
+  **0 Zeilen**.
+- offen / fuer Luke:
+  - **`platform_admin` haelt niemand.** Bis jemand die Rolle in der DB zuweist
+    (`INSERT INTO user_roles ...`), antwortet `POST /api/v1/tenants` fuer alle
+    403. Das ist Absicht, aber es heisst: auf Production muss Migration 000251
+    laufen **und** die Rolle bewusst vergeben werden.
+  - **Kein Versand der Einladung.** Der Token steht im 201-Response
+    (`invitationToken`) und existiert danach nirgends mehr — wer provisioniert,
+    muss ihn weiterreichen. Genau wie beim bestehenden Invite-Pfad; ein
+    Mail-Versand waere eine eigene Entscheidung.
+  - **Kein FE.** Es gibt keinen Client fuer die Route; der Wire-Shape steht in
+    `openapi.yaml` (`ProvisionTenantRequest`/`ProvisionTenantResponse`).
+  - **Rate-Limit nicht gesondert gesetzt.** Die Route laeuft auf dem globalen
+    Limiter. Bei einer Rolle, die niemand automatisch bekommt, ist das
+    vertretbar; wenn Self-Service-Signup kommt, gehoert dort ein eigenes Limit hin.
+  - **Keine Default-`tenant_settings`.** Die Resolve-Reihenfolge ist
+    user > tenant > not-set, ein frischer Tenant faellt also sauber auf die
+    Code-Defaults. Zeilen zu schreiben haette nur eine zweite Definition erzeugt.
+  - Unveraendert offen aus frueheren Iterationen: `aggregateDailyBuckets` /
+    `GetDailySummary` ohne `tenant_id`-Filter (Signaturschnitt);
+    `finance-client.ts:229` ruft `mark-paid`, die Route heisst `/pay`;
+    HR-Status als Enum-Zahl gegen den String-lesenden FE-Adapter;
+    Rollen-Eskalation beim Einladen ungeprueft (RBAC-Phase 1);
+    Modul-Aktivierung wird nicht durchgesetzt (Iteration 20).
+  - Naechste freie Unit: **keine.** `p3-berichte-share-token` haengt an
+    `p3-berichte-server-pdf` (blocked, braucht Lukes Chart-Entscheidung) — damit
+    ist die Phase-3-Queue leer, bis Luke den Blocker aufloest oder Phase 2
+    nachtraegt.

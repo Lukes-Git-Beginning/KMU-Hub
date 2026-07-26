@@ -53,6 +53,9 @@ type authMockRepo struct {
 	invByToken    map[string]*models.Invitation
 	sessions      map[uuid.UUID]*models.UserSession
 	policies      map[string]*models.TwoFactorPolicy
+
+	provisionedTenants map[uuid.UUID]*models.Tenant
+	provisionedModules map[uuid.UUID][]string
 }
 
 func newAuthMockRepo() *authMockRepo {
@@ -66,6 +69,9 @@ func newAuthMockRepo() *authMockRepo {
 		invByToken:    make(map[string]*models.Invitation),
 		sessions:      make(map[uuid.UUID]*models.UserSession),
 		policies:      make(map[string]*models.TwoFactorPolicy),
+
+		provisionedTenants: make(map[uuid.UUID]*models.Tenant),
+		provisionedModules: make(map[uuid.UUID][]string),
 	}
 }
 
@@ -203,6 +209,23 @@ func (m *authMockRepo) UserHasPermission(_ context.Context, userID uuid.UUID, re
 // --- Invitations ---
 
 func (m *authMockRepo) CreateInvitation(_ context.Context, inv *models.Invitation) error {
+	m.invitations[inv.ID] = inv
+	m.invByToken[inv.TokenHash] = inv
+	return nil
+}
+
+func (m *authMockRepo) GetPendingInvitationByEmail(_ context.Context, email string) (*models.Invitation, error) {
+	for _, inv := range m.invitations {
+		if inv.Email == email && inv.AcceptedAt == nil && inv.ExpiresAt.After(time.Now()) {
+			return inv, nil
+		}
+	}
+	return nil, auth.ErrInvitationNotFound
+}
+
+func (m *authMockRepo) ProvisionTenant(_ context.Context, tenant *models.Tenant, moduleIDs []string, inv *models.Invitation) error {
+	m.provisionedTenants[tenant.ID] = tenant
+	m.provisionedModules[tenant.ID] = moduleIDs
 	m.invitations[inv.ID] = inv
 	m.invByToken[inv.TokenHash] = inv
 	return nil

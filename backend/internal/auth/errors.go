@@ -14,6 +14,17 @@ var (
 
 	ErrTenantNotFound     = errors.New("tenant not found")
 
+	// Tenant provisioning errors. All of them are input problems and map to
+	// 400 — a caller who cannot spell a plan type should not see a 500.
+	ErrTenantNameRequired  = errors.New("tenant name is required")
+	ErrTenantNameTooLong   = errors.New("tenant name is too long")
+	ErrInvalidPlanType     = errors.New("plan type must be cosmi or orbit")
+	ErrInvalidSupportTier  = errors.New("support tier must be standard, priority or enterprise")
+	ErrInvalidSeatLimit    = errors.New("seat limit must be at least 1: the administrator invitation takes the first seat")
+	ErrAdminEmailRequired  = errors.New("a valid administrator email is required")
+	ErrProvisionerRequired = errors.New("provisioning user is required")
+	ErrUnknownModule       = errors.New("unknown module id")
+
 	// Invitation errors
 	ErrInvitationNotFound    = errors.New("invitation not found")
 	ErrInvitationExpired     = errors.New("invitation expired")
