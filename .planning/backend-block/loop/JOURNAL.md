@@ -1826,3 +1826,154 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     `p3-berichte-server-pdf`.
 
 - iteration 23 commit: `d78f9176`
+
+## Iteration 24 — 2026-07-27 — p3-route-path-drift-triage
+
+- verify-vorspann (Iteration 23, `d78f9176`): gruen. `models.HRBreakEntry` hat
+  das `TenantID`-Feld, INSERT und die drei Break-Queries tragen das Praedikat,
+  keine `OR TRUE`-Reste aus der Falsifikation im Tree, `go build ./...` und
+  `go vet ./internal/biz/hr/...` ok. Keine Migration, kein Proto, keine neue
+  Route — nichts nachzutragen. Die Aussage "toProtoBreakEntry mappt kein
+  tenant_id, also kein Wire-Effekt" habe ich am Mapper nachgesehen, sie haelt.
+- unit: `p3-route-path-drift-triage` (Analyse, kein Bau). Ergebnis unten;
+  Backlog hat jetzt vier neue `todo`-Units und eine `blocked`-Scope-Frage.
+
+### Die Referenz war falsch gewaehlt — das war der eigentliche Befund
+
+Die Unit sagte, `openapi.yaml` sei als Referenz belastbar, weil
+`TestOpenAPIRouteDrift` sie erzwingt. Das stimmt nur in **eine** Richtung: der
+Test prueft "jede registrierte Route ist dokumentiert", nicht die Umkehrung.
+Die Spec darf also Endpunkte beschreiben, die es nicht gibt — und genau davon
+lebte der halbe Rohbefund.
+
+Also habe ich die tatsaechlich registrierten Routen als Referenz genommen:
+temporaerer Test in `internal/gateway`, der `buildGatewayRouter` (dasselbe
+Registrar-Setup wie `cmd/gateway/main.go`) baut und `chi.Walk` dumpt — 678
+`/api/v1/*`-Pfade. Datei danach geloescht, Tree sauber.
+
+### Triage: 128 Rohtreffer, davon 89 Rauschen
+
+Extraktion aus `desktop/src/renderer` ohne `mocks/`. Der erste Durchlauf mit
+dem naiven Regex war selbst fehlerhaft — er schnitt bei `${` ab und erzeugte
+Phantome neben den echten Pfaden. Mit `${…}`/`{…}` als atomarer Einheit und
+abgeschnittenem Query-Konkat (`${BASE}${qs}`) bleiben 128 Pfade ohne
+registriertes Gegenstueck.
+
+Rauschen, mit Grund:
+
+| Klasse | n | Grund |
+|---|---|---|
+| Testfixtures | 6 | `/api/v1/a`, `/api/v1/test` etc. in `__tests__/offline-queue.test.ts` |
+| Prosa/Glob | 18 | `/api/v1/hr/*`, `/api/v1/files.` — Doc-Kommentare, keine Calls |
+| BASE-Prefix-Konstanten | 15 | `/api/v1/wiki`, `/api/v1/inbox` — Praefix einer echten Route |
+| Spec-Echo aus `api/types.ts` | 36 | generierte Typdatei (openapi-typescript), kein Call |
+| CalDAV | 8 | registriert via `cmd/gateway/setup.go:142`, im Test-Router bauartbedingt unsichtbar |
+| `plugins.api` | 6 | konditional hinter dem Flag, das OFF ist |
+| `/api/v1/ws` | 1 | WebSocket, bekannte Drift-Test-Ausnahme |
+
+### Ursache 1 — drei gebaute Routen-Baeume, die nie ans Gateway gehaengt wurden
+
+Der Fund, der die Iteration wert war. Ein Abgleich aller 44
+`New*Routes`-Konstruktoren in `internal/gateway` gegen `cmd/gateway/main.go`:
+
+- **`NewIntegrationRoutes`** (`route_integration.go:28`) — kein Aufrufer. 12
+  Routen tot: `/integrations/configs` (+`{platform}`, `/test`, `/mappings`),
+  `/integrations/mappings/{id}`, `/integrations/link` (+`{platform}`,
+  `/status`), `/teams/webhook`, `/slack/interact`, `/slack/commands`,
+  `/slack/oauth/install|callback`.
+- **`NewDatevUploadRoutes`** (`route_datev_upload.go:26`) — kein Aufrufer. Der
+  gesamte Block `/api/v1/finance/datev/*`.
+- **`ProduktionRoutes.RegisterExtRoutes`** (`route_produktion_ext.go:17`) — kein
+  Aufrufer, obwohl der eigene Doc-Kommentar behauptet, `RegisterRoutes` rufe
+  ihn. BOM, WorkStep, Machine, QualityCheck sind damit unerreichbar.
+
+Alle drei haben vollstaendige Handler, Proto-RPCs und `openapi.yaml`-Eintraege.
+Sie sind nicht halbfertig — sie sind nicht angeschlossen. `NewCalDAVRoutes`
+fiel im selben Lauf auf, ist aber ueber `setup.go:142` verdrahtet, also kein
+Befund.
+
+Warum das so lange unsichtbar war: die Spec dokumentiert sie, aus der Spec
+werden die FE-Typen generiert, das FE laeuft gegen MSW. Auf dem ganzen Weg
+sieht niemand, dass der Endpoint fehlt. Deshalb `p3-openapi-reverse-drift-guard`
+als vierte Unit — der fehlende zweite Test haette alle drei gefunden.
+
+Fuer die Verdrahtungs-Units vorab geprueft, damit sie nicht am ersten Hindernis
+stehenbleiben: `produktion:bom|machine|quality:*` sind seit Migration 000191
+geseedet (kein 403-Nachtrag noetig); die DATEV-Config ist in
+`config.go:172-176` durchgaengig `default=`, also **keine** neue
+`config.RequireX` und damit kein Deploy-Hazard. Bei Integration ist das offen —
+die drei Adapter-Setter brauchen echte Slack/Teams-Handler; braucht das ein
+neues Secret, ist die Unit `blocked` statt gebaut.
+
+### Ursache 2 — FE ruft daneben, Route existiert (nicht Loop-Scope)
+
+Liste fuer Luke. Jeder Fall belegt gegen den Routen-Dump, nicht geraten:
+
+| FE-Aufruf | registrierte Route | Fundstelle |
+|---|---|---|
+| `POST …/finance/invoices/{id}/mark-paid` | `…/invoices/{id}/pay` | `finance-client.ts:229` |
+| `GET /api/v1/crm/contacts/{id}/timeline` | `/api/v1/contacts/{id}/timeline` | `useTimeline.ts:40` |
+| `GET /api/v1/customization/fields` | `/api/v1/custom-fields` | `useCustomFields.ts:28` |
+| `GET /api/v1/customization/fields/{id}` | `/api/v1/custom-fields/{id}` | `useCustomFields.ts:36` |
+| `POST …/security/gdpr/export/request` | `…/security/gdpr/export` | `security-client.ts:186` |
+| `POST …/security/gdpr/export/{id}/approve` | `…/gdpr/exports/{id}/approve` (Plural) | `security-client.ts:194` |
+| `POST …/security/gdpr/export/{id}/deny` | `…/gdpr/exports/{id}/deny` (Plural) | `security-client.ts:197` |
+| `GET …/security/gdpr/export/{token}/download` | `…/security/gdpr/download/{token}` | `security-client.ts:200` |
+| `GET /api/v1/gdpr/exports/{id}/download` | dito | `PrivacySettingsTab.tsx:139` |
+| `POST /api/v1/hr/employees/:id/offboard` | — (Express-`:id` im Template, Route fehlt ohnehin) | `MemberProfileContent.tsx:117` |
+
+Der GDPR-Block ist der auffaelligste: vier von fuenf Aufrufen in
+`security-client.ts` gehen daneben, nur `listGDPRExports` daneben stehend
+trifft. Singular/Plural-Drift innerhalb einer Datei.
+
+Nicht angefasst, weil RBAC-Fundament (Phase 1, Lukes Scope): `/admin/roles*`,
+`/admin/users*`, `/auth/me/permissions`, `DELETE /users/{id}/roles/{roleId}`
+(registriert ist nur `/users/{id}/roles`).
+
+### Ursache 3 — Backend existiert gar nicht
+
+~35 Aufrufe in Bereichen, zu denen ein Grep ueber `backend/internal` **keine
+einzige Datei** findet (`Expense`, `EmailRule`, `EmailLabel`, `ChangeRequest`,
+`TeamWorktime`, `PersonnelDocument`, `Bookmark`, `DocumentChain`,
+`VendorAccess`, `Offboard`, `FileActivity`, `GuestOverview`,
+`TeamUtilization`, `ContactFile` — alle NONE). Das sind keine Luecken, das
+sind je eigene Module. Als `p3-fe-only-features-scope-decision` bewusst
+**blocked** eingetragen: mock-first gebautes FE ist nicht automatisch
+versprochener Scope, und diese Entscheidung ist Lukes, nicht meine.
+
+### Ursache 4 — Repo da, Route fehlt
+
+`DocumentCategoryRepository` (`biz/hr/employee/repository.go:21`) ist mit
+`ListByTenant`, `GetByID`, Fehlerwerten und Modell fertig, hat aber weder RPC
+noch Route. Als `p3-hr-document-categories-route` eingetragen, mit einer
+Vorentscheidung: das Repo liest tenant-weit, der FE-Pfad haengt die Kategorien
+unter eine Employee-Id. Kategorien sind Tenant-Stammdaten, kein
+Employee-Attribut — die ehrliche Route ist `/api/v1/hr/document-categories`,
+und der Employee-Parameter kommt nicht ins Backend, nur damit der FE-Pfad
+passt.
+
+### Nebenbefund
+
+`desktop/src/renderer/src/api/types.ts` ist gegenueber der Spec veraltet: es
+enthaelt noch `/api/v1/einkauf/pos/{id}/export`, das mit
+`p3-einkauf-exportpo-remove` (Iteration 3) aus `openapi.yaml` geflogen ist. Die
+FE-Typen werden also nicht mitregeneriert. Notiert in
+`p3-openapi-reverse-drift-guard`.
+
+- gate: kein Produktivcode geaendert (reine Analyse). Der temporaere
+  Dump-Test wurde vor dem Commit geloescht, `git status` sauber ausser
+  BACKLOG.yml/JOURNAL.md. `go build ./...` und `go vet ./internal/biz/hr/...`
+  liefen im Verify-Vorspann gruen.
+- offen / fuer Luke:
+  - **Entscheid gefragt:** `p3-fe-only-features-scope-decision` — ~35 FE-Calls
+    ohne jedes Backend, 12 Bereiche. Ohne Entscheid baut der Loop hier nichts.
+  - Die FE-Tippfehler-Tabelle oben ist Ein-Zeilen-Arbeit im FE, ausserhalb des
+    Loop-Scopes.
+  - Unveraendert offen aus frueheren Iterationen: HR-Status als Enum-Zahl gegen
+    den String-lesenden FE-Adapter; Rollen-Eskalation beim Einladen ungeprueft
+    (RBAC-Phase 1); Modul-Aktivierung wird nicht durchgesetzt (Iteration 20);
+    `platform_admin` haelt niemand (Iteration 21); lokale `deploy/docker/.env`
+    laeuft als Superuser `kmuhub` statt `kmuhub_app`, darum drei
+    HR-RLS-Tests dauerhaft rot.
+  - Naechste freie Unit: **`p3-gateway-wire-produktion-ext`** — die schlankste
+    der drei Verdrahtungen, Permissions sind bereits geseedet.
