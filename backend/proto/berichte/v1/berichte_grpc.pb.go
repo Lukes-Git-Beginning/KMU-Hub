@@ -39,6 +39,7 @@ const (
 	BerichteService_UpdateDocument_FullMethodName   = "/berichte.v1.BerichteService/UpdateDocument"
 	BerichteService_DeleteDocument_FullMethodName   = "/berichte.v1.BerichteService/DeleteDocument"
 	BerichteService_ListDocuments_FullMethodName    = "/berichte.v1.BerichteService/ListDocuments"
+	BerichteService_ListTemplates_FullMethodName    = "/berichte.v1.BerichteService/ListTemplates"
 )
 
 // BerichteServiceClient is the client API for BerichteService service.
@@ -71,6 +72,8 @@ type BerichteServiceClient interface {
 	UpdateDocument(ctx context.Context, in *UpdateDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error)
 	DeleteDocument(ctx context.Context, in *DeleteDocumentRequest, opts ...grpc.CallOption) (*DeleteDocumentResponse, error)
 	ListDocuments(ctx context.Context, in *ListDocumentsRequest, opts ...grpc.CallOption) (*ListDocumentsResponse, error)
+	// Templates (static starter structures for "Neuer Bericht aus Vorlage")
+	ListTemplates(ctx context.Context, in *ListTemplatesRequest, opts ...grpc.CallOption) (*ListTemplatesResponse, error)
 }
 
 type berichteServiceClient struct {
@@ -281,6 +284,16 @@ func (c *berichteServiceClient) ListDocuments(ctx context.Context, in *ListDocum
 	return out, nil
 }
 
+func (c *berichteServiceClient) ListTemplates(ctx context.Context, in *ListTemplatesRequest, opts ...grpc.CallOption) (*ListTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTemplatesResponse)
+	err := c.cc.Invoke(ctx, BerichteService_ListTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BerichteServiceServer is the server API for BerichteService service.
 // All implementations must embed UnimplementedBerichteServiceServer
 // for forward compatibility.
@@ -311,6 +324,8 @@ type BerichteServiceServer interface {
 	UpdateDocument(context.Context, *UpdateDocumentRequest) (*DocumentResponse, error)
 	DeleteDocument(context.Context, *DeleteDocumentRequest) (*DeleteDocumentResponse, error)
 	ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error)
+	// Templates (static starter structures for "Neuer Bericht aus Vorlage")
+	ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error)
 	mustEmbedUnimplementedBerichteServiceServer()
 }
 
@@ -380,6 +395,9 @@ func (UnimplementedBerichteServiceServer) DeleteDocument(context.Context, *Delet
 }
 func (UnimplementedBerichteServiceServer) ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDocuments not implemented")
+}
+func (UnimplementedBerichteServiceServer) ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTemplates not implemented")
 }
 func (UnimplementedBerichteServiceServer) mustEmbedUnimplementedBerichteServiceServer() {}
 func (UnimplementedBerichteServiceServer) testEmbeddedByValue()                         {}
@@ -762,6 +780,24 @@ func _BerichteService_ListDocuments_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BerichteService_ListTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).ListTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_ListTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).ListTemplates(ctx, req.(*ListTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BerichteService_ServiceDesc is the grpc.ServiceDesc for BerichteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -848,6 +884,10 @@ var BerichteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListDocuments",
 			Handler:    _BerichteService_ListDocuments_Handler,
+		},
+		{
+			MethodName: "ListTemplates",
+			Handler:    _BerichteService_ListTemplates_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

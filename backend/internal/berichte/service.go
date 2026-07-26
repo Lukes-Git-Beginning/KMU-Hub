@@ -822,6 +822,14 @@ func (s *Service) ListDocuments(ctx context.Context, in ListDocumentsInput) ([]*
 	}, (page-1)*pageSize, pageSize)
 }
 
+// ListTemplates returns the static starter templates for "Neuer Bericht aus
+// Vorlage" (see templates_data.go). Templates are frontend-owned starter
+// content, not tenant data, so this reads no repository and needs no
+// tenant scoping.
+func (s *Service) ListTemplates() []Template {
+	return demoTemplates
+}
+
 // normalizeDocumentRows validates the opaque block tree: it must be a JSON
 // array within the size cap. Block semantics stay frontend-owned.
 func normalizeDocumentRows(raw json.RawMessage) ([]byte, error) {

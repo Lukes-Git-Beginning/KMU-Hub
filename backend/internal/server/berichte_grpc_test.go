@@ -722,6 +722,26 @@ func TestBerichteGRPCServer_GetDashboardKPIs_NoExecutor(t *testing.T) {
 	assertGRPCCode(t, err, codes.Unavailable)
 }
 
+func TestBerichteGRPCServer_ListTemplates(t *testing.T) {
+	srv := newTestBerichteServerWithSvc(&stubBerichteRepo{}, nil)
+
+	resp, err := srv.ListTemplates(context.Background(), &berichtev1.ListTemplatesRequest{})
+	if err != nil {
+		t.Fatalf("ListTemplates: %v", err)
+	}
+	if len(resp.GetTemplates()) == 0 {
+		t.Fatal("ListTemplates returned no templates")
+	}
+	for _, tpl := range resp.GetTemplates() {
+		if tpl.GetId() == "" || tpl.GetModule() == "" {
+			t.Fatalf("template missing id/module: %+v", tpl)
+		}
+		if len(tpl.GetRows()) == 0 {
+			t.Fatalf("template %s: empty rows", tpl.GetId())
+		}
+	}
+}
+
 // ============================================================================
 // Helper
 // ============================================================================

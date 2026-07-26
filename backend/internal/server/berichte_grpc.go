@@ -606,6 +606,35 @@ func (s *BerichteGRPCServer) ListDocuments(ctx context.Context, req *berichtev1.
 	return &berichtev1.ListDocumentsResponse{Documents: out, Total: int32(total)}, nil
 }
 
+// ============================================================================
+// Template RPC
+// ============================================================================
+
+func (s *BerichteGRPCServer) ListTemplates(ctx context.Context, req *berichtev1.ListTemplatesRequest) (*berichtev1.ListTemplatesResponse, error) {
+	templates := s.svc.ListTemplates()
+	out := make([]*berichtev1.Template, 0, len(templates))
+	for _, t := range templates {
+		out = append(out, berichteTemplateToProto(&t))
+	}
+	return &berichtev1.ListTemplatesResponse{Templates: out}, nil
+}
+
+func berichteTemplateToProto(t *berichte.Template) *berichtev1.Template {
+	if t == nil {
+		return nil
+	}
+	proto := &berichtev1.Template{
+		Id:          t.ID,
+		Title:       t.Title,
+		Description: t.Description,
+		Module:      t.Module,
+		Icon:        t.Icon,
+		Rows:        t.Rows,
+		Settings:    t.Settings,
+	}
+	return proto
+}
+
 func parseTenantAndDocumentID(rawTenantID, rawDocumentID string) (uuid.UUID, uuid.UUID, error) {
 	tenantID, err := uuid.Parse(rawTenantID)
 	if err != nil {

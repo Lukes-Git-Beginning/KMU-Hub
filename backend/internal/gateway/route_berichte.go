@@ -90,6 +90,9 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 		// KPIs
 		r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/kpis", br.HandleGetDashboardKPIs)
+
+		// Templates (static starter structures)
+		r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/templates", br.HandleListTemplates)
 	})
 }
 
@@ -581,6 +584,63 @@ func (br *BerichteRoutes) HandleDeleteDocument(w http.ResponseWriter, r *http.Re
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Template Handlers (static starter structures)
+// ============================================================================
+
+// reportTemplateWire is the JSON shape the frontend types as ReportTemplate
+// (berichte-types.ts). Same rationale as reportDocumentWire: rows/settings
+// are raw JSONB, not proto bytes, so this is served via response.JSON rather
+// than response.Proto.
+type reportTemplateWire struct {
+	ID          string          `json:"id"`
+	Title       string          `json:"title"`
+	Description string          `json:"description"`
+	Module      string          `json:"module"`
+	Icon        *string         `json:"icon,omitempty"`
+	Rows        json.RawMessage `json:"rows"`
+	Settings    json.RawMessage `json:"settings"`
+}
+
+func toReportTemplateWire(t *berichtev1.Template) reportTemplateWire {
+	wire := reportTemplateWire{
+		ID:          t.GetId(),
+		Title:       t.GetTitle(),
+		Description: t.GetDescription(),
+		Module:      t.GetModule(),
+		Icon:        t.Icon,
+		Rows:        json.RawMessage(t.GetRows()),
+		Settings:    json.RawMessage(t.GetSettings()),
+	}
+	if len(wire.Rows) == 0 {
+		wire.Rows = json.RawMessage("[]")
+	}
+	if len(wire.Settings) == 0 {
+		wire.Settings = json.RawMessage("{}")
+	}
+	return wire
+}
+
+func (br *BerichteRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Request) {
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	resp, err := client.ListTemplates(r.Context(), &berichtev1.ListTemplatesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	templates := make([]reportTemplateWire, 0, len(resp.GetTemplates()))
+	for _, t := range resp.GetTemplates() {
+		templates = append(templates, toReportTemplateWire(t))
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"templates": templates})
 }
 
 // ============================================================================

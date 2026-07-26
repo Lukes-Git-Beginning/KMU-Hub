@@ -633,3 +633,58 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     ProtoTimestamp-Welle nutzen die Definitions-/Schedule-Handler
     `response.Proto` (RFC3339). Die `ProtoTimestamp`-`$ref`s dort sind damit
     falsch. Lohnt eine eigene kleine Doku-Unit.
+
+## Iteration 11 — p3-berichte-templates — done — 2026-07-26
+- commit: (siehe Git-Historie, folgt direkt auf diesen Eintrag)
+- Verify-Vorspann: Commit `5e9fcadd` (Iteration 10, Dokument-Persistenz)
+  geprueft — Handler in `route_berichte.go` gehen durchgehend ueber
+  `client.<RPC>` (kein direkter Service-Aufruf), Migration 000245 hat
+  `tenant_id NOT NULL` + RLS ENABLE+FORCE+Policy nach 000238-Muster, die
+  Document-Routen haengen am bestehenden `berichte:reports`-Guard (kein neuer
+  Seed noetig). `go build ./...` sauber. `git merge origin/main` = already up
+  to date, kein Konflikt.
+- gebaut: `GET /api/v1/berichte/templates` — die fuenf Startvorlagen aus dem
+  ehemaligen FE-Mock (`DEMO_TEMPLATES`) serverseitig als statische
+  Go-Konstante (`internal/berichte/templates_data.go`), block-fuer-block
+  identisch uebernommen (rows/settings-JSON gegen die Editor-Typen abgetippt,
+  camelCase-Keys erhalten). Neue RPC `ListTemplates` (.proto + regeneriert im
+  selben Commit via `protoc`), neuer Gateway-Handler mit eigenem Wire-Struct
+  (`reportTemplateWire`, gleiche Begruendung wie bei Documents:
+  `response.Proto` wuerde `rows`/`settings`-bytes base64-kodieren), neue
+  OpenAPI-Pfad+Schema (`BerichtTemplate`). Route haengt am bestehenden
+  `berichte:reports`-Read-Guard, kein neuer Seed.
+- Entscheidung (Modul-Mismatch entdeckt beim Portieren): `tpl-projekt` traegt
+  im FE-Mock `module: 'work'`. Das Backend kennt "work" nicht — `isValidModule`
+  (und die `report_documents_module_check`-Constraint aus Migration 000245)
+  erlauben nur finanzen|crm|helpdesk|inventar|produktion|cross. Waere das
+  1:1 uebernommen worden, haette "Neuer Bericht aus Vorlage" fuer genau
+  dieses Template beim `CreateDocument`-Aufruf immer mit `ErrInvalidModule`
+  (400) scheitern muessen — ein latenter Bug, keine Kleinigkeit. Auf
+  Template-Ebene nach "cross" gemappt; die Block-internen `kpi.source:"work"`
+  -Werte bleiben unveraendert, da sie opaque JSONB sind und nicht gegen
+  `validModules` geprueft werden.
+- Naming-Konflikt: `templateToProto` existierte bereits in
+  `internal/server/automation_grpc.go` (fuer `AutomationTemplate`, anderes
+  Domaenenmodell, gleiches Package `server`). Meine Konversionsfunktion heisst
+  darum `berichteTemplateToProto`.
+- Kein Repository-Zugriff: `Service.ListTemplates()` liest nichts aus der DB
+  und braucht keine `tenant_id` — Templates sind FE-Startstrukturen, keine
+  Mandantendaten (wie in der Unit-Notiz vorgesehen).
+- gate: `go build ./...` OK (mit `GOFLAGS="-p=2"`, da der Standard-Linker in
+  dieser Session zweimal mit `fatal error: runtime: cannot allocate memory`
+  abgestuerzt ist — Speicherdruck auf der Maschine, kein Code-Fehler; mit
+  weniger Parallelitaet lief er sauber durch) · `go vet` (berichte, server,
+  gateway) OK · `golangci-lint run` auf denselben drei Paketen: 0 issues ·
+  `go test ./internal/berichte/... ./internal/server/... ./internal/gateway/...`
+  gruen, inkl. `TestOpenAPIRouteDrift` (neue Route jetzt dokumentiert). Neue
+  Tests: `TestListTemplates` (Id/Titel/Modul/JSON-Form jeder Vorlage),
+  `TestCreateDocumentFromEveryTemplateSucceeds` (Regressionsschutz fuer genau
+  den Modul-Bug oben — jede der fuenf Vorlagen erzeugt via `CreateDocument`
+  erfolgreich ein Dokument), `TestBerichteGRPCServer_ListTemplates` (gRPC-Ebene).
+- offen / naechste Iteration:
+  - Falls spaeter eine tenant-gescopte Custom-Template-Tabelle kommt (siehe
+    Notiz in der Unit), muss die Modul-Whitelist dort dieselbe Falle
+    (FE-Modulwert ohne Backend-Aequivalent) im Blick behalten.
+  - Naechste freie Unit in Reihenfolge: `p3-berichte-kpi-service` (opus,
+    deps: []) oder `p3-finance-list-amounts` (sonnet, deps: []) — beide ohne
+    offene Abhaengigkeiten.

@@ -38,6 +38,9 @@ service BerichteService {
   rpc UpdateDocument(UpdateDocumentRequest) returns (DocumentResponse);
   rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
   rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse);
+
+  // Templates (static starter structures for "Neuer Bericht aus Vorlage")
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
 }
 
 // ============================================================================
@@ -356,4 +359,24 @@ message ListDocumentsRequest {
 message ListDocumentsResponse {
   repeated Document documents = 1;
   int32 total = 2;
+}
+
+// ============================================================================
+// Templates (static starter structures, no persistence)
+// ============================================================================
+
+message Template {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string module = 4;               // finanzen|crm|helpdesk|inventar|produktion|cross
+  optional string icon = 5;        // Lucide icon name resolved in the picker UI
+  bytes rows = 6;                  // raw JSONB array: rows -> columns -> blocks
+  bytes settings = 7;              // raw JSONB object: page setup
+}
+
+message ListTemplatesRequest {}
+
+message ListTemplatesResponse {
+  repeated Template templates = 1;
 }

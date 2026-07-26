@@ -41,6 +41,20 @@ type Document struct {
 	ReleasedAt  *time.Time `json:"released_at,omitempty"`
 }
 
+// Template is a static starter block structure for "Neuer Bericht aus
+// Vorlage". Templates are frontend-owned starter content, not tenant data:
+// no table, no tenant_id, served from a server-side constant (see
+// templates_data.go).
+type Template struct {
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Module      string  `json:"module"` // finanzen|crm|helpdesk|inventar|produktion|cross
+	Icon        *string `json:"icon,omitempty"`
+	Rows        []byte  `json:"rows"`     // raw JSONB array of rows, same shape as Document.Rows
+	Settings    []byte  `json:"settings"` // raw JSONB object
+}
+
 // CacheEntry represents a cached report result.
 type CacheEntry struct {
 	ID           uuid.UUID `json:"id"`

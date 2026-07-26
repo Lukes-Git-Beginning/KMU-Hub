@@ -20795,6 +20795,30 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/berichte/templates:
+    get:
+      summary: List report starter templates
+      description: >
+        Requires berichte:reports:read permission. Returns the static set of
+        starter block structures for "Neuer Bericht aus Vorlage" — not tenant
+        data, so the response is identical for every tenant.
+      tags: [berichte]
+      operationId: listBerichteTemplates
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Report template list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/BerichtTemplate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /api/v1/berichte/kpis:
     get:
       summary: Get dashboard KPI tiles
@@ -36094,6 +36118,37 @@ components:
           format: date-time
           nullable: true
           description: Set when the status first transitions to "released".
+
+    BerichtTemplate:
+      type: object
+      description: >
+        A static starter block structure for "Neuer Bericht aus Vorlage".
+        Not tenant data — served from a server-side constant, identical for
+        every tenant. Same wire rationale as BerichtDocument: served via
+        response.JSON, not response.Proto.
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+        icon:
+          type: string
+          nullable: true
+          description: Lucide icon name resolved in the picker UI.
+        rows:
+          type: array
+          description: Block tree (rows -> columns -> blocks), same shape as BerichtDocument.rows.
+          items:
+            type: object
+            additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
 
     BerichtSchedule:
       type: object

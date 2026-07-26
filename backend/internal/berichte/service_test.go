@@ -1,6 +1,7 @@
 package berichte
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1473,6 +1474,66 @@ func TestListDocumentsFilters(t *testing.T) {
 	bogus := "approved"
 	if _, _, err := svc.ListDocuments(ctx, ListDocumentsInput{TenantID: testTenant, Status: &bogus}); !errors.Is(err, ErrInvalidStatus) {
 		t.Errorf("status filter error = %v, want ErrInvalidStatus", err)
+	}
+}
+
+func TestListTemplates(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+
+	templates := svc.ListTemplates()
+	if len(templates) == 0 {
+		t.Fatal("ListTemplates returned no templates")
+	}
+
+	seenIDs := make(map[string]bool, len(templates))
+	for _, tpl := range templates {
+		if tpl.ID == "" || seenIDs[tpl.ID] {
+			t.Fatalf("template id %q is empty or duplicated", tpl.ID)
+		}
+		seenIDs[tpl.ID] = true
+
+		if tpl.Title == "" {
+			t.Fatalf("template %s: empty title", tpl.ID)
+		}
+		// Every template's module must satisfy the same enum the
+		// report_documents CHECK constraint enforces, so creating a document
+		// from any template never fails module validation (regression guard
+		// for the frontend's "work" module, which has no backend equivalent).
+		if !isValidModule(tpl.Module) {
+			t.Fatalf("template %s: module %q is not a valid backend module", tpl.ID, tpl.Module)
+		}
+
+		trimmedRows := bytes.TrimSpace(tpl.Rows)
+		if len(trimmedRows) == 0 || trimmedRows[0] != '[' || !json.Valid(trimmedRows) {
+			t.Fatalf("template %s: rows is not a valid JSON array", tpl.ID)
+		}
+		trimmedSettings := bytes.TrimSpace(tpl.Settings)
+		if len(trimmedSettings) == 0 || trimmedSettings[0] != '{' || !json.Valid(trimmedSettings) {
+			t.Fatalf("template %s: settings is not a valid JSON object", tpl.ID)
+		}
+	}
+}
+
+func TestCreateDocumentFromEveryTemplateSucceeds(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+	ctx := context.Background()
+
+	for _, tpl := range svc.ListTemplates() {
+		templateID := tpl.ID
+		doc, err := svc.CreateDocument(ctx, CreateDocumentInput{
+			TenantID:   testTenant,
+			Title:      tpl.Title,
+			Module:     tpl.Module,
+			TemplateID: &templateID,
+			Rows:       json.RawMessage(tpl.Rows),
+			Settings:   json.RawMessage(tpl.Settings),
+		})
+		if err != nil {
+			t.Fatalf("CreateDocument from template %s: %v", tpl.ID, err)
+		}
+		if string(doc.Rows) != string(tpl.Rows) {
+			t.Errorf("template %s: rows not stored verbatim", tpl.ID)
+		}
 	}
 }
 

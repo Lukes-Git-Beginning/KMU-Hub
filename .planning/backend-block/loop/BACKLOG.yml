@@ -345,7 +345,7 @@ units:
     service: berichte
     model: sonnet
     deps: [p3-berichte-document-persistence]
-    status: todo
+    status: done
     scope: >
       GET /berichte/templates existiert serverseitig nicht — das FE ruft es
       ueber `listReportTemplates` (berichte-client.ts) und die
@@ -367,6 +367,12 @@ units:
       daraus eine tenant-gescopte Tabelle; das dann als eigene Unit mit
       RLS-Policy. `report_documents.template_id` ist bewusst TEXT ohne FK
       (Migration 000245), passt also zu beiden Auspraegungen.
+      ERLEDIGT Iteration 11. tpl-projekt nutzte im FE-Mock module:"work" —
+      "work" ist kein gueltiges Backend-Modul (isValidModule/CHECK-Constraint
+      kennen nur finanzen|crm|helpdesk|inventar|produktion|cross). Auf
+      Template-Ebene auf "cross" gemappt, damit "Neuer Bericht aus Vorlage"
+      nie an der Modul-Validierung scheitert; Block-interne Felder (kpi.source)
+      bleiben unveraendert "work", da sie opaque JSONB sind. Siehe Journal.
     done_when:
       - GET /berichte/templates liefert {templates:[...]} im FE-Typ ReportTemplate
       - Wire-Shape der rows-Baeume identisch zu ReportDocument.rows
