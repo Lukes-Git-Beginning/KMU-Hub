@@ -954,7 +954,7 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
 
 ## Iteration 15 — p3-finance-op-mahnwesen — done — 2026-07-26
 
-- commit: (siehe naechste Zeile im Journal-Nachtrag)
+- commit: 9d5e176f
 - verify vorgaenger: sauber. `598e8301` (recurring invoices) gegen die sechs
   Fehlerklassen geprueft: Migration 000246 setzt auf beiden neuen Tabellen
   `tenant_id UUID NOT NULL` + `ENABLE`/`FORCE ROW LEVEL SECURITY` +
