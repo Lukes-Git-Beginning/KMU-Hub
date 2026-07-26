@@ -37,7 +37,6 @@ const (
 	EinkaufService_CancelPO_FullMethodName                = "/einkauf.v1.EinkaufService/CancelPO"
 	EinkaufService_ReceiveGoods_FullMethodName            = "/einkauf.v1.EinkaufService/ReceiveGoods"
 	EinkaufService_PartialReceive_FullMethodName          = "/einkauf.v1.EinkaufService/PartialReceive"
-	EinkaufService_ExportPO_FullMethodName                = "/einkauf.v1.EinkaufService/ExportPO"
 	EinkaufService_ListCatalogItems_FullMethodName        = "/einkauf.v1.EinkaufService/ListCatalogItems"
 	EinkaufService_GetCatalogItem_FullMethodName          = "/einkauf.v1.EinkaufService/GetCatalogItem"
 	EinkaufService_CreateCatalogItem_FullMethodName       = "/einkauf.v1.EinkaufService/CreateCatalogItem"
@@ -84,7 +83,6 @@ type EinkaufServiceClient interface {
 	CancelPO(ctx context.Context, in *CancelPORequest, opts ...grpc.CallOption) (*POResponse, error)
 	ReceiveGoods(ctx context.Context, in *ReceiveGoodsRequest, opts ...grpc.CallOption) (*POResponse, error)
 	PartialReceive(ctx context.Context, in *PartialReceiveRequest, opts ...grpc.CallOption) (*POResponse, error)
-	ExportPO(ctx context.Context, in *ExportPORequest, opts ...grpc.CallOption) (*ExportPOResponse, error)
 	// Catalog
 	ListCatalogItems(ctx context.Context, in *ListCatalogItemsRequest, opts ...grpc.CallOption) (*ListCatalogItemsResponse, error)
 	GetCatalogItem(ctx context.Context, in *GetCatalogItemRequest, opts ...grpc.CallOption) (*CatalogItemResponse, error)
@@ -290,16 +288,6 @@ func (c *einkaufServiceClient) PartialReceive(ctx context.Context, in *PartialRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(POResponse)
 	err := c.cc.Invoke(ctx, EinkaufService_PartialReceive_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *einkaufServiceClient) ExportPO(ctx context.Context, in *ExportPORequest, opts ...grpc.CallOption) (*ExportPOResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ExportPOResponse)
-	err := c.cc.Invoke(ctx, EinkaufService_ExportPO_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -512,7 +500,6 @@ type EinkaufServiceServer interface {
 	CancelPO(context.Context, *CancelPORequest) (*POResponse, error)
 	ReceiveGoods(context.Context, *ReceiveGoodsRequest) (*POResponse, error)
 	PartialReceive(context.Context, *PartialReceiveRequest) (*POResponse, error)
-	ExportPO(context.Context, *ExportPORequest) (*ExportPOResponse, error)
 	// Catalog
 	ListCatalogItems(context.Context, *ListCatalogItemsRequest) (*ListCatalogItemsResponse, error)
 	GetCatalogItem(context.Context, *GetCatalogItemRequest) (*CatalogItemResponse, error)
@@ -597,9 +584,6 @@ func (UnimplementedEinkaufServiceServer) ReceiveGoods(context.Context, *ReceiveG
 }
 func (UnimplementedEinkaufServiceServer) PartialReceive(context.Context, *PartialReceiveRequest) (*POResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PartialReceive not implemented")
-}
-func (UnimplementedEinkaufServiceServer) ExportPO(context.Context, *ExportPORequest) (*ExportPOResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ExportPO not implemented")
 }
 func (UnimplementedEinkaufServiceServer) ListCatalogItems(context.Context, *ListCatalogItemsRequest) (*ListCatalogItemsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListCatalogItems not implemented")
@@ -996,24 +980,6 @@ func _EinkaufService_PartialReceive_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(EinkaufServiceServer).PartialReceive(ctx, req.(*PartialReceiveRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _EinkaufService_ExportPO_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ExportPORequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(EinkaufServiceServer).ExportPO(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: EinkaufService_ExportPO_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(EinkaufServiceServer).ExportPO(ctx, req.(*ExportPORequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1420,10 +1386,6 @@ var EinkaufService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PartialReceive",
 			Handler:    _EinkaufService_PartialReceive_Handler,
-		},
-		{
-			MethodName: "ExportPO",
-			Handler:    _EinkaufService_ExportPO_Handler,
 		},
 		{
 			MethodName: "ListCatalogItems",

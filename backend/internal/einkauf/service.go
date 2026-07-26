@@ -746,12 +746,6 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 	return po, nil
 }
 
-// ExportPO is a stub for exporting a PO as PDF/CSV.
-// Full streaming implementation is a follow-up task in Sprint 3.
-func (s *Service) ExportPO(ctx context.Context, tenantID, poID uuid.UUID, format string) (*PurchaseOrder, error) {
-	return s.repo.GetPOWithLines(ctx, tenantID, poID)
-}
-
 // ============================================================================
 // Helpers
 // ============================================================================

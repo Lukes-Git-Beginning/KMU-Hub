@@ -72,7 +72,6 @@ func (er *EinkaufRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/cancel", er.HandleCancelPO)
 				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/receive", er.HandleReceiveGoods)
 				r.With(middleware.RequirePermission("einkauf:po", "write")).Post("/partial-receive", er.HandlePartialReceive)
-				r.With(middleware.RequirePermission("einkauf:po", "read")).Post("/export", er.HandleExportPO)
 
 				// Lines
 				r.Route("/lines", func(r chi.Router) {
@@ -632,52 +631,6 @@ func (er *EinkaufRoutes) HandlePartialReceive(w http.ResponseWriter, r *http.Req
 		return
 	}
 	response.Proto(w, http.StatusOK, resp)
-}
-
-func (er *EinkaufRoutes) HandleExportPO(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := middleware.GetTenantID(r.Context())
-	if err != nil {
-		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
-		return
-	}
-	client, err := er.getClient()
-	if err != nil {
-		respondServiceUnavailable(w, er.ServiceName())
-		return
-	}
-
-	id, ok := validateUUIDParam(w, r, "id")
-	if !ok {
-		return
-	}
-
-	format := r.URL.Query().Get("format")
-	if format == "" {
-		format = "pdf"
-	}
-
-	resp, err := client.ExportPO(r.Context(), &einkaufv1.ExportPORequest{
-		TenantId: tenantID.String(),
-		PoId:     id,
-		Format:   format,
-	})
-	if err != nil {
-		respondGRPCError(w, err)
-		return
-	}
-
-	contentType := resp.GetContentType()
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-	filename := resp.GetFilename()
-	if filename == "" {
-		filename = "po." + format
-	}
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Disposition", "attachment; filename="+formatFilename(filename))
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(resp.GetPayload())
 }
 
 // ============================================================================

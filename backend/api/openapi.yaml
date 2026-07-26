@@ -14005,24 +14005,6 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
-  /api/v1/einkauf/pos/{id}/export:
-    post:
-      summary: Export a purchase order as PDF or other format
-      tags: [einkauf]
-      operationId: exportPurchaseOrder
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: format, in: query, schema: { type: string, enum: [pdf, csv], default: pdf } }
-      responses:
-        "200":
-          description: Export file
-          content:
-            application/octet-stream:
-              schema: { type: string, format: binary }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
   /api/v1/einkauf/pos/{id}/lines:
     get:
       summary: List lines of a purchase order

@@ -32,7 +32,6 @@ service EinkaufService {
   rpc CancelPO(CancelPORequest) returns (POResponse);
   rpc ReceiveGoods(ReceiveGoodsRequest) returns (POResponse);
   rpc PartialReceive(PartialReceiveRequest) returns (POResponse);
-  rpc ExportPO(ExportPORequest) returns (ExportPOResponse);
 
   // Catalog
   rpc ListCatalogItems(ListCatalogItemsRequest) returns (ListCatalogItemsResponse);
@@ -297,18 +296,6 @@ message PartialReceiveRequest {
   string tenant_id = 1;
   string po_id = 2;
   repeated PartialReceiveItem items = 3;
-}
-
-message ExportPORequest {
-  string tenant_id = 1;
-  string po_id = 2;
-  string format = 3; // "pdf" or "csv"
-}
-
-message ExportPOResponse {
-  bytes payload = 1;
-  string content_type = 2;
-  string filename = 3;
 }
 
 // ============================================================================
