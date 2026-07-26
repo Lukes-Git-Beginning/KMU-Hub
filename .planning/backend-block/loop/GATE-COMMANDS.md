@@ -19,7 +19,25 @@ go build -p 2 ./internal/<svc>/... ./internal/gateway/... ./cmd/<svc>/... ./cmd/
 go vet ./internal/<svc>/... ./internal/gateway/...
 golangci-lint run --config .golangci.yml ./internal/<svc>/... ./internal/gateway/...
 go test ./internal/<svc>/...
+go test ./internal/gateway/          # PFLICHT sobald eine Route dazukam
 ```
+
+### Warum `./internal/gateway/` zwingend dazugehoert
+
+Dort liegt `TestOpenAPIRouteDrift` (`internal/gateway/openapi_drift_test.go`): er gleicht **jede**
+registrierte `/api/v1/*`-Route gegen `api/openapi.yaml` ab und schlaegt fehl, sobald eine Route ohne
+Pfad-Eintrag existiert. Stand 2026-07-26: 657 registrierte Routen gegen 711 dokumentierte Pfade.
+
+Das ist real passiert (Trockenlauf, Iteration 2): der neue Endpoint `POST /einkauf/pos/{id}/cancel`
+war gebaut und getestet, aber nicht in der Spec — `go test ./internal/einkauf/...` war gruen, CI rot.
+Gezielt pruefen:
+
+```bash
+go test ./internal/gateway/ -run TestOpenAPIRouteDrift
+```
+
+Gibt es einen begruendeten Fall, in dem eine Route bewusst undokumentiert bleibt, traegt man sie in
+`apiV1UndocumentedAllowlist` ein — mit Begruendung, nicht um den Test still zu machen.
 
 `go build ./...` **nicht** verwenden — laeuft auf dieser Maschine in einen OOM. Immer `-p 2` und gezielt
 auf die betroffenen Pakete.
