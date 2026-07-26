@@ -21,7 +21,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       PurchaseOrder.total_amount wird nie berechnet: CreatePO setzt "0",
       Add/Update/DeletePOLine rechnen den Kopfbetrag nicht nach. Gegen echtes BE
@@ -43,7 +43,7 @@ units:
     service: einkauf
     model: sonnet
     deps: [p3-einkauf-total-amount]
-    status: todo
+    status: done
     scope: >
       POST /pos/{id}/cancel fehlt komplett — UpdatePOInput traegt kein
       Status-Feld, es gibt keinen Cancel-Uebergang. Endpoint mit Status-Guard

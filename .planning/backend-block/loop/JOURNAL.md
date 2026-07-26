@@ -25,3 +25,72 @@ Format:
   fremder Tenant 0.
 - verify vorgaenger: n.a. (erster Eintrag)
 - offen: Trockenlauf ueber zwei Iterationen unter Aufsicht, bevor ein Nachtlauf startet.
+
+## Iteration 1 — p3-einkauf-total-amount — done — 2026-07-26
+
+- commit: e91cdf2a
+- gebaut: Repository-Methode `RecomputePOTotal` (SQL-Aggregat SUM(quantity*unit_price)
+  in purchase_orders.total_amount, tenant-gescoped) + Aufruf aus AddPOLine/UpdatePOLine/
+  DeletePOLine im Service. CreatePO bleibt bei "0" (korrekt, da 0 Zeilen bei Anlage).
+  4 neue Unit-Tests (Add/Add-mehrzeilig/Update/Delete) pruefen den total_amount-Wert
+  nach der jeweiligen Mutation.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. (keine neue
+  Tabelle/Spalte) | rls-smoke n.a. (kein neuer SELECT-Pfad, bestehende Policy greift
+  unveraendert)
+- verify vorgaenger: n.a. (Iteration 0 war reines Harness-Setup, kein Unit-Commit)
+- offen: keins. Naechste Unit ist p3-einkauf-cancel (deps erfuellt).
+
+## Iteration 2 — p3-einkauf-cancel — done — 2026-07-26
+
+- commit: 5901a151
+- gebaut: `Service.CancelPO` (analog zu SubmitPO/ReceiveGoods) storniert eine PO nur aus
+  den Status draft/submitted/sent (POStatusCancelled existierte bereits im Enum),
+  alles andere liefert `ErrPONotCancellable`. Neue RPC `CancelPO` im .proto (Request
+  tenant_id+po_id, Response wiederverwendet POResponse{po}) + Regen von .pb.go/_grpc.pb.go.
+  gRPC-Server-Handler + Fehler-Mapping (FailedPrecondition -> 409) in einkauf_grpc.go.
+  Gateway-Route `POST /pos/{id}/cancel` via bestehende Permission `einkauf:po write`
+  (kein neuer Guard, kein Seed noetig) — Handler geht ueber `client.CancelPO`, keine
+  direkte Service-Instanz im Gateway. 3 neue Unit-Tests (Erfolg ueber alle drei offenen
+  Stati, Ablehnung ueber alle vier nicht-offenen Stati, PO-not-found).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. (keine neue
+  Tabelle/Policy, bestehende purchase_orders-Policy unveraendert) | rls-smoke n.a.
+  (kein neuer SELECT-Pfad)
+- verify vorgaenger: sauber (e91cdf2a gegen alle 6 Fehlerklassen geprueft — Business-Logik
+  korrekt in Service/Repository, tenant-gescopte SQL, kein gRPC-Bypass, kein Stub, kein
+  Proto-Touch, kein neuer Guard, keine neue Tabelle).
+- NACHTRAG (Hauptsession, Trockenlauf-Review): Diese Iteration meldete "test ok", war aber in CI
+  ROT. `TestOpenAPIRouteDrift` (`internal/gateway`) schlug fehl, weil die neue Route
+  `POST /einkauf/pos/{id}/cancel` keinen Eintrag in `api/openapi.yaml` hatte. Das Gate lief nur
+  ueber `./internal/einkauf/...`, wo dieser Test nicht liegt. Behoben in `986633e9`
+  (Spec-Eintrag inkl. 409). Systemisch behoben: `go test ./internal/gateway/` ist jetzt Pflicht,
+  sobald eine Route dazukommt, und "Route ohne Spec-Eintrag" ist Fehlerklasse 7 im Verify-Vorspann.
+- offen: FE-Client (`desktop/src/renderer/src/api/einkauf-client.ts`) erwartet bereits
+  genau diese Route/Response-Form (mock-first) — kein FE-Aenderungsbedarf. Der
+  `🔒 Backend-Gap`-Kommentar im FE-Client und im MSW-Handler (`mocks/handlers/einkauf.ts`)
+  kann jetzt entfernt werden, ist aber nicht Teil dieser Iteration (FE-Datei, nicht
+  Backend-Scope). DB-Gate (RLS-Smoke) nicht gelaufen, da keine Tabelle/Policy angefasst —
+  bewusst n.a., nicht uebersprungen.
+
+## Trockenlauf-Abnahme (Hauptsession) — 2026-07-26
+
+Zwei Iterationen unter Aufsicht, 7 min und 6 min, $2,41 und $3,49. Ergebnis: **abgenommen.**
+
+Abnahme-Kriterien:
+- Commits nur auf `backend-loop`, `main` durch den Loop unberuehrt.
+- Guard feuert nachweislich **innerhalb** von `claude -p`: eine Sonde `git push origin main`
+  wurde vom Hook blockiert, nicht nur vom Prompt abgeraten.
+- Iteration 2 hat den Commit von Iteration 1 im Verify-Vorspann geprueft.
+- Unabhaengige Gegenpruefung der Diffs durch die Hauptsession: Handler geht ueber
+  `client.CancelPO` (kein gRPC-Bypass), `.proto` und beide `.pb.go` im selben Commit, SQL in
+  beiden Ebenen tenant-gescoped, `COALESCE(...,0)` faengt den Null-Zeilen-Fall.
+- CI am Draft-PR #14 gruen: Lint, Test, Validate OpenAPI. CD ist erwartungsgemaess nicht gelaufen.
+
+Zwei echte Befunde, beide systemisch geschlossen:
+1. **Route ohne Spec-Eintrag** — siehe Nachtrag zu Iteration 2. Gate erweitert, Fehlerklasse 7.
+2. **Rebase erzwingt Force-Push** — `git rebase origin/main` schrieb die Branch-Historie um, der
+   Push wurde als non-fast-forward abgelehnt, und Force-Push ist verboten. Der Loop merged jetzt
+   `origin/main` statt zu rebasen; der Guard blockt `rebase` und laesst `merge` nur mit Ziel
+   `origin/main` zu.
+
+Ein roter Check bleibt und ist **kein** Code-Befund: `Claude Code Review` scheitert an einem Bug
+in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this indicates a bug").
