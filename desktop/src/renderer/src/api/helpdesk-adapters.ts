@@ -129,7 +129,7 @@ export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
     id: t.id,
     ticketNr,
     subject: t.subject,
-    description: '',
+    description: t.description ?? '',
     status: wireStatusToDisplay(t.status),
     priority: wirePriorityToDisplay(t.priority),
     assignedTo: displayUserName(t.assignee_id),

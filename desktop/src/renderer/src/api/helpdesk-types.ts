@@ -21,6 +21,9 @@ export interface Ticket {
   id: string
   tenant_id: string
   subject: string
+  /** Initial problem statement shown at the top of the ticket detail. Optional —
+      a ticket without one hides its description section. */
+  description?: string
   status: TicketStatus
   priority: TicketPriority
   assignee_id: string | null

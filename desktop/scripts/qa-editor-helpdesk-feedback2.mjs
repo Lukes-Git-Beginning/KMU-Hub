@@ -51,9 +51,17 @@ try {
   }
   await page.keyboard.press('Escape').catch(() => {})
   await wait(400)
-  // NB: no seed ticket currently has a description (adapter hardcodes ''), so the
-  // "heading shown when filled" positive case is not testable with demo data —
-  // flagged to Darien separately.
+
+  // S2 — ticket WITH a description (Zutrittskarte now seeded) → heading present.
+  await page.locator('tr[role="button"]', { hasText: 'Zutrittskarte' }).first().click()
+  await wait(1000)
+  await shot('02-with-description.png')
+  {
+    const count = await descHeadings()
+    out.push({ step: 'S2 „Beschreibung" da, wenn Feld gefüllt', descHeadings: count, pass: count > 0 })
+  }
+  await page.keyboard.press('Escape').catch(() => {})
+  await wait(400)
 
   // ── EDITOR: Undo/Redo (Punkt C) ────────────────────────────────────────────
   await page.evaluate(() => { window.location.hash = '#/editor-window?module=helpdesk' })
