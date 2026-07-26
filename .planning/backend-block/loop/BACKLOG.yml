@@ -69,7 +69,7 @@ units:
     service: einkauf
     model: sonnet
     deps: [p3-einkauf-cancel]
-    status: todo
+    status: done
     scope: >
       ExportPO (service.go:716) ist ein Stub. Das FE erzeugt Bestell-PDF/CSV
       seit 2026-07-16 clientseitig (modules/einkauf/einkauf-export.ts), exportPO

@@ -94,3 +94,41 @@ Zwei echte Befunde, beide systemisch geschlossen:
 
 Ein roter Check bleibt und ist **kein** Code-Befund: `Claude Code Review` scheitert an einem Bug
 in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this indicates a bug").
+
+## Iteration 3 — p3-einkauf-exportpo-remove — done — 2026-07-26 19:45
+- commit: 33516ae1
+- gebaut: ExportPO-Stub komplett entfernt (RPC, Gateway-Route
+  `POST /pos/{id}/export`, gRPC-Handler, Service-Methode, Proto-Messages,
+  openapi.yaml-Eintrag). Vorher lieferte der Endpoint immer nur einen leeren
+  Octet-Stream-Payload zurueck.
+- verifiziert vor dem Loeschen: `grep -rniE "exportpo"` ueber `backend/` und
+  `desktop/` zeigt keinen verbleibenden Aufrufer. Der FE-Client
+  (`einkauf-client.ts:143`) hat schon einen Kommentar, der bestaetigt, dass
+  Exporte seit 2026-07-16 clientseitig laufen (`einkauf-export.ts`); der
+  Kommentar selbst wurde nicht angefasst (FE-Datei, ausserhalb Scope dieser
+  Unit).
+- proto regeneriert: `protoc --go_out=. --go-grpc_out=.` manuell (kein
+  `proto-einkauf`-Target im Makefile fuer diesen Service), Diff in
+  `einkauf.pb.go`/`einkauf_grpc.pb.go` besteht ausschliesslich aus dem
+  entfernten Message-Paar und den daraus folgenden Index-Verschiebungen
+  (msgTypes[31]->..., rawDesc) — keine unerwartete Reformatierung.
+- gate: build ok (voller `go build ./...` lief erst nach `GOFLAGS="-p=2"` durch —
+  Default-Parallelitaet riss die Maschine in ein `out of memory allocating heap
+  arena map` beim Bauen von `cmd/gateway`; mit `-p=2` sauber) | vet ok
+  | lint ok (`golangci-lint run ./internal/einkauf/... ./internal/gateway/...
+  ./internal/server/...`, 0 issues) | test ok (`go test
+  ./internal/einkauf/... ./internal/gateway/... ./internal/server/...`, inkl.
+  `TestOpenAPIRouteDrift`) | openapi ok (`npx @apidevtools/swagger-cli
+  validate` lokal gruen) | migration n.a. (keine Tabelle/Policy angefasst)
+  | rls-smoke n.a. (kein SELECT-Pfad veraendert, nur ein toter Pfad entfernt)
+- verify vorgaenger: sauber (`ef71800e` war bereits durch die Hauptsession im
+  vorigen Trockenlauf-Review gegengeprueft, siehe NACHTRAG oben — keine
+  weiteren unverifizierten Commits dazwischen ausser harness-internen
+  `docs(planning)`/`fix(planning)`-Commits).
+- offen: Wenn Luke will, kann der stale FE-Kommentar in `einkauf-client.ts`
+  ("the backend ExportPO endpoint is a stub") jetzt praezisiert werden
+  (Endpoint existiert nicht mehr, nicht nur "ist ein Stub") — kosmetisch,
+  keine Funktionsaenderung noetig. `GOFLAGS="-p=2"` als Build-Workaround: falls
+  der OOM bei vollem `go build ./...` systematisch auftritt (nicht nur diese
+  Maschine/dieser Moment), gehoert das als generelle Anmerkung in die
+  Loop-Betriebsnotizen, nicht nur hierher.
