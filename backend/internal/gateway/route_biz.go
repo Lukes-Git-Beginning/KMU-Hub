@@ -140,6 +140,22 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListOpenItems)
 	})
 
+	// Bank statements (Zahlungsabgleich): CAMT.053 / MT940 import
+	r.Route("/api/v1/finance/bank-statements", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankStatements)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/import", b.HandleImportBankStatement)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetBankStatement)
+	})
+
+	// Bank transactions: the reconciliation queue of the imports above
+	r.Route("/api/v1/finance/bank-transactions", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankTransactions)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reconcile", b.HandleReconcileBankTransaction)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/ignore", b.HandleIgnoreBankTransaction)
+	})
+
 	// Dashboard
 	r.Route("/api/v1/finance/dashboard", func(r chi.Router) {
 		r.Use(authMiddleware)

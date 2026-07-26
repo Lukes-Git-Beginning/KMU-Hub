@@ -543,3 +543,88 @@ type OpenItemsSummary struct {
 	Totals  []*OpenItemCurrencyTotal `json:"totals"`
 	Buckets []*OpenItemBucketTotal   `json:"buckets"`
 }
+
+// ============================================================================
+// Bank statement import (Zahlungsabgleich) — Migration 000247
+// ============================================================================
+
+// Bank statement file formats accepted by the import.
+const (
+	BankStatementFormatCAMT053 = "camt053"
+	BankStatementFormatMT940   = "mt940"
+)
+
+// Reconciliation state of a single bank transaction.
+const (
+	// BankMatchUnmatched: nothing plausible found.
+	BankMatchUnmatched = "unmatched"
+	// BankMatchSuggested: exactly one candidate, but not certain enough to book
+	// on its own. A human confirms it.
+	BankMatchSuggested = "suggested"
+	// BankMatchMatched: booked against an invoice, with a payment recorded.
+	BankMatchMatched = "matched"
+	// BankMatchIgnored: deliberately taken out of the queue (own transfer, fee).
+	BankMatchIgnored = "ignored"
+)
+
+// BankStatement is one imported account statement file.
+type BankStatement struct {
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	Format   string    `json:"format"`
+	Filename string    `json:"filename"`
+	// ContentHash is the SHA-256 of the uploaded bytes and the idempotency key
+	// of the import: the same file twice resolves to this same statement.
+	ContentHash      string           `json:"content_hash"`
+	AccountIBAN      string           `json:"account_iban"`
+	StatementRef     string           `json:"statement_ref"`
+	Currency         string           `json:"currency"`
+	OpeningBalance   *decimal.Decimal `json:"opening_balance,omitempty"`
+	ClosingBalance   *decimal.Decimal `json:"closing_balance,omitempty"`
+	StatementDate    *time.Time       `json:"statement_date,omitempty"`
+	TransactionCount int              `json:"transaction_count"`
+	ImportedBy       *uuid.UUID       `json:"imported_by,omitempty"`
+	CreatedAt        time.Time        `json:"created_at"`
+}
+
+// BankTransaction is one entry of a statement plus its reconciliation state.
+// Everything down to RemittanceInfo is what the bank reported and is never
+// rewritten; the match fields below carry what this system made of it.
+type BankTransaction struct {
+	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
+	StatementID uuid.UUID  `json:"statement_id"`
+	EntryRef    string     `json:"entry_ref"`
+	EndToEndID  string     `json:"end_to_end_id"`
+	ValueDate   time.Time  `json:"value_date"`
+	BookingDate *time.Time `json:"booking_date,omitempty"`
+	// Amount is signed: a credit is positive, a debit negative.
+	Amount           decimal.Decimal `json:"amount"`
+	Currency         string          `json:"currency"`
+	CounterpartyName string          `json:"counterparty_name"`
+	CounterpartyIBAN string          `json:"counterparty_iban"`
+	RemittanceInfo   string          `json:"remittance_info"`
+	MatchStatus      string          `json:"match_status"`
+	MatchReason      string          `json:"match_reason"`
+	MatchedInvoiceID *uuid.UUID      `json:"matched_invoice_id,omitempty"`
+	PaymentID        *uuid.UUID      `json:"payment_id,omitempty"`
+	ReconciledAt     *time.Time      `json:"reconciled_at,omitempty"`
+	ReconciledBy     *uuid.UUID      `json:"reconciled_by,omitempty"`
+	CreatedAt        time.Time       `json:"created_at"`
+}
+
+// IsCredit reports whether the entry moved money into the account. Only credits
+// can settle a receivable.
+func (t *BankTransaction) IsCredit() bool {
+	return t.Amount.IsPositive()
+}
+
+// BankTransactionFilter selects and pages the transaction list.
+type BankTransactionFilter struct {
+	// StatementID restricts to one import (nil = across all statements).
+	StatementID *uuid.UUID
+	// MatchStatus restricts to one reconciliation state (empty = all).
+	MatchStatus string
+	Limit       int
+	Offset      int
+}

@@ -1168,3 +1168,98 @@ in `claude-code-action@v1.0.137` ("Internal error: directory mismatch ... this i
     erfuellt), `p3-zeiterfassung-correction-supersede` (sonnet, neu) oder
     `p3-admin-invite-flow` (opus). `p3-berichte-share-token` bleibt durch das
     blockierte `p3-berichte-server-pdf` gesperrt.
+
+---
+
+## Iteration 17 — p3-finance-camt-import — done — 2026-07-26
+
+- commit: <wird nachgetragen>
+- verify vorgaenger (`7d612aa3`, Iteration 16): sauber. Handler geht ueber
+  `client.ReopenWeek` (kein Direct-Svc), `.proto` + `.pb.go` + `_grpc.pb.go` im
+  selben Commit, Pfad in `openapi.yaml`, `RequirePermission("hr","write")` war
+  schon 18× in derselben Datei in Gebrauch — kein Seed noetig. `go build -p 2
+  ./...` gruen.
+- gebaut: Kontoauszug-Import CAMT.053 + MT940 mit Zuordnung zu offenen Posten.
+  Serverseitig existierte davon **nichts** (Repo-weite Suche: nur Planungsdoku).
+  Neu: Migration 000247 (`finance_bank_statements`, `finance_bank_transactions`,
+  beide `tenant_id NOT NULL` + RLS), Package `internal/biz/banking`
+  (Format-Erkennung, zwei Parser, Matcher, Service, Postgres-Repo), 6 RPCs,
+  5 Gateway-Routen unter `/api/v1/finance/bank-statements` und
+  `/bank-transactions`, Spec-Eintraege inkl. 409/413.
+- gate: `go build -p 2 ./...` OK · `go vet` auf banking/server/gateway/cmd-biz OK
+  · `golangci-lint run` auf banking/server/gateway: **0 issues** ·
+  `go test ./internal/biz/banking/...` gruen (**32 Tests**, per `-v` nachgezaehlt
+  dass sie wirklich laufen, nicht nur kompilieren) · `go test -p 1
+  ./internal/gateway/... ./internal/server/...` gruen inkl.
+  `TestOpenAPIRouteDrift` · `swagger-cli validate` → valid.
+  RLS-Smoke: n.a. (kein DB-Zugriff in dieser Umgebung; Policies analog 000246
+  geschrieben, `FORCE ROW LEVEL SECURITY` + `current_tenant_id() OR
+  is_system_context()`).
+- entschieden, mit Begruendung:
+  - **Der Import bucht nichts.** Der Matcher haengt einen Vorschlag an
+    (`suggested` + `match_reason`), eine Zahlung entsteht erst beim
+    Bestaetigen. Eine Rechnung, die als bezahlt gilt, weil ein Kunde zufaellig
+    denselben Betrag fuer etwas anderes ueberwiesen hat, ist ein schlimmerer
+    Fehler als ein Posten, der in der Queue liegen bleibt.
+  - **Der Matcher raet nicht zwischen Gleichen.** Zwei offene Posten ueber
+    119,00 EUR ergeben *keinen* Vorschlag statt eines Muenzwurfs; eine
+    Ueberweisung, die zwei Rechnungsnummern nennt (Sammelzahlung), ebenso —
+    das Aufteilen ist eine Entscheidung, die kein Heuristik-Pfad treffen darf.
+  - **Idempotenz haengt am Datei-Hash, nicht am Request.** `UNIQUE (tenant_id,
+    content_hash)`: derselbe Export zweimal hochgeladen liefert den ersten
+    Auszug zurueck (200 + `already_imported`, nicht 201). Der zweite Riegel
+    sitzt beim Buchen: `IdempotencyKey = "bank-tx:<id>"` gegen die vorhandene
+    `UNIQUE (tenant_id, idempotency_key)` in `finance_payments`, damit eine
+    wiederholte Bestaetigung genau eine Zahlung erzeugt.
+  - **Buchen laeuft ueber `payment.Service.Record`**, nie ueber ein eigenes
+    INSERT — Rechnungsstatus, Restbetrags-Arithmetik und GoBD-Spur bleiben an
+    der einen Stelle, die sie besitzt. Schlaegt die Zahlung fehl, bleibt die
+    Transaktion `suggested`; erst danach wird `matched` geschrieben.
+  - **Nur Gutschriften matchen.** Ein Lastschrift-Eintrag wird nie einem
+    Debitor zugeordnet, auch wenn der Verwendungszweck eine Rechnungsnummer
+    traegt — Geld, das das Konto verlaesst, tilgt keine Forderung. Reconcile
+    auf einen Debit gibt 409.
+  - **Kein Waehrungssprung**: `amountSettles` vergleicht die Waehrung mit.
+    Ohne gespeicherten Kurs sagt eine CHF-Gutschrift nichts ueber eine
+    EUR-Forderung derselben Zahl aus (gleiche Begruendung wie bei der
+    OP-Liste in Iteration 15).
+  - **`suggested` statt `matched` beim Import** heisst auch: die
+    CHECK-Constraint `match_status <> 'matched' OR matched_invoice_id IS NOT
+    NULL` kann nie durch den Importpfad verletzt werden.
+  - **Rechnungsnummern unter 4 Zeichen** werden im Verwendungszweck nicht
+    gesucht — "7" traefe fast jeden Text. Solche Nummern bleiben ueber die
+    Betragsregel erreichbar.
+  - **Parser sind streng.** Fehlendes `CdtDbtInd`, unlesbares `:61:`,
+    unbekanntes Format, leere Datei → 400 statt "irgendwie" geparst. Ein
+    still falsch gelesenes Vorzeichen oder Dezimalkomma erzeugt plausibel
+    aussehende Buchungen, und das ist schlimmer als eine abgelehnte Datei.
+    Vorgemerkte (`Sts != BOOK`) CAMT-Eintraege werden uebersprungen: sie
+    koennen sich noch aendern.
+  - `lean:`-Marker: (a) nur der erste `<Stmt>`-Block eines CAMT-Dokuments wird
+    importiert — Upgrade wenn ein Kunde einen Multi-Statement-Export meldet;
+    (b) `openItemScanLimit = 2000` offene Posten je Import werden einmal
+    geladen und in Go gematcht statt pro Transaktion zu joinen — Upgrade wenn
+    ein Tenant darueber hinaus laeuft.
+- offen / naechste Iteration:
+  - **Kein FE.** Fuer den Zahlungsabgleich existiert im Desktop-Client noch
+    nichts (kein Client, kein MSW-Handler). Die Wire-Shape steht vollstaendig
+    in `openapi.yaml` (`BankStatement`, `BankTransaction`,
+    `BankStatementImportResult`) — FE-Aufgabe, kein Loop-Scope.
+  - **Kein Scheduler.** Der Import ist manuell (Upload). Ein automatischer
+    Abruf braucht Banking-Anbindung (finAPI/HBCI), nicht diese Unit.
+  - **Nicht getestet gegen echte Bankdateien.** Die Parser laufen gegen
+    handgeschriebene Fixtures nach Formatspezifikation; ein echter
+    Sparkassen-/DK-Export kann Subfelder anders belegen. Erste echte Datei
+    eines Piloten gegen `POST /finance/bank-statements/import` schicken und
+    `remittance_info` / `counterparty_name` pruefen.
+  - **`finance_payments.notes` ist TEXT**, `reference` ist `VARCHAR(100)` — der
+    Service kuerzt auf 100 bzw. 500 Zeichen auf Runen-Grenze. Faellt auf, wenn
+    ein Verwendungszweck laenger ist als erwartet.
+  - **Fuer Luke, unveraendert offen aus Iteration 13/14/16:**
+    `finance-client.ts:229` ruft `POST /finance/invoices/{id}/mark-paid`, die
+    Route heisst `/pay` → 404 gegen echtes BE. Kein automatischer Mahnlauf.
+    `aggregateDailyBuckets` filtert nicht auf `tenant_id`.
+  - Naechste freie Unit in Reihenfolge: `p3-zeiterfassung-correction-supersede`
+    (sonnet, deps erfuellt) oder `p3-admin-invite-flow` (opus).
+    `p3-berichte-share-token` bleibt durch das blockierte
+    `p3-berichte-server-pdf` gesperrt.

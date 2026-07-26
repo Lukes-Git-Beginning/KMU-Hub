@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/biz/banking"
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
@@ -59,11 +60,19 @@ type BizGRPCServer struct {
 	// instead of the constructor so the existing 13-parameter call sites stay
 	// untouched (same pattern as SetStornoCreator on the invoice service).
 	recurringSvc *recurring.Service
+	// bankingSvc backs the bank statement import (Migration 000247), wired the
+	// same way and for the same reason as recurringSvc.
+	bankingSvc *banking.Service
 }
 
 // SetRecurringService wires the recurring invoice schedules (Migration 000246).
 func (s *BizGRPCServer) SetRecurringService(svc *recurring.Service) {
 	s.recurringSvc = svc
+}
+
+// SetBankingService wires the bank statement import (Migration 000247).
+func (s *BizGRPCServer) SetBankingService(svc *banking.Service) {
+	s.bankingSvc = svc
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.

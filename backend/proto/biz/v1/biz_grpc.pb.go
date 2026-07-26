@@ -85,6 +85,12 @@ const (
 	FinanceService_DeleteRecurringInvoice_FullMethodName       = "/biz.v1.FinanceService/DeleteRecurringInvoice"
 	FinanceService_SetRecurringInvoiceStatus_FullMethodName    = "/biz.v1.FinanceService/SetRecurringInvoiceStatus"
 	FinanceService_GenerateRecurringInvoice_FullMethodName     = "/biz.v1.FinanceService/GenerateRecurringInvoice"
+	FinanceService_ImportBankStatement_FullMethodName          = "/biz.v1.FinanceService/ImportBankStatement"
+	FinanceService_GetBankStatement_FullMethodName             = "/biz.v1.FinanceService/GetBankStatement"
+	FinanceService_ListBankStatements_FullMethodName           = "/biz.v1.FinanceService/ListBankStatements"
+	FinanceService_ListBankTransactions_FullMethodName         = "/biz.v1.FinanceService/ListBankTransactions"
+	FinanceService_ReconcileBankTransaction_FullMethodName     = "/biz.v1.FinanceService/ReconcileBankTransaction"
+	FinanceService_IgnoreBankTransaction_FullMethodName        = "/biz.v1.FinanceService/IgnoreBankTransaction"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -176,6 +182,13 @@ type FinanceServiceClient interface {
 	DeleteRecurringInvoice(ctx context.Context, in *DeleteRecurringInvoiceRequest, opts ...grpc.CallOption) (*DeleteRecurringInvoiceResponse, error)
 	SetRecurringInvoiceStatus(ctx context.Context, in *SetRecurringInvoiceStatusRequest, opts ...grpc.CallOption) (*SetRecurringInvoiceStatusResponse, error)
 	GenerateRecurringInvoice(ctx context.Context, in *GenerateRecurringInvoiceRequest, opts ...grpc.CallOption) (*GenerateRecurringInvoiceResponse, error)
+	// ==================== Bank Statements (Zahlungsabgleich) ====================
+	ImportBankStatement(ctx context.Context, in *ImportBankStatementRequest, opts ...grpc.CallOption) (*ImportBankStatementResponse, error)
+	GetBankStatement(ctx context.Context, in *GetBankStatementRequest, opts ...grpc.CallOption) (*GetBankStatementResponse, error)
+	ListBankStatements(ctx context.Context, in *ListBankStatementsRequest, opts ...grpc.CallOption) (*ListBankStatementsResponse, error)
+	ListBankTransactions(ctx context.Context, in *ListBankTransactionsRequest, opts ...grpc.CallOption) (*ListBankTransactionsResponse, error)
+	ReconcileBankTransaction(ctx context.Context, in *ReconcileBankTransactionRequest, opts ...grpc.CallOption) (*ReconcileBankTransactionResponse, error)
+	IgnoreBankTransaction(ctx context.Context, in *IgnoreBankTransactionRequest, opts ...grpc.CallOption) (*IgnoreBankTransactionResponse, error)
 }
 
 type financeServiceClient struct {
@@ -846,6 +859,66 @@ func (c *financeServiceClient) GenerateRecurringInvoice(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *financeServiceClient) ImportBankStatement(ctx context.Context, in *ImportBankStatementRequest, opts ...grpc.CallOption) (*ImportBankStatementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportBankStatementResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ImportBankStatement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GetBankStatement(ctx context.Context, in *GetBankStatementRequest, opts ...grpc.CallOption) (*GetBankStatementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBankStatementResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GetBankStatement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListBankStatements(ctx context.Context, in *ListBankStatementsRequest, opts ...grpc.CallOption) (*ListBankStatementsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBankStatementsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListBankStatements_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListBankTransactions(ctx context.Context, in *ListBankTransactionsRequest, opts ...grpc.CallOption) (*ListBankTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBankTransactionsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListBankTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ReconcileBankTransaction(ctx context.Context, in *ReconcileBankTransactionRequest, opts ...grpc.CallOption) (*ReconcileBankTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReconcileBankTransactionResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ReconcileBankTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) IgnoreBankTransaction(ctx context.Context, in *IgnoreBankTransactionRequest, opts ...grpc.CallOption) (*IgnoreBankTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IgnoreBankTransactionResponse)
+	err := c.cc.Invoke(ctx, FinanceService_IgnoreBankTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -935,6 +1008,13 @@ type FinanceServiceServer interface {
 	DeleteRecurringInvoice(context.Context, *DeleteRecurringInvoiceRequest) (*DeleteRecurringInvoiceResponse, error)
 	SetRecurringInvoiceStatus(context.Context, *SetRecurringInvoiceStatusRequest) (*SetRecurringInvoiceStatusResponse, error)
 	GenerateRecurringInvoice(context.Context, *GenerateRecurringInvoiceRequest) (*GenerateRecurringInvoiceResponse, error)
+	// ==================== Bank Statements (Zahlungsabgleich) ====================
+	ImportBankStatement(context.Context, *ImportBankStatementRequest) (*ImportBankStatementResponse, error)
+	GetBankStatement(context.Context, *GetBankStatementRequest) (*GetBankStatementResponse, error)
+	ListBankStatements(context.Context, *ListBankStatementsRequest) (*ListBankStatementsResponse, error)
+	ListBankTransactions(context.Context, *ListBankTransactionsRequest) (*ListBankTransactionsResponse, error)
+	ReconcileBankTransaction(context.Context, *ReconcileBankTransactionRequest) (*ReconcileBankTransactionResponse, error)
+	IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -1142,6 +1222,24 @@ func (UnimplementedFinanceServiceServer) SetRecurringInvoiceStatus(context.Conte
 }
 func (UnimplementedFinanceServiceServer) GenerateRecurringInvoice(context.Context, *GenerateRecurringInvoiceRequest) (*GenerateRecurringInvoiceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateRecurringInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) ImportBankStatement(context.Context, *ImportBankStatementRequest) (*ImportBankStatementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportBankStatement not implemented")
+}
+func (UnimplementedFinanceServiceServer) GetBankStatement(context.Context, *GetBankStatementRequest) (*GetBankStatementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBankStatement not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListBankStatements(context.Context, *ListBankStatementsRequest) (*ListBankStatementsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBankStatements not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListBankTransactions(context.Context, *ListBankTransactionsRequest) (*ListBankTransactionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBankTransactions not implemented")
+}
+func (UnimplementedFinanceServiceServer) ReconcileBankTransaction(context.Context, *ReconcileBankTransactionRequest) (*ReconcileBankTransactionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReconcileBankTransaction not implemented")
+}
+func (UnimplementedFinanceServiceServer) IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IgnoreBankTransaction not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -2352,6 +2450,114 @@ func _FinanceService_GenerateRecurringInvoice_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_ImportBankStatement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportBankStatementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ImportBankStatement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ImportBankStatement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ImportBankStatement(ctx, req.(*ImportBankStatementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GetBankStatement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBankStatementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GetBankStatement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GetBankStatement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GetBankStatement(ctx, req.(*GetBankStatementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListBankStatements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBankStatementsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListBankStatements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListBankStatements_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListBankStatements(ctx, req.(*ListBankStatementsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListBankTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBankTransactionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListBankTransactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListBankTransactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListBankTransactions(ctx, req.(*ListBankTransactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ReconcileBankTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReconcileBankTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ReconcileBankTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ReconcileBankTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ReconcileBankTransaction(ctx, req.(*ReconcileBankTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_IgnoreBankTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IgnoreBankTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).IgnoreBankTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_IgnoreBankTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).IgnoreBankTransaction(ctx, req.(*IgnoreBankTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2622,6 +2828,30 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateRecurringInvoice",
 			Handler:    _FinanceService_GenerateRecurringInvoice_Handler,
+		},
+		{
+			MethodName: "ImportBankStatement",
+			Handler:    _FinanceService_ImportBankStatement_Handler,
+		},
+		{
+			MethodName: "GetBankStatement",
+			Handler:    _FinanceService_GetBankStatement_Handler,
+		},
+		{
+			MethodName: "ListBankStatements",
+			Handler:    _FinanceService_ListBankStatements_Handler,
+		},
+		{
+			MethodName: "ListBankTransactions",
+			Handler:    _FinanceService_ListBankTransactions_Handler,
+		},
+		{
+			MethodName: "ReconcileBankTransaction",
+			Handler:    _FinanceService_ReconcileBankTransaction_Handler,
+		},
+		{
+			MethodName: "IgnoreBankTransaction",
+			Handler:    _FinanceService_IgnoreBankTransaction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

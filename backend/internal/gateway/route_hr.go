@@ -32,6 +32,13 @@ func hrMarshalSlice[T proto.Message](msgs []T) ([]json.RawMessage, error) {
 	return parts, nil
 }
 
+// hrMarshalProto marshals a single proto message the same way, for envelopes
+// that carry one entity next to other fields (e.g. {"statement": {...},
+// "transactions": [...]}).
+func hrMarshalProto[T proto.Message](msg T) (json.RawMessage, error) {
+	return cannedResponseMarshaler.Marshal(msg)
+}
+
 // HRRoutes handles HTTP routes for the HR backend service.
 // HR services run on the same gRPC server as Finance (the "biz" binary),
 // so ServiceName returns "biz" to reuse the existing connection.

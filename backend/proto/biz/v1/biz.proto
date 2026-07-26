@@ -109,6 +109,14 @@ service FinanceService {
   rpc DeleteRecurringInvoice(DeleteRecurringInvoiceRequest) returns (DeleteRecurringInvoiceResponse);
   rpc SetRecurringInvoiceStatus(SetRecurringInvoiceStatusRequest) returns (SetRecurringInvoiceStatusResponse);
   rpc GenerateRecurringInvoice(GenerateRecurringInvoiceRequest) returns (GenerateRecurringInvoiceResponse);
+
+  // ==================== Bank Statements (Zahlungsabgleich) ====================
+  rpc ImportBankStatement(ImportBankStatementRequest) returns (ImportBankStatementResponse);
+  rpc GetBankStatement(GetBankStatementRequest) returns (GetBankStatementResponse);
+  rpc ListBankStatements(ListBankStatementsRequest) returns (ListBankStatementsResponse);
+  rpc ListBankTransactions(ListBankTransactionsRequest) returns (ListBankTransactionsResponse);
+  rpc ReconcileBankTransaction(ReconcileBankTransactionRequest) returns (ReconcileBankTransactionResponse);
+  rpc IgnoreBankTransaction(IgnoreBankTransactionRequest) returns (IgnoreBankTransactionResponse);
 }
 
 // ============================================================================
@@ -1405,4 +1413,130 @@ message GenerateRecurringInvoiceRequest {
 message GenerateRecurringInvoiceResponse {
   Invoice invoice            = 1;
   RecurringInvoice recurring = 2;
+}
+
+// ============================================================================
+// Bank Statements (Zahlungsabgleich CAMT.053 / MT940) — Migration 000247
+// ============================================================================
+
+// BankStatement is one imported account statement file.
+message BankStatement {
+  string id            = 1;
+  string format        = 2;   // camt053 | mt940
+  string filename      = 3;
+  // SHA-256 of the uploaded bytes. Importing the same file twice resolves to
+  // this same statement instead of creating a second one.
+  string content_hash  = 4;
+  string account_iban  = 5;
+  string statement_ref = 6;
+  string currency      = 7;   // ISO 4217
+  // Decimals as strings, like every other finance amount on this wire.
+  optional string opening_balance = 8;
+  optional string closing_balance = 9;
+  optional string statement_date  = 10;  // YYYY-MM-DD
+  int32 transaction_count         = 11;
+  optional string imported_by     = 12;
+  string created_at               = 13;  // RFC3339
+}
+
+// BankTransaction is one entry of a statement plus its reconciliation state.
+// Everything up to remittance_info is what the bank reported and is never
+// rewritten; the match_* fields carry what this system made of it.
+message BankTransaction {
+  string id            = 1;
+  string statement_id  = 2;
+  string entry_ref     = 3;
+  string end_to_end_id = 4;
+  string value_date    = 5;              // YYYY-MM-DD
+  optional string booking_date = 6;      // YYYY-MM-DD
+  // Signed: a credit (money in) is positive, a debit negative.
+  string amount            = 7;
+  string currency          = 8;
+  string counterparty_name = 9;
+  string counterparty_iban = 10;
+  string remittance_info   = 11;
+  // unmatched | suggested | matched | ignored. Plain string, not an enum: the
+  // gateway marshals enums as numbers and the frontend types these as a string
+  // union — same call as OpenItem.status.
+  string match_status = 12;
+  // Why the matcher suggested what it did: invoice_number+amount,
+  // invoice_number, amount, manual or ignored.
+  string match_reason                = 13;
+  optional string matched_invoice_id = 14;
+  optional string payment_id         = 15;
+  optional string reconciled_at      = 16;  // RFC3339
+  optional string reconciled_by      = 17;
+  string created_at                  = 18;  // RFC3339
+}
+
+message ImportBankStatementRequest {
+  string tenant_id = 1;
+  string filename  = 2;
+  bytes content    = 3;
+  string user_id   = 4;
+}
+
+message ImportBankStatementResponse {
+  BankStatement statement            = 1;
+  repeated BankTransaction transactions = 2;
+  // True when the identical file had been imported before. The response then
+  // carries the original statement, not a second copy.
+  bool already_imported = 3;
+}
+
+message GetBankStatementRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message GetBankStatementResponse {
+  BankStatement statement               = 1;
+  repeated BankTransaction transactions = 2;
+}
+
+message ListBankStatementsRequest {
+  string tenant_id = 1;
+  int32 page       = 2;
+  int32 per_page   = 3;
+}
+
+message ListBankStatementsResponse {
+  repeated BankStatement statements = 1;
+  int32 total                       = 2;
+}
+
+message ListBankTransactionsRequest {
+  string tenant_id           = 1;
+  optional string statement_id = 2;
+  string match_status        = 3;  // empty = all
+  int32 page                 = 4;
+  int32 per_page             = 5;
+}
+
+message ListBankTransactionsResponse {
+  repeated BankTransaction transactions = 1;
+  int32 total                           = 2;
+}
+
+message ReconcileBankTransactionRequest {
+  string tenant_id      = 1;
+  string id             = 2;
+  // Empty takes the suggested invoice, which is the common case: the user is
+  // confirming what was proposed.
+  string invoice_id = 3;
+  string user_id    = 4;
+}
+
+message ReconcileBankTransactionResponse {
+  BankTransaction transaction = 1;
+}
+
+message IgnoreBankTransactionRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string user_id   = 3;
+}
+
+message IgnoreBankTransactionResponse {
+  BankTransaction transaction = 1;
 }

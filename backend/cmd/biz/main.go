@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/kmuhub/kmuhub/internal/biz/banking"
 	"github.com/kmuhub/kmuhub/internal/biz/bexio"
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
@@ -33,8 +34,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
 	"github.com/kmuhub/kmuhub/internal/biz/recurring"
-	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/cache"
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -217,6 +218,13 @@ func main() {
 		recurring.NewPostgresRepository(pool), invoiceSvc, invoiceRepo,
 	)
 
+	// Bank statement import (Zahlungsabgleich, Migration 000247). Matching reads
+	// the open items off invoiceRepo, and a confirmed match is booked through
+	// paymentSvc — this service never writes finance_payments itself.
+	bankingSvc := banking.NewService(
+		banking.NewPostgresRepository(pool), invoiceRepo, paymentSvc, slog.Default(),
+	)
+
 	// =========================================================================
 	// gRPC Server
 	// =========================================================================
@@ -252,6 +260,7 @@ func main() {
 		einvoiceSvc,
 	)
 	bizGRPC.SetRecurringService(recurringSvc)
+	bizGRPC.SetBankingService(bankingSvc)
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 
 	// =========================================================================

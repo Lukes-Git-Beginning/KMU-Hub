@@ -572,7 +572,7 @@ units:
     service: finance
     model: opus
     deps: [p3-finance-op-mahnwesen]
-    status: todo
+    status: done
     scope: >
       Kontoauszug-Import CAMT.053 und MT940 mit Zuordnung zu offenen Posten.
     sources:
@@ -582,6 +582,22 @@ units:
       begrenzen, Struktur strikt validieren, Parse-Fehler als saubere 4xx
       zurueckgeben statt zu paniken. Import muss idempotent sein: dieselbe
       Datei zweimal eingespielt darf keine Doppelbuchung erzeugen.
+      ERLEDIGT Iteration 17 (Migration 000247, Package internal/biz/banking).
+      Serverseitig existierte nichts — auch kein FE, die Wire-Shape ist also in
+      openapi.yaml definiert worden. Entscheidungen: (a) Der Import BUCHT NICHT.
+      Der Matcher setzt `suggested` + `match_reason`; eine Zahlung entsteht erst
+      ueber POST /bank-transactions/{id}/reconcile. Eine per Heuristik als
+      bezahlt markierte Rechnung ist ein schlimmerer Fehler als ein Posten in
+      der Queue. (b) Kein Raten zwischen Gleichen: zwei offene Posten desselben
+      Betrags oder eine Sammelzahlung mit zwei Rechnungsnummern ergeben KEINEN
+      Vorschlag. (c) Idempotenz ueber UNIQUE (tenant_id, content_hash) auf der
+      Datei — Replay liefert 200 + already_imported statt 201; zweiter Riegel
+      beim Buchen ueber IdempotencyKey "bank-tx:<id>" gegen die vorhandene
+      UNIQUE in finance_payments. (d) Buchen laeuft ueber payment.Service.Record,
+      nie ueber ein eigenes INSERT. (e) Nur Gutschriften matchen, kein
+      Waehrungssprung ohne gespeicherten Kurs. NICHT enthalten: FE (existiert
+      gar nicht), automatischer Abruf (braucht finAPI/HBCI), Test gegen echte
+      Bankdateien (Fixtures sind spec-konform handgeschrieben).
     done_when:
       - Beide Formate werden geparst, defekte Datei liefert 4xx statt Panic
       - Import idempotent

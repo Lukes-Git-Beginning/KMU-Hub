@@ -8148,6 +8148,294 @@ paths:
   # ===========================================================================
   # Finance: Dunning
   # ===========================================================================
+  /api/v1/finance/bank-statements:
+    get:
+      summary: List imported bank statements
+      description: Imported account statements, newest first.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Imported statements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statements:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankStatement"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-statements/import:
+    post:
+      summary: Import a bank statement (CAMT.053 or MT940)
+      description: >
+        Uploads an account statement. The format is detected from the content,
+        not from the filename or MIME type. Every credit is matched against the
+        open items of the tenant and carries a suggestion; nothing is booked
+        here — a payment is only recorded when a transaction is reconciled.
+
+        The import is idempotent on the file content: uploading the identical
+        file again returns the original statement with already_imported=true and
+        200 instead of 201, and creates no second set of transactions.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CAMT.053 XML or MT940 text file, at most 10 MiB
+      responses:
+        "201":
+          description: Statement imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankStatementImportResult"
+        "200":
+          description: The identical file had already been imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankStatementImportResult"
+        "400":
+          description: Missing file, unrecognised format or malformed statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: File exceeds the 10 MiB limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-statements/{id}:
+    get:
+      summary: Get one bank statement with its transactions
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Statement with its transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statement:
+                    $ref: "#/components/schemas/BankStatement"
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankTransaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions:
+    get:
+      summary: List imported bank transactions
+      description: >
+        The reconciliation queue. Filter by statement or by match status to see
+        what is still waiting for a decision.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: statement_id
+          in: query
+          description: Restrict to one import
+          schema:
+            type: string
+            format: uuid
+        - name: match_status
+          in: query
+          description: Restrict to one reconciliation state
+          schema:
+            type: string
+            enum: [unmatched, suggested, matched, ignored]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Imported transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankTransaction"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions/{id}/reconcile:
+    post:
+      summary: Book a bank credit as a payment against an invoice
+      description: >
+        Records a payment through the payment service, so invoice status,
+        numbering and the GoBD trail keep running through the one path that owns
+        them. An absent invoice_id confirms the suggestion the import attached.
+        The payment carries an idempotency key derived from the transaction, so
+        a retried confirmation records exactly one payment.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_id:
+                  type: string
+                  format: uuid
+                  description: Overrides the suggested invoice
+      responses:
+        "200":
+          description: The reconciled transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankTransaction"
+        "400":
+          description: Invalid id or invoice_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >
+            Already reconciled, or the entry is a debit — money leaving the
+            account cannot settle a receivable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions/{id}/ignore:
+    post:
+      summary: Take a bank transaction out of the reconciliation queue
+      description: >
+        For entries that are not customer payments — bank fees, own transfers.
+        A booked transaction cannot be ignored: undoing it means deleting its
+        payment.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The ignored transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankTransaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The transaction is already booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/finance/open-items:
     get:
       summary: List open items (Offene Posten) with receivables aging
@@ -32141,6 +32429,123 @@ components:
           type: string
         notes:
           type: string
+
+    BankStatement:
+      type: object
+      description: One imported account statement file (Migration 000247).
+      properties:
+        id:
+          type: string
+          format: uuid
+        format:
+          type: string
+          enum: [camt053, mt940]
+        filename:
+          type: string
+        content_hash:
+          type: string
+          description: >
+            SHA-256 of the uploaded bytes. Importing the same file twice
+            resolves to this same statement instead of creating a second one.
+        account_iban:
+          type: string
+        statement_ref:
+          type: string
+        currency:
+          type: string
+          description: ISO 4217
+        opening_balance:
+          type: string
+          description: Decimal as string
+        closing_balance:
+          type: string
+          description: Decimal as string
+        statement_date:
+          type: string
+          format: date
+        transaction_count:
+          type: integer
+        imported_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    BankTransaction:
+      type: object
+      description: >
+        One entry of a statement plus its reconciliation state. Everything up to
+        remittance_info is what the bank reported and is never rewritten after
+        import; the match_ fields carry what this system made of it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        statement_id:
+          type: string
+          format: uuid
+        entry_ref:
+          type: string
+        end_to_end_id:
+          type: string
+        value_date:
+          type: string
+          format: date
+        booking_date:
+          type: string
+          format: date
+        amount:
+          type: string
+          description: >
+            Decimal as string, signed: a credit (money in) is positive, a debit
+            negative.
+        currency:
+          type: string
+        counterparty_name:
+          type: string
+        counterparty_iban:
+          type: string
+        remittance_info:
+          type: string
+        match_status:
+          type: string
+          enum: [unmatched, suggested, matched, ignored]
+        match_reason:
+          type: string
+          description: >
+            Why the matcher suggested what it did.
+          enum: ["", invoice_number+amount, invoice_number, amount, manual, ignored]
+        matched_invoice_id:
+          type: string
+          format: uuid
+        payment_id:
+          type: string
+          format: uuid
+        reconciled_at:
+          type: string
+          format: date-time
+        reconciled_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    BankStatementImportResult:
+      type: object
+      properties:
+        statement:
+          $ref: "#/components/schemas/BankStatement"
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/BankTransaction"
+        already_imported:
+          type: boolean
+          description: >
+            True when the identical file had been imported before. The response
+            then carries the original statement, not a second copy.
 
     OpenItem:
       type: object
