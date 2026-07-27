@@ -1654,7 +1654,7 @@ units:
     service: chat
     model: sonnet
     deps: [wp-chat]
-    status: todo
+    status: done   # Iteration 38 — kein Repo mit Reactions gefunden; flaky DM-Test aus Iteration 37 gefixt
     scope: >
       Aus wp-chat ausgelagerter Rest: DB-gestuetzte tenant_write_test.go fuer
       die restlichen chat-Repository-Dateien mit INSERT — file, guest,
@@ -1670,6 +1670,29 @@ units:
       - backend/internal/chat/guest/
       - backend/internal/chat/channel/tenant_write_test.go (Muster + assertRowCountWhere)
       - backend/internal/chat/message/tenant_write_test.go (Muster + assertRowCountWhere)
+    notes: >
+      ERLEDIGT Iteration 38. Kein message_reactions-Repository gefunden (grep
+      auf "reaction|Reaction" in internal/chat: keine Treffer) — bestaetigt
+      die Vermutung aus dem Backlog, kein Umbau noetig. Gefundene tote Writes:
+      keine — file.CreateFile/DeleteFile und guest.CreateSession/
+      UpdateLastActivity/DeactivateSession/CreateConfig/UpdateConfig/
+      DeleteConfig setzen tenant_id korrekt (aus middleware.GetTenantID via
+      Service-Layer bzw. explizit im Repo-Aufruf) und RLS greift auf allen
+      drei Tabellen bereits seit Migration 000122 (verifiziert per
+      pg_class.relrowsecurity + pg_policy vor dem Schreiben der Tests).
+      Zusaetzlich zur Praesenz-Pruefung wurde pro Schreibpfad ein
+      Fremd-Tenant-Aufruf als No-Op verifiziert (UPDATE/DELETE unter falschem
+      Tenant aendert nichts) — schaerfer als eine reine Sichtbarkeitspruefung.
+      Echter Nebenfund: `internal/chat/channel/tenant_write_test.go` aus
+      Iteration 37 war flaky — CreateDMChannel bekam userA/userB unsortiert
+      als DMUser1/DMUser2, die Tabelle erzwingt aber `chk_dm_user_order`
+      (dm_user1 < dm_user2). Der Service kanonisiert das per
+      String-Vergleich vor dem Repo-Call (service.go:567-570), der
+      Repo-Test tat es nicht — mit zwei zufaelligen uuid.New()-Werten schlug
+      der Test in ca. 50% der Laeufe fehl (SQLSTATE 23514). Reproduziert,
+      dann denselben Sortier-Schritt in den Test gezogen und 5x
+      hintereinander gruen verifiziert. Kein `.proto`, keine neue Route,
+      keine neue Tabelle — reiner Test-Fix im selben Commit.
     done_when:
       - tenant_write_test.go nach dem gemeinsamen Muster fuer file und guest
       - Test laeuft real, Fremd-Tenant sieht nichts

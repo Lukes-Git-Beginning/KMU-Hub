@@ -3095,3 +3095,36 @@ bleibt.
   Presence, DB-Test fehlt weiterhin, RLS-Policy dort aber bereits vorhanden)
   stehen im Backlog fuer kommende Iterationen. Queue-Stand: 15 `wp-*`-Units
   `todo` (13 urspruengliche minus wp-settings/wp-chat plus die zwei neuen).
+
+## Iteration 38 — wp-chat-rest — done — 2026-07-28 00:45
+
+- commit: `43d21d48`
+- gebaut: `internal/chat/file/tenant_write_test.go` (CreateFile + DeleteFile,
+  inkl. Fremd-Tenant-No-Op auf dem Soft-Delete-UPDATE) und
+  `internal/chat/guest/tenant_write_test.go` (CreateSession/
+  UpdateLastActivity/DeactivateSession fuer guest_sessions,
+  CreateConfig/UpdateConfig/DeleteConfig fuer guest_channel_config, jeweils
+  mit Fremd-Tenant-No-Op-Assertion auf UPDATE/DELETE). Kein
+  message_reactions-Repository gefunden — Backlog-Vermutung bestaetigt,
+  nichts zu bauen. Keine Migration: chat_files/guest_sessions/
+  guest_channel_config hatten die RLS-Policy bereits seit Migration 000122
+  (per pg_class.relrowsecurity + pg_policy vor dem Schreiben verifiziert).
+  Keine toten Writes gefunden — alle Schreibpfade setzen tenant_id korrekt.
+  Nebenfund + Fix im selben Commit: `channel/tenant_write_test.go` aus
+  Iteration 37 war flaky (CreateDMChannel mit unsortierten userA/userB
+  gegen `chk_dm_user_order`, ca. 50% Fehlschlagrate) — Sortierung wie im
+  Service (service.go:567-570) in den Test gezogen, 5x hintereinander
+  gruen verifiziert.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (`go test ./internal/chat/...` 0 Skips, alle drei neuen Testfunktionen
+  real gegen DB gelaufen; `go test ./internal/gateway/` gruen, keine Route
+  angefasst) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy
+  angefasst — stattdessen Fremd-Tenant-No-Op direkt in den neuen Tests
+  bewiesen)
+- verify vorgaenger: Befund + Fix (kein Fund aus den sechs Fehlerklassen,
+  aber ein flakiger Test aus Iteration 37 — siehe oben; direkt hier
+  behoben statt einer eigenen Fix-Unit, da mechanisch und im selben Modul
+  entdeckt)
+- offen / fuer Luke: keiner. Queue-Stand: 14 `wp-*`-Units `todo`, naechste
+  Iteration zieht `wp-projects-rls` (keine deps) oder `wp-berichte` je nach
+  Reihenfolge in BACKLOG.yml.
