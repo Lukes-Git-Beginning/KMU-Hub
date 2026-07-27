@@ -3273,3 +3273,73 @@ bleibt.
   eigene Unit, nicht mitgezogen. Queue-Stand: 10 `wp-*`-Units `todo`,
   naechste Iteration zieht `wp-biz-finance` (keine deps, Hinweis im Backlog:
   Scope auf den Finanz-Kern begrenzen, HR/Integrationen sind eigene Units).
+
+## Iteration 42 — wp-biz-finance — done — 2026-07-28
+
+- commit: (siehe Git-Historie, folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. Commit `d4161056` (Iteration 41, wp-auth) ist
+  eine reine Testdatei-Ergaenzung plus ein Zwei-Zeilen-SQL-Fix
+  (`ip_address::text` Cast in drei SELECTs) — keine der sechs Fehlerklassen
+  betroffen: kein neuer Handler, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine Migration, keine Route.
+- gebaut: `internal/biz/tenant_write_test.go`
+  (`TestInvoiceWrites_LandInCallerTenant`, `TestQuoteWrites_LandInCallerTenant`,
+  `TestCreditNotePaymentDunningWrites_LandInCallerTenant`). Die drei
+  bestehenden `tenant_isolation_*_test.go` im selben Paket seeden ausschliesslich
+  via `testutil.SeedRow` und rufen nie eine der Finance-Kern-Repositories auf.
+  Neu real gegen die DB geprueft: `invoice.Create/Update/UpdateStatus/SetLock`,
+  `quote.Create/Update/UpdateStatus/Delete`,
+  `creditnote.Create/Update`, `payment.Create/Delete`,
+  `dunning.Create/UpdateStatus` — 14 Schreibmethoden, der volle vom Backlog
+  verlangte Finanz-Kern (Rechnungen, Angebote, Gutschriften, Zahlungen,
+  Mahnungen). Recurring/Open-Items/Banking bleiben aussen vor — die haben
+  bereits eigene `tenant_isolation_*_test.go`-Dateien bzw. eigene Units.
+- Kein toter Write gefunden: anders als bei auth/chat scopt hier bereits jede
+  Methode explizit per `tenant_id`-Spalte (Insert) oder `WHERE tenant_id = $n`
+  (Update/Delete) — keine fehlende RLS-Policy, kein ungescopter Query.
+- Echter Nebenfund unterwegs (kein Bug, aber eine andere Fehlerform als
+  erwartet, im Journal festgehalten statt stillschweigend anzupassen):
+  `invoice.Update`/`quote.Update`/`creditnote.Update` laufen transaktional
+  (Header-UPDATE + DELETE/re-INSERT der Line-Items). Ein Fremd-Tenant-Aufruf
+  mit korrektem-aber-fremdem `tenantID` im Objekt schlaegt darum NICHT still
+  mit 0 betroffenen Zeilen fehl (wie bei den reinen Status/Lock-Updates),
+  sondern die Line-Item-Re-INSERT verletzt die RLS-`WITH CHECK`-Klausel hart
+  — die ganze Transaktion wirft einen Fehler und rollt vollstaendig zurueck.
+  Sauberer als ein stiller No-Op (keine Chance auf einen halb angewendeten
+  Zustand), aber die urspruengliche Testerwartung (kein Fehler, 0 Zeilen
+  veraendert) war falsch und musste for alle drei `Update`-Methoden auf
+  "erwarteter Fehler" umgestellt werden.
+- Falsifikation: RLS auf `finance_invoices` testweise per
+  `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` deaktiviert,
+  `TestInvoiceWrites_LandInCallerTenant` wurde rot (`expected 0 row(s), got 1`
+  — der Fremd-Tenant-Read sah die Zeile), danach `ENABLE`+`FORCE`
+  wiederhergestellt und volle Suite erneut gruen.
+- gate: build ok (`go build -p 2 ./internal/biz/...`) | vet ok | lint ok
+  (0 issues) | test ok (`go test -count=1 ./internal/biz/...`, alle 24
+  Pakete gruen, 0 Skips fuer die drei neuen Testfunktionen) | migration n.a.
+  (keine neue Tabelle/Spalte) | Falsifikation siehe oben. Keine Testleichen
+  zurueckgeblieben (Stichprobe: 0 `tenants` mit Namenspraefix "Biz ", 0
+  `finance_invoices` mit Kundennamen wie "Write Test"/"Parent Invoice" nach
+  Lauf).
+- Nebenfund AUSSERHALB des Scopes (nicht repariert, da nicht Teil dieser
+  Unit): `internal/biz/einvoice/tenant_isolation_test.go`
+  (`TestTenantIsolation_IncomingInvoices`) importiert ueber die echte
+  Service-Methode, raeumt danach nie auf und nutzt die geteilten
+  `testutil.TenantA`/`TenantB`-Konstanten statt frischer Tenants — ein
+  zweiter Lauf gegen dieselbe lokale DB schlaegt seitdem permanent mit
+  "incoming invoice already imported" fehl, weil der eigene
+  Duplikat-Schutz auf den Testrest der vorigen Session anschlaegt. Verifiziert,
+  dass das unabhaengig von dieser Unit reproduziert (Testdatei testweise
+  entfernt, derselbe Fehler blieb bestehen). Fuer den Gate-Lauf hier per
+  manuellem `DELETE FROM finance_incoming_invoices` bereinigt; eine echte
+  Reparatur (eigene Tenants + Cleanup nach dem gemeinsamen Muster) gehoert in
+  eine allfaellige einvoice/bexio/lexware/datev-Integrations-Unit, nicht in
+  wp-biz-finance.
+- offen: der oben beschriebene `einvoice`-Testhygiene-Bug (siehe Nebenfund) —
+  fuer Luke: entweder in eine Integrations-Unit aufnehmen oder direkt fixen
+  (Cleanup + eigene Tenants), sonst bricht `go test ./internal/biz/...` bei
+  jedem zweiten lokalen Lauf gegen dieselbe DB. Queue-Stand: 9 `wp-*`-Units
+  `todo`, naechste Iteration zieht `wp-biz-hr` (keine deps, Hinweis im
+  Backlog: der HR-Pausen-Fund aus Nacht 1 war nur der Pausen-Pfad — der Rest
+  des Moduls, Arbeitszeiten/Abwesenheiten/Dokumente/Stammdaten, ist mit
+  derselben Methode ungeprueft).

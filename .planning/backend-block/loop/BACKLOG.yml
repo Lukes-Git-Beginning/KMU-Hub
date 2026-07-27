@@ -1819,7 +1819,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 42 — kein toter Write gefunden, RLS-Falsifikation belegt
     scope: >
       `internal/biz` ist die groesste Schreibflaeche des Repos (44 INSERTs) und
       hat drei DB-Tests, die alle via SeedRow seeden. Nacht 1 hat hier
@@ -1833,6 +1833,34 @@ units:
       Modul ist gross - halte die Unit auf den Finanz-Kern begrenzt. HR sitzt in
       `wp-biz-hr`, die Integrationen (bexio/lexware/datev/gobdarchive) haben
       eigene Pakete und bekommen bei Bedarf eigene Units.
+      ERLEDIGT Iteration 42. Kein toter Write gefunden: invoice/quote/
+      creditnote/payment/dunning scopen jeden Schreibpfad bereits explizit mit
+      tenant_id (Insert-Spalte oder WHERE-Praedikat) — anders als beim
+      auth/chat-Fund gab es hier keine fehlende RLS-Policy und keinen
+      ungescopten Query. Echter Nebenfund unterwegs (kein Bug, aber
+      dokumentationswert): `invoice.Update`/`quote.Update`/`creditnote.Update`
+      laufen transaktional (Header-UPDATE + DELETE+INSERT der Line-Items). Ein
+      Fremd-Tenant-Aufruf mit korrekter (aber fremder) tenantID im Objekt
+      schlaegt darum nicht still mit 0 betroffenen Zeilen fehl, sondern die
+      Line-Item-Re-INSERT verletzt die RLS-WITH-CHECK-Klausel hart (Error,
+      Transaktion rollt komplett zurueck) — sauberer als ein stiller No-Op,
+      aber eine andere Fehlerform als die reinen Status/Lock-Updates. Per
+      Falsifikation belegt: RLS auf finance_invoices testweise deaktiviert,
+      TestInvoiceWrites_LandInCallerTenant wurde rot (Fremd-Tenant sah/aenderte
+      die Zeile), danach ENABLE+FORCE wiederhergestellt und volle Suite wieder
+      gruen.
+      Nebenfund AUSSERHALB des Scopes (nicht repariert, da nicht Teil dieser
+      Unit): `internal/biz/einvoice/tenant_isolation_test.go`
+      (TestTenantIsolation_IncomingInvoices) seedet ueber die echte
+      Service-Import-Methode, raeumt danach aber nie auf UND nutzt die
+      geteilten `testutil.TenantA`-Konstanten — ein zweiter Lauf gegen dieselbe
+      lokale DB schlaegt darum permanent mit "incoming invoice already
+      imported" fehl (Duplikat-Schutz greift auf den eigenen Testrest). Verifiziert
+      dass das unabhaengig von dieser Unit reproduziert (Datei testweise
+      entfernt, Fehler blieb). Fuer den Lauf hier manuell per DELETE bereinigt;
+      fuer eine spaetere Iteration: eigene Tenants + Cleanup nach dem
+      gemeinsamen Muster nachziehen (gehoert zu einer allfaelligen
+      Integrations-Unit, nicht zu wp-biz-finance).
     done_when:
       - tenant_write_test.go fuer den Finanz-Kern nach dem gemeinsamen Muster
       - Test laeuft real, Fremd-Tenant sieht nichts
