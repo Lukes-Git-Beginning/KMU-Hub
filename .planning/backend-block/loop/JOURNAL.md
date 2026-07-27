@@ -3346,7 +3346,7 @@ bleibt.
 
 ## Iteration 43 — wp-biz-hr — done — 2026-07-28
 
-- commit: siehe naechster docs(planning)-Commit
+- commit: `77d9179c`
 - verify vorgaenger: sauber. Commit `d3d84458` (Iteration 42, wp-biz-finance)
   ist reine Testdatei plus Planungsdocs (`backend/internal/biz/tenant_write_test.go`,
   30 Zeilen BACKLOG/70 Zeilen JOURNAL) — keine der sechs Fehlerklassen
