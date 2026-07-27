@@ -2728,3 +2728,109 @@ etwas anderes beweist:
     `auto_upload_enabled` ohne Auswerter; `datev-upload-client.ts`-Typen.
 
 - iteration 32 commit: `f4be722e`
+
+## Iteration 33 — p3-integration-webhook-adapters (opus)
+
+**Vorspann.** Commit `f4be722e` (Iteration 32) gegen die sechs Fehlerklassen
+geprueft: keine neue Route (also kein openapi-Drift), keine Proto-Aenderung,
+kein neuer Guard, kein direkter Service-Aufruf im Gateway, Wire-Shape
+unveraendert; die vier INSERTs tragen tenant_id, die Reads bleiben bewusst auf
+RLS. Nichts nachzuarbeiten. `git merge origin/main` war ein No-Op.
+
+**Was die Unit wirklich war.** Die Vorarbeit aus Iteration 32 hatte den
+RPC-Tunnel als Design festgelegt — das war richtig, aber die Begruendung war
+staerker als gedacht: **die Slack-Signaturpruefung war kaputt.** Der alte
+Handler schrieb `r.PostForm.Encode()` in den Verifier, also die geparste und
+neu sortierte Form, waehrend Slack ueber die exakten Rohbytes signiert.
+Falsifiziert: den alten Ausdruck testweise wieder eingesetzt →
+`TestSlackWebhook_VerifiesUnsortedRawBody` faellt auf 401, und mit ihm auch die
+einfeldrige Interaction (`url.QueryEscape` escaped anders als Slack). Ein
+Scharfschalten der Routen ohne diesen Fix haette also nichts erreicht: **kein**
+Slack-Webhook haette die Verifikation bestanden. Genau deshalb ist Tunneln der
+Rohbytes hier keine Bequemlichkeit — es ist die einzige Form, in der die
+Pruefung ueberhaupt etwas bedeutet.
+
+**Was gebaut wurde.**
+- **RPC-Tunnel.** `HandlePlatformWebhook(platform, kind, bytes body, headers)`
+  → `(status_code, content_type, body)`. Das Gateway parst nichts, prueft
+  nichts und fasst keine DB an; es reicht den Body (1-MiB-Deckel) und genau
+  vier erlaubte Header weiter (`Content-Type`, die zwei `X-Slack-*`,
+  `Authorization`). Damit bleibt das Signing-Secret im notification-Service,
+  wo `SLACK_BOT_TOKEN` schon liegt, und der Gateway umgeht die gRPC-Schicht
+  nicht.
+- **Tenant aus der Plattform-Identitaet.** `PostgresRepository.ResolveTenant`
+  liest `integration_configs.metadata->>'team_id'` (Slack) bzw. `'tenant_id'`
+  (Teams, Azure-AD-Tenant) — unter `WithSystemContext`, weil die Frage selbst
+  ja "welcher Tenant?" lautet und RLS die einzige antwortende Zeile sonst
+  wegfiltert. `LIMIT 2`: zwei Treffer sind `ErrTenantAmbiguous`, kein
+  Tie-Break. Danach laeuft alles unter `integration.WithTenant` und wird wieder
+  normal gefiltert. Kein Treffer = Verweigerung mit erklaerender Nachricht,
+  nie ein geratener Tenant.
+- **Ehrliche Aktionen** (die „Falsch-Erfolg"-Warnung aus Iteration 32):
+  `acknowledge` fuehrt jetzt wirklich `notification.Service.MarkRead` aus, und
+  die Karte wird **erst danach** mit dem Erledigt-Banner ueberschrieben.
+  `approve`/`reject`/`reply` haben in Cosmi keine Entsprechung — sie lassen die
+  Karte unberuehrt und antworten ephemeral, dass die Aktion noch nicht
+  ausgefuehrt wird. Vorher log-te der Handler nur und Slack zeigte trotzdem
+  „erledigt".
+- **OAuth bleibt aus, jetzt aber ehrlich.** `/slack/oauth/install|callback`
+  antworten 501 statt 404, mit Begruendung im Code und in openapi.yaml: der
+  Install-Flow liefert ein Workspace-Bot-Token, und es gibt keinen Ort dafuer
+  (`credentials_vault_key` ist ein blosses String-Feld ohne Aufloeser), und der
+  Callback braucht zusaetzlich einen signierten `state` mit dem Tenant. Die
+  drei Setter am Gateway sind entfernt — sie waren die Einladung, das naiv zu
+  verdrahten.
+- Ohne `SLACK_SIGNING_SECRET` wird der Slack-Prozessor gar nicht registriert
+  (`os.Getenv`, **keine** `config.RequireX`) und die RPC antwortet
+  `Unimplemented` → 501. Keine Migration, kein Flag scharfgeschaltet, keine
+  neue Dependency.
+
+**Testbarkeit.** Alle Slack-Tests laufen mit **nil-Repository**, wo kein
+Datenzugriff stattfinden darf — ein Handler, der zu frueh liest, paniked statt
+gruen auszusehen. Gepinnt: gefaelschte Signatur → 401 ohne Datenzugriff; roher
+unsortierter Body verifiziert (der Regressionstest fuer den Hauptbefund);
+unaufgeloester Workspace fasst nichts an; der aufgeloeste Tenant kommt im
+Repository an (sonst filtert RLS alles weg und der Webhook „findet" nichts);
+`acknowledge` ruft MarkRead mit Tenant+User, `approve|reject|reply` rufen es
+nicht. Server-seitig: unkonfigurierte Plattform → `Unimplemented`, Body/Header/
+Kind ueberleben den Tunnel byte-identisch, Ueberlaenge → `InvalidArgument`.
+- gate: `go build -p 2 ./...` gruen, `go vet` (notification/server/gateway/cmd)
+  gruen, `golangci-lint run` 0 issues, `go test ./internal/...` vollstaendig
+  gruen (beide OpenAPI-Drift-Tests inklusive).
+
+**Angepasst statt neu:** `TestIntegrationRoutes_WebhooksRefuseWhenUnset` pinnte
+das alte 404 „not configured" und heisst jetzt `…RefuseCleanly` — die drei
+Webhook-Pfade melden ohne erreichbaren notification-Service 503, die zwei
+OAuth-Pfade 501. Die Absicht (kein Panic auf unauthentifizierten Routen)
+bleibt.
+
+- offen / fuer Luke:
+  - **`integration_configs` traegt weiterhin `UNIQUE(platform)`** aus Migration
+    000053 — aus der Zeit vor der Mandantenfaehigkeit. Pro Plattform kann es
+    global genau eine Config geben; die Tenant-Aufloesung kann heute also gar
+    nicht mehr als einen Tenant treffen, und ein zweiter Kunde koennte Slack
+    ueberhaupt nicht konfigurieren. Der Ambiguitaets-Riegel ist trotzdem drin,
+    weil er beim Fix der Constraint der Unterschied zwischen Verweigerung und
+    Cross-Tenant-Leak ist. Fix = Migration auf `UNIQUE(tenant_id, platform)`,
+    eigene Unit.
+  - **Niemand schreibt heute eine `team_id` in `metadata`.** Bis ein Admin das
+    ueber `POST /api/v1/integrations/configs` tut, verweigert jeder inbound
+    Webhook — korrekt, aber es braucht einen FE-Schritt im SetupWizard. Steht
+    jetzt in den openapi-Beschreibungen der drei Pfade.
+  - **Slack-Konfiguration ist deployment-weit, nicht pro Tenant**
+    (`SLACK_BOT_TOKEN` aus der Env). Ein echtes Multi-Tenant-Slack braucht
+    Vault + OAuth — die naechste Unit in dieser Ecke.
+  - `slackadapter.OAuthHandler` ist damit unaufgerufener Code. Bewusst stehen
+    gelassen: die OAuth-Unit braucht die URL-Form als Referenz und wird ihn
+    ohnehin umbauen. Die Route davor ist mit 501 dicht.
+  - Unveraendert offen: `integration.Forwarder` toter Code; Sweep „Tabelle hat
+    tenant_id NOT NULL, Repo-INSERT nennt es nicht" ueber alle in 000115/000122
+    angefassten Tabellen; `hr_leave_types`-Seeds unter der Zero-UUID;
+    Rollen-Zuschnitt der produktion-ext-Permissions; Modul-Aktivierung ohne
+    Enforcement; `platform_admin` haelt niemand; `types.ts`-Drift; DATEV
+    `auto_upload_enabled` ohne Auswerter.
+  - **Queue-Stand:** ausser dieser Unit ist nichts mehr `todo`.
+    `p3-berichte-share-token` haengt an `p3-berichte-server-pdf` (blocked:
+    Chart-Rendering-Entscheidung), `p3-fe-only-features-scope-decision` ist
+    eine Produktentscheidung. **Ohne einen Entscheid von Luke laeuft der Loop
+    ab der naechsten Iteration leer.**

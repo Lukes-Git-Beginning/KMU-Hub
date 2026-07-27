@@ -71,34 +71,38 @@ func TestIntegrationRoutes_Registered(t *testing.T) {
 	}
 }
 
-// TestIntegrationRoutes_WebhooksRefuseWhenUnset pins the behaviour the routes
-// have in production today: the webhook handlers are nil, so they answer 404
-// "not configured" instead of panicking on a nil dereference. These five paths
-// are reachable without authentication — a nil-pointer panic on them would be a
-// remotely triggerable crash, so this is a guard, not a formality.
-func TestIntegrationRoutes_WebhooksRefuseWhenUnset(t *testing.T) {
+// TestIntegrationRoutes_WebhooksRefuseCleanly pins that all five unauthenticated
+// webhook paths answer with a status instead of panicking. A nil-pointer panic
+// on any of them would be a remotely triggerable crash, so this is a guard, not
+// a formality.
+//
+// The three inbound webhooks proxy to the notification service; the registry in
+// this test has none, so they surface 503 rather than reaching a handler. The
+// two OAuth paths answer 501 by decision — see respondOAuthNotAvailable.
+func TestIntegrationRoutes_WebhooksRefuseCleanly(t *testing.T) {
 	r := integrationRouter(t)
 
 	cases := []struct {
-		method string
-		path   string
+		method     string
+		path       string
+		wantStatus int
 	}{
-		{http.MethodPost, "/api/v1/integrations/teams/webhook"},
-		{http.MethodPost, "/api/v1/integrations/slack/interact"},
-		{http.MethodPost, "/api/v1/integrations/slack/commands"},
-		{http.MethodGet, "/api/v1/integrations/slack/oauth/install"},
-		{http.MethodGet, "/api/v1/integrations/slack/oauth/callback"},
+		{http.MethodPost, "/api/v1/integrations/teams/webhook", http.StatusServiceUnavailable},
+		{http.MethodPost, "/api/v1/integrations/slack/interact", http.StatusServiceUnavailable},
+		{http.MethodPost, "/api/v1/integrations/slack/commands", http.StatusServiceUnavailable},
+		{http.MethodGet, "/api/v1/integrations/slack/oauth/install", http.StatusNotImplemented},
+		{http.MethodGet, "/api/v1/integrations/slack/oauth/callback", http.StatusNotImplemented},
 	}
 	for _, tc := range cases {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, httptest.NewRequest(tc.method, tc.path, strings.NewReader("")))
 
-			if rec.Code != http.StatusNotFound {
-				t.Errorf("status = %d; want %d (not configured)", rec.Code, http.StatusNotFound)
+			if rec.Code != tc.wantStatus {
+				t.Errorf("status = %d; want %d", rec.Code, tc.wantStatus)
 			}
-			if !strings.Contains(rec.Body.String(), "not configured") {
-				t.Errorf("body = %q; want it to name the missing configuration", rec.Body.String())
+			if strings.TrimSpace(rec.Body.String()) == "" {
+				t.Error("body is empty; want a message naming the reason")
 			}
 		})
 	}

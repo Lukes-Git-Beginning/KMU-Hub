@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
@@ -37,6 +38,65 @@ func tenantForWrite(ctx context.Context) (uuid.UUID, error) {
 		return uuid.Nil, ErrTenantMissing
 	}
 	return tenantID, nil
+}
+
+// ResolveTenant maps a platform workspace identity to the tenant that
+// configured it, for the unauthenticated inbound webhook paths.
+//
+// The lookup deliberately runs in the system context: the request carries no
+// tenant yet — that is the very question — so RLS would filter away the single
+// row that answers it. Everything the handler does afterwards runs under the
+// resolved tenant and is filtered normally again.
+//
+// Two configs claiming the same workspace are refused rather than
+// tie-broken. Today the schema cannot even produce that case
+// (integration_configs still carries the pre-tenancy UNIQUE(platform) from
+// migration 000053), but the check costs one row and is the difference between
+// a refusal and a cross-tenant leak once that constraint is fixed.
+func (r *PostgresRepository) ResolveTenant(ctx context.Context, platform, workspaceID string) (uuid.UUID, error) {
+	if workspaceID == "" {
+		return uuid.Nil, ErrTenantUnresolved
+	}
+	metadataKey := WorkspaceMetadataKey(platform)
+	if metadataKey == "" {
+		return uuid.Nil, ErrInvalidPlatform
+	}
+
+	query := `
+		SELECT tenant_id
+		FROM integration_configs
+		WHERE platform = $1
+		  AND is_active = true
+		  AND tenant_id IS NOT NULL
+		  AND metadata->>$2 = $3
+		LIMIT 2`
+
+	rows, err := r.pool.Query(database.WithSystemContext(ctx), query, platform, metadataKey, workspaceID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer rows.Close()
+
+	var found []uuid.UUID
+	for rows.Next() {
+		var tenantID uuid.UUID
+		if err := rows.Scan(&tenantID); err != nil {
+			return uuid.Nil, err
+		}
+		found = append(found, tenantID)
+	}
+	if err := rows.Err(); err != nil {
+		return uuid.Nil, err
+	}
+
+	switch len(found) {
+	case 0:
+		return uuid.Nil, ErrTenantUnresolved
+	case 1:
+		return found[0], nil
+	default:
+		return uuid.Nil, ErrTenantAmbiguous
+	}
 }
 
 // ============================================================================

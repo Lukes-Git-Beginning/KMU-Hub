@@ -3852,6 +3852,143 @@ func (x *GetAccountLinkStatusResponse) GetLinks() []*AccountLinkInfo {
 	return nil
 }
 
+// HandlePlatformWebhookRequest tunnels an inbound Slack/Teams request from the
+// gateway to the notification service unchanged.
+//
+// The body travels as raw bytes on purpose: Slack signs the exact request body
+// and the Bot Framework JWT covers the payload, so re-serializing anywhere on
+// the way would destroy the signature. The gateway is a pure proxy here -- it
+// neither parses the payload nor touches the database, which keeps the signing
+// secret and the tenant resolution inside the service that owns them.
+type HandlePlatformWebhookRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Platform      string                 `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`                                                                         // "slack" | "teams"
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`                                                                                 // "slack_interaction" | "slack_command" | "teams_activity"
+	Body          []byte                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`                                                                                 // raw request body, byte-identical to what the platform sent
+	Headers       map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // only the headers the verification needs
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandlePlatformWebhookRequest) Reset() {
+	*x = HandlePlatformWebhookRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandlePlatformWebhookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandlePlatformWebhookRequest) ProtoMessage() {}
+
+func (x *HandlePlatformWebhookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandlePlatformWebhookRequest.ProtoReflect.Descriptor instead.
+func (*HandlePlatformWebhookRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *HandlePlatformWebhookRequest) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *HandlePlatformWebhookRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *HandlePlatformWebhookRequest) GetBody() []byte {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *HandlePlatformWebhookRequest) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+// HandlePlatformWebhookResponse is written back to the platform verbatim.
+type HandlePlatformWebhookResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StatusCode    int32                  `protobuf:"varint,1,opt,name=status_code,json=statusCode,proto3" json:"status_code,omitempty"`
+	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Body          []byte                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandlePlatformWebhookResponse) Reset() {
+	*x = HandlePlatformWebhookResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandlePlatformWebhookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandlePlatformWebhookResponse) ProtoMessage() {}
+
+func (x *HandlePlatformWebhookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandlePlatformWebhookResponse.ProtoReflect.Descriptor instead.
+func (*HandlePlatformWebhookResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *HandlePlatformWebhookResponse) GetStatusCode() int32 {
+	if x != nil {
+		return x.StatusCode
+	}
+	return 0
+}
+
+func (x *HandlePlatformWebhookResponse) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *HandlePlatformWebhookResponse) GetBody() []byte {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
 var File_proto_notification_v1_notification_proto protoreflect.FileDescriptor
 
 const file_proto_notification_v1_notification_proto_rawDesc = "" +
@@ -4165,13 +4302,26 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\x15external_display_name\x18\x02 \x01(\tR\x13externalDisplayName\x127\n" +
 	"\tlinked_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\blinkedAt\"V\n" +
 	"\x1cGetAccountLinkStatusResponse\x126\n" +
-	"\x05links\x18\x01 \x03(\v2 .notification.v1.AccountLinkInfoR\x05links*s\n" +
+	"\x05links\x18\x01 \x03(\v2 .notification.v1.AccountLinkInfoR\x05links\"\xf4\x01\n" +
+	"\x1cHandlePlatformWebhookRequest\x12\x1a\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04body\x18\x03 \x01(\fR\x04body\x12T\n" +
+	"\aheaders\x18\x04 \x03(\v2:.notification.v1.HandlePlatformWebhookRequest.HeadersEntryR\aheaders\x1a:\n" +
+	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"w\n" +
+	"\x1dHandlePlatformWebhookResponse\x12\x1f\n" +
+	"\vstatus_code\x18\x01 \x01(\x05R\n" +
+	"statusCode\x12!\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x12\n" +
+	"\x04body\x18\x03 \x01(\fR\x04body*s\n" +
 	"\bPriority\x12\x18\n" +
 	"\x14PRIORITY_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fPRIORITY_URGENT\x10\x01\x12\x13\n" +
 	"\x0fPRIORITY_NORMAL\x10\x02\x12\x10\n" +
 	"\fPRIORITY_LOW\x10\x03\x12\x11\n" +
-	"\rPRIORITY_HIGH\x10\x042\xd7\x19\n" +
+	"\rPRIORITY_HIGH\x10\x042\xcf\x1a\n" +
 	"\x13NotificationService\x12j\n" +
 	"\x11ListNotifications\x12).notification.v1.ListNotificationsRequest\x1a*.notification.v1.ListNotificationsResponse\x12a\n" +
 	"\x0eGetUnreadCount\x12&.notification.v1.GetUnreadCountRequest\x1a'.notification.v1.GetUnreadCountResponse\x12s\n" +
@@ -4201,7 +4351,8 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\x14DeleteChannelMapping\x12,.notification.v1.DeleteChannelMappingRequest\x1a-.notification.v1.DeleteChannelMappingResponse\x12X\n" +
 	"\vLinkAccount\x12#.notification.v1.LinkAccountRequest\x1a$.notification.v1.LinkAccountResponse\x12^\n" +
 	"\rUnlinkAccount\x12%.notification.v1.UnlinkAccountRequest\x1a&.notification.v1.UnlinkAccountResponse\x12s\n" +
-	"\x14GetAccountLinkStatus\x12,.notification.v1.GetAccountLinkStatusRequest\x1a-.notification.v1.GetAccountLinkStatusResponseB?Z=github.com/kmuhub/kmuhub/proto/notification/v1;notificationv1b\x06proto3"
+	"\x14GetAccountLinkStatus\x12,.notification.v1.GetAccountLinkStatusRequest\x1a-.notification.v1.GetAccountLinkStatusResponse\x12v\n" +
+	"\x15HandlePlatformWebhook\x12-.notification.v1.HandlePlatformWebhookRequest\x1a..notification.v1.HandlePlatformWebhookResponseB?Z=github.com/kmuhub/kmuhub/proto/notification/v1;notificationv1b\x06proto3"
 
 var (
 	file_proto_notification_v1_notification_proto_rawDescOnce sync.Once
@@ -4216,7 +4367,7 @@ func file_proto_notification_v1_notification_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_notification_v1_notification_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
+var file_proto_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_proto_notification_v1_notification_proto_goTypes = []any{
 	(Priority)(0),                                // 0: notification.v1.Priority
 	(*NotificationInfo)(nil),                     // 1: notification.v1.NotificationInfo
@@ -4285,111 +4436,117 @@ var file_proto_notification_v1_notification_proto_goTypes = []any{
 	(*GetAccountLinkStatusRequest)(nil),          // 64: notification.v1.GetAccountLinkStatusRequest
 	(*AccountLinkInfo)(nil),                      // 65: notification.v1.AccountLinkInfo
 	(*GetAccountLinkStatusResponse)(nil),         // 66: notification.v1.GetAccountLinkStatusResponse
-	(*timestamppb.Timestamp)(nil),                // 67: google.protobuf.Timestamp
+	(*HandlePlatformWebhookRequest)(nil),         // 67: notification.v1.HandlePlatformWebhookRequest
+	(*HandlePlatformWebhookResponse)(nil),        // 68: notification.v1.HandlePlatformWebhookResponse
+	nil,                                          // 69: notification.v1.HandlePlatformWebhookRequest.HeadersEntry
+	(*timestamppb.Timestamp)(nil),                // 70: google.protobuf.Timestamp
 }
 var file_proto_notification_v1_notification_proto_depIdxs = []int32{
 	0,  // 0: notification.v1.NotificationInfo.priority:type_name -> notification.v1.Priority
-	67, // 1: notification.v1.NotificationInfo.read_at:type_name -> google.protobuf.Timestamp
-	67, // 2: notification.v1.NotificationInfo.created_at:type_name -> google.protobuf.Timestamp
+	70, // 1: notification.v1.NotificationInfo.read_at:type_name -> google.protobuf.Timestamp
+	70, // 2: notification.v1.NotificationInfo.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 3: notification.v1.ListNotificationsResponse.notifications:type_name -> notification.v1.NotificationInfo
 	1,  // 4: notification.v1.MarkNotificationReadResponse.notification:type_name -> notification.v1.NotificationInfo
 	1,  // 5: notification.v1.PinNotificationResponse.notification:type_name -> notification.v1.NotificationInfo
 	1,  // 6: notification.v1.UnpinNotificationResponse.notification:type_name -> notification.v1.NotificationInfo
 	1,  // 7: notification.v1.DismissNotificationResponse.notification:type_name -> notification.v1.NotificationInfo
-	67, // 8: notification.v1.NotificationPreferenceInfo.created_at:type_name -> google.protobuf.Timestamp
-	67, // 9: notification.v1.NotificationPreferenceInfo.updated_at:type_name -> google.protobuf.Timestamp
+	70, // 8: notification.v1.NotificationPreferenceInfo.created_at:type_name -> google.protobuf.Timestamp
+	70, // 9: notification.v1.NotificationPreferenceInfo.updated_at:type_name -> google.protobuf.Timestamp
 	16, // 10: notification.v1.GetNotificationPreferencesResponse.preferences:type_name -> notification.v1.NotificationPreferenceInfo
 	16, // 11: notification.v1.UpdateNotificationPreferenceResponse.preference:type_name -> notification.v1.NotificationPreferenceInfo
-	67, // 12: notification.v1.MuteInfo.created_at:type_name -> google.protobuf.Timestamp
+	70, // 12: notification.v1.MuteInfo.created_at:type_name -> google.protobuf.Timestamp
 	21, // 13: notification.v1.MuteResourceResponse.mute:type_name -> notification.v1.MuteInfo
 	21, // 14: notification.v1.ListMutedResourcesResponse.mutes:type_name -> notification.v1.MuteInfo
-	67, // 15: notification.v1.QuietHoursInfo.manual_dnd_until:type_name -> google.protobuf.Timestamp
-	67, // 16: notification.v1.QuietHoursInfo.created_at:type_name -> google.protobuf.Timestamp
-	67, // 17: notification.v1.QuietHoursInfo.updated_at:type_name -> google.protobuf.Timestamp
+	70, // 15: notification.v1.QuietHoursInfo.manual_dnd_until:type_name -> google.protobuf.Timestamp
+	70, // 16: notification.v1.QuietHoursInfo.created_at:type_name -> google.protobuf.Timestamp
+	70, // 17: notification.v1.QuietHoursInfo.updated_at:type_name -> google.protobuf.Timestamp
 	28, // 18: notification.v1.GetQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
 	28, // 19: notification.v1.UpdateQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
-	67, // 20: notification.v1.ToggleManualDNDRequest.until:type_name -> google.protobuf.Timestamp
+	70, // 20: notification.v1.ToggleManualDNDRequest.until:type_name -> google.protobuf.Timestamp
 	28, // 21: notification.v1.ToggleManualDNDResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
 	0,  // 22: notification.v1.EventTypeInfo.default_priority:type_name -> notification.v1.Priority
-	67, // 23: notification.v1.EventTypeInfo.created_at:type_name -> google.protobuf.Timestamp
-	67, // 24: notification.v1.EventTypeInfo.updated_at:type_name -> google.protobuf.Timestamp
+	70, // 23: notification.v1.EventTypeInfo.created_at:type_name -> google.protobuf.Timestamp
+	70, // 24: notification.v1.EventTypeInfo.updated_at:type_name -> google.protobuf.Timestamp
 	35, // 25: notification.v1.ListEventTypesResponse.event_types:type_name -> notification.v1.EventTypeInfo
-	67, // 26: notification.v1.IntegrationConfigInfo.created_at:type_name -> google.protobuf.Timestamp
-	67, // 27: notification.v1.IntegrationConfigInfo.updated_at:type_name -> google.protobuf.Timestamp
+	70, // 26: notification.v1.IntegrationConfigInfo.created_at:type_name -> google.protobuf.Timestamp
+	70, // 27: notification.v1.IntegrationConfigInfo.updated_at:type_name -> google.protobuf.Timestamp
 	38, // 28: notification.v1.ListIntegrationConfigsResponse.configs:type_name -> notification.v1.IntegrationConfigInfo
 	38, // 29: notification.v1.GetIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
 	38, // 30: notification.v1.CreateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
 	38, // 31: notification.v1.UpdateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
-	67, // 32: notification.v1.ChannelMappingInfo.created_at:type_name -> google.protobuf.Timestamp
-	67, // 33: notification.v1.ChannelMappingInfo.updated_at:type_name -> google.protobuf.Timestamp
+	70, // 32: notification.v1.ChannelMappingInfo.created_at:type_name -> google.protobuf.Timestamp
+	70, // 33: notification.v1.ChannelMappingInfo.updated_at:type_name -> google.protobuf.Timestamp
 	51, // 34: notification.v1.ListChannelMappingsResponse.mappings:type_name -> notification.v1.ChannelMappingInfo
 	51, // 35: notification.v1.CreateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
 	51, // 36: notification.v1.UpdateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
-	67, // 37: notification.v1.AccountLinkInfo.linked_at:type_name -> google.protobuf.Timestamp
+	70, // 37: notification.v1.AccountLinkInfo.linked_at:type_name -> google.protobuf.Timestamp
 	65, // 38: notification.v1.GetAccountLinkStatusResponse.links:type_name -> notification.v1.AccountLinkInfo
-	2,  // 39: notification.v1.NotificationService.ListNotifications:input_type -> notification.v1.ListNotificationsRequest
-	4,  // 40: notification.v1.NotificationService.GetUnreadCount:input_type -> notification.v1.GetUnreadCountRequest
-	6,  // 41: notification.v1.NotificationService.MarkNotificationRead:input_type -> notification.v1.MarkNotificationReadRequest
-	8,  // 42: notification.v1.NotificationService.MarkAllNotificationsRead:input_type -> notification.v1.MarkAllNotificationsReadRequest
-	10, // 43: notification.v1.NotificationService.PinNotification:input_type -> notification.v1.PinNotificationRequest
-	12, // 44: notification.v1.NotificationService.UnpinNotification:input_type -> notification.v1.UnpinNotificationRequest
-	14, // 45: notification.v1.NotificationService.DismissNotification:input_type -> notification.v1.DismissNotificationRequest
-	17, // 46: notification.v1.NotificationService.GetNotificationPreferences:input_type -> notification.v1.GetNotificationPreferencesRequest
-	19, // 47: notification.v1.NotificationService.UpdateNotificationPreference:input_type -> notification.v1.UpdateNotificationPreferenceRequest
-	22, // 48: notification.v1.NotificationService.MuteResource:input_type -> notification.v1.MuteResourceRequest
-	24, // 49: notification.v1.NotificationService.UnmuteResource:input_type -> notification.v1.UnmuteResourceRequest
-	26, // 50: notification.v1.NotificationService.ListMutedResources:input_type -> notification.v1.ListMutedResourcesRequest
-	29, // 51: notification.v1.NotificationService.GetQuietHours:input_type -> notification.v1.GetQuietHoursRequest
-	31, // 52: notification.v1.NotificationService.UpdateQuietHours:input_type -> notification.v1.UpdateQuietHoursRequest
-	33, // 53: notification.v1.NotificationService.ToggleManualDND:input_type -> notification.v1.ToggleManualDNDRequest
-	36, // 54: notification.v1.NotificationService.ListEventTypes:input_type -> notification.v1.ListEventTypesRequest
-	39, // 55: notification.v1.NotificationService.ListIntegrationConfigs:input_type -> notification.v1.ListIntegrationConfigsRequest
-	41, // 56: notification.v1.NotificationService.GetIntegrationConfig:input_type -> notification.v1.GetIntegrationConfigRequest
-	43, // 57: notification.v1.NotificationService.CreateIntegrationConfig:input_type -> notification.v1.CreateIntegrationConfigRequest
-	45, // 58: notification.v1.NotificationService.UpdateIntegrationConfig:input_type -> notification.v1.UpdateIntegrationConfigRequest
-	47, // 59: notification.v1.NotificationService.DeleteIntegrationConfig:input_type -> notification.v1.DeleteIntegrationConfigRequest
-	49, // 60: notification.v1.NotificationService.TestIntegrationConfig:input_type -> notification.v1.TestIntegrationConfigRequest
-	52, // 61: notification.v1.NotificationService.ListChannelMappings:input_type -> notification.v1.ListChannelMappingsRequest
-	54, // 62: notification.v1.NotificationService.CreateChannelMapping:input_type -> notification.v1.CreateChannelMappingRequest
-	56, // 63: notification.v1.NotificationService.UpdateChannelMapping:input_type -> notification.v1.UpdateChannelMappingRequest
-	58, // 64: notification.v1.NotificationService.DeleteChannelMapping:input_type -> notification.v1.DeleteChannelMappingRequest
-	60, // 65: notification.v1.NotificationService.LinkAccount:input_type -> notification.v1.LinkAccountRequest
-	62, // 66: notification.v1.NotificationService.UnlinkAccount:input_type -> notification.v1.UnlinkAccountRequest
-	64, // 67: notification.v1.NotificationService.GetAccountLinkStatus:input_type -> notification.v1.GetAccountLinkStatusRequest
-	3,  // 68: notification.v1.NotificationService.ListNotifications:output_type -> notification.v1.ListNotificationsResponse
-	5,  // 69: notification.v1.NotificationService.GetUnreadCount:output_type -> notification.v1.GetUnreadCountResponse
-	7,  // 70: notification.v1.NotificationService.MarkNotificationRead:output_type -> notification.v1.MarkNotificationReadResponse
-	9,  // 71: notification.v1.NotificationService.MarkAllNotificationsRead:output_type -> notification.v1.MarkAllNotificationsReadResponse
-	11, // 72: notification.v1.NotificationService.PinNotification:output_type -> notification.v1.PinNotificationResponse
-	13, // 73: notification.v1.NotificationService.UnpinNotification:output_type -> notification.v1.UnpinNotificationResponse
-	15, // 74: notification.v1.NotificationService.DismissNotification:output_type -> notification.v1.DismissNotificationResponse
-	18, // 75: notification.v1.NotificationService.GetNotificationPreferences:output_type -> notification.v1.GetNotificationPreferencesResponse
-	20, // 76: notification.v1.NotificationService.UpdateNotificationPreference:output_type -> notification.v1.UpdateNotificationPreferenceResponse
-	23, // 77: notification.v1.NotificationService.MuteResource:output_type -> notification.v1.MuteResourceResponse
-	25, // 78: notification.v1.NotificationService.UnmuteResource:output_type -> notification.v1.UnmuteResourceResponse
-	27, // 79: notification.v1.NotificationService.ListMutedResources:output_type -> notification.v1.ListMutedResourcesResponse
-	30, // 80: notification.v1.NotificationService.GetQuietHours:output_type -> notification.v1.GetQuietHoursResponse
-	32, // 81: notification.v1.NotificationService.UpdateQuietHours:output_type -> notification.v1.UpdateQuietHoursResponse
-	34, // 82: notification.v1.NotificationService.ToggleManualDND:output_type -> notification.v1.ToggleManualDNDResponse
-	37, // 83: notification.v1.NotificationService.ListEventTypes:output_type -> notification.v1.ListEventTypesResponse
-	40, // 84: notification.v1.NotificationService.ListIntegrationConfigs:output_type -> notification.v1.ListIntegrationConfigsResponse
-	42, // 85: notification.v1.NotificationService.GetIntegrationConfig:output_type -> notification.v1.GetIntegrationConfigResponse
-	44, // 86: notification.v1.NotificationService.CreateIntegrationConfig:output_type -> notification.v1.CreateIntegrationConfigResponse
-	46, // 87: notification.v1.NotificationService.UpdateIntegrationConfig:output_type -> notification.v1.UpdateIntegrationConfigResponse
-	48, // 88: notification.v1.NotificationService.DeleteIntegrationConfig:output_type -> notification.v1.DeleteIntegrationConfigResponse
-	50, // 89: notification.v1.NotificationService.TestIntegrationConfig:output_type -> notification.v1.TestIntegrationConfigResponse
-	53, // 90: notification.v1.NotificationService.ListChannelMappings:output_type -> notification.v1.ListChannelMappingsResponse
-	55, // 91: notification.v1.NotificationService.CreateChannelMapping:output_type -> notification.v1.CreateChannelMappingResponse
-	57, // 92: notification.v1.NotificationService.UpdateChannelMapping:output_type -> notification.v1.UpdateChannelMappingResponse
-	59, // 93: notification.v1.NotificationService.DeleteChannelMapping:output_type -> notification.v1.DeleteChannelMappingResponse
-	61, // 94: notification.v1.NotificationService.LinkAccount:output_type -> notification.v1.LinkAccountResponse
-	63, // 95: notification.v1.NotificationService.UnlinkAccount:output_type -> notification.v1.UnlinkAccountResponse
-	66, // 96: notification.v1.NotificationService.GetAccountLinkStatus:output_type -> notification.v1.GetAccountLinkStatusResponse
-	68, // [68:97] is the sub-list for method output_type
-	39, // [39:68] is the sub-list for method input_type
-	39, // [39:39] is the sub-list for extension type_name
-	39, // [39:39] is the sub-list for extension extendee
-	0,  // [0:39] is the sub-list for field type_name
+	69, // 39: notification.v1.HandlePlatformWebhookRequest.headers:type_name -> notification.v1.HandlePlatformWebhookRequest.HeadersEntry
+	2,  // 40: notification.v1.NotificationService.ListNotifications:input_type -> notification.v1.ListNotificationsRequest
+	4,  // 41: notification.v1.NotificationService.GetUnreadCount:input_type -> notification.v1.GetUnreadCountRequest
+	6,  // 42: notification.v1.NotificationService.MarkNotificationRead:input_type -> notification.v1.MarkNotificationReadRequest
+	8,  // 43: notification.v1.NotificationService.MarkAllNotificationsRead:input_type -> notification.v1.MarkAllNotificationsReadRequest
+	10, // 44: notification.v1.NotificationService.PinNotification:input_type -> notification.v1.PinNotificationRequest
+	12, // 45: notification.v1.NotificationService.UnpinNotification:input_type -> notification.v1.UnpinNotificationRequest
+	14, // 46: notification.v1.NotificationService.DismissNotification:input_type -> notification.v1.DismissNotificationRequest
+	17, // 47: notification.v1.NotificationService.GetNotificationPreferences:input_type -> notification.v1.GetNotificationPreferencesRequest
+	19, // 48: notification.v1.NotificationService.UpdateNotificationPreference:input_type -> notification.v1.UpdateNotificationPreferenceRequest
+	22, // 49: notification.v1.NotificationService.MuteResource:input_type -> notification.v1.MuteResourceRequest
+	24, // 50: notification.v1.NotificationService.UnmuteResource:input_type -> notification.v1.UnmuteResourceRequest
+	26, // 51: notification.v1.NotificationService.ListMutedResources:input_type -> notification.v1.ListMutedResourcesRequest
+	29, // 52: notification.v1.NotificationService.GetQuietHours:input_type -> notification.v1.GetQuietHoursRequest
+	31, // 53: notification.v1.NotificationService.UpdateQuietHours:input_type -> notification.v1.UpdateQuietHoursRequest
+	33, // 54: notification.v1.NotificationService.ToggleManualDND:input_type -> notification.v1.ToggleManualDNDRequest
+	36, // 55: notification.v1.NotificationService.ListEventTypes:input_type -> notification.v1.ListEventTypesRequest
+	39, // 56: notification.v1.NotificationService.ListIntegrationConfigs:input_type -> notification.v1.ListIntegrationConfigsRequest
+	41, // 57: notification.v1.NotificationService.GetIntegrationConfig:input_type -> notification.v1.GetIntegrationConfigRequest
+	43, // 58: notification.v1.NotificationService.CreateIntegrationConfig:input_type -> notification.v1.CreateIntegrationConfigRequest
+	45, // 59: notification.v1.NotificationService.UpdateIntegrationConfig:input_type -> notification.v1.UpdateIntegrationConfigRequest
+	47, // 60: notification.v1.NotificationService.DeleteIntegrationConfig:input_type -> notification.v1.DeleteIntegrationConfigRequest
+	49, // 61: notification.v1.NotificationService.TestIntegrationConfig:input_type -> notification.v1.TestIntegrationConfigRequest
+	52, // 62: notification.v1.NotificationService.ListChannelMappings:input_type -> notification.v1.ListChannelMappingsRequest
+	54, // 63: notification.v1.NotificationService.CreateChannelMapping:input_type -> notification.v1.CreateChannelMappingRequest
+	56, // 64: notification.v1.NotificationService.UpdateChannelMapping:input_type -> notification.v1.UpdateChannelMappingRequest
+	58, // 65: notification.v1.NotificationService.DeleteChannelMapping:input_type -> notification.v1.DeleteChannelMappingRequest
+	60, // 66: notification.v1.NotificationService.LinkAccount:input_type -> notification.v1.LinkAccountRequest
+	62, // 67: notification.v1.NotificationService.UnlinkAccount:input_type -> notification.v1.UnlinkAccountRequest
+	64, // 68: notification.v1.NotificationService.GetAccountLinkStatus:input_type -> notification.v1.GetAccountLinkStatusRequest
+	67, // 69: notification.v1.NotificationService.HandlePlatformWebhook:input_type -> notification.v1.HandlePlatformWebhookRequest
+	3,  // 70: notification.v1.NotificationService.ListNotifications:output_type -> notification.v1.ListNotificationsResponse
+	5,  // 71: notification.v1.NotificationService.GetUnreadCount:output_type -> notification.v1.GetUnreadCountResponse
+	7,  // 72: notification.v1.NotificationService.MarkNotificationRead:output_type -> notification.v1.MarkNotificationReadResponse
+	9,  // 73: notification.v1.NotificationService.MarkAllNotificationsRead:output_type -> notification.v1.MarkAllNotificationsReadResponse
+	11, // 74: notification.v1.NotificationService.PinNotification:output_type -> notification.v1.PinNotificationResponse
+	13, // 75: notification.v1.NotificationService.UnpinNotification:output_type -> notification.v1.UnpinNotificationResponse
+	15, // 76: notification.v1.NotificationService.DismissNotification:output_type -> notification.v1.DismissNotificationResponse
+	18, // 77: notification.v1.NotificationService.GetNotificationPreferences:output_type -> notification.v1.GetNotificationPreferencesResponse
+	20, // 78: notification.v1.NotificationService.UpdateNotificationPreference:output_type -> notification.v1.UpdateNotificationPreferenceResponse
+	23, // 79: notification.v1.NotificationService.MuteResource:output_type -> notification.v1.MuteResourceResponse
+	25, // 80: notification.v1.NotificationService.UnmuteResource:output_type -> notification.v1.UnmuteResourceResponse
+	27, // 81: notification.v1.NotificationService.ListMutedResources:output_type -> notification.v1.ListMutedResourcesResponse
+	30, // 82: notification.v1.NotificationService.GetQuietHours:output_type -> notification.v1.GetQuietHoursResponse
+	32, // 83: notification.v1.NotificationService.UpdateQuietHours:output_type -> notification.v1.UpdateQuietHoursResponse
+	34, // 84: notification.v1.NotificationService.ToggleManualDND:output_type -> notification.v1.ToggleManualDNDResponse
+	37, // 85: notification.v1.NotificationService.ListEventTypes:output_type -> notification.v1.ListEventTypesResponse
+	40, // 86: notification.v1.NotificationService.ListIntegrationConfigs:output_type -> notification.v1.ListIntegrationConfigsResponse
+	42, // 87: notification.v1.NotificationService.GetIntegrationConfig:output_type -> notification.v1.GetIntegrationConfigResponse
+	44, // 88: notification.v1.NotificationService.CreateIntegrationConfig:output_type -> notification.v1.CreateIntegrationConfigResponse
+	46, // 89: notification.v1.NotificationService.UpdateIntegrationConfig:output_type -> notification.v1.UpdateIntegrationConfigResponse
+	48, // 90: notification.v1.NotificationService.DeleteIntegrationConfig:output_type -> notification.v1.DeleteIntegrationConfigResponse
+	50, // 91: notification.v1.NotificationService.TestIntegrationConfig:output_type -> notification.v1.TestIntegrationConfigResponse
+	53, // 92: notification.v1.NotificationService.ListChannelMappings:output_type -> notification.v1.ListChannelMappingsResponse
+	55, // 93: notification.v1.NotificationService.CreateChannelMapping:output_type -> notification.v1.CreateChannelMappingResponse
+	57, // 94: notification.v1.NotificationService.UpdateChannelMapping:output_type -> notification.v1.UpdateChannelMappingResponse
+	59, // 95: notification.v1.NotificationService.DeleteChannelMapping:output_type -> notification.v1.DeleteChannelMappingResponse
+	61, // 96: notification.v1.NotificationService.LinkAccount:output_type -> notification.v1.LinkAccountResponse
+	63, // 97: notification.v1.NotificationService.UnlinkAccount:output_type -> notification.v1.UnlinkAccountResponse
+	66, // 98: notification.v1.NotificationService.GetAccountLinkStatus:output_type -> notification.v1.GetAccountLinkStatusResponse
+	68, // 99: notification.v1.NotificationService.HandlePlatformWebhook:output_type -> notification.v1.HandlePlatformWebhookResponse
+	70, // [70:100] is the sub-list for method output_type
+	40, // [40:70] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_proto_notification_v1_notification_proto_init() }
@@ -4415,7 +4572,7 @@ func file_proto_notification_v1_notification_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_notification_v1_notification_proto_rawDesc), len(file_proto_notification_v1_notification_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   66,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

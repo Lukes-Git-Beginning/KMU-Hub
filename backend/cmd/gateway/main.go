@@ -254,16 +254,13 @@ func main() {
 		// would be a new required env var in production for no security gain.
 		gateway.NewDatevUploadRoutes(registry, cfg.BexioStateSecret),
 		gateway.NewLexwareRoutes(registry, cfg.LexwareWebhookSecret, isProd),
-		// Teams/Slack integration admin config, channel mappings and account
-		// linking. The three inbound-webhook setters (SetTeamsWebhookHandler,
-		// SetSlackWebhookHandler, SetSlackOAuthHandler) stay unset on purpose:
-		// those adapters need integration.Repository — a direct DB repo in the
-		// gateway, bypassing the gRPC layer — and the requests arrive
-		// unauthenticated, so PrepareConn leaves app.tenant_id empty and RLS
-		// filters every row away. Wiring them without resolving the tenant from
-		// the platform identity first would produce a webhook that verifies the
-		// signature and then silently finds nothing. The handlers answer 404
-		// "not configured" until then, exactly as openapi.yaml documents.
+		// Teams/Slack integration admin config, channel mappings, account
+		// linking and the inbound webhooks. The webhook routes tunnel the raw
+		// request to the notification service (HandlePlatformWebhook): the
+		// signature check needs the untouched bytes, the signing secret belongs
+		// where the platform tokens already are, and the tenant has to be
+		// resolved from the platform identity — none of which a gateway holding
+		// a direct DB repo could do without bypassing the gRPC layer.
 		gateway.NewIntegrationRoutes(registry),
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),

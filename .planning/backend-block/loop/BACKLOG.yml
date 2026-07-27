@@ -1067,7 +1067,7 @@ units:
     service: notification
     model: opus
     deps: [p3-gateway-wire-integration-routes, p3-integration-tenant-write-gap]
-    status: todo
+    status: done   # Iteration 33 — RPC-Tunnel, Tenant aus team_id, Signatur ueber Rohbytes repariert
     scope: >
       Die drei Setter von IntegrationRoutes (SetTeamsWebhookHandler,
       SetSlackWebhookHandler, SetSlackOAuthHandler) sind in main.go bewusst
@@ -1131,6 +1131,27 @@ units:
         Aktion verdrahten oder ehrlich antworten.
       * integration.Forwarder ist heute toter Code (NewForwarder in
         cmd/notification/main.go, HandleNotification hat keinen Aufrufer).
+      ---
+      ERLEDIGT Iteration 33. Der RPC-Tunnel aus der Vorarbeit wurde gebaut
+      (HandlePlatformWebhook: platform/kind/rohe Bytes/Header rein,
+      status_code/content_type/body raus). HAUPTBEFUND war ein anderer als
+      erwartet: die Slack-Signaturpruefung war kaputt. Sie verifizierte gegen
+      `url.Values.Encode()` der geparsten Form — sortiert und anders escaped als
+      das, was Slack signiert hat. Falsifiziert: mit dem alten Ausdruck faellt
+      der neue Test auf 401 zurueck, und zwar auch bei der einfeldrigen
+      Interaction. Scharfgeschaltet haette also KEIN einziger Slack-Webhook
+      funktioniert. Weitere Entscheidungen: (a) Tenant ueber
+      `PostgresRepository.ResolveTenant` (metadata->>'team_id' bzw.
+      'tenant_id' unter WithSystemContext, LIMIT 2 -> zwei Treffer sind
+      ErrTenantAmbiguous, kein Tie-Break). (b) Nur `acknowledge` wirkt wirklich
+      (notification.Service.MarkRead); approve/reject/reply antworten ehrlich
+      und lassen die Karte unangetastet — das war die "Falsch-Erfolg"-Warnung.
+      (c) OAuth install/callback antworten jetzt 501 statt 404, mit Begruendung
+      in openapi.yaml; die drei Setter am Gateway sind entfernt.
+      NICHT enthalten: OAuth-Flow (braucht Vault + signierten state, eigene
+      Unit), und `integration_configs` traegt weiterhin die vor-Mandanten-
+      `UNIQUE(platform)` aus 000053 — pro Plattform ist global nur eine Config
+      moeglich, die Aufloesung kann heute also nur einen Tenant treffen.
     done_when:
       - Tenant wird aus der Plattform-Identitaet aufgeloest, nicht geraten
       - Signaturpruefung vor jedem Datenzugriff (heute schon so, nicht kaputtmachen)

@@ -31,6 +31,7 @@ type NotificationGRPCServer struct {
 	integrationRepo integration.Repository
 	linkService     *integration.AccountLinkService
 	probers         map[string]integration.ConnectionProber
+	webhooks        map[string]integration.WebhookProcessor
 }
 
 // NewNotificationGRPCServer creates a new Notification gRPC server.
@@ -69,6 +70,17 @@ func WithIntegration(repo integration.Repository, linkService *integration.Accou
 func WithConnectionProbers(probers map[string]integration.ConnectionProber) NotificationGRPCOption {
 	return func(s *NotificationGRPCServer) {
 		s.probers = probers
+	}
+}
+
+// WithPlatformWebhooks registers the inbound webhook processors, keyed by
+// platform. A platform is only present when its credentials — and for Slack the
+// signing secret — are in the environment; without them there is nothing to
+// verify a request against, and HandlePlatformWebhook says so instead of
+// processing an unverified payload.
+func WithPlatformWebhooks(processors map[string]integration.WebhookProcessor) NotificationGRPCOption {
+	return func(s *NotificationGRPCServer) {
+		s.webhooks = processors
 	}
 }
 
