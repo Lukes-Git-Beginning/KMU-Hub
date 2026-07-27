@@ -1614,7 +1614,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 37 — Migration 000253, echte RLS-Luecke auf channels/messages gefunden+geschlossen
     scope: >
       `internal/chat` hat vier Repository-Dateien mit INSERT und KEINEN
       DB-Test. Groesste ungepruefte Schreibflaeche im Repo. Chat-Tabellen kamen
@@ -1628,10 +1628,82 @@ units:
       deck in dieser Unit die Nachrichten- und Kanal-Pfade ab und leg fuer den
       Rest (Files, Reactions, Presence) eine Folge-Unit `wp-chat-rest` an,
       statt die Iteration zu sprengen.
+      ERLEDIGT Iteration 37 (Migration 000253). Umfang wie empfohlen auf
+      Kanal- und Nachrichtenpfade begrenzt (channel + message Pakete, 13
+      Schreibmethoden zusammen); Files/Guest/Reactions/Presence in neue Unit
+      `wp-chat-rest` ausgelagert. Kern des Befundes: `channels` und `messages`
+      tragen tenant_id NOT NULL seit Migration 000106, hatten aber NIE eine
+      RLS-Policy — jede Schwestertabelle aus demselben Batch
+      (channel_memberships, message_mentions, chat_files, guest_sessions, ...)
+      wurde in der 000122-Welle aktiviert, channels/messages fielen aus der
+      Liste. Live gegen die lokale DB verifiziert (`pg_class.relrowsecurity`)
+      vor UND nach der Migration, plus Falsifikation: Migration testweise
+      zurueckgerollt, beide neuen Tests wurden rot (Fremd-Tenant sah die
+      Zeile), dann wieder angewendet und gruen. `projects` (dieselbe
+      000106-Liste) hat denselben Gap, gehoert aber zu einem anderen Modul —
+      als eigene Unit `wp-projects-rls` unten nachgetragen statt hier
+      mitgezogen.
     done_when:
       - tenant_write_test.go nach dem gemeinsamen Muster
       - Test laeuft real, Fremd-Tenant sieht nichts
       - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-chat-rest
+    phase: 3
+    service: chat
+    model: sonnet
+    deps: [wp-chat]
+    status: todo
+    scope: >
+      Aus wp-chat ausgelagerter Rest: DB-gestuetzte tenant_write_test.go fuer
+      die restlichen chat-Repository-Dateien mit INSERT — file, guest,
+      message_reactions (falls ein Repo dafuer existiert; bei Backlog-Erstellung
+      wp-chat war keins vorhanden, gegenpruefen). Anders als bei channels/messages
+      hatten chat_files, guest_sessions und guest_channel_config bereits eine
+      RLS-Policy (Migration 000122) — hier ist der erwartete Fund nur "kein
+      DB-Test", keine fehlende Policy. file/tenant_isolation_test.go und
+      guest/tenant_isolation_test.go existieren, laufen aber beide gegen
+      NewMockRepository(), nicht gegen echtes Postgres.
+    sources:
+      - backend/internal/chat/file/
+      - backend/internal/chat/guest/
+      - backend/internal/chat/channel/tenant_write_test.go (Muster + assertRowCountWhere)
+      - backend/internal/chat/message/tenant_write_test.go (Muster + assertRowCountWhere)
+    done_when:
+      - tenant_write_test.go nach dem gemeinsamen Muster fuer file und guest
+      - Test laeuft real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-projects-rls
+    phase: 3
+    service: querschnitt
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `projects` traegt tenant_id NOT NULL seit Migration 000106 (derselbe
+      Retrofit-Batch wie channels/messages), hat aber — wie channels/messages
+      vor Migration 000253 — nie eine RLS-Policy bekommen. Live gegen die
+      lokale DB verifiziert waehrend wp-chat (`pg_class.relrowsecurity` = f).
+      Gehoert nicht zu chat, darum als eigene Unit statt in Migration 000253
+      mitgezogen.
+    sources:
+      - backend/migrations/000253_chat_channels_messages_rls.up.sql (Vorlage: CALL enable_tenant_rls(...))
+      - backend/migrations/000106_tenant_id_retrofit_phase1.up.sql
+    notes: >
+      Vor dem Aktivieren pruefen, ob irgendein Repository/Service auf
+      `projects` schreibt oder liest, ohne app.tenant_id gesetzt zu haben
+      (Worker, Cross-Tenant-Reports, GDPR-Export) — sonst liefert FORCE RLS
+      dort still 0 Zeilen statt eines Fehlers. Gleiches Vorgehen wie
+      wp-chat: Migration mit `CALL enable_tenant_rls('projects')`,
+      RLS-Smoke, und wenn moeglich ein DB-Test der die Luecke vorher/nachher
+      belegt (Falsifikation wie in wp-chat).
+    done_when:
+      - projects hat eine tenant_isolation-Policy (enable_tenant_rls)
+      - RLS-Smoke: eigener Tenant > 0, fremder Tenant = 0
+      - Bestehende Reads/Writes auf projects weiterhin gruen (go test)
       - go build/vet/lint/test gruen
 
   - id: wp-berichte

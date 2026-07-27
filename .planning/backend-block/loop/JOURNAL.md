@@ -3040,3 +3040,58 @@ bleibt.
   Wire-Shape-Aenderung. Queue-Stand: 14 `wp-*`-Units noch `todo`, die
   naechste Iteration zieht `wp-chat` (keine deps, Hinweis im Backlog: Umfang
   vorher pruefen, ggf. `wp-chat-rest` als Folge-Unit abspalten).
+
+## Iteration 37 — wp-chat — done — 2026-07-28 00:20
+
+- commit: `fde85878`
+- gebaut: `internal/chat/channel/tenant_write_test.go` und
+  `internal/chat/message/tenant_write_test.go` — echte DB-Tests fuer alle
+  Schreibmethoden von channel.PostgresRepository (Create, Update, AddMember,
+  UpdateMembership, UpdateLastRead, RemoveMember, CreateDMChannel, Delete)
+  und message.PostgresRepository (Create, Update, CreateMentions,
+  CreateWithReplyCount, Delete) — 13 Methoden zusammen, wie in den Notes
+  empfohlen auf die Kanal- und Nachrichtenpfade begrenzt. Files/Guest/
+  Reactions/Presence als neue Unit `wp-chat-rest` ausgelagert (siehe
+  BACKLOG.yml), damit die Iteration nicht sprengt.
+  Echter Fund beim Bauen des ersten Tests: `channels` und `messages` tragen
+  tenant_id NOT NULL seit Migration 000106, hatten aber **nie** eine
+  RLS-Policy. Jede Schwestertabelle aus demselben Option-B-Batch
+  (channel_memberships, message_mentions, chat_files, guest_sessions,
+  guest_channel_config, call_sessions, call_participants) wurde in der
+  000122-Welle aktiviert — `pg_class.relrowsecurity` fuer channels/messages
+  war live gegen die lokale DB `f`, waehrend channel_memberships/
+  message_mentions bereits `t` waren. Migration 000253
+  (`CALL enable_tenant_rls('channels')` / `('messages')`) schliesst die
+  Luecke, exakt nach dem etablierten `enable_tenant_rls`-Muster aus 000118.
+  `projects` (dieselbe 000106-Retrofit-Liste) hat denselben Gap, gehoert
+  aber zu einem anderen Modul — als eigene Unit `wp-projects-rls` im
+  Backlog nachgetragen statt hier mitgezogen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (`go test ./internal/chat/...` 0 Skips, beide neuen Tests real gegen DB
+  gelaufen) | migration ok (000253 angewendet, Kopf lokal 253) | rls-smoke ok
+  (channels UND messages einzeln: eigener Tenant 1, fremder Tenant 0)
+- verify vorgaenger: sauber. Commit `7a5e540a` (Iteration 36, wp-settings)
+  ist eine reine Test-Datei-Ergaenzung (219 Zeilen, ausschliesslich
+  `tenant_write_test.go`) — keine der sechs Fehlerklassen betroffen: kein
+  Gateway-Handler, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle, keine Route.
+- Falsifikation (wie in Iteration 36, hier auf Schema-Ebene statt
+  Code-Ebene): Migration 000253 testweise mit `migrate ... down 1`
+  zurueckgerollt, `pg_class.relrowsecurity` fuer channels/messages wieder
+  auf `f` bestaetigt, beide neuen Tests liefen erneut — beide rot
+  (`expected 0 row(s), got 1` fuer den Fremd-Tenant-Read auf channels bzw.
+  messages). Migration wieder angewendet (`up`), beide Tests gruen,
+  vollstaendige `go test ./internal/chat/...`-Suite nochmal gruen.
+- Sekundaerpruefung: `FROM channels`/`FROM messages` ausserhalb von
+  internal/chat gegrept (internal/security/gdpr/export.go,
+  internal/inbox/adapter/guest_adapter.go, internal/work/reaction/,
+  internal/document/virtual/) — alle laufen ueber denselben
+  request-scoped ctx wie jeder andere gRPC-Handler (middleware.GetTenantID
+  respektive der Pool-Hook), kein Worker- oder Cross-Tenant-Pfad ohne
+  Tenant-Context gefunden. `go build` + `go test` fuer alle vier Pakete
+  zusaetzlich gruen gelaufen, keine Regression.
+- offen / fuer Luke: `wp-projects-rls` (neue Unit, `projects` hat denselben
+  RLS-Gap, aber anderes Modul) und `wp-chat-rest` (Files/Guest/Reactions/
+  Presence, DB-Test fehlt weiterhin, RLS-Policy dort aber bereits vorhanden)
+  stehen im Backlog fuer kommende Iterationen. Queue-Stand: 15 `wp-*`-Units
+  `todo` (13 urspruengliche minus wp-settings/wp-chat plus die zwei neuen).
