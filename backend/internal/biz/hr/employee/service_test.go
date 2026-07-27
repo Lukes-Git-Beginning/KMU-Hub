@@ -72,19 +72,25 @@ func newMockDocCategoryRepo() *mockDocCategoryRepo {
 	return &mockDocCategoryRepo{categories: make(map[uuid.UUID]*models.HRDocumentCategory)}
 }
 
+// visibleToTenant mirrors the Postgres repo: a tenant sees its own categories
+// plus the system seeds carrying the zero-UUID tenant.
+func visibleToTenant(c *models.HRDocumentCategory, tenantID uuid.UUID) bool {
+	return c.TenantID == tenantID || c.TenantID == systemSeedTenantID
+}
+
 func (m *mockDocCategoryRepo) ListByTenant(_ context.Context, tenantID uuid.UUID) ([]*models.HRDocumentCategory, error) {
 	var results []*models.HRDocumentCategory
 	for _, c := range m.categories {
-		if c.TenantID == tenantID {
+		if visibleToTenant(c, tenantID) {
 			results = append(results, c)
 		}
 	}
 	return results, nil
 }
 
-func (m *mockDocCategoryRepo) GetByID(_ context.Context, id uuid.UUID) (*models.HRDocumentCategory, error) {
+func (m *mockDocCategoryRepo) GetByID(_ context.Context, tenantID, id uuid.UUID) (*models.HRDocumentCategory, error) {
 	c, ok := m.categories[id]
-	if !ok {
+	if !ok || !visibleToTenant(c, tenantID) {
 		return nil, ErrDocumentCategoryNotFound
 	}
 	return c, nil

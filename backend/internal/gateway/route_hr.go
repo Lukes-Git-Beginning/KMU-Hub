@@ -144,6 +144,13 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Post("/{id}/documents", h.HandleUploadEmployeeDocument)
 	})
 
+	// Document categories — tenant master data, not an employee attribute, so
+	// they hang off /hr and not off /hr/employees/{id}.
+	r.Route("/api/v1/hr/document-categories", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("hr", "read")).Get("/", h.HandleListDocumentCategories)
+	})
+
 	// HR settings (admin only)
 	r.Route("/api/v1/hr/settings", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -1105,6 +1112,30 @@ func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Re
 	}
 
 	response.ProtoList(w, http.StatusOK, resp.Documents)
+}
+
+func (h *HRRoutes) HandleListDocumentCategories(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	resp, err := client.ListDocumentCategories(r.Context(), &hrv1.ListDocumentCategoriesReq{
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.ProtoListWrapped(w, http.StatusOK, "categories", resp.Categories, nil)
 }
 
 type uploadDocumentHTTPReq struct {

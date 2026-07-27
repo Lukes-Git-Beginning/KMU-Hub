@@ -9316,6 +9316,35 @@ paths:
                 $ref: "#/components/schemas/EmployeeDocument"
 
   # ===========================================================================
+  # HR: Document categories (tenant master data)
+  # ===========================================================================
+  /api/v1/hr/document-categories:
+    get:
+      summary: List HR document categories
+      description: >
+        Returns the tenant's document categories plus the system seed categories
+        (migration 000046), which are the ones every tenant starts with. These
+        are tenant master data, not an employee attribute — the ids returned here
+        are the ones POST /api/v1/hr/employees/{id}/documents accepts.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HRDocumentCategory"
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing hr:read permission }
+        "503": { description: HR service unavailable }
+
+  # ===========================================================================
   # HR: Settings (admin only)
   # ===========================================================================
   /api/v1/hr/settings:
@@ -33184,6 +33213,18 @@ components:
         file_name: { type: string }
         file_size: { type: integer }
         uploaded_by_name: { type: string }
+        created_at: { type: string, format: date-time }
+
+    HRDocumentCategory:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        name: { type: string }
+        key: { type: string }
+        visibility: { type: string, enum: [hr_only, manager, employee] }
+        is_system: { type: boolean }
+        sort_order: { type: integer }
         created_at: { type: string, format: date-time }
 
     HRSettings:

@@ -64,6 +64,7 @@ service HRService {
   rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
   rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
   rpc UploadEmployeeDocument(UploadEmployeeDocumentReq) returns (UploadEmployeeDocumentResp);
+  rpc ListDocumentCategories(ListDocumentCategoriesReq) returns (ListDocumentCategoriesResp);
   rpc CreateEmployee(CreateEmployeeReq) returns (CreateEmployeeResp);
 
   // ==================== HR Settings ====================
@@ -107,13 +108,6 @@ enum HalfDayPeriod {
   HALF_DAY_PERIOD_UNSPECIFIED = 0;
   HALF_DAY_MORNING = 1;
   HALF_DAY_AFTERNOON = 2;
-}
-
-enum DocumentVisibility {
-  DOCUMENT_VISIBILITY_UNSPECIFIED = 0;
-  DOCUMENT_VISIBILITY_HR_ONLY = 1;
-  DOCUMENT_VISIBILITY_MANAGER = 2;
-  DOCUMENT_VISIBILITY_EMPLOYEE = 3;
 }
 
 // ============================================================================
@@ -238,7 +232,10 @@ message HRDocumentCategory {
   string tenant_id = 2;
   string name = 3;
   string key = 4;
-  DocumentVisibility visibility = 5;
+  // hr_only | manager | employee. String, not an enum: the gateway marshals
+  // enums as numbers (UseEnumNumbers), and the frontend types visibility as a
+  // string union.
+  string visibility = 5;
   bool is_system = 6;
   int32 sort_order = 7;
   google.protobuf.Timestamp created_at = 8;
@@ -627,6 +624,14 @@ message ListEmployeeDocumentsReq {
 
 message ListEmployeeDocumentsResp {
   repeated EmployeeDocument documents = 1;
+}
+
+message ListDocumentCategoriesReq {
+  string tenant_id = 1;
+}
+
+message ListDocumentCategoriesResp {
+  repeated HRDocumentCategory categories = 1;
 }
 
 message UploadEmployeeDocumentReq {

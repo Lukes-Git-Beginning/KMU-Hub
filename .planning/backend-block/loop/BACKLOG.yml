@@ -1140,7 +1140,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 29 — /api/v1/hr/document-categories, System-Seeds sichtbar gemacht
     scope: >
       `DocumentCategoryRepository` (internal/biz/hr/employee/repository.go:21)
       ist samt ListByTenant, GetByID, Fehlerwerten und Modell gebaut, hat aber
@@ -1159,6 +1159,26 @@ units:
       kuenstlicher Employee-Parameter im Backend, der nie gelesen wird.
       Neue Route -> openapi.yaml-Eintrag im selben Commit (Drift-Test).
       RequirePermission-Guard -> Seed-Migration im selben Commit.
+      ERLEDIGT Iteration 29. Route ist `GET /api/v1/hr/document-categories`
+      (Tenant-Stammdaten, kein Employee-Attribut) — der FE-Pfad mit der
+      Employee-Id ist eine Zeile fuer Luke. Entscheidungen: (a) HAUPTBEFUND
+      war nicht die fehlende Route, sondern die Query dahinter:
+      `ListByTenant` filterte `WHERE tenant_id = $1`, die vier
+      System-Kategorien aus Migration 000046 tragen aber die Zero-UUID. Gegen
+      echtes BE haette die neue Route also fuer JEDEN Tenant eine leere Liste
+      geliefert und der Upload-Dialog haette keine Kategorie zur Auswahl —
+      HR-Dokumente waeren tot, nicht leer. Query liest jetzt
+      `tenant_id IN (tenant, zero)`, genau die Menge, die die RLS-Policy aus
+      000123 erlaubt. (b) `GetByID` nimmt jetzt tenantID und filtert ebenso —
+      es ist der Validierungspunkt fuer die client-gelieferte `category_id`
+      im Upload-Pfad, vorher schuetzte dort nur RLS. (c) `visibility` liegt im
+      Proto als String, nicht als Enum: der Gateway marshalt Enums als Zahlen
+      (UseEnumNumbers) und der FE-Typ ist eine String-Union (Praezedenz
+      Iteration 15). Das damit unbenutzte Enum `DocumentVisibility` ist raus.
+      (d) Wire-Shape `{categories:[...]}` mit snake_case-Feldern wie im
+      restlichen HR-Modul; der FE-Typ schreibt `isSystem` statt `is_system`,
+      liest das Feld aber nirgends (nur id/name werden gerendert).
+      Kein Permission-Seed noetig: `hr:read` ist ein Bestands-Guard.
     done_when:
       - Route liefert die Kategorien des Tenants, tenant-gescoped
       - openapi.yaml-Eintrag im selben Commit

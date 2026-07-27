@@ -280,8 +280,9 @@ func (s *Service) ListEmployeeDocuments(ctx context.Context, employeeID, callerU
 // UploadEmployeeDocument creates an HR document record linking a file to an employee.
 // The actual file upload happens via the document service; this creates the HR metadata link.
 func (s *Service) UploadEmployeeDocument(ctx context.Context, tenantID uuid.UUID, input UploadDocumentInput) (*models.EmployeeDocument, error) {
-	// Validate category exists
-	_, catErr := s.docCatRepo.GetByID(ctx, input.CategoryID)
+	// Validate the category exists for this tenant — category_id comes from the
+	// client, so a foreign tenant's id must not resolve here.
+	_, catErr := s.docCatRepo.GetByID(ctx, tenantID, input.CategoryID)
 	if catErr != nil {
 		return nil, catErr
 	}

@@ -906,6 +906,27 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 	}, nil
 }
 
+func (s *HRGRPCServer) ListDocumentCategories(ctx context.Context, _ *hrv1.ListDocumentCategoriesReq) (*hrv1.ListDocumentCategoriesResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	categories, err := s.employeeService.ListDocumentCategories(ctx, tenantID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	protoCategories := make([]*hrv1.HRDocumentCategory, 0, len(categories))
+	for _, c := range categories {
+		protoCategories = append(protoCategories, toProtoDocumentCategory(c))
+	}
+
+	return &hrv1.ListDocumentCategoriesResp{
+		Categories: protoCategories,
+	}, nil
+}
+
 func (s *HRGRPCServer) CreateEmployee(ctx context.Context, req *hrv1.CreateEmployeeReq) (*hrv1.CreateEmployeeResp, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -1672,6 +1693,22 @@ func toProtoEmployeeDocument(d *models.EmployeeDocument) *hrv1.EmployeeDocument 
 		FileName:       d.FileName,
 		FileSize:       d.FileSize,
 		UploadedByName: d.UploadedByName,
+	}
+}
+
+func toProtoDocumentCategory(c *models.HRDocumentCategory) *hrv1.HRDocumentCategory {
+	if c == nil {
+		return nil
+	}
+	return &hrv1.HRDocumentCategory{
+		Id:         c.ID.String(),
+		TenantId:   c.TenantID.String(),
+		Name:       c.Name,
+		Key:        c.Key,
+		Visibility: string(c.Visibility),
+		IsSystem:   c.IsSystem,
+		SortOrder:  int32(c.SortOrder),
+		CreatedAt:  timestamppb.New(c.CreatedAt),
 	}
 }
 

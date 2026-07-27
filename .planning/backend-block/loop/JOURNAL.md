@@ -2352,3 +2352,96 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     drei HR-RLS-Tests dauerhaft rot.
 
 - iteration 28 commit: `21bf691e`
+
+## Iteration 29 — `p3-hr-document-categories-route`
+
+- verify-vorspann: Commit `21bf691e` (Iteration 28) gegen die sechs
+  Fehlerklassen geprueft. Der Commit fasst genau drei Dateien an — Backlog,
+  Journal und `internal/gateway/openapi_drift_test.go`. Keine Migration, kein
+  Proto, keine Route, kein Handler, keine Spec-Aenderung, also keine der sechs
+  Klassen anwendbar; die einzige inhaltliche Behauptung (beide Drift-Tests
+  gruen mit dem erweiterten Test-Router) mit
+  `go test ./internal/gateway/... -run TestOpenAPI` nachgeprueft, gruen.
+  `git merge origin/main` — already up to date.
+- unit: `p3-hr-document-categories-route`. Neue Route
+  `GET /api/v1/hr/document-categories` + RPC `ListDocumentCategories`
+  (Service-Methode und Repo lagen seit jeher, ohne jeden Aufrufer).
+- **Pfad-Entscheidung (war in der Unit als Klaerung markiert):** die Kategorien
+  haengen an `/api/v1/hr/document-categories`, nicht unter
+  `/hr/employees/{id}/documents/categories` wie `hr-client.ts` sie ruft. Das
+  Repo liest tenant-weit, die Kategorien sind Tenant-Stammdaten und kein
+  Employee-Attribut; ein Employee-Parameter im Backend, den kein Handler je
+  liest, waere eine Luege in der Signatur. Der FE-Pfad ist damit eine Zeile fuer
+  Luke (`hrEmployeeApi.listDocumentCategories`, `useDocumentCategories` kann den
+  `employeeId`-Parameter danach ganz verlieren).
+- **HAUPTBEFUND — die Route waere leer gewesen.** `ListByTenant` filterte
+  `WHERE tenant_id = $1`. Die vier System-Kategorien aus Migration 000046
+  (`arbeitsvertrag`, `zeugnisse`, `abmahnungen`, `sonstiges`) tragen aber die
+  Zero-UUID als Tenant, und es gibt keinen Schreibpfad, der pro Tenant eigene
+  anlegt — die Route haette also fuer JEDEN Tenant `{categories: []}` geliefert.
+  Der Migrationskommentar in 000123 behauptet "the application copies these
+  system seeds per-tenant on first access"; diesen Kopier-Code gibt es im ganzen
+  Repo nicht. Folge waere nicht ein leerer Filter gewesen, sondern ein toter
+  Upload: `UploadEmployeeDocument` validiert `category_id` gegen genau diese
+  Tabelle, und ohne auswaehlbare Kategorie kommt kein HR-Dokument ins System.
+  Query liest jetzt `tenant_id IN (tenant, zero)` — exakt die Menge, die die
+  RLS-Policy aus 000123 (`USING tenant = current OR tenant = zero`) ohnehin
+  erlaubt. `lean:`-Marker steht an der Query: eine Tenant-Zeile verdraengt
+  heute keine System-Zeile mit demselben `key`; das wird erst noetig, wenn
+  Kategorien anlegbar werden (heute existiert kein Write-Pfad).
+- **`GetByID` ist jetzt tenant-gescoped** (`WHERE id = $1 AND tenant_id IN
+  ($2,$3)`, Signatur nimmt tenantID). Es ist der einzige Aufrufer-Pfad fuer die
+  client-gelieferte `category_id` im Upload — vorher schuetzte dort allein RLS,
+  und die Projektregel ist "jeder SELECT tenant-gescoped". Der Service hatte
+  tenantID an der Stelle bereits, es brauchte keinen neuen Parameter im Aufruf.
+  Der Mock im Service-Test filtert jetzt ebenfalls (gleiche Begruendung wie
+  Iteration 23: ein Service, der die Weitergabe vergisst, saehe sonst gruen aus).
+- **Wire-Shape:** `{categories:[…]}` ueber `response.ProtoListWrapped`, leere
+  Liste damit `[]` und nicht `null`. Felder snake_case wie im restlichen
+  HR-Modul. `visibility` liegt im Proto als **String**, nicht als Enum — der
+  Gateway marshalt mit `UseEnumNumbers`, das FE typt
+  `'hr_only'|'manager'|'employee'` (Praezedenz Iteration 15, Invoice-Status).
+  Das dadurch unbenutzte Proto-Enum `DocumentVisibility` ist entfernt; es hatte
+  ausser diesem Feld keinen Nutzer.
+- **Kein Permission-Seed noetig:** die Route nutzt den Bestands-Guard
+  `RequirePermission("hr","read")`, denselben wie die Nachbarrouten.
+- tests: zwei Integrationstests gegen echtes Postgres (`-tags=integration`,
+  testcontainers, 220 Migrationen) in
+  `internal/biz/hr/employee/integration_test.go` —
+  `TestIntegrationDocCategoriesIncludeSystemSeeds` (alle vier Seeds in der
+  Liste, jede Seed-Id ueber `GetByID` aufloesbar, weil genau das der Upload
+  validiert) und `TestIntegrationDocCategoriesCrossTenantIsolation` (Kategorie
+  von Tenant A weder gelistet noch per Id fuer B aufloesbar).
+  **Falsifiziert:** Query testweise auf den alten `tenant_id = $1`-Filter
+  zurueckgesetzt -> `TestIntegrationDocCategoriesIncludeSystemSeeds` rot;
+  Zustand wiederhergestellt und nachgeprueft.
+- gate: `go build -p 2 ./...` gruen, `go vet` (inkl. `-tags=integration`) gruen,
+  `golangci-lint run ./internal/gateway/... ./internal/server/...
+  ./internal/biz/hr/...` 0 issues, `go test ./internal/biz/hr/...
+  ./internal/gateway/... ./internal/server/...` gruen (beide Drift-Tests
+  inklusive — der Rueckwaerts-Test aus Iteration 28 belegt zugleich, dass die
+  neue Route wirklich registriert ist), `swagger-cli validate` gruen.
+  Keine Migration, kein Flag scharfgeschaltet, keine neue `config.RequireX`,
+  keine neue Dependency.
+- offen / fuer Luke:
+  - **FE-Zeile:** `hr-client.ts` ruft weiter
+    `/api/v1/hr/employees/{id}/documents/categories` (404). Neuer Pfad ist
+    `/api/v1/hr/document-categories`; `HRDocumentCategory` im FE-Typ nutzt
+    `isSystem`, die Wire-Shape liefert `is_system` — beides wird heute nicht
+    gelesen, faellt aber auf, sobald jemand danach filtert. MSW-Handler
+    `desktop/src/renderer/src/mocks/handlers/hr.ts:790` mitziehen.
+  - **Migrationskommentar 000123 ist falsch** ("application copies these system
+    seeds per-tenant on first access") — dieselbe Annahme steckt in
+    `hr_leave_types`: `PostgresLeaveTypeRepo.ListByTenant` filtert ebenfalls
+    `tenant_id = $1`, und die zehn Seed-Urlaubsarten liegen unter der
+    Zero-UUID. `GET /api/v1/hr/leave/types` liefert damit gegen echtes BE
+    vermutlich eine leere Liste. Nicht angefasst (anderes Package, anderer
+    Endpoint) — gehoert als eigene Unit ins Backlog, wenn Luke das bestaetigt.
+  - Naechste freie Units: `p3-integration-test-connection` (sonnet),
+    `p3-datev-upload-orchestration` (opus),
+    `p3-integration-webhook-adapters` (opus).
+  - Unveraendert offen: `p3-berichte-share-token` haengt am blockierten
+    `p3-berichte-server-pdf`; `p3-fe-only-features-scope-decision` wartet auf
+    Lukes Entscheid; `types.ts`-Drift (Iteration 28); Rollen-Zuschnitt der
+    produktion-ext-Permissions; Modul-Aktivierung ohne Enforcement;
+    `platform_admin` haelt niemand.
