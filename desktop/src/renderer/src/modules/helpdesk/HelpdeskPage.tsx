@@ -28,6 +28,7 @@ import { toast } from 'sonner'
 import {
   slaLabel,
   MOCK_CATEGORIES,
+  useHelpdeskStore,
 } from '@/stores/helpdesk'
 import type { CustomFieldDefinition } from '@/mocks/data/custom-fields'
 import {
@@ -187,6 +188,8 @@ export default function HelpdeskPage() {
   // Custom-field values for tickets created this session (keyed by ticket id) —
   // display-layer overlay merged in the `tickets` memo (wire has no custom fields).
   const [createdCustomFields, setCreatedCustomFields] = useState<Record<string, Record<string, string>>>({})
+  // CSAT feature gate = the tenant Helpdesk setting (intake P3, auto-after-close).
+  const csatEnabled = useHelpdeskStore((s) => s.csatEnabled)
   const rawTickets: DisplayTicket[] = useMemo(
     () => (ticketsResponse?.tickets ?? []).map(wireTicketToDisplay),
     [ticketsResponse],
@@ -751,7 +754,7 @@ export default function HelpdeskPage() {
         // (intake P0/P3), so the card + chart are enabled; the tenant on/off + delay
         // survey setting lands with the Helpdesk settings step.
         const showStat = (key: string): boolean => areaEnabled[`stat:${key}`] !== false
-        const CSAT_FEATURE_ENABLED = true
+        const CSAT_FEATURE_ENABLED = csatEnabled
         const statCards = [
           showStat('openTickets') && <StatCard key="ot" icon={AlertCircle} label={<EditableText dkey="helpdesk.stats.openTickets" />} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />,
           showStat('avgResponseTime') && <StatCard key="art" icon={Clock} label={<EditableText dkey="helpdesk.stats.avgResponseTime" />} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />,

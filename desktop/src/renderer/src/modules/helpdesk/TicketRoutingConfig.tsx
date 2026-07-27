@@ -46,7 +46,7 @@ export function TicketRoutingConfig({ open, onClose, embedded }: TicketRoutingCo
 
   const handleToggleEnabled = (rule: RoutingRule) => {
     updateMut.mutate(
-      { id: rule.id, data: { name: rule.name, enabled: !rule.enabled } },
+      { id: rule.id, name: rule.name, enabled: !rule.enabled },
       { onError: () => toast.error(t('helpdesk.routing.ruleLoadError')) },
     )
   }

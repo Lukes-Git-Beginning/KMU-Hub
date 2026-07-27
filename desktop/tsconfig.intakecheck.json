@@ -13,6 +13,8 @@
     "src/renderer/src/mocks/data/custom-fields.ts",
     "src/renderer/src/mocks/data/shared-ids.ts",
     "src/renderer/src/modules/helpdesk/CSATWidget.tsx",
-    "src/renderer/src/modules/helpdesk/HelpdeskPage.tsx"
+    "src/renderer/src/modules/helpdesk/HelpdeskPage.tsx",
+    "src/renderer/src/modules/helpdesk/settings/HelpdeskSettingsPanel.tsx",
+    "src/renderer/src/stores/helpdesk.ts"
   ]
 }

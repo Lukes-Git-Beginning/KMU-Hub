@@ -202,6 +202,9 @@ interface HelpdeskStore {
   routingRules: RoutingRule[]
   businessHours: BusinessDay[]
   holidays: Holiday[]
+  /** CSAT survey config (tenant): auto-send after close + the delay before it goes out. */
+  csatEnabled: boolean
+  csatDelayHours: number
 
   // ── Ticket actions ──
   /** Create a ticket with auto number (HD-YYYY-NNNN), SLA + timestamps; prepends it. Returns the new id. */
@@ -223,6 +226,8 @@ interface HelpdeskStore {
   // ── Config ──
   saveBusinessHours: (hours: BusinessDay[], holidays: Holiday[]) => void
   saveRoutingRules: (rules: RoutingRule[]) => void
+  setCsatEnabled: (enabled: boolean) => void
+  setCsatDelayHours: (hours: number) => void
 
   // ── Knowledge base ──
   /** Edited KB article bodies (HTML), overriding the static fallback. */
@@ -462,6 +467,8 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       routingRules: MOCK_ROUTING_RULES,
       businessHours: MOCK_BUSINESS_HOURS,
       holidays: MOCK_HOLIDAYS,
+      csatEnabled: true,
+      csatDelayHours: 24,
       kbBodies: {},
 
       addTicket: (input) => {
@@ -635,6 +642,9 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       saveBusinessHours: (hours, holidays) => set({ businessHours: hours, holidays }),
 
       saveRoutingRules: (rules) => set({ routingRules: rules }),
+
+      setCsatEnabled: (enabled) => set({ csatEnabled: enabled }),
+      setCsatDelayHours: (hours) => set({ csatDelayHours: hours }),
 
       saveKbBody: (id, html) => set((s) => ({ kbBodies: { ...s.kbBodies, [id]: html } })),
     }),
