@@ -20,6 +20,8 @@ import {
   Plug,
   Bot,
   CreditCard,
+  LifeBuoy,
+  Plus,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
@@ -45,6 +47,9 @@ import { ITAdminTab } from './tabs/ITAdminTab'
 import { ThemePreview } from './ThemePreview'
 import { useTourStore } from '@/stores/tour'
 import { branding } from '@/config/branding'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { IntakeFormFill } from '@/components/shared/intake'
+import { useHelpdeskStore } from '@/stores/helpdesk'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { formatDate } from '@/lib/format'
 
@@ -969,6 +974,13 @@ function AboutTab() {
   const { t } = useTranslation()
   const startTour = useTourStore((s) => s.startTour)
   const tours = useTourStore((s) => s.tours)
+  // Ticket-Intake P4 — internal self-service: employees file an IT-support
+  // ticket from here (channel = selfservice, requester = the logged-in profile).
+  // Only shown when the tenant enabled the self-service channel in the editor.
+  const profile = useSettingsStore((s) => s.profile)
+  const selfserviceEnabled = useHelpdeskStore((s) => s.intakeChannels.selfservice)
+  const intakeFormId = useHelpdeskStore((s) => s.intakeFormId)
+  const [supportOpen, setSupportOpen] = useState(false)
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -1006,6 +1018,28 @@ function AboutTab() {
           <p className="text-xs text-muted-foreground">Unternehmen</p>
         </div>
       </div>
+
+      {/* IT-Support — self-service ticket (Ticket-Intake P4) */}
+      {selfserviceEnabled && (
+        <>
+          <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.support.title')}</h3>
+          <div className="rounded-lg border border-border bg-card p-4 mb-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light">
+                <LifeBuoy className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">{t('settings.support.cardTitle')}</p>
+                <p className="text-xs text-muted-foreground">{t('settings.support.cardDesc')}</p>
+              </div>
+            </div>
+            <Button size="sm" onClick={() => setSupportOpen(true)}>
+              <Plus className="h-4 w-4" />
+              {t('settings.support.create')}
+            </Button>
+          </div>
+        </>
+      )}
 
       {/* Support & Contact */}
       <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.about.supportContact')}</h3>
@@ -1090,6 +1124,26 @@ function AboutTab() {
         <div className="flex justify-between"><span>{t('settings.about.hosting')}</span><span className="text-foreground">EU (Hetzner)</span></div>
         <div className="flex justify-between"><span>{t('settings.about.privacy')}</span><span className="text-foreground">{t('settings.about.gdprCompliant')}</span></div>
       </div>
+
+      {/* Self-service ticket dialog */}
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('settings.support.dialogTitle')}</DialogTitle>
+            <DialogDescription>{t('settings.support.dialogDesc')}</DialogDescription>
+          </DialogHeader>
+          <IntakeFormFill
+            formId={intakeFormId}
+            channel="selfservice"
+            requester={{
+              name: `${profile.firstName} ${profile.lastName}`.trim(),
+              email: profile.email,
+              isExternal: false,
+            }}
+            onCreated={() => toast.success(t('settings.support.created'))}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

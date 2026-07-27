@@ -46,7 +46,7 @@ import {
   useUpdateKBArticle,
   useHelpdeskStats,
 } from '@/api/hooks/useHelpdesk'
-import type { KBArticle } from '@/api/helpdesk-types'
+import type { KBArticle, TicketChannel } from '@/api/helpdesk-types'
 import {
   wireTicketToDisplay,
   displayStatusToWire,
@@ -279,6 +279,17 @@ export default function HelpdeskPage() {
   const [sortField, setSortField] = useState<string>('createdAt')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
 
+  // Ticket-Intake P6/§7 — origin (Herkunft) sub-tabs: when several creation
+  // channels are active, tickets split by where they came in through, with a
+  // "zusammenführen" toggle to collapse back to one list.
+  const intakeChannels = useHelpdeskStore((s) => s.intakeChannels)
+  const [sourceTab, setSourceTab] = useState<'all' | TicketChannel>('all')
+  const [mergeSources, setMergeSources] = useState(false)
+  const activeChannels = (['agent', 'selfservice', 'external'] as const).filter(
+    (c) => intakeChannels[c],
+  )
+  const showSourceTabs = !mergeSources && activeChannels.length >= 2
+
   // Detail panel
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
@@ -339,6 +350,9 @@ export default function HelpdeskPage() {
 
   const filteredTickets = useMemo(() => {
     return baseTickets.filter((t) => {
+      // Origin sub-tab (Herkunft) — only narrows when the tabs are actually shown.
+      if (showSourceTabs && sourceTab !== 'all' && (t.channel ?? 'agent') !== sourceTab)
+        return false
       if (statusFilter !== 'all' && t.status !== statusFilter) return false
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
       if (categoryFilter !== 'all' && t.category !== categoryFilter) return false
@@ -353,7 +367,7 @@ export default function HelpdeskPage() {
       }
       return true
     })
-  }, [baseTickets, statusFilter, priorityFilter, categoryFilter, search])
+  }, [baseTickets, statusFilter, priorityFilter, categoryFilter, search, showSourceTabs, sourceTab])
 
   const sortedTickets = useMemo(() => {
     const arr = [...filteredTickets]
@@ -549,6 +563,60 @@ export default function HelpdeskPage() {
       {/* ================================================================== */}
       {tab === 'tickets' && (
         <div className="animate-fade-up">
+          {/* Herkunfts-Reiter (§7): split tickets by origin channel when several
+              creation channels are active, with a "zusammenführen" toggle. */}
+          {activeChannels.length >= 2 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              {showSourceTabs ? (
+                <div className="flex items-center gap-1 rounded-lg bg-secondary/60 p-0.5">
+                  {(['all', ...activeChannels] as const).map((src) => {
+                    const count =
+                      src === 'all'
+                        ? baseTickets.length
+                        : baseTickets.filter((t) => (t.channel ?? 'agent') === src).length
+                    const isActive = sourceTab === src
+                    return (
+                      <button
+                        key={src}
+                        onClick={() => setSourceTab(src)}
+                        className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {t(`helpdesk.source.${src}`)}
+                        <span className="rounded-full bg-secondary px-1.5 text-[11px] tabular-nums text-muted-foreground">
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">{t('helpdesk.source.mergedHint')}</span>
+              )}
+              <button
+                onClick={() => setMergeSources((m) => !m)}
+                role="switch"
+                aria-checked={mergeSources}
+                className="flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span
+                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                    mergeSources ? 'bg-primary' : 'bg-secondary'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                      mergeSources ? 'translate-x-3.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </span>
+                {t('helpdesk.source.merge')}
+              </button>
+            </div>
+          )}
           {ticketsLoading && (
             <SkeletonTable rows={8} cols={6} className="mb-4" />
           )}

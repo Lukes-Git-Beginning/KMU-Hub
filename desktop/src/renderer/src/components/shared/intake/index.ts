@@ -15,3 +15,5 @@ export { registerIntakeTarget, getIntakeTarget, listIntakeTargets, getIntakeRole
 export { mapSubmissionToRecord, slugifyKey } from './engine'
 export { useIntakeSubmit } from './useIntakeSubmit'
 export type { IntakeDispatchArgs, IntakeDispatchResult } from './useIntakeSubmit'
+export { IntakeFormFill } from './IntakeFormFill'
+export type { IntakeFormFillProps } from './IntakeFormFill'

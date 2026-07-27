@@ -7,7 +7,7 @@
  * BegriffeTab / ValueSetsTab, module-filtered + draft-wired) below the intro.
  */
 import { useTranslation } from 'react-i18next'
-import { MousePointerClick, Type, ListChecks, SquareStack, Layers, BarChart3, MousePointer2, Copy, PanelLeft } from 'lucide-react'
+import { MousePointerClick, Type, ListChecks, SquareStack, Layers, BarChart3, Inbox, MousePointer2, Copy, PanelLeft } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { EditorSection } from './EditorTrioNav'
 import { BegriffePanel } from './BegriffePanel'
@@ -15,6 +15,7 @@ import { WertelistenPanel } from './WertelistenPanel'
 import { FelderPanel } from './FelderPanel'
 import { BereichePanel } from './BereichePanel'
 import { StatistikPanel } from './StatistikPanel'
+import { KanaelePanel } from './KanaelePanel'
 
 const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; descKey: string }> = {
   felder: {
@@ -41,6 +42,11 @@ const SECTION_META: Record<EditorSection, { icon: LucideIcon; titleKey: string; 
     icon: BarChart3,
     titleKey: 'customization.editor.nav.statistics',
     descKey: 'customization.editor.props.statisticsDesc',
+  },
+  'kanäle': {
+    icon: Inbox,
+    titleKey: 'customization.editor.nav.channels',
+    descKey: 'customization.editor.props.channelsDesc',
   },
 }
 
@@ -108,6 +114,8 @@ export function EditorPropertiesPanel({
         <BereichePanel moduleKey={moduleKey} />
       ) : section === 'statistik' ? (
         <StatistikPanel moduleKey={moduleKey} />
+      ) : section === 'kanäle' ? (
+        <KanaelePanel moduleKey={moduleKey} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-sm text-muted-foreground">{t('customization.editor.props.pickElement')}</p>

@@ -6,17 +6,20 @@
  * editor content.
  */
 import { useTranslation } from 'react-i18next'
-import { Type, ListChecks, SquareStack, Layers, BarChart3 } from 'lucide-react'
+import { Type, ListChecks, SquareStack, Layers, BarChart3, Inbox } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib'
 import { useDraftConfig } from './DraftConfigProvider'
+import { getEditorModule } from './editorModules'
 
-export type EditorSection = 'felder' | 'begriffe' | 'wertelisten' | 'bereiche' | 'statistik'
+export type EditorSection = 'felder' | 'begriffe' | 'wertelisten' | 'bereiche' | 'statistik' | 'kanäle'
 
 interface SectionDef {
   key: EditorSection
   labelKey: string
   icon: LucideIcon
+  /** When set, the section only shows for modules where this capability is true. */
+  requires?: (moduleKey: string) => boolean
 }
 
 const SECTIONS: SectionDef[] = [
@@ -25,6 +28,12 @@ const SECTIONS: SectionDef[] = [
   { key: 'wertelisten', labelKey: 'customization.editor.nav.valueSets', icon: ListChecks },
   { key: 'bereiche', labelKey: 'customization.editor.nav.areas', icon: Layers },
   { key: 'statistik', labelKey: 'customization.editor.nav.statistics', icon: BarChart3 },
+  {
+    key: 'kanäle',
+    labelKey: 'customization.editor.nav.channels',
+    icon: Inbox,
+    requires: (moduleKey) => !!getEditorModule(moduleKey)?.intake,
+  },
 ]
 
 export function EditorTrioNav({
@@ -47,7 +56,11 @@ export function EditorTrioNav({
     wertelisten: Object.keys(valueSets).length,
     bereiche: areaKeys.filter((k) => !k.startsWith('stat:')).length,
     statistik: areaKeys.filter((k) => k.startsWith('stat:')).length,
+    // Channels are a functional tenant toggle (not a draft dimension) → no badge.
+    'kanäle': 0,
   }
+
+  const sections = SECTIONS.filter((s) => !s.requires || s.requires(moduleKey))
 
   return (
     <nav
@@ -57,7 +70,7 @@ export function EditorTrioNav({
       <p className="px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {t('customization.editor.nav.label')}
       </p>
-      {SECTIONS.map(({ key, labelKey, icon: Icon }) => {
+      {sections.map(({ key, labelKey, icon: Icon }) => {
         const isActive = active === key
         const count = counts[key]
         return (

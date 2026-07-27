@@ -45,6 +45,12 @@ export interface EditorModuleDef {
    * module until the feature ships.
    */
   statWidgets?: { key: string; labelKey: string; locked?: boolean }[]
+  /**
+   * Ticket-Intake P6 — this module has configurable creation channels (agent /
+   * self-service / external) shown in the editor's Kanäle panel. Only modules
+   * with an intake target set this (helpdesk first). Undefined → no Kanäle tab.
+   */
+  intake?: boolean
   /** The module page rendered read-only in the sandbox canvas. */
   Component: LazyExoticComponent<ComponentType<unknown>>
 }
@@ -95,6 +101,9 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
       { key: 'byStatus', labelKey: 'helpdesk.stats.byStatus' },
       { key: 'byPriority', labelKey: 'helpdesk.stats.byPriority' },
     ],
+    // Ticket-Intake P6 — helpdesk has the three creation channels (agent /
+    // self-service / external), configured in the editor's Kanäle panel.
+    intake: true,
     Component: lazy(() => import('@/modules/helpdesk/HelpdeskPage')) as EditorModuleDef['Component'],
   },
 ]

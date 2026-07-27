@@ -205,6 +205,17 @@ interface HelpdeskStore {
   /** CSAT survey config (tenant): auto-send after close + the delay before it goes out. */
   csatEnabled: boolean
   csatDelayHours: number
+  /**
+   * Intake-channel config (tenant, Ticket-Intake P6). The three ways a ticket can
+   * be created are individually on/off; the module's origin tabs and the
+   * self-service / public entry points read this. `intakeFormId` binds the form
+   * that the self-service + external channels render (a form with
+   * intakeTargetId 'helpdesk_ticket'). Functional toggle — configured in the
+   * module editor's Kanäle panel, applied directly (like csatEnabled), not via
+   * the draft/deploy overlay used for content customization.
+   */
+  intakeChannels: { agent: boolean; selfservice: boolean; external: boolean }
+  intakeFormId: string
 
   // ── Ticket actions ──
   /** Create a ticket with auto number (HD-YYYY-NNNN), SLA + timestamps; prepends it. Returns the new id. */
@@ -228,6 +239,8 @@ interface HelpdeskStore {
   saveRoutingRules: (rules: RoutingRule[]) => void
   setCsatEnabled: (enabled: boolean) => void
   setCsatDelayHours: (hours: number) => void
+  setIntakeChannel: (channel: 'agent' | 'selfservice' | 'external', enabled: boolean) => void
+  setIntakeFormId: (id: string) => void
 
   // ── Knowledge base ──
   /** Edited KB article bodies (HTML), overriding the static fallback. */
@@ -469,6 +482,8 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       holidays: MOCK_HOLIDAYS,
       csatEnabled: true,
       csatDelayHours: 24,
+      intakeChannels: { agent: true, selfservice: true, external: false },
+      intakeFormId: 'tmpl-ticket-intake',
       kbBodies: {},
 
       addTicket: (input) => {
@@ -645,6 +660,10 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
 
       setCsatEnabled: (enabled) => set({ csatEnabled: enabled }),
       setCsatDelayHours: (hours) => set({ csatDelayHours: hours }),
+
+      setIntakeChannel: (channel, enabled) =>
+        set((s) => ({ intakeChannels: { ...s.intakeChannels, [channel]: enabled } })),
+      setIntakeFormId: (id) => set({ intakeFormId: id }),
 
       saveKbBody: (id, html) => set((s) => ({ kbBodies: { ...s.kbBodies, [id]: html } })),
     }),
