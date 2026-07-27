@@ -1020,6 +1020,7 @@ func TestService_CreateFromTemplate(t *testing.T) {
 	}
 	if childTask == nil {
 		t.Fatal("child task not found in target project")
+		return // staticcheck SA5011 does not read t.Fatal as terminating
 	}
 	if childTask.ParentTaskID == nil {
 		t.Error("expected child to have parent_task_id set")

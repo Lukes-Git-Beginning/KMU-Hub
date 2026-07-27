@@ -83,6 +83,7 @@ func TestTenantIsolation_OpenItems(t *testing.T) {
 		}
 		if found == nil {
 			t.Fatal("seeded invoice missing from the open items of its own tenant")
+			return // staticcheck SA5011 does not read t.Fatal as terminating
 		}
 		if got := found.OpenAmount.String(); got != "600" {
 			t.Errorf("open_amount = %s, want 600 (1000 gross minus a 400 payment)", got)
