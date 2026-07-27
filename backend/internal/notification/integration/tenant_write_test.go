@@ -69,18 +69,25 @@ func TestIntegrationWrites_LandInCallerTenant(t *testing.T) {
 	pool := testutil.PoolFromEnv(t)
 	defer pool.Close()
 
-	testutil.EnsureTenant(t, pool, testutil.TenantA, "Tenant A")
-	testutil.EnsureTenant(t, pool, testutil.TenantB, "Tenant B")
+	// Dedicated tenants rather than the shared testutil.TenantA/TenantB:
+	// integration_configs is UNIQUE (platform, tenant_id) since migration 000125,
+	// and TestTenantIsolation_Integration_DB in this same package seeds slack for
+	// TenantA. Both call t.Parallel(), so sharing the pair made whichever test
+	// lost the race die on a duplicate key — green locally where DATABASE_URL is
+	// unset and both tests skip, red in CI where they actually run.
+	tenantWrite, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantWrite, "Integration Write Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Integration Write Other Tenant")
 
 	userID := testutil.SeedRow(t, pool, "users", map[string]any{
-		"tenant_id":     testutil.TenantA,
+		"tenant_id":     tenantWrite,
 		"email":         fmt.Sprintf("integ-write-%s@tenanta.local", uuid.New().String()[:8]),
 		"password_hash": "$argon2id$v=19$test",
 	})
 	defer testutil.CleanupRow(t, pool, "users", userID)
 
 	configID := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
-		"tenant_id":             testutil.TenantA,
+		"tenant_id":             tenantWrite,
 		"platform":              PlatformSlack,
 		"credentials_vault_key": "slack/" + uuid.New().String(),
 		"created_by":            userID,
@@ -88,8 +95,8 @@ func TestIntegrationWrites_LandInCallerTenant(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "integration_configs", configID)
 
 	repo := NewPostgresRepository(pool)
-	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
-	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantWrite)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantOther)
 	now := time.Now()
 
 	mapping := &ChannelMapping{
