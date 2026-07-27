@@ -2990,3 +2990,53 @@ bleibt.
   done/blocked; die 15 `wp-*`-Write-Path-Units aus Run 2 (Commit `6b5c68e6`)
   stehen weiter auf `todo` — die naechste Iteration zieht die erste davon
   (`wp-settings`, keine deps).
+
+## Iteration 36 — wp-settings — done — 2026-07-27 23:35
+
+- commit: `7a5e540a`
+- gebaut: `internal/settings/tenant_write_test.go` —
+  `TestSettingsWrites_LandInCallerTenant` ruft alle acht Schreibmethoden von
+  `PostgresRepository` echt gegen die lokale DB auf (GrantModuleLead,
+  RevokeModuleLead, GrantModuleAccess, RevokeModuleAccess,
+  BulkRevokeModuleAccess, PutTenantSettings, PutUserSettings,
+  SetModuleActivation) und prueft je Schreibpfad: eigener Tenant sieht die
+  Zeile, Nachbar-Tenant nicht — auch wenn die Assertion-Query den
+  Schreiber-Tenant explizit nennt, beweist das also die RLS-Policy, nicht nur
+  die WHERE-Klausel. Keine toten Writes gefunden: alle fuenf betroffenen
+  Tabellen (tenant_module_leads, user_module_grants, tenant_settings,
+  user_settings, tenant_module_activations) schreiben tenant_id korrekt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (19/19, davon 1 echter
+  DB-Test — vorher 0) | migration n.a. | rls-smoke ok (im neuen Test enthalten)
+- verify vorgaenger: sauber. Commit `f1eedab1` (Iteration 35, Server-PDF)
+  gegen die sechs Fehlerklassen geprueft: Handler geht ueber den gRPC-Client,
+  kein Stub, .proto/.pb.go im selben Commit regeneriert, kein neuer
+  RequirePermission-Guard, keine neue Tabelle (also kein RLS-Punkt), Wire-Shape
+  gegen berichte-types.ts abgeglichen (document_pdf_test.go deckt alle 14
+  Blocktypen ab).
+- Abweichung vom Referenzmuster (notification/integration): keine der fuenf
+  Tabellen hat eine `id`-Spalte (zusammengesetzte Primaerschluessel) —
+  `testutil.AssertRowCount`/`SeedRow`/`CleanupRow` schluesseln auf `id` und
+  passen darum nicht direkt. Neue `assertRowCountWhere`-Hilfsfunktion im
+  Test-File generalisiert das Muster, das `auth/rls_provisioning_test.go`
+  bereits fuer `tenant_module_activations` per Hand einsetzt
+  (`assertModuleCount`), auf beliebige Composite-Key-Praedikate. Kein
+  `ErrTenantMissing`-Test noetig (anders als beim Referenzmuster): `tenantID`
+  ist hier ueberall ein Pflicht-Parameter, kein optionaler Context-Wert — es
+  gibt keinen Aufrufpfad, der ihn weglassen kann.
+- Falsifikation: `GrantModuleAccess` testweise auf eine zufaellige `tenant_id`
+  umgebogen statt des Funktionsparameters (simuliert exakt die Bug-Klasse,
+  die diese Unit sucht — ein Write, der am falschen Tenant landet). FORCE RLS
+  hat den INSERT mit "new row violates row-level security policy"
+  abgelehnt, der Test wurde rot, danach sauber zurueckgesetzt (`git diff`
+  auf `postgres_repository.go` leer vor dem Commit).
+- Stolperstein: `users.tenant_id` hat KEIN `ON DELETE CASCADE`
+  (`fk_users_tenant`), im Unterschied zu den fuenf Settings-Tabellen — ein
+  erster Testentwurf loeschte nur die Tenant-Zeile und liess neun
+  Test-Tenants + zwei Test-User in der lokalen Dev-DB liegen (FK-Fehler beim
+  Tenant-Delete, vom Test nur geloggt, nicht fatal). Fix: User-Cleanup muss
+  vor dem Tenant-Cleanup laufen (Defer-Registrierungsreihenfolge), die
+  liegengebliebenen lokalen Zeilen manuell nachgeraeumt.
+- offen / fuer Luke: keiner — reiner Test-Zusatz, kein Verhaltens- oder
+  Wire-Shape-Aenderung. Queue-Stand: 14 `wp-*`-Units noch `todo`, die
+  naechste Iteration zieht `wp-chat` (keine deps, Hinweis im Backlog: Umfang
+  vorher pruefen, ggf. `wp-chat-rest` als Folge-Unit abspalten).

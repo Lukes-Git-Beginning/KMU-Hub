@@ -1568,7 +1568,7 @@ units:
     service: settings
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 36 — kein toter Write gefunden, Guard per Falsifikation belegt
     scope: >
       `internal/settings` hat Repository-Writes und KEINEN einzigen
       DB-gestuetzten Test. Nacht 1 hat hier neu gebaut (`08e29e52` - gebuchter
@@ -1578,6 +1578,31 @@ units:
     sources:
       - backend/internal/settings/
       - backend/internal/notification/integration/tenant_write_test.go
+    notes: >
+      ERLEDIGT Iteration 36. Kein toter Write gefunden — alle acht
+      Schreibmethoden (GrantModuleLead, RevokeModuleLead, GrantModuleAccess,
+      RevokeModuleAccess, BulkRevokeModuleAccess, PutTenantSettings,
+      PutUserSettings, SetModuleActivation) schreiben tenant_id korrekt.
+      Abweichung vom Referenzmuster (notification/integration): alle fuenf
+      betroffenen Tabellen (tenant_module_leads, user_module_grants,
+      tenant_settings, user_settings, tenant_module_activations) haben
+      zusammengesetzte Primaerschluessel statt einer `id`-Spalte —
+      testutil.AssertRowCount/SeedRow/CleanupRow (schluesseln auf `id`) passen
+      darum nicht direkt. Neue `assertRowCountWhere`-Hilfsfunktion im
+      Test-File generalisiert das bereits vorhandene Muster aus
+      auth/rls_provisioning_test.go (dort `assertModuleCount` fuer
+      tenant_module_activations) auf beliebige Composite-Key-Praedikate.
+      Kein ErrTenantMissing-Test (wie beim Referenzmuster) noetig: tenantID ist
+      hier ueberall ein Pflicht-Parameter, kein optionaler Context-Wert — es
+      gibt keinen Aufruf-Pfad, der ihn weglassen kann. Falsifikation statt nur
+      Konstruktion: GrantModuleAccess testweise auf eine zufaellige tenant_id
+      umgebogen (simuliert exakt die Bug-Klasse, die diese Unit sucht) — FORCE
+      RLS hat den INSERT mit "violates row-level security policy" abgelehnt,
+      der Test ist rot geworden, danach sauber zurueckgesetzt (kein Diff mehr
+      in postgres_repository.go). users.tenant_id hat KEIN ON DELETE CASCADE
+      (`fk_users_tenant`) im Unterschied zu den fuenf Settings-Tabellen —
+      Tenant-Cleanup muss darum nach dem User-Cleanup laufen (Defer-
+      Registrierungsreihenfolge im Test).
     done_when:
       - tenant_write_test.go nach dem gemeinsamen Muster, jede Schreibmethode echt aufgerufen
       - Test laeuft mit DATABASE_URL real (nicht skipped), Fremd-Tenant sieht nichts
