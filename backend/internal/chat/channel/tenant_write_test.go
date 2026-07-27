@@ -107,9 +107,17 @@ func TestChannelWrites_LandInCallerTenant(t *testing.T) {
 	assertRowCountWhere(t, pool, sysCtx, "channel_memberships", "channel_id = $1 AND user_id = $2", 0, ch.ID, userA)
 
 	// CreateDMChannel — transactional insert of one channel + two memberships.
+	// chk_dm_user_order requires dm_user1 < dm_user2; the service canonicalizes
+	// this via string comparison before calling the repo (service.go:567-570),
+	// so the repo-level test must replicate that ordering instead of assuming
+	// userA/userB already sort that way (they are random uuid.New() values).
+	dmUser1, dmUser2 := userA, userB
+	if dmUser1.String() > dmUser2.String() {
+		dmUser1, dmUser2 = dmUser2, dmUser1
+	}
 	dmCh := &models.Channel{
 		ID: uuid.New(), TenantID: tenantOwn, Name: "dm", IsDM: true, CreatedBy: userA,
-		DMUser1: &userA, DMUser2: &userB, CreatedAt: now, UpdatedAt: now,
+		DMUser1: &dmUser1, DMUser2: &dmUser2, CreatedAt: now, UpdatedAt: now,
 	}
 	dmMem1 := &models.ChannelMembership{ChannelID: dmCh.ID, UserID: userA, TenantID: tenantOwn, Role: models.ChannelRoleMember, JoinedAt: now}
 	dmMem2 := &models.ChannelMembership{ChannelID: dmCh.ID, UserID: userB, TenantID: tenantOwn, Role: models.ChannelRoleMember, JoinedAt: now}
