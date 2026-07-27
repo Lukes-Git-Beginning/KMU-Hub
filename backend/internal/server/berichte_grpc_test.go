@@ -795,3 +795,64 @@ func (r *stubBerichteRepo) IncrementShareView(_ context.Context, _, _ uuid.UUID)
 	r.share.ViewCount++
 	return nil
 }
+
+func TestBerichteGRPCServer_ExportDocumentPDF_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	repo := &stubBerichteRepo{doc: &berichte.Document{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		Title:    "Q3 Bericht",
+		Module:   "finanzen",
+		Status:   "draft",
+		Rows: []byte(`[{"columns":[{"width":1,"blocks":[
+			{"id":"b1","type":"heading","level":1,"text":"Kennzahlen"},
+			{"id":"b2","type":"kpi","label":"Umsatz","value":"12345"}
+		]}]}]`),
+		Settings: []byte(`{}`),
+	}}
+	s := newTestBerichteServerWithSvc(repo, nil)
+
+	resp, err := s.ExportDocumentPDF(context.Background(), &berichtev1.ExportDocumentPDFRequest{
+		TenantId:   tenantID.String(),
+		DocumentId: repo.doc.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("ExportDocumentPDF: %v", err)
+	}
+	if len(resp.GetPdfData()) < 4 || string(resp.GetPdfData()[:4]) != "%PDF" {
+		t.Fatalf("expected a %%PDF-prefixed payload, got %d bytes", len(resp.GetPdfData()))
+	}
+	if resp.GetFilename() == "" {
+		t.Error("expected a non-empty filename")
+	}
+}
+
+func TestBerichteGRPCServer_ExportDocumentPDF_NotFound(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubBerichteRepo{}
+	s := newTestBerichteServerWithSvc(repo, nil)
+
+	_, err := s.ExportDocumentPDF(context.Background(), &berichtev1.ExportDocumentPDFRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: uuid.New().String(),
+	})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v", err)
+	}
+}
+
+func TestBerichteGRPCServer_ExportDocumentPDF_InvalidTenantID(t *testing.T) {
+	t.Parallel()
+
+	s := newTestBerichteServer()
+	_, err := s.ExportDocumentPDF(context.Background(), &berichtev1.ExportDocumentPDFRequest{
+		TenantId:   "not-a-uuid",
+		DocumentId: uuid.New().String(),
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", err)
+	}
+}

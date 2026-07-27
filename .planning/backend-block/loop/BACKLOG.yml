@@ -306,7 +306,7 @@ units:
     service: berichte
     model: sonnet
     deps: [p3-berichte-document-persistence]
-    status: todo
+    status: done   # Iteration 35 — DocumentPDFExporter (maroto), ExportDocumentPDF RPC + route
     decision: >
       ENTSCHIEDEN 2026-07-27 (Luke): chart- und table-Bloecke werden im PDF als
       Datentabelle gerendert, nicht als Grafik. Keine neue Dependency —
@@ -338,6 +338,70 @@ units:
       - chart- und table-Bloecke als Datentabelle, mit `lean:`-Marker und
         Upgrade-Trigger im Code
       - go build/vet/lint/test gruen
+    result: >
+      ERLEDIGT Iteration 35. Neuer `export.DocumentPDFExporter`
+      (document_pdf.go) parst doc.Rows (rows->columns->blocks, opaque JSONB)
+      in unexported Go-Structs mit denselben camelCase-Keys wie
+      berichte-types.ts und rendert alle 14 Blocktypen (die 11 Kern-Typen +
+      code/simpletable/quote aus dem document-Package). `pdf.go` dafuer
+      refaktoriert: die Tabellen-Render-Logik aus PDFExporter.Export in eine
+      geteilte `resultRows(*ReportResult) []core.Row` gezogen, die auch
+      chart/table-Bloecke mit gespeicherter Definition nutzen (reines
+      Extrahieren, keine Verhaltensaenderung — bestehende PDF-Tests bleiben
+      unveraendert gruen). Neues RPC `ExportDocumentPDF` (Proto + Regen),
+      Server-Handler in berichte_grpc.go, Gateway-Route
+      `GET /documents/{id}/export/pdf`, openapi.yaml-Eintrag im selben Commit.
+      Entscheidungen: (a) chart/table-Bloecke mit definitionId laufen ueber
+      `Service.RunReport` (gecacht, gleicher Pfad wie ExportReport) — der
+      Gateway-Handler bleibt dünn, das Aufloesen der Definitionen passiert im
+      Server (`export.ChartTableDefinitionIDs` liefert die IDs, bevor das
+      Rendern beginnt), damit export/ nicht von der Service-Schicht abhaengt.
+      Ein einzelner fehlgeschlagener Chart loggt eine Warnung und rendert als
+      "nicht darstellbar" statt das ganze Dokument scheitern zu lassen. (b)
+      Mehrspaltige Zeilen layouten nur dann echt nebeneinander, wenn JEDE
+      Spalte genau einen kpi-Block traegt (die von der FE dokumentierte
+      "KPI-Zeile") — maroto rendert mehrere Components in einem Col
+      uebereinander an derselben Position (kein automatisches Stacking), darum
+      sind KPI-Karten drei gestapelte Zeilen (Label/Wert/Aenderung) mit je N
+      Spalten statt N Cols mit je 3 Components. Jede andere Mehrspalten-Zeile
+      (z.B. "Text neben Chart") faellt lean auf sequenzielle
+      Voll-breite-Bloecke zurueck — `lean:`-Marker mit Trigger "wenn Kunden
+      echtes Nebeneinander brauchen". (c) `pagebreak`-Block sammelt bisherige
+      Bloecke in eine maroto-Page (`m.AddPages`) statt in flache `AddRows` —
+      damit ist der Seitenumbruch deterministisch statt vom natuerlichen
+      Overflow abhaengig. (d) HTML aus TipTap-Bloecken (text/callout) wird
+      regex-gestrippt auf Plain-Text (`lean:`, Formatierung geht verloren;
+      Trigger "wenn Kunden Fett/Kursiv im Export brauchen") — maroto hat keinen
+      Rich-Text-Renderer. (e) image-Bloecke werden NICHT gefetcht/eingebettet,
+      nur als Platzhalter-Zeile mit Caption/Alt/URL gerendert (`lean:`,
+      Trigger "wenn Bild-Embedding den Fetch-Pfad-Review wert ist") — beliebige
+      Block-URLs zur Exportzeit abzurufen ist eine SSRF-Flaeche, MinIO-Assets
+      brauchen einen eigenen Presign-Pfad. (f) chart/table ohne definitionId
+      (Inline-Query) rendern denselben Platzhalter wie ein nicht aufloesbarer
+      definitionId — der Executor kann heute ueberhaupt keine Inline-Queries
+      ausfuehren (siehe backend-gaps.md "Query-Builder: BE-Executor liest
+      query_config schon — Editor-Contract festzurren"), das ist keine
+      Regression dieser Unit. Filename bewusst `bericht-<uuid>.pdf` (Titel
+      nicht in den Dateinamen gemappt) — kein Sanitizing-Bedarf, gleiche Wahl
+      wie ExportReport.
+      Gate: `go build -p 2` (berichte/gateway/server/cmd/berichte/cmd/gateway)
+      gruen, `go vet` gruen, `golangci-lint run` 0 issues,
+      `go test -count=1 ./internal/...` fuer berichte/gateway/server
+      vollstaendig gruen (0 Skips), inkl. `TestOpenAPIRouteDrift`
+      (736 registrierte gegen 738 dokumentierte Pfade). 9 neue Tests in
+      document_pdf_test.go (alle 14 Blocktypen + Pagebreak + leeres Dokument +
+      nicht aufloesbarer Chart + kaputtes JSON + ChartTableDefinitionIDs) +
+      3 neue Server-Tests (Happy-Path, NotFound, ungueltige tenant_id).
+      RLS-Smoke: n.a. — keine neue Tabelle, keine Policy angefasst.
+      Offen / fuer Luke: kein FE-Aufruf dieser Route bisher
+      (`berichte-client.ts` hat noch keine `exportReportDocument`-Funktion) —
+      die Route ist neu spezifiziert gegen `openapi.yaml`, nicht gegen einen
+      bestehenden FE-Call verifiziert. Chart/Tabelle ohne gespeicherte
+      Definition (Inline-Query aus dem Block-Editor) bleibt im PDF ein
+      Platzhalter, bis der Executor Inline-Queries ausfuehren kann. Bilder
+      werden im PDF nicht eingebettet (Platzhalter-Zeile). Mehrspaltige Zeilen
+      mit gemischtem Blockinhalt (nicht reine KPI-Zeilen) rendern sequenziell
+      statt nebeneinander.
 
   - id: p3-berichte-templates
     phase: 3

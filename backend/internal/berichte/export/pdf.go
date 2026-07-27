@@ -35,7 +35,22 @@ func (e *PDFExporter) Export(result *berichte.ReportResult, w io.Writer) error {
 		Build()
 
 	m := maroto.New(cfg)
+	m.AddRows(resultRows(result)...)
 
+	doc, err := m.Generate()
+	if err != nil {
+		return fmt.Errorf("pdf generate: %w", err)
+	}
+
+	_, err = w.Write(doc.GetBytes())
+	return err
+}
+
+// resultRows renders a ReportResult as a header row (bold, dark background)
+// plus alternating-shade data rows. Shared with DocumentPDFExporter, which
+// embeds the same table for chart/table blocks that resolve to a saved
+// definition (see document_pdf.go).
+func resultRows(result *berichte.ReportResult) []core.Row {
 	// Distribute columns evenly across the 12-grid.
 	numCols := len(result.Columns)
 	if numCols == 0 {
@@ -84,11 +99,11 @@ func (e *PDFExporter) Export(result *berichte.ReportResult, w io.Writer) error {
 	}
 
 	headerBg := &props.Color{Red: 50, Green: 50, Blue: 50}
-	m.AddRows(row.New(8).WithStyle(&props.Cell{BackgroundColor: headerBg}).Add(headerCols...))
+	rows := []core.Row{row.New(8).WithStyle(&props.Cell{BackgroundColor: headerBg}).Add(headerCols...)}
 
 	// Guard: no data rows → show placeholder.
 	if len(result.Rows) == 0 {
-		m.AddRows(row.New(8).Add(
+		rows = append(rows, row.New(8).Add(
 			col.New(12).Add(
 				text.New("Keine Daten", props.Text{
 					Size:  9,
@@ -126,14 +141,8 @@ func (e *PDFExporter) Export(result *berichte.ReportResult, w io.Writer) error {
 		if i%2 == 1 {
 			r = r.WithStyle(&props.Cell{BackgroundColor: lightGrey})
 		}
-		m.AddRows(r.Add(dataCols...))
+		rows = append(rows, r.Add(dataCols...))
 	}
 
-	doc, err := m.Generate()
-	if err != nil {
-		return fmt.Errorf("pdf generate: %w", err)
-	}
-
-	_, err = w.Write(doc.GetBytes())
-	return err
+	return rows
 }

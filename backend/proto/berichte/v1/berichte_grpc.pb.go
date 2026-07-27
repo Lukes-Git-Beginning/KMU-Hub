@@ -39,6 +39,7 @@ const (
 	BerichteService_UpdateDocument_FullMethodName    = "/berichte.v1.BerichteService/UpdateDocument"
 	BerichteService_DeleteDocument_FullMethodName    = "/berichte.v1.BerichteService/DeleteDocument"
 	BerichteService_ListDocuments_FullMethodName     = "/berichte.v1.BerichteService/ListDocuments"
+	BerichteService_ExportDocumentPDF_FullMethodName = "/berichte.v1.BerichteService/ExportDocumentPDF"
 	BerichteService_ListTemplates_FullMethodName     = "/berichte.v1.BerichteService/ListTemplates"
 	BerichteService_CreateShareToken_FullMethodName  = "/berichte.v1.BerichteService/CreateShareToken"
 	BerichteService_ListShareTokens_FullMethodName   = "/berichte.v1.BerichteService/ListShareTokens"
@@ -76,6 +77,10 @@ type BerichteServiceClient interface {
 	UpdateDocument(ctx context.Context, in *UpdateDocumentRequest, opts ...grpc.CallOption) (*DocumentResponse, error)
 	DeleteDocument(ctx context.Context, in *DeleteDocumentRequest, opts ...grpc.CallOption) (*DeleteDocumentResponse, error)
 	ListDocuments(ctx context.Context, in *ListDocumentsRequest, opts ...grpc.CallOption) (*ListDocumentsResponse, error)
+	// ExportDocumentPDF renders the document's block tree (rows -> columns ->
+	// blocks) to a PDF via the maroto renderer in berichte/export. See
+	// export.DocumentPDFExporter for the block-type mapping.
+	ExportDocumentPDF(ctx context.Context, in *ExportDocumentPDFRequest, opts ...grpc.CallOption) (*ExportDocumentPDFResponse, error)
 	// Templates (static starter structures for "Neuer Bericht aus Vorlage")
 	ListTemplates(ctx context.Context, in *ListTemplatesRequest, opts ...grpc.CallOption) (*ListTemplatesResponse, error)
 	// External share links for a report document.
@@ -296,6 +301,16 @@ func (c *berichteServiceClient) ListDocuments(ctx context.Context, in *ListDocum
 	return out, nil
 }
 
+func (c *berichteServiceClient) ExportDocumentPDF(ctx context.Context, in *ExportDocumentPDFRequest, opts ...grpc.CallOption) (*ExportDocumentPDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExportDocumentPDFResponse)
+	err := c.cc.Invoke(ctx, BerichteService_ExportDocumentPDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *berichteServiceClient) ListTemplates(ctx context.Context, in *ListTemplatesRequest, opts ...grpc.CallOption) (*ListTemplatesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListTemplatesResponse)
@@ -376,6 +391,10 @@ type BerichteServiceServer interface {
 	UpdateDocument(context.Context, *UpdateDocumentRequest) (*DocumentResponse, error)
 	DeleteDocument(context.Context, *DeleteDocumentRequest) (*DeleteDocumentResponse, error)
 	ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error)
+	// ExportDocumentPDF renders the document's block tree (rows -> columns ->
+	// blocks) to a PDF via the maroto renderer in berichte/export. See
+	// export.DocumentPDFExporter for the block-type mapping.
+	ExportDocumentPDF(context.Context, *ExportDocumentPDFRequest) (*ExportDocumentPDFResponse, error)
 	// Templates (static starter structures for "Neuer Bericht aus Vorlage")
 	ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error)
 	// External share links for a report document.
@@ -455,6 +474,9 @@ func (UnimplementedBerichteServiceServer) DeleteDocument(context.Context, *Delet
 }
 func (UnimplementedBerichteServiceServer) ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDocuments not implemented")
+}
+func (UnimplementedBerichteServiceServer) ExportDocumentPDF(context.Context, *ExportDocumentPDFRequest) (*ExportDocumentPDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExportDocumentPDF not implemented")
 }
 func (UnimplementedBerichteServiceServer) ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTemplates not implemented")
@@ -852,6 +874,24 @@ func _BerichteService_ListDocuments_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BerichteService_ExportDocumentPDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportDocumentPDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).ExportDocumentPDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_ExportDocumentPDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).ExportDocumentPDF(ctx, req.(*ExportDocumentPDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BerichteService_ListTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListTemplatesRequest)
 	if err := dec(in); err != nil {
@@ -1028,6 +1068,10 @@ var BerichteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListDocuments",
 			Handler:    _BerichteService_ListDocuments_Handler,
+		},
+		{
+			MethodName: "ExportDocumentPDF",
+			Handler:    _BerichteService_ExportDocumentPDF_Handler,
 		},
 		{
 			MethodName: "ListTemplates",

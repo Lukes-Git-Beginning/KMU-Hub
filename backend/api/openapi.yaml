@@ -21390,6 +21390,33 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/berichte/documents/{id}/export/pdf:
+    get:
+      summary: Server-rendered PDF of a report document
+      description: >
+        Requires berichte:reports:read permission. Renders the document's
+        block tree (rows -> columns -> blocks) via the maroto/v2 renderer —
+        chart and table blocks are rendered as data tables, not charts (no
+        chart-rendering dependency added). Blocks backed by an inline query
+        instead of a saved definition render as unavailable, since the
+        executor only runs saved definitions.
+      tags: [berichte]
+      operationId: exportBerichteDocumentPdf
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/berichte/documents/{id}/shares:
     get:
       summary: List the live share links of a report document

@@ -2958,3 +2958,35 @@ bleibt.
     naechste Iteration hat ohne den nichts zu tun.
 
 - iteration 34 commit: `442f7357`
+
+## Iteration 35 — p3-berichte-server-pdf — done — 2026-07-27 23:20
+
+- commit: `f1eedab1`
+- gebaut: `export.DocumentPDFExporter` (document_pdf.go) rendert das
+  Rows->Columns->Blocks-JSONB eines `berichte.Document` ueber maroto/v2 als
+  A4-PDF — alle 14 Blocktypen (cover/heading/text/chart/table/kpi/callout/
+  bullet/divider/image/pagebreak + code/simpletable/quote). Neues RPC
+  `ExportDocumentPDF`, Gateway-Route `GET /berichte/documents/{id}/export/pdf`,
+  openapi.yaml-Eintrag, alle im selben Commit. `pdf.go` refaktoriert:
+  Tabellen-Render-Logik aus `PDFExporter.Export` in eine geteilte
+  `resultRows()` gezogen (reines Extrahieren, bestehende Tests unveraendert
+  gruen), die auch chart/table-Bloecke mit gespeicherter Definition nutzen.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (0 Skips, inkl.
+  TestOpenAPIRouteDrift 736/738) | migration n.a. | rls-smoke n.a. (keine neue
+  Tabelle/Policy)
+- verify vorgaenger: sauber. Commit 442f7357 (Iteration 34, Share-Token-RPC)
+  gegen alle sechs Fehlerklassen geprueft: Gateway-Handler gehen ueber den
+  gRPC-Client (auch der neue Public-Handler), keine Stubs, .proto und .pb.go
+  im selben Commit regeneriert, kein neuer RequirePermission-Guard (bestehende
+  berichte:reports-Permission wiederverwendet), RLS-Policy auf
+  report_share_tokens korrekt mit System-Context-Escape fuer die
+  Token-Aufloesung, openapi.yaml-Eintrag vorhanden.
+- offen: kein FE-Aufruf der neuen Export-Route bisher (berichte-client.ts hat
+  keine exportReportDocument-Funktion) — Wire-Shape ist gegen openapi.yaml
+  spezifiziert, nicht gegen einen bestehenden FE-Call verifiziert. Details und
+  alle Lean-Entscheidungen (KPI-Zeilen-Layout, Bild-Platzhalter,
+  HTML-Stripping, Inline-Query-Chart-Platzhalter) stehen im BACKLOG.yml-Eintrag
+  von p3-berichte-server-pdf. Queue-Stand: die Phase-3-Units sind alle
+  done/blocked; die 15 `wp-*`-Write-Path-Units aus Run 2 (Commit `6b5c68e6`)
+  stehen weiter auf `todo` — die naechste Iteration zieht die erste davon
+  (`wp-settings`, keine deps).

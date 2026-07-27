@@ -38,6 +38,10 @@ service BerichteService {
   rpc UpdateDocument(UpdateDocumentRequest) returns (DocumentResponse);
   rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
   rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse);
+  // ExportDocumentPDF renders the document's block tree (rows -> columns ->
+  // blocks) to a PDF via the maroto renderer in berichte/export. See
+  // export.DocumentPDFExporter for the block-type mapping.
+  rpc ExportDocumentPDF(ExportDocumentPDFRequest) returns (ExportDocumentPDFResponse);
 
   // Templates (static starter structures for "Neuer Bericht aus Vorlage")
   rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
@@ -368,6 +372,16 @@ message ListDocumentsRequest {
 message ListDocumentsResponse {
   repeated Document documents = 1;
   int32 total = 2;
+}
+
+message ExportDocumentPDFRequest {
+  string tenant_id = 1;
+  string document_id = 2;
+}
+
+message ExportDocumentPDFResponse {
+  bytes pdf_data = 1;
+  string filename = 2;
 }
 
 // ============================================================================

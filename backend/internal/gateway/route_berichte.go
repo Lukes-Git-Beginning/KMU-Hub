@@ -87,6 +87,7 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleGetDocument)
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Patch("/", br.HandleUpdateDocument)
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/", br.HandleDeleteDocument)
+				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/export/pdf", br.HandleExportDocumentPDF)
 
 				// External share links. Minting one hands out an
 				// unauthenticated read path, so it sits behind the same
@@ -512,6 +513,38 @@ func (br *BerichteRoutes) HandleGetDocument(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	response.JSON(w, http.StatusOK, map[string]any{"document": toReportDocumentWire(resp.GetDocument())})
+}
+
+// HandleExportDocumentPDF GET /api/v1/berichte/documents/{id}/export/pdf
+// Returns a server-rendered PDF of the document's block tree (maroto, see
+// berichte/export/document_pdf.go). The FE's window.print() path stays the
+// primary "print" affordance; this is the real downloadable file behind it.
+func (br *BerichteRoutes) HandleExportDocumentPDF(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ExportDocumentPDF(r.Context(), &berichtev1.ExportDocumentPDFRequest{
+		TenantId:   tenantID.String(),
+		DocumentId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	respondPDF(w, resp.GetPdfData(), resp.GetFilename())
 }
 
 func (br *BerichteRoutes) HandleCreateDocument(w http.ResponseWriter, r *http.Request) {

@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
+	"github.com/kmuhub/kmuhub/internal/berichte/export"
 	berichtev1 "github.com/kmuhub/kmuhub/proto/berichte/v1"
 )
 
@@ -604,6 +605,59 @@ func (s *BerichteGRPCServer) ListDocuments(ctx context.Context, req *berichtev1.
 		out = append(out, documentToProto(d))
 	}
 	return &berichtev1.ListDocumentsResponse{Documents: out, Total: int32(total)}, nil
+}
+
+// ExportDocumentPDF renders the document's block tree to a PDF via
+// export.DocumentPDFExporter. Chart/table blocks that reference a saved
+// definition are resolved through the same Service.RunReport path (and cache)
+// as ExportReport — a broken chart definition logs a warning and renders as
+// unavailable rather than failing the whole document (a report with 9 good
+// charts and 1 stale one should still download).
+func (s *BerichteGRPCServer) ExportDocumentPDF(ctx context.Context, req *berichtev1.ExportDocumentPDFRequest) (*berichtev1.ExportDocumentPDFResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	doc, err := s.svc.GetDocument(ctx, tenantID, documentID)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+
+	definitionIDs, err := export.ChartTableDefinitionIDs(doc.Rows)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "parse document rows: %v", err)
+	}
+
+	chartResults := make(map[string]*berichte.ReportResult, len(definitionIDs))
+	for _, idStr := range definitionIDs {
+		definitionID, parseErr := uuid.Parse(idStr)
+		if parseErr != nil {
+			continue
+		}
+		result, _, runErr := s.svc.RunReport(ctx, berichte.RunReportInput{
+			TenantID:     tenantID,
+			DefinitionID: definitionID,
+			Trigger:      "document-export",
+		})
+		if runErr != nil {
+			slog.Warn("document pdf export: chart/table definition failed to run",
+				"definition_id", idStr, "document_id", documentID, "error", runErr)
+			continue
+		}
+		chartResults[idStr] = result
+	}
+
+	var buf bytes.Buffer
+	exporter := &export.DocumentPDFExporter{}
+	if exportErr := exporter.Export(doc, chartResults, &buf); exportErr != nil {
+		return nil, status.Errorf(codes.Internal, "generate document pdf: %v", exportErr)
+	}
+
+	return &berichtev1.ExportDocumentPDFResponse{
+		PdfData:  buf.Bytes(),
+		Filename: fmt.Sprintf("bericht-%s.pdf", documentID.String()),
+	}, nil
 }
 
 // ============================================================================
