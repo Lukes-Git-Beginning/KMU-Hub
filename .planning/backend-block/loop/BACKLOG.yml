@@ -1452,3 +1452,394 @@ units:
       - Tenant-Erzeugung transaktional, Teilfehler hinterlaesst nichts
       - Frisch erzeugter Tenant sieht keine Fremddaten (RLS-Smoke explizit)
       - go build/vet/lint/test gruen
+
+# ===========================================================================
+# BLOCK 2 - Write-Path-Tests (Nachtlauf 2, angelegt 2026-07-27)
+# ===========================================================================
+#
+# Befund, der diesen Block ausloest: 64 von 68 DB-gestuetzten Tests im Repo
+# seeden ueber `testutil.SeedRow` und setzen `tenant_id` dabei von Hand. Sie
+# beweisen damit die RLS-Policy - und rufen die Repository-Schreibmethode nie
+# auf. Ein INSERT, der `tenant_id` nicht mitschreibt, ist unter FORCE RLS aber
+# kein falscher Write, sondern ein TOTER: er scheitert bei jedem Aufruf an der
+# NOT-NULL-Constraint. Genau so lagen in Nacht 1 drei Module monatelang kaputt
+# (auth/invitations `41bf1080`, hr-Pausen `d78f9176`, notification `f4be722e`)
+# - Service-Tests laufen gegen Mocks, das FE gegen MSW, und der DB-Test seedete
+# daran vorbei.
+#
+# ACHTUNG, nicht per Grep suchen: ein `grep "INSERT INTO" | grep -v tenant_id`
+# ist wertlos, weil die Spaltenliste meist in der Folgezeile steht. In
+# `produktion` melden so 9 von 9 INSERTs "ohne tenant_id" - alle neun setzen
+# ihn korrekt. Der Test ist der Beweis, nicht das Lesen.
+#
+# GEMEINSAMES MUSTER fuer jede wp-*-Unit (Vorlage:
+# `internal/notification/integration/tenant_write_test.go`, Commits `f4be722e`
+# + `73b47650`):
+#
+#   1. Datei `<paket>/tenant_write_test.go`, `testutil.SkipIfNoDB` + `t.Parallel()`.
+#   2. EIGENE Tenants via `uuid.New()` + `testutil.EnsureTenant` - NIEMALS
+#      `testutil.TenantA/TenantB` teilen. Tabellen mit einer per-Tenant-eindeutigen
+#      Spalte (z.B. `integration_configs` UNIQUE(platform,tenant_id)) kollidieren
+#      sonst mit dem parallel laufenden Isolationstest des gleichen Pakets.
+#   3. Jede Schreibmethode des Repositories EINMAL ECHT AUFRUFEN - `repo.Create...`,
+#      nicht `testutil.SeedRow`. Das ist der ganze Punkt der Unit.
+#   4. Zurueckschreiben pruefen: eigener Tenant-Kontext findet die Zeile,
+#      Fremd-Tenant findet sie nicht (`testutil.AssertRowCount` 1 bzw. 0).
+#   5. Findet sich ein toter Write: IM SELBEN COMMIT reparieren (tenant_id in
+#      INSERT + Modell-Feld + jede WHERE-Klausel der Lese- und Update-Pfade), plus
+#      Journal-Eintrag. Ist die Reparatur groesser als das Modul (Proto-Aenderung,
+#      Migration), dann Test committen + eigene `fix-`Unit vorne anlegen.
+#   6. Gate zwingend MIT Datenbank, sonst beweist die Unit nichts:
+#        export DATABASE_URL="postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable"
+#        go test -count=1 ./internal/<paket>/...
+#      Rolle `kmuhub_app`, nicht `kmuhub` - der Superuser hat BYPASSRLS.
+#      Im Journal unter `gate:` die Zahl der real gelaufenen (nicht
+#      uebersprungenen) DB-Tests nennen.
+#
+# Reihenfolge = Risiko: erst was Nacht 1 neu gebaut hat und was gar keinen
+# DB-Test besitzt, dann die Flaeche.
+
+  - id: wp-settings
+    phase: 3
+    service: settings
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/settings` hat Repository-Writes und KEINEN einzigen
+      DB-gestuetzten Test. Nacht 1 hat hier neu gebaut (`08e29e52` - gebuchter
+      Plan + tenantweite Modul-Aktivierung, Migration 000250). Neuer,
+      ungetesteter Schreibcode auf einer Tabelle unter FORCE RLS ist der
+      wahrscheinlichste Ort fuer einen toten Write im ganzen Repo.
+    sources:
+      - backend/internal/settings/
+      - backend/internal/notification/integration/tenant_write_test.go
+    done_when:
+      - tenant_write_test.go nach dem gemeinsamen Muster, jede Schreibmethode echt aufgerufen
+      - Test laeuft mit DATABASE_URL real (nicht skipped), Fremd-Tenant sieht nichts
+      - gefundene tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-chat
+    phase: 3
+    service: chat
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/chat` hat vier Repository-Dateien mit INSERT und KEINEN
+      DB-Test. Groesste ungepruefte Schreibflaeche im Repo. Chat-Tabellen kamen
+      teils vor der Tenancy-Welle - die Kombination aus alt und ungetestet ist
+      genau die von auth/invitations.
+    sources:
+      - backend/internal/chat/
+      - backend/internal/notification/integration/tenant_write_test.go
+    notes: >
+      Umfang pruefen, bevor du anfaengst: sind es mehr als ~8 Schreibmethoden,
+      deck in dieser Unit die Nachrichten- und Kanal-Pfade ab und leg fuer den
+      Rest (Files, Reactions, Presence) eine Folge-Unit `wp-chat-rest` an,
+      statt die Iteration zu sprengen.
+    done_when:
+      - tenant_write_test.go nach dem gemeinsamen Muster
+      - Test laeuft real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-berichte
+    phase: 3
+    service: berichte
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Nacht 1 hat hier die komplette Dokument-Persistenz (Migration 000245) und
+      die Share-Tokens (000252) neu gebaut. Der vorhandene
+      `tenant_isolation_phase2_test.go` seedet via SeedRow und fasst kein
+      Repository an. Die Share-Token-Pfade sind zusaetzlich
+      sicherheitsrelevant - sie tragen den einzigen unauthentifizierten Read
+      des Moduls.
+    sources:
+      - backend/internal/berichte/postgres_repository.go
+      - backend/internal/berichte/tenant_isolation_phase2_test.go
+    notes: >
+      `GetShareTokenBySecret` laeuft bewusst im System-Kontext und ist damit
+      KEIN Kandidat fuer die Fremd-Tenant-Assertion. Testen: dass der
+      anschliessende `GetDocument` unter dem aufgeloesten Tenant laeuft und ein
+      Dokument eines anderen Tenants auch mit gueltigem Token nicht erreichbar
+      ist.
+    done_when:
+      - tenant_write_test.go nach dem gemeinsamen Muster
+      - Share-Token-Pfad - fremdes Dokument bleibt trotz gueltigem Token unerreichbar
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-auth
+    phase: 3
+    service: auth
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Vier DB-Tests (`rls_invitations`, `rls_provisioning`, `rls_users`,
+      `rls_user_sessions`), alle seeden via SeedRow. Genau hier lag der
+      schwerste Fund von Nacht 1: `invitations` hatte gar keine `tenant_id`,
+      der Unique-Index auf `(email)` galt global ueber alle Mandanten
+      (`41bf1080`, Migration 000249). Der Rest des Moduls ist mit derselben
+      Methode ungeprueft - Sessions, User-Anlage, Provisionierung.
+    sources:
+      - backend/internal/auth/
+      - backend/internal/auth/rls_invitations_test.go
+    done_when:
+      - tenant_write_test.go nach dem gemeinsamen Muster
+      - Test laeuft real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-biz-finance
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `internal/biz` ist die groesste Schreibflaeche des Repos (44 INSERTs) und
+      hat drei DB-Tests, die alle via SeedRow seeden. Nacht 1 hat hier
+      wiederkehrende Rechnungen (000246) und Kontoauszug-Import (000247) neu
+      gebaut. Diese Unit deckt den Finanz-Kern ab: Rechnungen, Zahlungen,
+      Mahnungen, offene Posten, Buchungen.
+    sources:
+      - backend/internal/biz/postgres_repository.go
+      - backend/internal/biz/tenant_isolation_phase2_test.go
+    notes: >
+      Modul ist gross - halte die Unit auf den Finanz-Kern begrenzt. HR sitzt in
+      `wp-biz-hr`, die Integrationen (bexio/lexware/datev/gobdarchive) haben
+      eigene Pakete und bekommen bei Bedarf eigene Units.
+    done_when:
+      - tenant_write_test.go fuer den Finanz-Kern nach dem gemeinsamen Muster
+      - Test laeuft real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-biz-hr
+    phase: 3
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      HR-Pausen waren in Nacht 1 ein toter Write (`d78f9176`): der INSERT kannte
+      `tenant_id` nicht, jede StartBreak gegen eine echte DB starb an der
+      Constraint. Repariert wurde nur der Pausen-Pfad. Der Rest des Moduls -
+      Arbeitszeiten, Abwesenheiten, Dokumente, Stammdaten - ist mit derselben
+      Methode ungeprueft.
+    sources:
+      - backend/internal/biz/hr/
+      - backend/internal/biz/hr/timetracking/postgres_break_scope_test.go
+    done_when:
+      - tenant_write_test.go nach dem gemeinsamen Muster
+      - Test laeuft real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-crm-core
+    phase: 3
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Kern-Entitaeten des CRM: contact, company, deal, activity. Vier Pakete,
+      je ein Isolationstest, alle seeden via SeedRow. Das ist das Modul mit der
+      hoechsten Nutzungsfrequenz - ein toter Write faellt hier zuerst einem
+      Piloten auf, nicht uns.
+    sources:
+      - backend/internal/crm/contact/
+      - backend/internal/crm/company/
+      - backend/internal/crm/deal/
+      - backend/internal/crm/activity/
+    notes: >
+      Vier Pakete = vier Testdateien, aber ein Commit. Wird es zu gross, teil
+      nach dem zweiten Paket und leg `wp-crm-core-2` an.
+    done_when:
+      - tenant_write_test.go je Paket nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-crm-meta
+    phase: 3
+    service: crm
+    model: sonnet
+    deps: [wp-crm-core]
+    status: todo
+    scope: >
+      Rand-Entitaeten des CRM: tag, savedfilter, pipelinestage, customfield,
+      consent. Gleiches Muster wie wp-crm-core. `consent` ist dabei der
+      wichtigste: an ihm haengt die Consent-Enforcement fuer Dialer und E-Mail,
+      ein toter Write dort blockiert die Einwilligungserfassung ganz.
+    sources:
+      - backend/internal/crm/consent/
+      - backend/internal/crm/tag/
+      - backend/internal/crm/customfield/
+    done_when:
+      - tenant_write_test.go je Paket nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-work
+    phase: 3
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Projekte und Aufgaben: task, project, timeentry. Sieben Pakete im Modul,
+      diese Unit nimmt die drei mit der groessten Schreibflaeche. calendar,
+      meeting, resource, recording folgen in `wp-work-rest`, falls diese Unit
+      Funde bringt.
+    sources:
+      - backend/internal/work/task/
+      - backend/internal/work/project/
+      - backend/internal/work/timeentry/
+    done_when:
+      - tenant_write_test.go je Paket nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-security
+    phase: 3
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      gdpr, vault, password, audit. Sicherheitsrelevante Schreibpfade: ein toter
+      Write im Audit-Log heisst, dass ein Vorgang unprotokolliert bleibt - und
+      das faellt per Definition niemandem auf, weil der Beweis genau die Zeile
+      waere, die fehlt.
+    sources:
+      - backend/internal/security/audit/
+      - backend/internal/security/gdpr/
+      - backend/internal/security/vault/
+    notes: >
+      `audit_log` ist append-only (Trigger, GoBD/AO) - `CleanupRow` schlaegt
+      dort fehl. Im Test nicht aufraeumen wollen, sondern die Zeile stehen
+      lassen und ueber eine eigene ID identifizieren.
+    done_when:
+      - tenant_write_test.go je Paket nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-inbox-einkauf
+    phase: 3
+    service: inbox
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Beide Module hat Nacht 1 angefasst - inbox (Tags, Status, Forward:
+      `31d933a1`, `8c133f25`, Migration 000244) und einkauf (PO-Cancel,
+      Zeilenmutationen: `5901a151`, `e91cdf2a`). Neuer Schreibcode, in beiden
+      Faellen nur gegen Mocks getestet.
+    sources:
+      - backend/internal/inbox/
+      - backend/internal/einkauf/
+    done_when:
+      - tenant_write_test.go je Modul nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-helpdesk-dialer
+    phase: 3
+    service: helpdesk
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      helpdesk (Tickets) und dialer (Anrufe, Outcomes). Beide mit
+      Isolationstests, die via SeedRow seeden. Der Dialer schreibt zusaetzlich
+      idempotent ueber Idempotency-Keys - pruef, dass der Key-Pfad selbst den
+      Tenant traegt.
+    sources:
+      - backend/internal/helpdesk/
+      - backend/internal/dialer/
+      - backend/internal/idempotency/
+    done_when:
+      - tenant_write_test.go je Modul nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-document-wiki
+    phase: 3
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      document (folder, tag) und wiki. Wiki hat eigene Share-Tokens - dasselbe
+      Muster wie in berichte, also derselbe Pruefpunkt: ein fremder Artikel
+      darf auch mit gueltigem Token nicht erreichbar sein.
+    sources:
+      - backend/internal/document/
+      - backend/internal/wiki/
+    done_when:
+      - tenant_write_test.go je Paket nach dem gemeinsamen Muster
+      - Wiki-Share-Token - fremder Artikel bleibt trotz gueltigem Token unerreichbar
+      - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-branchen-module
+    phase: 3
+    service: querschnitt
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Die kleineren Branchenmodule mit je einem SeedRow-Isolationstest:
+      produktion, inventar, fuhrpark, schichten, rapporte, vertraege,
+      vermietung, formulare, caldav, automation. Je Modul wenige
+      Schreibmethoden, deshalb als ein Block.
+    sources:
+      - backend/internal/produktion/
+      - backend/internal/inventar/
+      - backend/internal/fuhrpark/
+    notes: >
+      Zehn Module sind zu viel fuer eine Iteration. Arbeite sie in der
+      genannten Reihenfolge ab, committe nach jeweils drei bis vier Modulen und
+      leg fuer den Rest eine Folge-Unit `wp-branchen-module-2` an, bevor du
+      aufhoerst - sonst weiss die naechste Iteration nicht, wo du warst.
+    done_when:
+      - tenant_write_test.go je bearbeitetem Modul nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - Folge-Unit fuer die nicht geschafften Module angelegt
+      - go build/vet/lint/test gruen
+
+  - id: wp-testutil-guard
+    phase: 3
+    service: testutil
+    model: sonnet
+    deps: [wp-settings, wp-chat]
+    status: todo
+    scope: >
+      Nach zwei bis drei wp-Units ist das Muster erprobt. Diese Unit macht es
+      dauerhaft: ein Helper `testutil.AssertWriteCarriesTenant(t, pool, write,
+      table, id)`, der den Dreischritt (echter Repo-Write, eigener Tenant sieht
+      die Zeile, fremder nicht) buendelt, damit die restlichen Module ihn nur
+      noch aufrufen.
+    sources:
+      - backend/internal/testutil/rls.go
+      - backend/internal/notification/integration/tenant_write_test.go
+    notes: >
+      Erst bauen, wenn mindestens zwei wp-Units fertig sind - sonst abstrahierst
+      du aus einem einzigen Beispiel und der Helper passt auf nichts. Bereits
+      geschriebene wp-Tests auf den Helper umstellen ist NICHT Teil dieser Unit;
+      neue Tests nutzen ihn, alte bleiben, bis sie ohnehin angefasst werden.
+    done_when:
+      - Helper existiert, ist dokumentiert und in mindestens einem Modul benutzt
+      - go build/vet/lint/test gruen

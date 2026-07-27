@@ -48,15 +48,23 @@ block() {
 }
 
 # --- Git: push ---------------------------------------------------------------
-# Der Loop pusht GAR NICHT. Zwei Gruende:
+# Der Agent pusht GAR NICHT. Zwei Gruende:
 #   1. Push auf main loest CI->CD und damit einen unbeaufsichtigten Production-
 #      Deploy aus.
-#   2. Push auf einen Branch mit offenem PR startet GitHub Actions - Minuten auf
-#      einem privaten Repo, und zwei PR-Workflows (Claude Code Review, Claude
-#      Security Analysis) laufen mit einem echten ANTHROPIC_API_KEY als
-#      Repo-Secret. Das wird separat abgerechnet, unabhaengig vom Claude-Abo,
-#      ueber das der Loop selbst laeuft.
-# Der Loop committet lokal; Luke pusht einmal bewusst beim Review.
+#   2. Jeder Push gegen einen offenen PR startet einen CI-Lauf - Runner-Minuten
+#      auf einem privaten Repo. Zwanzig Pushes pro Nacht waeren zwanzig Laeufe
+#      fuer ein Signal, das einer am Ende genauso gibt.
+#
+# KORREKTUR 2026-07-27: eine fruehere Fassung dieses Kommentars behauptete, zwei
+# PR-Workflows liefen mit einem separat abgerechneten ANTHROPIC_API_KEY. Das ist
+# falsch - ein solches Secret existiert im Repo nicht (`gh secret list`). Claude
+# PR Review und Security Review nutzen CLAUDE_CODE_OAUTH_TOKEN, also dasselbe
+# Abo, ueber das auch der Loop laeuft: sie kosten Cap, kein Geld. Die Blockade
+# bleibt trotzdem, jetzt aus dem richtigen Grund (Actions-Minuten + Deploy).
+#
+# Den einen Push pro Nacht macht run-loop.ps1 nach der letzten Iteration. Der
+# Treiber laeuft nicht unter diesem Hook - die Grenze fuer den Agenten bleibt
+# damit unveraendert hart.
 if echo "$CMD" | grep -Eq '(^|[^a-zA-Z-])git[[:space:]]+push'; then
   block "git push. Der Loop committet ausschliesslich lokal - jeder Push kostet Actions-Minuten und triggert API-Key-abgerechnete Review-Workflows. Luke pusht beim Review."
 fi

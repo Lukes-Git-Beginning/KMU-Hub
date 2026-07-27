@@ -38,14 +38,31 @@ kein `ANTHROPIC_API_KEY` gesetzt). Das `total_cost_usd`-Feld in `logs/iter-*.jso
 API-**Aequivalenzwert** — was es ueber die API gekostet haette — keine Rechnung. Verbraucht werden
 Abo-Limits (5-Stunden-Fenster und Wochen-Cap), nicht Euro.
 
-Was Geld kosten wuerde, ist deshalb komplett ausgebaut: **der Loop pusht nicht.** Jeder Push gegen
-einen offenen PR startet GitHub Actions (Minuten-Kontingent, privates Repo), und zwei PR-Workflows
-(`Claude Code Review`, `Claude Security Analysis`) laufen mit einem echten `ANTHROPIC_API_KEY` als
-Repo-Secret — separat abgerechnet. Der Guard blockt `git push` und `gh pr create` hart.
+**Korrektur 2026-07-27:** eine fruehere Fassung behauptete hier, `Claude PR Review` und
+`Security Review` liefen mit einem separat abgerechneten `ANTHROPIC_API_KEY`. Das ist falsch — ein
+solches Secret existiert im Repo nicht (`gh secret list` zeigt nur `CLAUDE_CODE_OAUTH_TOKEN`). Beide
+nutzen dasselbe Abo wie der Loop: sie kosten **Cap, kein Geld**.
 
-Preis dafuer: kein CI ueber Nacht. Das lokale Gate ist der einzige Gate — darum ist
-`go test ./internal/gateway/` bei Routen-Aenderungen Pflicht (genau das hat CI im Trockenlauf
-gefunden). CI faehrst du **einmal** beim Review.
+Der einzige echte Geldposten sind damit **Actions-Minuten** (privates Repo). Ein CI-Lauf ist rund
+10 Runner-Minuten. Deshalb: **genau ein Push pro Nacht**, ausgefuehrt vom Treiber nach der letzten
+Iteration (`run-loop.ps1`, Abschnitt CI-Phase) — nicht vom Agenten, fuer den der Guard `git push`
+weiterhin hart blockt. Morgens liegt damit ein echtes CI-Signal vor, nicht nur ein lokales.
+
+Das ersetzt das lokale Gate **nicht**: ein CI-Lauf am Ende der Nacht findet einen Fehler erst, wenn
+zwanzig Commits darauf stehen. `DATABASE_URL` (sonst laufen alle DB-Tests ins Skip) und
+`go test ./internal/gateway/` bei Routen-Aenderungen bleiben Pflicht.
+
+**Voraussetzung fuer das CI-Signal: ein offener PR auf `backend-loop`.** `ci.yml` triggert nur auf
+`push: [main]` und `pull_request: [main]` — ein Push auf einen Branch ohne PR startet nichts. Der
+Treiber legt bewusst keinen an (`gh pr create` wuerde die beiden Review-Workflows zuenden, beide ohne
+Draft-Gate) und meldet stattdessen im Log, dass kein Lauf startete. Ist der PR gemergt, vor der
+naechsten Nacht einen neuen anlegen:
+
+```bash
+gh workflow disable "Claude PR Review"; gh workflow disable "Security Review"
+gh pr create --base main --head backend-loop --draft --title "Backend-Nachtlauf"
+gh workflow enable "Claude PR Review"; gh workflow enable "Security Review"
+```
 
 Die reale Grenze eines Dauerlaufs ist der Wochen-Cap des Abos: ein Loop, der ihn leerlaeuft,
 blockiert deine eigenen Sessions. Ueber `-MaxIterations` und `-UntilTime` steuerbar.

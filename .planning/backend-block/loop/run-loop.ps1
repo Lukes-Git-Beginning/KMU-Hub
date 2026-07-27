@@ -221,5 +221,88 @@ while ($i -lt $MaxIterations) {
 }
 
 Write-Line "Loop beendet nach $i Iteration(en)." "Green"
+
+# --- CI-Phase ----------------------------------------------------------------
+# Genau ein Push am Ende des Laufs, und damit genau ein CI-Lauf, dessen Ergebnis
+# morgens vorliegt. Bewusst hier im Treiber und nicht in der Iteration: der
+# Guard blockt `git push` fuer den Agenten weiterhin hart, die Grenze bleibt
+# also unveraendert. Der Treiber laeuft nicht unter dem Guard.
+#
+# Actions-Minuten sind der einzige echte Kostenposten (die beiden
+# Review-Workflows laufen ueber CLAUDE_CODE_OAUTH_TOKEN, also das Abo). Ein Lauf
+# pro Nacht ist ~10 Runner-Minuten - gegen einen Vormittag Fehlersuche ist das
+# nichts.
+#
+# Kein `gh pr create`: das wuerde Claude PR Review und Security Review zuenden,
+# beide ohne Draft-Gate. Existiert kein offener PR, wird nur gepusht und im Log
+# vermerkt - den PR legt Luke bewusst an (Reihenfolge: erst beide Workflows
+# disablen, dann PR oeffnen, nach gruenem CI wieder enablen).
+if (-not $DryRun) {
+    $ahead = (& git rev-list --count "origin/backend-loop..HEAD" 2>$null)
+    if ($LASTEXITCODE -ne 0) { $ahead = "0" }
+
+    if ([int]$ahead -eq 0) {
+        Write-Line "CI-Phase: keine neuen Commits - nichts zu pushen." "DarkGray"
+    } else {
+        Write-Line "CI-Phase: $ahead neue Commit(s), pushe backend-loop." "Cyan"
+        & git push origin backend-loop 2>&1 | ForEach-Object { Write-Line "  $_" "DarkGray" }
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Line "Push fehlgeschlagen - CI laeuft nicht. Commits liegen lokal." "Red"
+        } else {
+            $prState = (& gh pr list --head backend-loop --state open --json number --jq ".[0].number" 2>$null)
+            if ([string]::IsNullOrWhiteSpace($prState)) {
+                Write-Line "Kein offener PR fuer backend-loop - CI wurde NICHT gestartet." "Yellow"
+                Write-Line "  PR anlegen (Workflows vorher disablen!): siehe RESUME-Datei." "Yellow"
+            } else {
+                # Den Lauf ueber die gepushte SHA identifizieren, nicht ueber
+                # `--limit 1`. Sonst wird der letzte, laengst abgeschlossene Lauf
+                # gelesen und sofort als Ergebnis dieses Pushes gemeldet - ein
+                # gruenes Signal, das nichts beweist. Zusaetzlich hat ci.yml einen
+                # paths-Filter auf backend/**: eine Nacht, die nur Planning-Dateien
+                # anfasst, startet gar keinen Lauf. Beides muss unterscheidbar sein
+                # von "laeuft noch".
+                $sha = (& git rev-parse HEAD).Trim()
+                Write-Line "Push gegen offenen PR #$prState - warte auf CI fuer $($sha.Substring(0,8))." "Cyan"
+
+                $waited  = 0
+                $runId   = ""
+                $status  = ""
+                # Erst bis zu 5 min auf den Start, dann bis zu 30 min auf das Ende.
+                while ($waited -lt 2100) {
+                    Start-Sleep -Seconds 60
+                    $waited += 60
+                    $runId = (& gh run list --branch backend-loop --workflow=ci.yml --limit 10 --json databaseId,headSha --jq "[.[] | select(.headSha==\"$sha\")][0].databaseId" 2>$null)
+                    if ([string]::IsNullOrWhiteSpace($runId)) {
+                        if ($waited -ge 300) {
+                            Write-Line "Nach 5 min kein CI-Lauf fuer diese SHA - vermutlich paths-Filter (nur Nicht-Backend-Dateien geaendert)." "Yellow"
+                            break
+                        }
+                        continue
+                    }
+                    $status = (& gh run view $runId --json status --jq ".status" 2>$null)
+                    if ($status -eq "completed") { break }
+                }
+
+                if ($status -eq "completed") {
+                    $concl = (& gh run view $runId --json conclusion --jq ".conclusion" 2>$null)
+                    if ($concl -eq "success") {
+                        Write-Line "CI GRUEN (Run $runId)." "Green"
+                    } else {
+                        Write-Line "CI ROT (Run $runId, $concl) - Details: gh run view $runId --log-failed" "Red"
+                    }
+                    # Ergebnis ins Journal, damit die erste Iteration der
+                    # naechsten Nacht es im Verify-Vorspann sieht.
+                    $stamp = Get-Date -Format "yyyy-MM-dd HH:mm"
+                    $entry = "`n## CI nach Lauf ($stamp)`n- run: $runId`n- sha: $sha`n- ergebnis: $concl`n- commits: $ahead`n"
+                    try { Add-Content -Path $Journal -Value $entry -Encoding utf8 } catch { }
+                } elseif (-not [string]::IsNullOrWhiteSpace($runId)) {
+                    Write-Line "CI (Run $runId) nach 35 min noch nicht fertig - morgens pruefen." "Yellow"
+                }
+            }
+        }
+    }
+}
+
 Write-Line "Review:  git log --oneline main..backend-loop" "Cyan"
 Write-Line "Journal: $Journal" "Cyan"

@@ -132,13 +132,28 @@ Alles aus `backend/`. `go build ./...` laeuft in einen OOM — immer gezielt mit
 
 ```bash
 export PATH="$PATH:/c/Program Files/Go/bin:$HOME/go/bin"
+export DATABASE_URL="postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable"
 cd backend
 go build -p 2 ./internal/<svc>/... ./internal/gateway/... ./cmd/<svc>/... ./cmd/gateway/...
 go vet ./internal/<svc>/... ./internal/gateway/...
 golangci-lint run --config .golangci.yml ./internal/<svc>/... ./internal/gateway/...
-go test ./internal/<svc>/...
-go test ./internal/gateway/          # PFLICHT sobald du eine Route angefasst hast
+go test -count=1 ./internal/<svc>/...
+go test -count=1 ./internal/gateway/    # PFLICHT sobald du eine Route angefasst hast
 ```
+
+**`DATABASE_URL` ist nicht optional.** Ohne die Variable ruft `testutil.SkipIfNoDB` in jedem
+Integrationstest `t.Skip`, und `go test` meldet `ok` fuer Pakete, deren DB-Tests gar nicht liefen. Das
+ist kein gruenes Gate, sondern keins. Real passiert: Nachtlauf 1 lief 30 Iterationen mit einem Gate ohne
+diese Variable, der erste CI-Lauf fiel sofort (Duplicate Key in `integration_configs`, siehe
+`GATE-COMMANDS.md`). Die Rolle muss `kmuhub_app` sein, nicht `kmuhub` — der Superuser hat `BYPASSRLS`,
+unter ihm bestehen RLS-Isolationstests, ohne etwas zu beweisen. Hat die Rolle lokal noch kein Passwort:
+
+```bash
+docker exec docker-postgres-1 psql -U kmuhub -d kmuhub -c "ALTER ROLE kmuhub_app WITH PASSWORD 'app_dev'"
+```
+
+Pruef nach dem Lauf, dass **null** Tests uebersprungen wurden, und schreib die Zahl der real gelaufenen
+DB-Tests ins Journal. `-count=1` verhindert, dass ein gecachtes Ergebnis fuer einen echten Lauf einsteht.
 
 `go test ./internal/gateway/` ist nicht optional: dort liegt `TestOpenAPIRouteDrift`, der jede
 registrierte `/api/v1/*`-Route gegen `api/openapi.yaml` abgleicht. Nur die Service-Tests zu fahren
@@ -191,15 +206,22 @@ Die naechste Iteration nimmt die naechste Unit.
 
 **Du pushst nicht, du legst keinen PR an, du triggerst keine Workflows.** Der Guard blockt das hart.
 
-Der Grund ist Geld, nicht Sicherheit: jeder Push gegen einen offenen PR startet GitHub Actions
-(Minuten-Kontingent auf einem privaten Repo), und zwei der PR-Workflows laufen mit einem echten
-`ANTHROPIC_API_KEY` als Repo-Secret — das wird separat abgerechnet und hat nichts mit dem
-Claude-Abo zu tun, ueber das du selbst laeufst. Ein Nachtlauf mit zwanzig Pushes waere eine
-zwanzigfache Rechnung fuer null Zusatznutzen.
+Der Grund sind Actions-Minuten: jeder Push gegen einen offenen PR startet einen CI-Lauf, und auf einem
+privaten Repo kostet jede Runner-Minute Kontingent. Zwanzig Pushes in einer Nacht waeren zwanzig CI-Laeufe
+fuer ein Signal, das einer am Ende genauso gibt.
 
-Deine Commits liegen lokal auf `backend-loop`. Luke pusht und faehrt CI **einmal**, wenn er
-ohnehin reviewt. Deshalb ist dein lokales Gate der einzige Gate — ueberspringe nichts davon,
-besonders nicht `go test ./internal/gateway/` bei Routen-Aenderungen.
+(Korrektur zur frueheren Fassung dieses Absatzes: die beiden Review-Workflows laufen **nicht** mit einem
+separat abgerechneten `ANTHROPIC_API_KEY` — ein solches Secret existiert im Repo nicht. Sie nutzen
+`CLAUDE_CODE_OAUTH_TOKEN`, also dasselbe Abo, ueber das auch du laeufst. Sie kosten Cap, kein Geld. An
+deiner Grenze aendert das nichts, an der Begruendung schon.)
+
+**Den Push macht der Treiber, nicht du.** `run-loop.ps1` pusht nach der letzten Iteration genau einmal
+und startet damit genau einen CI-Lauf, dessen Ergebnis morgens vorliegt. Deine Aufgabe endet mit dem
+lokalen Commit.
+
+Trotzdem bleibt dein lokales Gate das entscheidende — ein CI-Lauf am Ende der Nacht findet einen Fehler
+erst, wenn zwanzig Commits darauf stehen. Ueberspringe nichts davon, besonders nicht `DATABASE_URL`
+(Schritt 5) und nicht `go test ./internal/gateway/` bei Routen-Aenderungen.
 
 ### 8 · Ende
 
