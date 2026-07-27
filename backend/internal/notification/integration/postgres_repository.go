@@ -48,11 +48,14 @@ func tenantForWrite(ctx context.Context) (uuid.UUID, error) {
 // row that answers it. Everything the handler does afterwards runs under the
 // resolved tenant and is filtered normally again.
 //
-// Two configs claiming the same workspace are refused rather than
-// tie-broken. Today the schema cannot even produce that case
-// (integration_configs still carries the pre-tenancy UNIQUE(platform) from
-// migration 000053), but the check costs one row and is the difference between
-// a refusal and a cross-tenant leak once that constraint is fixed.
+// Two configs claiming the same workspace are refused rather than tie-broken,
+// and the schema can produce that case today: migration 000125 replaced the
+// pre-tenancy UNIQUE(platform) from 000053 with UNIQUE(platform, tenant_id), so
+// two tenants may each register the same workspace id. Refusing is the safe
+// half of that — the alternative is a cross-tenant leak. The unsafe half stays:
+// a tenant who enters another's workspace id makes both webhooks unresolvable.
+// Uniqueness on the workspace id itself is what would close it, and that needs
+// the metadata key promoted out of JSONB first.
 func (r *PostgresRepository) ResolveTenant(ctx context.Context, platform, workspaceID string) (uuid.UUID, error) {
 	if workspaceID == "" {
 		return uuid.Nil, ErrTenantUnresolved
