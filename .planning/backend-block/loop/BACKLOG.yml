@@ -306,18 +306,15 @@ units:
     service: berichte
     model: sonnet
     deps: [p3-berichte-document-persistence]
-    status: blocked
-    blocked_reason: >
-      Architektur-Entscheidung, nicht Mechanik — braucht Luke. Die
-      Persistenz-Haelfte ist seit Iteration 10 erledigt
-      (p3-berichte-document-persistence, Migration 000245), offen bleibt allein
-      die Chart-Frage: ein "chart"-Block laesst sich nicht ueber
-      maroto/v2 rendern (kein Chart-Rendering in reinem Go ohne neue
-      Dependency wie go-chart/gonum-plot) — Verstoss gegen die
-      "keine neue Dependency ohne Not"-Vorgabe dieser Unit. Lean-Vorschlag fuer
-      Luke: chart/table-Bloecke im PDF als Datentabelle statt Grafik rendern
-      (`lean:`-Marker, Upgrade-Trigger "wenn Kunden PDF-Charts als Pflicht
-      melden") — muesste Luke absegnen, bevor eine Iteration das umsetzt.
+    status: todo
+    decision: >
+      ENTSCHIEDEN 2026-07-27 (Luke): chart- und table-Bloecke werden im PDF als
+      Datentabelle gerendert, nicht als Grafik. Keine neue Dependency —
+      go-chart/gonum-plot bleiben draussen. Im Code ein `lean:`-Marker mit
+      Upgrade-Trigger "wenn Kunden PDF-Charts als Pflicht melden".
+      Die Persistenz-Haelfte ist seit Iteration 10 erledigt
+      (p3-berichte-document-persistence, Migration 000245); damit ist die Unit
+      vollstaendig spezifiziert und fuer einen Loop-Lauf aufnahmefaehig.
     scope: >
       Server-PDF fuer Berichte. Das FE hat heute nur window.print() mit
       Print-CSS; fuer einen echten Download fehlt der Server-Render.
@@ -332,12 +329,14 @@ units:
       Mahnungen, internal/berichte/export/pdf.go). Kein chromedp, kein
       gotenberg, keine neue Dependency. Muster: CRM-Advisory-PDF in Commit
       1c639adf — vorhandenen Generator ueber eine gRPC-RPC exponieren und den
-      Gateway-501 ersetzen. Dieses Muster passt aber nur, sobald die
-      Document-Persistenz existiert und die Chart-Rendering-Frage geklaert ist
-      (siehe blocked_reason).
+      Gateway-501 ersetzen. Beide Vorbedingungen sind erfuellt: die
+      Document-Persistenz steht seit Iteration 10, die Chart-Frage ist
+      entschieden (siehe decision).
     done_when:
       - GET /berichte/documents/{id}/export/pdf liefert application/pdf
       - Erzeugt ueber maroto, keine neue Dependency
+      - chart- und table-Bloecke als Datentabelle, mit `lean:`-Marker und
+        Upgrade-Trigger im Code
       - go build/vet/lint/test gruen
 
   - id: p3-berichte-templates
