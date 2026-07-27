@@ -10,6 +10,10 @@ import './styles/globals.css'
 import App from './App'
 import { useAuthStore } from './stores/auth'
 import { initStartupLaunch } from './stores/launch'
+// Registers module intake targets (Helpdesk ticket, …) into the shared intake
+// engine as an import side effect, so the form builder can bind a form to a
+// module record without the modules importing each other.
+import './modules/helpdesk/intake/register-intake'
 
 // Clear stale query cache in demo mode.
 startDemoMode()

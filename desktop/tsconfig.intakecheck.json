@@ -15,6 +15,18 @@
     "src/renderer/src/modules/helpdesk/CSATWidget.tsx",
     "src/renderer/src/modules/helpdesk/HelpdeskPage.tsx",
     "src/renderer/src/modules/helpdesk/settings/HelpdeskSettingsPanel.tsx",
-    "src/renderer/src/stores/helpdesk.ts"
+    "src/renderer/src/stores/helpdesk.ts",
+    "src/renderer/src/components/shared/intake/types.ts",
+    "src/renderer/src/components/shared/intake/registry.ts",
+    "src/renderer/src/components/shared/intake/engine.ts",
+    "src/renderer/src/components/shared/intake/useIntakeSubmit.ts",
+    "src/renderer/src/components/shared/intake/index.ts",
+    "src/renderer/src/modules/helpdesk/intake/helpdesk-ticket-target.ts",
+    "src/renderer/src/modules/helpdesk/intake/register-intake.ts",
+    "src/renderer/src/api/formulare-types.ts",
+    "src/renderer/src/api/formulare-client.ts",
+    "src/renderer/src/stores/formulare.ts",
+    "src/renderer/src/mocks/handlers/formulare.ts",
+    "src/renderer/src/modules/formulare/FormularePage.tsx"
   ]
 }

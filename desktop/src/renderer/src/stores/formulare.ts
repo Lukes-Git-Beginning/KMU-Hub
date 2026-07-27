@@ -72,6 +72,12 @@ export interface FormField {
   /** page-break only (FT-2b): title of the page that starts after this break. */
   pageTitle?: string
   page?: number
+  /**
+   * P2 — intake role. When the draft is bound to an intake target, this marks
+   * the field as a first-class target property (subject/priority/…). Unmarked →
+   * the answer flows into the record's custom fields. See shared intake engine.
+   */
+  role?: string
 }
 
 export interface FormAction {
@@ -110,6 +116,8 @@ export interface DraftSchema {
   notifications: FormNotificationConfig
   /** Frontend-only: post-submission actions (not yet persisted to backend) */
   actions: FormAction[]
+  /** P2 — intake target this form feeds (e.g. `helpdesk_ticket`); unset = plain form. */
+  intakeTargetId?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +130,7 @@ interface FormulareClientState {
 
   openDraft: (draft: DraftSchema) => void
   closeDraft: () => void
-  updateDraftMeta: (updates: Partial<Pick<DraftSchema, 'title' | 'description' | 'isPublic' | 'pageCount' | 'thankYouMessage' | 'redirectUrl' | 'notifications'>>) => void
+  updateDraftMeta: (updates: Partial<Pick<DraftSchema, 'title' | 'description' | 'isPublic' | 'pageCount' | 'thankYouMessage' | 'redirectUrl' | 'notifications' | 'intakeTargetId'>>) => void
 
   addField: (field: Omit<FormField, 'id'>) => void
   removeField: (fieldId: string) => void
