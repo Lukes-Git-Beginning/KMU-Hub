@@ -1704,7 +1704,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 39 — Migration 000254, RLS-Smoke belegt (eigen 4 / fremd 0)
     scope: >
       `projects` traegt tenant_id NOT NULL seit Migration 000106 (derselbe
       Retrofit-Batch wie channels/messages), hat aber — wie channels/messages
@@ -1723,6 +1723,19 @@ units:
       wp-chat: Migration mit `CALL enable_tenant_rls('projects')`,
       RLS-Smoke, und wenn moeglich ein DB-Test der die Luecke vorher/nachher
       belegt (Falsifikation wie in wp-chat).
+      ERLEDIGT Iteration 39 (Migration 000254). Vorab-Check per Explore-Agent:
+      alle SQL-Pfade auf `projects` (internal/work/project sowie die
+      Subselects/Joins in task/status/comment/event) sind tenant-gescoped und
+      laufen ausschliesslich ueber internal/server/work_grpc.go, das ueberall
+      middleware.GetTenantID(ctx) vor dem DB-Zugriff aufruft — kein Worker-,
+      Cron- oder GDPR-Export-Pfad referenziert die Tabelle. `project_members`
+      und `project_statuses` haben bereits seit Migration 000124 eine eigene
+      RLS-Policy (nicht via enable_tenant_rls_via_join, sondern direkt mit
+      eigenem tenant_id) — von dieser Unit unberuehrt. Kein Falsifikations-
+      Test angelegt (anders als wp-chat): es existiert kein Repository-Test
+      auf `projects`, der die Luecke vorher/nachher haette zeigen koennen,
+      ohne den vollen tenant_write_test.go-Umfang von wp-auth/wp-work
+      vorwegzunehmen — RLS-Smoke direkt gegen die DB ist der Beleg.
     done_when:
       - projects hat eine tenant_isolation-Policy (enable_tenant_rls)
       - RLS-Smoke: eigener Tenant > 0, fremder Tenant = 0

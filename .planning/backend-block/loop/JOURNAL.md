@@ -3128,3 +3128,32 @@ bleibt.
 - offen / fuer Luke: keiner. Queue-Stand: 14 `wp-*`-Units `todo`, naechste
   Iteration zieht `wp-projects-rls` (keine deps) oder `wp-berichte` je nach
   Reihenfolge in BACKLOG.yml.
+
+## Iteration 39 — wp-projects-rls — done — 2026-07-28 00:15
+
+- commit: `e9ebd697`
+- gebaut: Migration 000254 (`CALL enable_tenant_rls('projects')`, Vorlage
+  000253). Vorab-Check per Explore-Agent: alle SQL-Pfade auf `projects`
+  (internal/work/project + Subselects/Joins in task/status/comment/event)
+  sind tenant-gescoped, ausschliesslich erreichbar ueber
+  internal/server/work_grpc.go (durchgehend middleware.GetTenantID(ctx) vor
+  DB-Zugriff) — kein Worker-, Cron- oder GDPR-Export-Pfad referenziert die
+  Tabelle. `project_members`/`project_statuses` haben bereits seit Migration
+  000124 eine eigene RLS-Policy (direktes tenant_id, nicht via
+  enable_tenant_rls_via_join) — von dieser Unit unberuehrt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (`go test ./internal/work/...` alle 17 Subpakete gruen, 0 Skips;
+  `go test ./internal/gateway/` gruen, 0 Skips) | migration ok (000254
+  angewendet, lokaler Kopf 254) | rls-smoke ok (eigener Tenant 4, fremder
+  Tenant 0)
+- verify vorgaenger: sauber. Commit `43d21d48` (Iteration 38, wp-chat-rest)
+  ist reine Testdatei-Ergaenzung (3 Dateien, 313 Zeilen, ausschliesslich
+  `tenant_write_test.go` in file/guest + ein Flaky-Fix im bestehenden
+  channel-Test) — keine der sechs Fehlerklassen betroffen: kein neuer
+  Gateway-Handler, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine neue Tabelle/Migration, keine Route.
+- offen: kein Falsifikations-Test angelegt (anders als wp-chat) — es gibt
+  noch kein `tenant_write_test.go` fuer `internal/work/project`, das die
+  Luecke vorher/nachher haette belegen koennen; RLS-Smoke gegen die echte DB
+  ist der Beleg fuer diese Iteration. Queue-Stand: 12 `wp-*`-Units `todo`,
+  naechste Iteration zieht `wp-berichte` (keine deps, erste in Reihenfolge).
