@@ -3160,7 +3160,7 @@ bleibt.
 
 ## Iteration 40 — wp-berichte — done — 2026-07-28
 
-- commit: siehe naechster docs(planning)-Commit
+- commit: `2d4af4b4`
 - gebaut: `internal/berichte/tenant_write_test.go`
   (`TestBerichteWrites_LandInCallerTenant`). Umfang auf report_documents +
   report_share_tokens begrenzt (6 Schreibmethoden:
