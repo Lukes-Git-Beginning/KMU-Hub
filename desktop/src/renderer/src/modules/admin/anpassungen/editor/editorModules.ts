@@ -84,14 +84,14 @@ export const EDITOR_MODULES: EditorModuleDef[] = [
       { key: 'statistik', labelKey: 'helpdesk.tabs.statistics' },
     ],
     // Stats-view widgets, toggleable in the Statistik editor. CSAT (kachel + chart)
-    // is locked: it has no real data source until the CSAT survey feature ships.
+    // reads real ratings off the wire (intake P3) → no longer locked.
     statWidgets: [
       { key: 'openTickets', labelKey: 'helpdesk.stats.openTickets' },
       { key: 'avgResponseTime', labelKey: 'helpdesk.stats.avgResponseTime' },
       { key: 'resolvedThisWeek', labelKey: 'helpdesk.stats.resolvedThisWeek' },
-      { key: 'csat', labelKey: 'helpdesk.stats.customerSatisfaction', locked: true },
+      { key: 'csat', labelKey: 'helpdesk.stats.customerSatisfaction' },
       { key: 'ticketsPerDay', labelKey: 'helpdesk.stats.ticketsPerDay' },
-      { key: 'csatChart', labelKey: 'customization.editor.statistik.csatChartLabel', locked: true },
+      { key: 'csatChart', labelKey: 'customization.editor.statistik.csatChartLabel' },
       { key: 'byStatus', labelKey: 'helpdesk.stats.byStatus' },
       { key: 'byPriority', labelKey: 'helpdesk.stats.byPriority' },
     ],

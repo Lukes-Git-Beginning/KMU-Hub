@@ -1187,11 +1187,17 @@ export const helpdeskHandlers = [
   // --- Stats ---
 
   http.get(`${BASE}/stats`, () => {
+    // Customer satisfaction is the live average of the CSAT ratings on the wire
+    // tickets (intake P3) — replaces the former hardcoded value.
+    const rated = tickets.filter((t) => typeof t.csat_rating === 'number')
+    const csatAvg = rated.length
+      ? (rated.reduce((sum, t) => sum + (t.csat_rating as number), 0) / rated.length).toFixed(1)
+      : null
     const stats: WireHelpdeskStats = {
       open_tickets: 8,
       avg_response_time: '1.4 h',
       resolved_this_week: 23,
-      customer_satisfaction: '4.6/5',
+      customer_satisfaction: csatAvg ? `${csatAvg}/5` : '–',
       weekly_breakdown: [
         { label: 'Mo', count: 5 },
         { label: 'Di', count: 8 },

@@ -44,14 +44,15 @@ try {
   await shot('01-live-stats.png')
   {
     const txt = await bodyText()
-    const csatGone = !txt.includes('Kundenzufriedenheit')
+    // Intake P3 flipped CSAT from locked/hidden to enabled — it now shows.
+    const csatShown = txt.includes('Kundenzufriedenheit')
     const hasOpen = txt.includes('Offene Tickets')
     const hasPerDay = txt.includes('Tickets pro Tag')
     const hasByStatus = txt.includes('Nach Status')
     out.push({
-      step: 'S1 Live: CSAT weg, andere Widgets da',
-      csatGone, hasOpen, hasPerDay, hasByStatus,
-      pass: csatGone && hasOpen && hasPerDay && hasByStatus,
+      step: 'S1 Live: CSAT sichtbar (P3), andere Widgets da',
+      csatShown, hasOpen, hasPerDay, hasByStatus,
+      pass: csatShown && hasOpen && hasPerDay && hasByStatus,
     })
   }
 
@@ -69,8 +70,8 @@ try {
   await shot('02-sandbox-stats.png')
   {
     const txt = await bodyText()
-    const csatGone = !txt.includes('Kundenzufriedenheit')
-    out.push({ step: 'S2 Sandbox Statistik-Tab: CSAT ausgeblendet', statBtnCount, csatGone, pass: statBtnCount > 1 && csatGone })
+    const csatShown = txt.includes('Kundenzufriedenheit')
+    out.push({ step: 'S2 Sandbox Statistik-Tab: CSAT sichtbar (P3)', statBtnCount, csatShown, pass: statBtnCount > 1 && csatShown })
   }
 
   // Open the Statistik editor section (trio-nav [0]).
@@ -79,9 +80,9 @@ try {
   await shot('03-editor-statistik-panel.png')
   {
     const txt = await bodyText()
-    const csatLocked = txt.includes('Braucht das Kundenzufriedenheits-Feature')
+    const csatUnlocked = !txt.includes('Braucht das Kundenzufriedenheits-Feature')
     const hasToggles = txt.includes('Offene Tickets') && txt.includes('Nach Priorität')
-    out.push({ step: 'S3 Editor: Statistik-Sektion, Toggles + CSAT gesperrt', csatLocked, hasToggles, pass: csatLocked && hasToggles })
+    out.push({ step: 'S3 Editor: Statistik-Sektion, Toggles + CSAT entsperrt (P3)', csatUnlocked, hasToggles, pass: csatUnlocked && hasToggles })
   }
 
   // Toggle "Nach Priorität" off → its chart disappears from the sandbox module.

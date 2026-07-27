@@ -747,11 +747,11 @@ export default function HelpdeskPage() {
       {/* ================================================================== */}
       {tab === 'statistik' && (() => {
         // Stats widgets are toggleable via the editor (moduleAreas, `stat:` prefix).
-        // A missing key means visible. CSAT has no real data source yet → its card
-        // + chart stay hidden until the CSAT survey feature ships (backend-gaps);
-        // the editor still lists them (locked) so the tenant sees they exist.
+        // A missing key means visible. CSAT now reads real ratings off the wire
+        // (intake P0/P3), so the card + chart are enabled; the tenant on/off + delay
+        // survey setting lands with the Helpdesk settings step.
         const showStat = (key: string): boolean => areaEnabled[`stat:${key}`] !== false
-        const CSAT_FEATURE_ENABLED = false
+        const CSAT_FEATURE_ENABLED = true
         const statCards = [
           showStat('openTickets') && <StatCard key="ot" icon={AlertCircle} label={<EditableText dkey="helpdesk.stats.openTickets" />} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />,
           showStat('avgResponseTime') && <StatCard key="art" icon={Clock} label={<EditableText dkey="helpdesk.stats.avgResponseTime" />} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />,
