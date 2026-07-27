@@ -3426,3 +3426,72 @@ bleibt.
   `wp-*`-Units `todo`, naechste Iteration zieht `wp-crm-core` (keine deps,
   vier Pakete/vier Testdateien laut Backlog-Notiz, bei Bedarf nach dem
   zweiten Paket in `wp-crm-core-2` teilen).
+
+## Iteration 44 — wp-crm-core — done — 2026-07-28
+
+- commit: siehe naechster docs(planning)-Commit
+- verify vorgaenger: sauber. Commit `77d9179c` (Iteration 43, wp-biz-hr) ist
+  eine reine Testdatei (`backend/internal/biz/hr/tenant_write_test.go`) plus
+  zwei kleine Fixes darin (`leave.PostgresLeaveRequestRepo.Update`-Praedikat,
+  `employee.PostgresEmployeeDocRepo.Delete`-Signatur/Praedikat) plus
+  BACKLOG/JOURNAL — keine der sechs Fehlerklassen betroffen: kein neuer
+  Handler, kein Stub, kein `.proto`, kein neuer `RequirePermission`-Guard,
+  keine Migration, keine Route.
+- gebaut: vier `tenant_write_test.go` fuer die CRM-Kernentitaeten —
+  `internal/crm/contact/tenant_write_test.go`
+  (`TestContactWrites_LandInCallerTenant`),
+  `internal/crm/company/tenant_write_test.go`
+  (`TestCompanyWrites_LandInCallerTenant`),
+  `internal/crm/deal/tenant_write_test.go`
+  (`TestDealWrites_LandInCallerTenant`),
+  `internal/crm/activity/tenant_write_test.go`
+  (`TestActivityWrites_LandInCallerTenant`). Gleicher Befund wie bei
+  `p3-route-path-drift-triage`/HR-Iterationen zuvor: die bestehenden
+  `rls_test.go` je Paket seeden ausschliesslich via `testutil.SeedRow` (rohes
+  INSERT unter System-Kontext) und rufen nie die echten
+  Create/Update/Delete-Methoden des jeweiligen Repos auf — diese Luecke ist
+  jetzt fuer alle vier Pakete geschlossen.
+- Keine toten Writes gefunden. Alle zwoelf geprueften Methoden
+  (Create/Update/Delete je Paket) trugen bereits ein korrektes
+  `tenant_id`-Praedikat bzw. verliessen sich fuer `Create` zu Recht allein auf
+  RLS `WITH CHECK` (kein expliziter Praedikat noetig/moeglich bei INSERT).
+  Zwei Verhaltensvarianten beim Update sind bewusst unterschiedlich getestet:
+  `deal.Update`/`activity.Update` pruefen `RowsAffected()` und liefern
+  `ErrDealNotFound`/`ErrActivityNotFound`, wenn RLS die Zeile fuer die
+  aufrufende Session unsichtbar macht — der Fremd-Tenant-Call MUSS also einen
+  Fehler liefern, nicht still nichts tun. `contact.Update`/`company.Update`
+  pruefen `RowsAffected()` nicht und liefern bei 0 getroffenen Zeilen `nil` —
+  dort ist der stille No-op das erwartete (und getestete) Verhalten.
+  `pipeline_stages` ist seit der RLS-Welle ebenfalls tenant-gescoped (nicht
+  mehr die globale Seed-Tabelle aus Migration 000008); `deal`-Test seedet
+  daher eine eigene, tenant-gebundene Stage statt eine der sechs
+  Default-Stages zu missbrauchen.
+- Falsifikation (exemplarisch, nicht fuer alle vier — es gab nichts zu
+  reparieren, die Pruefung sollte nur zeigen, dass der Test-Assert selbst
+  scharf ist): RLS auf `contacts` per
+  `ALTER TABLE contacts DISABLE ROW LEVEL SECURITY` deaktiviert (temporaeres
+  `cmd/_scratch_rls_toggle`-Hilfsprogramm gegen `MIGRATION_DATABASE_URL`,
+  nicht committet), `TestContactWrites_LandInCallerTenant` wurde rot
+  (`Create (foreign ctx): expected an RLS error, got nil` — der Fremd-Tenant-
+  Insert lief durch), danach `ENABLE`+`FORCE` wiederhergestellt, die dabei
+  entstandene Leiche (ein Contact, der die RLS-Luecke ausnutzte, plus sein
+  Tenant/User) manuell aufgeraeumt und die volle CRM-Suite erneut gruen.
+- Lokale Infra-Stoerung waehrend der Iteration: Docker Desktop war zwischen
+  dem ersten gruenen Testlauf und der Falsifikation abgestuerzt
+  (`docker info` -> "failed to connect to the docker API"), `docker-postgres-1`
+  dadurch gestoppt. Neu gestartet (`Docker Desktop.exe` + `docker start
+  docker-postgres-1`, auf `healthy` gewartet), danach alle Tests erneut
+  verifiziert — kein Zusammenhang mit dem Code, reiner Lauf-Unterbruch.
+- gate: build ok (`go build -p 2 ./internal/crm/...`) | vet ok | lint ok
+  (`golangci-lint run ./internal/crm/...`, 0 issues) | test ok
+  (`go test -count=1 ./internal/crm/...`, alle zwoelf Pakete gruen inkl. der
+  vier neuen Tests, 0 Skips — `DATABASE_URL` explizit auf `kmuhub_app`
+  gesetzt, nicht die Superuser-Rolle) | migration n.a. (keine neue
+  Tabelle/Spalte, keine Signaturaenderung noetig) | Falsifikation siehe oben.
+  Keine Testleichen zurueckgeblieben (Stichprobe: 0 Tenants mit
+  Namenspraefix "CRM Contact"/"CRM Company"/"CRM Deal"/"CRM Activity" nach
+  Lauf).
+- offen: nichts Neues. Queue-Stand: 7 `wp-*`-Units `todo`, naechste Iteration
+  zieht `wp-crm-meta` (dep auf `wp-crm-core`, jetzt erfuellt — tag,
+  savedfilter, pipelinestage, customfield, consent; `consent` ist dabei am
+  wichtigsten, siehe Backlog-Notiz zur Dialer/E-Mail-Consent-Enforcement).

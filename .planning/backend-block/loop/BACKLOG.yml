@@ -1915,7 +1915,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 44 — vier tenant_write_test.go, keine toten Writes gefunden
     scope: >
       Kern-Entitaeten des CRM: contact, company, deal, activity. Vier Pakete,
       je ein Isolationstest, alle seeden via SeedRow. Das ist das Modul mit der
@@ -1929,6 +1929,18 @@ units:
     notes: >
       Vier Pakete = vier Testdateien, aber ein Commit. Wird es zu gross, teil
       nach dem zweiten Paket und leg `wp-crm-core-2` an.
+      ERLEDIGT Iteration 44. Alle vier Create/Update/Delete-Pfade trugen
+      bereits ein korrektes tenant_id-Praedikat (bzw. verliessen sich fuer
+      Create zu Recht allein auf RLS WITH CHECK) — keine tote Schreiboperation
+      gefunden, nichts zu reparieren. deal.Update/activity.Update pruefen
+      RowsAffected() und liefern ErrDealNotFound/ErrActivityNotFound, wenn RLS
+      die Zeile fuer die aufrufende Session unsichtbar macht — dort erwartet
+      der Test also einen Fehler statt eines stillen No-ops, anders als bei
+      contact/company (dort Update ohne RowsAffected-Check, kein Fehler bei
+      0 Zeilen). Falsifikation exemplarisch auf `contacts`: RLS per
+      `ALTER TABLE contacts DISABLE ROW LEVEL SECURITY` deaktiviert,
+      TestContactWrites_LandInCallerTenant wurde rot ("expected an RLS error,
+      got nil"), danach ENABLE+FORCE wiederhergestellt und Suite wieder gruen.
     done_when:
       - tenant_write_test.go je Paket nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts
