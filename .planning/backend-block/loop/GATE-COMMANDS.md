@@ -15,11 +15,33 @@ Ohne das findet die Shell weder `go` noch `golangci-lint` noch `migrate`.
 
 ```bash
 cd backend
+export DATABASE_URL="postgres://kmuhub_app:app_dev@localhost:5432/kmuhub?sslmode=disable"
 go build -p 2 ./internal/<svc>/... ./internal/gateway/... ./cmd/<svc>/... ./cmd/gateway/...
 go vet ./internal/<svc>/... ./internal/gateway/...
 golangci-lint run --config .golangci.yml ./internal/<svc>/... ./internal/gateway/...
-go test ./internal/<svc>/...
-go test ./internal/gateway/          # PFLICHT sobald eine Route dazukam
+go test -count=1 ./internal/<svc>/...
+go test -count=1 ./internal/gateway/   # PFLICHT sobald eine Route dazukam
+```
+
+### Warum `DATABASE_URL` zwingend dazugehoert
+
+Ohne die Variable ruft `testutil.SkipIfNoDB` in **jedem** Integrationstest `t.Skip` auf. Der Lauf meldet
+dann `ok` fuer Pakete, deren DB-Tests gar nicht liefen — gruen als Aussage darueber, dass nichts geprueft
+wurde.
+
+Real passiert (Nachtlauf 1, CI-Lauf 30258205043): `TestIntegrationWrites_LandInCallerTenant` und der
+Bestandstest `TestTenantIsolation_Integration_DB` seedeten beide `TenantA` + `slack` in
+`integration_configs` und riefen beide `t.Parallel()`. Die Tabelle ist seit Migration 000125
+`UNIQUE (platform, tenant_id)`, also starb der Verlierer des Rennens am Duplicate Key. Lokal gruen (beide
+uebersprungen), in CI rot. Behoben, indem der Write-Test eigene Tenants erzeugt statt der geteilten
+Konstanten — das Muster fuer jeden neuen Test, der eine per-Tenant-eindeutige Zeile seedet.
+
+Die Rolle ist `kmuhub_app`, **nicht** `kmuhub`: der Superuser hat `BYPASSRLS`, unter ihm bestehen
+RLS-Isolationstests, ohne irgendetwas zu beweisen. Passwort einmalig setzen, falls die Rolle es lokal noch
+nicht hat (dieselbe Konvention wie in `ci.yml`):
+
+```bash
+docker exec docker-postgres-1 psql -U kmuhub -d kmuhub -c "ALTER ROLE kmuhub_app WITH PASSWORD 'app_dev'"
 ```
 
 ### Warum `./internal/gateway/` zwingend dazugehoert
