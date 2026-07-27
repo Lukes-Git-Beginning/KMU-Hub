@@ -141,7 +141,7 @@ func (m *mockDocRepo) ListByEmployee(_ context.Context, employeeID uuid.UUID, ca
 	return results, nil
 }
 
-func (m *mockDocRepo) Delete(_ context.Context, id uuid.UUID) error {
+func (m *mockDocRepo) Delete(_ context.Context, _, id uuid.UUID) error {
 	for i, d := range m.documents {
 		if d.ID == id {
 			m.documents = append(m.documents[:i], m.documents[i+1:]...)

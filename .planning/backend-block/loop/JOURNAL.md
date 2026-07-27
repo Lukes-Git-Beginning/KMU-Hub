@@ -3343,3 +3343,86 @@ bleibt.
   Backlog: der HR-Pausen-Fund aus Nacht 1 war nur der Pausen-Pfad — der Rest
   des Moduls, Arbeitszeiten/Abwesenheiten/Dokumente/Stammdaten, ist mit
   derselben Methode ungeprueft).
+
+## Iteration 43 — wp-biz-hr — done — 2026-07-28
+
+- commit: siehe naechster docs(planning)-Commit
+- verify vorgaenger: sauber. Commit `d3d84458` (Iteration 42, wp-biz-finance)
+  ist reine Testdatei plus Planungsdocs (`backend/internal/biz/tenant_write_test.go`,
+  30 Zeilen BACKLOG/70 Zeilen JOURNAL) — keine der sechs Fehlerklassen
+  betroffen: kein neuer Handler, kein Stub, kein `.proto`, kein neuer
+  `RequirePermission`-Guard, keine Migration, keine Route.
+- gebaut: `internal/biz/hr/tenant_write_test.go`
+  (`TestEmployeeProfileWrites_LandInCallerTenant`,
+  `TestEmployeeDocumentWrites_LandInCallerTenant`,
+  `TestLeaveRequestWrites_LandInCallerTenant`,
+  `TestLeaveBalanceAndSettingsWrites_LandInCallerTenant`). `absence` hat
+  ueberhaupt keinen Schreibpfad (`AbsenceRepository` nur `GetAbsenceCalendar`),
+  `compliance` ist reine ArbZG/BUrlG-Berechnung ohne DB-Zugriff — beide
+  brauchen keinen Test. `timetracking` war bereits durch
+  `postgres_break_scope_test.go`/`postgres_tenant_scope_test.go`
+  (Iteration 22/23) abgedeckt, nicht erneut angefasst. Neu real gegen die DB
+  geprueft: `employee.Create/Update` (Profile), `employee-doc.Create/Delete`,
+  `leave.Create/Update` (Requests), `leave-balance.Upsert`,
+  `hr-settings.Upsert` — der volle vom Backlog verlangte Rest des Moduls
+  (Arbeitszeiten war bereits Iteration 22/23, Abwesenheiten/Dokumente/
+  Stammdaten sind hier).
+- Zwei ungescopte Writes gefunden und im selben Commit repariert:
+  - `leave.PostgresLeaveRequestRepo.Update` lief mit `WHERE id = $8`, ganz
+    ohne `tenant_id`-Praedikat — verliess sich allein auf RLS. Das ist ein
+    LIVE-Pfad: `ApproveLeaveRequest`/`RejectLeaveRequest`/
+    `CancelLeaveRequest` rufen ihn alle auf, `req.TenantID` ist zu diesem
+    Zeitpunkt schon aus `GetByID` befuellt. Fix: `AND tenant_id = $9` aus
+    `req.TenantID`, gleiche Form wie jedes andere Update im Repo
+    (z.B. `employee.PostgresEmployeeRepo.Update`, das den Praedikat schon
+    hatte).
+  - `employee.PostgresEmployeeDocRepo.Delete` lief mit `WHERE id = $1` ganz
+    ohne Tenant-Praedikat, und das Interface nahm gar keine `tenantID`
+    entgegen. Anders als beim Leave-Fund hat dieser Pfad null Aufrufer im
+    ganzen Repo — grep ueber `internal/server/` und `internal/gateway/`
+    findet keinen Aufrufer von `Service.DeleteEmployeeDocument`, genau wie
+    die Auth-Session-RPCs aus Iteration 41 totes Gewicht. Trotzdem repariert
+    (Interface auf `Delete(ctx, tenantID, id)` erweitert, Service-Methode und
+    Mock im selben Commit nachgezogen): es ist exakt die Landmine, die dieser
+    Loop entschaerfen soll, und die Signaturaenderung konnte nichts brechen,
+    weil nichts sie aufrief.
+- Zwei Stolperer beim Testbau (kein Bug, Testfixture-Fehler): (a)
+  `hr_employee_documents` haengt seit Migration 000127 an einer rollenbasierten
+  Policy (`hr_document_access`), nicht der einfachen `tenant_isolation` — WITH
+  CHECK verlangt `hr_admin`/`admin`-Rolle zusaetzlich zum Tenant-Match. Der
+  erste Testlauf brach mit `new row violates row-level security policy` an
+  genau der Stelle, weil `ctxOwn` keine Rolle trug; gefixt durch den bereits
+  vorhandenen `withRoles`-Helper aus `hr_role_based_test.go` (gleiches
+  Package). (b) `hr_leave_requests.approved_by REFERENCES users(id)` — die
+  erste Fixture setzte dort ein zufaelliges `uuid.New()`, das brach an der
+  FK-Constraint; gefixt durch einen echten geseedeten Approver-User.
+- Falsifikation (beide Funde einzeln): Fix jeweils temporaer zurueckgenommen
+  (Praedikat aus der SQL entfernt, Signatur unangetastet), RLS auf der
+  betroffenen Tabelle testweise per `ALTER TABLE ... DISABLE ROW LEVEL
+  SECURITY` deaktiviert, betroffener Test lief rot (beide Male schon beim
+  Foreign-Read-Check `AssertRowCount` — mit RLS komplett aus sieht `ctxOther`
+  jede Zeile, nicht erst beim Write), danach `ENABLE`+`FORCE` wiederhergestellt
+  und der jeweilige Fix zurueckgespielt; volle Suite danach wieder gruen.
+- gate: build ok (`go build -p 2 ./internal/biz/hr/... ./cmd/biz/...
+  ./internal/server/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) |
+  test ok (`go test -count=1 -v ./internal/biz/hr/`, 8 Testfunktionen im
+  Package `hr` inkl. der 4 neuen, 0 Skips) | `go test -count=1
+  ./internal/biz/hr/...` (alle sechs Unterpakete) ebenfalls gruen | migration
+  n.a. (keine neue Tabelle/Spalte, beide Fixes reine SQL-Praedikat- bzw.
+  Signaturaenderung) | Falsifikation siehe oben. Keine Testleichen
+  zurueckgeblieben (Stichprobe: 0 `tenants` mit Namenspraefix "Biz HR", 0
+  `hr_employee_profiles`/`hr_leave_requests` mit den Testmarkern "Write
+  Test"/"Renamed"/"Hacked" nach Lauf).
+- Nebenfund AUSSERHALB des Scopes (nicht repariert, da done_when nur "tote
+  Writes" verlangt, keine Reads): `employee.PostgresEmployeeRepo.GetByID`/
+  `GetByUserID` und `leave.PostgresLeaveRequestRepo.GetByID` laufen alle ohne
+  `tenant_id`-Praedikat, reines `WHERE id = $1` — verlassen sich vollstaendig
+  auf RLS als einzige Grenze (kein Defense-in-Depth wie bei den Aggregat-
+  Queries, die `p3-zeiterfassung-tenant-scope` in Iteration 22 gefunden hat).
+  Kein aktiver Bug (RLS ist scharf, `kmuhub_app` ist NOSUPERUSER NOBYPASSRLS),
+  aber dieselbe Fehlerform, die dort als eigene Unit behandelt wurde — fuer
+  eine spaetere HR-Read-Scope-Unit, falls Luke das aufnehmen will.
+- offen: der oben genannte Read-Praedikat-Nebenfund. Queue-Stand: 8
+  `wp-*`-Units `todo`, naechste Iteration zieht `wp-crm-core` (keine deps,
+  vier Pakete/vier Testdateien laut Backlog-Notiz, bei Bedarf nach dem
+  zweiten Paket in `wp-crm-core-2` teilen).

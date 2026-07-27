@@ -331,9 +331,9 @@ func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID
 	return results, rows.Err()
 }
 
-func (r *PostgresEmployeeDocRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresEmployeeDocRepo) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`DELETE FROM hr_employee_documents WHERE id = $1`, id,
+		`DELETE FROM hr_employee_documents WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return err
 }

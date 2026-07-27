@@ -1872,7 +1872,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 43 — zwei ungescopte Writes gefunden und repariert, RLS-Falsifikation belegt
     scope: >
       HR-Pausen waren in Nacht 1 ein toter Write (`d78f9176`): der INSERT kannte
       `tenant_id` nicht, jede StartBreak gegen eine echte DB starb an der
@@ -1882,6 +1882,28 @@ units:
     sources:
       - backend/internal/biz/hr/
       - backend/internal/biz/hr/timetracking/postgres_break_scope_test.go
+    notes: >
+      ERLEDIGT Iteration 43. `absence` hat gar keinen Schreibpfad
+      (AbsenceRepository ist read-only), `compliance` ist reine ArbZG/BUrlG-
+      Berechnung ohne DB — beide brauchen keinen Test. `timetracking` war
+      bereits per `postgres_break_scope_test.go`/`postgres_tenant_scope_test.go`
+      abgedeckt (Iteration 23/22). Neu getestet: employee-Profile (Create/
+      Update), employee-Dokumente (Create/Delete), Leave-Requests (Create/
+      Update), Leave-Balance + HR-Settings (beide Upsert). Zwei echte
+      ungescopte Writes gefunden und im selben Commit repariert: (a)
+      `leave.PostgresLeaveRequestRepo.Update` lief mit `WHERE id = $8` ganz
+      ohne tenant_id-Praedikat, verliess sich allein auf RLS — und ist ein
+      LIVE-Pfad (Approve/Reject/Cancel rufen ihn alle auf). Fix: `AND
+      tenant_id = $9` aus dem bereits vorhandenen `req.TenantID`, gleiche Form
+      wie jedes andere Update im Repo. (b)
+      `employee.PostgresEmployeeDocRepo.Delete` lief mit `WHERE id = $1` ohne
+      jedes Tenant-Praedikat, und das Interface nahm gar keine tenantID
+      entgegen — anders als (a) aber mit null Aufrufern im ganzen Repo
+      (`Service.DeleteEmployeeDocument` ist totes Gewicht wie die
+      Auth-Session-RPCs aus Iteration 41), trotzdem repariert, weil genau das
+      die Landmine ist, die dieser Loop entschaerfen soll, und die
+      Signaturaenderung nichts brechen konnte. Beide Funde ueber
+      RLS-Falsifikation belegt (siehe done_when).
     done_when:
       - tenant_write_test.go nach dem gemeinsamen Muster
       - Test laeuft real, Fremd-Tenant sieht nichts

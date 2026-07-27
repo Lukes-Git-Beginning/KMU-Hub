@@ -314,8 +314,8 @@ func (s *Service) UploadEmployeeDocument(ctx context.Context, tenantID uuid.UUID
 }
 
 // DeleteEmployeeDocument deletes an HR document link.
-func (s *Service) DeleteEmployeeDocument(ctx context.Context, id uuid.UUID) error {
-	return s.docRepo.Delete(ctx, id)
+func (s *Service) DeleteEmployeeDocument(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.docRepo.Delete(ctx, tenantID, id)
 }
 
 // ListDocumentCategories retrieves all document categories for a tenant.
