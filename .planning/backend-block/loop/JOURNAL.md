@@ -2445,3 +2445,5 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     Lukes Entscheid; `types.ts`-Drift (Iteration 28); Rollen-Zuschnitt der
     produktion-ext-Permissions; Modul-Aktivierung ohne Enforcement;
     `platform_admin` haelt niemand.
+
+- iteration 29 commit: `460955ff`
