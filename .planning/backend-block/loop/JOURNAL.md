@@ -3157,3 +3157,46 @@ bleibt.
   Luecke vorher/nachher haette belegen koennen; RLS-Smoke gegen die echte DB
   ist der Beleg fuer diese Iteration. Queue-Stand: 12 `wp-*`-Units `todo`,
   naechste Iteration zieht `wp-berichte` (keine deps, erste in Reihenfolge).
+
+## Iteration 40 — wp-berichte — done — 2026-07-28
+
+- commit: siehe naechster docs(planning)-Commit
+- gebaut: `internal/berichte/tenant_write_test.go`
+  (`TestBerichteWrites_LandInCallerTenant`). Umfang auf report_documents +
+  report_share_tokens begrenzt (6 Schreibmethoden:
+  CreateDocument/UpdateDocument/DeleteDocument,
+  CreateShareToken/RevokeShareToken/IncrementShareView) — die aeltere
+  report_definitions/cache/schedules/runs-Flaeche (Migration 000122) bleibt
+  aussen vor, sie liegt vor Nacht 1 und hat mit
+  `tenant_isolation_phase2_test.go` bereits RLS-Abdeckung. Kein toter Write
+  gefunden — alle sechs Methoden schreiben/filtern tenant_id korrekt.
+  Zusaetzlich zur reinen Sichtbarkeitspruefung: Fremd-Tenant-Aufrufe auf
+  Update/Delete/Revoke mit korrektem tenantID-Parameter aber falschem ctx
+  liefern ErrDocumentNotFound/ErrShareNotFound (RLS blockt trotz explizitem
+  Praedikat), `IncrementShareView` prueft den Zaehler direkt statt nur den
+  nil-Error zu vertrauen (die Methode inspiziert `RowsAffected` nicht und
+  wuerde einen stillen No-Op nie melden). Share-Token-Pfad end-to-end
+  nachgebaut wie im Backlog gefordert: `GetShareTokenBySecret` unter
+  System-Kontext aufgeloest, danach `GetDocument` unter dem aufgeloesten
+  Tenant — ein DocumentID-Swap auf ein fremdes Dokument scheitert trotz
+  gueltigem, aufgeloestem Token.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok
+  (`go test -count=1 ./internal/berichte/...` alle fuenf Subpakete gruen,
+  0 Skips, neuer Test real gegen DB gelaufen) | migration n.a. (keine neue
+  Tabelle/Policy) | Falsifikation: RLS auf report_documents und
+  report_share_tokens testweise per `ALTER TABLE ... DISABLE ROW LEVEL
+  SECURITY` deaktiviert (docker exec psql), Test wurde rot
+  (`expected 0 row(s), got 1` auf report_documents), danach `ENABLE`+`FORCE`
+  wiederhergestellt und volle Suite erneut gruen; keine Testleichen
+  zurueckgeblieben (Stichprobe auf die drei Test-Titel: 0 Zeilen).
+- verify vorgaenger: sauber. Commit `e9ebd697` (Iteration 39,
+  wp-projects-rls) ist eine reine Migration nach dem 000253-Vorbild
+  (`CALL enable_tenant_rls('projects')`, identisches
+  `SET LOCAL row_security = off; BEGIN; ... COMMIT;`-Muster) — keine der
+  sechs Fehlerklassen betroffen: kein neuer Handler, kein Stub, kein
+  `.proto`, kein neuer `RequirePermission`-Guard, keine ungewoehnliche
+  Migration, keine Route.
+- offen: keiner. Queue-Stand: 11 `wp-*`-Units `todo`, naechste Iteration
+  zieht `wp-auth` (keine deps, naechste in Reihenfolge — der Nacht-1-Fund mit
+  dem globalen `invitations`-Unique-Index macht das Modul zum hoechsten
+  verbleibenden Risiko in diesem Block).

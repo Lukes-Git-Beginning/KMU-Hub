@@ -1747,7 +1747,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 40 — kein toter Write gefunden, Falsifikation gegen echte DB belegt
     scope: >
       Nacht 1 hat hier die komplette Dokument-Persistenz (Migration 000245) und
       die Share-Tokens (000252) neu gebaut. Der vorhandene
@@ -1764,6 +1764,28 @@ units:
       anschliessende `GetDocument` unter dem aufgeloesten Tenant laeuft und ein
       Dokument eines anderen Tenants auch mit gueltigem Token nicht erreichbar
       ist.
+      ERLEDIGT Iteration 40. Umfang wie im Backlog vorgegeben auf
+      report_documents + report_share_tokens begrenzt (6 Schreibmethoden:
+      CreateDocument/UpdateDocument/DeleteDocument,
+      CreateShareToken/RevokeShareToken/IncrementShareView) —
+      report_definitions/cache/schedules/runs (Migration 000122) bleiben
+      aussen vor, weil sie vor Nacht 1 liegen und bereits ueber
+      tenant_isolation_phase2_test.go RLS-Abdeckung haben. Kein toter Write
+      gefunden — alle sechs Methoden schreiben/filtern tenant_id korrekt.
+      Zusaetzlich zur Sichtbarkeitspruefung: Fremd-Tenant-No-Op auf
+      Update/Delete/Revoke (Aufruf mit korrektem tenantID-Parameter, aber
+      falschem ctx liefert ErrDocumentNotFound/ErrShareNotFound statt eines
+      Fehlers durch RLS-Verletzung), `IncrementShareView` prueft den Zaehler
+      direkt statt nur den nil-Error (die Methode inspiziert RowsAffected
+      nicht). Share-Token-Pfad zusaetzlich end-to-end nachgebaut: Token via
+      `GetShareTokenBySecret` unter System-Kontext aufgeloest, danach
+      `GetDocument` unter dem aufgeloesten Tenant — ein Dokument eines
+      fremden Tenants bleibt trotz gueltigem, aufgeloestem Token unerreichbar
+      (DocumentID-Swap auf denselben Tenant-Kontext scheitert). Falsifikation
+      gegen echte DB: RLS auf beiden Tabellen testweise per
+      `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` deaktiviert, Test wurde rot
+      (`expected 0 row(s), got 1` auf report_documents), danach wieder
+      `ENABLE`+`FORCE` und volle `internal/berichte/...`-Suite erneut gruen.
     done_when:
       - tenant_write_test.go nach dem gemeinsamen Muster
       - Share-Token-Pfad - fremdes Dokument bleibt trotz gueltigem Token unerreichbar
