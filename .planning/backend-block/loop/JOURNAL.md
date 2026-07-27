@@ -2726,3 +2726,5 @@ etwas anderes beweist:
     Rollen-Zuschnitt der produktion-ext-Permissions; Modul-Aktivierung ohne
     Enforcement; `platform_admin` haelt niemand; `types.ts`-Drift; DATEV
     `auto_upload_enabled` ohne Auswerter; `datev-upload-client.ts`-Typen.
+
+- iteration 32 commit: `f4be722e`
