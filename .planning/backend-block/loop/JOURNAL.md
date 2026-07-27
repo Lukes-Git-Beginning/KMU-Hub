@@ -2447,3 +2447,98 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     `platform_admin` haelt niemand.
 
 - iteration 29 commit: `460955ff`
+
+## Iteration 30 — `p3-integration-test-connection`
+
+- verify-vorspann: Commit `460955ff` (Iteration 29) gegen die sechs
+  Fehlerklassen geprueft. Kein Stub (`ListDocumentCategories` ruft echt den
+  Service), Handler geht ueber `client.ListDocumentCategories` und nicht ueber
+  eine injizierte Service-Instanz, Proto ist regeneriert (`hr.pb.go` +
+  `hr_grpc.pb.go` im selben Commit), Wire-Shape gewrappt via
+  `ProtoListWrapped` (leere Liste `[]`), beide SELECTs tenant-gescoped
+  (`tenant_id IN (tenant, zero)`), OpenAPI-Pfad im selben Commit, kein neuer
+  Permission-Guard also kein Seed noetig. `go build ./...` gruen als Baseline.
+  `git merge origin/main` — already up to date.
+- unit: `p3-integration-test-connection`.
+  `POST /api/v1/integrations/configs/{platform}/test` probt jetzt wirklich die
+  Plattform, statt seit Iteration 27 mit 501 zu antworten (und davor
+  bedingungslos `success=true` zu liefern).
+- **Probe statt Testnachricht.** Neues Interface
+  `integration.ConnectionProber` (`ProbeConnection(ctx) (*ProbeResult, error)`)
+  neben `PlatformPoster`. Bewusst getrennt: `PostNotification` braucht ein
+  Channel-Mapping, das der Test nicht hat, und ein Admin, der "Verbindung
+  testen" drueckt, will keine synthetische Nachricht im Kundenkanal.
+  - Slack: `auth.test` ueber den vorhandenen slack-go-Client — der billigste
+    Call, der den Token wirklich zu Slack traegt, ohne in einen Kanal zu
+    schreiben. Detail: `authenticated as <user> in workspace <team>`.
+  - Teams: `client_credentials`-Token-Request gegen den Bot-Framework-Login —
+    exakt der Austausch, den der Connector vor jedem Senden macht, nur ohne
+    das Senden. Endpoint aus den Konstanten von
+    `msbotbuilder-go/connector/auth` zusammengesetzt, Request mit stdlib
+    (`net/http`), **keine neue Dependency**. `tokenURL` ist ein Feld, damit ein
+    Test auf `httptest` zeigen kann; produktiv setzt `NewClient` den echten Wert.
+- **Kein `success=false`.** Jeder Fehlerfall ist ein gRPC-Fehler: Plattform
+  unbekannt -> InvalidArgument (400), keine Config fuer diesen Tenant ->
+  NotFound (404, via `mapNotificationError`/`ErrConfigNotFound`), Server hat
+  keinen Client fuer die Plattform (Env-Var fehlt) oder die Plattform lehnt ab
+  -> FailedPrecondition (409) mit dem Plattform-Grund im Text, Repo fehlt ->
+  Unavailable (503). Begruendung: `success=false` ohne Grund ist dasselbe
+  Schweigen in anderer Form, und `response.Proto` marshalt mit
+  `EmitUnpopulated: false` — ein `success: false` faellt aus dem JSON ganz
+  heraus und das FE saehe `undefined`.
+- **Config-Lookup vor der Probe** (`GetConfigByPlatform`, RLS-gescoped): damit
+  testet der Endpoint die Einrichtung *dieses Tenants* und nicht bloss die
+  Env-Vars des Servers. Probe unter `context.WithTimeout(10s)`, damit ein
+  haengender Slack-/AAD-Endpoint den Admin-Request nicht offen haelt.
+- **Wire-Shape an den FE-Typ angeglichen:** Proto-Feld
+  `TestIntegrationConfigResponse.error_message` (optional) -> `message`
+  (non-optional). `TestNotificationResponse` im FE traegt genau
+  `{success, message}`; das Feld hatte ausser dem Stub keinen Nutzer. Proto neu
+  generiert (`notification.pb.go` im selben Commit).
+- gateway: `HandleTestConfig` unveraendert — ging schon ueber
+  `client.TestIntegrationConfig`. Guard bleibt `RequireRole("admin")` aus dem
+  bestehenden Block, kein neuer `RequirePermission`, also kein Seed.
+- tests: `internal/server/notification_integration_test.go` (Erfolgspfad mit
+  Identitaet in `message` + Zaehler, dass die Plattform genau einmal kontaktiert
+  wurde; vier Nicht-Erfolgs-Faelle als Tabelle) und
+  `internal/notification/integration/teams/client_test.go` (Token-Request-Form
+  gegen `httptest`, 401 mit `unauthorized_client`, 200 ohne `access_token`).
+  Der Repo-Stub bettet `integration.Repository` ein und implementiert nur
+  `GetConfigByPlatform` — ein kuenftiger Aufrufer einer anderen Methode faellt
+  laut auf statt still.
+  **Falsifiziert:** den `prober == nil`-Zweig testweise auf
+  `return &Response{Success:true}` zurueckgedreht ->
+  `.../server_holds_no_client_for_the_platform` rot ("expected an error, got
+  response success:true"); Zustand wiederhergestellt und nachgeprueft.
+- gate: `go build -p 2 ./...` gruen, `go vet ./internal/... ./cmd/...` gruen,
+  `golangci-lint run ./internal/server/... ./internal/notification/...
+  ./internal/gateway/... ./cmd/notification/...` 0 issues,
+  `go test ./internal/server/... ./internal/notification/...
+  ./internal/gateway/...` gruen (beide OpenAPI-Drift-Tests inklusive),
+  `swagger-cli validate` gruen. Keine Migration, kein Flag scharfgeschaltet,
+  keine neue `config.RequireX`, keine neue Dependency.
+- offen / fuer Luke:
+  - **Deploy-Wirkung:** ohne `SLACK_BOT_TOKEN` bzw. `TEAMS_APP_ID`+
+    `TEAMS_APP_PASSWORD` im notification-Service antwortet der Test 409 mit
+    "no <platform> client configured on the server". Das ist der ehrliche
+    Zustand von Produktion heute (die Vars sind dort nicht gesetzt) — bewusst
+    keine neue `config.RequireX`, der Service startet unveraendert.
+  - **Echter Plattform-Test steht aus:** kein Slack-Workspace und keine
+    Teams-App-Registrierung vorhanden. Slack `auth.test` und der
+    AAD-Token-Austausch sind gegen die Doku gebaut und offline getestet, nicht
+    gegen die echte Plattform. Gleiche Lage wie beim Bexio-Sandbox-Test.
+  - **FE-Zeile:** `SlackSetupWizard` beschriftet Schritt 3 als "Send test
+    notification" (`settings.integrations.slack.step.test` /
+    `test.sendButton`) — der Endpoint sendet jetzt bewusst nichts, sondern
+    prueft die Credentials. Wording anpassen; `result.message` wird noch nicht
+    angezeigt, obwohl es jetzt die Bot-Identitaet traegt.
+  - `types.ts` (generiert aus openapi.yaml) hat weiterhin den alten
+    501-Stand fuer diesen Pfad — Drift aus Iteration 28 unveraendert offen.
+  - Naechste freie Units: `p3-datev-upload-orchestration` (opus),
+    `p3-integration-webhook-adapters` (opus).
+  - Unveraendert offen: `p3-berichte-share-token` haengt am blockierten
+    `p3-berichte-server-pdf`; `p3-fe-only-features-scope-decision` wartet auf
+    Lukes Entscheid; `hr_leave_types`-Seeds unter der Zero-UUID (Iteration 29,
+    braucht Lukes Bestaetigung als eigene Unit); Rollen-Zuschnitt der
+    produktion-ext-Permissions; Modul-Aktivierung ohne Enforcement;
+    `platform_admin` haelt niemand.

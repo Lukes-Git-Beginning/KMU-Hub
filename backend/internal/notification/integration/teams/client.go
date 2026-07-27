@@ -4,9 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
+	"github.com/infracloudio/msbotbuilder-go/connector/auth"
 	"github.com/infracloudio/msbotbuilder-go/core"
 	"github.com/infracloudio/msbotbuilder-go/core/activity"
 	"github.com/infracloudio/msbotbuilder-go/schema"
@@ -17,8 +22,15 @@ import (
 
 // Client wraps the Teams Bot Framework adapter for sending and updating messages.
 type Client struct {
-	adapter core.Adapter
-	appID   string
+	adapter     core.Adapter
+	appID       string
+	appPassword string
+
+	// tokenURL is the Bot Framework login endpoint the connection probe posts to.
+	// It is a field so a test can point it at a local server; production always
+	// gets the value NewClient computes.
+	tokenURL   string
+	httpClient *http.Client
 }
 
 // NewClient creates a new Teams Bot Framework client.
@@ -34,8 +46,55 @@ func NewClient(appID, appPassword string) (*Client, error) {
 	}
 
 	return &Client{
-		adapter: adapter,
-		appID:   appID,
+		adapter:     adapter,
+		appID:       appID,
+		appPassword: appPassword,
+		tokenURL: auth.ToChannelFromBotLoginURLPrefix + auth.DefaultChannelAuthTenant +
+			auth.ToChannelFromBotTokenEndpointPathTOCHANNELFROMBOTTOKENENDPOINTPATH,
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+	}, nil
+}
+
+// ProbeConnection verifies the bot credentials by requesting a channel token
+// from the Bot Framework login endpoint — the same client_credentials exchange
+// the connector performs before every send, minus the send. It touches no
+// conversation, so it is safe to run from the setup wizard.
+func (c *Client) ProbeConnection(ctx context.Context) (*integration.ProbeResult, error) {
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", c.appID)
+	form.Set("client_secret", c.appPassword)
+	form.Set("scope", auth.ToChannelFromBotOauthScope)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("build token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("reach bot framework login endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// The error body carries AAD's reason (invalid_client, unauthorized_client);
+	// it is bounded because an error page is not worth unbounded memory.
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bot framework rejected the credentials (%s): %s",
+			resp.Status, strings.TrimSpace(string(body)))
+	}
+
+	var token struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(body, &token); err != nil || token.AccessToken == "" {
+		return nil, fmt.Errorf("bot framework returned no access token")
+	}
+
+	return &integration.ProbeResult{
+		Detail: fmt.Sprintf("bot framework issued a channel token for app %s", c.appID),
 	}, nil
 }
 

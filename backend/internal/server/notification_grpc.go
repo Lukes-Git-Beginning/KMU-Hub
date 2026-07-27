@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,7 @@ type NotificationGRPCServer struct {
 	registry        *event.EventTypeRegistry
 	integrationRepo integration.Repository
 	linkService     *integration.AccountLinkService
+	probers         map[string]integration.ConnectionProber
 }
 
 // NewNotificationGRPCServer creates a new Notification gRPC server.
@@ -57,6 +59,16 @@ func WithIntegration(repo integration.Repository, linkService *integration.Accou
 	return func(s *NotificationGRPCServer) {
 		s.integrationRepo = repo
 		s.linkService = linkService
+	}
+}
+
+// WithConnectionProbers registers the platform clients that TestIntegrationConfig
+// probes, keyed by platform. A platform without a prober — because its
+// credentials are absent from the environment — cannot be tested, and the RPC
+// says so instead of reporting success.
+func WithConnectionProbers(probers map[string]integration.ConnectionProber) NotificationGRPCOption {
+	return func(s *NotificationGRPCServer) {
+		s.probers = probers
 	}
 }
 
@@ -796,25 +808,57 @@ func (s *NotificationGRPCServer) DeleteIntegrationConfig(ctx context.Context, re
 	return &notificationv1.DeleteIntegrationConfigResponse{}, nil
 }
 
-// TestIntegrationConfig is not implemented yet.
+// probeTimeout bounds the outbound call to the platform so a hanging Slack or
+// Bot Framework endpoint cannot pin the admin's request open.
+const probeTimeout = 10 * time.Second
+
+// TestIntegrationConfig probes the platform with the configured credentials.
 //
 // It used to return Success=true unconditionally — without probing the platform,
 // without sending anything, without even checking that a config for the platform
 // exists. SlackSetupWizard/TeamsSetupWizard show a green "connection successful"
 // on exactly that field, so the admin finished the wizard believing the
-// integration worked while nothing had been verified. Refusing is the honest
-// answer: the gateway maps Unimplemented to 501 and the wizard falls into its
-// error branch.
+// integration worked while nothing had been verified.
 //
-// Implementing it needs the platform clients (built from SLACK_BOT_TOKEN /
-// TEAMS_APP_ID+PASSWORD in cmd/notification/main.go) passed in as a functional
-// option, plus a decision on what a test posts — integration.PlatformPoster only
-// exposes PostNotification(mapping, notification, actions), so it requires a
-// synthetic notification and a target channel mapping. See the backend loop
-// backlog.
-func (s *NotificationGRPCServer) TestIntegrationConfig(_ context.Context, _ *notificationv1.TestIntegrationConfigRequest) (*notificationv1.TestIntegrationConfigResponse, error) {
-	return nil, status.Error(codes.Unimplemented,
-		"integration connection test is not implemented yet")
+// Success now requires that a config for the platform exists in this tenant and
+// that the platform answered the probe. Everything else is a gRPC error the
+// wizard renders in its error branch: there is deliberately no success=false
+// path, because "false with no reason" is the same silence in a different shape.
+func (s *NotificationGRPCServer) TestIntegrationConfig(ctx context.Context, req *notificationv1.TestIntegrationConfigRequest) (*notificationv1.TestIntegrationConfigResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	platform := strings.ToLower(strings.TrimSpace(req.Platform))
+	if !integration.ValidPlatforms[platform] {
+		return nil, status.Error(codes.InvalidArgument, "invalid platform")
+	}
+
+	// The config lookup is what makes this a test of *this tenant's* setup and
+	// not just of the server's environment variables. RLS scopes the read.
+	if _, err := s.integrationRepo.GetConfigByPlatform(ctx, platform); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	prober := s.probers[platform]
+	if prober == nil {
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"no %s client configured on the server — the platform credentials are missing from the notification service environment", platform)
+	}
+
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	result, err := prober.ProbeConnection(probeCtx)
+	if err != nil {
+		slog.Warn("integration connection test failed", "platform", platform, "error", err)
+		return nil, status.Errorf(codes.FailedPrecondition, "%s rejected the connection test: %v", platform, err)
+	}
+
+	return &notificationv1.TestIntegrationConfigResponse{
+		Success: true,
+		Message: result.Detail,
+	}, nil
 }
 
 // ============================================================================

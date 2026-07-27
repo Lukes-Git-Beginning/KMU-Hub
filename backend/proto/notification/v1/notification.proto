@@ -378,7 +378,10 @@ message TestIntegrationConfigRequest {
 
 message TestIntegrationConfigResponse {
   bool success = 1;
-  optional string error_message = 2;
+  // Human-readable detail about what answered — e.g. the bot identity the
+  // credentials resolved to. Failures travel as a gRPC error, not as
+  // success=false, so this field is only ever the success story.
+  string message = 2;
 }
 
 // ============================================================================

@@ -2958,9 +2958,12 @@ func (x *TestIntegrationConfigRequest) GetPlatform() string {
 }
 
 type TestIntegrationConfigResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ErrorMessage  *string                `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Human-readable detail about what answered — e.g. the bot identity the
+	// credentials resolved to. Failures travel as a gRPC error, not as
+	// success=false, so this field is only ever the success story.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3002,9 +3005,9 @@ func (x *TestIntegrationConfigResponse) GetSuccess() bool {
 	return false
 }
 
-func (x *TestIntegrationConfigResponse) GetErrorMessage() string {
-	if x != nil && x.ErrorMessage != nil {
-		return *x.ErrorMessage
+func (x *TestIntegrationConfigResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
 	}
 	return ""
 }
@@ -4105,11 +4108,10 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"!\n" +
 	"\x1fDeleteIntegrationConfigResponse\":\n" +
 	"\x1cTestIntegrationConfigRequest\x12\x1a\n" +
-	"\bplatform\x18\x01 \x01(\tR\bplatform\"u\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\"S\n" +
 	"\x1dTestIntegrationConfigResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12(\n" +
-	"\rerror_message\x18\x02 \x01(\tH\x00R\ferrorMessage\x88\x01\x01B\x10\n" +
-	"\x0e_error_message\"\xb0\x02\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xb0\x02\n" +
 	"\x12ChannelMappingInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tconfig_id\x18\x02 \x01(\tR\bconfigId\x12\x1d\n" +
@@ -4407,7 +4409,6 @@ func file_proto_notification_v1_notification_proto_init() {
 	file_proto_notification_v1_notification_proto_msgTypes[34].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[35].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[44].OneofWrappers = []any{}
-	file_proto_notification_v1_notification_proto_msgTypes[49].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

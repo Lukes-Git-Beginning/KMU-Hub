@@ -1052,7 +1052,7 @@ units:
     service: notification
     model: sonnet
     deps: [p3-gateway-wire-integration-routes]
-    status: todo
+    status: done   # Iteration 30 — ConnectionProber, Slack auth.test + Teams Token-Probe, kein success ohne Kontakt
     scope: >
       `POST /api/v1/integrations/configs/{platform}/test` antwortet seit
       Iteration 27 mit 501. Vorher gab `TestIntegrationConfig` bedingungslos

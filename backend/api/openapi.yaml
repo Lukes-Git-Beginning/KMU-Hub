@@ -23778,17 +23778,15 @@ paths:
 
   /api/v1/integrations/configs/{platform}/test:
     post:
-      summary: Test an integration config (NOT IMPLEMENTED -- always 501)
+      summary: Test an integration config
       description: >-
-        Requires admin role. NOTE (current backend state): not implemented.
-        TestIntegrationConfig used to return success=true without probing the
-        platform, sending anything, or checking that a config for the platform
-        exists -- the setup wizards render a green "connection successful" on
-        that field, so the admin was told the integration worked when nothing
-        had been verified. The RPC now refuses with gRPC Unimplemented, which
-        the gateway maps to 501. Implementing it needs the platform clients
-        (SLACK_BOT_TOKEN / TEAMS_APP_ID+PASSWORD, currently only reachable in
-        cmd/notification/main.go) and a decision on what a test posts.
+        Requires admin role. Probes the platform with the credentials the
+        notification service holds: Slack via auth.test, Teams via a Bot
+        Framework client_credentials token request. Neither writes anything into
+        a channel. A 200 therefore means the platform actually answered -- there
+        is no success=false response; a config that does not exist for this
+        tenant is 404, and a platform that refuses or that the server has no
+        credentials for is 409 with the reason in the error message.
       tags: [integrations]
       operationId: testIntegrationConfig
       security: [{ bearerAuth: [] }]
@@ -23799,10 +23797,32 @@ paths:
           schema: { type: string }
           description: "Integration platform identifier, e.g. slack or teams"
       responses:
+        "200":
+          description: Platform answered the probe
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message:
+                    type: string
+                    description: Identity the credentials resolved to
+                    example: authenticated as cosmi-bot in workspace Zentria
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "501":
-          description: Connection test is not implemented (gRPC Unimplemented mapping)
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: >-
+            Platform refused the credentials, or the server holds no client for
+            this platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Notification service or integration storage unavailable
           content:
             application/json:
               schema:
