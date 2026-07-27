@@ -2,6 +2,7 @@ package datev
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -12,25 +13,70 @@ import (
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
+var (
+	// ErrNotConnected is returned when no DATEV API credentials are wired, so
+	// nothing can be transferred at all.
+	ErrNotConnected = errors.New("datev: API not connected")
+
+	// ErrNoAPIConfig is returned when this tenant has no active datev_api
+	// integration config — the OAuth flow was never completed or was revoked.
+	ErrNoAPIConfig = errors.New("datev: no active API configuration for this tenant")
+
+	// ErrNoUploadConfig is returned when the tenant's upload configuration is
+	// missing or carries no client number. DATEV files a batch under the client
+	// number; without it the upload has no destination.
+	ErrNoUploadConfig = errors.New("datev: upload configuration incomplete (client number missing)")
+
+	// ErrAdvisorNumbersMissing is returned when Berater- or Mandantennummer are
+	// unset on company settings. A batch without them cannot be assigned in
+	// DATEV — the download path tolerates it because a human files that file,
+	// the API upload does not.
+	ErrAdvisorNumbersMissing = errors.New("datev: Beraternummer/Mandantennummer not configured in company settings")
+
+	// ErrNothingToUpload is returned when the requested period contains no
+	// bookable document. Uploading an empty batch and reporting success is the
+	// exact failure this endpoint used to have.
+	ErrNothingToUpload = errors.New("datev: no bookable documents in the requested period")
+)
+
+// BuchungsstapelUploader transfers a rendered CSV batch to DATEV.
+// Implemented by *Uploader; an interface so the upload path is testable without
+// a DATEV account.
+type BuchungsstapelUploader interface {
+	UploadBuchungsstapel(ctx context.Context, tenantID uuid.UUID, clientNumber string, csvData []byte) error
+}
+
+// BelegUploader transfers a single document image to DATEV.
+// Implemented by *BelegbilderUploader.
+type BelegUploader interface {
+	UploadBeleg(ctx context.Context, tenantID uuid.UUID, clientNumber string, pdfData []byte, filename string) error
+}
+
 type UploadService struct {
-	exporter      *Exporter
-	uploader      *Uploader
-	belegUploader *BelegbilderUploader
+	builder       *BuchungsstapelBuilder
+	belegRenderer BelegSource
+	uploader      BuchungsstapelUploader
+	belegUploader BelegUploader
 	uploadRepo    UploadRepository
 	configRepo    IntegrationConfigRepo
 	oauthManager  *OAuthManager
 }
 
+// NewUploadService wires the DATEV upload path. uploader and belegUploader are
+// interfaces: pass a real value or an untyped nil, never a typed nil pointer —
+// IsConnected reads them as the presence of API credentials.
 func NewUploadService(
-	exporter *Exporter,
-	uploader *Uploader,
-	belegUploader *BelegbilderUploader,
+	builder *BuchungsstapelBuilder,
+	belegRenderer BelegSource,
+	uploader BuchungsstapelUploader,
+	belegUploader BelegUploader,
 	uploadRepo UploadRepository,
 	configRepo IntegrationConfigRepo,
 	oauthManager *OAuthManager,
 ) *UploadService {
 	return &UploadService{
-		exporter:      exporter,
+		builder:       builder,
+		belegRenderer: belegRenderer,
 		uploader:      uploader,
 		belegUploader: belegUploader,
 		uploadRepo:    uploadRepo,
@@ -87,34 +133,50 @@ func (s *UploadService) Disconnect(ctx context.Context, tenantID uuid.UUID) erro
 	return s.configRepo.Deactivate(ctx, config.ID)
 }
 
-// ExportAndUpload exports DATEV CSV and uploads via API. Falls back to export-only when no API credentials.
-func (s *UploadService) ExportAndUpload(ctx context.Context, tenantID uuid.UUID, invoices []*models.Invoice, creditNotes []*models.CreditNote, fiscalYearStart time.Time) ([]byte, error) {
-	// Berater/Mandant numbers live on company_settings, which the upload service
-	// does not load; the primary GoBD export (BizGRPCServer.ExportDATEV) fills them.
-	csvData, err := s.exporter.Export(invoices, creditNotes, "", "", fiscalYearStart, time.Now().UTC())
-	if err != nil {
-		return nil, fmt.Errorf("datev export: %w", err)
+// UploadBuchungsstapel renders the tenant's booking batch for a period and
+// transfers it to DATEV.
+//
+// Every precondition is checked before anything is rendered, and each failure is
+// an error rather than a batch that goes out half-configured: the predecessor of
+// this method exported whatever it was handed — including nothing at all — and
+// wrote a "completed" upload log for it, so the client was told the accounting
+// data had reached the tax advisor when an empty CSV had. There is no
+// export-only fallback here either; a caller who wants the file without sending
+// it uses the GoBD export.
+func (s *UploadService) UploadBuchungsstapel(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	startDate, endDate, fiscalYearStart time.Time,
+) (*Buchungsstapel, error) {
+	if s.builder == nil {
+		return nil, ErrBuilderNotConfigured
 	}
-
 	if !s.IsConnected() {
-		slog.Info("datev: API not connected, returning CSV only")
-		return csvData, nil
+		return nil, ErrNotConnected
 	}
 
 	config, err := s.configRepo.GetByPlatform(ctx, "datev_api")
-	if err != nil {
-		slog.Warn("datev: no API config found, returning CSV only", "error", err)
-		return csvData, nil
-	}
-
-	if !config.IsActive {
-		return csvData, nil
+	if err != nil || config == nil || !config.IsActive {
+		return nil, ErrNoAPIConfig
 	}
 
 	uploadConfig, err := s.uploadRepo.GetUploadConfig(ctx, config.ID)
+	if err != nil || uploadConfig == nil || uploadConfig.ClientNumber == "" {
+		return nil, ErrNoUploadConfig
+	}
+
+	batch, err := s.builder.Build(ctx, tenantID, startDate, endDate, fiscalYearStart)
 	if err != nil {
-		slog.Warn("datev: no upload config found, returning CSV only", "error", err)
-		return csvData, nil
+		return nil, err
+	}
+	if batch.DocumentCount == 0 {
+		return nil, ErrNothingToUpload
+	}
+	// The header numbers decide where DATEV files the batch. Empty ones produce
+	// an import the tax advisor cannot assign, which looks like a successful
+	// transfer on both ends and is only noticed at the bookkeeping.
+	if batch.BeraterNr == "" || batch.MandantNr == "" {
+		return nil, ErrAdvisorNumbersMissing
 	}
 
 	now := time.Now().UTC()
@@ -122,52 +184,95 @@ func (s *UploadService) ExportAndUpload(ctx context.Context, tenantID uuid.UUID,
 		ConfigID:      config.ID,
 		UploadType:    "buchungsstapel",
 		Status:        "uploading",
-		FileSize:      len(csvData),
-		DocumentCount: len(invoices) + len(creditNotes),
+		FileSize:      len(batch.CSV),
+		DocumentCount: batch.DocumentCount,
 		StartedAt:     now,
-		Metadata:      map[string]any{"fiscal_year_start": fiscalYearStart.Format("2006-01-02")},
+		Metadata: map[string]any{
+			"fiscal_year_start": fiscalYearStart.Format("2006-01-02"),
+			"start_date":        startDate.Format("2006-01-02"),
+			"end_date":          endDate.Format("2006-01-02"),
+			"line_count":        batch.LineCount,
+		},
 	}
 	if err := s.uploadRepo.CreateUploadLog(ctx, uploadLog); err != nil {
 		slog.Error("datev: failed to create upload log", "error", err)
 	}
 
-	if err := s.uploader.UploadBuchungsstapel(ctx, tenantID, uploadConfig.ClientNumber, csvData); err != nil {
-		uploadLog.Status = "failed"
-		errMsg := err.Error()
-		uploadLog.ErrorMessage = &errMsg
-		uploadLog.CompletedAt = &now
-		_ = s.uploadRepo.UpdateUploadLog(ctx, uploadLog)
-		return csvData, fmt.Errorf("datev upload failed (CSV still available): %w", err)
+	if err := s.uploader.UploadBuchungsstapel(ctx, tenantID, uploadConfig.ClientNumber, batch.CSV); err != nil {
+		s.failUploadLog(ctx, uploadLog, err)
+		return nil, fmt.Errorf("datev upload failed: %w", err)
 	}
 
+	s.completeUploadLog(ctx, uploadLog)
+
+	slog.Info("datev buchungsstapel uploaded",
+		"tenant_id", tenantID,
+		"documents", batch.DocumentCount,
+		"lines", batch.LineCount,
+		"size_bytes", len(batch.CSV),
+	)
+
+	return batch, nil
+}
+
+// UploadInvoiceBeleg renders an invoice PDF and transfers it as a Belegbild.
+// The rendering happens here rather than in the caller so no path can report a
+// transferred document image without one having been produced.
+func (s *UploadService) UploadInvoiceBeleg(ctx context.Context, tenantID, invoiceID uuid.UUID) error {
+	if s.belegRenderer == nil {
+		return ErrBuilderNotConfigured
+	}
+	if s.belegUploader == nil {
+		return ErrNotConnected
+	}
+
+	pdfData, filename, err := s.belegRenderer.RenderInvoice(ctx, tenantID, invoiceID)
+	if err != nil {
+		return err
+	}
+	if len(pdfData) == 0 {
+		return fmt.Errorf("datev: rendered Belegbild is empty")
+	}
+
+	return s.UploadBeleg(ctx, tenantID, pdfData, filename)
+}
+
+// failUploadLog marks an upload log entry as failed with the transfer error.
+func (s *UploadService) failUploadLog(ctx context.Context, uploadLog *models.DatevUploadLog, cause error) {
+	failed := time.Now().UTC()
+	msg := cause.Error()
+	uploadLog.Status = "failed"
+	uploadLog.ErrorMessage = &msg
+	uploadLog.CompletedAt = &failed
+	if err := s.uploadRepo.UpdateUploadLog(ctx, uploadLog); err != nil {
+		slog.Error("datev: failed to update upload log", "error", err)
+	}
+}
+
+// completeUploadLog marks an upload log entry as completed.
+func (s *UploadService) completeUploadLog(ctx context.Context, uploadLog *models.DatevUploadLog) {
 	completed := time.Now().UTC()
 	uploadLog.Status = "completed"
 	uploadLog.CompletedAt = &completed
-	_ = s.uploadRepo.UpdateUploadLog(ctx, uploadLog)
-
-	slog.Info("datev export and upload completed",
-		"tenant_id", tenantID,
-		"documents", uploadLog.DocumentCount,
-		"size_bytes", uploadLog.FileSize,
-	)
-
-	return csvData, nil
+	if err := s.uploadRepo.UpdateUploadLog(ctx, uploadLog); err != nil {
+		slog.Error("datev: failed to update upload log", "error", err)
+	}
 }
 
 // UploadBeleg uploads a PDF invoice as a DATEV Belegbild.
 func (s *UploadService) UploadBeleg(ctx context.Context, tenantID uuid.UUID, pdfData []byte, filename string) error {
 	if s.belegUploader == nil {
-		return fmt.Errorf("datev: Belegbilder upload not available (API not connected)")
+		return ErrNotConnected
 	}
 
 	config, err := s.configRepo.GetByPlatform(ctx, "datev_api")
-	if err != nil {
-		return fmt.Errorf("datev: no API config: %w", err)
+	if err != nil || config == nil || !config.IsActive {
+		return ErrNoAPIConfig
 	}
 
 	uploadConfig, err := s.uploadRepo.GetUploadConfig(ctx, config.ID)
-	if err != nil {
-		return fmt.Errorf("datev: no upload config: %w", err)
+	if err != nil || uploadConfig == nil || uploadConfig.ClientNumber == "" {
+		return ErrNoUploadConfig
 	}
 
 	now := time.Now().UTC()
@@ -185,18 +290,11 @@ func (s *UploadService) UploadBeleg(ctx context.Context, tenantID uuid.UUID, pdf
 	}
 
 	if err := s.belegUploader.UploadBeleg(ctx, tenantID, uploadConfig.ClientNumber, pdfData, filename); err != nil {
-		uploadLog.Status = "failed"
-		errMsg := err.Error()
-		uploadLog.ErrorMessage = &errMsg
-		uploadLog.CompletedAt = &now
-		_ = s.uploadRepo.UpdateUploadLog(ctx, uploadLog)
+		s.failUploadLog(ctx, uploadLog, err)
 		return err
 	}
 
-	completed := time.Now().UTC()
-	uploadLog.Status = "completed"
-	uploadLog.CompletedAt = &completed
-	_ = s.uploadRepo.UpdateUploadLog(ctx, uploadLog)
+	s.completeUploadLog(ctx, uploadLog)
 
 	return nil
 }

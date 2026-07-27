@@ -246,9 +246,12 @@ func (dr *DatevUploadRoutes) HandleUploadBuchungsstapel(w http.ResponseWriter, r
 		return
 	}
 
+	// The period is required at the boundary: an absent range used to be accepted
+	// and meant "every booking the tenant ever made", which is not a request
+	// anyone makes deliberately.
 	type uploadBuchungsstapelRequest struct {
-		StartDate       string `json:"start_date" validate:"omitempty,datetime=2006-01-02"`
-		EndDate         string `json:"end_date" validate:"omitempty,datetime=2006-01-02"`
+		StartDate       string `json:"start_date" validate:"required,datetime=2006-01-02"`
+		EndDate         string `json:"end_date" validate:"required,datetime=2006-01-02"`
 		FiscalYearStart string `json:"fiscal_year_start" validate:"omitempty,datetime=2006-01-02"`
 	}
 	body, ok := decodeAndValidate[uploadBuchungsstapelRequest](w, r)

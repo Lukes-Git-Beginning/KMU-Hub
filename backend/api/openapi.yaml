@@ -24373,40 +24373,69 @@ paths:
     post:
       summary: Trigger a DATEV Buchungsstapel export and upload
       description: >-
-        Requires admin role. NOT IMPLEMENTED -- always returns 501. The RPC used
-        to call the upload service with empty invoice/credit-note slices and
-        report success=true, which against a connected DATEV account uploads a
-        document-less CSV and logs it as completed. Until the fetch-then-export
-        orchestration exists, the endpoint refuses rather than reporting a
-        transfer that did not happen. Use the GoBD DATEV export meanwhile.
+        Requires admin role. Renders the tenant's booking batch for the requested
+        period (the same rows and EXTF header the GoBD export produces) and
+        transfers it to DATEV. Success means the batch reached DATEV; every
+        precondition that would produce a meaningless transfer answers 409
+        instead: no active DATEV connection, no client number in the upload
+        config, no Berater-/Mandantennummer in the company settings, or a period
+        without a single bookable document. The period is mandatory.
       tags: [datev]
       operationId: uploadDatevBuchungsstapel
       security: [{ bearerAuth: [] }]
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [start_date, end_date]
               properties:
                 start_date: { type: string, description: "YYYY-MM-DD" }
                 end_date: { type: string, description: "YYYY-MM-DD" }
-                fiscal_year_start: { type: string, description: "YYYY-MM-DD" }
+                fiscal_year_start:
+                  type: string
+                  description: "YYYY-MM-DD; defaults to start_date"
       responses:
+        "200":
+          description: Batch transferred to DATEV
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  document_count:
+                    type: integer
+                    description: Invoices and credit notes that produced booking lines (drafts are skipped)
+                  file_size: { type: integer, description: CSV size in bytes }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "501":
-          description: Buchungsstapel upload is not implemented yet
+        "409":
+          description: >-
+            Upload preconditions unmet (not connected, client number or advisor
+            numbers missing, or no bookable document in the period)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: DATEV upload service not available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/finance/datev/upload/beleg/{invoice_id}:
     post:
       summary: Upload a single invoice PDF as a DATEV Belegbild
       description: >-
-        Requires admin role. NOT IMPLEMENTED -- always returns 501. The RPC used
-        to log the request and return success=true without ever retrieving or
-        uploading a PDF; it refuses now rather than reporting a transfer that
-        did not happen.
+        Requires admin role. Renders the invoice PDF with the same generator the
+        finance module serves for download and transfers it as a Belegbild.
+        Success means the document reached DATEV. Answers 409 when a
+        precondition is unmet (no active DATEV connection, no client number, or
+        company settings missing a Pflichtangabe of section 14 UStG, which would
+        render a document the tax advisor may not book) and 404 when the invoice
+        does not exist in this tenant.
       tags: [datev]
       operationId: uploadDatevBeleg
       security: [{ bearerAuth: [] }]
@@ -24416,11 +24445,28 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
+        "200":
+          description: Belegbild transferred to DATEV
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "501":
-          description: Belegbild upload is not implemented yet
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Upload preconditions unmet (not connected, client number or company settings incomplete)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: DATEV upload service not available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/finance/datev/config:
     get:

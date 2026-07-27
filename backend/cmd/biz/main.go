@@ -186,8 +186,12 @@ func main() {
 	}
 	pdfGen := pdf.NewGenerator(*settings)
 
-	// DATEV exporter
+	// DATEV exporter. The Buchungsstapel builder is constructed once and shared
+	// by the GoBD download and the DATEV API upload — both must render the same
+	// batch from the same rows.
 	datevExp := datev.NewExporter()
+	datevBatchBuilder := datev.NewBuchungsstapelBuilder(datevExp, invoiceSvc, creditNoteSvc, companySettingsRepo)
+	datevBelegRenderer := datev.NewBelegRenderer(invoiceSvc, companySettingsRepo)
 
 	// =========================================================================
 	// GoBD Belegarchiv — MinIO file store + service (§147 AO)
@@ -252,7 +256,7 @@ func main() {
 		dunningSvc,
 		dashboardSvc,
 		pdfGen,
-		datevExp,
+		datevBatchBuilder,
 		companySettingsRepo,
 		workTimeRepo,
 		crmServiceClient,
@@ -414,7 +418,7 @@ func main() {
 			datevUploadRepo := datev.NewPostgresUploadRepository(pool)
 			datevConfigRepo := datev.NewPostgresIntegrationConfigRepo(pool)
 
-			datevUploadSvc = datev.NewUploadService(datevExp, datevUploader, datevBelegUploader, datevUploadRepo, datevConfigRepo, datevOAuth)
+			datevUploadSvc = datev.NewUploadService(datevBatchBuilder, datevBelegRenderer, datevUploader, datevBelegUploader, datevUploadRepo, datevConfigRepo, datevOAuth)
 
 			datevUploadGRPC := server.NewDatevUploadGRPCServer(datevUploadSvc)
 			bizv1.RegisterDatevUploadServiceServer(grpcServer, datevUploadGRPC)

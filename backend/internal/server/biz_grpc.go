@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -50,12 +49,14 @@ type BizGRPCServer struct {
 	dunningService    *dunning.Service
 	dashboardService  *dashboard.Service
 	pdfGenerator      *pdf.Generator
-	datevExporter     *datev.Exporter
-	companySettings   CompanySettingsRepository
-	timetrackingRepo  timetracking.WorkTimeRepository
-	crmClient         crmv1.CRMServiceClient // optional; nil if CRM service unreachable
-	gobdArchiveSvc    *gobdarchive.Service   // GoBD Belegarchiv (§147 AO)
-	einvoiceSvc       *einvoice.Service      // incoming e-invoice processing (E-Rechnung Eingang)
+	// datevBuchungsstapel renders the DATEV booking batch. Shared with the DATEV
+	// API upload path (datev.UploadService) so download and upload cannot diverge.
+	datevBuchungsstapel *datev.BuchungsstapelBuilder
+	companySettings     CompanySettingsRepository
+	timetrackingRepo    timetracking.WorkTimeRepository
+	crmClient           crmv1.CRMServiceClient // optional; nil if CRM service unreachable
+	gobdArchiveSvc      *gobdarchive.Service   // GoBD Belegarchiv (§147 AO)
+	einvoiceSvc         *einvoice.Service      // incoming e-invoice processing (E-Rechnung Eingang)
 	// recurringSvc backs the Abo-Rechnungen RPCs. Wired via SetRecurringService
 	// instead of the constructor so the existing 13-parameter call sites stay
 	// untouched (same pattern as SetStornoCreator on the invoice service).
@@ -84,7 +85,7 @@ func NewBizGRPCServer(
 	dunningService *dunning.Service,
 	dashboardService *dashboard.Service,
 	pdfGenerator *pdf.Generator,
-	datevExporter *datev.Exporter,
+	datevBuchungsstapel *datev.BuchungsstapelBuilder,
 	companySettings CompanySettingsRepository,
 	timetrackingRepo timetracking.WorkTimeRepository,
 	crmClient crmv1.CRMServiceClient,
@@ -92,19 +93,19 @@ func NewBizGRPCServer(
 	einvoiceSvc *einvoice.Service,
 ) *BizGRPCServer {
 	return &BizGRPCServer{
-		quoteService:      quoteService,
-		invoiceService:    invoiceService,
-		creditNoteService: creditNoteService,
-		paymentService:    paymentService,
-		dunningService:    dunningService,
-		dashboardService:  dashboardService,
-		pdfGenerator:      pdfGenerator,
-		datevExporter:     datevExporter,
-		companySettings:   companySettings,
-		timetrackingRepo:  timetrackingRepo,
-		crmClient:         crmClient,
-		gobdArchiveSvc:    gobdArchiveSvc,
-		einvoiceSvc:       einvoiceSvc,
+		quoteService:        quoteService,
+		invoiceService:      invoiceService,
+		creditNoteService:   creditNoteService,
+		paymentService:      paymentService,
+		dunningService:      dunningService,
+		dashboardService:    dashboardService,
+		pdfGenerator:        pdfGenerator,
+		datevBuchungsstapel: datevBuchungsstapel,
+		companySettings:     companySettings,
+		timetrackingRepo:    timetrackingRepo,
+		crmClient:           crmClient,
+		gobdArchiveSvc:      gobdArchiveSvc,
+		einvoiceSvc:         einvoiceSvc,
 	}
 }
 
@@ -1173,79 +1174,24 @@ func (s *BizGRPCServer) ExportDATEV(ctx context.Context, req *bizv1.ExportDATEVR
 		fiscalYearStart = fys
 	}
 
-	// Beraternummer/Mandantennummer for the EXTF header come from company settings
-	// (empty until configured — header fields then stay blank, as before).
-	var beraterNr, mandantNr string
-	if cs, csErr := s.companySettings.GetByTenantID(ctx, tenantID); csErr == nil && cs != nil {
-		beraterNr, mandantNr = cs.DatevBeraterNr, cs.DatevMandantNr
-	}
-
-	// Stream invoices and credit notes into a single CSV buffer, reading the rows
-	// keyset-paged so read-memory stays bounded regardless of the period size. The
-	// CSV is still materialized once (unary RPC, bytes response — no proto streaming).
-	const datevExportPageSize = 1000
-
-	var buf bytes.Buffer
-	sw, swErr := s.datevExporter.NewStreamWriter(&buf, beraterNr, mandantNr, fiscalYearStart, time.Now())
-	if swErr != nil {
-		return nil, status.Error(codes.Internal, "datev export init failed: "+swErr.Error())
-	}
-
-	// Invoices: keyset by (invoice_date, id).
-	var invCursorDate *time.Time
-	var invCursorID *uuid.UUID
-	for {
-		page, pErr := s.invoiceService.ListForDATEVExport(ctx, tenantID, startDate, endDate, invCursorDate, invCursorID, datevExportPageSize)
-		if pErr != nil {
-			return nil, mapBizError(pErr)
+	// The batch itself is rendered by the shared builder — the DATEV API upload
+	// needs exactly the same rows, header numbers and skip rules, and two copies
+	// of that loop would drift apart unnoticed until an audit compares the file
+	// the client downloaded with the one the tax advisor received.
+	batch, err := s.datevBuchungsstapel.Build(ctx, tenantID, startDate, endDate, fiscalYearStart)
+	if err != nil {
+		if errors.Is(err, datev.ErrInvalidPeriod) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		if len(page) == 0 {
-			break
-		}
-		if wErr := sw.WriteInvoices(page); wErr != nil {
-			return nil, status.Error(codes.Internal, "datev export failed: "+wErr.Error())
-		}
-		last := page[len(page)-1]
-		d, id := last.InvoiceDate, last.ID
-		invCursorDate, invCursorID = &d, &id
-		if len(page) < datevExportPageSize {
-			break
-		}
-	}
-
-	// Credit notes: keyset by (created_at, id). DateFrom/DateTo are honored here —
-	// previously this loaded every credit note of the tenant regardless of period.
-	var cnCursorDate *time.Time
-	var cnCursorID *uuid.UUID
-	for {
-		page, pErr := s.creditNoteService.ListForDATEVExport(ctx, tenantID, startDate, endDate, cnCursorDate, cnCursorID, datevExportPageSize)
-		if pErr != nil {
-			return nil, mapBizError(pErr)
-		}
-		if len(page) == 0 {
-			break
-		}
-		if wErr := sw.WriteCreditNotes(page); wErr != nil {
-			return nil, status.Error(codes.Internal, "datev export failed: "+wErr.Error())
-		}
-		last := page[len(page)-1]
-		d, id := last.CreatedAt, last.ID
-		cnCursorDate, cnCursorID = &d, &id
-		if len(page) < datevExportPageSize {
-			break
-		}
-	}
-
-	if closeErr := sw.Close(); closeErr != nil {
-		return nil, status.Error(codes.Internal, "datev export failed: "+closeErr.Error())
+		return nil, mapBizError(err)
 	}
 
 	filename := fmt.Sprintf("DATEV_Buchungsstapel_%s_%s.csv", req.GetStartDate(), req.GetEndDate())
 
 	return &bizv1.ExportDATEVResponse{
-		CsvData:     buf.Bytes(),
+		CsvData:     batch.CSV,
 		Filename:    filename,
-		RecordCount: int32(sw.LineCount()),
+		RecordCount: int32(batch.LineCount),
 	}, nil
 }
 

@@ -2544,3 +2544,90 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     `platform_admin` haelt niemand.
 
 - iteration 30 commit: `16973445`
+
+## Iteration 31 — p3-datev-upload-orchestration (2026-07-27)
+
+- **Verify-Vorspann** zu `16973445` (Iteration 30, Integrations-Verbindungstest):
+  sauber gegen die sechs Klassen. Proto + `.pb.go` + `openapi.yaml` im selben
+  Commit, Gateway ruft weiter ueber `client.TestIntegrationConfig` (kein
+  Direct-Svc), keine Migration, keine neue `config.RequireX`, Tests inklusive
+  Falsifikation vorhanden. Nichts nachzuarbeiten.
+- **Unit:** `p3-datev-upload-orchestration` (opus). Die beiden Endpoints standen
+  seit Iteration 26 bewusst auf 501, weil sie Erfolg meldeten, ohne etwas zu
+  uebertragen.
+- **Hauptbefund — die Orchestrierung existierte bereits, nur an der falschen
+  Stelle.** `BizGRPCServer.ExportDATEV` trug ~70 Zeilen Keyset-Paging ueber
+  Rechnungen und Gutschriften plus den EXTF-Header aus den company_settings
+  direkt im Handler. Der Upload brauchte exakt dieselben Zeilen. Die naheliegende
+  Loesung waere eine zweite Kopie im Upload-Pfad gewesen — zwei Renderer, die
+  auseinanderdriften, und die Abweichung zwischen der Datei, die der Kunde
+  herunterlaedt, und der, die der Steuerberater bekommt, faellt erst bei einer
+  Pruefung auf. Stattdessen: neues `datev.BuchungsstapelBuilder` im Service-Layer,
+  beide Aufrufer nutzen es, `ExportDATEV` ist jetzt Parse/Call/Respond (die
+  Thick-Services-Regel war dort verletzt).
+- **Kein Erfolg ohne Uebertragung.** `ExportAndUpload` fiel bei fehlender
+  Verbindung, fehlender Tenant-Config oder fehlender Upload-Config auf
+  "CSV zurueckgeben, Erfolg melden" zurueck — dieselbe Falsch-Erfolg-Klasse, die
+  Iteration 26 geriegelt hat, eine Ebene tiefer. Ersetzt durch
+  `UploadService.UploadBuchungsstapel`, das jede Bedingung VOR dem Rendern
+  prueft und je einen Sentinel liefert: `ErrNotConnected`, `ErrNoAPIConfig`,
+  `ErrNoUploadConfig` (auch bei leerer Mandantennummer), `ErrAdvisorNumbersMissing`,
+  `ErrNothingToUpload`. Alle -> `FailedPrecondition` -> 409 mit Grund im Text;
+  ein `success=false` gibt es bewusst nicht (der Proto-Marshaler laesst das Feld
+  ganz aus dem JSON fallen, Praezedenz Iteration 30).
+- **`document_count` war die zweite stille Luege.** Der Vorgaenger meldete
+  `len(invoices)+len(creditNotes)`; der Exporter ueberspringt aber Entwuerfe und
+  Gutschriften ohne `sent`. Neuer `StreamWriter.DocumentCount()` zaehlt die
+  Belege, die wirklich Buchungszeilen erzeugt haben — ein Zeitraum aus lauter
+  Entwuerfen ist jetzt `ErrNothingToUpload` statt "1 Beleg uebertragen".
+- **Berater-/Mandantennummer:** der Builder liefert sie im Ergebnis mit. Der
+  Download toleriert sie leer wie bisher (ein Mensch ordnet die Datei zu), der
+  API-Upload verweigert — ein Stapel ohne diese Nummern ist in DATEV nicht
+  zuordenbar und sieht auf beiden Seiten wie ein geglueckter Transfer aus.
+- **Beleg-Pfad:** `datev.BelegRenderer` rendert ueber denselben
+  maroto-Generator wie der Rechnungs-Download (`internal/biz/pdf`) — keine neue
+  Dependency, und der Steuerberater sieht das Dokument, das der Kunde bekommen
+  hat, nicht eine zweite Fassung davon. `pdf.ValidateCompanySettingsForPDF`
+  laeuft VOR dem Rendern: fehlende §14-UStG-Pflichtangaben kommen als 409 an
+  statt als 500 aus dem Generator (aufgefallen, weil der erste Test-Fixture
+  genau daran scheiterte).
+- **Zeitraum ist jetzt Pflicht** — in der RPC und im Gateway-Validator
+  (`validate:"required,datetime=..."`). Ein leerer Body hiess vorher "alles, was
+  der Tenant je gebucht hat". `datev-upload-client.ts` schickt beide Felder
+  bereits, das FE bricht nicht.
+- **Testbarkeit:** `Uploader`/`BelegbilderUploader` liegen hinter
+  `BuchungsstapelUploader`/`BelegUploader`-Interfaces. Der Test prueft nicht
+  primaer den Erfolgspfad, sondern dass bei JEDER unerfuellten Bedingung
+  **null** Plattform-Kontakte stattfinden (Aufrufzaehler im Spy). Dazu
+  Keyset-Cursor (volle Seite -> zweiter Read mit der id der letzten Zeile,
+  sonst Endlosschleife), Tenant-Weitergabe an jeden Read, und ein
+  Renderer-Test, der wirklich `%PDF` erzeugt statt einen Fake zurueckzugeben.
+  **Falsifiziert:** die drei Guards (Berater-Nr., leerer Zeitraum, leeres PDF)
+  einzeln entfernt -> `advisor_numbers_unset`,
+  `period_holds_no_bookable_document`, `render_is_empty` rot; Zustand
+  wiederhergestellt und nachgeprueft.
+- gate: `go build -p 2 ./...` gruen, `go vet ./internal/... ./cmd/...` gruen,
+  `golangci-lint run ./internal/biz/datev/... ./internal/server/...
+  ./internal/gateway/... ./cmd/biz/...` 0 issues, `go test ./internal/...`
+  vollstaendig gruen (beide OpenAPI-Drift-Tests inklusive),
+  `swagger-cli validate` gruen. Keine Migration, kein Flag scharfgeschaltet,
+  keine neue `config.RequireX`, keine neue Dependency, keine Proto-Aenderung
+  (die Messages trugen die Felder bereits).
+- offen / fuer Luke:
+  - **Kein Test gegen echtes DATEV.** Keine Sandbox, kein Konto — der
+    Upload-Pfad ist am Service-Rand gegen einen Fake geprueft, nicht am Netz.
+    Gleiche Lage wie Bexio und Slack/Teams.
+  - **FE-Zeilen:** `datev-upload-client.ts` typt die Antwort als
+    `{success, upload_id?, error_message?}` — `upload_id` gab es nie, und
+    `document_count`/`file_size` (die einzigen inhaltlichen Rueckmeldungen)
+    werden nicht gelesen. Der 409-Grund steht im Fehlertext und sollte
+    angezeigt werden, sonst sieht ein Admin nur "Upload fehlgeschlagen".
+  - **`auto_upload_enabled`/`upload_after_export`** sind konfigurierbar, aber
+    niemand wertet sie aus: nach einem GoBD-Export passiert nichts automatisch.
+    Entweder verdrahten (eigene Unit) oder die Schalter aus dem FE nehmen.
+  - Naechste freie Unit: `p3-integration-webhook-adapters` (opus) — danach ist
+    die Queue leer bis auf `p3-berichte-share-token` (haengt am blockierten
+    `p3-berichte-server-pdf`) und `p3-fe-only-features-scope-decision`.
+  - Unveraendert offen: `hr_leave_types`-Seeds unter der Zero-UUID;
+    Rollen-Zuschnitt der produktion-ext-Permissions; Modul-Aktivierung ohne
+    Enforcement; `platform_admin` haelt niemand; `types.ts`-Drift.

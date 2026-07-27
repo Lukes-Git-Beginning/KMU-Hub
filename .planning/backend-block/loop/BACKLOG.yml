@@ -939,7 +939,7 @@ units:
     service: biz
     model: opus
     deps: [p3-gateway-wire-datev-upload]
-    status: todo
+    status: done   # Iteration 31 — echte Orchestrierung, Buchungsstapel-Builder geteilt mit dem GoBD-Export
     scope: >
       `UploadDatevBuchungsstapel` und `UploadDatevBeleg` (internal/server/
       datev_upload_grpc.go) liefern seit Iteration 26 bewusst 501, weil sie
@@ -962,6 +962,39 @@ units:
       muss deshalb am Service-Rand ansetzen (Uploader-Fake), nicht am Netz.
       Beim Erfolgspfad die Spec mitziehen: 501 wieder gegen 200 tauschen und
       die "NOT IMPLEMENTED"-Beschreibungen entfernen.
+      ERLEDIGT Iteration 31. Entscheidungen: (a) HAUPTZUG war nicht neuer Code,
+      sondern eine Umschichtung: die vollstaendige Buchungsstapel-Orchestrierung
+      (Keyset-Paging ueber Rechnungen und Gutschriften, EXTF-Header mit
+      Berater-/Mandantennummer) lag als ~70 Zeilen IM Handler
+      `BizGRPCServer.ExportDATEV`. Sie ist jetzt `datev.BuchungsstapelBuilder`
+      im Service-Layer und wird von beiden Seiten genutzt — Download und Upload
+      koennen nicht mehr auseinanderlaufen, und der Handler ist duenn (die
+      Architekturregel, die dort verletzt war). Eine zweite Kopie der Schleife
+      im Upload-Pfad waere der naheliegende, aber falsche Weg gewesen.
+      (b) KEIN Export-only-Fallback mehr: `ExportAndUpload` gab bei fehlender
+      Verbindung/Config das CSV zurueck und meldete Erfolg — genau die Form von
+      Falsch-Erfolg, die Iteration 26 auf 501 geriegelt hat. Der Upload prueft
+      jetzt VOR dem Rendern alle Voraussetzungen und liefert je einen Sentinel
+      (FailedPrecondition -> 409): keine Verbindung, keine aktive Tenant-Config,
+      keine Mandantennummer, keine Berater-/Mandantennummer, kein einziger
+      buchbarer Beleg im Zeitraum. (c) `document_count` zaehlt jetzt die Belege,
+      die tatsaechlich Buchungszeilen erzeugt haben (neuer
+      `StreamWriter.DocumentCount()`), nicht die geladenen Zeilen — Entwuerfe
+      werden vom Exporter uebersprungen und wuerden sonst als "an DATEV
+      uebertragen" gemeldet. (d) Der Beleg-Pfad rendert ueber denselben
+      maroto-Generator wie der Rechnungs-Download (`internal/biz/pdf`), keine
+      neue Dependency; `pdf.ValidateCompanySettingsForPDF` laeuft VOR dem
+      Rendern, damit fehlende §14-UStG-Pflichtangaben als fixbare Bedingung
+      ankommen statt als Render-Fehler. (e) Der Zeitraum ist jetzt Pflicht (BE
+      und Gateway-Validator) — vorher hiess ein leerer Body "alles, was der
+      Tenant je gebucht hat". Das FE schickt beide Felder bereits.
+      (f) `Uploader`/`BelegbilderUploader` sind hinter Interfaces, damit der
+      Upload-Pfad ohne DATEV-Konto testbar ist (Uploader-Fake mit Aufrufzaehler
+      — der Test prueft primaer, dass bei jeder unerfuellten Bedingung NULL
+      Kontakte stattfinden).
+      Falsifiziert: die drei Guards (Berater-Nr., leerer Zeitraum, leeres PDF)
+      einzeln entfernt -> genau die zugehoerigen Faelle rot; Zustand
+      wiederhergestellt und nachgeprueft.
     done_when:
       - Buchungsstapel enthaelt die Belege des angefragten Zeitraums, tenant-gescoped
       - Beleg-Upload uebertraegt ein echtes PDF
