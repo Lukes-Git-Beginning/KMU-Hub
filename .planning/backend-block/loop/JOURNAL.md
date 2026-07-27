@@ -3429,7 +3429,7 @@ bleibt.
 
 ## Iteration 44 — wp-crm-core — done — 2026-07-28
 
-- commit: siehe naechster docs(planning)-Commit
+- commit: `b7967a9c`
 - verify vorgaenger: sauber. Commit `77d9179c` (Iteration 43, wp-biz-hr) ist
   eine reine Testdatei (`backend/internal/biz/hr/tenant_write_test.go`) plus
   zwei kleine Fixes darin (`leave.PostgresLeaveRequestRepo.Update`-Praedikat,
