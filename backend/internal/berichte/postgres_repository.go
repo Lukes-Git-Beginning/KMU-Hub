@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // PostgresRepository implements Repository using PostgreSQL (pgx v5).
@@ -620,6 +622,124 @@ func scanDocument(row pgx.Row) (*Document, error) {
 		return nil, fmt.Errorf("scan document: %w", err)
 	}
 	return &d, nil
+}
+
+// ============================================================================
+// Share tokens
+// ============================================================================
+
+const shareTokenColumns = `id, tenant_id, document_id, token, password_hash,
+	        expires_at, revoked_at, view_count, created_by, created_at`
+
+func (r *PostgresRepository) CreateShareToken(ctx context.Context, t *ShareToken) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO report_share_tokens
+		    (id, tenant_id, document_id, token, password_hash, expires_at,
+		     revoked_at, view_count, created_by, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		t.ID, t.TenantID, t.DocumentID, t.Token, t.PasswordHash, t.ExpiresAt,
+		t.RevokedAt, t.ViewCount, t.CreatedBy, t.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("create share token: %w", err)
+	}
+	return nil
+}
+
+// ListShareTokens returns the still-usable links of one document. Revoked rows
+// stay in the table for the audit trail but are not listed — the frontend
+// renders this list as "these links are live right now".
+func (r *PostgresRepository) ListShareTokens(ctx context.Context, tenantID, documentID uuid.UUID) ([]*ShareToken, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+shareTokenColumns+`
+		 FROM report_share_tokens
+		 WHERE tenant_id = $1 AND document_id = $2 AND revoked_at IS NULL
+		 ORDER BY created_at DESC`,
+		tenantID, documentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list share tokens: %w", err)
+	}
+	defer rows.Close()
+
+	tokens := make([]*ShareToken, 0, 4)
+	for rows.Next() {
+		t, scanErr := scanShareToken(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		tokens = append(tokens, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate share tokens: %w", err)
+	}
+	return tokens, nil
+}
+
+// RevokeShareToken cuts a live link. Revoking an already-revoked one reports
+// ErrShareNotFound rather than succeeding silently, so a double revoke from a
+// stale UI does not read as a fresh one.
+func (r *PostgresRepository) RevokeShareToken(ctx context.Context, tenantID, shareID uuid.UUID, at time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE report_share_tokens SET revoked_at = $1
+		 WHERE id = $2 AND tenant_id = $3 AND revoked_at IS NULL`,
+		at, shareID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("revoke share token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrShareNotFound
+	}
+	return nil
+}
+
+// GetShareTokenBySecret resolves a link — and with it its tenant — from the
+// secret alone.
+//
+// This is the one read in this service that runs without a tenant in the
+// session, because the public request has none: RLS would filter away the
+// single row that answers which tenant the caller may see. The query is
+// therefore pinned to an exact match on the unique token column and returns
+// everything the service needs to decide; it is never a listing and never
+// takes a filter. The revoked/expired verdict is the service's, not this
+// query's, so that a revoked link still resolves far enough to be logged.
+func (r *PostgresRepository) GetShareTokenBySecret(ctx context.Context, secret string) (*ShareToken, error) {
+	if secret == "" {
+		return nil, ErrShareNotFound
+	}
+	return scanShareToken(r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT `+shareTokenColumns+`
+		 FROM report_share_tokens WHERE token = $1`,
+		secret,
+	))
+}
+
+func (r *PostgresRepository) IncrementShareView(ctx context.Context, tenantID, shareID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE report_share_tokens SET view_count = view_count + 1
+		 WHERE id = $1 AND tenant_id = $2`,
+		shareID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("increment share view: %w", err)
+	}
+	return nil
+}
+
+func scanShareToken(row pgx.Row) (*ShareToken, error) {
+	var t ShareToken
+	err := row.Scan(
+		&t.ID, &t.TenantID, &t.DocumentID, &t.Token, &t.PasswordHash,
+		&t.ExpiresAt, &t.RevokedAt, &t.ViewCount, &t.CreatedBy, &t.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("scan share token: %w", err)
+	}
+	return &t, nil
 }
 
 // compile-time interface check

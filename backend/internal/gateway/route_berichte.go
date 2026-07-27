@@ -1,7 +1,9 @@
 package gateway
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -85,14 +87,42 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/", br.HandleGetDocument)
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Patch("/", br.HandleUpdateDocument)
 				r.With(middleware.RequirePermission("berichte:reports", "write")).Delete("/", br.HandleDeleteDocument)
+
+				// External share links. Minting one hands out an
+				// unauthenticated read path, so it sits behind the same
+				// "write" permission as changing the document itself.
+				r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/shares", br.HandleListReportShares)
+				r.With(middleware.RequirePermission("berichte:reports", "write")).Post("/shares", br.HandleCreateReportShare)
 			})
 		})
+
+		r.With(middleware.RequirePermission("berichte:reports", "write")).
+			Delete("/shares/{shareId}", br.HandleRevokeReportShare)
 
 		// KPIs
 		r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/kpis", br.HandleGetDashboardKPIs)
 
 		// Templates (static starter structures)
 		r.With(middleware.RequirePermission("berichte:reports", "read")).Get("/templates", br.HandleListTemplates)
+	})
+}
+
+// RegisterPublicRoutes mounts the unauthenticated read of a shared report.
+// Called from cmd/gateway/main.go OUTSIDE the registrars loop, directly on r,
+// following the public booking-routes pattern.
+//
+// publicRateLimit must be the stricter public limiter, not the global one: this
+// is the only path in the module that answers without a JWT, so per-IP
+// throttling is the only thing standing between a scraper and an unbounded
+// series of attempts.
+func (br *BerichteRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	if !br.flags.IsEnabled("modules.berichte") {
+		return
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+		r.Post("/api/v1/public/berichte/reports/{token}", br.HandleGetSharedReport)
 	})
 }
 
@@ -1006,4 +1036,240 @@ func (br *BerichteRoutes) HandleGetDashboardKPIs(w http.ResponseWriter, r *http.
 		return
 	}
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Share links
+// ============================================================================
+
+// maxSharePasswordBody caps the public read's request body. The only field it
+// may carry is a password, so anything past a kilobyte is not a visitor.
+const maxSharePasswordBody = 1 << 10
+
+type createReportShareHTTPRequest struct {
+	ExpiresInDays *int32 `json:"expires_in_days"`
+	Password      string `json:"password"`
+}
+
+type publicReadShareHTTPRequest struct {
+	Password string `json:"password"`
+}
+
+// reportShareWire mirrors ReportShareToken in berichte-types.ts.
+type reportShareWire struct {
+	ID          string     `json:"id"`
+	DocumentID  string     `json:"document_id"`
+	Token       string     `json:"token"`
+	ExpiresAt   *time.Time `json:"expires_at"`
+	HasPassword bool       `json:"has_password"`
+	ViewCount   int32      `json:"view_count"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+// publicReportDocumentWire is the reduced document an anonymous visitor sees.
+//
+// It is a separate type from reportDocumentWire on purpose: tenant_id,
+// created_by and the editing status are internal facts that have no business
+// on an unauthenticated response, and a shared field set would leak them the
+// first time someone adds a field to the authenticated one.
+type publicReportDocumentWire struct {
+	ID          string          `json:"id"`
+	Title       string          `json:"title"`
+	Description string          `json:"description"`
+	Module      string          `json:"module"`
+	Rows        json.RawMessage `json:"rows"`
+	Settings    json.RawMessage `json:"settings"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	ReleasedAt  *time.Time      `json:"released_at"`
+}
+
+func toReportShareWire(s *berichtev1.ShareToken) reportShareWire {
+	wire := reportShareWire{
+		ID:          s.GetId(),
+		DocumentID:  s.GetDocumentId(),
+		Token:       s.GetToken(),
+		HasPassword: s.GetHasPassword(),
+		ViewCount:   s.GetViewCount(),
+		CreatedAt:   s.GetCreatedAt().AsTime(),
+	}
+	if s.ExpiresAt != nil {
+		expires := s.GetExpiresAt().AsTime()
+		wire.ExpiresAt = &expires
+	}
+	return wire
+}
+
+func toPublicReportDocumentWire(d *berichtev1.Document) publicReportDocumentWire {
+	wire := publicReportDocumentWire{
+		ID:          d.GetId(),
+		Title:       d.GetTitle(),
+		Description: d.GetDescription(),
+		Module:      d.GetModule(),
+		Rows:        json.RawMessage(d.GetRows()),
+		Settings:    json.RawMessage(d.GetSettings()),
+		UpdatedAt:   d.GetUpdatedAt().AsTime(),
+	}
+	if len(wire.Rows) == 0 {
+		wire.Rows = json.RawMessage("[]")
+	}
+	if len(wire.Settings) == 0 {
+		wire.Settings = json.RawMessage("{}")
+	}
+	if d.ReleasedAt != nil {
+		released := d.GetReleasedAt().AsTime()
+		wire.ReleasedAt = &released
+	}
+	return wire
+}
+
+func (br *BerichteRoutes) HandleListReportShares(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListShareTokens(r.Context(), &berichtev1.ListShareTokensRequest{
+		TenantId:   tenantID.String(),
+		DocumentId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	shares := make([]reportShareWire, 0, len(resp.GetTokens()))
+	for _, t := range resp.GetTokens() {
+		shares = append(shares, toReportShareWire(t))
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"shares": shares})
+}
+
+func (br *BerichteRoutes) HandleCreateReportShare(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[createReportShareHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &berichtev1.CreateShareTokenRequest{
+		TenantId:      tenantID.String(),
+		DocumentId:    id,
+		ExpiresInDays: req.ExpiresInDays,
+	}
+	if req.Password != "" {
+		grpcReq.Password = &req.Password
+	}
+	if userID := middleware.GetUserID(r.Context()); userID != "" {
+		grpcReq.CreatedBy = &userID
+	}
+
+	resp, err := client.CreateShareToken(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, map[string]any{"share": toReportShareWire(resp.GetShare())})
+}
+
+func (br *BerichteRoutes) HandleRevokeReportShare(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	shareID, ok := validateUUIDParam(w, r, "shareId")
+	if !ok {
+		return
+	}
+
+	if _, err := client.RevokeShareToken(r.Context(), &berichtev1.RevokeShareTokenRequest{
+		TenantId: tenantID.String(),
+		ShareId:  shareID,
+	}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleGetSharedReport serves the unauthenticated public read of a shared
+// report.
+//
+// It is a POST, not a GET, for two reasons that both matter more than the verb
+// reading as a read: the password must not land in a URL, where it would end up
+// in access logs, browser history and Referer headers, and the call increments
+// the link's view counter, which no prefetching GET should be free to do.
+func (br *BerichteRoutes) HandleGetSharedReport(w http.ResponseWriter, r *http.Request) {
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	token := chi.URLParam(r, "token")
+	if token == "" || len(token) > 128 {
+		// Same answer a well-formed unknown token gets: this route never
+		// distinguishes "malformed" from "no such link".
+		response.Error(w, http.StatusNotFound, "share link not found")
+		return
+	}
+
+	// The body is optional — a link without a password is read with no body at
+	// all — so an empty or absent one is not an error, only a malformed one is.
+	var body publicReadShareHTTPRequest
+	raw, readErr := io.ReadAll(io.LimitReader(r.Body, maxSharePasswordBody))
+	if readErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(bytes.TrimSpace(raw)) > 0 {
+		if err := json.Unmarshal(raw, &body); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+	}
+
+	grpcReq := &berichtev1.GetSharedDocumentRequest{Token: token}
+	if body.Password != "" {
+		grpcReq.Password = &body.Password
+	}
+
+	resp, err := client.GetSharedDocument(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"document": toPublicReportDocumentWire(resp.GetDocument())})
 }

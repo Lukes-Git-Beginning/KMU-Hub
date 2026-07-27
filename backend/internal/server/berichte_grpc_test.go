@@ -35,9 +35,10 @@ func newTestBerichteServerWithSvc(repo berichte.Repository, exec berichte.Execut
 
 // stubBerichteRepo is a minimal in-memory repository for service-layer tests.
 type stubBerichteRepo struct {
-	def *berichte.Definition
-	sch *berichte.Schedule
-	doc *berichte.Document
+	def   *berichte.Definition
+	sch   *berichte.Schedule
+	doc   *berichte.Document
+	share *berichte.ShareToken
 }
 
 func (r *stubBerichteRepo) CreateDefinition(_ context.Context, def *berichte.Definition) error {
@@ -758,4 +759,39 @@ func assertGRPCCode(t *testing.T, err error, want codes.Code) {
 	if st.Code() != want {
 		t.Errorf("gRPC code mismatch: got %v want %v (msg: %s)", st.Code(), want, st.Message())
 	}
+}
+
+func (r *stubBerichteRepo) CreateShareToken(_ context.Context, t *berichte.ShareToken) error {
+	r.share = t
+	return nil
+}
+
+func (r *stubBerichteRepo) ListShareTokens(_ context.Context, _, _ uuid.UUID) ([]*berichte.ShareToken, error) {
+	if r.share == nil {
+		return nil, nil
+	}
+	return []*berichte.ShareToken{r.share}, nil
+}
+
+func (r *stubBerichteRepo) RevokeShareToken(_ context.Context, _, _ uuid.UUID, at time.Time) error {
+	if r.share == nil || r.share.RevokedAt != nil {
+		return berichte.ErrShareNotFound
+	}
+	r.share.RevokedAt = &at
+	return nil
+}
+
+func (r *stubBerichteRepo) GetShareTokenBySecret(_ context.Context, secret string) (*berichte.ShareToken, error) {
+	if r.share == nil || r.share.Token != secret {
+		return nil, berichte.ErrShareNotFound
+	}
+	return r.share, nil
+}
+
+func (r *stubBerichteRepo) IncrementShareView(_ context.Context, _, _ uuid.UUID) error {
+	if r.share == nil {
+		return berichte.ErrShareNotFound
+	}
+	r.share.ViewCount++
+	return nil
 }

@@ -3038,6 +3038,500 @@ func (x *ListTemplatesResponse) GetTemplates() []*Template {
 	return nil
 }
 
+type ShareToken struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	DocumentId string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	// The link secret in clear. Returned on create and on list, because the
+	// frontend renders it as a copyable URL. Never derived from the password.
+	Token         string                 `protobuf:"bytes,3,opt,name=token,proto3" json:"token,omitempty"`
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`  // absent = never expires
+	HasPassword   bool                   `protobuf:"varint,5,opt,name=has_password,json=hasPassword,proto3" json:"has_password,omitempty"` // the hash itself never leaves the service
+	ViewCount     int32                  `protobuf:"varint,6,opt,name=view_count,json=viewCount,proto3" json:"view_count,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShareToken) Reset() {
+	*x = ShareToken{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareToken) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareToken) ProtoMessage() {}
+
+func (x *ShareToken) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareToken.ProtoReflect.Descriptor instead.
+func (*ShareToken) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *ShareToken) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ShareToken) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *ShareToken) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *ShareToken) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *ShareToken) GetHasPassword() bool {
+	if x != nil {
+		return x.HasPassword
+	}
+	return false
+}
+
+func (x *ShareToken) GetViewCount() int32 {
+	if x != nil {
+		return x.ViewCount
+	}
+	return 0
+}
+
+func (x *ShareToken) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type CreateShareTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	ExpiresInDays *int32                 `protobuf:"varint,3,opt,name=expires_in_days,json=expiresInDays,proto3,oneof" json:"expires_in_days,omitempty"` // absent or 0 = never expires
+	Password      *string                `protobuf:"bytes,4,opt,name=password,proto3,oneof" json:"password,omitempty"`                                   // absent or empty = no password
+	CreatedBy     *string                `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateShareTokenRequest) Reset() {
+	*x = CreateShareTokenRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateShareTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateShareTokenRequest) ProtoMessage() {}
+
+func (x *CreateShareTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateShareTokenRequest.ProtoReflect.Descriptor instead.
+func (*CreateShareTokenRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *CreateShareTokenRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateShareTokenRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *CreateShareTokenRequest) GetExpiresInDays() int32 {
+	if x != nil && x.ExpiresInDays != nil {
+		return *x.ExpiresInDays
+	}
+	return 0
+}
+
+func (x *CreateShareTokenRequest) GetPassword() string {
+	if x != nil && x.Password != nil {
+		return *x.Password
+	}
+	return ""
+}
+
+func (x *CreateShareTokenRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+type ListShareTokensRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListShareTokensRequest) Reset() {
+	*x = ListShareTokensRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListShareTokensRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListShareTokensRequest) ProtoMessage() {}
+
+func (x *ListShareTokensRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListShareTokensRequest.ProtoReflect.Descriptor instead.
+func (*ListShareTokensRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListShareTokensRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListShareTokensRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+type ListShareTokensResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tokens        []*ShareToken          `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListShareTokensResponse) Reset() {
+	*x = ListShareTokensResponse{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListShareTokensResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListShareTokensResponse) ProtoMessage() {}
+
+func (x *ListShareTokensResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListShareTokensResponse.ProtoReflect.Descriptor instead.
+func (*ListShareTokensResponse) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListShareTokensResponse) GetTokens() []*ShareToken {
+	if x != nil {
+		return x.Tokens
+	}
+	return nil
+}
+
+type RevokeShareTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ShareId       string                 `protobuf:"bytes,2,opt,name=share_id,json=shareId,proto3" json:"share_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeShareTokenRequest) Reset() {
+	*x = RevokeShareTokenRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeShareTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeShareTokenRequest) ProtoMessage() {}
+
+func (x *RevokeShareTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeShareTokenRequest.ProtoReflect.Descriptor instead.
+func (*RevokeShareTokenRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *RevokeShareTokenRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *RevokeShareTokenRequest) GetShareId() string {
+	if x != nil {
+		return x.ShareId
+	}
+	return ""
+}
+
+type RevokeShareTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeShareTokenResponse) Reset() {
+	*x = RevokeShareTokenResponse{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeShareTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeShareTokenResponse) ProtoMessage() {}
+
+func (x *RevokeShareTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeShareTokenResponse.ProtoReflect.Descriptor instead.
+func (*RevokeShareTokenResponse) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{47}
+}
+
+type ShareTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Share         *ShareToken            `protobuf:"bytes,1,opt,name=share,proto3" json:"share,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShareTokenResponse) Reset() {
+	*x = ShareTokenResponse{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareTokenResponse) ProtoMessage() {}
+
+func (x *ShareTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareTokenResponse.ProtoReflect.Descriptor instead.
+func (*ShareTokenResponse) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *ShareTokenResponse) GetShare() *ShareToken {
+	if x != nil {
+		return x.Share
+	}
+	return nil
+}
+
+type GetSharedDocumentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Password      *string                `protobuf:"bytes,2,opt,name=password,proto3,oneof" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSharedDocumentRequest) Reset() {
+	*x = GetSharedDocumentRequest{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSharedDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSharedDocumentRequest) ProtoMessage() {}
+
+func (x *GetSharedDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSharedDocumentRequest.ProtoReflect.Descriptor instead.
+func (*GetSharedDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *GetSharedDocumentRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *GetSharedDocumentRequest) GetPassword() string {
+	if x != nil && x.Password != nil {
+		return *x.Password
+	}
+	return ""
+}
+
+type GetSharedDocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Document      *Document              `protobuf:"bytes,1,opt,name=document,proto3" json:"document,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSharedDocumentResponse) Reset() {
+	*x = GetSharedDocumentResponse{}
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSharedDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSharedDocumentResponse) ProtoMessage() {}
+
+func (x *GetSharedDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_berichte_v1_berichte_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSharedDocumentResponse.ProtoReflect.Descriptor instead.
+func (*GetSharedDocumentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_berichte_v1_berichte_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *GetSharedDocumentResponse) GetDocument() *Document {
+	if x != nil {
+		return x.Document
+	}
+	return nil
+}
+
 var File_proto_berichte_v1_berichte_proto protoreflect.FileDescriptor
 
 const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
@@ -3350,7 +3844,50 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\x05_icon\"\x16\n" +
 	"\x14ListTemplatesRequest\"L\n" +
 	"\x15ListTemplatesResponse\x123\n" +
-	"\ttemplates\x18\x01 \x03(\v2\x15.berichte.v1.TemplateR\ttemplates2\xc3\x0e\n" +
+	"\ttemplates\x18\x01 \x03(\v2\x15.berichte.v1.TemplateR\ttemplates\"\x9f\x02\n" +
+	"\n" +
+	"ShareToken\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\x12\x14\n" +
+	"\x05token\x18\x03 \x01(\tR\x05token\x12>\n" +
+	"\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\texpiresAt\x88\x01\x01\x12!\n" +
+	"\fhas_password\x18\x05 \x01(\bR\vhasPassword\x12\x1d\n" +
+	"\n" +
+	"view_count\x18\x06 \x01(\x05R\tviewCount\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\r\n" +
+	"\v_expires_at\"\xf9\x01\n" +
+	"\x17CreateShareTokenRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\x12+\n" +
+	"\x0fexpires_in_days\x18\x03 \x01(\x05H\x00R\rexpiresInDays\x88\x01\x01\x12\x1f\n" +
+	"\bpassword\x18\x04 \x01(\tH\x01R\bpassword\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\tH\x02R\tcreatedBy\x88\x01\x01B\x12\n" +
+	"\x10_expires_in_daysB\v\n" +
+	"\t_passwordB\r\n" +
+	"\v_created_by\"V\n" +
+	"\x16ListShareTokensRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\"J\n" +
+	"\x17ListShareTokensResponse\x12/\n" +
+	"\x06tokens\x18\x01 \x03(\v2\x17.berichte.v1.ShareTokenR\x06tokens\"Q\n" +
+	"\x17RevokeShareTokenRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bshare_id\x18\x02 \x01(\tR\ashareId\"\x1a\n" +
+	"\x18RevokeShareTokenResponse\"C\n" +
+	"\x12ShareTokenResponse\x12-\n" +
+	"\x05share\x18\x01 \x01(\v2\x17.berichte.v1.ShareTokenR\x05share\"^\n" +
+	"\x18GetSharedDocumentRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1f\n" +
+	"\bpassword\x18\x02 \x01(\tH\x00R\bpassword\x88\x01\x01B\v\n" +
+	"\t_password\"N\n" +
+	"\x19GetSharedDocumentResponse\x121\n" +
+	"\bdocument\x18\x01 \x01(\v2\x15.berichte.v1.DocumentR\bdocument2\xc1\x11\n" +
 	"\x0fBerichteService\x12Y\n" +
 	"\x10CreateDefinition\x12$.berichte.v1.CreateDefinitionRequest\x1a\x1f.berichte.v1.DefinitionResponse\x12S\n" +
 	"\rGetDefinition\x12!.berichte.v1.GetDefinitionRequest\x1a\x1f.berichte.v1.DefinitionResponse\x12Y\n" +
@@ -3372,7 +3909,11 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\x0eUpdateDocument\x12\".berichte.v1.UpdateDocumentRequest\x1a\x1d.berichte.v1.DocumentResponse\x12Y\n" +
 	"\x0eDeleteDocument\x12\".berichte.v1.DeleteDocumentRequest\x1a#.berichte.v1.DeleteDocumentResponse\x12V\n" +
 	"\rListDocuments\x12!.berichte.v1.ListDocumentsRequest\x1a\".berichte.v1.ListDocumentsResponse\x12V\n" +
-	"\rListTemplates\x12!.berichte.v1.ListTemplatesRequest\x1a\".berichte.v1.ListTemplatesResponseB7Z5github.com/kmuhub/kmuhub/proto/berichte/v1;berichtev1b\x06proto3"
+	"\rListTemplates\x12!.berichte.v1.ListTemplatesRequest\x1a\".berichte.v1.ListTemplatesResponse\x12Y\n" +
+	"\x10CreateShareToken\x12$.berichte.v1.CreateShareTokenRequest\x1a\x1f.berichte.v1.ShareTokenResponse\x12\\\n" +
+	"\x0fListShareTokens\x12#.berichte.v1.ListShareTokensRequest\x1a$.berichte.v1.ListShareTokensResponse\x12_\n" +
+	"\x10RevokeShareToken\x12$.berichte.v1.RevokeShareTokenRequest\x1a%.berichte.v1.RevokeShareTokenResponse\x12b\n" +
+	"\x11GetSharedDocument\x12%.berichte.v1.GetSharedDocumentRequest\x1a&.berichte.v1.GetSharedDocumentResponseB7Z5github.com/kmuhub/kmuhub/proto/berichte/v1;berichtev1b\x06proto3"
 
 var (
 	file_proto_berichte_v1_berichte_proto_rawDescOnce sync.Once
@@ -3386,61 +3927,70 @@ func file_proto_berichte_v1_berichte_proto_rawDescGZIP() []byte {
 	return file_proto_berichte_v1_berichte_proto_rawDescData
 }
 
-var file_proto_berichte_v1_berichte_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_proto_berichte_v1_berichte_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
 var file_proto_berichte_v1_berichte_proto_goTypes = []any{
-	(*Definition)(nil),               // 0: berichte.v1.Definition
-	(*Schedule)(nil),                 // 1: berichte.v1.Schedule
-	(*Run)(nil),                      // 2: berichte.v1.Run
-	(*ReportResult)(nil),             // 3: berichte.v1.ReportResult
-	(*KPI)(nil),                      // 4: berichte.v1.KPI
-	(*CreateDefinitionRequest)(nil),  // 5: berichte.v1.CreateDefinitionRequest
-	(*GetDefinitionRequest)(nil),     // 6: berichte.v1.GetDefinitionRequest
-	(*UpdateDefinitionRequest)(nil),  // 7: berichte.v1.UpdateDefinitionRequest
-	(*DeleteDefinitionRequest)(nil),  // 8: berichte.v1.DeleteDefinitionRequest
-	(*DeleteDefinitionResponse)(nil), // 9: berichte.v1.DeleteDefinitionResponse
-	(*DefinitionResponse)(nil),       // 10: berichte.v1.DefinitionResponse
-	(*ListDefinitionsRequest)(nil),   // 11: berichte.v1.ListDefinitionsRequest
-	(*ListDefinitionsResponse)(nil),  // 12: berichte.v1.ListDefinitionsResponse
-	(*RunReportRequest)(nil),         // 13: berichte.v1.RunReportRequest
-	(*RunReportResponse)(nil),        // 14: berichte.v1.RunReportResponse
-	(*GetCachedResultRequest)(nil),   // 15: berichte.v1.GetCachedResultRequest
-	(*InvalidateCacheRequest)(nil),   // 16: berichte.v1.InvalidateCacheRequest
-	(*InvalidateCacheResponse)(nil),  // 17: berichte.v1.InvalidateCacheResponse
-	(*ExportReportRequest)(nil),      // 18: berichte.v1.ExportReportRequest
-	(*ExportReportResponse)(nil),     // 19: berichte.v1.ExportReportResponse
-	(*CreateScheduleRequest)(nil),    // 20: berichte.v1.CreateScheduleRequest
-	(*UpdateScheduleRequest)(nil),    // 21: berichte.v1.UpdateScheduleRequest
-	(*DeleteScheduleRequest)(nil),    // 22: berichte.v1.DeleteScheduleRequest
-	(*DeleteScheduleResponse)(nil),   // 23: berichte.v1.DeleteScheduleResponse
-	(*ScheduleResponse)(nil),         // 24: berichte.v1.ScheduleResponse
-	(*ListSchedulesRequest)(nil),     // 25: berichte.v1.ListSchedulesRequest
-	(*ListSchedulesResponse)(nil),    // 26: berichte.v1.ListSchedulesResponse
-	(*ToggleScheduleRequest)(nil),    // 27: berichte.v1.ToggleScheduleRequest
-	(*DashboardKPIsRequest)(nil),     // 28: berichte.v1.DashboardKPIsRequest
-	(*DashboardKPIsResponse)(nil),    // 29: berichte.v1.DashboardKPIsResponse
-	(*Document)(nil),                 // 30: berichte.v1.Document
-	(*CreateDocumentRequest)(nil),    // 31: berichte.v1.CreateDocumentRequest
-	(*GetDocumentRequest)(nil),       // 32: berichte.v1.GetDocumentRequest
-	(*UpdateDocumentRequest)(nil),    // 33: berichte.v1.UpdateDocumentRequest
-	(*DeleteDocumentRequest)(nil),    // 34: berichte.v1.DeleteDocumentRequest
-	(*DeleteDocumentResponse)(nil),   // 35: berichte.v1.DeleteDocumentResponse
-	(*DocumentResponse)(nil),         // 36: berichte.v1.DocumentResponse
-	(*ListDocumentsRequest)(nil),     // 37: berichte.v1.ListDocumentsRequest
-	(*ListDocumentsResponse)(nil),    // 38: berichte.v1.ListDocumentsResponse
-	(*Template)(nil),                 // 39: berichte.v1.Template
-	(*ListTemplatesRequest)(nil),     // 40: berichte.v1.ListTemplatesRequest
-	(*ListTemplatesResponse)(nil),    // 41: berichte.v1.ListTemplatesResponse
-	(*timestamppb.Timestamp)(nil),    // 42: google.protobuf.Timestamp
+	(*Definition)(nil),                // 0: berichte.v1.Definition
+	(*Schedule)(nil),                  // 1: berichte.v1.Schedule
+	(*Run)(nil),                       // 2: berichte.v1.Run
+	(*ReportResult)(nil),              // 3: berichte.v1.ReportResult
+	(*KPI)(nil),                       // 4: berichte.v1.KPI
+	(*CreateDefinitionRequest)(nil),   // 5: berichte.v1.CreateDefinitionRequest
+	(*GetDefinitionRequest)(nil),      // 6: berichte.v1.GetDefinitionRequest
+	(*UpdateDefinitionRequest)(nil),   // 7: berichte.v1.UpdateDefinitionRequest
+	(*DeleteDefinitionRequest)(nil),   // 8: berichte.v1.DeleteDefinitionRequest
+	(*DeleteDefinitionResponse)(nil),  // 9: berichte.v1.DeleteDefinitionResponse
+	(*DefinitionResponse)(nil),        // 10: berichte.v1.DefinitionResponse
+	(*ListDefinitionsRequest)(nil),    // 11: berichte.v1.ListDefinitionsRequest
+	(*ListDefinitionsResponse)(nil),   // 12: berichte.v1.ListDefinitionsResponse
+	(*RunReportRequest)(nil),          // 13: berichte.v1.RunReportRequest
+	(*RunReportResponse)(nil),         // 14: berichte.v1.RunReportResponse
+	(*GetCachedResultRequest)(nil),    // 15: berichte.v1.GetCachedResultRequest
+	(*InvalidateCacheRequest)(nil),    // 16: berichte.v1.InvalidateCacheRequest
+	(*InvalidateCacheResponse)(nil),   // 17: berichte.v1.InvalidateCacheResponse
+	(*ExportReportRequest)(nil),       // 18: berichte.v1.ExportReportRequest
+	(*ExportReportResponse)(nil),      // 19: berichte.v1.ExportReportResponse
+	(*CreateScheduleRequest)(nil),     // 20: berichte.v1.CreateScheduleRequest
+	(*UpdateScheduleRequest)(nil),     // 21: berichte.v1.UpdateScheduleRequest
+	(*DeleteScheduleRequest)(nil),     // 22: berichte.v1.DeleteScheduleRequest
+	(*DeleteScheduleResponse)(nil),    // 23: berichte.v1.DeleteScheduleResponse
+	(*ScheduleResponse)(nil),          // 24: berichte.v1.ScheduleResponse
+	(*ListSchedulesRequest)(nil),      // 25: berichte.v1.ListSchedulesRequest
+	(*ListSchedulesResponse)(nil),     // 26: berichte.v1.ListSchedulesResponse
+	(*ToggleScheduleRequest)(nil),     // 27: berichte.v1.ToggleScheduleRequest
+	(*DashboardKPIsRequest)(nil),      // 28: berichte.v1.DashboardKPIsRequest
+	(*DashboardKPIsResponse)(nil),     // 29: berichte.v1.DashboardKPIsResponse
+	(*Document)(nil),                  // 30: berichte.v1.Document
+	(*CreateDocumentRequest)(nil),     // 31: berichte.v1.CreateDocumentRequest
+	(*GetDocumentRequest)(nil),        // 32: berichte.v1.GetDocumentRequest
+	(*UpdateDocumentRequest)(nil),     // 33: berichte.v1.UpdateDocumentRequest
+	(*DeleteDocumentRequest)(nil),     // 34: berichte.v1.DeleteDocumentRequest
+	(*DeleteDocumentResponse)(nil),    // 35: berichte.v1.DeleteDocumentResponse
+	(*DocumentResponse)(nil),          // 36: berichte.v1.DocumentResponse
+	(*ListDocumentsRequest)(nil),      // 37: berichte.v1.ListDocumentsRequest
+	(*ListDocumentsResponse)(nil),     // 38: berichte.v1.ListDocumentsResponse
+	(*Template)(nil),                  // 39: berichte.v1.Template
+	(*ListTemplatesRequest)(nil),      // 40: berichte.v1.ListTemplatesRequest
+	(*ListTemplatesResponse)(nil),     // 41: berichte.v1.ListTemplatesResponse
+	(*ShareToken)(nil),                // 42: berichte.v1.ShareToken
+	(*CreateShareTokenRequest)(nil),   // 43: berichte.v1.CreateShareTokenRequest
+	(*ListShareTokensRequest)(nil),    // 44: berichte.v1.ListShareTokensRequest
+	(*ListShareTokensResponse)(nil),   // 45: berichte.v1.ListShareTokensResponse
+	(*RevokeShareTokenRequest)(nil),   // 46: berichte.v1.RevokeShareTokenRequest
+	(*RevokeShareTokenResponse)(nil),  // 47: berichte.v1.RevokeShareTokenResponse
+	(*ShareTokenResponse)(nil),        // 48: berichte.v1.ShareTokenResponse
+	(*GetSharedDocumentRequest)(nil),  // 49: berichte.v1.GetSharedDocumentRequest
+	(*GetSharedDocumentResponse)(nil), // 50: berichte.v1.GetSharedDocumentResponse
+	(*timestamppb.Timestamp)(nil),     // 51: google.protobuf.Timestamp
 }
 var file_proto_berichte_v1_berichte_proto_depIdxs = []int32{
-	42, // 0: berichte.v1.Definition.created_at:type_name -> google.protobuf.Timestamp
-	42, // 1: berichte.v1.Definition.updated_at:type_name -> google.protobuf.Timestamp
-	42, // 2: berichte.v1.Schedule.last_run_at:type_name -> google.protobuf.Timestamp
-	42, // 3: berichte.v1.Schedule.created_at:type_name -> google.protobuf.Timestamp
-	42, // 4: berichte.v1.Schedule.updated_at:type_name -> google.protobuf.Timestamp
-	42, // 5: berichte.v1.Run.started_at:type_name -> google.protobuf.Timestamp
-	42, // 6: berichte.v1.Run.completed_at:type_name -> google.protobuf.Timestamp
-	42, // 7: berichte.v1.ReportResult.generated_at:type_name -> google.protobuf.Timestamp
+	51, // 0: berichte.v1.Definition.created_at:type_name -> google.protobuf.Timestamp
+	51, // 1: berichte.v1.Definition.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 2: berichte.v1.Schedule.last_run_at:type_name -> google.protobuf.Timestamp
+	51, // 3: berichte.v1.Schedule.created_at:type_name -> google.protobuf.Timestamp
+	51, // 4: berichte.v1.Schedule.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 5: berichte.v1.Run.started_at:type_name -> google.protobuf.Timestamp
+	51, // 6: berichte.v1.Run.completed_at:type_name -> google.protobuf.Timestamp
+	51, // 7: berichte.v1.ReportResult.generated_at:type_name -> google.protobuf.Timestamp
 	0,  // 8: berichte.v1.DefinitionResponse.definition:type_name -> berichte.v1.Definition
 	0,  // 9: berichte.v1.ListDefinitionsResponse.definitions:type_name -> berichte.v1.Definition
 	3,  // 10: berichte.v1.RunReportResponse.result:type_name -> berichte.v1.ReportResult
@@ -3448,60 +3998,73 @@ var file_proto_berichte_v1_berichte_proto_depIdxs = []int32{
 	1,  // 12: berichte.v1.ScheduleResponse.schedule:type_name -> berichte.v1.Schedule
 	1,  // 13: berichte.v1.ListSchedulesResponse.schedules:type_name -> berichte.v1.Schedule
 	4,  // 14: berichte.v1.DashboardKPIsResponse.kpis:type_name -> berichte.v1.KPI
-	42, // 15: berichte.v1.DashboardKPIsResponse.generated_at:type_name -> google.protobuf.Timestamp
-	42, // 16: berichte.v1.Document.created_at:type_name -> google.protobuf.Timestamp
-	42, // 17: berichte.v1.Document.updated_at:type_name -> google.protobuf.Timestamp
-	42, // 18: berichte.v1.Document.released_at:type_name -> google.protobuf.Timestamp
+	51, // 15: berichte.v1.DashboardKPIsResponse.generated_at:type_name -> google.protobuf.Timestamp
+	51, // 16: berichte.v1.Document.created_at:type_name -> google.protobuf.Timestamp
+	51, // 17: berichte.v1.Document.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 18: berichte.v1.Document.released_at:type_name -> google.protobuf.Timestamp
 	30, // 19: berichte.v1.DocumentResponse.document:type_name -> berichte.v1.Document
 	30, // 20: berichte.v1.ListDocumentsResponse.documents:type_name -> berichte.v1.Document
 	39, // 21: berichte.v1.ListTemplatesResponse.templates:type_name -> berichte.v1.Template
-	5,  // 22: berichte.v1.BerichteService.CreateDefinition:input_type -> berichte.v1.CreateDefinitionRequest
-	6,  // 23: berichte.v1.BerichteService.GetDefinition:input_type -> berichte.v1.GetDefinitionRequest
-	7,  // 24: berichte.v1.BerichteService.UpdateDefinition:input_type -> berichte.v1.UpdateDefinitionRequest
-	8,  // 25: berichte.v1.BerichteService.DeleteDefinition:input_type -> berichte.v1.DeleteDefinitionRequest
-	11, // 26: berichte.v1.BerichteService.ListDefinitions:input_type -> berichte.v1.ListDefinitionsRequest
-	13, // 27: berichte.v1.BerichteService.RunReport:input_type -> berichte.v1.RunReportRequest
-	15, // 28: berichte.v1.BerichteService.GetCachedResult:input_type -> berichte.v1.GetCachedResultRequest
-	16, // 29: berichte.v1.BerichteService.InvalidateCache:input_type -> berichte.v1.InvalidateCacheRequest
-	18, // 30: berichte.v1.BerichteService.ExportReport:input_type -> berichte.v1.ExportReportRequest
-	20, // 31: berichte.v1.BerichteService.CreateSchedule:input_type -> berichte.v1.CreateScheduleRequest
-	21, // 32: berichte.v1.BerichteService.UpdateSchedule:input_type -> berichte.v1.UpdateScheduleRequest
-	22, // 33: berichte.v1.BerichteService.DeleteSchedule:input_type -> berichte.v1.DeleteScheduleRequest
-	25, // 34: berichte.v1.BerichteService.ListSchedules:input_type -> berichte.v1.ListSchedulesRequest
-	27, // 35: berichte.v1.BerichteService.ToggleSchedule:input_type -> berichte.v1.ToggleScheduleRequest
-	28, // 36: berichte.v1.BerichteService.GetDashboardKPIs:input_type -> berichte.v1.DashboardKPIsRequest
-	31, // 37: berichte.v1.BerichteService.CreateDocument:input_type -> berichte.v1.CreateDocumentRequest
-	32, // 38: berichte.v1.BerichteService.GetDocument:input_type -> berichte.v1.GetDocumentRequest
-	33, // 39: berichte.v1.BerichteService.UpdateDocument:input_type -> berichte.v1.UpdateDocumentRequest
-	34, // 40: berichte.v1.BerichteService.DeleteDocument:input_type -> berichte.v1.DeleteDocumentRequest
-	37, // 41: berichte.v1.BerichteService.ListDocuments:input_type -> berichte.v1.ListDocumentsRequest
-	40, // 42: berichte.v1.BerichteService.ListTemplates:input_type -> berichte.v1.ListTemplatesRequest
-	10, // 43: berichte.v1.BerichteService.CreateDefinition:output_type -> berichte.v1.DefinitionResponse
-	10, // 44: berichte.v1.BerichteService.GetDefinition:output_type -> berichte.v1.DefinitionResponse
-	10, // 45: berichte.v1.BerichteService.UpdateDefinition:output_type -> berichte.v1.DefinitionResponse
-	9,  // 46: berichte.v1.BerichteService.DeleteDefinition:output_type -> berichte.v1.DeleteDefinitionResponse
-	12, // 47: berichte.v1.BerichteService.ListDefinitions:output_type -> berichte.v1.ListDefinitionsResponse
-	14, // 48: berichte.v1.BerichteService.RunReport:output_type -> berichte.v1.RunReportResponse
-	14, // 49: berichte.v1.BerichteService.GetCachedResult:output_type -> berichte.v1.RunReportResponse
-	17, // 50: berichte.v1.BerichteService.InvalidateCache:output_type -> berichte.v1.InvalidateCacheResponse
-	19, // 51: berichte.v1.BerichteService.ExportReport:output_type -> berichte.v1.ExportReportResponse
-	24, // 52: berichte.v1.BerichteService.CreateSchedule:output_type -> berichte.v1.ScheduleResponse
-	24, // 53: berichte.v1.BerichteService.UpdateSchedule:output_type -> berichte.v1.ScheduleResponse
-	23, // 54: berichte.v1.BerichteService.DeleteSchedule:output_type -> berichte.v1.DeleteScheduleResponse
-	26, // 55: berichte.v1.BerichteService.ListSchedules:output_type -> berichte.v1.ListSchedulesResponse
-	24, // 56: berichte.v1.BerichteService.ToggleSchedule:output_type -> berichte.v1.ScheduleResponse
-	29, // 57: berichte.v1.BerichteService.GetDashboardKPIs:output_type -> berichte.v1.DashboardKPIsResponse
-	36, // 58: berichte.v1.BerichteService.CreateDocument:output_type -> berichte.v1.DocumentResponse
-	36, // 59: berichte.v1.BerichteService.GetDocument:output_type -> berichte.v1.DocumentResponse
-	36, // 60: berichte.v1.BerichteService.UpdateDocument:output_type -> berichte.v1.DocumentResponse
-	35, // 61: berichte.v1.BerichteService.DeleteDocument:output_type -> berichte.v1.DeleteDocumentResponse
-	38, // 62: berichte.v1.BerichteService.ListDocuments:output_type -> berichte.v1.ListDocumentsResponse
-	41, // 63: berichte.v1.BerichteService.ListTemplates:output_type -> berichte.v1.ListTemplatesResponse
-	43, // [43:64] is the sub-list for method output_type
-	22, // [22:43] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	51, // 22: berichte.v1.ShareToken.expires_at:type_name -> google.protobuf.Timestamp
+	51, // 23: berichte.v1.ShareToken.created_at:type_name -> google.protobuf.Timestamp
+	42, // 24: berichte.v1.ListShareTokensResponse.tokens:type_name -> berichte.v1.ShareToken
+	42, // 25: berichte.v1.ShareTokenResponse.share:type_name -> berichte.v1.ShareToken
+	30, // 26: berichte.v1.GetSharedDocumentResponse.document:type_name -> berichte.v1.Document
+	5,  // 27: berichte.v1.BerichteService.CreateDefinition:input_type -> berichte.v1.CreateDefinitionRequest
+	6,  // 28: berichte.v1.BerichteService.GetDefinition:input_type -> berichte.v1.GetDefinitionRequest
+	7,  // 29: berichte.v1.BerichteService.UpdateDefinition:input_type -> berichte.v1.UpdateDefinitionRequest
+	8,  // 30: berichte.v1.BerichteService.DeleteDefinition:input_type -> berichte.v1.DeleteDefinitionRequest
+	11, // 31: berichte.v1.BerichteService.ListDefinitions:input_type -> berichte.v1.ListDefinitionsRequest
+	13, // 32: berichte.v1.BerichteService.RunReport:input_type -> berichte.v1.RunReportRequest
+	15, // 33: berichte.v1.BerichteService.GetCachedResult:input_type -> berichte.v1.GetCachedResultRequest
+	16, // 34: berichte.v1.BerichteService.InvalidateCache:input_type -> berichte.v1.InvalidateCacheRequest
+	18, // 35: berichte.v1.BerichteService.ExportReport:input_type -> berichte.v1.ExportReportRequest
+	20, // 36: berichte.v1.BerichteService.CreateSchedule:input_type -> berichte.v1.CreateScheduleRequest
+	21, // 37: berichte.v1.BerichteService.UpdateSchedule:input_type -> berichte.v1.UpdateScheduleRequest
+	22, // 38: berichte.v1.BerichteService.DeleteSchedule:input_type -> berichte.v1.DeleteScheduleRequest
+	25, // 39: berichte.v1.BerichteService.ListSchedules:input_type -> berichte.v1.ListSchedulesRequest
+	27, // 40: berichte.v1.BerichteService.ToggleSchedule:input_type -> berichte.v1.ToggleScheduleRequest
+	28, // 41: berichte.v1.BerichteService.GetDashboardKPIs:input_type -> berichte.v1.DashboardKPIsRequest
+	31, // 42: berichte.v1.BerichteService.CreateDocument:input_type -> berichte.v1.CreateDocumentRequest
+	32, // 43: berichte.v1.BerichteService.GetDocument:input_type -> berichte.v1.GetDocumentRequest
+	33, // 44: berichte.v1.BerichteService.UpdateDocument:input_type -> berichte.v1.UpdateDocumentRequest
+	34, // 45: berichte.v1.BerichteService.DeleteDocument:input_type -> berichte.v1.DeleteDocumentRequest
+	37, // 46: berichte.v1.BerichteService.ListDocuments:input_type -> berichte.v1.ListDocumentsRequest
+	40, // 47: berichte.v1.BerichteService.ListTemplates:input_type -> berichte.v1.ListTemplatesRequest
+	43, // 48: berichte.v1.BerichteService.CreateShareToken:input_type -> berichte.v1.CreateShareTokenRequest
+	44, // 49: berichte.v1.BerichteService.ListShareTokens:input_type -> berichte.v1.ListShareTokensRequest
+	46, // 50: berichte.v1.BerichteService.RevokeShareToken:input_type -> berichte.v1.RevokeShareTokenRequest
+	49, // 51: berichte.v1.BerichteService.GetSharedDocument:input_type -> berichte.v1.GetSharedDocumentRequest
+	10, // 52: berichte.v1.BerichteService.CreateDefinition:output_type -> berichte.v1.DefinitionResponse
+	10, // 53: berichte.v1.BerichteService.GetDefinition:output_type -> berichte.v1.DefinitionResponse
+	10, // 54: berichte.v1.BerichteService.UpdateDefinition:output_type -> berichte.v1.DefinitionResponse
+	9,  // 55: berichte.v1.BerichteService.DeleteDefinition:output_type -> berichte.v1.DeleteDefinitionResponse
+	12, // 56: berichte.v1.BerichteService.ListDefinitions:output_type -> berichte.v1.ListDefinitionsResponse
+	14, // 57: berichte.v1.BerichteService.RunReport:output_type -> berichte.v1.RunReportResponse
+	14, // 58: berichte.v1.BerichteService.GetCachedResult:output_type -> berichte.v1.RunReportResponse
+	17, // 59: berichte.v1.BerichteService.InvalidateCache:output_type -> berichte.v1.InvalidateCacheResponse
+	19, // 60: berichte.v1.BerichteService.ExportReport:output_type -> berichte.v1.ExportReportResponse
+	24, // 61: berichte.v1.BerichteService.CreateSchedule:output_type -> berichte.v1.ScheduleResponse
+	24, // 62: berichte.v1.BerichteService.UpdateSchedule:output_type -> berichte.v1.ScheduleResponse
+	23, // 63: berichte.v1.BerichteService.DeleteSchedule:output_type -> berichte.v1.DeleteScheduleResponse
+	26, // 64: berichte.v1.BerichteService.ListSchedules:output_type -> berichte.v1.ListSchedulesResponse
+	24, // 65: berichte.v1.BerichteService.ToggleSchedule:output_type -> berichte.v1.ScheduleResponse
+	29, // 66: berichte.v1.BerichteService.GetDashboardKPIs:output_type -> berichte.v1.DashboardKPIsResponse
+	36, // 67: berichte.v1.BerichteService.CreateDocument:output_type -> berichte.v1.DocumentResponse
+	36, // 68: berichte.v1.BerichteService.GetDocument:output_type -> berichte.v1.DocumentResponse
+	36, // 69: berichte.v1.BerichteService.UpdateDocument:output_type -> berichte.v1.DocumentResponse
+	35, // 70: berichte.v1.BerichteService.DeleteDocument:output_type -> berichte.v1.DeleteDocumentResponse
+	38, // 71: berichte.v1.BerichteService.ListDocuments:output_type -> berichte.v1.ListDocumentsResponse
+	41, // 72: berichte.v1.BerichteService.ListTemplates:output_type -> berichte.v1.ListTemplatesResponse
+	48, // 73: berichte.v1.BerichteService.CreateShareToken:output_type -> berichte.v1.ShareTokenResponse
+	45, // 74: berichte.v1.BerichteService.ListShareTokens:output_type -> berichte.v1.ListShareTokensResponse
+	47, // 75: berichte.v1.BerichteService.RevokeShareToken:output_type -> berichte.v1.RevokeShareTokenResponse
+	50, // 76: berichte.v1.BerichteService.GetSharedDocument:output_type -> berichte.v1.GetSharedDocumentResponse
+	52, // [52:77] is the sub-list for method output_type
+	27, // [27:52] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_proto_berichte_v1_berichte_proto_init() }
@@ -3524,13 +4087,16 @@ func file_proto_berichte_v1_berichte_proto_init() {
 	file_proto_berichte_v1_berichte_proto_msgTypes[33].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[37].OneofWrappers = []any{}
 	file_proto_berichte_v1_berichte_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[42].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[43].OneofWrappers = []any{}
+	file_proto_berichte_v1_berichte_proto_msgTypes[49].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_berichte_v1_berichte_proto_rawDesc), len(file_proto_berichte_v1_berichte_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   42,
+			NumMessages:   51,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

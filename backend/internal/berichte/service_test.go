@@ -82,6 +82,7 @@ type mockRepository struct {
 	cache       map[string]*CacheEntry // key = defID|hash
 	schedules   map[uuid.UUID]*Schedule
 	documents   map[uuid.UUID]*Document
+	shares      map[uuid.UUID]*ShareToken
 	runs        []*Run
 
 	createDefErr   error
@@ -104,6 +105,7 @@ func newMockRepository() *mockRepository {
 		cache:       map[string]*CacheEntry{},
 		schedules:   map[uuid.UUID]*Schedule{},
 		documents:   map[uuid.UUID]*Document{},
+		shares:      map[uuid.UUID]*ShareToken{},
 	}
 }
 
@@ -1539,3 +1541,67 @@ func TestCreateDocumentFromEveryTemplateSucceeds(t *testing.T) {
 
 // compile-time interface check for mockRepository
 var _ Repository = (*mockRepository)(nil)
+
+// --- share tokens -----------------------------------------------------------
+
+func (m *mockRepository) CreateShareToken(_ context.Context, t *ShareToken) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	copy := *t
+	m.shares[t.ID] = &copy
+	return nil
+}
+
+func (m *mockRepository) ListShareTokens(_ context.Context, tenantID, documentID uuid.UUID) ([]*ShareToken, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]*ShareToken, 0, len(m.shares))
+	for _, t := range m.shares {
+		if t.TenantID != tenantID || t.DocumentID != documentID || t.RevokedAt != nil {
+			continue
+		}
+		copy := *t
+		out = append(out, &copy)
+	}
+	return out, nil
+}
+
+func (m *mockRepository) RevokeShareToken(_ context.Context, tenantID, shareID uuid.UUID, at time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t, ok := m.shares[shareID]
+	if !ok || t.TenantID != tenantID || t.RevokedAt != nil {
+		return ErrShareNotFound
+	}
+	t.RevokedAt = &at
+	return nil
+}
+
+// GetShareTokenBySecret mirrors the production query: an exact match on the
+// secret, across all tenants, with no tenant filter — that is the whole point
+// of the system-context read it stands in for.
+func (m *mockRepository) GetShareTokenBySecret(_ context.Context, secret string) (*ShareToken, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if secret == "" {
+		return nil, ErrShareNotFound
+	}
+	for _, t := range m.shares {
+		if t.Token == secret {
+			copy := *t
+			return &copy, nil
+		}
+	}
+	return nil, ErrShareNotFound
+}
+
+func (m *mockRepository) IncrementShareView(_ context.Context, tenantID, shareID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t, ok := m.shares[shareID]
+	if !ok || t.TenantID != tenantID {
+		return ErrShareNotFound
+	}
+	t.ViewCount++
+	return nil
+}

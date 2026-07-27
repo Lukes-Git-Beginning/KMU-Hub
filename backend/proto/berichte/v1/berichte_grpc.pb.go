@@ -19,27 +19,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BerichteService_CreateDefinition_FullMethodName = "/berichte.v1.BerichteService/CreateDefinition"
-	BerichteService_GetDefinition_FullMethodName    = "/berichte.v1.BerichteService/GetDefinition"
-	BerichteService_UpdateDefinition_FullMethodName = "/berichte.v1.BerichteService/UpdateDefinition"
-	BerichteService_DeleteDefinition_FullMethodName = "/berichte.v1.BerichteService/DeleteDefinition"
-	BerichteService_ListDefinitions_FullMethodName  = "/berichte.v1.BerichteService/ListDefinitions"
-	BerichteService_RunReport_FullMethodName        = "/berichte.v1.BerichteService/RunReport"
-	BerichteService_GetCachedResult_FullMethodName  = "/berichte.v1.BerichteService/GetCachedResult"
-	BerichteService_InvalidateCache_FullMethodName  = "/berichte.v1.BerichteService/InvalidateCache"
-	BerichteService_ExportReport_FullMethodName     = "/berichte.v1.BerichteService/ExportReport"
-	BerichteService_CreateSchedule_FullMethodName   = "/berichte.v1.BerichteService/CreateSchedule"
-	BerichteService_UpdateSchedule_FullMethodName   = "/berichte.v1.BerichteService/UpdateSchedule"
-	BerichteService_DeleteSchedule_FullMethodName   = "/berichte.v1.BerichteService/DeleteSchedule"
-	BerichteService_ListSchedules_FullMethodName    = "/berichte.v1.BerichteService/ListSchedules"
-	BerichteService_ToggleSchedule_FullMethodName   = "/berichte.v1.BerichteService/ToggleSchedule"
-	BerichteService_GetDashboardKPIs_FullMethodName = "/berichte.v1.BerichteService/GetDashboardKPIs"
-	BerichteService_CreateDocument_FullMethodName   = "/berichte.v1.BerichteService/CreateDocument"
-	BerichteService_GetDocument_FullMethodName      = "/berichte.v1.BerichteService/GetDocument"
-	BerichteService_UpdateDocument_FullMethodName   = "/berichte.v1.BerichteService/UpdateDocument"
-	BerichteService_DeleteDocument_FullMethodName   = "/berichte.v1.BerichteService/DeleteDocument"
-	BerichteService_ListDocuments_FullMethodName    = "/berichte.v1.BerichteService/ListDocuments"
-	BerichteService_ListTemplates_FullMethodName    = "/berichte.v1.BerichteService/ListTemplates"
+	BerichteService_CreateDefinition_FullMethodName  = "/berichte.v1.BerichteService/CreateDefinition"
+	BerichteService_GetDefinition_FullMethodName     = "/berichte.v1.BerichteService/GetDefinition"
+	BerichteService_UpdateDefinition_FullMethodName  = "/berichte.v1.BerichteService/UpdateDefinition"
+	BerichteService_DeleteDefinition_FullMethodName  = "/berichte.v1.BerichteService/DeleteDefinition"
+	BerichteService_ListDefinitions_FullMethodName   = "/berichte.v1.BerichteService/ListDefinitions"
+	BerichteService_RunReport_FullMethodName         = "/berichte.v1.BerichteService/RunReport"
+	BerichteService_GetCachedResult_FullMethodName   = "/berichte.v1.BerichteService/GetCachedResult"
+	BerichteService_InvalidateCache_FullMethodName   = "/berichte.v1.BerichteService/InvalidateCache"
+	BerichteService_ExportReport_FullMethodName      = "/berichte.v1.BerichteService/ExportReport"
+	BerichteService_CreateSchedule_FullMethodName    = "/berichte.v1.BerichteService/CreateSchedule"
+	BerichteService_UpdateSchedule_FullMethodName    = "/berichte.v1.BerichteService/UpdateSchedule"
+	BerichteService_DeleteSchedule_FullMethodName    = "/berichte.v1.BerichteService/DeleteSchedule"
+	BerichteService_ListSchedules_FullMethodName     = "/berichte.v1.BerichteService/ListSchedules"
+	BerichteService_ToggleSchedule_FullMethodName    = "/berichte.v1.BerichteService/ToggleSchedule"
+	BerichteService_GetDashboardKPIs_FullMethodName  = "/berichte.v1.BerichteService/GetDashboardKPIs"
+	BerichteService_CreateDocument_FullMethodName    = "/berichte.v1.BerichteService/CreateDocument"
+	BerichteService_GetDocument_FullMethodName       = "/berichte.v1.BerichteService/GetDocument"
+	BerichteService_UpdateDocument_FullMethodName    = "/berichte.v1.BerichteService/UpdateDocument"
+	BerichteService_DeleteDocument_FullMethodName    = "/berichte.v1.BerichteService/DeleteDocument"
+	BerichteService_ListDocuments_FullMethodName     = "/berichte.v1.BerichteService/ListDocuments"
+	BerichteService_ListTemplates_FullMethodName     = "/berichte.v1.BerichteService/ListTemplates"
+	BerichteService_CreateShareToken_FullMethodName  = "/berichte.v1.BerichteService/CreateShareToken"
+	BerichteService_ListShareTokens_FullMethodName   = "/berichte.v1.BerichteService/ListShareTokens"
+	BerichteService_RevokeShareToken_FullMethodName  = "/berichte.v1.BerichteService/RevokeShareToken"
+	BerichteService_GetSharedDocument_FullMethodName = "/berichte.v1.BerichteService/GetSharedDocument"
 )
 
 // BerichteServiceClient is the client API for BerichteService service.
@@ -74,6 +78,14 @@ type BerichteServiceClient interface {
 	ListDocuments(ctx context.Context, in *ListDocumentsRequest, opts ...grpc.CallOption) (*ListDocumentsResponse, error)
 	// Templates (static starter structures for "Neuer Bericht aus Vorlage")
 	ListTemplates(ctx context.Context, in *ListTemplatesRequest, opts ...grpc.CallOption) (*ListTemplatesResponse, error)
+	// External share links for a report document.
+	CreateShareToken(ctx context.Context, in *CreateShareTokenRequest, opts ...grpc.CallOption) (*ShareTokenResponse, error)
+	ListShareTokens(ctx context.Context, in *ListShareTokensRequest, opts ...grpc.CallOption) (*ListShareTokensResponse, error)
+	RevokeShareToken(ctx context.Context, in *RevokeShareTokenRequest, opts ...grpc.CallOption) (*RevokeShareTokenResponse, error)
+	// GetSharedDocument serves the unauthenticated public read. It takes no
+	// tenant_id: the caller has none, and the tenant is resolved from the token
+	// itself. See berichte.Service.GetSharedDocument.
+	GetSharedDocument(ctx context.Context, in *GetSharedDocumentRequest, opts ...grpc.CallOption) (*GetSharedDocumentResponse, error)
 }
 
 type berichteServiceClient struct {
@@ -294,6 +306,46 @@ func (c *berichteServiceClient) ListTemplates(ctx context.Context, in *ListTempl
 	return out, nil
 }
 
+func (c *berichteServiceClient) CreateShareToken(ctx context.Context, in *CreateShareTokenRequest, opts ...grpc.CallOption) (*ShareTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ShareTokenResponse)
+	err := c.cc.Invoke(ctx, BerichteService_CreateShareToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *berichteServiceClient) ListShareTokens(ctx context.Context, in *ListShareTokensRequest, opts ...grpc.CallOption) (*ListShareTokensResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListShareTokensResponse)
+	err := c.cc.Invoke(ctx, BerichteService_ListShareTokens_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *berichteServiceClient) RevokeShareToken(ctx context.Context, in *RevokeShareTokenRequest, opts ...grpc.CallOption) (*RevokeShareTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeShareTokenResponse)
+	err := c.cc.Invoke(ctx, BerichteService_RevokeShareToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *berichteServiceClient) GetSharedDocument(ctx context.Context, in *GetSharedDocumentRequest, opts ...grpc.CallOption) (*GetSharedDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSharedDocumentResponse)
+	err := c.cc.Invoke(ctx, BerichteService_GetSharedDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BerichteServiceServer is the server API for BerichteService service.
 // All implementations must embed UnimplementedBerichteServiceServer
 // for forward compatibility.
@@ -326,6 +378,14 @@ type BerichteServiceServer interface {
 	ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error)
 	// Templates (static starter structures for "Neuer Bericht aus Vorlage")
 	ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error)
+	// External share links for a report document.
+	CreateShareToken(context.Context, *CreateShareTokenRequest) (*ShareTokenResponse, error)
+	ListShareTokens(context.Context, *ListShareTokensRequest) (*ListShareTokensResponse, error)
+	RevokeShareToken(context.Context, *RevokeShareTokenRequest) (*RevokeShareTokenResponse, error)
+	// GetSharedDocument serves the unauthenticated public read. It takes no
+	// tenant_id: the caller has none, and the tenant is resolved from the token
+	// itself. See berichte.Service.GetSharedDocument.
+	GetSharedDocument(context.Context, *GetSharedDocumentRequest) (*GetSharedDocumentResponse, error)
 	mustEmbedUnimplementedBerichteServiceServer()
 }
 
@@ -398,6 +458,18 @@ func (UnimplementedBerichteServiceServer) ListDocuments(context.Context, *ListDo
 }
 func (UnimplementedBerichteServiceServer) ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTemplates not implemented")
+}
+func (UnimplementedBerichteServiceServer) CreateShareToken(context.Context, *CreateShareTokenRequest) (*ShareTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateShareToken not implemented")
+}
+func (UnimplementedBerichteServiceServer) ListShareTokens(context.Context, *ListShareTokensRequest) (*ListShareTokensResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShareTokens not implemented")
+}
+func (UnimplementedBerichteServiceServer) RevokeShareToken(context.Context, *RevokeShareTokenRequest) (*RevokeShareTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeShareToken not implemented")
+}
+func (UnimplementedBerichteServiceServer) GetSharedDocument(context.Context, *GetSharedDocumentRequest) (*GetSharedDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSharedDocument not implemented")
 }
 func (UnimplementedBerichteServiceServer) mustEmbedUnimplementedBerichteServiceServer() {}
 func (UnimplementedBerichteServiceServer) testEmbeddedByValue()                         {}
@@ -798,6 +870,78 @@ func _BerichteService_ListTemplates_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BerichteService_CreateShareToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShareTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).CreateShareToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_CreateShareToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).CreateShareToken(ctx, req.(*CreateShareTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BerichteService_ListShareTokens_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListShareTokensRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).ListShareTokens(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_ListShareTokens_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).ListShareTokens(ctx, req.(*ListShareTokensRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BerichteService_RevokeShareToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeShareTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).RevokeShareToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_RevokeShareToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).RevokeShareToken(ctx, req.(*RevokeShareTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BerichteService_GetSharedDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSharedDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BerichteServiceServer).GetSharedDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BerichteService_GetSharedDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BerichteServiceServer).GetSharedDocument(ctx, req.(*GetSharedDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BerichteService_ServiceDesc is the grpc.ServiceDesc for BerichteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -888,6 +1032,22 @@ var BerichteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTemplates",
 			Handler:    _BerichteService_ListTemplates_Handler,
+		},
+		{
+			MethodName: "CreateShareToken",
+			Handler:    _BerichteService_CreateShareToken_Handler,
+		},
+		{
+			MethodName: "ListShareTokens",
+			Handler:    _BerichteService_ListShareTokens_Handler,
+		},
+		{
+			MethodName: "RevokeShareToken",
+			Handler:    _BerichteService_RevokeShareToken_Handler,
+		},
+		{
+			MethodName: "GetSharedDocument",
+			Handler:    _BerichteService_GetSharedDocument_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

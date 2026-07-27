@@ -41,6 +41,15 @@ service BerichteService {
 
   // Templates (static starter structures for "Neuer Bericht aus Vorlage")
   rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+
+  // External share links for a report document.
+  rpc CreateShareToken(CreateShareTokenRequest) returns (ShareTokenResponse);
+  rpc ListShareTokens(ListShareTokensRequest) returns (ListShareTokensResponse);
+  rpc RevokeShareToken(RevokeShareTokenRequest) returns (RevokeShareTokenResponse);
+  // GetSharedDocument serves the unauthenticated public read. It takes no
+  // tenant_id: the caller has none, and the tenant is resolved from the token
+  // itself. See berichte.Service.GetSharedDocument.
+  rpc GetSharedDocument(GetSharedDocumentRequest) returns (GetSharedDocumentResponse);
 }
 
 // ============================================================================
@@ -379,4 +388,57 @@ message ListTemplatesRequest {}
 
 message ListTemplatesResponse {
   repeated Template templates = 1;
+}
+
+// ============================================================================
+// Share tokens (external, unauthenticated read links)
+// ============================================================================
+
+message ShareToken {
+  string id = 1;
+  string document_id = 2;
+  // The link secret in clear. Returned on create and on list, because the
+  // frontend renders it as a copyable URL. Never derived from the password.
+  string token = 3;
+  optional google.protobuf.Timestamp expires_at = 4;  // absent = never expires
+  bool has_password = 5;                              // the hash itself never leaves the service
+  int32 view_count = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message CreateShareTokenRequest {
+  string tenant_id = 1;
+  string document_id = 2;
+  optional int32 expires_in_days = 3;  // absent or 0 = never expires
+  optional string password = 4;        // absent or empty = no password
+  optional string created_by = 5;
+}
+
+message ListShareTokensRequest {
+  string tenant_id = 1;
+  string document_id = 2;
+}
+
+message ListShareTokensResponse {
+  repeated ShareToken tokens = 1;
+}
+
+message RevokeShareTokenRequest {
+  string tenant_id = 1;
+  string share_id = 2;
+}
+
+message RevokeShareTokenResponse {}
+
+message ShareTokenResponse {
+  ShareToken share = 1;
+}
+
+message GetSharedDocumentRequest {
+  string token = 1;
+  optional string password = 2;
+}
+
+message GetSharedDocumentResponse {
+  Document document = 1;
 }

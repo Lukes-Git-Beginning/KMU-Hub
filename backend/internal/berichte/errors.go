@@ -18,4 +18,19 @@ var (
 	ErrInvalidRows         = errors.New("berichte document rows must be a JSON array")
 	ErrInvalidSettings     = errors.New("berichte document settings must be a JSON object")
 	ErrDocumentTooLarge    = errors.New("berichte document exceeds the size limit")
+
+	// ErrShareNotFound covers all three ways a share link stops working:
+	// unknown, expired and revoked. They are deliberately indistinguishable to
+	// the unauthenticated caller — a distinct "expired" answer would confirm
+	// that the token was once valid, and 403 on a revoked link would say the
+	// document exists.
+	ErrShareNotFound = errors.New("berichte share link not found")
+	// ErrSharePasswordRequired means the link is password-protected and the
+	// request carried none. Distinct from a wrong password only in the message:
+	// the caller already holds the token, so the existence of the protection is
+	// not the secret — the password is.
+	ErrSharePasswordRequired = errors.New("berichte share link requires a password")
+	ErrSharePasswordInvalid  = errors.New("berichte share link password is invalid")
+	ErrInvalidShareExpiry    = errors.New("berichte share link expiry is invalid")
+	ErrSharePasswordTooLong  = errors.New("berichte share link password is too long")
 )

@@ -21390,6 +21390,175 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/berichte/documents/{id}/shares:
+    get:
+      summary: List the live share links of a report document
+      description: >
+        Requires berichte:reports:read permission. Returns only links that are
+        still live: revoked ones stay in the database for the audit trail but
+        are not listed. The token is returned in clear because the frontend
+        renders it as a copyable URL.
+      tags: [berichte]
+      operationId: listBerichteDocumentShares
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Share links of the document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shares:
+                    type: array
+                    items: { $ref: "#/components/schemas/BerichtShareToken" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create an external share link for a report document
+      description: >
+        Requires berichte:reports:write permission — minting a link hands out
+        an unauthenticated read path to the document, so it sits behind the
+        same permission as changing the document itself.
+
+
+        The returned token is the whole credential for
+        POST /api/v1/public/berichte/reports/{token}. An optional password is
+        bcrypt-hashed and never returned; the response only reports whether one
+        is set. expires_in_days is capped at 365; omitting it or passing 0
+        creates a link that never expires.
+      tags: [berichte]
+      operationId: createBerichteDocumentShare
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in_days:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                  maximum: 365
+                  description: "null or 0 = never expires"
+                password:
+                  type: string
+                  maxLength: 72
+                  description: >
+                    Optional. Capped at 72 bytes because bcrypt ignores input
+                    past that length, which would make two different passwords
+                    interchangeable.
+      responses:
+        "201":
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share: { $ref: "#/components/schemas/BerichtShareToken" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/berichte/shares/{shareId}:
+    delete:
+      summary: Revoke an external share link
+      description: >
+        Requires berichte:reports:write permission. The link stops working
+        immediately; the row is kept with a revocation timestamp so the view
+        count survives. Revoking an already-revoked link answers 404.
+      tags: [berichte]
+      operationId: revokeBerichteDocumentShare
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: shareId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Share link revoked
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/public/berichte/reports/{token}:
+    post:
+      summary: Read a shared report document (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire
+        credential; the tenant is resolved from it server-side and the response
+        can only ever be the one document the link names.
+
+
+        It is a POST rather than a GET because the password must not travel in
+        a URL — where it would land in access logs, browser history and Referer
+        headers — and because the call increments the link's view counter,
+        which no prefetching GET should be free to do. The request body is
+        optional: a link without a password is read with no body at all.
+
+
+        Unknown, expired and revoked links all answer 404, deliberately
+        indistinguishable. A missing or wrong password answers 401. This route
+        is behind the strict per-IP public rate limit
+        (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+
+
+        The response is a reduced document: tenant_id, created_by and the
+        editing status are withheld from anonymous callers.
+      tags: [berichte]
+      operationId: getPublicBerichteSharedReport
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+          description: The share link secret (43-char base64url).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  description: Required only if the link is password-protected.
+      responses:
+        "200":
+          description: The shared report document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtPublicDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: The link is password-protected and no valid password was given
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such link, or it expired or was revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
   /api/v1/berichte/templates:
     get:
       summary: List report starter templates
@@ -37335,6 +37504,74 @@ components:
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
 
+    BerichtShareToken:
+      type: object
+      description: >
+        An external, unauthenticated read link for one report document.
+        Mirrors ReportShareToken in berichte-types.ts. The bcrypt password hash
+        has no field here at all — it never leaves the service; has_password is
+        all a client learns.
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          description: >
+            The link secret in clear (43-char base64url, 32 bytes of
+            crypto/rand). Returned so the UI can render a copyable URL; it is
+            the entire credential for the public read route.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: null = never expires
+        has_password:
+          type: boolean
+        view_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    BerichtPublicDocument:
+      type: object
+      description: >
+        The reduced report document an anonymous visitor sees through a share
+        link. Deliberately not BerichtDocument: tenant_id, created_by and the
+        editing status are internal facts withheld from unauthenticated
+        callers.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+        rows:
+          type: array
+          description: Block tree (rows -> columns -> blocks), opaque JSONB.
+          items:
+            type: object
+            additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
+        updated_at:
+          type: string
+          format: date-time
+        released_at:
+          type: string
+          format: date-time
+          nullable: true
+
     BerichtDocument:
       type: object
       description: >
@@ -40144,6 +40381,18 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     Conflict:
       description: Conflict (e.g. duplicate email)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: Upstream service unavailable
       content:
         application/json:
           schema:

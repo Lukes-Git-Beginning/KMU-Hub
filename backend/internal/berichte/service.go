@@ -3,9 +3,12 @@ package berichte
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -14,6 +17,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // ============================================================================
@@ -941,3 +947,192 @@ func (s *Service) insertRun(ctx context.Context, run *Run) error {
 }
 
 func pointerTime(t time.Time) *time.Time { return &t }
+
+// ============================================================================
+// Share tokens (external, unauthenticated read links)
+// ============================================================================
+
+const (
+	// shareTokenBytes is the entropy behind a share link. 32 bytes is not a
+	// round number picked for looks: the public route answers on the token
+	// alone, so the token is the entire access control. At 256 bits a guessing
+	// attack is not slowed by the rate limit, it is impossible.
+	shareTokenBytes = 32
+	// maxSharePasswordLen caps what is fed to bcrypt. bcrypt silently ignores
+	// input past 72 bytes, so an uncapped field would accept two different
+	// passwords as the same one.
+	maxSharePasswordLen = 72
+	// maxShareExpiryDays bounds a link's lifetime. An external read path that
+	// outlives anyone's memory of creating it is the failure mode here.
+	maxShareExpiryDays = 365
+	// shareBcryptCost matches internal/auth.
+	shareBcryptCost = 12
+)
+
+// CreateShareTokenInput is the request to hand out an external read link.
+type CreateShareTokenInput struct {
+	TenantID      uuid.UUID
+	DocumentID    uuid.UUID
+	ExpiresInDays *int32 // nil or 0 = never expires
+	Password      string // empty = no password
+	CreatedBy     *uuid.UUID
+}
+
+// CreateShareToken issues an external read link for one document.
+//
+// The document is read first, tenant-scoped: a link may only ever be minted for
+// a document the caller's own tenant owns, and that read is what proves it.
+// Without it a caller could name any UUID and get back a working public link to
+// another tenant's report.
+func (s *Service) CreateShareToken(ctx context.Context, in CreateShareTokenInput) (*ShareToken, error) {
+	if _, err := s.repo.GetDocument(ctx, in.TenantID, in.DocumentID); err != nil {
+		return nil, err
+	}
+
+	now := s.clock.Now()
+	token := &ShareToken{
+		ID:         uuid.New(),
+		TenantID:   in.TenantID,
+		DocumentID: in.DocumentID,
+		CreatedBy:  in.CreatedBy,
+		CreatedAt:  now,
+	}
+
+	if in.ExpiresInDays != nil && *in.ExpiresInDays != 0 {
+		days := *in.ExpiresInDays
+		if days < 0 || days > maxShareExpiryDays {
+			return nil, ErrInvalidShareExpiry
+		}
+		expiry := now.AddDate(0, 0, int(days))
+		token.ExpiresAt = &expiry
+	}
+
+	if in.Password != "" {
+		if len(in.Password) > maxSharePasswordLen {
+			return nil, ErrSharePasswordTooLong
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(in.Password), shareBcryptCost)
+		if err != nil {
+			return nil, fmt.Errorf("hash share password: %w", err)
+		}
+		hashStr := string(hash)
+		token.PasswordHash = &hashStr
+	}
+
+	secret, err := newShareSecret()
+	if err != nil {
+		return nil, err
+	}
+	token.Token = secret
+
+	if err := s.repo.CreateShareToken(ctx, token); err != nil {
+		return nil, fmt.Errorf("create share token: %w", err)
+	}
+
+	// The secret itself is never logged: this line would otherwise be a
+	// working public link sitting in the log pipeline.
+	slog.Info("berichte share link created",
+		"share_id", token.ID,
+		"document_id", token.DocumentID,
+		"tenant_id", token.TenantID,
+		"has_password", token.PasswordHash != nil,
+		"expires_at", token.ExpiresAt,
+	)
+	return token, nil
+}
+
+func (s *Service) ListShareTokens(ctx context.Context, tenantID, documentID uuid.UUID) ([]*ShareToken, error) {
+	// Same reason as CreateShareToken: prove the document is ours before
+	// listing anything attached to it.
+	if _, err := s.repo.GetDocument(ctx, tenantID, documentID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListShareTokens(ctx, tenantID, documentID)
+}
+
+func (s *Service) RevokeShareToken(ctx context.Context, tenantID, shareID uuid.UUID) error {
+	if err := s.repo.RevokeShareToken(ctx, tenantID, shareID, s.clock.Now()); err != nil {
+		return err
+	}
+	slog.Info("berichte share link revoked", "share_id", shareID, "tenant_id", tenantID)
+	return nil
+}
+
+// GetSharedDocument serves the unauthenticated public read.
+//
+// This is the only path in the service that starts without a tenant, so the
+// order of the checks is the security property, not a style choice:
+//
+//  1. resolve the link by its secret in the system context — the one read that
+//     must escape RLS, because which tenant may be seen is exactly what it
+//     answers;
+//  2. refuse revoked and expired links before anything else, all as the same
+//     "not found" a wholly unknown token gets;
+//  3. verify the password against the stored bcrypt hash;
+//  4. only then re-enter tenant scope and read the one document the link names.
+//
+// Step 4 reads through GetDocument with the resolved tenant rather than
+// trusting the link's DocumentID alone, so RLS still has the final say and the
+// path can reach exactly one row: the shared report, never a listing.
+func (s *Service) GetSharedDocument(ctx context.Context, secret, password string) (*Document, error) {
+	share, err := s.repo.GetShareTokenBySecret(ctx, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	now := s.clock.Now()
+	if !share.Usable(now) {
+		slog.Info("berichte share link refused",
+			"share_id", share.ID,
+			"revoked", share.RevokedAt != nil,
+			"expired", share.ExpiresAt != nil && !now.Before(*share.ExpiresAt),
+		)
+		return nil, ErrShareNotFound
+	}
+
+	if share.PasswordHash != nil {
+		if password == "" {
+			return nil, ErrSharePasswordRequired
+		}
+		// bcrypt's own comparison is the constant-time one; a byte-wise
+		// comparison of the hashes here would be the timing leak.
+		if bcrypt.CompareHashAndPassword([]byte(*share.PasswordHash), []byte(password)) != nil {
+			slog.Warn("berichte share link password rejected", "share_id", share.ID)
+			return nil, ErrSharePasswordInvalid
+		}
+	}
+
+	ctx = WithTenant(ctx, share.TenantID)
+	doc, err := s.repo.GetDocument(ctx, share.TenantID, share.DocumentID)
+	if err != nil {
+		// A link whose document is gone is a dead link, not a server fault.
+		if errors.Is(err, ErrDocumentNotFound) {
+			return nil, ErrShareNotFound
+		}
+		return nil, err
+	}
+
+	// Counting the view must not fail the read the visitor already earned.
+	if err := s.repo.IncrementShareView(ctx, share.TenantID, share.ID); err != nil {
+		slog.Warn("berichte share view not counted", "share_id", share.ID, "error", err)
+	}
+	return doc, nil
+}
+
+// WithTenant attaches a tenant resolved from a share link to the context, so
+// the repository and the RLS session GUCs see it. This is the single place a
+// public path may set a tenant, and it is only ever reached with the tenant the
+// link itself resolved to.
+func WithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
+}
+
+// newShareSecret draws a link secret from crypto/rand. base64url keeps it
+// usable in a URL path segment without escaping.
+func newShareSecret() (string, error) {
+	buf := make([]byte, shareTokenBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate share token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}

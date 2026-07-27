@@ -2836,3 +2836,123 @@ bleibt.
     ab der naechsten Iteration leer.**
 
 - iteration 33 commit: `19ba02ba`
+
+## Iteration 34 — p3-berichte-share-token
+
+- verify (Iteration 33, `19ba02ba`): sauber. Der Webhook-Tunnel geht ueber den
+  gRPC-Client, nicht ueber eine direkt injizierte Service-Instanz; die
+  Tenant-Aufloesung laeuft im System-Kontext und alles danach unter dem
+  aufgeloesten Tenant. Nachgeprueft, was im Commit selbst nicht sichtbar ist:
+  `integration.WithTenant` setzt `middleware.TenantIDKey`, und der
+  `BeforeAcquire`-Hook in `internal/database/postgres.go:60` liest genau den und
+  stempelt `app.tenant_id` — der aufgeloeste Tenant erreicht die RLS-Session
+  also wirklich, der Pfad ist nicht nur im Go-Code tenant-scoped. `go build`
+  ueber das ganze Backend gruen.
+
+- unit: `p3-berichte-share-token` — externer, unauthentifizierter Lesezugriff auf
+  einen geteilten Bericht.
+
+- **dep bewusst gebrochen.** Die Unit hing an `p3-berichte-server-pdf`
+  (blocked, Chart-Entscheidung). Die Abhaengigkeit war logisch nachgelagert
+  gesetzt, nicht technisch: der oeffentliche Pfad liefert den Block-Baum als
+  JSON, kein PDF. Technisch braucht er `p3-berichte-document-persistence`, und
+  das ist seit Iteration 10 done. Vermerkt als `dep_note` im Backlog. Ohne
+  diesen Schritt waere die Queue diese Nacht leer gelaufen.
+
+- gebaut:
+  - Migration **000252** `report_share_tokens` — tenant_id NOT NULL, FK auf
+    report_documents ON DELETE CASCADE, RLS-Policy nach dem Muster aus 000245.
+  - 4 RPCs (`CreateShareToken`, `ListShareTokens`, `RevokeShareToken`,
+    `GetSharedDocument`), Proto regeneriert.
+  - 3 authentifizierte Routen (`GET|POST /berichte/documents/{id}/shares`,
+    `DELETE /berichte/shares/{shareId}`) hinter dem bestehenden
+    `berichte:reports` read/write — **kein neuer Permission-Key, also kein
+    Seed-Bedarf**.
+  - 1 oeffentliche Route `POST /api/v1/public/berichte/reports/{token}`,
+    registriert ueber `RegisterPublicRoutes` nach dem Booking-Muster, hinter
+    `publicRateLimiter` (`PUBLIC_RATE_LIMIT_RPS`, eigener Redis-Prefix).
+  - 4 openapi-Pfade + 2 Schemas; zusaetzlich fehlten die Response-Komponenten
+    `TooManyRequests` und `ServiceUnavailable` ueberhaupt in der Spec — die
+    beiden `$ref`s waren tot und sind jetzt definiert.
+
+- Entscheidungen, die keine Stilfragen sind:
+  - **POST statt GET** auf dem oeffentlichen Pfad. Das Passwort darf nicht in
+    die URL (Access-Log, History, Referer), und der Aufruf zaehlt view_count
+    hoch — kein Prefetch soll das duerfen.
+  - **Token im Klartext gespeichert, nicht gehasht.** `ReportShareToken.token`
+    ist Teil der Listen-Antwort, die das FE als kopierbaren Link rendert; ein
+    Einweg-Hash macht das unmoeglich. Der Sicherheitshandel ist hier leer: der
+    Token oeffnet genau die eine `report_documents`-Zeile, und wer den Dump
+    hat, der den Token leakt, hat die Zeile ohnehin. Das **Passwort** ist
+    anders — fremdwiederverwendbares Material, also bcrypt (Cost 12, wie
+    `internal/auth`), nie im Klartext gespeichert oder zurueckgegeben.
+  - **Soft-Revoke** (`revoked_at`) statt DELETE: „gekappt" und „gab es nie" sind
+    fuer einen Admin verschiedene Fakten, und view_count ist der einzige
+    Nachweis, wie oft der Link vorher lief. Die Liste filtert widerrufene raus,
+    das FE sieht dieselbe Semantik wie beim harten Loeschen.
+  - **Alle drei Todesarten antworten gleich** (unbekannt / abgelaufen /
+    widerrufen → NotFound → 404). Ein eigenes „abgelaufen" wuerde einem
+    anonymen Aufrufer bestaetigen, dass der Token einmal gueltig war.
+    Passwort fehlt/falsch → 401, weil der Aufrufer den Token bereits haelt: die
+    Existenz ist da kein Geheimnis mehr, das Passwort schon.
+  - Der oeffentliche Read liefert eine **reduzierte** Dokumentform
+    (`publicReportDocumentWire`): ohne tenant_id, created_by, status. Bewusst
+    ein eigener Typ und kein geteiltes Feldset — sonst leakt das naechste Feld,
+    das jemand der authentifizierten Form hinzufuegt, automatisch mit.
+  - `maxSharePasswordLen = 72`, weil bcrypt alles darueber ignoriert: ohne
+    Deckel oeffnen zwei verschiedene Passwoerter denselben Link.
+  - Konstantzeit sitzt dort, wo sie zaehlt: `bcrypt.CompareHashAndPassword`
+    fuers Passwort. Der Token-Lookup laeuft ueber den UNIQUE-Index — bei 256
+    Bit Entropie ist ein Timing-Orakel ueber B-Tree-Vergleiche kein realer
+    Angriff, und ein nachgeschobenes `subtle.ConstantTimeCompare` waere
+    Kosmetik. Steht so als Kommentar im Code.
+
+- gate: `go build -p 2 ./...` gruen, `go vet` (berichte/server/gateway/cmd)
+  gruen, `golangci-lint run` 0 issues, `go test ./internal/... -count=1`
+  vollstaendig gruen inkl. beider OpenAPI-Drift-Tests. 13 Service-Tests +
+  9 Gateway-Tests neu.
+
+- **Falsifikation**: die drei Kern-Guards einzeln entfernt (Eigentumspruefung
+  beim Minten, `Usable`-Pruefung, Passwort-Zweig) → 5 der 13 Tests fallen um,
+  darunter `RefusesForeignDocument`, `UnknownExpiredAndRevokedAre
+  Indistinguishable` und `ExpiryIsEnforcedAtTheBoundary`. Die Tests pinnen die
+  Guards, nicht nur den Happy Path. Danach zurueckgespielt und erneut gruen.
+
+- Nachgezogen: `openapi_drift_test.go` musste `berichteRoutes` wie main.go
+  aufteilen (Registrar-Schleife + `RegisterPublicRoutes` daneben), sonst haette
+  der Reverse-Guard die dokumentierte Public-Route als nie registriert gemeldet.
+
+- offen / fuer Luke:
+  - **Kein FE fuer den oeffentlichen Viewer.** `berichte-client.ts` kann
+    create/list/revoke, aber die Seite, die einen Link einloest, existiert
+    nicht — der Kommentar im Typ sagt „the actual unauthenticated public
+    endpoint is Luke's". Die Route ist jetzt da; der Viewer ist eine
+    FE-Unit. Wire-Shape steht in `BerichtPublicDocument` in der openapi.
+  - **Kein PDF ueber den Share-Link.** Bewusst nicht mitgebaut — haengt an
+    derselben Chart-Entscheidung wie `p3-berichte-server-pdf`. Wenn die faellt,
+    ist es ein Zusatz auf der bestehenden Route, kein Umbau.
+  - Die Response-Komponenten `TooManyRequests`/`ServiceUnavailable` fehlten in
+    der Spec. Ich habe sie angelegt; niemand sonst referenziert sie bisher,
+    obwohl mehrere Routen real 429/503 liefern koennen. Eigene Aufraeum-Unit.
+  - `wiki_share_tokens` (Migration aus der Wiki-Ecke) liest **ohne
+    Tenant-Filter**: `GetShareToken`, `DeleteShareToken` und
+    `ListShareTokensByArticle` in `internal/wiki/postgres_repository.go`
+    filtern nur auf token/id/article_id. Ob RLS das auffaengt, haengt an der
+    Policy der Tabelle — beim Vorbeikommen gesehen, nicht geprueft, nicht
+    angefasst. Riecht nach derselben Klasse wie
+    `p3-integration-tenant-write-gap`, nur auf der Read-Seite.
+  - Unveraendert offen: `integration_configs.UNIQUE(platform)` aus 000053
+    (pro Plattform global eine Config → zweiter Kunde kann Slack nicht
+    konfigurieren); niemand schreibt heute eine `team_id` in
+    `integration_configs.metadata`; Slack-Konfiguration deployment-weit statt
+    pro Tenant; `slackadapter.OAuthHandler` unaufgerufen; `integration.
+    Forwarder` toter Code; Sweep „Tabelle hat tenant_id NOT NULL, Repo-INSERT
+    nennt es nicht" ueber 000115/000122; `hr_leave_types`-Seeds unter der
+    Zero-UUID; Rollen-Zuschnitt der produktion-ext-Permissions;
+    Modul-Aktivierung ohne Enforcement; `platform_admin` haelt niemand;
+    `types.ts`-Drift; DATEV `auto_upload_enabled` ohne Auswerter.
+  - **Queue-Stand: leer.** Nach dieser Unit ist nichts mehr `todo`.
+    `p3-berichte-server-pdf` (Chart-Entscheidung) und
+    `p3-fe-only-features-scope-decision` (Produktentscheidung ueber ~35
+    FE-Bereiche ohne Backend) brauchen beide einen Entscheid von Luke. Die
+    naechste Iteration hat ohne den nichts zu tun.

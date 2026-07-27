@@ -75,6 +75,10 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	bizExt := gateway.NewBizExtRoutes(registry)
 	captchaVerifier := security.NewCaptchaVerifier("", "")
 	bookingRoutes := gateway.NewBookingRoutes(registry, captchaVerifier)
+
+	// Berichte: authenticated routes via the registrar loop, the public read of
+	// a shared report outside it — same split as main.go.
+	berichteRoutes := gateway.NewBerichteRoutes(registry, flagRegistry)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 	videoRoutes := gateway.NewVideoRoutes(registry, "", "")
 	dashboardService := gateway.NewDashboardStack(nil, nil)
@@ -101,7 +105,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		gateway.NewDialerRoutes(registry),
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
-		gateway.NewBerichteRoutes(registry, flagRegistry),
+		berichteRoutes,
 		gateway.NewFormulareRoutes(registry, flagRegistry),
 		gateway.NewInventarRoutes(registry, flagRegistry),
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
@@ -151,6 +155,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 	guestRoutes := gateway.NewGuestRoutes(guest.NewService(guest.NewPostgresRepository(nil)), registry)
 	guestRoutes.RegisterPublicRoutes(r)
 	bookingRoutes.RegisterPublicRoutes(r, passthroughAuth)
+	berichteRoutes.RegisterPublicRoutes(r, passthroughAuth)
 
 	return r
 }

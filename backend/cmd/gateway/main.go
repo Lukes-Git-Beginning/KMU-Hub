@@ -233,6 +233,10 @@ func main() {
 	// Booking routes — admin (via registrars) + public (outside loop)
 	bookingRoutes := gateway.NewBookingRoutes(registry, captchaVerifier)
 
+	// Berichte routes — authenticated (via registrars) + the public read of a
+	// shared report (outside loop, behind the strict public rate limiter)
+	berichteRoutes := gateway.NewBerichteRoutes(registry, flagRegistry)
+
 	// CRM routes — standard (via registrars) + advisory protocols (outside loop)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 
@@ -268,7 +272,7 @@ func main() {
 		gateway.NewDialerRoutes(registry),
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
-		gateway.NewBerichteRoutes(registry, flagRegistry),
+		berichteRoutes,
 		gateway.NewFormulareRoutes(registry, flagRegistry),
 		gateway.NewInventarRoutes(registry, flagRegistry),
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
@@ -332,6 +336,12 @@ func main() {
 	// independent of the global limiter — prevents booking-spam and page scraping.
 	bookingRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "booking-public")
+
+	// Public read of a shared report (no auth middleware). Same strict per-IP
+	// limiter: the share token is the whole credential, so this route must not
+	// sit behind the generous authenticated limit.
+	berichteRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "berichte-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

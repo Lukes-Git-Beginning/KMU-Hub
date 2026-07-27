@@ -41,6 +41,39 @@ type Document struct {
 	ReleasedAt  *time.Time `json:"released_at,omitempty"`
 }
 
+// ShareToken is an external read link for a single report document.
+//
+// It is the only unauthenticated read path into tenant data in this service,
+// so the invariants live in the type: Token is the whole credential, DocumentID
+// bounds what it may ever reach, and ExpiresAt/RevokedAt are the two ways it
+// stops working. PasswordHash never leaves the service — the wire form carries
+// only HasPassword.
+type ShareToken struct {
+	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
+	DocumentID   uuid.UUID  `json:"document_id"`
+	Token        string     `json:"token"`
+	PasswordHash *string    `json:"-"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
+	RevokedAt    *time.Time `json:"-"`
+	ViewCount    int        `json:"view_count"`
+	CreatedBy    *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+// Usable reports whether the link still grants access at the given instant.
+// Both conditions answer the same 404 upstream; they are kept apart here only
+// so the caller can log which one fired.
+func (t *ShareToken) Usable(now time.Time) bool {
+	if t.RevokedAt != nil {
+		return false
+	}
+	if t.ExpiresAt != nil && !now.Before(*t.ExpiresAt) {
+		return false
+	}
+	return true
+}
+
 // Template is a static starter block structure for "Neuer Bericht aus
 // Vorlage". Templates are frontend-owned starter content, not tenant data:
 // no table, no tenant_id, served from a server-side constant (see

@@ -43,7 +43,7 @@ type BerichteExporterFactory func(format string) (BerichteExporter, error)
 // BerichteGRPCServer implements the BerichteService gRPC server.
 type BerichteGRPCServer struct {
 	berichtev1.UnimplementedBerichteServiceServer
-	svc            *berichte.Service
+	svc             *berichte.Service
 	exporterFactory BerichteExporterFactory
 }
 
@@ -52,7 +52,7 @@ type BerichteGRPCServer struct {
 // as the factory. A nil factory causes ExportReport to return codes.Internal.
 func NewBerichteGRPCServer(svc *berichte.Service, exporterFactory BerichteExporterFactory) *BerichteGRPCServer {
 	return &BerichteGRPCServer{
-		svc:            svc,
+		svc:             svc,
 		exporterFactory: exporterFactory,
 	}
 }
@@ -765,9 +765,9 @@ func resultToProto(r *berichte.ReportResult) *berichtev1.ReportResult {
 	}
 	payload, _ := json.Marshal(r)
 	proto := &berichtev1.ReportResult{
-		Payload:     payload,
-		RowCount:    int32(r.Meta.RowCount),
-		FromCache:   r.Meta.FromCache,
+		Payload:   payload,
+		RowCount:  int32(r.Meta.RowCount),
+		FromCache: r.Meta.FromCache,
 	}
 	if !r.Meta.GeneratedAt.IsZero() {
 		proto.GeneratedAt = timestamppb.New(r.Meta.GeneratedAt)
@@ -827,8 +827,118 @@ func mapBerichteError(err error) error {
 		errors.Is(err, berichte.ErrInvalidSettings),
 		errors.Is(err, berichte.ErrDocumentTooLarge):
 		return status.Error(codes.InvalidArgument, err.Error())
+	// Unknown, expired and revoked share links all land here as the same
+	// NotFound the gateway turns into a 404. Nothing in this branch tells an
+	// unauthenticated caller which of the three it hit.
+	case errors.Is(err, berichte.ErrShareNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, berichte.ErrSharePasswordRequired),
+		errors.Is(err, berichte.ErrSharePasswordInvalid):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, berichte.ErrInvalidShareExpiry),
+		errors.Is(err, berichte.ErrSharePasswordTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled berichte service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
+}
+
+// ============================================================================
+// Share tokens
+// ============================================================================
+
+func (s *BerichteGRPCServer) CreateShareToken(ctx context.Context, req *berichtev1.CreateShareTokenRequest) (*berichtev1.ShareTokenResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	in := berichte.CreateShareTokenInput{
+		TenantID:   tenantID,
+		DocumentID: documentID,
+		Password:   req.GetPassword(),
+	}
+	if req.ExpiresInDays != nil {
+		in.ExpiresInDays = req.ExpiresInDays
+	}
+	if raw := req.GetCreatedBy(); raw != "" {
+		createdBy, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		in.CreatedBy = &createdBy
+	}
+
+	token, err := s.svc.CreateShareToken(ctx, in)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.ShareTokenResponse{Share: reportShareTokenToProto(token)}, nil
+}
+
+func (s *BerichteGRPCServer) ListShareTokens(ctx context.Context, req *berichtev1.ListShareTokensRequest) (*berichtev1.ListShareTokensResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	tokens, err := s.svc.ListShareTokens(ctx, tenantID, documentID)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+
+	protoTokens := make([]*berichtev1.ShareToken, len(tokens))
+	for i, t := range tokens {
+		protoTokens[i] = reportShareTokenToProto(t)
+	}
+	return &berichtev1.ListShareTokensResponse{Tokens: protoTokens}, nil
+}
+
+func (s *BerichteGRPCServer) RevokeShareToken(ctx context.Context, req *berichtev1.RevokeShareTokenRequest) (*berichtev1.RevokeShareTokenResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	shareID, err := uuid.Parse(req.GetShareId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid share_id: %v", err)
+	}
+
+	if err := s.svc.RevokeShareToken(ctx, tenantID, shareID); err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.RevokeShareTokenResponse{}, nil
+}
+
+// GetSharedDocument is the only RPC in this service that takes no tenant_id.
+// The caller is an anonymous visitor holding a link; the service resolves the
+// tenant from the link itself and scopes everything after that to it.
+func (s *BerichteGRPCServer) GetSharedDocument(ctx context.Context, req *berichtev1.GetSharedDocumentRequest) (*berichtev1.GetSharedDocumentResponse, error) {
+	doc, err := s.svc.GetSharedDocument(ctx, req.GetToken(), req.GetPassword())
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.GetSharedDocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+// reportShareTokenToProto maps a share link to the wire. PasswordHash has no field on
+// the proto message at all — the bcrypt hash must not leave the service, and
+// leaving it unmappable is a stronger guarantee than remembering not to set it.
+func reportShareTokenToProto(t *berichte.ShareToken) *berichtev1.ShareToken {
+	if t == nil {
+		return nil
+	}
+	p := &berichtev1.ShareToken{
+		Id:          t.ID.String(),
+		DocumentId:  t.DocumentID.String(),
+		Token:       t.Token,
+		HasPassword: t.PasswordHash != nil,
+		ViewCount:   int32(t.ViewCount),
+		CreatedAt:   timestamppb.New(t.CreatedAt),
+	}
+	if t.ExpiresAt != nil {
+		p.ExpiresAt = timestamppb.New(*t.ExpiresAt)
+	}
+	return p
 }

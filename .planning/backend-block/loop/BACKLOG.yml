@@ -423,7 +423,14 @@ units:
     service: berichte
     model: opus
     deps: [p3-berichte-server-pdf]
-    status: todo
+    status: done   # Iteration 34 — Migration 000252, Public-POST unter /api/v1/public/berichte/reports/{token}
+    dep_note: >
+      Die dep auf p3-berichte-server-pdf wurde bewusst gebrochen. Sie war
+      logisch nachgelagert gesetzt, nicht technisch: der oeffentliche Lesepfad
+      liefert das Dokument als JSON (Block-Baum), kein PDF, und braucht allein
+      p3-berichte-document-persistence (done, Migration 000245). Der Server-PDF
+      bleibt an der Chart-Entscheidung blockiert; ein spaeterer PDF-Export ueber
+      denselben Token ist ein Zusatz auf dieser Route, kein Umbau.
     scope: >
       Externer, unauthentifizierter Zugriff auf einen geteilten Bericht:
       share_token-Persistenz serverseitig, oeffentliche Lese-Route ohne Auth,

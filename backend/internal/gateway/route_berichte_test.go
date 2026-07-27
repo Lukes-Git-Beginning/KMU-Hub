@@ -461,3 +461,149 @@ func TestFormatFilename_ContentDispositionInjection(t *testing.T) {
 		t.Errorf("formatFilename did not strip embedded quotes: %q", result)
 	}
 }
+
+// ============================================================================
+// Share links
+// ============================================================================
+
+// passthroughLimiter stands in for the public rate limiter. The real one is
+// wired in main.go; here we only need the route tree it wraps.
+func passthroughLimiter(next http.Handler) http.Handler { return next }
+
+// TestBerichtePublicShareRoute_Registered pins that the public read is mounted
+// under /api/v1/public/ as a POST. The verb is not cosmetic: a GET would put
+// the password in the URL and let a prefetch bump the view counter.
+func TestBerichtePublicShareRoute_Registered(t *testing.T) {
+	r := chi.NewRouter()
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	routes.RegisterPublicRoutes(r, passthroughLimiter)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/public/berichte/reports/sometoken", nil)
+	r.ServeHTTP(rec, req)
+	if rec.Code == http.StatusNotFound {
+		t.Fatalf("public share route not registered; got 404, body = %s", rec.Body.String())
+	}
+
+	// The same path as a GET must not answer at all.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/public/berichte/reports/sometoken", nil)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed && rec.Code != http.StatusNotFound {
+		t.Fatalf("GET on the public share route answered %d; it must not be a GET", rec.Code)
+	}
+}
+
+// TestBerichtePublicShareRoute_FlagOFF pins that the module flag also gates the
+// public path — an unauthenticated route surviving a disabled module would be
+// the worst one to forget.
+func TestBerichtePublicShareRoute_FlagOFF(t *testing.T) {
+	r := chi.NewRouter()
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsOFF())
+	routes.RegisterPublicRoutes(r, passthroughLimiter)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/public/berichte/reports/sometoken", nil)
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusNotFound)
+}
+
+// TestHandleGetSharedReport_NoAuthNeeded pins that the public handler never
+// reads a tenant or user from the request: it must work with a context that
+// carries neither, because a visitor has neither.
+func TestHandleGetSharedReport_NoAuthNeeded(t *testing.T) {
+	r := chi.NewRouter()
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	routes.RegisterPublicRoutes(r, passthroughLimiter)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/public/berichte/reports/sometoken", nil)
+	r.ServeHTTP(rec, req)
+
+	// No berichte backend is reachable in this test, so the honest answer is
+	// 503 — but never 401/403, which would mean the handler asked for auth.
+	if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+		t.Fatalf("public share handler demanded auth: %d, body = %s", rec.Code, rec.Body.String())
+	}
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestHandleGetSharedReport_MalformedTokenLooksLikeUnknown pins that a token
+// which cannot exist gets the same 404 an unknown one gets, and never reaches
+// the backend.
+func TestHandleGetSharedReport_MalformedTokenLooksLikeUnknown(t *testing.T) {
+	r := chi.NewRouter()
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	routes.RegisterPublicRoutes(r, passthroughLimiter)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/v1/public/berichte/reports/"+strings.Repeat("x", 200), nil)
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusNotFound)
+}
+
+// TestHandleGetSharedReport_BodyIsOptional pins that a link without a password
+// is readable with no request body at all — an empty body must not be a 400.
+func TestHandleGetSharedReport_BodyIsOptional(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+
+	for name, body := range map[string]string{
+		"absent": "",
+		"blank":  "   ",
+		"empty":  "{}",
+	} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost,
+			"/api/v1/public/berichte/reports/sometoken", strings.NewReader(body))
+		req = withChiURLParam(req, "token", "sometoken")
+		routes.HandleGetSharedReport(rec, req)
+		if rec.Code == http.StatusBadRequest {
+			t.Fatalf("%s body rejected as malformed: %s", name, rec.Body.String())
+		}
+	}
+
+	// Actually malformed JSON is still a 400.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/v1/public/berichte/reports/sometoken", strings.NewReader("{not json"))
+	req = withChiURLParam(req, "token", "sometoken")
+	routes.HandleGetSharedReport(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestHandleListReportShares_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	testServiceUnavailable(t, routes.HandleListReportShares)
+}
+
+func TestHandleCreateReportShare_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	testServiceUnavailable(t, routes.HandleCreateReportShare)
+}
+
+func TestHandleRevokeReportShare_ServiceUnavailable(t *testing.T) {
+	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
+	testServiceUnavailable(t, routes.HandleRevokeReportShare)
+}
+
+// TestShareAdminHandlers_RequireTenant pins that the three authenticated share
+// handlers refuse a request without a tenant instead of falling through to a
+// tenant-less gRPC call.
+func TestShareAdminHandlers_RequireTenant(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	handlers := map[string]http.HandlerFunc{
+		"list":   routes.HandleListReportShares,
+		"create": routes.HandleCreateReportShare,
+		"revoke": routes.HandleRevokeReportShare,
+	}
+	for name, h := range handlers {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/documents/x/shares", nil)
+		req = withUserID(req, "user-123") // user but no tenant
+		h(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s: got %d, want 401 without a tenant", name, rec.Code)
+		}
+	}
+}
