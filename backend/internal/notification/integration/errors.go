@@ -32,4 +32,10 @@ var (
 
 	// ErrInvalidPlatform is returned when an unsupported platform value is provided.
 	ErrInvalidPlatform = errors.New("invalid platform: must be teams or slack")
+
+	// ErrTenantMissing is returned when a write is attempted without a tenant in
+	// the context. Every integration table carries tenant_id NOT NULL (migration
+	// 000115) under FORCE row level security (000122), so there is no row the
+	// write could legitimately land in — refusing is the only honest answer.
+	ErrTenantMissing = errors.New("integration write without tenant context")
 )

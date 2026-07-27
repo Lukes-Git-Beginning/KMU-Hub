@@ -1036,11 +1036,37 @@ units:
       - Keine neue config.RequireX (sonst blocked)
       - go build/vet/lint/test gruen
 
+  - id: p3-integration-tenant-write-gap
+    phase: 3
+    service: notification
+    model: sonnet
+    deps: [p3-gateway-wire-integration-routes]
+    status: done   # Iteration 32 — vier INSERTs trugen kein tenant_id, jeder Write im Modul war tot
+    scope: >
+      Aufgefallen beim Aufsetzen von p3-integration-webhook-adapters: vier
+      INSERTs in integration.PostgresRepository (CreateMapping,
+      CreateAccountLink, CreateLinkToken, LogDelivery) setzen tenant_id nicht,
+      obwohl die Spalte seit Migration 000115 NOT NULL ist und 000122 FORCE RLS
+      darauf legt. Jeder Write im Integrations-Modul scheitert damit an der
+      Constraint — inklusive der seit Iteration 27 live geschalteten Route
+      POST /api/v1/integrations/link. Tenant aus dem Context setzen und ohne
+      Tenant typisiert verweigern statt am Constraint aufzuschlagen.
+    sources:
+      - backend/internal/notification/integration/postgres_repository.go
+      - backend/migrations/000115_option_b_phase2_integrations_chat.up.sql:216
+      - backend/migrations/000122_rls_phase2_long_tail.up.sql:88
+    done_when:
+      - Alle vier INSERTs tragen tenant_id aus middleware.GetTenantID
+      - Ohne Tenant im Context: ErrTenantMissing VOR jedem DB-Kontakt
+      - gRPC-Mapping auf Unauthenticated statt Internal
+      - Test ohne DB beweist den Null-DB-Kontakt, DB-Test beweist den gelandeten Tenant
+      - go build/vet/lint/test gruen
+
   - id: p3-integration-webhook-adapters
     phase: 3
     service: notification
     model: opus
-    deps: [p3-gateway-wire-integration-routes]
+    deps: [p3-gateway-wire-integration-routes, p3-integration-tenant-write-gap]
     status: todo
     scope: >
       Die drei Setter von IntegrationRoutes (SetTeamsWebhookHandler,
@@ -1072,6 +1098,39 @@ units:
       Ohne Secret bleibt es beim heutigen 404, das ist die richtige Antwort.
       Der OAuth-Callback persistiert den Bot-Token heute nicht (er loggt ihn) —
       das gehoert mit geklaert, siehe openapi.yaml-Note am Pfad.
+      ---
+      VORARBEIT Iteration 32 (Recherche steht, nicht nochmal machen):
+      * Design entschieden: RPC-Tunnel. Eine notification-RPC nimmt
+        `platform`, `kind`, rohen Body und die relevanten Header entgegen und
+        gibt status_code/content_type/body zurueck; das Gateway proxied nur.
+        Grund: die Signaturpruefung deckt die exakten Rohbytes ab, ein
+        Re-Serialisieren am Gateway wuerde sie zerstoeren — Tunneln ist hier
+        nicht Bequemlichkeit, sondern die einzige korrekte Form. Und nur so
+        bleibt das Signing-Secret im notification-Service, wo SLACK_BOT_TOKEN
+        schon liegt.
+      * Tenant-Aufloesung: Slack `team_id` (Interaction: callback.Team.ID,
+        Slash: Formularfeld) bzw. Teams `channelData.tenant.id` gegen
+        integration_configs.metadata, gelesen unter database.WithSystemContext,
+        danach alles unter dem aufgeloesten Tenant. Heute schreibt niemand eine
+        team_id in metadata — bis dahin ist die Aufloesung leer und die Route
+        verweigert. Das ist der richtige Zustand (kein Raten), muss aber in der
+        openapi-Beschreibung stehen: Admin traegt die team_id ueber
+        POST /api/v1/integrations/configs (metadata ist freies JSON) ein.
+      * OAuth install/callback bleiben verweigert: es gibt KEIN Vault.
+        `credentials_vault_key` ist ein blosses String-Feld, nichts loest es auf
+        (verifiziert: kein internal/vault, kein Aufloeser im Forwarder). Ein
+        pro-Tenant-Bot-Token hat damit keinen Platz. Zusaetzlich ist der
+        Callback unauthentifiziert, braucht also einen signierten `state` mit
+        dem Tenant aus einem dann authentifizierten Install. Beides zusammen =
+        eigene Unit, nicht Teil dieser.
+      * ACHTUNG Falsch-Erfolg: die Handler loggen Acknowledge/Approve/Reject
+        heute nur. Slack aktualisiert die Karte trotzdem in-place mit einem
+        "erledigt"-Banner (buildResolvedBlocks) und Teams antwortet "Aktion
+        verarbeitet" — waehrend in Cosmi nichts passiert. Scharfschalten ohne
+        echte Aktion ist eine fuer den Kunden sichtbare Luege; entweder die
+        Aktion verdrahten oder ehrlich antworten.
+      * integration.Forwarder ist heute toter Code (NewForwarder in
+        cmd/notification/main.go, HandleNotification hat keinen Aufrufer).
     done_when:
       - Tenant wird aus der Plattform-Identitaet aufgeloest, nicht geraten
       - Signaturpruefung vor jedem Datenzugriff (heute schon so, nicht kaputtmachen)

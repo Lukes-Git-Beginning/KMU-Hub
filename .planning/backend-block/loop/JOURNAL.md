@@ -2633,3 +2633,96 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
     Enforcement; `platform_admin` haelt niemand; `types.ts`-Drift.
 
 - iteration 31 commit: `c7802ef3`
+
+## Iteration 32 — p3-integration-tenant-write-gap (2026-07-27)
+
+- Verify-Vorspann `c7802ef3` (Iteration 31, DATEV-Upload-Orchestrierung): sechs
+  Fehlerklassen durchgegangen. Gateway ruft durchgehend ueber
+  `bizv1.DatevUploadServiceClient` (kein Direct-Svc), kein neuer Stub
+  (`Unimplemented`-Treffer ist nur das eingebettete Proto-Embedding), Tenant
+  wird in `buchungsstapel.go` an jeden Read weitergereicht, keine Migration
+  also keine Permission-Seed-Pflicht, openapi.yaml im selben Commit
+  mitgeaendert. `go build ./...` gruen. Nichts nachzuarbeiten.
+- Geplant war `p3-integration-webhook-adapters`. Beim Aufsetzen kam heraus,
+  dass die Unit auf einem toten Fundament stehen wuerde, deshalb dieser
+  Zwischenschritt — als eigene Unit `p3-integration-tenant-write-gap` in der
+  BACKLOG protokolliert, die Webhook-Unit bleibt `todo` und haengt jetzt daran.
+
+**Der Befund.** Vier INSERTs in `integration.PostgresRepository` — CreateMapping,
+CreateAccountLink, CreateLinkToken, LogDelivery — listen `tenant_id` nicht auf.
+Die Spalte ist seit Migration `000115` auf allen vier Tabellen `NOT NULL`
+(Zeilen 200–251) und `000122` legt `FORCE ROW LEVEL SECURITY` darauf. Es gibt
+kein `DEFAULT`: `enable_tenant_rls` (Migration `000118`) baut nur die Policy,
+keine Spalten-Defaults. Damit scheitert **jeder** Write des Integrations-Moduls
+an der Constraint — nicht irgendwann, sondern beim ersten Versuch. Betroffen
+ist unter anderem `POST /api/v1/integrations/link`, seit Iteration 27
+authentifiziert live geschaltet: Konto verknuepfen antwortet 500.
+
+Das ist genau die Klasse, vor der die MEMORY-Regel „NULLABLE tenant_id Pre-RLS
+Audit" warnt, nur andersherum — hier war das Schema fertig und das
+Repo-INSERT-Wiring blieb zurueck. Die RLS-Welle hat die Spalten nachgezogen
+und die Tabellen bis heute nie unter einen echten Write gestellt: der
+Bestandstest `tenant_isolation_phase2_test.go` seedet ueber `testutil.SeedRow`
+und setzt `tenant_id` selbst — er prueft die Policy, nie das Repository.
+
+**Was gebaut wurde.**
+- `tenantForWrite(ctx)` loest den Tenant ueber `middleware.GetTenantID` auf und
+  gibt sonst das neue `ErrTenantMissing` zurueck — **vor** dem Pool-Zugriff.
+  Reads bleiben bewusst unangetastet: dort ist RLS allein richtig, ein leeres
+  Ergebnis ist der sichere Ausgang. Writes koennen das nicht, weil die
+  Constraint sie vorher toetet.
+- Die vier INSERTs tragen `tenant_id` jetzt als eigenen Parameter. Bei
+  `CreateAccountLink` bleibt das `ON CONFLICT (platform, external_user_id)`
+  stehen: der Unique-Key ist global, eine Zeile eines fremden Tenants ist fuer
+  das DO UPDATE unsichtbar und RLS weist den Write ab — ein Slack-Konto laesst
+  sich damit nicht ueber Tenant-Grenzen umhaengen.
+- `mapNotificationError` mappt `ErrTenantMissing` auf `Unauthenticated` statt
+  in den `Internal`-Default zu fallen.
+- `CreateLinkToken` bekommt einen Kommentar, warum es heute zwangslaeufig
+  verweigert: der einzige Aufrufer ist der unauthentifizierte Webhook-Pfad
+  (`/kmuhub link`), und der ist bis zur Webhook-Unit ohnehin 404. Einen Tenant
+  zu erfinden waere die schlechtere Antwort.
+
+**Testbarkeit.** Zwei Ebenen, weil die eine ohne DB laeuft und die andere
+etwas anderes beweist:
+- `TestIntegrationWrites_RefuseWithoutTenant` haelt ein Repository mit
+  **nil-Pool**. Jeder DB-Kontakt wuerde panisch abstuerzen — dass alle vier
+  Aufrufe sauber `ErrTenantMissing` liefern, ist der Beweis, dass die
+  Verweigerung vor dem Pool sitzt. **Falsifiziert:** Guard aus `CreateMapping`
+  entfernt -> Test bricht mit Nil-Pointer-Panic in `pool.Exec`
+  (`postgres_repository.go:151`) ab; Zustand wiederhergestellt und nachgeprueft.
+- `TestIntegrationWrites_LandInCallerTenant` (`SkipIfNoDB`) schreibt alle vier
+  Zeilen ueber das Repository unter Tenant A und liest sie aus Tenant B nicht
+  mehr — das prueft den gelandeten Wert, nicht den abgesetzten SQL-Text.
+- gate: `go build -p 2 ./...` gruen, `go vet ./internal/notification/...
+  ./internal/server/...` gruen, `golangci-lint run ./internal/notification/...
+  ./internal/server/...` 0 issues, `go test ./internal/...` vollstaendig gruen
+  (beide OpenAPI-Drift-Tests inklusive). Keine Migration, kein Flag
+  scharfgeschaltet, keine neue `config.RequireX`, keine neue Dependency, keine
+  Proto-Aenderung. Keine openapi.yaml-Aenderung noetig: keine Route kommt oder
+  geht, und die fuenf Webhook-Pfade sind seit Iteration 27 bereits ehrlich als
+  „404 wenn nicht konfiguriert" beschrieben.
+
+- offen / fuer Luke:
+  - **Der DB-Test deckt in CI nichts ab.** `go test` laeuft dort ohne
+    `DATABASE_URL`, also skippt die Haelfte des Beweises. Der nil-Pool-Test
+    laeuft immer, aber er prueft nur die Verweigerung. Bis eine CI-Stufe mit
+    Postgres existiert, ist der gelandete Tenant lokal belegt, nicht im Gate.
+  - **Gleicher Verdacht anderswo.** Migration `000115` hat in einem Rutsch
+    tenant_id auf bexio_*, lexware_*, integration_* und chat-Tabellen
+    nachgezogen. Ich habe nur die vier Integrations-INSERTs geprueft. Ein
+    Sweep „Tabelle hat tenant_id NOT NULL, Repo-INSERT nennt es nicht" ueber
+    alle in 000115/000122 angefassten Tabellen waere die naechste
+    lohnende Unit — das hier war ein Zufallsfund, keine Suche.
+  - `integration.Forwarder` ist toter Code: `NewForwarder` wird in
+    `cmd/notification/main.go` gebaut, `HandleNotification` hat keinen
+    Aufrufer. `LogDelivery` ist damit korrigiert, aber unbenutzt. Entweder
+    verdrahten oder entfernen.
+  - Naechste freie Unit: `p3-integration-webhook-adapters` (opus) — die
+    Vorarbeit dieser Iteration (RPC-Tunnel-Design, Tenant-Aufloesung ueber
+    `team_id`, OAuth blockiert mangels Vault, Falsch-Erfolg-Warnung bei
+    Acknowledge/Approve) steht ausformuliert in den `notes` der Unit.
+  - Unveraendert offen: `hr_leave_types`-Seeds unter der Zero-UUID;
+    Rollen-Zuschnitt der produktion-ext-Permissions; Modul-Aktivierung ohne
+    Enforcement; `platform_admin` haelt niemand; `types.ts`-Drift; DATEV
+    `auto_upload_enabled` ohne Auswerter; `datev-upload-client.ts`-Typen.

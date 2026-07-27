@@ -670,6 +670,8 @@ func mapNotificationError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, integration.ErrInvalidPlatform):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, integration.ErrTenantMissing):
+		return status.Error(codes.Unauthenticated, err.Error())
 	default:
 		slog.Error("unhandled notification service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

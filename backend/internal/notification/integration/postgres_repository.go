@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -18,6 +20,23 @@ type PostgresRepository struct {
 // NewPostgresRepository creates a new PostgreSQL integration repository.
 func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
+}
+
+// tenantForWrite resolves the tenant every INSERT in this package has to carry.
+//
+// Reads rely on RLS alone — the policy filters them and an empty result is the
+// safe outcome. Writes cannot: integration_channel_mappings,
+// integration_account_links, integration_link_tokens and
+// integration_delivery_log all gained tenant_id NOT NULL in migration 000115
+// and FORCE row level security in 000122, so an INSERT that leaves the column
+// out fails at the constraint. Resolving up front turns that into a typed
+// refusal before the pool is touched.
+func tenantForWrite(ctx context.Context) (uuid.UUID, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return uuid.Nil, ErrTenantMissing
+	}
+	return tenantID, nil
 }
 
 // ============================================================================
@@ -119,17 +138,22 @@ func (r *PostgresRepository) DeleteConfig(ctx context.Context, id uuid.UUID) err
 // ============================================================================
 
 func (r *PostgresRepository) CreateMapping(ctx context.Context, m *ChannelMapping) error {
+	tenantID, err := tenantForWrite(ctx)
+	if err != nil {
+		return err
+	}
+
 	modulesJSON, err := json.Marshal(m.Modules)
 	if err != nil {
 		return err
 	}
 
 	query := `
-		INSERT INTO integration_channel_mappings (id, config_id, channel_id, channel_name, modules, is_active, platform_data, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+		INSERT INTO integration_channel_mappings (id, tenant_id, config_id, channel_id, channel_name, modules, is_active, platform_data, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 	_, err = r.pool.Exec(ctx, query,
-		m.ID, m.ConfigID, m.ChannelID, m.ChannelName,
+		m.ID, tenantID, m.ConfigID, m.ChannelID, m.ChannelName,
 		modulesJSON, m.IsActive, m.PlatformData, m.CreatedAt, m.UpdatedAt,
 	)
 	return err
@@ -260,17 +284,26 @@ func scanMappings(rows pgx.Rows) ([]*ChannelMapping, error) {
 // Account Links
 // ============================================================================
 
+// CreateAccountLink upserts the mapping between an external platform user and a
+// KMU Hub user. The unique key (platform, external_user_id) is global, so a
+// conflicting row from another tenant is invisible to the DO UPDATE and RLS
+// rejects the write — one Slack account cannot be re-pointed across tenants.
 func (r *PostgresRepository) CreateAccountLink(ctx context.Context, link *AccountLink) error {
+	tenantID, err := tenantForWrite(ctx)
+	if err != nil {
+		return err
+	}
+
 	query := `
-		INSERT INTO integration_account_links (id, platform, external_user_id, kmuhub_user_id, external_display_name, linked_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO integration_account_links (id, tenant_id, platform, external_user_id, kmuhub_user_id, external_display_name, linked_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (platform, external_user_id) DO UPDATE
 		SET kmuhub_user_id = EXCLUDED.kmuhub_user_id,
 		    external_display_name = EXCLUDED.external_display_name,
 		    linked_at = EXCLUDED.linked_at`
 
-	_, err := r.pool.Exec(ctx, query,
-		link.ID, link.Platform, link.ExternalUserID,
+	_, err = r.pool.Exec(ctx, query,
+		link.ID, tenantID, link.Platform, link.ExternalUserID,
 		link.KMUHubUserID, link.ExternalDisplayName, link.LinkedAt,
 	)
 	return err
@@ -328,13 +361,24 @@ func (r *PostgresRepository) DeleteAccountLink(ctx context.Context, id uuid.UUID
 // Link Tokens
 // ============================================================================
 
+// CreateLinkToken stores the hash of a short-lived account linking token.
+//
+// The only caller today is the inbound webhook path (/kmuhub link), which is
+// unauthenticated and therefore has no tenant — those routes stay refused until
+// the webhook adapters resolve the tenant from the platform identity. Until
+// then this returns ErrTenantMissing rather than inventing one.
 func (r *PostgresRepository) CreateLinkToken(ctx context.Context, token *LinkToken) error {
-	query := `
-		INSERT INTO integration_link_tokens (id, platform, external_user_id, token_hash, expires_at, used, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	tenantID, err := tenantForWrite(ctx)
+	if err != nil {
+		return err
+	}
 
-	_, err := r.pool.Exec(ctx, query,
-		token.ID, token.Platform, token.ExternalUserID,
+	query := `
+		INSERT INTO integration_link_tokens (id, tenant_id, platform, external_user_id, token_hash, expires_at, used, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	_, err = r.pool.Exec(ctx, query,
+		token.ID, tenantID, token.Platform, token.ExternalUserID,
 		token.TokenHash, token.ExpiresAt, token.Used, token.CreatedAt,
 	)
 	return err
@@ -386,12 +430,17 @@ func (r *PostgresRepository) CleanupExpiredTokens(ctx context.Context) (int, err
 // ============================================================================
 
 func (r *PostgresRepository) LogDelivery(ctx context.Context, entry *DeliveryLogEntry) error {
-	query := `
-		INSERT INTO integration_delivery_log (id, notification_id, mapping_id, platform, status, platform_message_id, error_message, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	tenantID, err := tenantForWrite(ctx)
+	if err != nil {
+		return err
+	}
 
-	_, err := r.pool.Exec(ctx, query,
-		entry.ID, entry.NotificationID, entry.MappingID, entry.Platform,
+	query := `
+		INSERT INTO integration_delivery_log (id, tenant_id, notification_id, mapping_id, platform, status, platform_message_id, error_message, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+
+	_, err = r.pool.Exec(ctx, query,
+		entry.ID, tenantID, entry.NotificationID, entry.MappingID, entry.Platform,
 		entry.Status, entry.PlatformMessageID, entry.ErrorMessage, entry.CreatedAt,
 	)
 	return err
