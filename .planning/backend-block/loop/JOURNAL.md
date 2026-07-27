@@ -2631,3 +2631,5 @@ FE-Typen werden also nicht mitregeneriert. Notiert in
   - Unveraendert offen: `hr_leave_types`-Seeds unter der Zero-UUID;
     Rollen-Zuschnitt der produktion-ext-Permissions; Modul-Aktivierung ohne
     Enforcement; `platform_admin` haelt niemand; `types.ts`-Drift.
+
+- iteration 31 commit: `c7802ef3`
