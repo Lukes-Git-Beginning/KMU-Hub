@@ -702,7 +702,7 @@ func (r *PostgresRepository) CreateSession(ctx context.Context, session *models.
 func (r *PostgresRepository) GetSession(ctx context.Context, id uuid.UUID) (*models.UserSession, error) {
 	var s models.UserSession
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, refresh_token_id, device_name, device_type, ip_address, location, user_agent, last_active_at, created_at
+		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(ip_address::text, ''), location, user_agent, last_active_at, created_at
 		 FROM user_sessions WHERE id = $1`, id,
 	).Scan(&s.ID, &s.UserID, &s.RefreshTokenID, &s.DeviceName, &s.DeviceType,
 		&s.IPAddress, &s.Location, &s.UserAgent, &s.LastActiveAt, &s.CreatedAt)
@@ -714,7 +714,7 @@ func (r *PostgresRepository) GetSession(ctx context.Context, id uuid.UUID) (*mod
 
 func (r *PostgresRepository) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]*models.UserSession, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, refresh_token_id, device_name, device_type, ip_address, location, user_agent, last_active_at, created_at
+		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(ip_address::text, ''), location, user_agent, last_active_at, created_at
 		 FROM user_sessions WHERE user_id = $1
 		 ORDER BY last_active_at DESC`, userID,
 	)
@@ -742,7 +742,7 @@ func (r *PostgresRepository) ListAllSessions(ctx context.Context, offset, limit 
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, refresh_token_id, device_name, device_type, ip_address, location, user_agent, last_active_at, created_at
+		`SELECT id, user_id, refresh_token_id, device_name, device_type, COALESCE(ip_address::text, ''), location, user_agent, last_active_at, created_at
 		 FROM user_sessions
 		 ORDER BY last_active_at DESC
 		 LIMIT $1 OFFSET $2`, limit, offset,

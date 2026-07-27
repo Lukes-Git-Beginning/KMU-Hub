@@ -3200,3 +3200,76 @@ bleibt.
   zieht `wp-auth` (keine deps, naechste in Reihenfolge — der Nacht-1-Fund mit
   dem globalen `invitations`-Unique-Index macht das Modul zum hoechsten
   verbleibenden Risiko in diesem Block).
+
+## Iteration 41 — wp-auth — done — 2026-07-28
+
+- commit: (siehe Git-Historie, folgt direkt auf diesen Eintrag)
+- verify vorgaenger: sauber. Commit `2d4af4b4` (Iteration 40, wp-berichte) ist
+  eine reine Testdatei-Ergaenzung (`tenant_write_test.go`, 215 Zeilen) — keine
+  der sechs Fehlerklassen betroffen: kein Gateway-Handler, kein Stub, kein
+  `.proto`, kein neuer `RequirePermission`-Guard, keine neue Tabelle, keine
+  Route.
+- gebaut: `internal/auth/tenant_write_test.go`
+  (`TestUsersWrites_LandInCallerTenant`, `TestInvitationsWrites_LandInCallerTenant`,
+  `TestSessionsWrites_LandInCallerTenant`). Die vier bestehenden
+  `rls_*_test.go` seeden ausschliesslich via `testutil.SeedRow` (Raw-INSERT
+  unter System-Context) und rufen `PostgresRepository` nie auf — exakt die
+  Lueckenform, die den `invitations`-Fund aus Nacht 1 (Migration 000249)
+  verdeckt haette. Neu real gegen die DB geprueft: `CreateUser`/`UpdateUser`/
+  `UpdateProfile`/`UpdatePassword`, `CreateInvitation`/`DeleteInvitation`/
+  `AcceptInvitation` (inkl. Replay-Schutz unter Fremd-Tenant), `CreateSession`/
+  `UpdateSessionActivity`/`DeleteSession`/`DeleteAllUserSessions`.
+  `ProvisionTenant` NICHT wiederholt — `rls_provisioning_test.go` faehrt
+  bereits `auth.NewService(...).ProvisionTenant` real gegen die DB, das war
+  kein unbewiesener Pfad. Kein toter Write gefunden: jede Methode, die eine
+  `tenant_id`-Spalte hat, schreibt sie auch.
+- Echter Nebenfund + Fix im selben Commit: `GetSession`/`ListUserSessions`/
+  `ListAllSessions` scannen `ip_address` (Postgres `INET`) direkt in ein
+  `string`-Feld — bricht mit `cannot scan inet ... in binary format into
+  *string`, sobald eine Session ueberhaupt eine IP traegt (jede reale Login-
+  Session). Bestehendes Repo-Muster (`crm/consent`, `formulare`) castet dafuer
+  `ip_address::text`; hier zusaetzlich mit `COALESCE(..., '')`, weil
+  `models.UserSession.IPAddress` ein Nicht-Pointer-`string` ist (kein
+  API-Vertragsbruch). Ohne den DB-Test waere das unentdeckt geblieben — bisher
+  ruft nichts im Repo `Service.CreateSession` produktiv auf (kein
+  Login-Wiring gefunden, siehe unten), der Bug haette erst beim Anschluss
+  dieses Features angeschlagen.
+- Blindgang bei der eigenen Verifikation (dokumentiert, damit es nicht nochmal
+  passiert): der erste Testlauf zeigte scheinbar eine RLS-Luecke — ein
+  `UpdateSessionActivity` unter Fremd-Tenant-Kontext "aenderte" `last_active_at`
+  laut Log auf einen Wert nahe der aktuellen Uhrzeit. Ursache war kein
+  RLS-Defekt, sondern `time.Time.Equal` gegen einen verlustbehafteten
+  Roundtrip (Postgres `timestamptz` kappt auf Mikrosekunden) UND die
+  Log-Ausgabe in Lokalzeit (CEST, +2h) gegenueber dem in UTC gesetzten
+  Vergleichswert — beides zusammen sah nach einem vollzogenen Schreibzugriff
+  aus. Mit einem isolierten Debug-Test (raw SQL vs. Repo-Methode,
+  `current_setting('app.tenant_id')` direkt geloggt) auf Nanosekunden-Differenz
+  verifiziert (-400ns), RLS blockt korrekt. Test auf Toleranzvergleich
+  (`< 1ms` Differenz) umgestellt statt exaktem `Equal`.
+- gate: build ok (`go build -p 2 ./internal/auth/... ./internal/gateway/...
+  ./cmd/auth/... ./cmd/gateway/...`) | vet ok | lint ok (0 issues) | test ok
+  (`go test -count=1 ./internal/auth/...` 0 Skips, alle drei neuen
+  Testfunktionen real gegen DB gelaufen; `go test ./internal/gateway/...`
+  gruen, keine Route angefasst) | migration n.a. (keine neue Tabelle/Spalte)
+  | Falsifikation: RLS auf `users`/`invitations`/`user_sessions` testweise per
+  `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` deaktiviert, alle drei neuen
+  Tests wurden rot (`expected 0 row(s), got 1`), danach `ENABLE`+`FORCE`
+  wiederhergestellt und volle Suite erneut gruen; keine Testleichen
+  zurueckgeblieben (Stichprobe: 0 `test.local`-User, 0 `Auth *`-Tenants nach
+  Lauf).
+- offen: **`Service.CreateSession`/`ListSessions`/`TerminateSession` sind in
+  keinem Server-/Gateway-Handler verdrahtet** — grep ueber `internal/server/`
+  und `internal/gateway/` findet keinen Aufrufer; `Login`/`Register`/
+  `RefreshToken` in `service.go` erzeugen nie eine `user_sessions`-Zeile. Das
+  "Sessions verwalten"-Feature (Geraeteliste, Fremd-Logout) ist damit
+  serverseitig totes Gewicht, kein aktiver Pfad — fuer Luke: eigene
+  Entscheidung, ob das Feature ans Login gehaengt wird oder als bewusst nicht
+  gebaut gilt. `TwoFactorPolicy`/`refresh_tokens` bleiben ausserhalb der
+  System-Global-Liste (`docs/ARCHITECTURE.md`) ohne `tenant_id`/RLS — nicht
+  angefasst (ausserhalb des vier-Bereiche-Scopes dieser Unit, kein
+  Deploy-Hazard, da rein additiv waere). `security/audit`
+  (`internal/security/audit/postgres_repository.go`) hat denselben
+  `ip_address`-ohne-Cast-Scan-Bug wie hier gefunden — anderer Service,
+  eigene Unit, nicht mitgezogen. Queue-Stand: 10 `wp-*`-Units `todo`,
+  naechste Iteration zieht `wp-biz-finance` (keine deps, Hinweis im Backlog:
+  Scope auf den Finanz-Kern begrenzen, HR/Integrationen sind eigene Units).

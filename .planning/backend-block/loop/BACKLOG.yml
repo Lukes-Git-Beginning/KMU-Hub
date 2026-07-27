@@ -1797,7 +1797,7 @@ units:
     service: auth
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 41 — tenant_write_test.go + ip_address::text scan fix
     scope: >
       Vier DB-Tests (`rls_invitations`, `rls_provisioning`, `rls_users`,
       `rls_user_sessions`), alle seeden via SeedRow. Genau hier lag der
