@@ -3655,3 +3655,66 @@ bleibt.
   angelegt, da diese Iteration keine Funde in den verbleibenden vier
   Paketen gepruft hat (ausserhalb Scope). Fuer Luke: Testleichen-Bereinigung
   auf der lokalen Dev-DB (siehe oben) ist kosmetisch, kein Blocker.
+
+## Iteration 47 — wp-security — done — 2026-07-28
+
+- commit: siehe unten (dieser Commit)
+- Sonderfall: diese Iteration begann mit einem bereits **unvollstaendig
+  abgebrochenen Vorlauf** — der Arbeitsbaum enthielt beim Start bereits alle
+  Code-Aenderungen fuer wp-security (gdpr/vault/password + drei neue
+  `tenant_write_test.go`) und `BACKLOG.yml` war schon auf `status: done`
+  gesetzt, aber nichts war committet und es gab keinen Journal-Eintrag. Diese
+  Iteration hat den vorgefundenen Diff **vollstaendig gegen die sechs
+  Fehlerklassen nachgeprueft** (nicht blind uebernommen), bevor sie ihn
+  committet hat.
+- gepruefte Funde (aus dem Vorlauf, hier verifiziert):
+  - **gdpr:** `GetExportRequest`/`GetExportByToken` liefen ganz ohne
+    Tenant-Filter (RLS war der einzige Schutz); `UpdateExportStatus`,
+    `StoreExportResult`, `MarkDownloaded` nahmen eine nackte Row-ID ohne
+    `tenant_id`-Praedikat. Alle fuenf jetzt tenant-gescoped, tenantID kommt in
+    allen Service-Methoden aus `middleware.GetTenantID(ctx)` und wird bis in
+    den Async-Erasure-Pfad (`bgCtx`) durchgereicht.
+  - **vault:** `GetByKeyName`/`List` ohne Tenant-Filter, `Update`/`Delete` ohne
+    `tenant_id`-Praedikat. `SetSecret` holt die bestehende Zeile jetzt ueber
+    das tenant-gescopte `GetByKeyName` und uebernimmt deren `TenantID` fuer den
+    nachfolgenden `Update` (kein separat durchgereichtes tenantID-Argument bei
+    `Update`, sondern das Feld auf dem Modell — verifiziert, dass dieses Feld
+    nie aus Client-Eingaben, sondern immer aus einer vorherigen
+    tenant-gescopten Lektuere stammt).
+  - **password:** schwerster Fund im Bestand — `UpdatePolicy` nahm die Row-ID
+    direkt aus der gRPC-Request (`req.Policy.Id`), ganz ohne Tenant-Bezug; ein
+    Aufrufer haette durch Raten/Enumeration eine fremde Policy-Zeile treffen
+    koennen, RLS war die letzte Linie. Fix zieht die Zeile jetzt serverseitig
+    ueber `Service.UpdatePolicy` → `GetPolicy(ctx, tenantID)` und ignoriert die
+    Client-ID komplett (`security_grpc.go`: der `req.Policy.Id`-Parse-Block ist
+    ersatzlos entfernt, mit Kommentar warum).
+  - **audit:** bewusst unveraendert gelassen — das Paket hat nur `Create`
+    (Insert, append-only per DB-Trigger), keine Update/Delete-Methode mit
+    Row-ID-Parameter existiert, also keine Instanz der "tote Write ohne
+    Praedikat"-Klasse. `List`/`GetLastHash` sind Read-only und laufen wie im
+    Bestand rein ueber RLS. Passt zur Notiz im Backlog-Eintrag
+    (`CleanupRow` scheitert an append-only, Test bewusst nicht gebaut).
+- drei neue `tenant_write_test.go` (gdpr/vault/password) nach dem
+  Write-Read-Foreign-Own-Muster der vorigen Wellen; password-Test geht einen
+  Schritt weiter und deckt zusaetzlich `Service.UpdatePolicy` mit einer
+  gespooften fremden ID ab (Repo-Test allein haette den eigentlichen Bug —
+  Client-ID direkt vertrauen — nicht gezeigt, der sitzt eine Ebene hoeher).
+- Mocks in `gdpr/service_test.go` und `vault/service_test.go` auf die neuen
+  Signaturen nachgezogen (`testCtx()`-Helper mit fest verdrahteter
+  Test-Tenant-ID fuer `middleware.GetTenantID`), reine Mechanik.
+- gate: build ok (`GOFLAGS=-p=2 go build ./...`) | vet ok
+  (`go vet ./internal/security/... ./internal/server/...`) | lint ok
+  (`golangci-lint run ./internal/security/... ./internal/server/...`,
+  0 issues) | test ok (`DATABASE_URL` auf `kmuhub_app` gesetzt, nicht
+  Superuser — lokale Dev-DB-Rolle mit `ALTER ROLE kmuhub_app WITH LOGIN
+  PASSWORD 'kmuhub_dev'` neu gesetzt, da abgelaufen — `go test -count=1
+  ./internal/security/... ./internal/server/...` komplett gruen, 0 Skips
+  fuer die drei neuen DB-Tests) | migration n.a. (keine neue Tabelle/Spalte,
+  nur bestehende `tenant_id`-Spalten genutzt).
+- offen: nichts Neues aus dieser Unit. Fuer Luke: **Prozess-Luecke** — ein
+  vorheriger Lauf hat offenbar Code + Backlog-Status geschrieben, aber vor
+  dem Commit/Journal-Schritt abgebrochen (Crash/Timeout vermutet, kein
+  Hinweis im Journal). Der Diff war inhaltlich korrekt und ist unveraendert
+  uebernommen worden, aber falls das oefter passiert, lohnt sich ein Blick
+  auf die Abbruchursache der Vorlauf-Session. Queue-Stand: `wp-inbox-einkauf`
+  naechste offene Unit ohne deps.

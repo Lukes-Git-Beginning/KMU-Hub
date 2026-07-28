@@ -2047,7 +2047,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 47 — gdpr/vault/password dead writes fixed, tenant_write_test.go je Paket; audit ungetestet gelassen (nur Create, kein Update/Delete-Write, RLS-only wie im Bestand)
     scope: >
       gdpr, vault, password, audit. Sicherheitsrelevante Schreibpfade: ein toter
       Write im Audit-Log heisst, dass ein Vorgang unprotokolliert bleibt - und

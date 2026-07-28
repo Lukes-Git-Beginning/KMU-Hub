@@ -11,8 +11,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// testTenantID is the default-tenant sentinel used in unit tests.
+var testTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+// testCtx returns a context pre-loaded with the test tenant so that
+// middleware.GetTenantID succeeds inside service methods.
+func testCtx() context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, testTenantID.String())
+}
 
 // ============================================================================
 // Mock Repository
@@ -58,7 +68,7 @@ func (m *MockRepository) CreateExportRequest(_ context.Context, req *models.GDPR
 	return nil
 }
 
-func (m *MockRepository) GetExportRequest(_ context.Context, id uuid.UUID) (*models.GDPRExportRequest, error) {
+func (m *MockRepository) GetExportRequest(_ context.Context, _, id uuid.UUID) (*models.GDPRExportRequest, error) {
 	if m.getExportErr != nil {
 		return nil, m.getExportErr
 	}
@@ -72,7 +82,7 @@ func (m *MockRepository) GetExportRequest(_ context.Context, id uuid.UUID) (*mod
 	return &snapshot, nil
 }
 
-func (m *MockRepository) ListExportRequests(_ context.Context, userID uuid.UUID, status string) ([]*models.GDPRExportRequest, error) {
+func (m *MockRepository) ListExportRequests(_ context.Context, _, userID uuid.UUID, status string) ([]*models.GDPRExportRequest, error) {
 	if m.listExportsErr != nil {
 		return nil, m.listExportsErr
 	}
@@ -92,7 +102,7 @@ func (m *MockRepository) ListExportRequests(_ context.Context, userID uuid.UUID,
 	return result, nil
 }
 
-func (m *MockRepository) UpdateExportStatus(_ context.Context, req *models.GDPRExportRequest) error {
+func (m *MockRepository) UpdateExportStatus(_ context.Context, _ uuid.UUID, req *models.GDPRExportRequest) error {
 	if m.updateExportErr != nil {
 		return m.updateExportErr
 	}
@@ -103,7 +113,7 @@ func (m *MockRepository) UpdateExportStatus(_ context.Context, req *models.GDPRE
 	return nil
 }
 
-func (m *MockRepository) StoreExportResult(_ context.Context, id uuid.UUID, data []byte, token string, expiresAt interface{}) error {
+func (m *MockRepository) StoreExportResult(_ context.Context, _, id uuid.UUID, data []byte, token string, expiresAt interface{}) error {
 	if m.storeExportResultErr != nil {
 		return m.storeExportResultErr
 	}
@@ -123,7 +133,7 @@ func (m *MockRepository) StoreExportResult(_ context.Context, id uuid.UUID, data
 	return nil
 }
 
-func (m *MockRepository) GetExportByToken(_ context.Context, token string) (*models.GDPRExportRequest, error) {
+func (m *MockRepository) GetExportByToken(_ context.Context, _ uuid.UUID, token string) (*models.GDPRExportRequest, error) {
 	if m.getExportByTokenErr != nil {
 		return nil, m.getExportByTokenErr
 	}
@@ -137,7 +147,7 @@ func (m *MockRepository) GetExportByToken(_ context.Context, token string) (*mod
 	return &snapshot, nil
 }
 
-func (m *MockRepository) MarkDownloaded(_ context.Context, id uuid.UUID) error {
+func (m *MockRepository) MarkDownloaded(_ context.Context, _, id uuid.UUID) error {
 	if m.markDownloadedErr != nil {
 		return m.markDownloadedErr
 	}
@@ -223,7 +233,7 @@ func TestService_RequestExport_Success(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	req, err := svc.RequestExport(context.Background(), userID)
+	req, err := svc.RequestExport(testCtx(), userID)
 
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, req.ID)
@@ -246,7 +256,7 @@ func TestService_RequestExport_AlreadyPending(t *testing.T) {
 	}
 	repo.exports[existing.ID] = existing
 
-	_, err := svc.RequestExport(context.Background(), userID)
+	_, err := svc.RequestExport(testCtx(), userID)
 
 	assert.ErrorIs(t, err, ErrExportAlreadyPending)
 }
@@ -257,7 +267,7 @@ func TestService_RequestExport_RepoError(t *testing.T) {
 
 	repo.listExportsErr = errors.New("db connection failed")
 
-	_, err := svc.RequestExport(context.Background(), uuid.New())
+	_, err := svc.RequestExport(testCtx(), uuid.New())
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to check existing requests")
@@ -269,7 +279,7 @@ func TestService_RequestExport_CreateError(t *testing.T) {
 
 	repo.createExportErr = errors.New("insert failed")
 
-	_, err := svc.RequestExport(context.Background(), uuid.New())
+	_, err := svc.RequestExport(testCtx(), uuid.New())
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create export request")
@@ -291,7 +301,7 @@ func TestService_ListExports_Success(t *testing.T) {
 	}
 	repo.exports[req.ID] = req
 
-	results, err := svc.ListExports(context.Background(), userID, "")
+	results, err := svc.ListExports(testCtx(), userID, "")
 
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
@@ -314,7 +324,7 @@ func TestService_ApproveExport_Success(t *testing.T) {
 		Status: models.ExportStatusPending,
 	}
 
-	result, err := svc.ApproveExport(context.Background(), exportID, reviewerID, "Looks good")
+	result, err := svc.ApproveExport(testCtx(), exportID, reviewerID, "Looks good")
 
 	require.NoError(t, err)
 	assert.Equal(t, models.ExportStatusApproved, result.Status)
@@ -334,7 +344,7 @@ func TestService_ApproveExport_NotPending(t *testing.T) {
 		Status: models.ExportStatusApproved, // Already approved
 	}
 
-	_, err := svc.ApproveExport(context.Background(), exportID, uuid.New(), "")
+	_, err := svc.ApproveExport(testCtx(), exportID, uuid.New(), "")
 
 	assert.ErrorIs(t, err, ErrInvalidExportStatus)
 }
@@ -343,7 +353,7 @@ func TestService_ApproveExport_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.ApproveExport(context.Background(), uuid.New(), uuid.New(), "")
+	_, err := svc.ApproveExport(testCtx(), uuid.New(), uuid.New(), "")
 
 	require.Error(t, err)
 }
@@ -360,7 +370,7 @@ func TestService_ApproveExport_UpdateError(t *testing.T) {
 	}
 	repo.updateExportErr = errors.New("update failed")
 
-	_, err := svc.ApproveExport(context.Background(), exportID, uuid.New(), "")
+	_, err := svc.ApproveExport(testCtx(), exportID, uuid.New(), "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to approve export")
@@ -382,7 +392,7 @@ func TestService_DenyExport_Success(t *testing.T) {
 		Status: models.ExportStatusPending,
 	}
 
-	result, err := svc.DenyExport(context.Background(), exportID, reviewerID, "Insufficient verification")
+	result, err := svc.DenyExport(testCtx(), exportID, reviewerID, "Insufficient verification")
 
 	require.NoError(t, err)
 	assert.Equal(t, models.ExportStatusDenied, result.Status)
@@ -402,7 +412,7 @@ func TestService_DenyExport_NotPending(t *testing.T) {
 		Status: models.ExportStatusDenied, // Already denied
 	}
 
-	_, err := svc.DenyExport(context.Background(), exportID, uuid.New(), "")
+	_, err := svc.DenyExport(testCtx(), exportID, uuid.New(), "")
 
 	assert.ErrorIs(t, err, ErrInvalidExportStatus)
 }
@@ -428,7 +438,7 @@ func TestService_ExecuteExportAsync_Success(t *testing.T) {
 		data: []byte(`{"test": "data"}`),
 	})
 
-	err := svc.ExecuteExportAsync(context.Background(), exportID)
+	err := svc.ExecuteExportAsync(testCtx(), exportID)
 
 	require.NoError(t, err)
 
@@ -451,7 +461,7 @@ func TestService_ExecuteExportAsync_NotApproved(t *testing.T) {
 		Status: models.ExportStatusPending, // Not approved
 	}
 
-	err := svc.ExecuteExportAsync(context.Background(), exportID)
+	err := svc.ExecuteExportAsync(testCtx(), exportID)
 
 	assert.ErrorIs(t, err, ErrInvalidExportStatus)
 }
@@ -460,7 +470,7 @@ func TestService_ExecuteExportAsync_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.ExecuteExportAsync(context.Background(), uuid.New())
+	err := svc.ExecuteExportAsync(testCtx(), uuid.New())
 
 	require.Error(t, err)
 }
@@ -483,7 +493,7 @@ func TestService_ExecuteExportAsync_StoreError(t *testing.T) {
 
 	repo.storeExportResultErr = errors.New("storage failed")
 
-	err := svc.ExecuteExportAsync(context.Background(), exportID)
+	err := svc.ExecuteExportAsync(testCtx(), exportID)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to store export result")
@@ -517,7 +527,7 @@ func TestService_GetExportDownload_Success(t *testing.T) {
 	repo.exports[exportID] = req
 	repo.exportsByToken[token] = req
 
-	data, filename, err := svc.GetExportDownload(context.Background(), token)
+	data, filename, err := svc.GetExportDownload(testCtx(), token)
 
 	require.NoError(t, err)
 	assert.Equal(t, []byte("zip-content"), data)
@@ -544,7 +554,7 @@ func TestService_GetExportDownload_Expired(t *testing.T) {
 	repo.exports[exportID] = req
 	repo.exportsByToken[token] = req
 
-	_, _, err := svc.GetExportDownload(context.Background(), token)
+	_, _, err := svc.GetExportDownload(testCtx(), token)
 
 	assert.ErrorIs(t, err, ErrExportExpired)
 }
@@ -565,7 +575,7 @@ func TestService_GetExportDownload_NotReady(t *testing.T) {
 	repo.exports[exportID] = req
 	repo.exportsByToken[token] = req
 
-	_, _, err := svc.GetExportDownload(context.Background(), token)
+	_, _, err := svc.GetExportDownload(testCtx(), token)
 
 	assert.ErrorIs(t, err, ErrExportNotReady)
 }
@@ -592,7 +602,7 @@ func TestService_GetExportDownload_AlreadyDownloaded(t *testing.T) {
 	repo.exports[exportID] = req
 	repo.exportsByToken[token] = req
 
-	data, filename, err := svc.GetExportDownload(context.Background(), token)
+	data, filename, err := svc.GetExportDownload(testCtx(), token)
 
 	require.NoError(t, err)
 	assert.Equal(t, []byte("zip-content"), data)
@@ -603,7 +613,7 @@ func TestService_GetExportDownload_TokenNotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, _, err := svc.GetExportDownload(context.Background(), "nonexistent-token")
+	_, _, err := svc.GetExportDownload(testCtx(), "nonexistent-token")
 
 	require.Error(t, err)
 }
@@ -630,7 +640,7 @@ func TestService_GetExportDownload_MarkDownloadedError(t *testing.T) {
 	repo.markDownloadedErr = errors.New("mark failed")
 
 	// Should still succeed -- MarkDownloaded error is non-fatal
-	data, filename, err := svc.GetExportDownload(context.Background(), token)
+	data, filename, err := svc.GetExportDownload(testCtx(), token)
 
 	require.NoError(t, err)
 	assert.Equal(t, []byte("zip-content"), data)
