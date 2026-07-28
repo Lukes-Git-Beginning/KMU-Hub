@@ -3498,6 +3498,7 @@ bleibt.
 
 ## Iteration 45 — wp-crm-meta — done — 2026-07-28
 
+- commit: `37c139ea`
 - verify vorgaenger: sauber. Commit `b7967a9c` (Iteration 44, wp-crm-core) ist
   vier `tenant_write_test.go` fuer contact/company/deal/activity plus
   BACKLOG/JOURNAL — keine der sechs Fehlerklassen betroffen: kein neuer
