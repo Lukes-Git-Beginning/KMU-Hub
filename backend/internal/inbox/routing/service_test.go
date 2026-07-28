@@ -158,29 +158,28 @@ func (m *mockMessageRepository) Update(_ context.Context, msg *models.InboxMessa
 	return nil
 }
 
-func (m *mockMessageRepository) MarkRead(_ context.Context, _ uuid.UUID) error   { return nil }
-func (m *mockMessageRepository) MarkUnread(_ context.Context, _ uuid.UUID) error { return nil }
-func (m *mockMessageRepository) ToggleStar(_ context.Context, _ uuid.UUID) error { return nil }
-func (m *mockMessageRepository) SetStatus(_ context.Context, _ uuid.UUID, _ string) error {
+func (m *mockMessageRepository) MarkRead(_ context.Context, _, _ uuid.UUID) error   { return nil }
+func (m *mockMessageRepository) MarkUnread(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockMessageRepository) ToggleStar(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockMessageRepository) SetStatus(_ context.Context, _, _ uuid.UUID, _ string) error {
 	return nil
 }
-func (m *mockMessageRepository) AddTag(_ context.Context, _ uuid.UUID, _ string) error    { return nil }
-func (m *mockMessageRepository) RemoveTag(_ context.Context, _ uuid.UUID, _ string) error { return nil }
-func (m *mockMessageRepository) Archive(_ context.Context, _ uuid.UUID) error    { return nil }
-func (m *mockMessageRepository) Unarchive(_ context.Context, _ uuid.UUID) error  { return nil }
-func (m *mockMessageRepository) Snooze(_ context.Context, _ uuid.UUID, _ time.Time) error {
+func (m *mockMessageRepository) AddTag(_ context.Context, _, _ uuid.UUID, _ string) error    { return nil }
+func (m *mockMessageRepository) RemoveTag(_ context.Context, _, _ uuid.UUID, _ string) error { return nil }
+func (m *mockMessageRepository) Archive(_ context.Context, _, _ uuid.UUID) error   { return nil }
+func (m *mockMessageRepository) Unarchive(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockMessageRepository) Snooze(_ context.Context, _, _ uuid.UUID, _ time.Time) error {
 	return nil
 }
-func (m *mockMessageRepository) Unsnooze(_ context.Context, _ uuid.UUID) error { return nil }
 func (m *mockMessageRepository) UnsnoozeExpired(_ context.Context) (int, error) { return 0, nil }
-func (m *mockMessageRepository) AssignMessage(_ context.Context, _ uuid.UUID, _ uuid.UUID) (bool, error) {
+func (m *mockMessageRepository) AssignMessage(_ context.Context, _, _ uuid.UUID, _ uuid.UUID) (bool, error) {
 	return true, nil
 }
 func (m *mockMessageRepository) GetUnreadCounts(_ context.Context, _ uuid.UUID) ([]models.UnreadCount, error) {
 	return nil, nil
 }
-func (m *mockMessageRepository) BulkMarkRead(_ context.Context, _ []uuid.UUID) error  { return nil }
-func (m *mockMessageRepository) BulkArchive(_ context.Context, _ []uuid.UUID) error   { return nil }
+func (m *mockMessageRepository) BulkMarkRead(_ context.Context, _ uuid.UUID, _ []uuid.UUID) error { return nil }
+func (m *mockMessageRepository) BulkArchive(_ context.Context, _ uuid.UUID, _ []uuid.UUID) error  { return nil }
 func (m *mockMessageRepository) GetBySourceID(_ context.Context, _ uuid.UUID, _, _ string) (*models.InboxMessage, error) {
 	return nil, nil
 }

@@ -123,7 +123,7 @@ func (s *Service) ClaimMessage(ctx context.Context, tenantID, teamInboxID uuid.U
 	}
 
 	// Atomic claim: only succeeds if assigned_to IS NULL
-	assigned, err := s.messageRepo.AssignMessage(ctx, messageID, userID)
+	assigned, err := s.messageRepo.AssignMessage(ctx, tenantID, messageID, userID)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (s *Service) AutoAssignMessage(ctx context.Context, tenantID, teamInboxID u
 		}
 		selectedMember := members[memberIdx]
 
-		assigned, err := s.messageRepo.AssignMessage(ctx, messageID, selectedMember.UserID)
+		assigned, err := s.messageRepo.AssignMessage(ctx, tenantID, messageID, selectedMember.UserID)
 		if err != nil {
 			return fmt.Errorf("assign message: %w", err)
 		}

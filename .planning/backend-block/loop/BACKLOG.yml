@@ -2072,7 +2072,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 48 — inbox_messages: 12 dead writes closed (tenant_id predicate); einkauf already clean, proven with real-repo test
     scope: >
       Beide Module hat Nacht 1 angefasst - inbox (Tags, Status, Forward:
       `31d933a1`, `8c133f25`, Migration 000244) und einkauf (PO-Cancel,

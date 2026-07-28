@@ -3718,3 +3718,43 @@ bleibt.
   uebernommen worden, aber falls das oefter passiert, lohnt sich ein Blick
   auf die Abbruchursache der Vorlauf-Session. Queue-Stand: `wp-inbox-einkauf`
   naechste offene Unit ohne deps.
+
+## Iteration 48 — wp-inbox-einkauf — done — 2026-07-28
+
+- **einkauf:** bereits sauber — alle Write-Pfade (CreateSupplier/UpdatePO/PO-Lines/
+  RecomputePOTotal/UpdatePOStatus etc.) tragen schon ein `tenant_id`-Praedikat.
+  Neuer `tenant_write_test.go` beweist das jetzt gegen die echte Repository statt
+  gegen `SeedRow` (Rohes INSERT).
+- **inbox (message-Paket):** echter Fund — 12 Schreibmethoden liefen komplett ohne
+  `tenant_id`-Praedikat (`WHERE id = $1` bzw. `id = ANY($1)`), RLS war einziger
+  Schutz: MarkRead, MarkUnread, ToggleStar, SetStatus, AddTag, RemoveTag, Archive,
+  Unarchive, Snooze, AssignMessage, BulkMarkRead, BulkArchive, Update.
+  `GetByID`/`GetBySourceID` selektierten `tenant_id` nicht mal — ein ueber den
+  Service geladenes Message-Objekt trug also immer eine Nil-TenantID.
+  Fix: `tenantID` explizit durch Repository-Interface, Service und gRPC-Handler
+  durchgereicht (Muster wie zeiterfassung Iteration 22) statt ueber das Modell,
+  weil GetByID/GetBySourceID vorher keine TenantID lieferten. `Update` nutzt
+  weiterhin `msg.TenantID` (jetzt korrekt befuellt seit GetByID/GetBySourceID
+  tenant_id selektieren) — betrifft auch `routing.Service.actionRouteToTeam`
+  Mutationen, die ueber denselben `message.Repository.Update`-Pfad laufen.
+  `team.Service.ClaimMessage`/`AutoAssignMessage` (Aufrufer von `AssignMessage`)
+  reichen `tenantID` jetzt ebenfalls durch. Toter unbenutzter `Unsnooze`-Method
+  (nie aufgerufen — gRPC-Handler machte GetByID+Update direkt) entfernt statt
+  mitgezogen.
+  `GetUnreadCounts`/`GetBySourceID` bleiben bewusst nur user_id-gescoped (kein
+  Fund): user_id ist 1:1 an einen Tenant gebunden, kein Cross-Tenant-Pfad ohne
+  Tenant-Bezug der user_id selbst.
+- Neue `tenant_write_test.go` je Paket (message, einkauf) nach dem
+  Write-Read-Foreign-Own-Muster: Foreign-Ctx bekommt die echte tenantID als
+  expliziten Parameter, sodass nur RLS (nicht die WHERE-Klausel) den Schreib-
+  versuch stoppen kann, bevor derselbe Call im eigenen Ctx wiederholt und
+  bestaetigt wird.
+- gate: build ok (`GOFLAGS=-p=2 go build ./...`, voller Build wegen 16GB-RAM-
+  Linker-Limit auf -p=2 gedrosselt) | vet ok (repo-weit) | lint ok
+  (`golangci-lint run ./internal/inbox/... ./internal/einkauf/... ./internal/server/...`,
+  0 issues) | test ok (`DATABASE_URL` auf `kmuhub_app`, `go test -count=1
+  ./internal/inbox/... ./internal/einkauf/... ./internal/server/...` komplett
+  gruen) | migration n.a. (keine neue Tabelle/Spalte, nur bestehende
+  `tenant_id`-Spalten genutzt, keine neue Route).
+- offen: nichts Neues aus dieser Unit. Naechste offene Unit ohne deps:
+  `wp-helpdesk-dialer`.

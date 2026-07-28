@@ -85,7 +85,7 @@ func (s *Service) MarkRead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 		return err
 	}
 
-	if err := s.repo.MarkRead(ctx, id); err != nil {
+	if err := s.repo.MarkRead(ctx, tenantID, id); err != nil {
 		return err
 	}
 
@@ -105,55 +105,55 @@ func (s *Service) MarkRead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 }
 
 // MarkUnread marks an inbox message as unread.
-func (s *Service) MarkUnread(ctx context.Context, id uuid.UUID) error {
-	return s.repo.MarkUnread(ctx, id)
+func (s *Service) MarkUnread(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	return s.repo.MarkUnread(ctx, tenantID, id)
 }
 
 // ToggleStar toggles the starred status of an inbox message.
-func (s *Service) ToggleStar(ctx context.Context, id uuid.UUID) error {
-	return s.repo.ToggleStar(ctx, id)
+func (s *Service) ToggleStar(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	return s.repo.ToggleStar(ctx, tenantID, id)
 }
 
 // SetStatus sets the conversation-level status of an inbox message.
 // status must be one of open, pending, resolved, closed.
-func (s *Service) SetStatus(ctx context.Context, id uuid.UUID, status string) error {
+func (s *Service) SetStatus(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, status string) error {
 	if !ValidStatuses[status] {
 		return ErrInvalidStatus
 	}
-	return s.repo.SetStatus(ctx, id, status)
+	return s.repo.SetStatus(ctx, tenantID, id, status)
 }
 
 // AddTag adds a tag to an inbox message. Empty (after trimming) tags are rejected.
-func (s *Service) AddTag(ctx context.Context, id uuid.UUID, tag string) error {
+func (s *Service) AddTag(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, tag string) error {
 	tag = strings.TrimSpace(tag)
 	if tag == "" {
 		return ErrInvalidTag
 	}
-	return s.repo.AddTag(ctx, id, tag)
+	return s.repo.AddTag(ctx, tenantID, id, tag)
 }
 
 // RemoveTag removes a tag from an inbox message.
-func (s *Service) RemoveTag(ctx context.Context, id uuid.UUID, tag string) error {
-	return s.repo.RemoveTag(ctx, id, tag)
+func (s *Service) RemoveTag(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, tag string) error {
+	return s.repo.RemoveTag(ctx, tenantID, id, tag)
 }
 
 // Archive archives an inbox message.
-func (s *Service) Archive(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Archive(ctx, id)
+func (s *Service) Archive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	return s.repo.Archive(ctx, tenantID, id)
 }
 
 // Unarchive unarchives an inbox message.
-func (s *Service) Unarchive(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Unarchive(ctx, id)
+func (s *Service) Unarchive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	return s.repo.Unarchive(ctx, tenantID, id)
 }
 
 // Snooze snoozes an inbox message until the given time.
 // The snooze time must be in the future.
-func (s *Service) Snooze(ctx context.Context, id uuid.UUID, until time.Time) error {
+func (s *Service) Snooze(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, until time.Time) error {
 	if until.Before(time.Now()) {
 		return ErrInvalidSnoozeTime
 	}
-	return s.repo.Snooze(ctx, id, until)
+	return s.repo.Snooze(ctx, tenantID, id, until)
 }
 
 // Reply routes a reply back through the originating channel's adapter.
@@ -197,8 +197,8 @@ func (s *Service) Forward(ctx context.Context, id uuid.UUID, tenantID uuid.UUID,
 
 // AssignMessage assigns an inbox message to a user.
 // Returns ErrAlreadyAssigned if the message is already assigned.
-func (s *Service) AssignMessage(ctx context.Context, id uuid.UUID, assigneeID uuid.UUID) error {
-	assigned, err := s.repo.AssignMessage(ctx, id, assigneeID)
+func (s *Service) AssignMessage(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, assigneeID uuid.UUID) error {
+	assigned, err := s.repo.AssignMessage(ctx, tenantID, id, assigneeID)
 	if err != nil {
 		return err
 	}
@@ -214,19 +214,19 @@ func (s *Service) GetUnreadCounts(ctx context.Context, userID uuid.UUID) ([]mode
 }
 
 // BulkMarkRead marks multiple inbox messages as read.
-func (s *Service) BulkMarkRead(ctx context.Context, ids []uuid.UUID) error {
+func (s *Service) BulkMarkRead(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.repo.BulkMarkRead(ctx, ids)
+	return s.repo.BulkMarkRead(ctx, tenantID, ids)
 }
 
 // BulkArchive archives multiple inbox messages.
-func (s *Service) BulkArchive(ctx context.Context, ids []uuid.UUID) error {
+func (s *Service) BulkArchive(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.repo.BulkArchive(ctx, ids)
+	return s.repo.BulkArchive(ctx, tenantID, ids)
 }
 
 // Update updates an inbox message.

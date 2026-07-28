@@ -36,7 +36,6 @@ type mockRepository struct {
 	archiveErr         error
 	unarchiveErr       error
 	snoozeErr          error
-	unsnoozeErr        error
 	unsnoozeExpiredErr error
 	assignErr          error
 	unreadCountsErr    error
@@ -112,64 +111,70 @@ func (m *mockRepository) Update(_ context.Context, msg *models.InboxMessage) err
 	return nil
 }
 
-func (m *mockRepository) MarkRead(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) MarkRead(_ context.Context, tenantID, id uuid.UUID) error {
 	if m.markReadErr != nil {
 		return m.markReadErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		msg.IsRead = true
+	msg, ok := m.messages[id]
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
+		return ErrMessageNotFound
 	}
+	msg.IsRead = true
 	return nil
 }
 
-func (m *mockRepository) MarkUnread(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) MarkUnread(_ context.Context, tenantID, id uuid.UUID) error {
 	if m.markUnreadErr != nil {
 		return m.markUnreadErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		msg.IsRead = false
+	msg, ok := m.messages[id]
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
+		return ErrMessageNotFound
 	}
+	msg.IsRead = false
 	return nil
 }
 
-func (m *mockRepository) ToggleStar(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) ToggleStar(_ context.Context, tenantID, id uuid.UUID) error {
 	if m.toggleStarErr != nil {
 		return m.toggleStarErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		msg.IsStarred = !msg.IsStarred
+	msg, ok := m.messages[id]
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
+		return ErrMessageNotFound
 	}
+	msg.IsStarred = !msg.IsStarred
 	return nil
 }
 
-func (m *mockRepository) SetStatus(_ context.Context, id uuid.UUID, status string) error {
+func (m *mockRepository) SetStatus(_ context.Context, tenantID, id uuid.UUID, status string) error {
 	if m.setStatusErr != nil {
 		return m.setStatusErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	msg, ok := m.messages[id]
-	if !ok {
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
 		return ErrMessageNotFound
 	}
 	msg.Status = status
 	return nil
 }
 
-func (m *mockRepository) AddTag(_ context.Context, id uuid.UUID, tag string) error {
+func (m *mockRepository) AddTag(_ context.Context, tenantID, id uuid.UUID, tag string) error {
 	if m.addTagErr != nil {
 		return m.addTagErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	msg, ok := m.messages[id]
-	if !ok {
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
 		return ErrMessageNotFound
 	}
 	if slices.Contains(msg.Tags, tag) {
@@ -179,14 +184,14 @@ func (m *mockRepository) AddTag(_ context.Context, id uuid.UUID, tag string) err
 	return nil
 }
 
-func (m *mockRepository) RemoveTag(_ context.Context, id uuid.UUID, tag string) error {
+func (m *mockRepository) RemoveTag(_ context.Context, tenantID, id uuid.UUID, tag string) error {
 	if m.removeTagErr != nil {
 		return m.removeTagErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	msg, ok := m.messages[id]
-	if !ok {
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
 		return ErrMessageNotFound
 	}
 	filtered := make([]string, 0, len(msg.Tags))
@@ -199,52 +204,45 @@ func (m *mockRepository) RemoveTag(_ context.Context, id uuid.UUID, tag string) 
 	return nil
 }
 
-func (m *mockRepository) Archive(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) Archive(_ context.Context, tenantID, id uuid.UUID) error {
 	if m.archiveErr != nil {
 		return m.archiveErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		msg.IsArchived = true
+	msg, ok := m.messages[id]
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
+		return ErrMessageNotFound
 	}
+	msg.IsArchived = true
 	return nil
 }
 
-func (m *mockRepository) Unarchive(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) Unarchive(_ context.Context, tenantID, id uuid.UUID) error {
 	if m.unarchiveErr != nil {
 		return m.unarchiveErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		msg.IsArchived = false
+	msg, ok := m.messages[id]
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
+		return ErrMessageNotFound
 	}
+	msg.IsArchived = false
 	return nil
 }
 
-func (m *mockRepository) Snooze(_ context.Context, id uuid.UUID, until time.Time) error {
+func (m *mockRepository) Snooze(_ context.Context, tenantID, id uuid.UUID, until time.Time) error {
 	if m.snoozeErr != nil {
 		return m.snoozeErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		msg.SnoozedUntil = &until
+	msg, ok := m.messages[id]
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
+		return ErrMessageNotFound
 	}
-	return nil
-}
-
-func (m *mockRepository) Unsnooze(_ context.Context, id uuid.UUID) error {
-	if m.unsnoozeErr != nil {
-		return m.unsnoozeErr
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		msg.SnoozedUntil = nil
-		msg.IsRead = false
-	}
+	msg.SnoozedUntil = &until
 	return nil
 }
 
@@ -255,20 +253,21 @@ func (m *mockRepository) UnsnoozeExpired(_ context.Context) (int, error) {
 	return 0, nil
 }
 
-func (m *mockRepository) AssignMessage(_ context.Context, id uuid.UUID, assigneeID uuid.UUID) (bool, error) {
+func (m *mockRepository) AssignMessage(_ context.Context, tenantID, id uuid.UUID, assigneeID uuid.UUID) (bool, error) {
 	if m.assignErr != nil {
 		return false, m.assignErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if msg, ok := m.messages[id]; ok {
-		if !m.assignReturns {
-			return false, nil
-		}
-		msg.AssignedTo = &assigneeID
-		return true, nil
+	msg, ok := m.messages[id]
+	if !ok || (tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID) {
+		return false, ErrMessageNotFound
 	}
-	return false, ErrMessageNotFound
+	if !m.assignReturns {
+		return false, nil
+	}
+	msg.AssignedTo = &assigneeID
+	return true, nil
 }
 
 func (m *mockRepository) GetUnreadCounts(_ context.Context, _ uuid.UUID) ([]models.UnreadCount, error) {
@@ -281,28 +280,28 @@ func (m *mockRepository) GetUnreadCounts(_ context.Context, _ uuid.UUID) ([]mode
 	}, nil
 }
 
-func (m *mockRepository) BulkMarkRead(_ context.Context, ids []uuid.UUID) error {
+func (m *mockRepository) BulkMarkRead(_ context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
 	if m.bulkMarkReadErr != nil {
 		return m.bulkMarkReadErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, id := range ids {
-		if msg, ok := m.messages[id]; ok {
+		if msg, ok := m.messages[id]; ok && (tenantID == uuid.Nil || msg.TenantID == uuid.Nil || msg.TenantID == tenantID) {
 			msg.IsRead = true
 		}
 	}
 	return nil
 }
 
-func (m *mockRepository) BulkArchive(_ context.Context, ids []uuid.UUID) error {
+func (m *mockRepository) BulkArchive(_ context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
 	if m.bulkArchiveErr != nil {
 		return m.bulkArchiveErr
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, id := range ids {
-		if msg, ok := m.messages[id]; ok {
+		if msg, ok := m.messages[id]; ok && (tenantID == uuid.Nil || msg.TenantID == uuid.Nil || msg.TenantID == tenantID) {
 			msg.IsArchived = true
 		}
 	}
@@ -456,7 +455,7 @@ func TestMarkUnread_Success(t *testing.T) {
 	msg.IsRead = true
 	seedMessage(repo, msg)
 
-	err := svc.MarkUnread(context.Background(), msg.ID)
+	err := svc.MarkUnread(context.Background(), msg.ID, uuid.Nil)
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -471,7 +470,7 @@ func TestToggleStar_Success(t *testing.T) {
 	msg.IsStarred = false
 	seedMessage(repo, msg)
 
-	err := svc.ToggleStar(context.Background(), msg.ID)
+	err := svc.ToggleStar(context.Background(), msg.ID, uuid.Nil)
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -486,7 +485,7 @@ func TestSetStatus_Success(t *testing.T) {
 	msg.Status = "open"
 	seedMessage(repo, msg)
 
-	err := svc.SetStatus(context.Background(), msg.ID, "resolved")
+	err := svc.SetStatus(context.Background(), msg.ID, uuid.Nil, "resolved")
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -501,7 +500,7 @@ func TestSetStatus_InvalidValue(t *testing.T) {
 	msg.Status = "open"
 	seedMessage(repo, msg)
 
-	err := svc.SetStatus(context.Background(), msg.ID, "archived")
+	err := svc.SetStatus(context.Background(), msg.ID, uuid.Nil, "archived")
 
 	require.ErrorIs(t, err, ErrInvalidStatus)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -512,7 +511,7 @@ func TestSetStatus_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, adapter.NewAdapterRegistry())
 
-	err := svc.SetStatus(context.Background(), uuid.New(), "closed")
+	err := svc.SetStatus(context.Background(), uuid.New(), uuid.Nil, "closed")
 
 	require.ErrorIs(t, err, ErrMessageNotFound)
 }
@@ -524,7 +523,7 @@ func TestAddTag_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.AddTag(context.Background(), msg.ID, "  Demo  ")
+	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, "  Demo  ")
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -539,7 +538,7 @@ func TestAddTag_Idempotent(t *testing.T) {
 	msg.Tags = []string{"Demo"}
 	seedMessage(repo, msg)
 
-	err := svc.AddTag(context.Background(), msg.ID, "Demo")
+	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, "Demo")
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -553,7 +552,7 @@ func TestAddTag_EmptyRejected(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.AddTag(context.Background(), msg.ID, "   ")
+	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, "   ")
 
 	require.ErrorIs(t, err, ErrInvalidTag)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -568,7 +567,7 @@ func TestRemoveTag_Success(t *testing.T) {
 	msg.Tags = []string{"Demo", "Lead"}
 	seedMessage(repo, msg)
 
-	err := svc.RemoveTag(context.Background(), msg.ID, "Demo")
+	err := svc.RemoveTag(context.Background(), msg.ID, uuid.Nil, "Demo")
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -579,7 +578,7 @@ func TestRemoveTag_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, adapter.NewAdapterRegistry())
 
-	err := svc.RemoveTag(context.Background(), uuid.New(), "Demo")
+	err := svc.RemoveTag(context.Background(), uuid.New(), uuid.Nil, "Demo")
 
 	require.ErrorIs(t, err, ErrMessageNotFound)
 }
@@ -666,7 +665,7 @@ func TestArchive_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.Archive(context.Background(), msg.ID)
+	err := svc.Archive(context.Background(), msg.ID, uuid.Nil)
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -681,7 +680,7 @@ func TestSnooze_Success(t *testing.T) {
 	seedMessage(repo, msg)
 
 	until := time.Now().Add(1 * time.Hour)
-	err := svc.Snooze(context.Background(), msg.ID, until)
+	err := svc.Snooze(context.Background(), msg.ID, uuid.Nil, until)
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -697,7 +696,7 @@ func TestSnooze_PastTime(t *testing.T) {
 	seedMessage(repo, msg)
 
 	pastTime := time.Now().Add(-1 * time.Hour)
-	err := svc.Snooze(context.Background(), msg.ID, pastTime)
+	err := svc.Snooze(context.Background(), msg.ID, uuid.Nil, pastTime)
 
 	require.ErrorIs(t, err, ErrInvalidSnoozeTime)
 }
@@ -723,7 +722,7 @@ func TestAssignMessage_Success(t *testing.T) {
 	seedMessage(repo, msg)
 
 	assigneeID := uuid.New()
-	err := svc.AssignMessage(context.Background(), msg.ID, assigneeID)
+	err := svc.AssignMessage(context.Background(), msg.ID, uuid.Nil, assigneeID)
 
 	require.NoError(t, err)
 	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
@@ -741,7 +740,7 @@ func TestAssignMessage_AlreadyAssigned(t *testing.T) {
 	msg.AssignedTo = &existingAssignee
 	seedMessage(repo, msg)
 
-	err := svc.AssignMessage(context.Background(), msg.ID, uuid.New())
+	err := svc.AssignMessage(context.Background(), msg.ID, uuid.Nil, uuid.New())
 
 	require.ErrorIs(t, err, ErrAlreadyAssigned)
 }
@@ -755,7 +754,7 @@ func TestBulkMarkRead_Success(t *testing.T) {
 	seedMessage(repo, msg1)
 	seedMessage(repo, msg2)
 
-	err := svc.BulkMarkRead(context.Background(), []uuid.UUID{msg1.ID, msg2.ID})
+	err := svc.BulkMarkRead(context.Background(), []uuid.UUID{msg1.ID, msg2.ID}, uuid.Nil)
 
 	require.NoError(t, err)
 	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil)
@@ -773,7 +772,7 @@ func TestBulkArchive_Success(t *testing.T) {
 	seedMessage(repo, msg1)
 	seedMessage(repo, msg2)
 
-	err := svc.BulkArchive(context.Background(), []uuid.UUID{msg1.ID, msg2.ID})
+	err := svc.BulkArchive(context.Background(), []uuid.UUID{msg1.ID, msg2.ID}, uuid.Nil)
 
 	require.NoError(t, err)
 	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil)
