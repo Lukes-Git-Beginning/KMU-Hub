@@ -4049,3 +4049,74 @@ bleibt.
   falls die Kampagnennamen-Leckage in `GetAgentStats` (Zeile ~503) als
   relevant genug fuer eine eigene Migration eingestuft wird, eigene Unit
   anlegen. Kein FE-Impact in dieser Iteration (keine Proto-/Wire-Aenderung).
+
+## Iteration 55 — wp-document-wiki — done — 2026-07-28
+
+- Verify-Vorspann: Commit `d817f3f5` (Iteration 54, dialer Lesepfade) geprueft
+  — reine Signatur-/Query-Aenderung, kein Proto/Route/Tabellen-Diff, sauber
+  gegen alle sechs Fehlerklassen.
+- Startzustand ungewoehnlich: `wp-document-wiki` stand bereits auf
+  `status: in_progress` mit einem vollstaendigen, aber nie committeten Diff
+  im Arbeitsverzeichnis (offenbar aus einer vorherigen, abgebrochenen
+  Iteration ohne Journal-Eintrag). Diff Zeile fuer Zeile gegen die sechs
+  Fehlerklassen geprueft statt blind uebernommen — war inhaltlich korrekt
+  und vollstaendig fuer wiki, aber document/tag fehlte der geforderte
+  `tenant_write_test.go`. Diese Luecke geschlossen und den Rest committet,
+  statt neu anzufangen.
+- gebaut (document/tag): `Delete`/`TagFile`/`UntagFile`/`List` nehmen jetzt
+  explizit `tenantID`. `TagFile` insertete bisher OHNE `tenant_id` in
+  `document_file_tags` — die Spalte ist seit Migration 000114 NOT NULL,
+  jeder `TagFile`-Call schlug also in Produktion an der Constraint fehl
+  (totes statt degradiertes Feature). `GetByID`/`ListFileTags`/
+  `ListFilesByTag` waren toter Code (keine Aufrufer im Repo) — entfernt
+  statt gefixt.
+- gebaut (wiki): `ListVersions`/`GetVersion`/`ListAttachments`/
+  `DeleteAttachment`/`ListShareTokensByArticle`/`DeleteShareToken` nehmen
+  jetzt explizit `tenantID` — Konvention des Pakets ist, `tenant_id` aus dem
+  Request statt aus ctx zu lesen (alle anderen `WikiGRPCServer`-RPCs machen
+  das schon so). Neue `tenant_id`-Felder in `wiki.proto`
+  (`ListVersionsRequest`/`GetVersionRequest`/`ListAttachmentsRequest`/
+  `DeleteAttachmentRequest`), proto neu generiert (rawDesc-Bytes im Diff
+  bestaetigt echte protoc-Ausgabe, nicht handgepflegt), Gateway setzt das
+  Feld aus `middleware.GetTenantID`. Konkreter Fund: `DeleteAttachment`/
+  `DeleteShareToken` loeschten bisher nur per ID ohne `tenant_id`-Praedikat
+  und ohne `RowsAffected`-Check — RLS' `WITH CHECK` blockte den fremden
+  Delete zwar auf DB-Ebene, aber der Repo-Code meldete trotzdem Erfolg
+  (silent no-op statt Fehler). Jetzt: `tenant_id`-Praedikat +
+  `RowsAffected`-Check → `ErrAttachmentNotFound`/`ErrShareTokenNotFound`.
+  `GetShareToken`/`GetAttachment` waren toter Code — entfernt.
+- eigener Beitrag dieser Iteration: `backend/internal/document/tag/
+  tenant_write_test.go` neu geschrieben (analog zum bereits vorhandenen
+  `internal/wiki/tenant_write_test.go`) — echte `PostgresRepository`-Writes
+  gegen Postgres-RLS statt nur `SeedRow`-Fixtures oder Mock-Repository.
+  Deckt `Create`, `List`, `TagFile`, `UntagFile`, `Delete` ab; `TagFile`
+  gegen fremden ctx schlaegt an RLS' `WITH CHECK` fehl (erwarteter Fehler),
+  `UntagFile` gegen fremden ctx ist erwarteter No-Op (RLS scoped das DELETE
+  weg, kein Fehler noetig — anders als bei wiki's Delete/Revoke, wo
+  Idempotenz keine Rolle spielt). `document_file_tags` hat keine UUID-`id`-
+  Spalte (composite PK `file_id, tag_id`) — eigener `assertFileTagCount`-
+  Helper statt `testutil.AssertRowCount`.
+- Nicht erfuellbar (in BACKLOG.yml dokumentiert statt stillschweigend
+  uebersprungen): done_when verlangt "Wiki-Share-Token — fremder Artikel
+  bleibt trotz gueltigem Token unerreichbar", aber wiki hat gar keinen
+  oeffentlichen Share-Token-Resolve-Endpunkt (nur Create/List/Revoke, alle
+  hinter `RequirePermission`) — anders als im berichte-Modul, das als
+  Vorbild diente. Kein Code-Fix moeglich oder noetig.
+- gate: `GOFLAGS=-p=2 go build ./...` gruen (kompletter Repo-Build) | `go
+  vet ./internal/document/... ./internal/wiki/... ./internal/server/...
+  ./internal/gateway/...` gruen | `golangci-lint run --config .golangci.yml
+  ./internal/document/... ./internal/wiki/...` 0 issues | `kmuhub_app`-
+  Passwort erneut abgelaufen (fuenftes Mal in Folge) — neu gesetzt |
+  `go test -count=1 -v ./internal/document/tag/...` gruen inkl. neuem
+  `TestDocumentTagWrites_LandInCallerTenant` | `go test -count=1 -v
+  ./internal/wiki/...` gruen inkl. `TestWikiWrites_LandInCallerTenant` |
+  `go test -count=1 ./internal/document/...` (alle Unterpakete) gruen |
+  `go test -count=1 ./internal/server/... ./internal/gateway/...` gruen
+  (inkl. `TestOpenAPIRouteDrift` — keine neue REST-Route, also kein
+  openapi.yaml-Diff noetig). Migration: n.a. (keine neue Tabelle/Spalte).
+  Proto: wiki.proto/wiki.pb.go geaendert (vier neue `tenant_id`-Felder),
+  wiki_grpc.pb.go inhaltlich unveraendert (nur Service-Definitionen, keine
+  Feld-Aenderung noetig). Commit `24705d09`.
+- offen: fuer Luke — `kmuhub_app`-Passwort laeuft weiterhin zwischen
+  Iterationen ab (jetzt fuenftes Mal); ein laenger gueltiges Passwort oder
+  ein Docker-Compose-Fixup wuerde das beheben (betrifft nur lokale Dev-DB).
