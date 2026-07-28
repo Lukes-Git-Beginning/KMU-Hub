@@ -4387,3 +4387,66 @@ bleibt.
   (CalDAV/CardDAV-BasicAuth-Pfad) bleibt unangetastet, war nicht Teil dieser
   Unit. `wp-testutil-guard` ist jetzt die letzte offene `todo`-Unit im
   Backlog (deps `wp-settings`, `wp-chat` — beide done).
+
+## Iteration 60 — wp-testutil-guard — done (Helper + Demo, echter ip_address-Dead-Write-Fund) — 2026-07-28
+
+- Verify-Vorspann: Commit `86cc87df` (Iteration 59) geprueft — Diff gegen
+  `internal/automation/workflow`, `internal/automation/engine`,
+  `internal/server/automation_grpc.go` gegengelesen. `tenant_id` ist jetzt
+  konsequent das erste Praedikat in `UpdateExecution`/`GetExecution`/
+  `ListExecutions`, `auto.TenantID` sauber durch die gesamte
+  `ExecutionLogger`-Kette (`engine.go` → `logger.go`) gereicht, die beiden
+  `GetExecution`/`ListExecutions`-gRPC-Handler loesen `tenantID` jetzt explizit
+  aus `middleware.GetTenantID(ctx)` auf. `Service.Create` defaultet
+  `TriggerConfig`/`Conditions`/`Actions` vor dem Insert. Nichts zu beanstanden.
+- Gewaehlt: `wp-testutil-guard` — einzige verbleibende `status: todo`-Unit im
+  Backlog, Deps (`wp-settings`, `wp-chat`) beide done.
+- Helper `testutil.AssertWriteCarriesTenant(t, pool, write, table, id)` in
+  `backend/internal/testutil/rls.go` — Signatur exakt wie im Scope
+  vorgegeben. `write` bekommt einen tenant-gescopten ctx plus die frisch
+  generierte tenantID zurueck, damit der Aufrufer das zu schreibende Objekt
+  vor dem echten Repo-Call befuellen kann (gleiches Muster wie die zehn
+  bereits vorhandenen `tenant_write_test.go`-Dateien, nur nicht mehr von Hand
+  dreimal wiederholt). Der Helper legt Tenant A/B selbst per `EnsureTenant`
+  an und prueft danach `AssertRowCount` — 1 unter eigenem Tenant, 0 unter
+  fremdem.
+- Demo-Einsatz statt neues Modul: `internal/security/audit` war laut
+  Iterations-47-Notiz die einzige der ~40 Pakete mit `tenant_write_test.go`-
+  Nachbarn, die nie durch den echten `PostgresRepository.Create`-Pfad
+  getestet wurde — `rls_test.go` seedet ausschliesslich per
+  `testutil.SeedRow` (rohes SQL mit direkt gesetztem `tenant_id`). Genau die
+  Luecke, die der neue Helper schliessen soll — kein synthetisches Modul
+  angelegt, sondern die dokumentierte Luecke gefuellt:
+  `internal/security/audit/tenant_write_test.go`, neu,
+  `TestAuditWrites_LandInCallerTenant`.
+- Echter Fund beim ersten Testlauf (nicht konstruiert): `ip_address` ist eine
+  nullable `INET`-Spalte, `postgres_repository.go` bindet aber immer
+  `entry.IPAddress` direkt in den Insert. Ein leerer String ist kein
+  gueltiger INET-Wert — `ERROR: invalid input syntax for type inet: ""`
+  (SQLSTATE 22P02). `Service.LogEvent` faengt den Repo-Fehler nur mit
+  `slog.Error` ab und gibt nichts an den Aufrufer zurueck (bewusst, laut
+  Doc-Kommentar, damit ein Audit-Fehler keinen Business-Flow blockiert) —
+  das macht den Bruch aber unsichtbar. Einziger Produktions-Aufrufer ist
+  `SecurityGRPCServer.CreateAuditEntry` (`internal/server/security_grpc.go`),
+  die `req.IpAddress` unveraendert durchreicht; ein `grep` ueber `desktop/`
+  fand keinen FE-Call fuer `createAuditEntry` — aktuell also kein laufender
+  Datenverlust, aber jeder kuenftige oder externe API-Aufrufer ohne IP haette
+  den GoBD-relevanten Audit-Trail (§257/§147 AO, append-only seit
+  Migration 000222) still verloren, ohne dass irgendwo ein Fehler sichtbar
+  wird. Fix in `postgres_repository.go`: leerer String wird vor dem Bind auf
+  SQL-NULL normalisiert (`var ipAddress any; if entry.IPAddress != "" {...}`),
+  keine Schema-Aenderung noetig (Spalte war schon nullable).
+- gate: `GOFLAGS=-p=2 go build ./...` gruen | `go vet ./...` gruen |
+  `golangci-lint run --config .golangci.yml ./internal/testutil/...
+  ./internal/security/audit/...` 0 issues | `go test -count=1 -v
+  ./internal/testutil/... ./internal/security/audit/...` mit echtem
+  `DATABASE_URL` (`kmuhub_app`) gruen, inkl. `TestAuditWrites_LandInCallerTenant`
+  (reproduziert vor dem Fix exakt an SQLSTATE 22P02, danach gruen — echte
+  Falsifikation, kein manuell entferntes Praedikat) | `go test -count=1
+  ./internal/server/... ./internal/gateway/...` gruen (keine neue Route,
+  kein `openapi.yaml`-Diff noetig — reiner Repo-Layer-Fix). Migration: keine.
+  Proto: keine.
+- offen: fuer Luke — `wp-testutil-guard` schliesst den letzten `status: todo`-
+  Eintrag im Backlog. Kein offener Punkt aus dieser Iteration; ob
+  `CreateAuditEntry` ueberhaupt einen FE-Aufrufer bekommen soll (aktuell tot)
+  war nicht Teil dieser Unit.

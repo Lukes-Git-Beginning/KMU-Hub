@@ -2565,7 +2565,7 @@ units:
     service: testutil
     model: sonnet
     deps: [wp-settings, wp-chat]
-    status: todo
+    status: done   # Iteration 60 — Helper + Demo in security/audit, echter ip_address-Dead-Write-Fund
     scope: >
       Nach zwei bis drei wp-Units ist das Muster erprobt. Diese Unit macht es
       dauerhaft: ein Helper `testutil.AssertWriteCarriesTenant(t, pool, write,
@@ -2580,6 +2580,42 @@ units:
       du aus einem einzigen Beispiel und der Helper passt auf nichts. Bereits
       geschriebene wp-Tests auf den Helper umstellen ist NICHT Teil dieser Unit;
       neue Tests nutzen ihn, alte bleiben, bis sie ohnehin angefasst werden.
+      ERLEDIGT Iteration 60. Signatur exakt wie im Scope beschrieben:
+      `AssertWriteCarriesTenant(t, pool, write, table, id)`, `write` bekommt den
+      tenant-gescopten ctx plus die frische tenantID zurueck, damit der Aufrufer
+      das Objekt vor dem echten Repo-Call befuellen kann — der Helper generiert
+      Tenant A/B selbst, legt beide per `EnsureTenant` an und prueft danach
+      `AssertRowCount` 1× eigen / 1× fremd. Demo-Einsatz: `internal/security/audit`
+      war die einzige der 40 tenant_write_test.go-Traeger-Pakete, die laut
+      Iteration-47-Notiz nur RLS-only (SeedRow) getestet war, nie durch den
+      echten `PostgresRepository.Create`-Pfad — genau die Luecke, die der
+      Helper schliessen soll, also kein neues Modul angelegt, sondern die
+      dokumentierte Luecke gefuellt (`internal/security/audit/tenant_write_test.go`,
+      neu). Dabei ein echter Fund: `ip_address` ist eine nullable INET-Spalte,
+      der Insert bindet aber immer `entry.IPAddress` direkt — ein leerer String
+      ist kein gueltiger INET-Wert (SQLSTATE 22P02), `Service.LogEvent` schluckt
+      den Fehler nur als `slog.Error`, der Aufrufer (die `CreateAuditEntry`-RPC)
+      bekommt nie ein Signal. Einziger Produktions-Call dieser RPC hat KEINEN
+      FE-Aufrufer (grep ueber `desktop/`: kein `createAuditEntry`), darum bisher
+      kein aktiver Datenverlust, aber jeder kuenftige oder externe Aufrufer ohne
+      IP haette den GoBD-Audit-Trail still verloren. Fix in
+      `postgres_repository.go`: leerer String wird vor dem Bind zu SQL-NULL
+      normalisiert (`any`-Variable, nur gesetzt wenn `entry.IPAddress != ""`).
     done_when:
       - Helper existiert, ist dokumentiert und in mindestens einem Modul benutzt
       - go build/vet/lint/test gruen
+    result: >
+      Helper in `backend/internal/testutil/rls.go`. Neuer Test
+      `TestAuditWrites_LandInCallerTenant` in
+      `backend/internal/security/audit/tenant_write_test.go` nutzt ihn gegen
+      den echten `audit.PostgresRepository.Create`. Fund: leerer `ip_address`
+      brach den Insert am INET-Typ, Fix normalisiert auf NULL.
+      Gate: `GOFLAGS=-p=2 go build ./...` gruen | `go vet ./...` gruen |
+      `golangci-lint run ./internal/testutil/... ./internal/security/audit/...`
+      0 issues | `go test -count=1 -v ./internal/testutil/...
+      ./internal/security/audit/...` gruen (inkl. neuer Test, vorher rot mit
+      SQLSTATE 22P02, nach Fix gruen) | `go test -count=1
+      ./internal/server/... ./internal/gateway/...` gruen. Migration: keine
+      (keine Schema-Aenderung, nur Bind-Normalisierung). Proto: keine.
+      RLS-Smoke: durch den neuen Test selbst belegt (eigener Tenant sieht die
+      Zeile, fremder nicht).

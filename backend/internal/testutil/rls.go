@@ -142,6 +142,36 @@ var (
 	TenantB = uuid.MustParse("bbbb0000-0000-0000-0000-000000000002")
 )
 
+// AssertWriteCarriesTenant bundles the three-step check that wp-* module
+// tests across this backlog have hand-rolled since iteration 13: perform a
+// real repo write under a freshly minted tenant's context, then confirm the
+// resulting row is visible reading back as that tenant and invisible reading
+// back as a different one. It exercises the actual repo method rather than
+// SeedRow, which is the only way to catch a write that silently omits or
+// hardcodes tenant_id — the class of bug closed across caldav, formulare,
+// automation and others in this backlog (SeedRow-based RLS tests never touch
+// the real INSERT/UPDATE path, so they cannot see it).
+//
+// write receives a context scoped to the freshly minted tenant and that
+// tenant's ID — set it on the object being persisted before calling the real
+// repo method, the same way existing tenant_write_test.go files do by hand.
+// table/id identify the row to check afterwards.
+func AssertWriteCarriesTenant(t *testing.T, pool *pgxpool.Pool, write func(ctx context.Context, tenantID uuid.UUID) error, table string, id uuid.UUID) {
+	t.Helper()
+
+	tenantWrite, tenantOther := uuid.New(), uuid.New()
+	EnsureTenant(t, pool, tenantWrite, "AssertWriteCarriesTenant Write Tenant")
+	EnsureTenant(t, pool, tenantOther, "AssertWriteCarriesTenant Other Tenant")
+
+	ctxWrite := WithTenantCtx(context.Background(), tenantWrite)
+	if err := write(ctxWrite, tenantWrite); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	AssertRowCount(t, pool, ctxWrite, table, id, 1)
+	AssertRowCount(t, pool, WithTenantCtx(context.Background(), tenantOther), table, id, 0)
+}
+
 // EnsureTenant inserts a tenants row for the given id (idempotent — uses
 // ON CONFLICT). Required because RLS on `users` and other Pilot-0 tables
 // enforces FK to tenants(id), so seed rows for TenantA/TenantB need the
