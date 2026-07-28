@@ -2092,7 +2092,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: in_progress
+    status: done
     scope: >
       helpdesk (Tickets) und dialer (Anrufe, Outcomes). Beide mit
       Isolationstests, die via SeedRow seeden. Der Dialer schreibt zusaetzlich
@@ -2165,7 +2165,36 @@ units:
       geprueft; (d) die oben genannten ungescopten Lesepfade
       (AddContactsToCampaign, ListCampaignContacts, GetCampaignDashboard,
       GetAgentDashboard, GetContactCalls) als moegliche Folge-Unit vormerken.
-      Naechste Iteration knuepft hier an, nicht neu von vorn.
+      Iteration 53: (a) dialer-DB-Test nachgezogen -- neuer
+      internal/dialer/tenant_write_test.go, drei Testfunktionen
+      (TestCampaignWrites_LandInCallerTenant: Update/UpdateStatus/Delete;
+      TestCampaignContactWrites_LandInCallerTenant: UpdateContactStatus/
+      SetContactCallback/SkipContact/RequeueContact/
+      IncrementContactCallCount/GetCampaignContactByID;
+      TestOutcomeWrites_LandInCallerTenant: GetByID/Update/Delete), exakt
+      nach dem helpdesk-Muster aus Iteration 51 -- Fremd-Tenant-ctx mit der
+      echten tenantID als explizitem Parameter, danach derselbe Call im
+      eigenen ctx. `GetCampaignContactByID`/`GetByID` selbst sind Teil des
+      Musters: die reale tenantID wird explizit uebergeben, trotzdem blockt
+      RLS den Fremd-ctx-Aufruf -- das beweist, dass die Isolation von der
+      Session (app.tenant_id), nicht nur von der WHERE-Klausel kommt.
+      (c) idempotency-Package geprueft, nicht angefasst: `Repository.Reserve/
+      Get/Complete` (internal/idempotency/postgres_repository.go) tragen die
+      tenantID bereits durchgehend, Primaerschluessel ist `(tenant_id, key)`,
+      `middleware.Idempotency` zieht die tenantID aus
+      `middleware.GetTenantID(ctx)` (nicht aus dem Body). Bereits vollstaendig
+      abgedeckt durch bestehende Tests
+      (TestRLS_IdempotencyKeys_SameKeyInTwoTenantsIsolated,
+      TestComplete_TenantFilter, TestGet_TenantIsolation) -- kein Fund, kein
+      Code-Fix noetig. (d) als eigene Folge-Unit `wp-dialer-read-scoping`
+      unten angelegt, damit sie nicht verloren geht.
+      Gate: `GOFLAGS=-p=2 go build ./internal/dialer/... ./internal/server/...
+      ./cmd/dialer/... ./cmd/gateway/...` gruen, `go vet` gruen,
+      `golangci-lint run ./internal/dialer/...` 0 issues, `go test -count=1
+      ./internal/dialer/... ./internal/server/...` gruen (kmuhub_app, kein
+      Skip, alle drei neuen Tests einzeln bestaetigt in `-v`). Migration:
+      keine. Unit ist damit vollstaendig -- helpdesk- und dialer-Haelfte plus
+      Idempotency-Check.
     sources:
       - backend/internal/helpdesk/
       - backend/internal/dialer/
@@ -2174,6 +2203,38 @@ units:
       - tenant_write_test.go je Modul nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts
       - tote Writes im selben Commit repariert
+      - go build/vet/lint/test gruen
+
+  - id: wp-dialer-read-scoping
+    phase: 3
+    service: dialer
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Folge-Fund aus wp-helpdesk-dialer (Iteration 52/53), bewusst
+      ausserhalb von deren Scope gehalten. `Service.AddContactsToCampaign`
+      und die interne `Service.GetCampaign` nutzen `campaigns.GetByID`
+      (ungescopt, Doc-Kommentar nennt Letzteres explizit "internal — no
+      tenant scoping"). `ListCampaignContacts`, `GetCampaignDashboard`,
+      `GetAgentDashboard`, `GetContactCalls` nehmen eine nackte ID ohne
+      Tenant-Pruefung entgegen -- reine Lesepfade, kein RLS-Bypass (RLS
+      filtert die SELECT-Ergebnisse ohnehin auf den Session-Tenant), aber
+      ein Fremd-Tenant-Aufrufer mit einer erratenen/bekannten ID aus dem
+      eigenen Tenant koennte ueber diese Pfade an Metadaten eines fremden
+      Datensatzes kommen, falls die Session-RLS je eine Luecke hat oder der
+      Aufrufer intern (Worker-Kontext) laeuft. Pruef pro Methode, ob ein
+      expliziter tenantID-Parameter + WHERE-Praedikat sinnvoll ist (analog
+      GetByIDForTenant), oder ob RLS allein als Verteidigungslinie
+      ausreicht und die Methode bewusst als "internal" dokumentiert bleibt.
+      Keine RPC-/Proto-Aenderung zu erwarten, da tenantID bereits ueber
+      middleware.GetTenantID(ctx) in den Handlern verfuegbar ist.
+    sources:
+      - backend/internal/dialer/service.go
+      - backend/internal/dialer/postgres_repository.go
+    done_when:
+      - jede der fuenf genannten Stellen bewusst entschieden (Fix oder
+        dokumentiert "internal, kein Fremd-Tenant-Zugriff moeglich")
       - go build/vet/lint/test gruen
 
   - id: wp-document-wiki

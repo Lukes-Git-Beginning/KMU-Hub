@@ -3921,3 +3921,83 @@ bleibt.
   ListCampaignContacts, GetCampaignDashboard, GetAgentDashboard,
   GetContactCalls) als moegliche Folge-Unit vormerken. Backlog-Status bewusst
   `in_progress` belassen.
+
+## Iteration 53 — wp-helpdesk-dialer (Teil 4: dialer-DB-Test + idempotency-Check) — done — 2026-07-28
+
+- Verify-Vorspann: Commit `6caf84fe` (Iteration 52, dialer-Code-Fix) gegen
+  die sechs Fehlerklassen geprueft. `postgres_repository.go`-Diff gelesen:
+  alle sechs Contact-Queue-Methoden plus Campaign-Update/UpdateStatus/Delete
+  plus Outcome-Update/Delete tragen jetzt `tenant_id`-Praedikat und pruefen
+  `RowsAffected()==0 -> NotFound`. `service.go`-Diff: die vier
+  Campaign-Lifecycle-Methoden nutzen jetzt `GetByIDForTenant` statt dem
+  ungescopten `GetByID`. `dialer_grpc.go`-Diff: alle betroffenen Handler
+  ziehen `tenantID` jetzt ueber `middleware.GetTenantID(ctx)` (kein
+  Proto-Feld noetig, kein gRPC-Bypass). Sauber, keine Befunde.
+- gebaut: `internal/dialer/tenant_write_test.go`, drei Testfunktionen exakt
+  nach dem helpdesk-Muster aus Iteration 51 (Fremd-Tenant-ctx mit der
+  echten tenantID als explizitem Parameter -- nur RLS, nicht die
+  WHERE-Klausel, kann stoppen -- danach derselbe Call im eigenen ctx):
+  - `TestCampaignWrites_LandInCallerTenant`: Update, UpdateStatus, Delete.
+  - `TestCampaignContactWrites_LandInCallerTenant`: UpdateContactStatus,
+    SetContactCallback, SkipContact, RequeueContact,
+    IncrementContactCallCount, plus `GetCampaignContactByID` selbst (die
+    reale tenantID wird explizit uebergeben, ein Fremd-ctx-Aufruf liefert
+    trotzdem `ErrNoContactsAvailable` -- beweist, dass RLS/Session die
+    Isolation traegt, nicht nur die WHERE-Klausel).
+  - `TestOutcomeWrites_LandInCallerTenant`: GetByID, Update (Update
+    vertraut `o.TenantID` aus einer zuvor tenant-gescopten `GetByID`,
+    genau das Muster aus dem Code-Kommentar in `postgres_repository.go`),
+    Delete.
+  Fixtures via `testutil.SeedRow` (Campaign-Contact-Zeile direkt gesetzt,
+  analog `rls_test.go`), Cleanup ueber `defer testutil.CleanupRow`. Eigene
+  frische Tenants pro Test (kein geteilter `TenantA`/`TenantB`) wegen der
+  `t.Parallel()`-Kollisionsgefahr aus Iteration 47/48.
+- Stolperstein: `dialer_campaigns.assigned_agent_ids` ist NOT NULL ohne
+  DB-Default -- `Campaign{}`-Literal ohne `AssignedAgentIDs` schlug mit
+  `null value ... violates not-null constraint` fehl. Fix:
+  `AssignedAgentIDs: []uuid.UUID{}` im Test-Fixture (kein Code-Bug, reines
+  Test-Setup-Detail).
+- **(c) idempotency-Package geprueft, kein Fund.** Backlog-Scope
+  unterstellte, der Dialer schreibe Call-Outcomes ueber
+  Idempotency-Keys und der Key-Pfad muesse auf Tenant-Tragung geprueft
+  werden. Grep ueber `internal/dialer/` zeigt: der Dialer-Service nutzt
+  gar keinen Idempotency-Key-Mechanismus direkt (nur ein Kommentar in
+  `service_test.go`, der auf eine andere Schicht verweist). Die Idempotenz
+  laeuft global ueber `middleware.Idempotency` (HTTP-Layer, alle
+  POST/PUT/PATCH/DELETE-Routen inkl. Dialer) gegen
+  `internal/idempotency.Repository`. Dort ist die Tenant-Tragung bereits
+  vollstaendig: Primaerschluessel `(tenant_id, key)`,
+  `Reserve`/`Get`/`Complete` nehmen `tenantID` explizit,
+  `middleware.Idempotency` zieht sie aus `middleware.GetTenantID(ctx)`
+  (JWT-Context), nicht aus dem Body oder einem Client-Feld. Bereits durch
+  bestehende Tests abgedeckt
+  (`TestRLS_IdempotencyKeys_SameKeyInTwoTenantsIsolated`,
+  `TestComplete_TenantFilter`, `TestGet_TenantIsolation` in
+  `internal/idempotency/`). Kein Code-Fix, kein neuer Test noetig -- nur in
+  BACKLOG.yml dokumentiert, damit nicht nochmal recherchiert wird.
+- **(d) ungescopte Lesepfade** (`AddContactsToCampaign`,
+  `Service.GetCampaign`, `ListCampaignContacts`, `GetCampaignDashboard`,
+  `GetAgentDashboard`, `GetContactCalls`) bewusst nicht in dieser Iteration
+  angefasst -- eigene Folge-Unit `wp-dialer-read-scoping` in BACKLOG.yml
+  angelegt (scope, sources, done_when), damit der Fund nicht in der
+  Journal-Historie verschwindet.
+- gate: `GOFLAGS=-p=2 go build ./internal/dialer/... ./internal/server/...
+  ./cmd/dialer/... ./cmd/gateway/...` gruen | `go vet ./internal/dialer/...
+  ./internal/server/...` gruen | `golangci-lint run --config .golangci.yml
+  ./internal/dialer/...` 0 issues | `kmuhub_app`-Passwort erneut abgelaufen
+  (viertes Mal in Folge, 47/48/51/53) -- neu gesetzt via `docker exec
+  docker-postgres-1 psql -U kmuhub -d kmuhub -c "ALTER ROLE kmuhub_app WITH
+  LOGIN PASSWORD 'app_dev';"` | `go test -count=1 -v
+  ./internal/dialer/...` komplett gruen (kein Skip), alle drei neuen Tests
+  einzeln in der `-v`-Ausgabe bestaetigt | `go test -count=1
+  ./internal/dialer/... ./internal/server/...` (voller Paketlauf) gruen.
+  Migration: n.a. (keine neue Tabelle/Spalte/Route/Proto-Aenderung).
+- `wp-helpdesk-dialer` in BACKLOG.yml auf `status: done` gesetzt -- alle
+  drei Teile (helpdesk-Isolationstests, dialer-Code-Fix + Isolationstests,
+  idempotency-Tenant-Check) sind jetzt abgeschlossen.
+- offen: fuer Luke — `kmuhub_app`-Passwort laeuft weiterhin zwischen
+  Iterationen ab (jetzt viertes Mal); falls stoerend, laenger gueltiges
+  Passwort oder ein Fixup im lokalen Docker-Compose-Setup pruefen (nicht
+  Teil dieser Iteration, betrifft nur die lokale Dev-DB, nicht CI/Prod).
+  `wp-dialer-read-scoping` steht als neue `todo`-Unit im Backlog fuer eine
+  kuenftige Iteration bereit.
