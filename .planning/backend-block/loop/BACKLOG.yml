@@ -1952,7 +1952,7 @@ units:
     service: crm
     model: sonnet
     deps: [wp-crm-core]
-    status: todo
+    status: done   # Iteration 45 — Migration 000255 + consent GDPR dead-write fix
     scope: >
       Rand-Entitaeten des CRM: tag, savedfilter, pipelinestage, customfield,
       consent. Gleiches Muster wie wp-crm-core. `consent` ist dabei der
@@ -1962,6 +1962,46 @@ units:
       - backend/internal/crm/consent/
       - backend/internal/crm/tag/
       - backend/internal/crm/customfield/
+    notes: >
+      ERLEDIGT Iteration 45. Zwei echte Funde, beide im selben Commit
+      repariert: (a) `consent.CreateDeletionRequest` INSERTete nie
+      `gdpr_deletion_requests.tenant_id` — die Spalte ist seit Migration
+      000114 NOT NULL ohne Default, jeder `RequestDeletion`-Call (GDPR Art. 17
+      Loeschantrag) schlug damit an einer NOT-NULL-Verletzung fehl,
+      unabhaengig vom Tenant. `GDPRDeletionRequest` bekam ein `TenantID`-Feld;
+      `GetDeletionRequest`/`AnonymizeContact`/`ContactExists` nehmen jetzt
+      explizit `tenantID` und tragen ein Praedikat. `ContactExists` war dabei
+      nicht nur ein Lesepfad, sondern der Existenz-Guard, den
+      GrantConsent/RevokeConsent/RequestDeletion vor jedem Write aufrufen —
+      ohne Tenant-Praedikat haette ein Aufrufer aus Tenant B die echte
+      `contact_id` von Tenant A durchreichen und einen
+      consent_records/gdpr_deletion_requests-Datensatz erzeugen koennen, der
+      auf einen fremden Tenant zeigt. `Service.RequestDeletion`/
+      `ProcessDeletion` und die zwei gRPC-Handler
+      (`crm_grpc.go`) reichen `tenantID` jetzt durch (`middleware.GetTenantID`).
+      (b) Drei GLOBALE Unique-Indizes auf tenant-gescopten CRM-Konfigtabellen,
+      nie an den Option-B-Retrofit (Migration 000106) angepasst:
+      `idx_tags_entity_name` (Tag-Name pro entity_type war global eindeutig —
+      der zweite Tenant mit einem "VIP"-Tag bekam ein rohes
+      Unique-Violation-500), `idx_custom_field_definitions_entity_name`
+      (gleiche Luecke fuer Custom-Field-Namen) und
+      `idx_pipeline_stages_won`/`idx_pipeline_stages_lost` (nur der
+      allererste Tenant konnte je eine "Won"/"Lost"-Stage markieren, obwohl
+      `pipelinestage.Service.Create/Update` die Eindeutigkeit bereits korrekt
+      pro Tenant durchsetzt — die DB-Grenze war die global falsche).
+      Migration 000255 scopet alle drei auf `tenant_id`; unkritisch fuer
+      Bestandsdaten, da Produktion aktuell Single-Tenant ist (alle Zeilen
+      tragen den Sentinel-Tenant aus dem Retrofit-Default). Falsifiziert: alle
+      drei Regressionstests liefen vor der Migration rot
+      (`duplicate key value violates unique constraint`), nach `migrate up`
+      gruen. tag/savedfilter/pipelinestage/customfield: keine toten Writes,
+      Create/Update/Delete trugen bereits ein korrektes `tenant_id`-Praedikat
+      bzw. verliessen sich zu Recht auf RLS `WITH CHECK` bei INSERT — gleiches
+      Bild wie bei wp-crm-core.
+      Lokale Dev-DB angefasst (wie in fruehren Iterationen): `kmuhub_app` hatte
+      wieder kein/ein falsches Passwort, mit
+      `ALTER ROLE kmuhub_app WITH LOGIN PASSWORD 'kmuhub_dev'` neu gesetzt —
+      nur der Docker-Container, nichts im Repo, Production nicht beruehrt.
     done_when:
       - tenant_write_test.go je Paket nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts

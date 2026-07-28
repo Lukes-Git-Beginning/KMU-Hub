@@ -27,7 +27,7 @@ func (s *Service) GrantConsent(ctx context.Context, tenantID, contactID uuid.UUI
 		return nil, ErrInvalidLegalBasis
 	}
 
-	exists, err := s.repo.ContactExists(ctx, contactID)
+	exists, err := s.repo.ContactExists(ctx, contactID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (s *Service) RevokeConsent(ctx context.Context, tenantID, contactID uuid.UU
 		return nil, ErrInvalidConsentType
 	}
 
-	exists, err := s.repo.ContactExists(ctx, contactID)
+	exists, err := s.repo.ContactExists(ctx, contactID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +131,8 @@ func (s *Service) GetConsentHistory(ctx context.Context, tenantID, contactID uui
 }
 
 // RequestDeletion creates a GDPR Art. 17 erasure request.
-func (s *Service) RequestDeletion(ctx context.Context, contactID uuid.UUID, reason string, requestedBy *uuid.UUID) (*GDPRDeletionRequest, error) {
-	exists, err := s.repo.ContactExists(ctx, contactID)
+func (s *Service) RequestDeletion(ctx context.Context, tenantID, contactID uuid.UUID, reason string, requestedBy *uuid.UUID) (*GDPRDeletionRequest, error) {
+	exists, err := s.repo.ContactExists(ctx, contactID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +143,7 @@ func (s *Service) RequestDeletion(ctx context.Context, contactID uuid.UUID, reas
 	now := time.Now()
 	req := &GDPRDeletionRequest{
 		ID:          uuid.New(),
+		TenantID:    tenantID,
 		ContactID:   contactID,
 		RequestedBy: requestedBy,
 		Reason:      reason,
@@ -163,8 +164,8 @@ func (s *Service) RequestDeletion(ctx context.Context, contactID uuid.UUID, reas
 }
 
 // ProcessDeletion executes a GDPR erasure request by anonymizing the contact.
-func (s *Service) ProcessDeletion(ctx context.Context, requestID uuid.UUID) error {
-	req, err := s.repo.GetDeletionRequest(ctx, requestID)
+func (s *Service) ProcessDeletion(ctx context.Context, tenantID, requestID uuid.UUID) error {
+	req, err := s.repo.GetDeletionRequest(ctx, requestID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -172,7 +173,7 @@ func (s *Service) ProcessDeletion(ctx context.Context, requestID uuid.UUID) erro
 		return ErrDeletionAlreadyComplete
 	}
 
-	if err := s.repo.AnonymizeContact(ctx, req.ContactID); err != nil {
+	if err := s.repo.AnonymizeContact(ctx, req.ContactID, tenantID); err != nil {
 		return err
 	}
 

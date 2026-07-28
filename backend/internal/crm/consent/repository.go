@@ -33,6 +33,7 @@ type ConsentSummary struct {
 // GDPRDeletionRequest represents a GDPR Art. 17 erasure request.
 type GDPRDeletionRequest struct {
 	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
 	ContactID   uuid.UUID  `json:"contact_id"`
 	RequestedBy *uuid.UUID `json:"requested_by,omitempty"`
 	Reason      string     `json:"reason,omitempty"`
@@ -50,12 +51,12 @@ type Repository interface {
 
 	// GDPR deletion
 	CreateDeletionRequest(ctx context.Context, req *GDPRDeletionRequest) error
-	GetDeletionRequest(ctx context.Context, id uuid.UUID) (*GDPRDeletionRequest, error)
+	GetDeletionRequest(ctx context.Context, id, tenantID uuid.UUID) (*GDPRDeletionRequest, error)
 	UpdateDeletionRequest(ctx context.Context, req *GDPRDeletionRequest) error
 
 	// Contact anonymization (GDPR Art. 17)
-	AnonymizeContact(ctx context.Context, contactID uuid.UUID) error
+	AnonymizeContact(ctx context.Context, contactID, tenantID uuid.UUID) error
 
 	// Checks
-	ContactExists(ctx context.Context, contactID uuid.UUID) (bool, error)
+	ContactExists(ctx context.Context, contactID, tenantID uuid.UUID) (bool, error)
 }

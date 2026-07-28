@@ -3495,3 +3495,98 @@ bleibt.
   zieht `wp-crm-meta` (dep auf `wp-crm-core`, jetzt erfuellt — tag,
   savedfilter, pipelinestage, customfield, consent; `consent` ist dabei am
   wichtigsten, siehe Backlog-Notiz zur Dialer/E-Mail-Consent-Enforcement).
+
+## Iteration 45 — wp-crm-meta — done — 2026-07-28
+
+- verify vorgaenger: sauber. Commit `b7967a9c` (Iteration 44, wp-crm-core) ist
+  vier `tenant_write_test.go` fuer contact/company/deal/activity plus
+  BACKLOG/JOURNAL — keine der sechs Fehlerklassen betroffen: kein neuer
+  Handler, kein Stub, kein `.proto`, kein neuer `RequirePermission`-Guard,
+  keine Migration, keine Route. Journal-Angabe zur Falsifikation
+  (RLS testweise deaktiviert, Leiche danach aufgeraeumt) stimmt mit dem Diff
+  ueberein.
+- gebaut: fuenf `tenant_write_test.go` fuer die CRM-Rand-Entitaeten —
+  `internal/crm/tag/tenant_write_test.go`,
+  `internal/crm/savedfilter/tenant_write_test.go`,
+  `internal/crm/pipelinestage/tenant_write_test.go`,
+  `internal/crm/customfield/tenant_write_test.go`,
+  `internal/crm/consent/tenant_write_test.go` — gleiches Muster wie
+  wp-crm-core: die bestehenden `rls_test.go`/`tenant_isolation_phase2_test.go`
+  je Paket seeden ausschliesslich via `testutil.SeedRow` und rufen nie die
+  echten Create/Update/Delete-Methoden auf.
+- Zwei echte Funde, beide im selben Commit repariert:
+  (a) **Toter Write in consent**: `CreateDeletionRequest` INSERTete nie
+  `gdpr_deletion_requests.tenant_id` — die Spalte ist seit Migration 000114
+  NOT NULL ohne Default. Jeder `RequestDeletion`-Call (GDPR-Art.-17-
+  Loeschantrag) schlug damit an einer NOT-NULL-Verletzung fehl, unabhaengig
+  vom Tenant — "Loeschantrag stellen" war fuer JEDEN Aufrufer tot, nicht nur
+  degradiert. `GDPRDeletionRequest` bekam ein `TenantID`-Feld;
+  `GetDeletionRequest`/`AnonymizeContact`/`ContactExists` nehmen jetzt
+  explizit `tenantID` und tragen ein Praedikat. `ContactExists` ist dabei der
+  Existenz-Guard, den GrantConsent/RevokeConsent/RequestDeletion vor jedem
+  Write aufrufen — ohne Tenant-Praedikat haette ein Aufrufer aus Tenant B die
+  echte `contact_id` von Tenant A durchreichen und einen
+  consent_records/gdpr_deletion_requests-Datensatz erzeugen koennen, dessen
+  `tenant_id` korrekt B ist, dessen `contact_id` aber auf einen fremden
+  Tenant zeigt — ein Daten-Integritaetsbruch ueber Tenant-Grenzen, nicht nur
+  eine RLS-Luecke. `Service.RequestDeletion`/`ProcessDeletion` und die zwei
+  gRPC-Handler (`crm_grpc.go`) reichen `tenantID` jetzt durch
+  (`middleware.GetTenantID`); `MockRepository` in `service_test.go`
+  entsprechend angepasst (Signatur, kein Verhalten).
+  (b) **Drei globale Unique-Indizes auf tenant-gescopten CRM-Konfigtabellen**,
+  gefunden beim Bauen der Write-Tests fuer pipelinestage/tag/customfield:
+  `idx_tags_entity_name` (Migration 000006), `idx_pipeline_stages_won`/
+  `idx_pipeline_stages_lost` (Migration 000008) und
+  `idx_custom_field_definitions_entity_name` (Migration 000005) wurden nie an
+  den Option-B-Tenant-Retrofit (Migration 000106, generische
+  `ALTER TABLE ... ADD COLUMN tenant_id`-Schleife) angepasst — sie sind bis
+  heute GLOBAL eindeutig statt pro Tenant. Konkret: der zweite Tenant, der je
+  einen Tag "VIP" auf Contacts anlegt, ein Custom-Field "budget" definiert
+  oder eine Pipeline-Stage als "Won"/"Lost" markiert, bekommt ein rohes
+  Unique-Violation-500 — und zwar dauerhaft, nicht nur beim ersten Versuch,
+  weil `pipelinestage.Service.Create/Update` die Won/Lost-Eindeutigkeit
+  bereits korrekt PRO TENANT via `HasWonStage`/`HasLostStage` prueft, die
+  DB-Grenze darunter aber global blieb — die Anwendungsschicht sagt "erlaubt",
+  die DB sagt "nein". Migration 000255 scopet alle drei auf `tenant_id`
+  (`(tenant_id, entity_type, LOWER(name))` bzw. `(tenant_id, entity_type,
+  field_name)` bzw. `(tenant_id) WHERE is_won/is_lost = TRUE`). Unkritisch
+  fuer Bestandsdaten: Produktion ist aktuell Single-Tenant, alle betroffenen
+  Zeilen tragen den Sentinel-Tenant `00000000-0000-0000-0000-000000000001`
+  aus dem Retrofit-Default, keine Kollisionsgefahr beim Anwenden.
+  tag/savedfilter/pipelinestage/customfield selbst: keine toten Writes in
+  Create/Update/Delete — alle trugen bereits ein korrektes
+  `tenant_id`-Praedikat bzw. verliessen sich zu Recht allein auf RLS
+  `WITH CHECK` bei INSERT, gleiches Bild wie bei wp-crm-core.
+- Falsifikation: alle drei neuen `*_UniquePerTenantNotGlobally`-Tests
+  (tag/customfield/pipelinestage) liefen VOR `migrate up` auf Migration 000255
+  rot mit exakt der erwarteten Postgres-Fehlermeldung
+  (`duplicate key value violates unique constraint "idx_..."`), danach gruen
+  — bestaetigt sowohl den Bug als auch dass der Test ihn wirklich faengt und
+  nicht zufaellig gruen waere. Der `consent`-Dead-Write wurde analog
+  falsifiziert: `TestGDPRDeletionRequestWrites_LandInCallerTenant` lief vor
+  dem Postgres-Repository-Fix mit einer NOT-NULL-Verletzung auf `tenant_id`
+  rot.
+- Lokale Dev-DB angefasst (wie in frueheren Iterationen): `kmuhub_app` hatte
+  wieder kein bzw. ein falsches Passwort in der lokalen Compose-Postgres,
+  `ALTER ROLE kmuhub_app WITH LOGIN PASSWORD 'kmuhub_dev'` neu gesetzt sowie
+  Migration 000255 lokal per `migrate -path migrations -database
+  $MIGRATION_DATABASE_URL up` angewendet — nur der Docker-Container, nichts
+  im Repo veraendert, Production nicht beruehrt.
+- gate: build ok (`go build -p 2 ./internal/crm/... ./internal/server/...
+  ./cmd/crm/... ./cmd/gateway/...`) | vet ok | lint ok (`golangci-lint run`
+  auf denselben Paketen, 0 issues) | test ok (`go test -count=1
+  ./internal/crm/...`, alle zwoelf Pakete gruen inkl. der fuenf neuen
+  Testdateien, 0 Skips; `./internal/server/...` gruen inkl.
+  `TestOpenAPIRouteDrift` — 736 registrierte gegen 738 dokumentierte Pfade,
+  unveraendert, da keine neue Route) — `DATABASE_URL` explizit auf
+  `kmuhub_app` gesetzt, nicht die Superuser-Rolle. Migration 000255 (up+down)
+  lokal angewendet und ueber die drei Regressionstests verifiziert.
+- offen: nichts Neues aus dieser Unit. Fuer Luke: Migration 000255 ist eine
+  reine Index-Korrektur (kein neues `config.RequireX`, kein neues
+  `modules.*`-Flag) und laeuft beim naechsten Deploy automatisch mit
+  `deploy.sh`/CD mit; unkritisch fuer die aktuell Single-Tenant-Produktion,
+  aber wichtig, bevor ein zweiter Pilot-Tenant Tags/Custom-Fields/
+  Pipeline-Stages anlegt. Queue-Stand: 6 `wp-*`-Units `todo`, naechste
+  Iteration zieht `wp-work` (keine deps, sieben Pakete im Modul, Scope nimmt
+  bewusst nur die drei mit der groessten Schreibflaeche — task/project/
+  timeentry; calendar/meeting/resource/recording folgen in `wp-work-rest`).
