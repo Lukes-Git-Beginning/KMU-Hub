@@ -2357,7 +2357,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 57 — schichten/rapporte/vertraege, keine toten Writes gefunden
     scope: >
       Rest der Branchenmodule aus wp-branchen-module: schichten, rapporte,
       vertraege, vermietung, formulare, caldav, automation. Gleiches Muster
@@ -2376,6 +2376,42 @@ units:
       Sieben Module — wieder zu viel fuer eine Iteration. In der genannten
       Reihenfolge abarbeiten, nach drei bis vier committen und den Rest in
       `wp-branchen-module-3` weiterreichen, bevor du aufhoerst.
+      ERLEDIGT (dieser Teil) Iteration 57: schichten, rapporte, vertraege.
+      Alle drei bauen CreateX/AddX bereits konsequent auf
+      input.TenantID -> struct/param.TenantID -> SQL-Parameter, jeder
+      SELECT/UPDATE/DELETE traegt ein tenant_id-Praedikat — kein toter Write,
+      keine fehlende Scope gefunden (anders als beim inventar-Fund in
+      wp-branchen-module). vertraege.ExpireContracts/ClaimDueReminders/
+      MarkReminderSent bleiben bewusst ohne tenantID-Parameter: das sind
+      Worker-Funktionen, die tenant-uebergreifend faellige Reminder/Vertraege
+      einsammeln (Cron-Pfad, kein Request-Handler) — kein Scope-Bug, sondern
+      Zweck. Rest der vier Module in `wp-branchen-module-3`.
+    done_when:
+      - tenant_write_test.go je bearbeitetem Modul nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - Folge-Unit fuer nicht geschaffte Module angelegt (falls noetig)
+      - go build/vet/lint/test gruen
+
+  - id: wp-branchen-module-3
+    phase: 3
+    service: querschnitt
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Rest der Branchenmodule aus wp-branchen-module-2: vermietung,
+      formulare, caldav, automation. Gleiches Muster — echter Repo-Write
+      ueber ctx statt testutil.SeedRow.
+    sources:
+      - backend/internal/vermietung/
+      - backend/internal/formulare/
+      - backend/internal/caldav/
+      - backend/internal/automation/
+    notes: >
+      Vier Module. In der genannten Reihenfolge abarbeiten; falls in einer
+      Iteration nicht alle vier schaffbar sind, Rest in `wp-branchen-module-4`
+      weiterreichen, bevor du aufhoerst.
     done_when:
       - tenant_write_test.go je bearbeitetem Modul nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts

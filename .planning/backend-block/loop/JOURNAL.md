@@ -4178,3 +4178,53 @@ bleibt.
   Repo-Signatur). RLS-Smoke: n.a. explizit — durch die drei neuen
   Write-Tests selbst belegt (eigener Tenant sieht die Zeile, fremder nicht).
 - offen: fuer Luke — sieben Module warten in `wp-branchen-module-2`.
+
+## Iteration 57 — wp-branchen-module-2 — done (3/7 Module) — 2026-07-28
+
+- Verify-Vorspann: Commit `562d46fd` (Iteration 56) geprueft — Diff gegen
+  `inventar.PostgresRepository.ListInventurCounts` gegengelesen: Signatur
+  korrekt um `tenantID` erweitert, alle drei Aufrufer (GetInventurSession,
+  BookInventurDifferences, neuer Testcase) konsistent angepasst, SQL traegt
+  `WHERE tenant_id=$1 AND session_id=$2`. `GOFLAGS=-p=2 go build ./...`
+  (kompletter Repo-Build) gruen — sauber, nichts zu beanstanden.
+- Gewaehlt: `wp-branchen-module-2` (einzige `deps: []`-Unit in Datei-Reihenfolge
+  vor `wp-testutil-guard`, welche noch auf `wp-settings`/`wp-chat` wartet).
+- Abgearbeitet in der vorgegebenen Reihenfolge: schichten, rapporte,
+  vertraege (3 von 7). Folge-Unit `wp-branchen-module-3` fuer die
+  restlichen vier (vermietung, formulare, caldav, automation) in
+  BACKLOG.yml angelegt.
+- Muster wie in Iteration 56: `tenant_write_test.go` je Modul, echte
+  `PostgresRepository`-Schreibmethoden unter `ctxA`/`ctxB`, Row-Count-Check
+  eigener vs. fremder Tenant.
+- Befund: anders als bei inventar in Iteration 56 — hier **kein** toter oder
+  ungescopter Schreib-/Lesepfad gefunden. Alle drei Module bauen
+  CreateX/AddX/UpdateX bereits konsequent auf
+  `input.TenantID -> struct/param.TenantID -> SQL-Parameter`, und jeder
+  SELECT/UPDATE/DELETE traegt ein `tenant_id`-Praedikat (auch die
+  Mehrfach-Statement-Pfade wie `schichten.SwapAssignmentsForRequest`
+  innerhalb der Transaktion). Gateway-Seite stichprobenartig gegen
+  `route_schichten.go` geprueft: `tenant_id` kommt durchgehend aus
+  `middleware.GetTenantID(r.Context())`, nie aus Client-Payload.
+  `vertraege.ExpireContracts`/`ClaimDueReminders`/`MarkReminderSent` haben
+  bewusst keinen `tenantID`-Parameter — das sind Cron-Worker-Funktionen, die
+  faellige Vertraege/Reminder tenant-uebergreifend einsammeln (kein
+  Request-Handler-Pfad), kein Scope-Bug.
+- gate: `GOFLAGS=-p=2 go build ./...` gruen (kompletter Repo-Build, keine
+  Interface-Signatur angefasst) | `go vet ./internal/schichten/...
+  ./internal/rapporte/... ./internal/vertraege/...` gruen | `golangci-lint
+  run --config .golangci.yml ./internal/schichten/... ./internal/rapporte/...
+  ./internal/vertraege/...` 0 issues | `kmuhub_app`-Passwort erneut per
+  `ALTER ROLE` gesetzt (Reset noetig) | `go test -count=1 -v
+  ./internal/schichten/...` gruen inkl. `TestSchichtenWrites_LandInCallerTenant`
+  (shifts/shift_assignments/shift_templates/shift_swap_requests) | `go test
+  -count=1 -v ./internal/rapporte/...` gruen inkl.
+  `TestRapporteWrites_LandInCallerTenant` (work_reports/report_lines/
+  report_attachments/report_workers/measurements/measurement_positions/
+  report_templates) | `go test -count=1 -v ./internal/vertraege/...` gruen
+  inkl. `TestVertraegeWrites_LandInCallerTenant` (contracts/contract_parties/
+  contract_reminders). Migration: n.a. Proto: n.a. (keine Route/RPC
+  angefasst, keine Interface-Signatur geaendert). RLS-Smoke: n.a. explizit —
+  durch die drei neuen Write-Tests selbst belegt (eigener Tenant sieht die
+  Zeile, fremder nicht).
+- offen: fuer Luke — vier Module warten in `wp-branchen-module-3`
+  (vermietung, formulare, caldav, automation).
