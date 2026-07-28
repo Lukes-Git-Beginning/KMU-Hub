@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/helpdesk"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	helpdeskv1 "github.com/kmuhub/kmuhub/proto/helpdesk/v1"
 )
 
@@ -68,11 +69,15 @@ func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.C
 }
 
 func (s *HelpdeskGRPCServer) GetTicket(ctx context.Context, req *helpdeskv1.GetTicketRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	t, err := s.svc.GetTicket(ctx, id)
+	t, err := s.svc.GetTicket(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -113,6 +118,10 @@ func (s *HelpdeskGRPCServer) ListTickets(ctx context.Context, req *helpdeskv1.Li
 }
 
 func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.UpdateTicketRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
@@ -136,7 +145,7 @@ func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.U
 		queueID = &qid
 	}
 
-	t, err := s.svc.UpdateTicket(ctx, id, req.Subject, req.Priority, assigneeID, queueID)
+	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Priority, assigneeID, queueID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -144,11 +153,15 @@ func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.U
 }
 
 func (s *HelpdeskGRPCServer) CloseTicket(ctx context.Context, req *helpdeskv1.CloseTicketRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	t, err := s.svc.CloseTicket(ctx, id)
+	t, err := s.svc.CloseTicket(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -156,11 +169,15 @@ func (s *HelpdeskGRPCServer) CloseTicket(ctx context.Context, req *helpdeskv1.Cl
 }
 
 func (s *HelpdeskGRPCServer) ReopenTicket(ctx context.Context, req *helpdeskv1.ReopenTicketRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	t, err := s.svc.ReopenTicket(ctx, id)
+	t, err := s.svc.ReopenTicket(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -168,6 +185,10 @@ func (s *HelpdeskGRPCServer) ReopenTicket(ctx context.Context, req *helpdeskv1.R
 }
 
 func (s *HelpdeskGRPCServer) AssignTicket(ctx context.Context, req *helpdeskv1.AssignTicketRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
@@ -176,7 +197,7 @@ func (s *HelpdeskGRPCServer) AssignTicket(ctx context.Context, req *helpdeskv1.A
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid assignee_id: %v", err)
 	}
-	t, err := s.svc.AssignTicket(ctx, ticketID, assigneeID)
+	t, err := s.svc.AssignTicket(ctx, ticketID, tenantID, assigneeID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -184,6 +205,10 @@ func (s *HelpdeskGRPCServer) AssignTicket(ctx context.Context, req *helpdeskv1.A
 }
 
 func (s *HelpdeskGRPCServer) MergeTickets(ctx context.Context, req *helpdeskv1.MergeTicketsRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	sourceID, err := uuid.Parse(req.GetSourceTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid source_ticket_id: %v", err)
@@ -192,7 +217,7 @@ func (s *HelpdeskGRPCServer) MergeTickets(ctx context.Context, req *helpdeskv1.M
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid target_ticket_id: %v", err)
 	}
-	if err := s.svc.MergeTickets(ctx, sourceID, targetID); err != nil {
+	if err := s.svc.MergeTickets(ctx, tenantID, sourceID, targetID); err != nil {
 		return nil, mapHelpdeskError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -203,6 +228,10 @@ func (s *HelpdeskGRPCServer) MergeTickets(ctx context.Context, req *helpdeskv1.M
 // ============================================================================
 
 func (s *HelpdeskGRPCServer) AddMessage(ctx context.Context, req *helpdeskv1.AddMessageRequest) (*helpdeskv1.TicketMessage, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
@@ -212,7 +241,7 @@ func (s *HelpdeskGRPCServer) AddMessage(ctx context.Context, req *helpdeskv1.Add
 		return nil, status.Errorf(codes.InvalidArgument, "invalid author_id: %v", err)
 	}
 
-	m, err := s.svc.AddMessage(ctx, ticketID, authorID, req.GetBody(), req.GetInternal(), req.GetAttachments())
+	m, err := s.svc.AddMessage(ctx, ticketID, tenantID, authorID, req.GetBody(), req.GetInternal(), req.GetAttachments())
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -220,11 +249,15 @@ func (s *HelpdeskGRPCServer) AddMessage(ctx context.Context, req *helpdeskv1.Add
 }
 
 func (s *HelpdeskGRPCServer) ListMessages(ctx context.Context, req *helpdeskv1.ListMessagesRequest) (*helpdeskv1.ListMessagesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	msgs, err := s.svc.ListMessages(ctx, ticketID)
+	msgs, err := s.svc.ListMessages(ctx, ticketID, tenantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -271,6 +304,10 @@ func (s *HelpdeskGRPCServer) CreateQueue(ctx context.Context, req *helpdeskv1.Cr
 }
 
 func (s *HelpdeskGRPCServer) UpdateQueue(ctx context.Context, req *helpdeskv1.UpdateQueueRequest) (*helpdeskv1.TicketQueue, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetQueueId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid queue_id: %v", err)
@@ -294,7 +331,7 @@ func (s *HelpdeskGRPCServer) UpdateQueue(ctx context.Context, req *helpdeskv1.Up
 		slaPolicyID = &sid
 	}
 
-	q, err := s.svc.UpdateQueue(ctx, id, req.Name, defaultAssigneeID, slaPolicyID)
+	q, err := s.svc.UpdateQueue(ctx, id, tenantID, req.Name, defaultAssigneeID, slaPolicyID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -318,11 +355,15 @@ func (s *HelpdeskGRPCServer) ListQueues(ctx context.Context, req *helpdeskv1.Lis
 }
 
 func (s *HelpdeskGRPCServer) DeleteQueue(ctx context.Context, req *helpdeskv1.DeleteQueueRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetQueueId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid queue_id: %v", err)
 	}
-	if err := s.svc.DeleteQueue(ctx, id); err != nil {
+	if err := s.svc.DeleteQueue(ctx, id, tenantID); err != nil {
 		return nil, mapHelpdeskError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -345,11 +386,15 @@ func (s *HelpdeskGRPCServer) CreateCannedResponse(ctx context.Context, req *help
 }
 
 func (s *HelpdeskGRPCServer) UpdateCannedResponse(ctx context.Context, req *helpdeskv1.UpdateCannedResponseRequest) (*helpdeskv1.CannedResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetCannedResponseId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid canned_response_id: %v", err)
 	}
-	cr, err := s.svc.UpdateCannedResponse(ctx, id, req.Name, req.Body)
+	cr, err := s.svc.UpdateCannedResponse(ctx, id, tenantID, req.Name, req.Body)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -357,11 +402,15 @@ func (s *HelpdeskGRPCServer) UpdateCannedResponse(ctx context.Context, req *help
 }
 
 func (s *HelpdeskGRPCServer) DeleteCannedResponse(ctx context.Context, req *helpdeskv1.DeleteCannedResponseRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetCannedResponseId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid canned_response_id: %v", err)
 	}
-	if err := s.svc.DeleteCannedResponse(ctx, id); err != nil {
+	if err := s.svc.DeleteCannedResponse(ctx, id, tenantID); err != nil {
 		return nil, mapHelpdeskError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -409,6 +458,10 @@ func (s *HelpdeskGRPCServer) CreateSLAPolicy(ctx context.Context, req *helpdeskv
 }
 
 func (s *HelpdeskGRPCServer) UpdateSLAPolicy(ctx context.Context, req *helpdeskv1.UpdateSLAPolicyRequest) (*helpdeskv1.SLAPolicy, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetSlaPolicyId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid sla_policy_id: %v", err)
@@ -433,7 +486,7 @@ func (s *HelpdeskGRPCServer) UpdateSLAPolicy(ctx context.Context, req *helpdeskv
 		}
 	}
 
-	p, err := s.svc.UpdateSLAPolicy(ctx, id, req.Name, firstResponseMins, resolutionMins, businessHours)
+	p, err := s.svc.UpdateSLAPolicy(ctx, id, tenantID, req.Name, firstResponseMins, resolutionMins, businessHours)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -457,6 +510,10 @@ func (s *HelpdeskGRPCServer) ListSLAPolicies(ctx context.Context, req *helpdeskv
 }
 
 func (s *HelpdeskGRPCServer) ApplySLAPolicy(ctx context.Context, req *helpdeskv1.ApplySLAPolicyRequest) (*helpdeskv1.Ticket, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
@@ -465,7 +522,7 @@ func (s *HelpdeskGRPCServer) ApplySLAPolicy(ctx context.Context, req *helpdeskv1
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid sla_policy_id: %v", err)
 	}
-	t, err := s.svc.ApplySLAPolicy(ctx, ticketID, policyID)
+	t, err := s.svc.ApplySLAPolicy(ctx, ticketID, tenantID, policyID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -473,11 +530,15 @@ func (s *HelpdeskGRPCServer) ApplySLAPolicy(ctx context.Context, req *helpdeskv1
 }
 
 func (s *HelpdeskGRPCServer) DeleteSLAPolicy(ctx context.Context, req *helpdeskv1.DeleteSLAPolicyRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetSlaPolicyId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid sla_policy_id: %v", err)
 	}
-	if err := s.svc.DeleteSLAPolicy(ctx, id); err != nil {
+	if err := s.svc.DeleteSLAPolicy(ctx, id, tenantID); err != nil {
 		return nil, mapHelpdeskError(err)
 	}
 	slog.InfoContext(ctx, "helpdesk: sla policy deleted via grpc", "policy_id", id)
@@ -485,6 +546,10 @@ func (s *HelpdeskGRPCServer) DeleteSLAPolicy(ctx context.Context, req *helpdeskv
 }
 
 func (s *HelpdeskGRPCServer) GetSLAStatus(ctx context.Context, req *helpdeskv1.GetSLAStatusRequest) (*helpdeskv1.GetSLAStatusResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
@@ -499,7 +564,7 @@ func (s *HelpdeskGRPCServer) GetSLAStatus(ctx context.Context, req *helpdeskv1.G
 		policyID = &pid
 	}
 
-	slaStatus, err := s.svc.GetSLAStatus(ctx, ticketID, policyID)
+	slaStatus, err := s.svc.GetSLAStatus(ctx, ticketID, tenantID, policyID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -543,11 +608,15 @@ func (s *HelpdeskGRPCServer) CreateKBArticle(ctx context.Context, req *helpdeskv
 }
 
 func (s *HelpdeskGRPCServer) UpdateKBArticle(ctx context.Context, req *helpdeskv1.UpdateKBArticleRequest) (*helpdeskv1.KBArticle, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetArticleId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
 	}
-	a, err := s.svc.UpdateKBArticle(ctx, id, req.Title, req.Content, req.Category, req.Status)
+	a, err := s.svc.UpdateKBArticle(ctx, id, tenantID, req.Title, req.Content, req.Category, req.Status)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -555,11 +624,15 @@ func (s *HelpdeskGRPCServer) UpdateKBArticle(ctx context.Context, req *helpdeskv
 }
 
 func (s *HelpdeskGRPCServer) DeleteKBArticle(ctx context.Context, req *helpdeskv1.DeleteKBArticleRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetArticleId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
 	}
-	if err := s.svc.DeleteKBArticle(ctx, id); err != nil {
+	if err := s.svc.DeleteKBArticle(ctx, id, tenantID); err != nil {
 		return nil, mapHelpdeskError(err)
 	}
 	slog.InfoContext(ctx, "helpdesk: kb article deleted via grpc", "article_id", id)
@@ -617,6 +690,10 @@ func (s *HelpdeskGRPCServer) CreateRoutingRule(ctx context.Context, req *helpdes
 }
 
 func (s *HelpdeskGRPCServer) UpdateRoutingRule(ctx context.Context, req *helpdeskv1.UpdateRoutingRuleRequest) (*helpdeskv1.RoutingRule, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetRuleId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid rule_id: %v", err)
@@ -650,7 +727,7 @@ func (s *HelpdeskGRPCServer) UpdateRoutingRule(ctx context.Context, req *helpdes
 		enabled = &e
 	}
 
-	rr, err := s.svc.UpdateRoutingRule(ctx, id, req.Name, conditions, targetQueueID, priority, enabled)
+	rr, err := s.svc.UpdateRoutingRule(ctx, id, tenantID, req.Name, conditions, targetQueueID, priority, enabled)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -658,11 +735,15 @@ func (s *HelpdeskGRPCServer) UpdateRoutingRule(ctx context.Context, req *helpdes
 }
 
 func (s *HelpdeskGRPCServer) DeleteRoutingRule(ctx context.Context, req *helpdeskv1.DeleteRoutingRuleRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
 	id, err := uuid.Parse(req.GetRuleId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid rule_id: %v", err)
 	}
-	if err := s.svc.DeleteRoutingRule(ctx, id); err != nil {
+	if err := s.svc.DeleteRoutingRule(ctx, id, tenantID); err != nil {
 		return nil, mapHelpdeskError(err)
 	}
 	slog.InfoContext(ctx, "helpdesk: routing rule deleted via grpc", "rule_id", id)

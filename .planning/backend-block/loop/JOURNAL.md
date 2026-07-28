@@ -3790,3 +3790,32 @@ bleibt.
   der Vorlauf-Sessions, nicht nur das Nachraeumen. Naechste offene Unit ohne
   deps: `wp-helpdesk-dialer`. Diese Iteration hat bewusst keine neue Unit
   begonnen (Recovery war der volle Scope).
+
+## Iteration 50 — wp-helpdesk-dialer (Teil 1: helpdesk) — in_progress — 2026-07-28
+
+- Fund: In `internal/helpdesk/postgres_repository.go` trugen GetTicketByID,
+  UpdateTicket, DeleteTicket, ReassignMessages, MergeTicketTx (zweites UPDATE),
+  GetQueueByID/UpdateQueue/DeleteQueue, GetCannedResponseByID/Update/Delete,
+  GetSLAPolicyByID/Update/Delete, GetKBArticleByID/Update/Delete,
+  GetRoutingRuleByID/Update/Delete **kein** tenant_id-Praedikat — reines
+  RLS-Vertrauen, Get*ByID selektierte tenant_id teils nicht mal zurueck.
+- Fix: tenantID explizit durch Repository-Interface, Service (jede betroffene
+  Methode bekommt einen zusaetzlichen tenantID-Parameter) und
+  HelpdeskGRPCServer durchgereicht. Die Update/Delete-Proto-Requests hatten
+  nie ein tenant_id-Feld (nur Get/List/Create trugen es) — Handler holen es
+  jetzt ueber `middleware.GetTenantID(ctx)`, kein Proto-Regen noetig, kein
+  Route-/Wire-Shape-Aenderung. Alle Update/Delete-Repo-Methoden pruefen jetzt
+  `RowsAffected()==0` -> NotFound statt still 0 Zeilen zu treffen.
+- Umfang bewusst gesplittet: dialer (CampaignRepository.Update/UpdateStatus/
+  Delete, Contact-Queue-Writes, OutcomeRepository.Update/Delete/GetByID —
+  CampaignContact hat trotz tenant_id-Spalte seit Migration 000119 kein
+  TenantID-Feld im Go-Modell) und idempotency-Tenant-Check sind noch offen.
+  Kein DB-backed tenant_write_test.go fuer helpdesk in diesem Commit — die
+  Praedikate sind gesetzt, aber noch nicht gegen echtes Postgres bewiesen.
+- gate: `GOFLAGS=-p=2 go build ./...` gruen, `go vet ./internal/helpdesk/...
+  ./internal/server/...` gruen. golangci-lint und `go test` (DB-backed) in
+  dieser Iteration NICHT mehr gelaufen — Budget der Session erschoepft.
+  Naechste Iteration MUSS vor dem Weiterbauen erst golangci-lint und den
+  vollen Testlauf nachholen, dann tenant_write_test.go fuer helpdesk
+  schreiben, dann dialer angehen. Backlog-Status bewusst `in_progress`
+  belassen (nicht `done`), Detail-Notiz im Backlog-Eintrag selbst.

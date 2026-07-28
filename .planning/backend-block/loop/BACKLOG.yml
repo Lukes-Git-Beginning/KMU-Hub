@@ -2092,12 +2092,31 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: in_progress
     scope: >
       helpdesk (Tickets) und dialer (Anrufe, Outcomes). Beide mit
       Isolationstests, die via SeedRow seeden. Der Dialer schreibt zusaetzlich
       idempotent ueber Idempotency-Keys - pruef, dass der Key-Pfad selbst den
       Tenant traegt.
+    notes: >
+      Iteration 50: helpdesk-Haelfte umgesetzt (Get/Update/Delete auf Ticket,
+      TicketQueue, CannedResponse, SLAPolicy, KBArticle, RoutingRule trugen
+      keinerlei tenant_id-Praedikat -- reines RLS-Vertrauen; Get*ByID scannte
+      nicht mal tenant_id). tenantID jetzt explizit durch Repository, Service
+      und gRPC-Handler durchgereicht (Proto-Requests fuer Get/Update/Delete
+      hatten nie ein tenant_id-Feld -- Handler holen es stattdessen ueber
+      middleware.GetTenantID(ctx), kein Proto-Regen noetig). go build/vet
+      gruen. OFFEN fuer die Fortsetzung: (a) neuer tenant_write_test.go fuer
+      internal/helpdesk (Muster wie einkauf/inbox) fehlt noch -- die
+      Tenant-Praedikate sind gesetzt, aber nicht gegen echtes Postgres
+      bewiesen; (b) dialer (CampaignRepository.Update/UpdateStatus/Delete,
+      Contact-Queue-Writes UpdateContactStatus/SetContactCallback/
+      SkipContact/RequeueContact/IncrementContactCallCount tragen KEIN
+      tenant_id-Praedikat -- CampaignContact hat nicht mal ein TenantID-Feld
+      im Go-Modell trotz Spalte seit Migration 000119; OutcomeRepository.
+      Update/Delete/GetByID ebenso) ist noch unangefasst; (c)
+      idempotency-Package noch nicht auf Tenant-Tragung im Key-Pfad geprueft.
+      Naechste Iteration knuepft hier an, nicht neu von vorn.
     sources:
       - backend/internal/helpdesk/
       - backend/internal/dialer/

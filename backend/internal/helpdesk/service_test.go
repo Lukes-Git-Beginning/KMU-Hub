@@ -40,7 +40,7 @@ func (r *mockRepo) CreateTicket(_ context.Context, t *Ticket) error {
 	r.tickets[t.ID] = t
 	return nil
 }
-func (r *mockRepo) GetTicketByID(_ context.Context, id uuid.UUID) (*Ticket, error) {
+func (r *mockRepo) GetTicketByID(_ context.Context, id, _ uuid.UUID) (*Ticket, error) {
 	if t, ok := r.tickets[id]; ok {
 		return t, nil
 	}
@@ -57,7 +57,7 @@ func (r *mockRepo) UpdateTicket(_ context.Context, t *Ticket) error {
 	r.tickets[t.ID] = t
 	return nil
 }
-func (r *mockRepo) DeleteTicket(_ context.Context, id uuid.UUID) error {
+func (r *mockRepo) DeleteTicket(_ context.Context, id, _ uuid.UUID) error {
 	delete(r.tickets, id)
 	return nil
 }
@@ -69,10 +69,10 @@ func (r *mockRepo) CreateMessage(_ context.Context, m *TicketMessage) error {
 	r.messages[m.TicketID] = append(r.messages[m.TicketID], m)
 	return nil
 }
-func (r *mockRepo) ListMessagesByTicket(_ context.Context, ticketID uuid.UUID) ([]*TicketMessage, error) {
+func (r *mockRepo) ListMessagesByTicket(_ context.Context, ticketID, _ uuid.UUID) ([]*TicketMessage, error) {
 	return r.messages[ticketID], nil
 }
-func (r *mockRepo) ReassignMessages(_ context.Context, sourceID, targetID uuid.UUID) error {
+func (r *mockRepo) ReassignMessages(_ context.Context, sourceID, targetID, _ uuid.UUID) error {
 	msgs := r.messages[sourceID]
 	for _, m := range msgs {
 		m.TicketID = targetID
@@ -102,7 +102,7 @@ func (r *mockRepo) CreateQueue(_ context.Context, q *TicketQueue) error {
 	r.queues[q.ID] = q
 	return nil
 }
-func (r *mockRepo) GetQueueByID(_ context.Context, id uuid.UUID) (*TicketQueue, error) {
+func (r *mockRepo) GetQueueByID(_ context.Context, id, _ uuid.UUID) (*TicketQueue, error) {
 	if q, ok := r.queues[id]; ok {
 		return q, nil
 	}
@@ -119,7 +119,7 @@ func (r *mockRepo) UpdateQueue(_ context.Context, q *TicketQueue) error {
 	r.queues[q.ID] = q
 	return nil
 }
-func (r *mockRepo) DeleteQueue(_ context.Context, id uuid.UUID) error {
+func (r *mockRepo) DeleteQueue(_ context.Context, id, _ uuid.UUID) error {
 	delete(r.queues, id)
 	return nil
 }
@@ -128,7 +128,7 @@ func (r *mockRepo) CreateCannedResponse(_ context.Context, cr *CannedResponse) e
 	r.cannedResponses[cr.ID] = cr
 	return nil
 }
-func (r *mockRepo) GetCannedResponseByID(_ context.Context, id uuid.UUID) (*CannedResponse, error) {
+func (r *mockRepo) GetCannedResponseByID(_ context.Context, id, _ uuid.UUID) (*CannedResponse, error) {
 	if cr, ok := r.cannedResponses[id]; ok {
 		return cr, nil
 	}
@@ -145,7 +145,7 @@ func (r *mockRepo) UpdateCannedResponse(_ context.Context, cr *CannedResponse) e
 	r.cannedResponses[cr.ID] = cr
 	return nil
 }
-func (r *mockRepo) DeleteCannedResponse(_ context.Context, id uuid.UUID) error {
+func (r *mockRepo) DeleteCannedResponse(_ context.Context, id, _ uuid.UUID) error {
 	delete(r.cannedResponses, id)
 	return nil
 }
@@ -154,7 +154,7 @@ func (r *mockRepo) CreateSLAPolicy(_ context.Context, p *SLAPolicy) error {
 	r.slaPolicies[p.ID] = p
 	return nil
 }
-func (r *mockRepo) GetSLAPolicyByID(_ context.Context, id uuid.UUID) (*SLAPolicy, error) {
+func (r *mockRepo) GetSLAPolicyByID(_ context.Context, id, _ uuid.UUID) (*SLAPolicy, error) {
 	if p, ok := r.slaPolicies[id]; ok {
 		return p, nil
 	}
@@ -172,7 +172,7 @@ func (r *mockRepo) UpdateSLAPolicy(_ context.Context, p *SLAPolicy) error {
 	return nil
 }
 
-func (r *mockRepo) DeleteSLAPolicy(_ context.Context, id uuid.UUID) error {
+func (r *mockRepo) DeleteSLAPolicy(_ context.Context, id, _ uuid.UUID) error {
 	delete(r.slaPolicies, id)
 	return nil
 }
@@ -181,7 +181,7 @@ func (r *mockRepo) CreateKBArticle(_ context.Context, a *KBArticle) error {
 	return nil
 }
 
-func (r *mockRepo) GetKBArticleByID(_ context.Context, id uuid.UUID) (*KBArticle, error) {
+func (r *mockRepo) GetKBArticleByID(_ context.Context, id, _ uuid.UUID) (*KBArticle, error) {
 	return nil, ErrKBArticleNotFound
 }
 
@@ -193,7 +193,7 @@ func (r *mockRepo) UpdateKBArticle(_ context.Context, _ *KBArticle) error {
 	return nil
 }
 
-func (r *mockRepo) DeleteKBArticle(_ context.Context, _ uuid.UUID) error {
+func (r *mockRepo) DeleteKBArticle(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
 
@@ -201,7 +201,7 @@ func (r *mockRepo) CreateRoutingRule(_ context.Context, _ *RoutingRule) error {
 	return nil
 }
 
-func (r *mockRepo) GetRoutingRuleByID(_ context.Context, id uuid.UUID) (*RoutingRule, error) {
+func (r *mockRepo) GetRoutingRuleByID(_ context.Context, id, _ uuid.UUID) (*RoutingRule, error) {
 	return nil, ErrRoutingRuleNotFound
 }
 
@@ -213,7 +213,7 @@ func (r *mockRepo) UpdateRoutingRule(_ context.Context, _ *RoutingRule) error {
 	return nil
 }
 
-func (r *mockRepo) DeleteRoutingRule(_ context.Context, _ uuid.UUID) error {
+func (r *mockRepo) DeleteRoutingRule(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
 
@@ -315,7 +315,7 @@ func TestCloseTicket_SetsResolvedAt(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Billing issue", TicketPriorityNormal, nil, nil, "", "")
 
-	closed, err := h.svc.CloseTicket(context.Background(), ticket.ID)
+	closed, err := h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -331,9 +331,9 @@ func TestReopenTicket_FromClosed(t *testing.T) {
 	h := newTestHarness()
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Feature request", TicketPriorityLow, nil, nil, "", "")
-	h.svc.CloseTicket(context.Background(), ticket.ID)
+	h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID)
 
-	reopened, err := h.svc.ReopenTicket(context.Background(), ticket.ID)
+	reopened, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestReopenTicket_FromOpenFails(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Still open", TicketPriorityNormal, nil, nil, "", "")
 
-	_, err := h.svc.ReopenTicket(context.Background(), ticket.ID)
+	_, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID)
 	if err == nil {
 		t.Error("expected error when reopening non-closed ticket")
 	}
@@ -366,7 +366,7 @@ func TestAddMessage_Success(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Can't login", TicketPriorityNormal, nil, nil, "", "")
 	authorID := uuid.New()
 
-	msg, err := h.svc.AddMessage(context.Background(), ticket.ID, authorID, "Have you tried turning it off and on?", false, nil)
+	msg, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, authorID, "Have you tried turning it off and on?", false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestAddMessage_SetsFirstResponseAt(t *testing.T) {
 		t.Fatal("ticket should have no first_response_at initially")
 	}
 
-	h.svc.AddMessage(context.Background(), ticket.ID, uuid.New(), "We will help you.", false, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "We will help you.", false, nil)
 
 	stored := h.repo.tickets[ticket.ID]
 	if stored.FirstResponseAt == nil {
@@ -399,7 +399,7 @@ func TestAddMessage_InternalDoesNotSetFirstResponseAt(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Internal note test", TicketPriorityNormal, nil, nil, "", "")
 
-	h.svc.AddMessage(context.Background(), ticket.ID, uuid.New(), "Internal note only.", true, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Internal note only.", true, nil)
 
 	stored := h.repo.tickets[ticket.ID]
 	if stored.FirstResponseAt != nil {
@@ -412,7 +412,7 @@ func TestAddMessage_EmptyBodyFails(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Subject", TicketPriorityNormal, nil, nil, "", "")
 
-	_, err := h.svc.AddMessage(context.Background(), ticket.ID, uuid.New(), "", false, nil)
+	_, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "", false, nil)
 	if err == nil {
 		t.Error("expected error for empty body")
 	}
@@ -430,7 +430,7 @@ func TestApplySLAPolicy_SetsDueAt(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), tenantID, uuid.New(), "Slow system", TicketPriorityNormal, nil, nil, "", "")
 	policy, _ := h.svc.CreateSLAPolicy(context.Background(), tenantID, "Standard", 60, 480, nil)
 
-	updated, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, policy.ID)
+	updated, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, tenantID, policy.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestApplySLAPolicy_UsesResolutionMinsAfterFirstResponse(t *testing.T) {
 	ticket.FirstResponseAt = &now
 	h.repo.tickets[ticket.ID] = ticket
 
-	updated, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, policy.ID)
+	updated, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, tenantID, policy.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -479,7 +479,7 @@ func TestApplySLAPolicy_PolicyNotFound(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Test", TicketPriorityNormal, nil, nil, "", "")
 
-	_, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, uuid.New())
+	_, err := h.svc.ApplySLAPolicy(context.Background(), ticket.ID, ticket.TenantID, uuid.New())
 	if !errors.Is(err, ErrSLAPolicyNotFound) {
 		t.Errorf("expected ErrSLAPolicyNotFound, got %v", err)
 	}
@@ -497,9 +497,9 @@ func TestMergeTickets_Success(t *testing.T) {
 	target, _ := h.svc.CreateTicket(context.Background(), tenantID, uuid.New(), "Original issue", TicketPriorityNormal, nil, nil, "", "")
 
 	// Add a message to source.
-	h.svc.AddMessage(context.Background(), source.ID, uuid.New(), "From source ticket.", false, nil)
+	h.svc.AddMessage(context.Background(), source.ID, tenantID, uuid.New(), "From source ticket.", false, nil)
 
-	err := h.svc.MergeTickets(context.Background(), source.ID, target.ID)
+	err := h.svc.MergeTickets(context.Background(), tenantID, source.ID, target.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -524,7 +524,7 @@ func TestMergeTickets_CannotMergeSelf(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Self merge", TicketPriorityNormal, nil, nil, "", "")
 
-	err := h.svc.MergeTickets(context.Background(), ticket.ID, ticket.ID)
+	err := h.svc.MergeTickets(context.Background(), ticket.TenantID, ticket.ID, ticket.ID)
 	if !errors.Is(err, ErrCannotMergeSelf) {
 		t.Errorf("expected ErrCannotMergeSelf, got %v", err)
 	}
@@ -588,7 +588,7 @@ func TestMergeTickets_AlreadyMerged(t *testing.T) {
 	source.Status = TicketStatusMerged
 	h.repo.tickets[source.ID] = source
 
-	err := h.svc.MergeTickets(context.Background(), source.ID, target.ID)
+	err := h.svc.MergeTickets(context.Background(), source.TenantID, source.ID, target.ID)
 	if !errors.Is(err, ErrAlreadyMerged) {
 		t.Errorf("expected ErrAlreadyMerged, got %v", err)
 	}
@@ -683,7 +683,7 @@ func TestAssignTicket_Success(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Assign me", TicketPriorityNormal, nil, nil, "", "")
 	agentID := uuid.New()
 
-	updated, err := h.svc.AssignTicket(context.Background(), ticket.ID, agentID)
+	updated, err := h.svc.AssignTicket(context.Background(), ticket.ID, ticket.TenantID, agentID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -695,7 +695,7 @@ func TestAssignTicket_Success(t *testing.T) {
 func TestAssignTicket_TicketNotFound(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.AssignTicket(context.Background(), uuid.New(), uuid.New())
+	_, err := h.svc.AssignTicket(context.Background(), uuid.New(), uuid.New(), uuid.New())
 	if !errors.Is(err, ErrTicketNotFound) {
 		t.Errorf("expected ErrTicketNotFound, got %v", err)
 	}
@@ -707,7 +707,7 @@ func TestUpdateTicket_PriorityChange(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Priority test", TicketPriorityLow, nil, nil, "", "")
 	newPriority := TicketPriorityUrgent
 
-	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, nil, &newPriority, nil, nil)
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &newPriority, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -722,7 +722,7 @@ func TestUpdateTicket_InvalidPriority(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "Priority test", TicketPriorityLow, nil, nil, "", "")
 	bad := "supercritical"
 
-	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, nil, &bad, nil, nil)
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &bad, nil, nil)
 	if !errors.Is(err, ErrInvalidPriority) {
 		t.Errorf("expected ErrInvalidPriority, got %v", err)
 	}
@@ -732,10 +732,10 @@ func TestListMessages_AfterAdd(t *testing.T) {
 	h := newTestHarness()
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuid.New(), "List msgs", TicketPriorityNormal, nil, nil, "", "")
-	h.svc.AddMessage(context.Background(), ticket.ID, uuid.New(), "First message", false, nil)
-	h.svc.AddMessage(context.Background(), ticket.ID, uuid.New(), "Second message (internal)", true, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "First message", false, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Second message (internal)", true, nil)
 
-	msgs, err := h.svc.ListMessages(context.Background(), ticket.ID)
+	msgs, err := h.svc.ListMessages(context.Background(), ticket.ID, ticket.TenantID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -747,7 +747,7 @@ func TestListMessages_AfterAdd(t *testing.T) {
 func TestGetTicket_NotFound(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.GetTicket(context.Background(), uuid.New())
+	_, err := h.svc.GetTicket(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, ErrTicketNotFound) {
 		t.Errorf("expected ErrTicketNotFound, got %v", err)
 	}
@@ -785,7 +785,7 @@ func TestDeleteQueue_Success(t *testing.T) {
 
 	q, _ := h.svc.CreateQueue(context.Background(), tenantID, "Temp Queue", nil, nil)
 
-	err := h.svc.DeleteQueue(context.Background(), q.ID)
+	err := h.svc.DeleteQueue(context.Background(), q.ID, tenantID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -801,7 +801,7 @@ func TestUpdateQueue_RenameSuccess(t *testing.T) {
 	q, _ := h.svc.CreateQueue(context.Background(), tenantID, "Old Name", nil, nil)
 	newName := "New Name"
 
-	updated, err := h.svc.UpdateQueue(context.Background(), q.ID, &newName, nil, nil)
+	updated, err := h.svc.UpdateQueue(context.Background(), q.ID, tenantID, &newName, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

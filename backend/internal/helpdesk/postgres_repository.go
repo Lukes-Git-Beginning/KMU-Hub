@@ -73,9 +73,9 @@ FROM tickets t
 LEFT JOIN users a   ON t.assignee_id  = a.id
 LEFT JOIN users req ON t.requester_id = req.id`
 
-func (r *PostgresRepository) GetTicketByID(ctx context.Context, id uuid.UUID) (*Ticket, error) {
+func (r *PostgresRepository) GetTicketByID(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT `+ticketSelectColumns+` WHERE t.id = $1`, id,
+		`SELECT `+ticketSelectColumns+` WHERE t.id = $1 AND t.tenant_id = $2`, id, tenantID,
 	)
 	return scanTicket(row)
 }
@@ -129,23 +129,35 @@ func (r *PostgresRepository) ListTickets(ctx context.Context, tenantID uuid.UUID
 }
 
 func (r *PostgresRepository) UpdateTicket(ctx context.Context, t *Ticket) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE tickets
 		 SET subject = $1, status = $2, priority = $3, assignee_id = $4,
 		     queue_id = $5, due_at = $6, merged_into_id = $7,
 		     first_response_at = $8, resolved_at = $9, updated_at = $10
-		 WHERE id = $11`,
+		 WHERE id = $11 AND tenant_id = $12`,
 		t.Subject, t.Status, t.Priority, t.AssigneeID,
 		t.QueueID, t.DueAt, t.MergedIntoID,
 		t.FirstResponseAt, t.ResolvedAt, t.UpdatedAt,
-		t.ID,
+		t.ID, t.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrTicketNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) DeleteTicket(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM tickets WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) DeleteTicket(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM tickets WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrTicketNotFound
+	}
+	return nil
 }
 
 // FindOpenTicketsByRequester returns non-merged tickets for requester whose
@@ -206,14 +218,13 @@ func (r *PostgresRepository) CreateMessage(ctx context.Context, m *TicketMessage
 	return err
 }
 
-// ListMessagesByTicket — tenant scoping is enforced via RLS (mig 000126).
-func (r *PostgresRepository) ListMessagesByTicket(ctx context.Context, ticketID uuid.UUID) ([]*TicketMessage, error) {
+func (r *PostgresRepository) ListMessagesByTicket(ctx context.Context, ticketID, tenantID uuid.UUID) ([]*TicketMessage, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, ticket_id, author_id, body, internal, attachments, created_at
 		 FROM ticket_messages
-		 WHERE ticket_id = $1
+		 WHERE ticket_id = $1 AND tenant_id = $2
 		 ORDER BY created_at ASC`,
-		ticketID,
+		ticketID, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -231,10 +242,10 @@ func (r *PostgresRepository) ListMessagesByTicket(ctx context.Context, ticketID 
 	return messages, rows.Err()
 }
 
-func (r *PostgresRepository) ReassignMessages(ctx context.Context, sourceTicketID, targetTicketID uuid.UUID) error {
+func (r *PostgresRepository) ReassignMessages(ctx context.Context, sourceTicketID, targetTicketID, tenantID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE ticket_messages SET ticket_id = $1 WHERE ticket_id = $2`,
-		targetTicketID, sourceTicketID,
+		`UPDATE ticket_messages SET ticket_id = $1 WHERE ticket_id = $2 AND tenant_id = $3`,
+		targetTicketID, sourceTicketID, tenantID,
 	)
 	return err
 }
@@ -251,25 +262,29 @@ func (r *PostgresRepository) MergeTicketTx(ctx context.Context, source *Ticket, 
 
 	// 1. Reassign messages from source → target.
 	if _, err := tx.Exec(ctx,
-		`UPDATE ticket_messages SET ticket_id = $1 WHERE ticket_id = $2`,
-		targetID, source.ID,
+		`UPDATE ticket_messages SET ticket_id = $1 WHERE ticket_id = $2 AND tenant_id = $3`,
+		targetID, source.ID, source.TenantID,
 	); err != nil {
 		return fmt.Errorf("merge tx reassign messages: %w", err)
 	}
 
 	// 2. Close source ticket (mark as merged).
-	if _, err := tx.Exec(ctx,
+	tag, err := tx.Exec(ctx,
 		`UPDATE tickets
 		 SET subject = $1, status = $2, priority = $3, assignee_id = $4,
 		     queue_id = $5, due_at = $6, merged_into_id = $7,
 		     first_response_at = $8, resolved_at = $9, updated_at = $10
-		 WHERE id = $11`,
+		 WHERE id = $11 AND tenant_id = $12`,
 		source.Subject, source.Status, source.Priority, source.AssigneeID,
 		source.QueueID, source.DueAt, source.MergedIntoID,
 		source.FirstResponseAt, source.ResolvedAt, source.UpdatedAt,
-		source.ID,
-	); err != nil {
+		source.ID, source.TenantID,
+	)
+	if err != nil {
 		return fmt.Errorf("merge tx update source ticket: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrTicketNotFound
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -292,10 +307,10 @@ func (r *PostgresRepository) CreateQueue(ctx context.Context, q *TicketQueue) er
 	return err
 }
 
-func (r *PostgresRepository) GetQueueByID(ctx context.Context, id uuid.UUID) (*TicketQueue, error) {
+func (r *PostgresRepository) GetQueueByID(ctx context.Context, id, tenantID uuid.UUID) (*TicketQueue, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, default_assignee_id, sla_policy_id, created_at, updated_at
-		 FROM ticket_queues WHERE id = $1`, id,
+		 FROM ticket_queues WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanQueue(row)
 }
@@ -325,18 +340,30 @@ func (r *PostgresRepository) ListQueues(ctx context.Context, tenantID uuid.UUID)
 }
 
 func (r *PostgresRepository) UpdateQueue(ctx context.Context, q *TicketQueue) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE ticket_queues
 		 SET name = $1, default_assignee_id = $2, sla_policy_id = $3, updated_at = $4
-		 WHERE id = $5`,
-		q.Name, q.DefaultAssigneeID, q.SLAPolicyID, q.UpdatedAt, q.ID,
+		 WHERE id = $5 AND tenant_id = $6`,
+		q.Name, q.DefaultAssigneeID, q.SLAPolicyID, q.UpdatedAt, q.ID, q.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrQueueNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) DeleteQueue(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM ticket_queues WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) DeleteQueue(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM ticket_queues WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrQueueNotFound
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -353,10 +380,10 @@ func (r *PostgresRepository) CreateCannedResponse(ctx context.Context, cr *Canne
 	return err
 }
 
-func (r *PostgresRepository) GetCannedResponseByID(ctx context.Context, id uuid.UUID) (*CannedResponse, error) {
+func (r *PostgresRepository) GetCannedResponseByID(ctx context.Context, id, tenantID uuid.UUID) (*CannedResponse, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, body, created_at, updated_at
-		 FROM canned_responses WHERE id = $1`, id,
+		 FROM canned_responses WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanCannedResponse(row)
 }
@@ -386,18 +413,30 @@ func (r *PostgresRepository) ListCannedResponses(ctx context.Context, tenantID u
 }
 
 func (r *PostgresRepository) UpdateCannedResponse(ctx context.Context, cr *CannedResponse) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE canned_responses
 		 SET name = $1, body = $2, updated_at = $3
-		 WHERE id = $4`,
-		cr.Name, cr.Body, cr.UpdatedAt, cr.ID,
+		 WHERE id = $4 AND tenant_id = $5`,
+		cr.Name, cr.Body, cr.UpdatedAt, cr.ID, cr.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCannedResponseNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) DeleteCannedResponse(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM canned_responses WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) DeleteCannedResponse(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM canned_responses WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCannedResponseNotFound
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -420,11 +459,11 @@ func (r *PostgresRepository) CreateSLAPolicy(ctx context.Context, p *SLAPolicy) 
 	return err
 }
 
-func (r *PostgresRepository) GetSLAPolicyByID(ctx context.Context, id uuid.UUID) (*SLAPolicy, error) {
+func (r *PostgresRepository) GetSLAPolicyByID(ctx context.Context, id, tenantID uuid.UUID) (*SLAPolicy, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, first_response_mins, resolution_mins,
 		        business_hours, created_at, updated_at
-		 FROM sla_policies WHERE id = $1`, id,
+		 FROM sla_policies WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanSLAPolicy(row)
 }
@@ -459,19 +498,31 @@ func (r *PostgresRepository) UpdateSLAPolicy(ctx context.Context, p *SLAPolicy) 
 	if err != nil {
 		return fmt.Errorf("marshal business_hours: %w", err)
 	}
-	_, err = r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE sla_policies
 		 SET name = $1, first_response_mins = $2, resolution_mins = $3,
 		     business_hours = $4, updated_at = $5
-		 WHERE id = $6`,
-		p.Name, p.FirstResponseMins, p.ResolutionMins, bhJSON, p.UpdatedAt, p.ID,
+		 WHERE id = $6 AND tenant_id = $7`,
+		p.Name, p.FirstResponseMins, p.ResolutionMins, bhJSON, p.UpdatedAt, p.ID, p.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrSLAPolicyNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) DeleteSLAPolicy(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM sla_policies WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) DeleteSLAPolicy(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM sla_policies WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrSLAPolicyNotFound
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -488,10 +539,10 @@ func (r *PostgresRepository) CreateKBArticle(ctx context.Context, a *KBArticle) 
 	return err
 }
 
-func (r *PostgresRepository) GetKBArticleByID(ctx context.Context, id uuid.UUID) (*KBArticle, error) {
+func (r *PostgresRepository) GetKBArticleByID(ctx context.Context, id, tenantID uuid.UUID) (*KBArticle, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, content, category, status, author_id, created_at, updated_at
-		 FROM helpdesk_kb_articles WHERE id = $1`, id,
+		 FROM helpdesk_kb_articles WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanKBArticle(row)
 }
@@ -521,18 +572,30 @@ func (r *PostgresRepository) ListKBArticles(ctx context.Context, tenantID uuid.U
 }
 
 func (r *PostgresRepository) UpdateKBArticle(ctx context.Context, a *KBArticle) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE helpdesk_kb_articles
 		 SET title = $1, content = $2, category = $3, status = $4, updated_at = $5
-		 WHERE id = $6`,
-		a.Title, a.Content, a.Category, a.Status, a.UpdatedAt, a.ID,
+		 WHERE id = $6 AND tenant_id = $7`,
+		a.Title, a.Content, a.Category, a.Status, a.UpdatedAt, a.ID, a.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrKBArticleNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) DeleteKBArticle(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM helpdesk_kb_articles WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) DeleteKBArticle(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM helpdesk_kb_articles WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrKBArticleNotFound
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -553,10 +616,10 @@ func (r *PostgresRepository) CreateRoutingRule(ctx context.Context, rr *RoutingR
 	return err
 }
 
-func (r *PostgresRepository) GetRoutingRuleByID(ctx context.Context, id uuid.UUID) (*RoutingRule, error) {
+func (r *PostgresRepository) GetRoutingRuleByID(ctx context.Context, id, tenantID uuid.UUID) (*RoutingRule, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, conditions, target_queue_id, priority, enabled, created_at, updated_at
-		 FROM helpdesk_routing_rules WHERE id = $1`, id,
+		 FROM helpdesk_routing_rules WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanRoutingRule(row)
 }
@@ -590,18 +653,30 @@ func (r *PostgresRepository) UpdateRoutingRule(ctx context.Context, rr *RoutingR
 	if err != nil {
 		return fmt.Errorf("marshal conditions: %w", err)
 	}
-	_, err = r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE helpdesk_routing_rules
 		 SET name = $1, conditions = $2, target_queue_id = $3, priority = $4, enabled = $5, updated_at = $6
-		 WHERE id = $7`,
-		rr.Name, condJSON, rr.TargetQueueID, rr.Priority, rr.Enabled, rr.UpdatedAt, rr.ID,
+		 WHERE id = $7 AND tenant_id = $8`,
+		rr.Name, condJSON, rr.TargetQueueID, rr.Priority, rr.Enabled, rr.UpdatedAt, rr.ID, rr.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrRoutingRuleNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) DeleteRoutingRule(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM helpdesk_routing_rules WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) DeleteRoutingRule(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM helpdesk_routing_rules WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrRoutingRuleNotFound
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
