@@ -181,12 +181,13 @@ func (s *Service) ListCampaigns(
 func (s *Service) UpdateCampaign(
 	ctx context.Context,
 	id uuid.UUID,
+	tenantID uuid.UUID,
 	name *string,
 	description *string,
 	settings *CampaignSettings,
 	assignedAgentIDs []uuid.UUID,
 ) (*Campaign, error) {
-	c, err := s.campaigns.GetByID(ctx, id)
+	c, err := s.campaigns.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update campaign – load: %w", err)
 	}
@@ -213,7 +214,7 @@ func (s *Service) UpdateCampaign(
 
 	c.UpdatedAt = time.Now().UTC()
 
-	if err := s.campaigns.Update(ctx, c); err != nil {
+	if err := s.campaigns.Update(ctx, c, tenantID); err != nil {
 		return nil, fmt.Errorf("update campaign: %w", err)
 	}
 
@@ -226,8 +227,8 @@ func (s *Service) UpdateCampaign(
 
 // StartCampaign transitions a draft campaign to active, beginning the dialing
 // queue. The campaign must have at least one contact.
-func (s *Service) StartCampaign(ctx context.Context, id uuid.UUID) (*Campaign, error) {
-	c, err := s.campaigns.GetByID(ctx, id)
+func (s *Service) StartCampaign(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error) {
+	c, err := s.campaigns.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("start campaign – load: %w", err)
 	}
@@ -244,7 +245,7 @@ func (s *Service) StartCampaign(ctx context.Context, id uuid.UUID) (*Campaign, e
 	c.Status = CampaignStatusActive
 	c.StartedAt = &now
 
-	if err := s.campaigns.UpdateStatus(ctx, id, CampaignStatusActive); err != nil {
+	if err := s.campaigns.UpdateStatus(ctx, id, tenantID, CampaignStatusActive); err != nil {
 		return nil, fmt.Errorf("start campaign – update status: %w", err)
 	}
 
@@ -258,8 +259,8 @@ func (s *Service) StartCampaign(ctx context.Context, id uuid.UUID) (*Campaign, e
 
 // PauseCampaign toggles an active campaign to paused, or resumes a paused
 // campaign back to active.
-func (s *Service) PauseCampaign(ctx context.Context, id uuid.UUID) (*Campaign, error) {
-	c, err := s.campaigns.GetByID(ctx, id)
+func (s *Service) PauseCampaign(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error) {
+	c, err := s.campaigns.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("pause campaign – load: %w", err)
 	}
@@ -274,7 +275,7 @@ func (s *Service) PauseCampaign(ctx context.Context, id uuid.UUID) (*Campaign, e
 		return nil, ErrInvalidStatusTransition
 	}
 
-	if err := s.campaigns.UpdateStatus(ctx, id, newStatus); err != nil {
+	if err := s.campaigns.UpdateStatus(ctx, id, tenantID, newStatus); err != nil {
 		return nil, fmt.Errorf("pause campaign – update status: %w", err)
 	}
 
@@ -290,8 +291,8 @@ func (s *Service) PauseCampaign(ctx context.Context, id uuid.UUID) (*Campaign, e
 }
 
 // ArchiveCampaign moves a completed or paused campaign to archived status.
-func (s *Service) ArchiveCampaign(ctx context.Context, id uuid.UUID) error {
-	c, err := s.campaigns.GetByID(ctx, id)
+func (s *Service) ArchiveCampaign(ctx context.Context, id, tenantID uuid.UUID) error {
+	c, err := s.campaigns.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("archive campaign – load: %w", err)
 	}
@@ -300,7 +301,7 @@ func (s *Service) ArchiveCampaign(ctx context.Context, id uuid.UUID) error {
 		return ErrInvalidStatusTransition
 	}
 
-	if err := s.campaigns.UpdateStatus(ctx, id, CampaignStatusArchived); err != nil {
+	if err := s.campaigns.UpdateStatus(ctx, id, tenantID, CampaignStatusArchived); err != nil {
 		return fmt.Errorf("archive campaign – update status: %w", err)
 	}
 
@@ -426,8 +427,8 @@ func (s *Service) AddContactsToCampaign(
 // GetNextContact returns the next pending contact in the campaign queue,
 // enriched with live contact details from the CRM. If the queue is exhausted
 // the campaign is automatically transitioned to completed.
-func (s *Service) GetNextContact(ctx context.Context, campaignID uuid.UUID) (*CampaignContact, error) {
-	c, err := s.campaigns.GetByID(ctx, campaignID)
+func (s *Service) GetNextContact(ctx context.Context, campaignID, tenantID uuid.UUID) (*CampaignContact, error) {
+	c, err := s.campaigns.GetByIDForTenant(ctx, campaignID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("get next contact – load campaign: %w", err)
 	}
@@ -443,7 +444,7 @@ func (s *Service) GetNextContact(ctx context.Context, campaignID uuid.UUID) (*Ca
 
 	if cc == nil {
 		// Queue is empty — auto-complete the campaign.
-		if autoErr := s.campaigns.UpdateStatus(ctx, campaignID, CampaignStatusCompleted); autoErr != nil {
+		if autoErr := s.campaigns.UpdateStatus(ctx, campaignID, tenantID, CampaignStatusCompleted); autoErr != nil {
 			slog.ErrorContext(ctx, "dialer: auto-complete campaign failed",
 				"campaign_id", campaignID,
 				"error", autoErr,
@@ -476,8 +477,8 @@ func (s *Service) GetNextContact(ctx context.Context, campaignID uuid.UUID) (*Ca
 
 // SkipContact marks a contact as skipped in the campaign queue and refreshes
 // the campaign's denormalized counts.
-func (s *Service) SkipContact(ctx context.Context, campaignContactID uuid.UUID) error {
-	if err := s.campaigns.SkipContact(ctx, campaignContactID); err != nil {
+func (s *Service) SkipContact(ctx context.Context, campaignContactID, tenantID uuid.UUID) error {
+	if err := s.campaigns.SkipContact(ctx, campaignContactID, tenantID); err != nil {
 		return fmt.Errorf("skip contact: %w", err)
 	}
 
@@ -492,8 +493,8 @@ func (s *Service) SkipContact(ctx context.Context, campaignContactID uuid.UUID) 
 
 // RequeueContact resets a skipped or callback contact back to pending so it
 // re-enters the dialing queue.
-func (s *Service) RequeueContact(ctx context.Context, campaignContactID uuid.UUID) error {
-	if err := s.campaigns.RequeueContact(ctx, campaignContactID); err != nil {
+func (s *Service) RequeueContact(ctx context.Context, campaignContactID, tenantID uuid.UUID) error {
+	if err := s.campaigns.RequeueContact(ctx, campaignContactID, tenantID); err != nil {
 		return fmt.Errorf("requeue contact: %w", err)
 	}
 
@@ -538,7 +539,7 @@ func (s *Service) InitiateDialerCall(
 	if s.consentAsserter == nil {
 		return nil, ErrConsentNotConfigured
 	}
-	cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID)
+	cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("initiate call – resolve contact for consent check: %w", err)
 	}
@@ -575,14 +576,14 @@ func (s *Service) InitiateDialerCall(
 		)
 	}
 
-	if err := s.campaigns.IncrementContactCallCount(ctx, campaignContactID); err != nil {
+	if err := s.campaigns.IncrementContactCallCount(ctx, campaignContactID, tenantID); err != nil {
 		slog.WarnContext(ctx, "dialer: increment call count failed",
 			"campaign_contact_id", campaignContactID,
 			"error", err,
 		)
 	}
 
-	if err := s.campaigns.UpdateContactStatus(ctx, campaignContactID, ContactStatusInProgress, nil); err != nil {
+	if err := s.campaigns.UpdateContactStatus(ctx, campaignContactID, tenantID, ContactStatusInProgress, nil); err != nil {
 		slog.WarnContext(ctx, "dialer: set contact in_progress failed",
 			"campaign_contact_id", campaignContactID,
 			"error", err,
@@ -618,7 +619,7 @@ func (s *Service) LogCallOutcome(
 		return nil, ErrCallSessionNotFound
 	}
 
-	outcome, err := s.outcomes.GetByID(ctx, outcomeID)
+	outcome, err := s.outcomes.GetByID(ctx, outcomeID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("log outcome – load outcome: %w", err)
 	}
@@ -686,7 +687,7 @@ func (s *Service) LogCallOutcome(
 
 	// Resolve the real CRM contact UUID from the campaign contact join record.
 	var realContactID uuid.UUID
-	cc, ccErr := s.campaigns.GetCampaignContactByID(ctx, session.CampaignContactID)
+	cc, ccErr := s.campaigns.GetCampaignContactByID(ctx, session.CampaignContactID, tenantID)
 	if ccErr != nil || cc == nil {
 		slog.WarnContext(ctx, "dialer: resolve campaign contact for CRM bridge failed",
 			"campaign_contact_id", session.CampaignContactID,
@@ -808,7 +809,7 @@ func (s *Service) CompleteWrapUp(ctx context.Context, tenantID uuid.UUID, sessio
 	// derive the campaign ID indirectly via the campaign stats path.
 	// Instead, call checkCampaignComplete via the helper which accepts a
 	// campaignContactID and queries stats internally.
-	if err := s.checkCampaignCompleteByContact(ctx, session.CampaignContactID); err != nil {
+	if err := s.checkCampaignCompleteByContact(ctx, session.CampaignContactID, tenantID); err != nil {
 		slog.WarnContext(ctx, "dialer: check campaign complete after wrap-up failed",
 			"session_id", sessionID,
 			"error", err,
@@ -947,6 +948,7 @@ func (s *Service) CreateCallOutcome(
 func (s *Service) UpdateCallOutcome(
 	ctx context.Context,
 	id uuid.UUID,
+	tenantID uuid.UUID,
 	label *string,
 	color *string,
 	isPositive *bool,
@@ -955,7 +957,7 @@ func (s *Service) UpdateCallOutcome(
 	sortOrder *int,
 	isActive *bool,
 ) (*CallOutcome, error) {
-	o, err := s.outcomes.GetByID(ctx, id)
+	o, err := s.outcomes.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update call outcome – load: %w", err)
 	}
@@ -997,8 +999,8 @@ func (s *Service) UpdateCallOutcome(
 }
 
 // DeleteCallOutcome removes an outcome definition.
-func (s *Service) DeleteCallOutcome(ctx context.Context, id uuid.UUID) error {
-	if err := s.outcomes.Delete(ctx, id); err != nil {
+func (s *Service) DeleteCallOutcome(ctx context.Context, id, tenantID uuid.UUID) error {
+	if err := s.outcomes.Delete(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("delete call outcome: %w", err)
 	}
 
@@ -1166,14 +1168,14 @@ func (s *Service) GetContactCalls(ctx context.Context, campaignContactID uuid.UU
 
 // checkCampaignComplete transitions the campaign to "completed" when no pending
 // or callback contacts remain. It accepts a campaignID directly.
-func (s *Service) checkCampaignComplete(ctx context.Context, campaignID uuid.UUID) error {
+func (s *Service) checkCampaignComplete(ctx context.Context, campaignID, tenantID uuid.UUID) error {
 	stats, err := s.campaigns.GetCampaignStats(ctx, campaignID)
 	if err != nil {
 		return fmt.Errorf("check campaign complete – get stats: %w", err)
 	}
 
 	if stats.PendingContacts == 0 && stats.CallbackContacts == 0 {
-		if err := s.campaigns.UpdateStatus(ctx, campaignID, CampaignStatusCompleted); err != nil {
+		if err := s.campaigns.UpdateStatus(ctx, campaignID, tenantID, CampaignStatusCompleted); err != nil {
 			return fmt.Errorf("check campaign complete – update status: %w", err)
 		}
 
@@ -1189,12 +1191,12 @@ func (s *Service) checkCampaignComplete(ctx context.Context, campaignID uuid.UUI
 
 // checkCampaignCompleteByContact resolves the campaign ID from a campaign
 // contact record and delegates to checkCampaignComplete.
-func (s *Service) checkCampaignCompleteByContact(ctx context.Context, campaignContactID uuid.UUID) error {
-	cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID)
+func (s *Service) checkCampaignCompleteByContact(ctx context.Context, campaignContactID, tenantID uuid.UUID) error {
+	cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID, tenantID)
 	if err != nil {
 		return fmt.Errorf("check campaign complete – resolve contact: %w", err)
 	}
-	return s.checkCampaignComplete(ctx, cc.CampaignID)
+	return s.checkCampaignComplete(ctx, cc.CampaignID, tenantID)
 }
 
 // emitOutcomeEvents emits notification events after a call outcome is logged.

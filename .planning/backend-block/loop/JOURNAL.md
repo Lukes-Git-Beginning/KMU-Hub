@@ -3867,3 +3867,57 @@ bleibt.
   eigener substanzieller Block; (c) idempotency-Package noch nicht auf
   Tenant-Tragung im Key-Pfad geprueft. Backlog-Status bewusst `in_progress`
   belassen.
+
+## Iteration 52 — wp-helpdesk-dialer (Teil 3: dialer-Code-Fix) — in_progress — 2026-07-28
+
+- Verify-Vorspann: Commit `6de9b741` (Iteration 51, reiner Testdatei-Diff fuer
+  helpdesk) gelesen — Muster konsistent, kein Befund.
+- Fund groesser als der Backlog-Eintrag: nicht nur die sechs benannten
+  Contact-Queue/Campaign-Schreibmethoden hatten kein tenant_id-Praedikat,
+  sondern auch die vorgelagerte Lese-Seite. `UpdateCampaign`, `StartCampaign`,
+  `PauseCampaign`, `ArchiveCampaign`, `GetNextContact` loesten die Kampagne
+  ueber `campaigns.GetByID(ctx, id)` auf (keine Tenant-Filterung ueberhaupt)
+  und schrieben danach ungescoped weiter — reines RLS-Vertrauen auf beiden
+  Seiten. Sechs gRPC-Handler riefen `middleware.GetTenantID(ctx)` bisher
+  nirgends auf (UpdateCampaign, StartCampaign, PauseCampaign, ArchiveCampaign,
+  GetNextContact, SkipContact, RequeueContact) plus UpdateCallOutcome/
+  DeleteCallOutcome.
+- Fix (nur Code, kein DB-Test — gleicher Split wie Iteration 50/51 bei
+  helpdesk): `CampaignContact` bekommt das fehlende `TenantID`-Feld.
+  `CampaignRepository.Update/UpdateStatus/Delete`,
+  `UpdateContactStatus/SetContactCallback/SkipContact/RequeueContact/
+  IncrementContactCallCount/GetCampaignContactByID` und
+  `OutcomeRepository.GetByID/Update/Delete` nehmen jetzt explizit tenantID und
+  pruefen `RowsAffected()==0` → `ErrCampaignNotFound` bzw.
+  `ErrCampaignContactNotFound`/`ErrOutcomeNotFound`. Die vier
+  Campaign-Lifecycle-Methoden nutzen jetzt `GetByIDForTenant` statt `GetByID`
+  (die Methode existierte bereits, wurde nur nie aufgerufen).
+  `OutcomeRepository.Update` filtert ueber `o.TenantID` (aus einer
+  tenant-gescopten `GetByID` geladen) statt einem zusaetzlichen Parameter,
+  analog zum Campaign-Muster in `internal/biz` (Iteration 42). Kein
+  Proto-Regen noetig — tenant_id war nie ein Request-Feld dieser RPCs, die
+  Handler holen tenantID jetzt aus dem Context.
+- Bewusst NICHT angefasst (Scope-Disziplin): `AddContactsToCampaign` und
+  `Service.GetCampaign` nutzen weiterhin ungescoptes `GetByID` (Doc-Kommentar
+  nennt Letzteres explizit "internal — no tenant scoping"); `ListCampaignContacts`,
+  `GetCampaignDashboard`, `GetAgentDashboard`, `GetContactCalls` nehmen
+  weiterhin eine nackte ID ohne Tenant-Pruefung (reine Lesepfade, nicht Teil
+  des im Backlog benannten Schreib-Bogens) — als moeglicher Folge-Fund im
+  Backlog-Eintrag vermerkt. `refreshCampaignCounts` ist ein vorbestehender
+  No-Op-Stub (loggt nur, ruft nie `UpdateCampaignCounts` auf) — nicht Teil
+  dieser Unit, nicht angefasst.
+- gate: `GOFLAGS=-p=2 go build ./...` gruen | `go vet ./internal/dialer/...
+  ./internal/server/... ./cmd/dialer/...` gruen | `golangci-lint run
+  ./internal/dialer/... ./internal/server/... ./cmd/dialer/...` 0 issues |
+  `go test -count=1 ./internal/dialer/...` gruen (Mock-basiert) |
+  `go test -count=1 ./internal/server/...` gruen (Mock-basiert, kein
+  DB-Test in diesem Commit). Migration: keine (kein neues Feld/Tabelle in der
+  DB — `CampaignContact.TenantID` mappt auf die seit Migration 000119
+  bestehende Spalte). Kein Proto-Regen.
+- offen: fuer Luke — kein DB-backed `tenant_write_test.go` fuer dialer in
+  diesem Commit (naechste Iteration, analog Iteration 51 bei helpdesk); (c)
+  idempotency-Package noch nicht auf Tenant-Tragung im Key-Pfad geprueft; (d)
+  die oben genannten ungescopten Lesepfade (AddContactsToCampaign,
+  ListCampaignContacts, GetCampaignDashboard, GetAgentDashboard,
+  GetContactCalls) als moegliche Folge-Unit vormerken. Backlog-Status bewusst
+  `in_progress` belassen.

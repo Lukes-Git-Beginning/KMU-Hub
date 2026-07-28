@@ -126,34 +126,52 @@ func (r *PostgresCampaignRepository) List(ctx context.Context, tenantID uuid.UUI
 	return campaigns, total, rows.Err()
 }
 
-func (r *PostgresCampaignRepository) Update(ctx context.Context, c *Campaign) error {
+func (r *PostgresCampaignRepository) Update(ctx context.Context, c *Campaign, tenantID uuid.UUID) error {
 	settingsJSON, err := json.Marshal(c.Settings)
 	if err != nil {
 		return fmt.Errorf("marshal campaign settings: %w", err)
 	}
-	_, err = r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaigns
 		 SET name = $1, description = $2, status = $3, mode = $4, settings = $5,
 		     assigned_agent_ids = $6, updated_at = $7, started_at = $8, completed_at = $9
-		 WHERE id = $10`,
+		 WHERE id = $10 AND tenant_id = $11`,
 		c.Name, c.Description, c.Status, c.Mode, settingsJSON,
 		c.AssignedAgentIDs, c.UpdatedAt, c.StartedAt, c.CompletedAt,
-		c.ID,
+		c.ID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignNotFound
+	}
+	return nil
 }
 
-func (r *PostgresCampaignRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE dialer_campaigns SET status = $1, updated_at = NOW() WHERE id = $2`,
-		status, id,
+func (r *PostgresCampaignRepository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE dialer_campaigns SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+		status, id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignNotFound
+	}
+	return nil
 }
 
-func (r *PostgresCampaignRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM dialer_campaigns WHERE id = $1`, id)
-	return err
+func (r *PostgresCampaignRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM dialer_campaigns WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignNotFound
+	}
+	return nil
 }
 
 // AddContacts inserts campaign contacts as a batch, skipping duplicate
@@ -283,51 +301,75 @@ func (r *PostgresCampaignRepository) ListContacts(ctx context.Context, campaignI
 	return result, total, rows.Err()
 }
 
-func (r *PostgresCampaignRepository) UpdateContactStatus(ctx context.Context, id uuid.UUID, status string, outcomeID *uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
+func (r *PostgresCampaignRepository) UpdateContactStatus(ctx context.Context, id, tenantID uuid.UUID, status string, outcomeID *uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts
 		 SET status = $1, outcome_id = $2, updated_at = NOW()
-		 WHERE id = $3`,
-		status, outcomeID, id,
+		 WHERE id = $3 AND tenant_id = $4`,
+		status, outcomeID, id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignContactNotFound
+	}
+	return nil
 }
 
-func (r *PostgresCampaignRepository) SetContactCallback(ctx context.Context, id uuid.UUID, callbackAt time.Time) error {
-	_, err := r.pool.Exec(ctx,
+func (r *PostgresCampaignRepository) SetContactCallback(ctx context.Context, id, tenantID uuid.UUID, callbackAt time.Time) error {
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts
 		 SET status = 'callback', callback_at = $1, updated_at = NOW()
-		 WHERE id = $2`,
-		callbackAt, id,
+		 WHERE id = $2 AND tenant_id = $3`,
+		callbackAt, id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignContactNotFound
+	}
+	return nil
 }
 
-func (r *PostgresCampaignRepository) SkipContact(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
+func (r *PostgresCampaignRepository) SkipContact(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts
 		 SET status = 'skipped', updated_at = NOW()
-		 WHERE id = $1`,
-		id,
+		 WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignContactNotFound
+	}
+	return nil
 }
 
-func (r *PostgresCampaignRepository) RequeueContact(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
+func (r *PostgresCampaignRepository) RequeueContact(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts
 		 SET status = 'pending', outcome_id = NULL, callback_at = NULL, updated_at = NOW()
-		 WHERE id = $1`,
-		id,
+		 WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignContactNotFound
+	}
+	return nil
 }
 
-func (r *PostgresCampaignRepository) GetCampaignContactByID(ctx context.Context, id uuid.UUID) (*CampaignContact, error) {
+func (r *PostgresCampaignRepository) GetCampaignContactByID(ctx context.Context, id, tenantID uuid.UUID) (*CampaignContact, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, campaign_id, contact_id, position, status, outcome_id, notes,
 		        callback_at, last_called_at, call_count, created_at, updated_at
-		 FROM dialer_campaign_contacts WHERE id = $1`, id,
+		 FROM dialer_campaign_contacts WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	cc, err := scanCampaignContact(row)
 	if errors.Is(err, ErrNoContactsAvailable) {
@@ -336,14 +378,20 @@ func (r *PostgresCampaignRepository) GetCampaignContactByID(ctx context.Context,
 	return cc, err
 }
 
-func (r *PostgresCampaignRepository) IncrementContactCallCount(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
+func (r *PostgresCampaignRepository) IncrementContactCallCount(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts
 		 SET call_count = call_count + 1, last_called_at = NOW(), updated_at = NOW()
-		 WHERE id = $1`,
-		id,
+		 WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCampaignContactNotFound
+	}
+	return nil
 }
 
 // GetCampaignStats returns aggregated progress and outcome breakdown for a campaign.
@@ -848,11 +896,11 @@ func (r *PostgresOutcomeRepository) Create(ctx context.Context, o *CallOutcome) 
 	return err
 }
 
-func (r *PostgresOutcomeRepository) GetByID(ctx context.Context, id uuid.UUID) (*CallOutcome, error) {
+func (r *PostgresOutcomeRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*CallOutcome, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, label, color, is_positive, is_callback, is_appointment,
 		        sort_order, is_active, created_at
-		 FROM dialer_call_outcomes WHERE id = $1`, id,
+		 FROM dialer_call_outcomes WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanOutcome(row)
 }
@@ -885,21 +933,36 @@ func (r *PostgresOutcomeRepository) List(ctx context.Context, tenantID uuid.UUID
 }
 
 func (r *PostgresOutcomeRepository) Update(ctx context.Context, o *CallOutcome) error {
-	_, err := r.pool.Exec(ctx,
+	// o.TenantID is populated by a tenant-scoped GetByID before this call — the
+	// predicate here is defense-in-depth, not the only guard, and keeps the
+	// WHERE clause explicit rather than trusting RLS alone.
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_call_outcomes
 		 SET label = $1, color = $2, is_positive = $3, is_callback = $4,
 		     is_appointment = $5, sort_order = $6, is_active = $7
-		 WHERE id = $8`,
+		 WHERE id = $8 AND tenant_id = $9`,
 		o.Label, o.Color, o.IsPositive, o.IsCallback,
 		o.IsAppointment, o.SortOrder, o.IsActive,
-		o.ID,
+		o.ID, o.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrOutcomeNotFound
+	}
+	return nil
 }
 
-func (r *PostgresOutcomeRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM dialer_call_outcomes WHERE id = $1`, id)
-	return err
+func (r *PostgresOutcomeRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM dialer_call_outcomes WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrOutcomeNotFound
+	}
+	return nil
 }
 
 // EnsureDefaults inserts the 4 standard DACH outcomes for a tenant if none exist yet.

@@ -2121,14 +2121,51 @@ units:
       ./internal/helpdesk/...` 0 issues, `go test -count=1 -v
       ./internal/helpdesk/...` komplett gruen (kmuhub_app, kein Skip), alle
       sieben neuen Tests bestaetigt.
-      OFFEN fuer die Fortsetzung: (b) dialer (CampaignRepository.Update/
-      UpdateStatus/Delete, Contact-Queue-Writes UpdateContactStatus/
-      SetContactCallback/SkipContact/RequeueContact/IncrementContactCallCount
-      tragen KEIN tenant_id-Praedikat -- CampaignContact hat nicht mal ein
-      TenantID-Feld im Go-Modell trotz Spalte seit Migration 000119;
-      OutcomeRepository.Update/Delete/GetByID ebenso) ist noch unangefasst;
+      Iteration 52: (b) dialer-Repariertung umgesetzt (nur der Code-Fix, DB-Test
+      noch offen -- gleicher Split wie 50/51 bei helpdesk). Fund war groesser
+      als der Backlog-Eintrag: nicht nur die sechs genannten Schreibmethoden
+      hatten kein tenant_id-Praedikat, sondern auch die LESE-Seite, die davor
+      haengt -- UpdateCampaign/StartCampaign/PauseCampaign/ArchiveCampaign/
+      GetNextContact liefen alle ueber `campaigns.GetByID(ctx, id)` (keine
+      Tenant-Filterung ueberhaupt) und schrieben danach ungescoped weiter, reines
+      RLS-Vertrauen auf beiden Seiten. `CampaignContact` bekam das fehlende
+      `TenantID`-Feld; `CampaignRepository.Update/UpdateStatus/Delete`,
+      `UpdateContactStatus/SetContactCallback/SkipContact/RequeueContact/
+      IncrementContactCallCount/GetCampaignContactByID` und
+      `OutcomeRepository.GetByID/Update/Delete` nehmen jetzt alle explizit
+      tenantID und pruefen RowsAffected()==0 -> ErrCampaignNotFound bzw.
+      ErrCampaignContactNotFound/ErrOutcomeNotFound. Die vier
+      Campaign-Lifecycle-Methoden nutzen jetzt `GetByIDForTenant` statt
+      `GetByID` (bereits vorhanden, nur nie benutzt). tenantID kommt in jedem
+      Fall aus `middleware.GetTenantID(ctx)` im gRPC-Handler (sechs Handler
+      riefen das bisher gar nicht auf: UpdateCampaign, StartCampaign,
+      PauseCampaign, ArchiveCampaign, GetNextContact, SkipContact,
+      RequeueContact, UpdateCallOutcome, DeleteCallOutcome) -- kein Proto-Regen
+      noetig, da tenant_id nie ein Request-Feld war. `OutcomeRepository.Update`
+      filtert ueber `o.TenantID` (aus einer tenant-gescopten GetByID geladen)
+      statt einem zusaetzlichen Parameter, analog zum Campaign-Muster.
+      BEWUSST NICHT angefasst (Scope-Disziplin, sonst waere die Iteration
+      gesprengt): `AddContactsToCampaign` und die interne `Service.GetCampaign`
+      nutzen weiterhin `GetByID` ungescoped (Doc-Kommentar nennt das explizit
+      "internal — no tenant scoping"); `ListCampaignContacts`,
+      `GetCampaignDashboard`, `GetAgentDashboard`, `GetContactCalls` nehmen
+      weiterhin eine nackte ID ohne Tenant-Pruefung entgegen (reine Lesepfade,
+      nicht Teil des in `scope:` benannten Schreib-Bogens) -- offener Fund fuer
+      eine Folge-Unit, siehe `sources` unten. `refreshCampaignCounts` ist
+      ein reiner No-Op-Stub (loggt nur, ruft nie `UpdateCampaignCounts` auf) --
+      vorbestehend, nicht Teil dieser Unit, nicht angefasst.
+      Gate: `GOFLAGS=-p=2 go build ./...` gruen, `go vet ./internal/dialer/...
+      ./internal/server/... ./cmd/dialer/...` gruen, `golangci-lint run
+      ./internal/dialer/... ./internal/server/... ./cmd/dialer/...` 0 issues,
+      `go test -count=1 ./internal/dialer/...` und
+      `go test -count=1 ./internal/server/...` (Mock-basiert, keine DB) gruen.
+      OFFEN fuer die Fortsetzung: kein DB-backed tenant_write_test.go fuer
+      dialer in diesem Commit (naechste Iteration, analog Iteration 51);
       (c) idempotency-Package noch nicht auf Tenant-Tragung im Key-Pfad
-      geprueft. Naechste Iteration knuepft hier an, nicht neu von vorn.
+      geprueft; (d) die oben genannten ungescopten Lesepfade
+      (AddContactsToCampaign, ListCampaignContacts, GetCampaignDashboard,
+      GetAgentDashboard, GetContactCalls) als moegliche Folge-Unit vormerken.
+      Naechste Iteration knuepft hier an, nicht neu von vorn.
     sources:
       - backend/internal/helpdesk/
       - backend/internal/dialer/

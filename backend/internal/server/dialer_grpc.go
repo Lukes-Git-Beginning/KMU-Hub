@@ -149,6 +149,10 @@ func (s *DialerGRPCServer) UpdateCampaign(ctx context.Context, req *dialerv1.Upd
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
 
 	var assignedAgentIDs []uuid.UUID
 	for _, idStr := range req.GetAssignedAgentIds() {
@@ -168,7 +172,7 @@ func (s *DialerGRPCServer) UpdateCampaign(ctx context.Context, req *dialerv1.Upd
 		settings = &cs
 	}
 
-	c, err := s.svc.UpdateCampaign(ctx, id, req.Name, req.Description, settings, assignedAgentIDs)
+	c, err := s.svc.UpdateCampaign(ctx, id, tenantID, req.Name, req.Description, settings, assignedAgentIDs)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -180,7 +184,11 @@ func (s *DialerGRPCServer) StartCampaign(ctx context.Context, req *dialerv1.Star
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
-	c, err := s.svc.StartCampaign(ctx, id)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	c, err := s.svc.StartCampaign(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -192,7 +200,11 @@ func (s *DialerGRPCServer) PauseCampaign(ctx context.Context, req *dialerv1.Paus
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
-	c, err := s.svc.PauseCampaign(ctx, id)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	c, err := s.svc.PauseCampaign(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -204,7 +216,11 @@ func (s *DialerGRPCServer) ArchiveCampaign(ctx context.Context, req *dialerv1.Ar
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
-	if err := s.svc.ArchiveCampaign(ctx, id); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	if err := s.svc.ArchiveCampaign(ctx, id, tenantID); err != nil {
 		return nil, mapDialerError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -253,7 +269,11 @@ func (s *DialerGRPCServer) GetNextContact(ctx context.Context, req *dialerv1.Get
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
-	cc, err := s.svc.GetNextContact(ctx, campaignID)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	cc, err := s.svc.GetNextContact(ctx, campaignID, tenantID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -265,7 +285,11 @@ func (s *DialerGRPCServer) SkipContact(ctx context.Context, req *dialerv1.SkipCo
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_contact_id: %v", err)
 	}
-	if err := s.svc.SkipContact(ctx, id); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	if err := s.svc.SkipContact(ctx, id, tenantID); err != nil {
 		return nil, mapDialerError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -276,7 +300,11 @@ func (s *DialerGRPCServer) RequeueContact(ctx context.Context, req *dialerv1.Req
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_contact_id: %v", err)
 	}
-	if err := s.svc.RequeueContact(ctx, id); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	if err := s.svc.RequeueContact(ctx, id, tenantID); err != nil {
 		return nil, mapDialerError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -534,6 +562,10 @@ func (s *DialerGRPCServer) UpdateCallOutcome(ctx context.Context, req *dialerv1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid outcome_id: %v", err)
 	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
 
 	var sortOrder *int
 	if req.SortOrder != nil {
@@ -541,7 +573,7 @@ func (s *DialerGRPCServer) UpdateCallOutcome(ctx context.Context, req *dialerv1.
 		sortOrder = &so
 	}
 
-	o, err := s.svc.UpdateCallOutcome(ctx, outcomeID, req.Label, req.Color, req.IsPositive, req.IsCallback, req.IsAppointment, sortOrder, req.IsActive)
+	o, err := s.svc.UpdateCallOutcome(ctx, outcomeID, tenantID, req.Label, req.Color, req.IsPositive, req.IsCallback, req.IsAppointment, sortOrder, req.IsActive)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -553,7 +585,11 @@ func (s *DialerGRPCServer) DeleteCallOutcome(ctx context.Context, req *dialerv1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid outcome_id: %v", err)
 	}
-	if err := s.svc.DeleteCallOutcome(ctx, outcomeID); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	if err := s.svc.DeleteCallOutcome(ctx, outcomeID, tenantID); err != nil {
 		return nil, mapDialerError(err)
 	}
 	return &emptypb.Empty{}, nil

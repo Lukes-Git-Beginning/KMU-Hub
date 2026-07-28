@@ -85,6 +85,7 @@ type CampaignSettings struct {
 // CampaignContact represents a contact entry within a campaign queue.
 type CampaignContact struct {
 	ID           uuid.UUID
+	TenantID     uuid.UUID
 	CampaignID   uuid.UUID
 	ContactID    uuid.UUID
 	Position     int
