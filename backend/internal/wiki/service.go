@@ -193,7 +193,7 @@ func (s *Service) UpdateArticle(ctx context.Context, input UpdateArticleInput) (
 			return nil, ErrInvalidContent
 		}
 		// Save current content as version before overwriting
-		latestNum, vErr := s.repo.GetLatestVersionNumber(ctx, article.ID)
+		latestNum, vErr := s.repo.GetLatestVersionNumber(ctx, input.TenantID, article.ID)
 		if vErr != nil {
 			return nil, fmt.Errorf("get version number: %w", vErr)
 		}
@@ -306,18 +306,18 @@ func (s *Service) SearchArticles(ctx context.Context, tenantID uuid.UUID, query 
 // ============================================================================
 
 // ListVersions returns all versions for an article.
-func (s *Service) ListVersions(ctx context.Context, articleID uuid.UUID) ([]*Version, error) {
-	return s.repo.ListVersions(ctx, articleID)
+func (s *Service) ListVersions(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Version, error) {
+	return s.repo.ListVersions(ctx, tenantID, articleID)
 }
 
 // GetVersion returns a specific version.
-func (s *Service) GetVersion(ctx context.Context, versionID uuid.UUID) (*Version, error) {
-	return s.repo.GetVersion(ctx, versionID)
+func (s *Service) GetVersion(ctx context.Context, tenantID, versionID uuid.UUID) (*Version, error) {
+	return s.repo.GetVersion(ctx, tenantID, versionID)
 }
 
 // RestoreVersion restores an article to a previous version's content.
 func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versionID uuid.UUID, editorID uuid.UUID) (*Article, error) {
-	version, err := s.repo.GetVersion(ctx, versionID)
+	version, err := s.repo.GetVersion(ctx, tenantID, versionID)
 	if err != nil {
 		return nil, err
 	}
@@ -365,13 +365,13 @@ func (s *Service) UploadAttachment(ctx context.Context, input UploadInput) (*Att
 }
 
 // ListAttachments returns all attachments for an article.
-func (s *Service) ListAttachments(ctx context.Context, articleID uuid.UUID) ([]*Attachment, error) {
-	return s.repo.ListAttachments(ctx, articleID)
+func (s *Service) ListAttachments(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Attachment, error) {
+	return s.repo.ListAttachments(ctx, tenantID, articleID)
 }
 
 // DeleteAttachment removes an attachment.
-func (s *Service) DeleteAttachment(ctx context.Context, attachmentID uuid.UUID) error {
-	if delErr := s.repo.DeleteAttachment(ctx, attachmentID); delErr != nil {
+func (s *Service) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+	if delErr := s.repo.DeleteAttachment(ctx, tenantID, attachmentID); delErr != nil {
 		return fmt.Errorf("delete attachment: %w", delErr)
 	}
 
@@ -544,12 +544,12 @@ func (s *Service) ListShareTokens(ctx context.Context, tenantID, articleID uuid.
 	if _, err := s.repo.GetArticleByID(ctx, tenantID, articleID); err != nil {
 		return nil, err
 	}
-	return s.repo.ListShareTokensByArticle(ctx, articleID)
+	return s.repo.ListShareTokensByArticle(ctx, tenantID, articleID)
 }
 
 // RevokeShareToken deletes a share token.
 func (s *Service) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
-	if delErr := s.repo.DeleteShareToken(ctx, tokenID); delErr != nil {
+	if delErr := s.repo.DeleteShareToken(ctx, tenantID, tokenID); delErr != nil {
 		return fmt.Errorf("revoke share token: %w", delErr)
 	}
 

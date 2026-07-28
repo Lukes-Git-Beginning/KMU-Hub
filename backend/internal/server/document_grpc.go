@@ -731,7 +731,12 @@ func (s *DocumentGRPCServer) CreateTag(ctx context.Context, req *documentv1.Crea
 }
 
 func (s *DocumentGRPCServer) ListTags(ctx context.Context, req *documentv1.ListTagsRequest) (*documentv1.ListTagsResponse, error) {
-	tags, err := s.tagService.ListTags(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+
+	tags, err := s.tagService.ListTags(ctx, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -745,12 +750,16 @@ func (s *DocumentGRPCServer) ListTags(ctx context.Context, req *documentv1.ListT
 }
 
 func (s *DocumentGRPCServer) DeleteTag(ctx context.Context, req *documentv1.DeleteTagRequest) (*documentv1.DeleteTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tag id")
 	}
 
-	if err := s.tagService.DeleteTag(ctx, id); err != nil {
+	if err := s.tagService.DeleteTag(ctx, tenantID, id); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -758,6 +767,10 @@ func (s *DocumentGRPCServer) DeleteTag(ctx context.Context, req *documentv1.Dele
 }
 
 func (s *DocumentGRPCServer) TagFile(ctx context.Context, req *documentv1.TagFileRequest) (*documentv1.TagFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
@@ -768,7 +781,7 @@ func (s *DocumentGRPCServer) TagFile(ctx context.Context, req *documentv1.TagFil
 		return nil, status.Error(codes.InvalidArgument, "invalid tag_id")
 	}
 
-	if err := s.tagService.TagFile(ctx, fileID, tagID); err != nil {
+	if err := s.tagService.TagFile(ctx, tenantID, fileID, tagID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -776,6 +789,10 @@ func (s *DocumentGRPCServer) TagFile(ctx context.Context, req *documentv1.TagFil
 }
 
 func (s *DocumentGRPCServer) UntagFile(ctx context.Context, req *documentv1.UntagFileRequest) (*documentv1.UntagFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
@@ -786,7 +803,7 @@ func (s *DocumentGRPCServer) UntagFile(ctx context.Context, req *documentv1.Unta
 		return nil, status.Error(codes.InvalidArgument, "invalid tag_id")
 	}
 
-	if err := s.tagService.UntagFile(ctx, fileID, tagID); err != nil {
+	if err := s.tagService.UntagFile(ctx, tenantID, fileID, tagID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 

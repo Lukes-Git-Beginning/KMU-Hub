@@ -219,12 +219,16 @@ func (s *WikiGRPCServer) SearchArticles(ctx context.Context, req *wikiv1.SearchA
 // ============================================================================
 
 func (s *WikiGRPCServer) ListVersions(ctx context.Context, req *wikiv1.ListVersionsRequest) (*wikiv1.ListVersionsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
 	articleID, err := uuid.Parse(req.GetArticleId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
 	}
 
-	versions, err := s.svc.ListVersions(ctx, articleID)
+	versions, err := s.svc.ListVersions(ctx, tenantID, articleID)
 	if err != nil {
 		return nil, mapWikiError(err)
 	}
@@ -237,12 +241,16 @@ func (s *WikiGRPCServer) ListVersions(ctx context.Context, req *wikiv1.ListVersi
 }
 
 func (s *WikiGRPCServer) GetVersion(ctx context.Context, req *wikiv1.GetVersionRequest) (*wikiv1.VersionResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
 	versionID, err := uuid.Parse(req.GetVersionId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid version_id: %v", err)
 	}
 
-	v, err := s.svc.GetVersion(ctx, versionID)
+	v, err := s.svc.GetVersion(ctx, tenantID, versionID)
 	if err != nil {
 		return nil, mapWikiError(err)
 	}
@@ -312,12 +320,16 @@ func (s *WikiGRPCServer) UploadAttachment(ctx context.Context, req *wikiv1.Uploa
 }
 
 func (s *WikiGRPCServer) ListAttachments(ctx context.Context, req *wikiv1.ListAttachmentsRequest) (*wikiv1.ListAttachmentsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
 	articleID, err := uuid.Parse(req.GetArticleId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
 	}
 
-	attachments, err := s.svc.ListAttachments(ctx, articleID)
+	attachments, err := s.svc.ListAttachments(ctx, tenantID, articleID)
 	if err != nil {
 		return nil, mapWikiError(err)
 	}
@@ -330,12 +342,16 @@ func (s *WikiGRPCServer) ListAttachments(ctx context.Context, req *wikiv1.ListAt
 }
 
 func (s *WikiGRPCServer) DeleteAttachment(ctx context.Context, req *wikiv1.DeleteAttachmentRequest) (*wikiv1.DeleteAttachmentResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
 	attachmentID, err := uuid.Parse(req.GetAttachmentId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid attachment_id: %v", err)
 	}
 
-	if err := s.svc.DeleteAttachment(ctx, attachmentID); err != nil {
+	if err := s.svc.DeleteAttachment(ctx, tenantID, attachmentID); err != nil {
 		return nil, mapWikiError(err)
 	}
 	return &wikiv1.DeleteAttachmentResponse{}, nil
@@ -631,6 +647,10 @@ func mapWikiError(err error) error {
 	case errors.Is(err, wiki.ErrVersionNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, wiki.ErrCategoryNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, wiki.ErrAttachmentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, wiki.ErrShareTokenNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, wiki.ErrSlugTaken):
 		return status.Error(codes.AlreadyExists, err.Error())

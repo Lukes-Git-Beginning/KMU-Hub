@@ -1049,6 +1049,7 @@ func (x *SearchArticlesResponse) GetArticles() []*Article {
 type ListVersionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ArticleId     string                 `protobuf:"bytes,1,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1086,6 +1087,13 @@ func (*ListVersionsRequest) Descriptor() ([]byte, []int) {
 func (x *ListVersionsRequest) GetArticleId() string {
 	if x != nil {
 		return x.ArticleId
+	}
+	return ""
+}
+
+func (x *ListVersionsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -1137,6 +1145,7 @@ func (x *ListVersionsResponse) GetVersions() []*Version {
 type GetVersionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	VersionId     string                 `protobuf:"bytes,1,opt,name=version_id,json=versionId,proto3" json:"version_id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1174,6 +1183,13 @@ func (*GetVersionRequest) Descriptor() ([]byte, []int) {
 func (x *GetVersionRequest) GetVersionId() string {
 	if x != nil {
 		return x.VersionId
+	}
+	return ""
+}
+
+func (x *GetVersionRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -1421,6 +1437,7 @@ func (x *AttachmentResponse) GetAttachment() *Attachment {
 type ListAttachmentsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ArticleId     string                 `protobuf:"bytes,1,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1458,6 +1475,13 @@ func (*ListAttachmentsRequest) Descriptor() ([]byte, []int) {
 func (x *ListAttachmentsRequest) GetArticleId() string {
 	if x != nil {
 		return x.ArticleId
+	}
+	return ""
+}
+
+func (x *ListAttachmentsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -1509,6 +1533,7 @@ func (x *ListAttachmentsResponse) GetAttachments() []*Attachment {
 type DeleteAttachmentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AttachmentId  string                 `protobuf:"bytes,1,opt,name=attachment_id,json=attachmentId,proto3" json:"attachment_id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1546,6 +1571,13 @@ func (*DeleteAttachmentRequest) Descriptor() ([]byte, []int) {
 func (x *DeleteAttachmentRequest) GetAttachmentId() string {
 	if x != nil {
 		return x.AttachmentId
+	}
+	return ""
+}
+
+func (x *DeleteAttachmentRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -2448,15 +2480,17 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\"F\n" +
 	"\x16SearchArticlesResponse\x12,\n" +
-	"\barticles\x18\x01 \x03(\v2\x10.wiki.v1.ArticleR\barticles\"4\n" +
+	"\barticles\x18\x01 \x03(\v2\x10.wiki.v1.ArticleR\barticles\"Q\n" +
 	"\x13ListVersionsRequest\x12\x1d\n" +
 	"\n" +
-	"article_id\x18\x01 \x01(\tR\tarticleId\"D\n" +
+	"article_id\x18\x01 \x01(\tR\tarticleId\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"D\n" +
 	"\x14ListVersionsResponse\x12,\n" +
-	"\bversions\x18\x01 \x03(\v2\x10.wiki.v1.VersionR\bversions\"2\n" +
+	"\bversions\x18\x01 \x03(\v2\x10.wiki.v1.VersionR\bversions\"O\n" +
 	"\x11GetVersionRequest\x12\x1d\n" +
 	"\n" +
-	"version_id\x18\x01 \x01(\tR\tversionId\"=\n" +
+	"version_id\x18\x01 \x01(\tR\tversionId\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"=\n" +
 	"\x0fVersionResponse\x12*\n" +
 	"\aversion\x18\x01 \x01(\v2\x10.wiki.v1.VersionR\aversion\"\x8f\x01\n" +
 	"\x15RestoreVersionRequest\x12\x1b\n" +
@@ -2479,14 +2513,16 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\x12AttachmentResponse\x123\n" +
 	"\n" +
 	"attachment\x18\x01 \x01(\v2\x13.wiki.v1.AttachmentR\n" +
-	"attachment\"7\n" +
+	"attachment\"T\n" +
 	"\x16ListAttachmentsRequest\x12\x1d\n" +
 	"\n" +
-	"article_id\x18\x01 \x01(\tR\tarticleId\"P\n" +
+	"article_id\x18\x01 \x01(\tR\tarticleId\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"P\n" +
 	"\x17ListAttachmentsResponse\x125\n" +
-	"\vattachments\x18\x01 \x03(\v2\x13.wiki.v1.AttachmentR\vattachments\">\n" +
+	"\vattachments\x18\x01 \x03(\v2\x13.wiki.v1.AttachmentR\vattachments\"[\n" +
 	"\x17DeleteAttachmentRequest\x12#\n" +
-	"\rattachment_id\x18\x01 \x01(\tR\fattachmentId\"\x1a\n" +
+	"\rattachment_id\x18\x01 \x01(\tR\fattachmentId\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"\x1a\n" +
 	"\x18DeleteAttachmentResponse\"4\n" +
 	"\x15ListCategoriesRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"K\n" +

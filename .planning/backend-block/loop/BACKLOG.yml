@@ -2275,7 +2275,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       document (folder, tag) und wiki. Wiki hat eigene Share-Tokens - dasselbe
       Muster wie in berichte, also derselbe Pruefpunkt: ein fremder Artikel
@@ -2288,6 +2288,31 @@ units:
       - Wiki-Share-Token - fremder Artikel bleibt trotz gueltigem Token unerreichbar
       - tote Writes im selben Commit repariert
       - go build/vet/lint/test gruen
+    notes: >
+      Fund uebernommen aus einer bereits laufenden, nicht committeten Iteration
+      und zu Ende gefuehrt (Build/Vet/Lint/Test liefen vorher noch nicht durch,
+      es fehlte der tenant_write_test.go fuer document/tag). document/tag: Delete/
+      TagFile/UntagFile/List nehmen jetzt tenantID; TagFile insertete
+      document_file_tags bisher OHNE tenant_id -- die Spalte ist seit Migration
+      000114 NOT NULL, jeder TagFile-Call schlug also in Produktion an der
+      Constraint fehl (totes statt degradiertes Feature). GetByID/ListFileTags/
+      ListFilesByTag waren toter Code (keine Aufrufer) -- entfernt statt gefixt.
+      wiki: ListVersions/GetVersion/ListAttachments/DeleteAttachment/
+      ListShareTokensByArticle/DeleteShareToken nehmen jetzt tenantID (Konvention
+      des Pakets: alle WikiGRPCServer-RPCs lesen tenant_id aus dem Request, nicht
+      aus ctx -- neue Felder in wiki.proto ListVersionsRequest/GetVersionRequest/
+      ListAttachmentsRequest/DeleteAttachmentRequest, Gateway setzt sie aus
+      middleware.GetTenantID). DeleteAttachment/DeleteShareToken loeschten bisher
+      nur per ID ohne tenant_id-Praedikat und ohne RowsAffected-Check -- RLS
+      WITH CHECK blockte den fremden Delete zwar auf DB-Ebene, aber der Repo-Code
+      meldete trotzdem Erfolg (silent no-op). Jetzt: tenant_id-Praedikat +
+      RowsAffected-Check -> ErrAttachmentNotFound/ErrShareTokenNotFound.
+      GetShareToken/GetAttachment waren toter Code -- entfernt.
+      "Wiki-Share-Token - fremder Artikel bleibt trotz gueltigem Token
+      unerreichbar" (done_when) ist NICHT pruefbar: es gibt gar keinen
+      oeffentlichen Share-Token-Resolve-Endpunkt in wiki (nur Create/List/
+      Revoke, alle hinter RequirePermission) -- anders als im berichte-Modul.
+      Kein Code-Fix noetig, nur hier dokumentiert.
 
   - id: wp-branchen-module
     phase: 3

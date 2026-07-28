@@ -354,7 +354,6 @@ func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request)
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	_ = tenantID // validated; article_id already scopes to tenant via FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -368,6 +367,7 @@ func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request)
 
 	resp, err := client.ListVersions(r.Context(), &wikiv1.ListVersionsRequest{
 		ArticleId: id,
+		TenantId:  tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -422,7 +422,6 @@ func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Reque
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	_ = tenantID // validated; article_id already scopes to tenant via FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -436,6 +435,7 @@ func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Reque
 
 	resp, err := client.ListAttachments(r.Context(), &wikiv1.ListAttachmentsRequest{
 		ArticleId: id,
+		TenantId:  tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -491,7 +491,6 @@ func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Requ
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	_ = tenantID // validated; attachment_id already scopes to tenant via article FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -505,6 +504,7 @@ func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Requ
 
 	_, err = client.DeleteAttachment(r.Context(), &wikiv1.DeleteAttachmentRequest{
 		AttachmentId: attachmentID,
+		TenantId:     tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -747,7 +747,6 @@ func (wr *WikiRoutes) HandleGetVersion(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	_ = tenantID // version_id scopes to article which scopes to tenant
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -761,6 +760,7 @@ func (wr *WikiRoutes) HandleGetVersion(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.GetVersion(r.Context(), &wikiv1.GetVersionRequest{
 		VersionId: id,
+		TenantId:  tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

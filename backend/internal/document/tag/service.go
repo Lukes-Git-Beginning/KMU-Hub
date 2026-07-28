@@ -68,14 +68,15 @@ func (s *Service) CreateTag(ctx context.Context, name, color string, userID uuid
 	return tag, nil
 }
 
-// ListTags returns all tags ordered by name.
-func (s *Service) ListTags(ctx context.Context) ([]*models.DocumentTag, error) {
-	return s.repo.List(ctx)
+// ListTags returns all tags for the tenant ordered by name.
+func (s *Service) ListTags(ctx context.Context, tenantID uuid.UUID) ([]*models.DocumentTag, error) {
+	return s.repo.List(ctx, tenantID)
 }
 
-// DeleteTag removes a tag by ID. Cascade deletes file-tag associations via FK.
-func (s *Service) DeleteTag(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
+// DeleteTag removes a tag scoped to the tenant. Cascade deletes file-tag
+// associations via FK.
+func (s *Service) DeleteTag(ctx context.Context, tenantID, id uuid.UUID) error {
+	if err := s.repo.Delete(ctx, tenantID, id); err != nil {
 		return err
 	}
 
@@ -87,16 +88,11 @@ func (s *Service) DeleteTag(ctx context.Context, id uuid.UUID) error {
 }
 
 // TagFile creates a file-tag association. Idempotent -- no error if already tagged.
-func (s *Service) TagFile(ctx context.Context, fileID, tagID uuid.UUID) error {
-	return s.repo.TagFile(ctx, fileID, tagID)
+func (s *Service) TagFile(ctx context.Context, tenantID, fileID, tagID uuid.UUID) error {
+	return s.repo.TagFile(ctx, tenantID, fileID, tagID)
 }
 
 // UntagFile removes a file-tag association.
-func (s *Service) UntagFile(ctx context.Context, fileID, tagID uuid.UUID) error {
-	return s.repo.UntagFile(ctx, fileID, tagID)
-}
-
-// ListFileTags returns all tags associated with a given file.
-func (s *Service) ListFileTags(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentTag, error) {
-	return s.repo.ListFileTags(ctx, fileID)
+func (s *Service) UntagFile(ctx context.Context, tenantID, fileID, tagID uuid.UUID) error {
+	return s.repo.UntagFile(ctx, tenantID, fileID, tagID)
 }
