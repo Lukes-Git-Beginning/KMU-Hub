@@ -887,7 +887,7 @@ func (s *Service) BookInventurDifferences(ctx context.Context, input BookInventu
 		return nil, ErrInventurAlreadyCompleted
 	}
 
-	counts, err := s.repo.ListInventurCounts(ctx, input.SessionID)
+	counts, err := s.repo.ListInventurCounts(ctx, input.TenantID, input.SessionID)
 	if err != nil {
 		return nil, fmt.Errorf("list counts for booking: %w", err)
 	}

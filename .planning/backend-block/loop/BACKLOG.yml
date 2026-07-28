@@ -2319,7 +2319,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 56 — produktion/inventar/fuhrpark, ein Dead-Read gefunden+repariert
     scope: >
       Die kleineren Branchenmodule mit je einem SeedRow-Isolationstest:
       produktion, inventar, fuhrpark, schichten, rapporte, vertraege,
@@ -2334,11 +2334,53 @@ units:
       genannten Reihenfolge ab, committe nach jeweils drei bis vier Modulen und
       leg fuer den Rest eine Folge-Unit `wp-branchen-module-2` an, bevor du
       aufhoerst - sonst weiss die naechste Iteration nicht, wo du warst.
+      ERLEDIGT (dieser Teil) Iteration 56: produktion, inventar, fuhrpark.
+      Alle drei Module bauen CreateX/UpdateX bereits konsequent auf
+      input.TenantID -> struct.TenantID -> SQL-Parameter, kein toter Write
+      gefunden. Ein realer Fund in inventar: `ListInventurCounts` filterte nur
+      auf `session_id`, kein `tenant_id`-Praedikat — vom RLS-FORCE-Policy
+      abgefangen, aber gegen die Projektregel "jeder SELECT tenant-gescoped"
+      verstossend UND der einzige Aufrufer (`BookInventurDifferences`,
+      Buchungspfad) haette bei fehlerhaftem RLS-Setup fremde Zaehl-Zeilen in
+      die Bestandsbuchung gezogen. Signatur um `tenantID` erweitert
+      (Interface + Postgres-Impl + Service-Call + Mock in service_test.go),
+      Test deckt das jetzt ab. Rest der zehn Module in `wp-branchen-module-2`.
     done_when:
       - tenant_write_test.go je bearbeitetem Modul nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts
       - tote Writes im selben Commit repariert
       - Folge-Unit fuer die nicht geschafften Module angelegt
+      - go build/vet/lint/test gruen
+
+  - id: wp-branchen-module-2
+    phase: 3
+    service: querschnitt
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Rest der Branchenmodule aus wp-branchen-module: schichten, rapporte,
+      vertraege, vermietung, formulare, caldav, automation. Gleiches Muster
+      wie in wp-branchen-module — echter Repo-Write ueber ctx statt
+      testutil.SeedRow, damit ein vergessenes tenant_id auffliegt statt vom
+      System-Context-Seed verdeckt zu werden.
+    sources:
+      - backend/internal/schichten/
+      - backend/internal/rapporte/
+      - backend/internal/vertraege/
+      - backend/internal/vermietung/
+      - backend/internal/formulare/
+      - backend/internal/caldav/
+      - backend/internal/automation/
+    notes: >
+      Sieben Module — wieder zu viel fuer eine Iteration. In der genannten
+      Reihenfolge abarbeiten, nach drei bis vier committen und den Rest in
+      `wp-branchen-module-3` weiterreichen, bevor du aufhoerst.
+    done_when:
+      - tenant_write_test.go je bearbeitetem Modul nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
+      - Folge-Unit fuer nicht geschaffte Module angelegt (falls noetig)
       - go build/vet/lint/test gruen
 
   - id: wp-testutil-guard

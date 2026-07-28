@@ -4120,3 +4120,61 @@ bleibt.
 - offen: fuer Luke — `kmuhub_app`-Passwort laeuft weiterhin zwischen
   Iterationen ab (jetzt fuenftes Mal); ein laenger gueltiges Passwort oder
   ein Docker-Compose-Fixup wuerde das beheben (betrifft nur lokale Dev-DB).
+
+## Iteration 56 — wp-branchen-module — done (3/10 Module) — 2026-07-28
+
+- Verify-Vorspann: Commit `bcd5a485` (Iteration 55, Journal-only) geprueft —
+  kein Code-Diff, nichts zu pruefen.
+- Gewaehlt: `wp-branchen-module` (naechste offene Unit in Datei-Reihenfolge,
+  keine deps, phase:3 — kein Verstoss gegen das Phase-4-Verbot, das nur
+  Branchen-BE-*Feature*-Arbeit meint, nicht Tenant-Scoping-Haertung).
+- Abgearbeitet in der vorgegebenen Reihenfolge: produktion, inventar,
+  fuhrpark (3 von 10 — "drei bis vier" laut Backlog-Note). Folge-Unit
+  `wp-branchen-module-2` fuer die restlichen sieben (schichten, rapporte,
+  vertraege, vermietung, formulare, caldav, automation) in BACKLOG.yml
+  angelegt.
+- Muster: `tenant_write_test.go` je Modul, das echte
+  `PostgresRepository`-Schreibmethoden unter `ctxA`/`ctxB` aufruft (nicht
+  `testutil.SeedRow`, das System-Context nutzt und damit App-Code umgeht) —
+  komplementaer zu den bereits vorhandenen `tenant_isolation_phase2_test.go`,
+  die nur RLS-SELECT auf handgeseedeten Zeilen beweisen.
+- Befund: alle drei Module verdrahten `input.TenantID -> struct.TenantID ->
+  SQL-Parameter` bereits konsequent durch den Gateway (middleware.GetTenantID)
+  -> gRPC-Request -> Service-Input -> Repo-Insert. Kein toter Write gefunden
+  (INSERT-Spaltenlisten vollstaendig, UPDATE/DELETE mit tenant_id-Praedikat).
+- Ein realer Fund trotzdem: `inventar.PostgresRepository.ListInventurCounts`
+  filterte nur auf `session_id`, ganz ohne `tenant_id`-Praedikat — verstoesst
+  gegen die Projektregel "jeder SELECT tenant-gescoped" und war nur durch
+  RLS' `FORCE ROW LEVEL SECURITY` abgedeckt, nicht durch die Query selbst.
+  Einziger direkter Aufrufer ist `BookInventurDifferences` (Bestandsbuchung
+  aus einer abgeschlossenen Inventur) — bei einem RLS-Fehlkonfigurations-Fall
+  waere das der Pfad, ueber den fremde Zaehl-Zeilen in eine Lagerbuchung
+  gezogen wuerden. Signatur um `tenantID` erweitert: Interface
+  (`repository.go`), Postgres-Impl + interner Aufruf aus
+  `GetInventurSession` (`postgres_repository.go`), Service-Call
+  (`service.go`), Mock-Repo (`service_test.go`). Neuer Testfall in
+  `tenant_write_test.go` ruft `ListInventurCounts` explizit mit fremdem
+  Tenant-Ctx auf und erwartet 0 Zeilen trotz bekannter `session_id`.
+- Nicht angefasst: `fuhrpark.CreateTripLog`/`UpdateTripLog` lesen die
+  gerade geschriebene Zeile teils ohne (Create) bzw. mit (Update)
+  `tenant_id`-Praedikat zurueck — das Create-Refetch direkt nach dem eigenen
+  INSERT in derselben ctx ist kein Leck (RLS filtert ohnehin auf die
+  Verbindung), nur redundant inkonsistent mit dem Rest des Musters. Kein
+  Fix in dieser Iteration (kein Sicherheitsbefund, nur Stilabweichung) —
+  falls das Modul spaeter ohnehin angefasst wird, mitziehen.
+- gate: `GOFLAGS=-p=2 go build ./...` gruen (kompletter Repo-Build, wegen
+  Interface-Signaturaenderung in `inventar.Repository`) | `go vet
+  ./internal/produktion/... ./internal/inventar/... ./internal/fuhrpark/...`
+  gruen | `golangci-lint run --config .golangci.yml
+  ./internal/produktion/... ./internal/inventar/... ./internal/fuhrpark/...`
+  0 issues (ein `misspell`-Fund auf deutschem Testtext behoben, kein
+  `forvar`-Copy in neuen Testschleifen — Go 1.25 braucht das nicht mehr) |
+  `kmuhub_app`-Passwort diesmal OHNE Reset gueltig | `go test -count=1 -v
+  ./internal/produktion/...` gruen inkl. `TestProduktionWrites_LandInCallerTenant`
+  | `go test -count=1 -v ./internal/inventar/...` gruen inkl.
+  `TestInventarWrites_LandInCallerTenant` | `go test -count=1 -v
+  ./internal/fuhrpark/...` gruen inkl. `TestFuhrparkWrites_LandInCallerTenant`.
+  Migration: n.a. Proto: n.a. (keine Route/RPC angefasst, nur interne
+  Repo-Signatur). RLS-Smoke: n.a. explizit — durch die drei neuen
+  Write-Tests selbst belegt (eigener Tenant sieht die Zeile, fremder nicht).
+- offen: fuer Luke — sieben Module warten in `wp-branchen-module-2`.

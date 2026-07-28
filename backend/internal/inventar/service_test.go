@@ -241,7 +241,7 @@ func (m *mockRepository) UpsertInventurCount(_ context.Context, count *InventurC
 	return nil
 }
 
-func (m *mockRepository) ListInventurCounts(_ context.Context, sessionID uuid.UUID) ([]*InventurCount, error) {
+func (m *mockRepository) ListInventurCounts(_ context.Context, tenantID, sessionID uuid.UUID) ([]*InventurCount, error) {
 	return nil, nil
 }
 
