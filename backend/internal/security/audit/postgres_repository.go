@@ -61,12 +61,21 @@ func (r *PostgresRepository) Create(ctx context.Context, entry *models.AuditEntr
 		entry.Timestamp = time.Now().UTC()
 	}
 
+	// ip_address is a nullable INET column; an empty string is not valid INET
+	// input and fails the insert (SQLSTATE 22P02). Callers that don't have a
+	// client IP (e.g. the CreateAuditEntry RPC when the caller omits it) pass
+	// the model's zero value, so normalize it to SQL NULL here.
+	var ipAddress any
+	if entry.IPAddress != "" {
+		ipAddress = entry.IPAddress
+	}
+
 	_, err = tx.Exec(ctx,
 		`INSERT INTO audit_log (id, tenant_id, timestamp, user_id, action, target, target_type, details, ip_address, user_agent, result, previous_hash, entry_hash)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		entry.ID, entry.TenantID, entry.Timestamp, entry.UserID, entry.Action,
 		entry.Target, entry.TargetType, entry.Details,
-		entry.IPAddress, entry.UserAgent, entry.Result,
+		ipAddress, entry.UserAgent, entry.Result,
 		entry.PreviousHash, entry.EntryHash,
 	)
 	if err != nil {

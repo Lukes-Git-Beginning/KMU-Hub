@@ -29,6 +29,9 @@ const (
 	WorkTimeStatusCompleted          WorkTimeEntryStatus = "completed"
 	WorkTimeStatusCorrectionPending  WorkTimeEntryStatus = "correction_pending"
 	WorkTimeStatusCorrectionApproved WorkTimeEntryStatus = "correction_approved"
+	// WorkTimeStatusSuperseded marks an original entry that an approved correction
+	// replaced. It is kept for the audit trail but counts towards no balance.
+	WorkTimeStatusSuperseded WorkTimeEntryStatus = "superseded"
 )
 
 // HRContractType represents the type of employment contract.
@@ -203,6 +206,7 @@ type HRWorkTimeEntry struct {
 // HRBreakEntry represents a break period within a work time entry.
 type HRBreakEntry struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	WorkTimeEntryID uuid.UUID  `json:"work_time_entry_id"`
 	StartTime       time.Time  `json:"start_time"`
 	EndTime         *time.Time `json:"end_time,omitempty"`

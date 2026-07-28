@@ -32,6 +32,13 @@ func hrMarshalSlice[T proto.Message](msgs []T) ([]json.RawMessage, error) {
 	return parts, nil
 }
 
+// hrMarshalProto marshals a single proto message the same way, for envelopes
+// that carry one entity next to other fields (e.g. {"statement": {...},
+// "transactions": [...]}).
+func hrMarshalProto[T proto.Message](msg T) (json.RawMessage, error) {
+	return cannedResponseMarshaler.Marshal(msg)
+}
+
 // HRRoutes handles HTTP routes for the HR backend service.
 // HR services run on the same gRPC server as Finance (the "biz" binary),
 // so ServiceName returns "biz" to reuse the existing connection.
@@ -98,6 +105,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/submit", h.HandleSubmitWeek)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/approve", h.HandleApproveWeek)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reject", h.HandleRejectWeek)
+		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reopen", h.HandleReopenWeek)
 		// Time categories
 		r.With(middleware.RequirePermission("hr:time_category", "read")).Get("/categories", h.HandleListTimeCategories)
 		r.With(middleware.RequirePermission("hr:time_category", "write")).Post("/categories", h.HandleCreateTimeCategory)
@@ -134,6 +142,13 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}/documents", h.HandleListEmployeeDocuments)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/{id}/documents", h.HandleUploadEmployeeDocument)
+	})
+
+	// Document categories — tenant master data, not an employee attribute, so
+	// they hang off /hr and not off /hr/employees/{id}.
+	r.Route("/api/v1/hr/document-categories", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("hr", "read")).Get("/", h.HandleListDocumentCategories)
 	})
 
 	// HR settings (admin only)
@@ -1099,6 +1114,30 @@ func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Re
 	response.ProtoList(w, http.StatusOK, resp.Documents)
 }
 
+func (h *HRRoutes) HandleListDocumentCategories(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	resp, err := client.ListDocumentCategories(r.Context(), &hrv1.ListDocumentCategoriesReq{
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.ProtoListWrapped(w, http.StatusOK, "categories", resp.Categories, nil)
+}
+
 type uploadDocumentHTTPReq struct {
 	CategoryID string `json:"category_id" validate:"omitempty,uuid"`
 	FileID     string `json:"file_id"     validate:"omitempty,uuid"`
@@ -1619,6 +1658,48 @@ func (h *HRRoutes) HandleRejectWeek(w http.ResponseWriter, r *http.Request) {
 		EmployeeId:      req.EmployeeID,
 		WeekStart:       req.WeekStart,
 		RejectionReason: req.RejectionReason,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusOK, resp.WeekApproval)
+}
+
+type reopenWeekHTTPReq struct {
+	EmployeeID string `json:"employee_id" validate:"required,uuid"`
+	WeekStart  string `json:"week_start"  validate:"required"`
+	Reason     string `json:"reason"`
+}
+
+// HandleReopenWeek unlocks a submitted or approved week for corrections.
+// POST /api/v1/hr/time/weeks/reopen
+func (h *HRRoutes) HandleReopenWeek(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	approverID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[reopenWeekHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.ReopenWeek(r.Context(), &hrv1.ReopenWeekReq{
+		TenantId:   tenantID,
+		ApproverId: approverID,
+		EmployeeId: req.EmployeeID,
+		WeekStart:  req.WeekStart,
+		Reason:     req.Reason,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

@@ -118,7 +118,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	// Get task number
 	var taskNumber int
 	if input.ProjectID != nil {
-		num, err := s.repo.GetNextTaskNumber(ctx, *input.ProjectID)
+		num, err := s.repo.GetNextTaskNumber(ctx, input.TenantID, *input.ProjectID)
 		if err != nil {
 			return nil, fmt.Errorf("task number: %w", err)
 		}
@@ -401,7 +401,7 @@ func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newS
 		return statusErr
 	}
 
-	if moveErr := s.repo.MoveTask(ctx, taskID, newStatusID, newSortOrder); moveErr != nil {
+	if moveErr := s.repo.MoveTask(ctx, tenantID, taskID, newStatusID, newSortOrder); moveErr != nil {
 		return moveErr
 	}
 
@@ -558,8 +558,8 @@ func (s *Service) CreateDependency(ctx context.Context, input DepInput) (*models
 }
 
 // DeleteDependency removes a task dependency
-func (s *Service) DeleteDependency(ctx context.Context, depID uuid.UUID) error {
-	return s.repo.DeleteDependency(ctx, depID)
+func (s *Service) DeleteDependency(ctx context.Context, tenantID, depID uuid.UUID) error {
+	return s.repo.DeleteDependency(ctx, tenantID, depID)
 }
 
 // ListMyTasks returns tasks assigned to or created by the user, scoped to the given tenant.
@@ -570,7 +570,7 @@ func (s *Service) ListMyTasks(ctx context.Context, tenantID, userID uuid.UUID, f
 }
 
 // CreateFromTemplate copies all tasks from a source project into a target project
-func (s *Service) CreateFromTemplate(ctx context.Context, sourceProjectID, targetProjectID uuid.UUID, actorID uuid.UUID) error {
+func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjectID, targetProjectID uuid.UUID, actorID uuid.UUID) error {
 	// Get all tasks from source project (ordered by depth ASC to process parents first)
 	sourceTasks, err := s.repo.ListByProject(ctx, sourceProjectID)
 	if err != nil {
@@ -586,7 +586,7 @@ func (s *Service) CreateFromTemplate(ctx context.Context, sourceProjectID, targe
 	now := time.Now()
 
 	for _, src := range sourceTasks {
-		taskNumber, numErr := s.repo.GetNextTaskNumber(ctx, targetProjectID)
+		taskNumber, numErr := s.repo.GetNextTaskNumber(ctx, tenantID, targetProjectID)
 		if numErr != nil {
 			return fmt.Errorf("get task number: %w", numErr)
 		}

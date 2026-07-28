@@ -267,9 +267,15 @@ func (s *AutomationGRPCServer) DisableAutomation(ctx context.Context, req *autom
 // ============================================================================
 
 func (s *AutomationGRPCServer) ListExecutions(ctx context.Context, req *automationv1.ListExecutionsRequest) (*automationv1.ListExecutionsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	filter := workflow.ExecutionFilter{
-		Limit:  int(req.GetLimit()),
-		Offset: int(req.GetOffset()),
+		TenantID: tenantID,
+		Limit:    int(req.GetLimit()),
+		Offset:   int(req.GetOffset()),
 	}
 
 	if req.GetAutomationId() != "" {
@@ -302,12 +308,17 @@ func (s *AutomationGRPCServer) ListExecutions(ctx context.Context, req *automati
 }
 
 func (s *AutomationGRPCServer) GetExecution(ctx context.Context, req *automationv1.GetExecutionRequest) (*automationv1.GetExecutionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	id, err := uuid.Parse(req.GetExecutionId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid execution_id: %v", err)
 	}
 
-	exec, err := s.svc.GetExecution(ctx, id)
+	exec, err := s.svc.GetExecution(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDomainError(err)
 	}

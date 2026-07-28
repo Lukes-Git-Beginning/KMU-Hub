@@ -64,7 +64,12 @@ func (s *Service) GetSecret(ctx context.Context, keyName string) (string, error)
 		return "", ErrEmptyKeyName
 	}
 
-	secret, err := s.repo.GetByKeyName(ctx, keyName)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return "", fmt.Errorf("vault: failed to determine tenant: %w", err)
+	}
+
+	secret, err := s.repo.GetByKeyName(ctx, tenantID, keyName)
 	if err != nil {
 		return "", err
 	}
@@ -88,6 +93,11 @@ func (s *Service) SetSecret(ctx context.Context, keyName, plaintext, description
 		return ErrEmptyPayload
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return fmt.Errorf("vault: failed to determine tenant: %w", err)
+	}
+
 	encrypted, err := Encrypt([]byte(plaintext), s.vaultKey)
 	if err != nil {
 		return fmt.Errorf("vault: failed to encrypt secret %q: %w", keyName, err)
@@ -96,7 +106,7 @@ func (s *Service) SetSecret(ctx context.Context, keyName, plaintext, description
 	now := time.Now().UTC()
 
 	// Check if secret already exists
-	existing, err := s.repo.GetByKeyName(ctx, keyName)
+	existing, err := s.repo.GetByKeyName(ctx, tenantID, keyName)
 	if err != nil && !errors.Is(err, ErrSecretNotFound) {
 		return err
 	}
@@ -110,11 +120,6 @@ func (s *Service) SetSecret(ctx context.Context, keyName, plaintext, description
 		}
 		slog.Info("vault secret updated", "key_name", keyName)
 		return nil
-	}
-
-	tenantID, err := middleware.GetTenantID(ctx)
-	if err != nil {
-		return fmt.Errorf("vault: failed to determine tenant: %w", err)
 	}
 
 	secret := &models.VaultSecret{
@@ -139,7 +144,12 @@ func (s *Service) SetSecret(ctx context.Context, keyName, plaintext, description
 
 // ListSecrets returns metadata for all vault secrets without decrypted values.
 func (s *Service) ListSecrets(ctx context.Context) ([]*models.VaultSecret, error) {
-	secrets, err := s.repo.List(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("vault: failed to determine tenant: %w", err)
+	}
+
+	secrets, err := s.repo.List(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +160,12 @@ func (s *Service) ListSecrets(ctx context.Context) ([]*models.VaultSecret, error
 
 // DeleteSecret removes a vault secret by ID.
 func (s *Service) DeleteSecret(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return fmt.Errorf("vault: failed to determine tenant: %w", err)
+	}
+
+	if err := s.repo.Delete(ctx, tenantID, id); err != nil {
 		return err
 	}
 
@@ -166,7 +181,12 @@ func (s *Service) DeleteByKeyName(ctx context.Context, keyName string) error {
 		return ErrEmptyKeyName
 	}
 
-	secret, err := s.repo.GetByKeyName(ctx, keyName)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return fmt.Errorf("vault: failed to determine tenant: %w", err)
+	}
+
+	secret, err := s.repo.GetByKeyName(ctx, tenantID, keyName)
 	if err != nil {
 		if errors.Is(err, ErrSecretNotFound) {
 			// Already gone — treat as success.
@@ -175,7 +195,7 @@ func (s *Service) DeleteByKeyName(ctx context.Context, keyName string) error {
 		return err
 	}
 
-	if err := s.repo.Delete(ctx, secret.ID); err != nil {
+	if err := s.repo.Delete(ctx, tenantID, secret.ID); err != nil {
 		return err
 	}
 

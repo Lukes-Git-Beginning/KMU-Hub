@@ -18,6 +18,8 @@ type EmailClient interface {
 	ListMessages(ctx context.Context, userID uuid.UUID, since time.Time) ([]EmailMessageData, error)
 	// SendReply sends a reply to an email thread.
 	SendReply(ctx context.Context, threadID string, userID uuid.UUID, body string) error
+	// ForwardEmail forwards an email message to a new recipient with an optional note.
+	ForwardEmail(ctx context.Context, messageID string, userID uuid.UUID, to string, note string) error
 	// MarkRead marks an email thread as read.
 	MarkRead(ctx context.Context, threadID string, userID uuid.UUID) error
 }
@@ -97,6 +99,14 @@ func (a *EmailAdapter) HandleReply(ctx context.Context, messageID uuid.UUID, use
 		return fmt.Errorf("email adapter: client not configured")
 	}
 	return a.client.SendReply(ctx, messageID.String(), userID, body)
+}
+
+// HandleForward forwards an email message to a new recipient via the email service.
+func (a *EmailAdapter) HandleForward(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error {
+	if a.client == nil {
+		return fmt.Errorf("email adapter: client not configured")
+	}
+	return a.client.ForwardEmail(ctx, messageID.String(), userID, to, note)
 }
 
 // MarkReadOnSource marks an email thread as read on the email service.

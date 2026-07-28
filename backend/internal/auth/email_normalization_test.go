@@ -50,7 +50,7 @@ func TestService_CreateInvitation_CaseInsensitiveDuplicate(t *testing.T) {
 	svc, repo := newTestService()
 	createTestUser(repo, "existing@example.com", "pass", true)
 
-	inv, token, err := svc.CreateInvitation(context.Background(), "EXISTING@Example.com", "member", uuid.New())
+	inv, token, err := svc.CreateInvitation(context.Background(), testInviteTenant, "EXISTING@Example.com", "member", uuid.New())
 	assert.ErrorIs(t, err, ErrUserExists)
 	assert.Nil(t, inv)
 	assert.Empty(t, token)
@@ -59,7 +59,7 @@ func TestService_CreateInvitation_CaseInsensitiveDuplicate(t *testing.T) {
 func TestService_CreateInvitation_StoresLowercaseEmail(t *testing.T) {
 	svc, _ := newTestService()
 
-	inv, token, err := svc.CreateInvitation(context.Background(), " New@Example.COM ", "member", uuid.New())
+	inv, token, err := svc.CreateInvitation(context.Background(), testInviteTenant, " New@Example.COM ", "member", uuid.New())
 	require.NoError(t, err)
 	require.NotNil(t, inv)
 	assert.NotEmpty(t, token)

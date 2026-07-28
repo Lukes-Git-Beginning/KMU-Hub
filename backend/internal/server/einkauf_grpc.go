@@ -465,6 +465,23 @@ func (s *EinkaufGRPCServer) SubmitPO(ctx context.Context, req *einkaufv1.SubmitP
 	return &einkaufv1.POResponse{Po: poToProto(po)}, nil
 }
 
+func (s *EinkaufGRPCServer) CancelPO(ctx context.Context, req *einkaufv1.CancelPORequest) (*einkaufv1.POResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	poID, err := uuid.Parse(req.GetPoId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid po_id: %v", err)
+	}
+
+	po, err := s.svc.CancelPO(ctx, tenantID, poID)
+	if err != nil {
+		return nil, mapEinkaufError(err)
+	}
+	return &einkaufv1.POResponse{Po: poToProto(po)}, nil
+}
+
 func (s *EinkaufGRPCServer) ReceiveGoods(ctx context.Context, req *einkaufv1.ReceiveGoodsRequest) (*einkaufv1.POResponse, error) {
 	tenantID, err := uuid.Parse(req.GetTenantId())
 	if err != nil {
@@ -509,37 +526,6 @@ func (s *EinkaufGRPCServer) PartialReceive(ctx context.Context, req *einkaufv1.P
 		return nil, mapEinkaufError(err)
 	}
 	return &einkaufv1.POResponse{Po: poToProto(po)}, nil
-}
-
-func (s *EinkaufGRPCServer) ExportPO(ctx context.Context, req *einkaufv1.ExportPORequest) (*einkaufv1.ExportPOResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
-	}
-	poID, err := uuid.Parse(req.GetPoId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid po_id: %v", err)
-	}
-
-	format := req.GetFormat()
-	if format == "" {
-		format = "pdf"
-	}
-
-	// ExportPO currently returns the PO data only; rendering to PDF/CSV is a
-	// follow-up task. The gateway will receive an empty payload with correct headers.
-	po, err := s.svc.ExportPO(ctx, tenantID, poID, format)
-	if err != nil {
-		return nil, mapEinkaufError(err)
-	}
-
-	// Stub: return PO number as plain filename, no binary payload yet.
-	_ = po
-	return &einkaufv1.ExportPOResponse{
-		Payload:     []byte{},
-		ContentType: "application/octet-stream",
-		Filename:    "po." + format,
-	}, nil
 }
 
 // ============================================================================
@@ -644,6 +630,8 @@ func mapEinkaufError(err error) error {
 	case errors.Is(err, einkauf.ErrPONotSubmittable):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, einkauf.ErrPONotReceivable):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, einkauf.ErrPONotCancellable):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, einkauf.ErrInvalidQuantity):
 		return status.Error(codes.InvalidArgument, err.Error())

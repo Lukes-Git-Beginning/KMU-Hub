@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -17,6 +18,23 @@ const (
 var ValidPlatforms = map[string]bool{
 	PlatformTeams: true,
 	PlatformSlack: true,
+}
+
+// ConnectionProber is implemented by platform clients that can verify their
+// credentials against the platform without writing anything into a channel.
+//
+// It is deliberately separate from PlatformPoster: the admin-facing connection
+// test must not post a synthetic message into a customer channel just to learn
+// whether a token is valid, and PostNotification needs a channel mapping the
+// test does not have.
+type ConnectionProber interface {
+	ProbeConnection(ctx context.Context) (*ProbeResult, error)
+}
+
+// ProbeResult carries the identity the credentials resolved to, so the admin
+// sees which bot/app answered instead of a bare "ok".
+type ProbeResult struct {
+	Detail string
 }
 
 // DeliveryStatus constants for delivery log entries.

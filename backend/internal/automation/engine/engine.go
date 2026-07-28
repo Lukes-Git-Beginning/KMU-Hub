@@ -164,7 +164,7 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 	var condConfig models.ConditionConfig
 	if len(auto.Conditions) > 0 {
 		if err := json.Unmarshal(auto.Conditions, &condConfig); err != nil {
-			we.logger.LogConditionError(ctx, executionID, err)
+			we.logger.LogConditionError(ctx, executionID, auto.TenantID, err)
 			return fmt.Errorf("unmarshal conditions: %w", err)
 		}
 	}
@@ -172,12 +172,12 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 	// Evaluate conditions
 	condResult, err := we.condEvaluator.Evaluate(ctx, condConfig, env)
 	if err != nil {
-		we.logger.LogConditionError(ctx, executionID, err)
+		we.logger.LogConditionError(ctx, executionID, auto.TenantID, err)
 		return fmt.Errorf("evaluate conditions: %w", err)
 	}
 
 	if !condResult {
-		we.logger.LogConditionSkipped(ctx, executionID)
+		we.logger.LogConditionSkipped(ctx, executionID, auto.TenantID)
 		slog.Debug("condition not met, skipping execution",
 			"automation_id", auto.ID,
 			"execution_id", executionID,
@@ -189,7 +189,7 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 	var actions []models.ActionConfig
 	if auto.Actions != nil {
 		if err := json.Unmarshal(auto.Actions, &actions); err != nil {
-			we.logger.LogConditionError(ctx, executionID, err)
+			we.logger.LogConditionError(ctx, executionID, auto.TenantID, err)
 			return fmt.Errorf("unmarshal actions: %w", err)
 		}
 	}
@@ -203,14 +203,14 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 	// Execute actions sequentially
 	for i, actionCfg := range actions {
 		if i >= maxSteps {
-			we.logger.LogStepLimitReached(ctx, executionID, maxSteps)
+			we.logger.LogStepLimitReached(ctx, executionID, auto.TenantID, maxSteps)
 			return workflow.ErrMaxStepsExceeded
 		}
 
 		executor, ok := we.actionRegistry.Get(actionCfg.Type)
 		if !ok {
 			errMsg := fmt.Sprintf("unknown action type: %s", actionCfg.Type)
-			we.logger.LogActionResult(ctx, executionID, i, actionCfg.Type,
+			we.logger.LogActionResult(ctx, executionID, auto.TenantID, i, actionCfg.Type,
 				action.ActionResult{Success: false, Error: errMsg}, fmt.Errorf("%s", errMsg))
 
 			if actionCfg.OnError == models.OnErrorAbort {
@@ -224,7 +224,7 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 		result, execErr := executor.Execute(actionCtx, actionCfg.Config, env)
 		actionCancel()
 
-		we.logger.LogActionResult(ctx, executionID, i, actionCfg.Type, result, execErr)
+		we.logger.LogActionResult(ctx, executionID, auto.TenantID, i, actionCfg.Type, result, execErr)
 
 		if execErr != nil || !result.Success {
 			slog.Warn("action execution failed",
@@ -252,7 +252,7 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 
 	// Log completion
 	duration := time.Since(startTime)
-	we.logger.LogComplete(ctx, executionID, duration)
+	we.logger.LogComplete(ctx, executionID, auto.TenantID, duration)
 
 	// Update last triggered timestamp
 	now := time.Now()

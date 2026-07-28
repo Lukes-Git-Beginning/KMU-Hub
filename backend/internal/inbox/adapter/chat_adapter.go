@@ -107,6 +107,12 @@ func (a *ChatAdapter) HandleReply(ctx context.Context, messageID uuid.UUID, user
 	return a.client.CreateMessage(ctx, messageID.String(), userID, body)
 }
 
+// HandleForward is not supported for chat DMs/mentions — there is no concept
+// of forwarding to an arbitrary external recipient in chat today.
+func (a *ChatAdapter) HandleForward(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ string, _ string) error {
+	return ErrForwardNotSupported
+}
+
 // MarkReadOnSource marks a chat channel as read on the chat service.
 func (a *ChatAdapter) MarkReadOnSource(ctx context.Context, sourceID string, userID uuid.UUID) error {
 	if a.client == nil {

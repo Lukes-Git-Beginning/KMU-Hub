@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/biz/banking"
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
@@ -26,6 +26,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
+	"github.com/kmuhub/kmuhub/internal/biz/recurring"
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
@@ -48,12 +49,31 @@ type BizGRPCServer struct {
 	dunningService    *dunning.Service
 	dashboardService  *dashboard.Service
 	pdfGenerator      *pdf.Generator
-	datevExporter     *datev.Exporter
-	companySettings   CompanySettingsRepository
-	timetrackingRepo  timetracking.WorkTimeRepository
-	crmClient         crmv1.CRMServiceClient // optional; nil if CRM service unreachable
-	gobdArchiveSvc    *gobdarchive.Service   // GoBD Belegarchiv (§147 AO)
-	einvoiceSvc       *einvoice.Service      // incoming e-invoice processing (E-Rechnung Eingang)
+	// datevBuchungsstapel renders the DATEV booking batch. Shared with the DATEV
+	// API upload path (datev.UploadService) so download and upload cannot diverge.
+	datevBuchungsstapel *datev.BuchungsstapelBuilder
+	companySettings     CompanySettingsRepository
+	timetrackingRepo    timetracking.WorkTimeRepository
+	crmClient           crmv1.CRMServiceClient // optional; nil if CRM service unreachable
+	gobdArchiveSvc      *gobdarchive.Service   // GoBD Belegarchiv (§147 AO)
+	einvoiceSvc         *einvoice.Service      // incoming e-invoice processing (E-Rechnung Eingang)
+	// recurringSvc backs the Abo-Rechnungen RPCs. Wired via SetRecurringService
+	// instead of the constructor so the existing 13-parameter call sites stay
+	// untouched (same pattern as SetStornoCreator on the invoice service).
+	recurringSvc *recurring.Service
+	// bankingSvc backs the bank statement import (Migration 000247), wired the
+	// same way and for the same reason as recurringSvc.
+	bankingSvc *banking.Service
+}
+
+// SetRecurringService wires the recurring invoice schedules (Migration 000246).
+func (s *BizGRPCServer) SetRecurringService(svc *recurring.Service) {
+	s.recurringSvc = svc
+}
+
+// SetBankingService wires the bank statement import (Migration 000247).
+func (s *BizGRPCServer) SetBankingService(svc *banking.Service) {
+	s.bankingSvc = svc
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.
@@ -65,7 +85,7 @@ func NewBizGRPCServer(
 	dunningService *dunning.Service,
 	dashboardService *dashboard.Service,
 	pdfGenerator *pdf.Generator,
-	datevExporter *datev.Exporter,
+	datevBuchungsstapel *datev.BuchungsstapelBuilder,
 	companySettings CompanySettingsRepository,
 	timetrackingRepo timetracking.WorkTimeRepository,
 	crmClient crmv1.CRMServiceClient,
@@ -73,19 +93,19 @@ func NewBizGRPCServer(
 	einvoiceSvc *einvoice.Service,
 ) *BizGRPCServer {
 	return &BizGRPCServer{
-		quoteService:      quoteService,
-		invoiceService:    invoiceService,
-		creditNoteService: creditNoteService,
-		paymentService:    paymentService,
-		dunningService:    dunningService,
-		dashboardService:  dashboardService,
-		pdfGenerator:      pdfGenerator,
-		datevExporter:     datevExporter,
-		companySettings:   companySettings,
-		timetrackingRepo:  timetrackingRepo,
-		crmClient:         crmClient,
-		gobdArchiveSvc:    gobdArchiveSvc,
-		einvoiceSvc:       einvoiceSvc,
+		quoteService:        quoteService,
+		invoiceService:      invoiceService,
+		creditNoteService:   creditNoteService,
+		paymentService:      paymentService,
+		dunningService:      dunningService,
+		dashboardService:    dashboardService,
+		pdfGenerator:        pdfGenerator,
+		datevBuchungsstapel: datevBuchungsstapel,
+		companySettings:     companySettings,
+		timetrackingRepo:    timetrackingRepo,
+		crmClient:           crmClient,
+		gobdArchiveSvc:      gobdArchiveSvc,
+		einvoiceSvc:         einvoiceSvc,
 	}
 }
 
@@ -597,6 +617,13 @@ func (s *BizGRPCServer) ListInvoices(ctx context.Context, req *bizv1.ListInvoice
 			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", parseErr)
 		}
 		filter.ContactID = &parsed
+	}
+	if rid := req.GetRecurringId(); rid != "" {
+		parsed, parseErr := uuid.Parse(rid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid recurring_id: %v", parseErr)
+		}
+		filter.RecurringID = &parsed
 	}
 
 	invoices, total, err := s.invoiceService.List(ctx, tenantID, filter)
@@ -1147,79 +1174,24 @@ func (s *BizGRPCServer) ExportDATEV(ctx context.Context, req *bizv1.ExportDATEVR
 		fiscalYearStart = fys
 	}
 
-	// Beraternummer/Mandantennummer for the EXTF header come from company settings
-	// (empty until configured — header fields then stay blank, as before).
-	var beraterNr, mandantNr string
-	if cs, csErr := s.companySettings.GetByTenantID(ctx, tenantID); csErr == nil && cs != nil {
-		beraterNr, mandantNr = cs.DatevBeraterNr, cs.DatevMandantNr
-	}
-
-	// Stream invoices and credit notes into a single CSV buffer, reading the rows
-	// keyset-paged so read-memory stays bounded regardless of the period size. The
-	// CSV is still materialized once (unary RPC, bytes response — no proto streaming).
-	const datevExportPageSize = 1000
-
-	var buf bytes.Buffer
-	sw, swErr := s.datevExporter.NewStreamWriter(&buf, beraterNr, mandantNr, fiscalYearStart, time.Now())
-	if swErr != nil {
-		return nil, status.Error(codes.Internal, "datev export init failed: "+swErr.Error())
-	}
-
-	// Invoices: keyset by (invoice_date, id).
-	var invCursorDate *time.Time
-	var invCursorID *uuid.UUID
-	for {
-		page, pErr := s.invoiceService.ListForDATEVExport(ctx, tenantID, startDate, endDate, invCursorDate, invCursorID, datevExportPageSize)
-		if pErr != nil {
-			return nil, mapBizError(pErr)
+	// The batch itself is rendered by the shared builder — the DATEV API upload
+	// needs exactly the same rows, header numbers and skip rules, and two copies
+	// of that loop would drift apart unnoticed until an audit compares the file
+	// the client downloaded with the one the tax advisor received.
+	batch, err := s.datevBuchungsstapel.Build(ctx, tenantID, startDate, endDate, fiscalYearStart)
+	if err != nil {
+		if errors.Is(err, datev.ErrInvalidPeriod) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		if len(page) == 0 {
-			break
-		}
-		if wErr := sw.WriteInvoices(page); wErr != nil {
-			return nil, status.Error(codes.Internal, "datev export failed: "+wErr.Error())
-		}
-		last := page[len(page)-1]
-		d, id := last.InvoiceDate, last.ID
-		invCursorDate, invCursorID = &d, &id
-		if len(page) < datevExportPageSize {
-			break
-		}
-	}
-
-	// Credit notes: keyset by (created_at, id). DateFrom/DateTo are honored here —
-	// previously this loaded every credit note of the tenant regardless of period.
-	var cnCursorDate *time.Time
-	var cnCursorID *uuid.UUID
-	for {
-		page, pErr := s.creditNoteService.ListForDATEVExport(ctx, tenantID, startDate, endDate, cnCursorDate, cnCursorID, datevExportPageSize)
-		if pErr != nil {
-			return nil, mapBizError(pErr)
-		}
-		if len(page) == 0 {
-			break
-		}
-		if wErr := sw.WriteCreditNotes(page); wErr != nil {
-			return nil, status.Error(codes.Internal, "datev export failed: "+wErr.Error())
-		}
-		last := page[len(page)-1]
-		d, id := last.CreatedAt, last.ID
-		cnCursorDate, cnCursorID = &d, &id
-		if len(page) < datevExportPageSize {
-			break
-		}
-	}
-
-	if closeErr := sw.Close(); closeErr != nil {
-		return nil, status.Error(codes.Internal, "datev export failed: "+closeErr.Error())
+		return nil, mapBizError(err)
 	}
 
 	filename := fmt.Sprintf("DATEV_Buchungsstapel_%s_%s.csv", req.GetStartDate(), req.GetEndDate())
 
 	return &bizv1.ExportDATEVResponse{
-		CsvData:     buf.Bytes(),
+		CsvData:     batch.CSV,
 		Filename:    filename,
-		RecordCount: int32(sw.LineCount()),
+		RecordCount: int32(batch.LineCount),
 	}, nil
 }
 
@@ -1465,6 +1437,7 @@ func toProtoQuote(q *models.Quote) *bizv1.Quote {
 		LineItems:    lineItems,
 		TaxMode:      taxModeToProto(q.TaxMode),
 		TaxBreakdown: taxBreakdown,
+		Currency:     documentCurrency(q.Currency),
 		Notes:        q.Notes,
 		TenantId:     q.TenantID.String(),
 		CreatedBy:    q.CreatedBy.String(),
@@ -1494,22 +1467,26 @@ func toProtoInvoice(inv *models.Invoice) *bizv1.Invoice {
 	taxBreakdown := protoTaxBreakdown(inv.TaxBreakdownRaw, inv.Subtotal, inv.TotalTax, inv.GrossTotal)
 
 	pi := &bizv1.Invoice{
-		Id:            inv.ID.String(),
-		InvoiceNumber: inv.InvoiceNumber,
-		Status:        invoiceStatusToProto(inv.Status),
-		Customer:      &bizv1.CustomerSnapshot{Name: inv.CustomerName, Address: inv.CustomerAddress, Email: inv.CustomerEmail, UstIdNr: inv.CustomerUStIDNr},
-		LineItems:     lineItems,
-		TaxMode:       taxModeToProto(inv.TaxMode),
-		TaxBreakdown:  taxBreakdown,
-		InvoiceDate:   inv.InvoiceDate.Format("2006-01-02"),
-		DueDate:       inv.DueDate.Format("2006-01-02"),
-		PaymentTerms:  inv.PaymentTerms,
-		SnapshotData:  inv.SnapshotData,
-		Notes:         inv.Notes,
-		TenantId:      inv.TenantID.String(),
-		CreatedBy:     inv.CreatedBy.String(),
-		CreatedAt:     timestamppb.New(inv.CreatedAt),
-		UpdatedAt:     timestamppb.New(inv.UpdatedAt),
+		Id:             inv.ID.String(),
+		InvoiceNumber:  inv.InvoiceNumber,
+		Status:         invoiceStatusToProto(inv.Status),
+		Customer:       &bizv1.CustomerSnapshot{Name: inv.CustomerName, Address: inv.CustomerAddress, Email: inv.CustomerEmail, UstIdNr: inv.CustomerUStIDNr},
+		LineItems:      lineItems,
+		TaxMode:        taxModeToProto(inv.TaxMode),
+		TaxBreakdown:   taxBreakdown,
+		Currency:       documentCurrency(inv.Currency),
+		Source:         inv.Source,
+		ExternalId:     inv.ExternalID,
+		ExternalNumber: inv.ExternalNumber,
+		InvoiceDate:    inv.InvoiceDate.Format("2006-01-02"),
+		DueDate:        inv.DueDate.Format("2006-01-02"),
+		PaymentTerms:   inv.PaymentTerms,
+		SnapshotData:   inv.SnapshotData,
+		Notes:          inv.Notes,
+		TenantId:       inv.TenantID.String(),
+		CreatedBy:      inv.CreatedBy.String(),
+		CreatedAt:      timestamppb.New(inv.CreatedAt),
+		UpdatedAt:      timestamppb.New(inv.UpdatedAt),
 	}
 
 	if inv.DeliveryDate != nil {
@@ -1517,6 +1494,10 @@ func toProtoInvoice(inv *models.Invoice) *bizv1.Invoice {
 	}
 	if inv.SourceQuoteID != nil {
 		pi.SourceQuoteId = inv.SourceQuoteID.String()
+	}
+	if inv.RecurringID != nil {
+		recurringID := inv.RecurringID.String()
+		pi.RecurringId = &recurringID
 	}
 
 	if len(inv.CompanySnapshotRaw) > 0 {
@@ -1560,6 +1541,7 @@ func toProtoCreditNote(cn *models.CreditNote) *bizv1.CreditNote {
 		LineItems:         lineItems,
 		TaxMode:           taxModeToProto(cn.TaxMode),
 		TaxBreakdown:      taxBreakdown,
+		Currency:          documentCurrency(cn.Currency),
 		Reason:            cn.Reason,
 		TenantId:          cn.TenantID.String(),
 		CreatedBy:         cn.CreatedBy.String(),
@@ -1757,6 +1739,17 @@ func protoTaxBreakdown(raw json.RawMessage, subtotal, totalTax, grossTotal decim
 		TotalTax:   totalTax.String(),
 		GrossTotal: grossTotal.String(),
 	}
+}
+
+// documentCurrency returns the ISO 4217 code to put on the wire for a finance
+// document. Rows written before the currency column existed carry an empty
+// string; those are EUR documents, so the wire stays self-describing instead of
+// leaving the frontend to guess a default.
+func documentCurrency(stored string) string {
+	if stored == "" {
+		return models.DefaultCurrency
+	}
+	return stored
 }
 
 // ============================================================================
@@ -2572,6 +2565,22 @@ func mapBizError(err error) error {
 	case errors.Is(err, quote.ErrQuoteNotSent):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, quote.ErrNoLineItems):
+		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Recurring invoice errors
+	case errors.Is(err, recurring.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, recurring.ErrNoLineItems),
+		errors.Is(err, recurring.ErrInvalidInterval),
+		errors.Is(err, recurring.ErrInvalidStatus),
+		errors.Is(err, recurring.ErrInvalidDateRange):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, recurring.ErrNotActive),
+		errors.Is(err, recurring.ErrScheduleExhausted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+
+	// Open items (Offene Posten)
+	case errors.Is(err, models.ErrUnknownAgingBucket):
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Invoice errors

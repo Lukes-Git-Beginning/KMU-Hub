@@ -314,7 +314,12 @@ func (b *CardDAVBackend) PutAddressObject(ctx context.Context, path string, card
 
 	// Increment sync token
 	syncCollectionID := syncCollectionIDForAddressBook(userID, bookType)
-	if syncErr := b.syncService.IncrementAndLog(ctx, "addressbook", syncCollectionID, path, "modified"); syncErr != nil {
+	if tenantID, tErr := resolveTenantID(ctx, b.pool, userID); tErr != nil {
+		slog.Warn("failed to resolve tenant for sync token after CardDAV PUT",
+			"book_type", bookType,
+			"error", tErr,
+		)
+	} else if syncErr := b.syncService.IncrementAndLog(ctx, tenantID, "addressbook", syncCollectionID, path, "modified"); syncErr != nil {
 		slog.Warn("failed to increment sync token after CardDAV PUT",
 			"book_type", bookType,
 			"error", syncErr,
@@ -368,7 +373,12 @@ func (b *CardDAVBackend) DeleteAddressObject(ctx context.Context, path string) e
 
 	// Increment sync token
 	syncCollectionID := syncCollectionIDForAddressBook(userID, bookType)
-	if syncErr := b.syncService.IncrementAndLog(ctx, "addressbook", syncCollectionID, path, "deleted"); syncErr != nil {
+	if tenantID, tErr := resolveTenantID(ctx, b.pool, userID); tErr != nil {
+		slog.Warn("failed to resolve tenant for sync token after CardDAV DELETE",
+			"book_type", bookType,
+			"error", tErr,
+		)
+	} else if syncErr := b.syncService.IncrementAndLog(ctx, tenantID, "addressbook", syncCollectionID, path, "deleted"); syncErr != nil {
 		slog.Warn("failed to increment sync token after CardDAV DELETE",
 			"book_type", bookType,
 			"error", syncErr,

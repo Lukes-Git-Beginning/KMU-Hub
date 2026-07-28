@@ -72,7 +72,7 @@ type Repository interface {
 	UpdateWebhook(ctx context.Context, webhook *FormWebhook) error
 	DeleteWebhook(ctx context.Context, id, tenantID uuid.UUID) error
 	ListWebhooks(ctx context.Context, formSchemaID, tenantID uuid.UUID) ([]*FormWebhook, error)
-	ListActiveWebhooksForSchema(ctx context.Context, formSchemaID uuid.UUID) ([]*FormWebhook, error)
+	ListActiveWebhooksForSchema(ctx context.Context, tenantID, formSchemaID uuid.UUID) ([]*FormWebhook, error)
 
 	// Delivery (used by Worker in Welle 2)
 	ClaimPendingDeliveries(ctx context.Context, batchSize int) ([]*WebhookDelivery, error)

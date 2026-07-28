@@ -10,6 +10,7 @@ package timetracking
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -104,7 +105,7 @@ func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID 
 // Returns the entry and an ArbZG rest period check result (for frontend toast).
 func (s *Service) ClockIn(ctx context.Context, tenantID, employeeID uuid.UUID) (*models.HRWorkTimeEntry, *compliance.WorkTimeCheckResult, error) {
 	// Check no active shift exists
-	existing, err := s.workTimeRepo.GetActiveShift(ctx, employeeID)
+	existing, err := s.workTimeRepo.GetActiveShift(ctx, tenantID, employeeID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -114,8 +115,15 @@ func (s *Service) ClockIn(ctx context.Context, tenantID, employeeID uuid.UUID) (
 
 	now := time.Now()
 
+	// A submitted or approved week does not accept new shifts. Clocking out of a
+	// shift that is already running stays possible on purpose (see ClockOut) —
+	// stranding an open shift would be the worse data.
+	if lockErr := s.assertWeekEditable(ctx, tenantID, employeeID, now); lockErr != nil {
+		return nil, nil, lockErr
+	}
+
 	// ArbZG 10h block: check today's daily summary
-	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, employeeID, now)
+	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, now)
 	if summaryErr != nil {
 		return nil, nil, summaryErr
 	}
@@ -124,7 +132,7 @@ func (s *Service) ClockIn(ctx context.Context, tenantID, employeeID uuid.UUID) (
 	}
 
 	// Check 11-hour rest period
-	previousEnd, prevErr := s.workTimeRepo.GetPreviousShiftEnd(ctx, employeeID, now)
+	previousEnd, prevErr := s.workTimeRepo.GetPreviousShiftEnd(ctx, tenantID, employeeID, now)
 	if prevErr != nil {
 		slog.Warn("failed to check previous shift end for rest period validation",
 			"employee_id", employeeID,
@@ -172,7 +180,7 @@ func (s *Service) ClockIn(ctx context.Context, tenantID, employeeID uuid.UUID) (
 // ClockOut completes an active shift, calculating net work minutes with ArbZG compliance.
 // Returns the completed entry and an ArbZG compliance check result (for frontend toast).
 func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) (*models.HRWorkTimeEntry, *compliance.WorkTimeCheckResult, error) {
-	entry, err := s.workTimeRepo.GetActiveShift(ctx, employeeID)
+	entry, err := s.workTimeRepo.GetActiveShift(ctx, tenantID, employeeID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -183,7 +191,7 @@ func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) 
 	now := time.Now()
 
 	// End any active break first
-	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, entry.ID)
+	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, entry.ID)
 	if breakErr == nil && activeBreak != nil {
 		duration := int(now.Sub(activeBreak.StartTime).Minutes())
 		activeBreak.EndTime = &now
@@ -197,7 +205,7 @@ func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) 
 	totalWorkedMinutes := int(now.Sub(entry.ClockIn).Minutes())
 
 	// Get manual breaks for this shift, sum break_minutes
-	breaks, breakListErr := s.breakRepo.ListByWorkTimeEntry(ctx, entry.ID)
+	breaks, breakListErr := s.breakRepo.ListByWorkTimeEntry(ctx, tenantID, entry.ID)
 	manualBreakMinutes := 0
 	if breakListErr == nil {
 		for _, b := range breaks {
@@ -248,8 +256,8 @@ func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) 
 }
 
 // StartBreak starts a break for an active shift.
-func (s *Service) StartBreak(ctx context.Context, employeeID uuid.UUID) (*models.HRBreakEntry, error) {
-	shift, err := s.workTimeRepo.GetActiveShift(ctx, employeeID)
+func (s *Service) StartBreak(ctx context.Context, tenantID, employeeID uuid.UUID) (*models.HRBreakEntry, error) {
+	shift, err := s.workTimeRepo.GetActiveShift(ctx, tenantID, employeeID)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +266,7 @@ func (s *Service) StartBreak(ctx context.Context, employeeID uuid.UUID) (*models
 	}
 
 	// Check no active break
-	existingBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, shift.ID)
+	existingBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, shift.ID)
 	if breakErr != nil {
 		return nil, breakErr
 	}
@@ -269,6 +277,7 @@ func (s *Service) StartBreak(ctx context.Context, employeeID uuid.UUID) (*models
 	now := time.Now()
 	breakEntry := &models.HRBreakEntry{
 		ID:              uuid.New(),
+		TenantID:        shift.TenantID,
 		WorkTimeEntryID: shift.ID,
 		StartTime:       now,
 		CreatedAt:       now,
@@ -288,8 +297,8 @@ func (s *Service) StartBreak(ctx context.Context, employeeID uuid.UUID) (*models
 }
 
 // EndBreak ends an active break, calculates duration, and updates shift break total.
-func (s *Service) EndBreak(ctx context.Context, employeeID uuid.UUID) (*models.HRBreakEntry, error) {
-	shift, err := s.workTimeRepo.GetActiveShift(ctx, employeeID)
+func (s *Service) EndBreak(ctx context.Context, tenantID, employeeID uuid.UUID) (*models.HRBreakEntry, error) {
+	shift, err := s.workTimeRepo.GetActiveShift(ctx, tenantID, employeeID)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +306,7 @@ func (s *Service) EndBreak(ctx context.Context, employeeID uuid.UUID) (*models.H
 		return nil, ErrNotClockedIn
 	}
 
-	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, shift.ID)
+	activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, shift.ID)
 	if breakErr != nil {
 		return nil, breakErr
 	}
@@ -315,7 +324,7 @@ func (s *Service) EndBreak(ctx context.Context, employeeID uuid.UUID) (*models.H
 	}
 
 	// Update shift's total break_minutes (sum of all completed breaks)
-	breaks, listErr := s.breakRepo.ListByWorkTimeEntry(ctx, shift.ID)
+	breaks, listErr := s.breakRepo.ListByWorkTimeEntry(ctx, tenantID, shift.ID)
 	if listErr == nil {
 		totalBreak := 0
 		for _, b := range breaks {
@@ -341,8 +350,8 @@ func (s *Service) EndBreak(ctx context.Context, employeeID uuid.UUID) (*models.H
 }
 
 // GetActiveShift returns the active shift and its break entries for display.
-func (s *Service) GetActiveShift(ctx context.Context, employeeID uuid.UUID) (*models.HRWorkTimeEntry, []*models.HRBreakEntry, error) {
-	shift, err := s.workTimeRepo.GetActiveShift(ctx, employeeID)
+func (s *Service) GetActiveShift(ctx context.Context, tenantID, employeeID uuid.UUID) (*models.HRWorkTimeEntry, []*models.HRBreakEntry, error) {
+	shift, err := s.workTimeRepo.GetActiveShift(ctx, tenantID, employeeID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -350,7 +359,7 @@ func (s *Service) GetActiveShift(ctx context.Context, employeeID uuid.UUID) (*mo
 		return nil, nil, nil
 	}
 
-	breaks, breakErr := s.breakRepo.ListByWorkTimeEntry(ctx, shift.ID)
+	breaks, breakErr := s.breakRepo.ListByWorkTimeEntry(ctx, tenantID, shift.ID)
 	if breakErr != nil {
 		slog.Warn("failed to list breaks for active shift",
 			"work_time_entry_id", shift.ID,
@@ -368,21 +377,30 @@ func (s *Service) ListWorkTimeEntries(ctx context.Context, filter WorkTimeFilter
 }
 
 // GetDailySummary returns the daily work time summary for an employee.
-func (s *Service) GetDailySummary(ctx context.Context, employeeID uuid.UUID, date time.Time) (*DailySummary, error) {
-	return s.workTimeRepo.GetDailySummary(ctx, employeeID, date)
+func (s *Service) GetDailySummary(ctx context.Context, tenantID, employeeID uuid.UUID, date time.Time) (*DailySummary, error) {
+	return s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, date)
 }
 
 // GetWeeklySummary returns the weekly work time summary for an employee.
-func (s *Service) GetWeeklySummary(ctx context.Context, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error) {
-	return s.workTimeRepo.GetWeeklySummary(ctx, employeeID, weekStart)
+func (s *Service) GetWeeklySummary(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error) {
+	return s.workTimeRepo.GetWeeklySummary(ctx, tenantID, employeeID, weekStart)
 }
 
 // SubmitTimeCorrection creates a correction entry pending manager approval.
 func (s *Service) SubmitTimeCorrection(ctx context.Context, tenantID, employeeID uuid.UUID, input CorrectionInput) (*models.HRWorkTimeEntry, error) {
 	// Validate original entry exists
-	_, origErr := s.workTimeRepo.GetByID(ctx, input.OriginalEntryID)
+	original, origErr := s.workTimeRepo.GetByID(ctx, tenantID, input.OriginalEntryID)
 	if origErr != nil {
 		return nil, origErr
+	}
+
+	// Both weeks are checked: a correction that moves time out of a locked week
+	// changes that week's total just as much as one that moves time into it.
+	if lockErr := s.assertWeekEditable(ctx, tenantID, employeeID, original.ClockIn); lockErr != nil {
+		return nil, lockErr
+	}
+	if lockErr := s.assertWeekEditable(ctx, tenantID, employeeID, input.CorrectedClockIn); lockErr != nil {
+		return nil, lockErr
 	}
 
 	now := time.Now()
@@ -420,8 +438,8 @@ func (s *Service) SubmitTimeCorrection(ctx context.Context, tenantID, employeeID
 }
 
 // ApproveTimeCorrection approves a pending time correction.
-func (s *Service) ApproveTimeCorrection(ctx context.Context, correctionID, approverID uuid.UUID) (*models.HRWorkTimeEntry, error) {
-	correction, err := s.workTimeRepo.GetByID(ctx, correctionID)
+func (s *Service) ApproveTimeCorrection(ctx context.Context, tenantID, correctionID, approverID uuid.UUID) (*models.HRWorkTimeEntry, error) {
+	correction, err := s.workTimeRepo.GetByID(ctx, tenantID, correctionID)
 	if err != nil {
 		return nil, err
 	}
@@ -430,13 +448,23 @@ func (s *Service) ApproveTimeCorrection(ctx context.Context, correctionID, appro
 		return nil, ErrCorrectionNotFound
 	}
 
+	// Approving is what makes the correction count towards the week
+	// (aggregateDailyBuckets sums 'correction_approved'), so the lock applies
+	// here too — not only when the correction was requested.
+	if lockErr := s.assertWeekEditable(ctx, correction.TenantID, correction.EmployeeID, correction.ClockIn); lockErr != nil {
+		return nil, lockErr
+	}
+
 	now := time.Now()
 	correction.Status = models.WorkTimeStatusCorrectionApproved
 	correction.CorrectionApprovedBy = &approverID
 	correction.CorrectionApprovedAt = &now
 	correction.UpdatedAt = now
 
-	if updateErr := s.workTimeRepo.Update(ctx, correction); updateErr != nil {
+	// The original has to leave the balance in the same step: both it and the
+	// approved correction are summed by the daily and weekly aggregates, so an
+	// original left at 'completed' makes the corrected day count twice.
+	if updateErr := s.workTimeRepo.ApproveCorrection(ctx, correction, correction.OriginalEntryID); updateErr != nil {
 		return nil, updateErr
 	}
 
@@ -457,6 +485,12 @@ func (s *Service) ApproveTimeCorrection(ctx context.Context, correctionID, appro
 func (s *Service) CreateManualEntry(ctx context.Context, input ManualEntryInput) (*models.HRWorkTimeEntry, error) {
 	if !input.ClockOut.After(input.ClockIn) {
 		return nil, ErrInvalidManualEntry
+	}
+
+	// The clock-in decides the week: the daily/weekly aggregates bucket an entry
+	// by clock_in, so that is the week whose signed-off total would move.
+	if lockErr := s.assertWeekEditable(ctx, input.TenantID, input.EmployeeID, input.ClockIn); lockErr != nil {
+		return nil, lockErr
 	}
 
 	// Calculate net work minutes
@@ -518,13 +552,9 @@ func (s *Service) GetTimeBalance(ctx context.Context, tenantID, employeeID uuid.
 
 	// Current week start (Monday)
 	now := time.Now()
-	weekStart := now
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart := weekStartOf(now)
 
-	weekly, summaryErr := s.workTimeRepo.GetWeeklySummary(ctx, employeeID, weekStart)
+	weekly, summaryErr := s.workTimeRepo.GetWeeklySummary(ctx, tenantID, employeeID, weekStart)
 	if summaryErr != nil {
 		return 0, targetWeeklyMinutes, weekStart, summaryErr
 	}
@@ -554,18 +584,14 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 		numDays = now.Day()
 	} else {
 		// Default: week
-		start = now
-		for start.Weekday() != time.Monday {
-			start = start.AddDate(0, 0, -1)
-		}
-		start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+		start = weekStartOf(now)
 		numDays = 7
 	}
 
 	targetMinutes := targetWeeklyMinutes * numDays / 5 // pro-rated
 
 	// Load the whole day range in a single aggregated query (was numDays round-trips).
-	dailies, dailyErr := s.workTimeRepo.GetDailySummaryRange(ctx, employeeID, start, numDays)
+	dailies, dailyErr := s.workTimeRepo.GetDailySummaryRange(ctx, tenantID, employeeID, start, numDays)
 	if dailyErr != nil {
 		return nil, dailyErr
 	}
@@ -616,10 +642,7 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 // GetTeamTime returns aggregated weekly time for all employees of the tenant.
 func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart time.Time) ([]TeamTimeEntry, error) {
 	// Ensure Monday
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	employees, _, listErr := s.employeeRepo.List(ctx, employee.EmployeeFilter{TenantID: tenantID, Page: 1, PerPage: 500})
 	if listErr != nil {
@@ -636,11 +659,11 @@ func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart
 		empIDs = append(empIDs, emp.UserID)
 	}
 
-	weeklyByEmp, weeklyErr := s.workTimeRepo.GetWeeklySummaryBatch(ctx, empIDs, weekStart)
+	weeklyByEmp, weeklyErr := s.workTimeRepo.GetWeeklySummaryBatch(ctx, tenantID, empIDs, weekStart)
 	if weeklyErr != nil {
 		return nil, weeklyErr
 	}
-	activeByEmp, activeErr := s.workTimeRepo.GetActiveShiftEmployeeIDs(ctx, empIDs)
+	activeByEmp, activeErr := s.workTimeRepo.GetActiveShiftEmployeeIDs(ctx, tenantID, empIDs)
 	if activeErr != nil {
 		return nil, activeErr
 	}
@@ -699,10 +722,7 @@ func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart
 // GetMyWeekStatus returns the approval status for an employee's week.
 func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, int, int, error) {
 	// Ensure Monday
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	ep, _ := s.employeeRepo.GetByUserID(ctx, employeeID)
 	workDays := 5
@@ -711,13 +731,18 @@ func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid
 	}
 	targetMinutes := workDays * 8 * 60
 
-	weekly, weekErr := s.workTimeRepo.GetWeeklySummary(ctx, employeeID, weekStart)
+	weekly, weekErr := s.workTimeRepo.GetWeeklySummary(ctx, tenantID, employeeID, weekStart)
 	totalMinutes := 0
 	if weekErr == nil {
 		totalMinutes = weekly.NetWorkMinutes
 	}
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
+	if waErr != nil && !errors.Is(waErr, ErrWeekApprovalNotFound) {
+		// Reporting a read failure as "open" would tell the employee an approved
+		// week is still editable.
+		return nil, 0, 0, waErr
+	}
 	if waErr != nil {
 		// No record yet → synthesise an open one
 		now := time.Now()
@@ -737,15 +762,13 @@ func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid
 
 // SubmitWeek transitions an employee's week to submitted state.
 func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	now := time.Now()
-	if waErr != nil {
-		// Create fresh record
+	switch {
+	case errors.Is(waErr, ErrWeekApprovalNotFound):
+		// No record yet — the week has never been submitted, start a fresh one.
 		wa = &models.HRWeekApproval{
 			ID:         uuid.New(),
 			TenantID:   tenantID,
@@ -755,9 +778,13 @@ func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID
 			CreatedAt:  now,
 			UpdatedAt:  now,
 		}
+	case waErr != nil:
+		// A read failure must not be mistaken for "no record": the upsert below
+		// would overwrite an existing approved week back to submitted.
+		return nil, waErr
 	}
 
-	if wa.Status == models.WeekApprovalSubmitted || wa.Status == models.WeekApprovalApproved {
+	if weekLocked(wa.Status) {
 		return nil, ErrWeekAlreadySubmitted
 	}
 
@@ -778,10 +805,7 @@ func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID
 
 // ApproveWeek approves a submitted week.
 func (s *Service) ApproveWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	if waErr != nil {
@@ -812,10 +836,7 @@ func (s *Service) ApproveWeek(ctx context.Context, tenantID, approverID, employe
 
 // RejectWeek rejects a submitted week with a reason.
 func (s *Service) RejectWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time, reason string) (*models.HRWeekApproval, error) {
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStartOf(weekStart)
 
 	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
 	if waErr != nil {
@@ -949,10 +970,10 @@ func (s *Service) CreateTimeProject(ctx context.Context, tenantID uuid.UUID, nam
 }
 
 // GetWorkTimeStatus returns a convenience status for the header quick-toggle button.
-func (s *Service) GetWorkTimeStatus(ctx context.Context, employeeID uuid.UUID) (*WorkTimeStatus, error) {
+func (s *Service) GetWorkTimeStatus(ctx context.Context, tenantID, employeeID uuid.UUID) (*WorkTimeStatus, error) {
 	status := &WorkTimeStatus{}
 
-	shift, err := s.workTimeRepo.GetActiveShift(ctx, employeeID)
+	shift, err := s.workTimeRepo.GetActiveShift(ctx, tenantID, employeeID)
 	if err != nil {
 		return nil, err
 	}
@@ -962,7 +983,7 @@ func (s *Service) GetWorkTimeStatus(ctx context.Context, employeeID uuid.UUID) (
 		status.CurrentShiftStart = &shift.ClockIn
 
 		// Check for active break
-		activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, shift.ID)
+		activeBreak, breakErr := s.breakRepo.GetActiveBreak(ctx, tenantID, shift.ID)
 		if breakErr == nil && activeBreak != nil {
 			status.IsOnBreak = true
 			status.CurrentBreakStart = &activeBreak.StartTime
@@ -971,7 +992,7 @@ func (s *Service) GetWorkTimeStatus(ctx context.Context, employeeID uuid.UUID) (
 
 	// Today's total minutes
 	now := time.Now()
-	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, employeeID, now)
+	todaySummary, summaryErr := s.workTimeRepo.GetDailySummary(ctx, tenantID, employeeID, now)
 	if summaryErr == nil {
 		status.TodayTotalMinutes = todaySummary.NetWorkMinutes
 	}

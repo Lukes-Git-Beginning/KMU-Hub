@@ -1,9 +1,11 @@
 package berichte
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -79,6 +81,8 @@ type mockRepository struct {
 	definitions map[uuid.UUID]*Definition
 	cache       map[string]*CacheEntry // key = defID|hash
 	schedules   map[uuid.UUID]*Schedule
+	documents   map[uuid.UUID]*Document
+	shares      map[uuid.UUID]*ShareToken
 	runs        []*Run
 
 	createDefErr   error
@@ -100,6 +104,8 @@ func newMockRepository() *mockRepository {
 		definitions: map[uuid.UUID]*Definition{},
 		cache:       map[string]*CacheEntry{},
 		schedules:   map[uuid.UUID]*Schedule{},
+		documents:   map[uuid.UUID]*Document{},
+		shares:      map[uuid.UUID]*ShareToken{},
 	}
 }
 
@@ -387,6 +393,81 @@ func (m *mockRepository) InsertRun(_ context.Context, run *Run) error {
 	copy := *run
 	m.runs = append(m.runs, &copy)
 	return nil
+}
+
+func (m *mockRepository) CreateDocument(_ context.Context, doc *Document) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	copy := *doc
+	m.documents[doc.ID] = &copy
+	return nil
+}
+
+func (m *mockRepository) UpdateDocument(_ context.Context, doc *Document) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	existing, ok := m.documents[doc.ID]
+	if !ok || existing.TenantID != doc.TenantID {
+		return ErrDocumentNotFound
+	}
+	copy := *doc
+	m.documents[doc.ID] = &copy
+	return nil
+}
+
+func (m *mockRepository) DeleteDocument(_ context.Context, tenantID, documentID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	existing, ok := m.documents[documentID]
+	if !ok || existing.TenantID != tenantID {
+		return ErrDocumentNotFound
+	}
+	delete(m.documents, documentID)
+	return nil
+}
+
+func (m *mockRepository) GetDocument(_ context.Context, tenantID, documentID uuid.UUID) (*Document, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	doc, ok := m.documents[documentID]
+	if !ok || doc.TenantID != tenantID {
+		return nil, ErrDocumentNotFound
+	}
+	copy := *doc
+	return &copy, nil
+}
+
+func (m *mockRepository) ListDocuments(_ context.Context, tenantID uuid.UUID, filter ListDocumentsFilter, offset, limit int) ([]*Document, int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var all []*Document
+	for _, d := range m.documents {
+		if d.TenantID != tenantID {
+			continue
+		}
+		if filter.Module != nil && d.Module != *filter.Module {
+			continue
+		}
+		if filter.Status != nil && d.Status != *filter.Status {
+			continue
+		}
+		if filter.Search != "" && !strings.Contains(strings.ToLower(d.Title), strings.ToLower(filter.Search)) {
+			continue
+		}
+		copy := *d
+		all = append(all, &copy)
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].UpdatedAt.After(all[j].UpdatedAt) })
+
+	total := len(all)
+	if offset >= total {
+		return []*Document{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return all[offset:end], total, nil
 }
 
 // ============================================================================
@@ -1167,5 +1248,360 @@ func TestSanitizeModules_FiltersAndSorts(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Documents (multi-page authoring)
+// ============================================================================
+
+func TestCreateDocumentAppliesDefaults(t *testing.T) {
+	svc, _, clk := newServiceForTest(nil)
+
+	doc, err := svc.CreateDocument(context.Background(), CreateDocumentInput{TenantID: testTenant})
+	if err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+
+	if doc.Title != "Neuer Bericht" {
+		t.Errorf("title = %q, want fallback title", doc.Title)
+	}
+	if doc.Module != "cross" {
+		t.Errorf("module = %q, want cross", doc.Module)
+	}
+	if doc.Status != "draft" {
+		t.Errorf("status = %q, want draft", doc.Status)
+	}
+	if string(doc.Rows) != "[]" {
+		t.Errorf("rows = %q, want empty array", doc.Rows)
+	}
+	if string(doc.Settings) != "{}" {
+		t.Errorf("settings = %q, want empty object", doc.Settings)
+	}
+	if doc.ReleasedAt != nil {
+		t.Error("released_at set on a fresh draft")
+	}
+	if !doc.CreatedAt.Equal(clk.t) {
+		t.Errorf("created_at = %v, want %v", doc.CreatedAt, clk.t)
+	}
+}
+
+func TestCreateDocumentRejectsMalformedPayloads(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+
+	tests := []struct {
+		name  string
+		input CreateDocumentInput
+		want  error
+	}{
+		{
+			name:  "rows must be an array",
+			input: CreateDocumentInput{TenantID: testTenant, Rows: json.RawMessage(`{"id":"row-1"}`)},
+			want:  ErrInvalidRows,
+		},
+		{
+			name:  "rows must be valid JSON",
+			input: CreateDocumentInput{TenantID: testTenant, Rows: json.RawMessage(`[{"id":`)},
+			want:  ErrInvalidRows,
+		},
+		{
+			name:  "settings must be an object",
+			input: CreateDocumentInput{TenantID: testTenant, Settings: json.RawMessage(`[]`)},
+			want:  ErrInvalidSettings,
+		},
+		{
+			name:  "unknown module is rejected",
+			input: CreateDocumentInput{TenantID: testTenant, Module: "marketing"},
+			want:  ErrInvalidModule,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := svc.CreateDocument(context.Background(), tc.input); !errors.Is(err, tc.want) {
+				t.Fatalf("error = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestCreateDocumentKeepsBlockTreeVerbatim(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+
+	// camelCase block keys are frontend-owned and must survive untouched.
+	rows := `[{"id":"row-1","columns":[{"id":"col-1","blocks":[{"id":"c1","type":"cover","title":"Q3","showDate":true}]}]}]`
+
+	doc, err := svc.CreateDocument(context.Background(), CreateDocumentInput{
+		TenantID: testTenant,
+		Title:    "Quartalsbericht",
+		Module:   "finanzen",
+		Rows:     json.RawMessage(rows),
+		Settings: json.RawMessage(`{"showPageNumbers":true}`),
+	})
+	if err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+	if string(doc.Rows) != rows {
+		t.Errorf("rows were rewritten:\n got %s\nwant %s", doc.Rows, rows)
+	}
+	if string(doc.Settings) != `{"showPageNumbers":true}` {
+		t.Errorf("settings were rewritten: %s", doc.Settings)
+	}
+}
+
+func TestUpdateDocumentStampsReleasedAtOnce(t *testing.T) {
+	svc, _, clk := newServiceForTest(nil)
+
+	doc, err := svc.CreateDocument(context.Background(), CreateDocumentInput{TenantID: testTenant, Title: "Bericht"})
+	if err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+
+	released := "released"
+	updated, err := svc.UpdateDocument(context.Background(), UpdateDocumentInput{
+		TenantID:   testTenant,
+		DocumentID: doc.ID,
+		Status:     &released,
+	})
+	if err != nil {
+		t.Fatalf("UpdateDocument: %v", err)
+	}
+	if updated.ReleasedAt == nil || !updated.ReleasedAt.Equal(clk.t) {
+		t.Fatalf("released_at = %v, want %v", updated.ReleasedAt, clk.t)
+	}
+
+	// A later edit must not move the release date.
+	firstRelease := *updated.ReleasedAt
+	clk.t = clk.t.Add(time.Hour)
+	title := "Bericht (final)"
+	again, err := svc.UpdateDocument(context.Background(), UpdateDocumentInput{
+		TenantID:   testTenant,
+		DocumentID: doc.ID,
+		Title:      &title,
+	})
+	if err != nil {
+		t.Fatalf("UpdateDocument (second): %v", err)
+	}
+	if again.ReleasedAt == nil || !again.ReleasedAt.Equal(firstRelease) {
+		t.Errorf("released_at moved to %v, want %v", again.ReleasedAt, firstRelease)
+	}
+	if !again.UpdatedAt.Equal(clk.t) {
+		t.Errorf("updated_at = %v, want %v", again.UpdatedAt, clk.t)
+	}
+}
+
+func TestUpdateDocumentRejectsUnknownStatus(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+
+	doc, err := svc.CreateDocument(context.Background(), CreateDocumentInput{TenantID: testTenant})
+	if err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+
+	bogus := "approved"
+	if _, err := svc.UpdateDocument(context.Background(), UpdateDocumentInput{
+		TenantID:   testTenant,
+		DocumentID: doc.ID,
+		Status:     &bogus,
+	}); !errors.Is(err, ErrInvalidStatus) {
+		t.Fatalf("error = %v, want ErrInvalidStatus", err)
+	}
+}
+
+func TestDocumentAccessIsTenantScoped(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+	otherTenant := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	doc, err := svc.CreateDocument(context.Background(), CreateDocumentInput{TenantID: testTenant, Title: "Intern"})
+	if err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+
+	if _, err := svc.GetDocument(context.Background(), otherTenant, doc.ID); !errors.Is(err, ErrDocumentNotFound) {
+		t.Errorf("Get across tenants: %v, want ErrDocumentNotFound", err)
+	}
+	title := "Übernommen"
+	if _, err := svc.UpdateDocument(context.Background(), UpdateDocumentInput{
+		TenantID:   otherTenant,
+		DocumentID: doc.ID,
+		Title:      &title,
+	}); !errors.Is(err, ErrDocumentNotFound) {
+		t.Errorf("Update across tenants: %v, want ErrDocumentNotFound", err)
+	}
+	if err := svc.DeleteDocument(context.Background(), otherTenant, doc.ID); !errors.Is(err, ErrDocumentNotFound) {
+		t.Errorf("Delete across tenants: %v, want ErrDocumentNotFound", err)
+	}
+
+	docs, total, err := svc.ListDocuments(context.Background(), ListDocumentsInput{TenantID: otherTenant})
+	if err != nil {
+		t.Fatalf("ListDocuments: %v", err)
+	}
+	if total != 0 || len(docs) != 0 {
+		t.Errorf("foreign tenant sees %d documents (total %d), want 0", len(docs), total)
+	}
+}
+
+func TestListDocumentsFilters(t *testing.T) {
+	svc, _, clk := newServiceForTest(nil)
+	ctx := context.Background()
+
+	for _, spec := range []struct{ title, module string }{
+		{"Umsatzbericht", "finanzen"},
+		{"Pipeline-Report", "crm"},
+	} {
+		clk.t = clk.t.Add(time.Minute)
+		if _, err := svc.CreateDocument(ctx, CreateDocumentInput{
+			TenantID: testTenant,
+			Title:    spec.title,
+			Module:   spec.module,
+		}); err != nil {
+			t.Fatalf("CreateDocument: %v", err)
+		}
+	}
+
+	module := "crm"
+	docs, total, err := svc.ListDocuments(ctx, ListDocumentsInput{TenantID: testTenant, Module: &module})
+	if err != nil {
+		t.Fatalf("ListDocuments: %v", err)
+	}
+	if total != 1 || len(docs) != 1 || docs[0].Title != "Pipeline-Report" {
+		t.Fatalf("module filter returned %d docs (total %d)", len(docs), total)
+	}
+
+	docs, total, err = svc.ListDocuments(ctx, ListDocumentsInput{TenantID: testTenant, Search: "umsatz"})
+	if err != nil {
+		t.Fatalf("ListDocuments (search): %v", err)
+	}
+	if total != 1 || len(docs) != 1 || docs[0].Title != "Umsatzbericht" {
+		t.Fatalf("search returned %d docs (total %d)", len(docs), total)
+	}
+
+	bogus := "approved"
+	if _, _, err := svc.ListDocuments(ctx, ListDocumentsInput{TenantID: testTenant, Status: &bogus}); !errors.Is(err, ErrInvalidStatus) {
+		t.Errorf("status filter error = %v, want ErrInvalidStatus", err)
+	}
+}
+
+func TestListTemplates(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+
+	templates := svc.ListTemplates()
+	if len(templates) == 0 {
+		t.Fatal("ListTemplates returned no templates")
+	}
+
+	seenIDs := make(map[string]bool, len(templates))
+	for _, tpl := range templates {
+		if tpl.ID == "" || seenIDs[tpl.ID] {
+			t.Fatalf("template id %q is empty or duplicated", tpl.ID)
+		}
+		seenIDs[tpl.ID] = true
+
+		if tpl.Title == "" {
+			t.Fatalf("template %s: empty title", tpl.ID)
+		}
+		// Every template's module must satisfy the same enum the
+		// report_documents CHECK constraint enforces, so creating a document
+		// from any template never fails module validation (regression guard
+		// for the frontend's "work" module, which has no backend equivalent).
+		if !isValidModule(tpl.Module) {
+			t.Fatalf("template %s: module %q is not a valid backend module", tpl.ID, tpl.Module)
+		}
+
+		trimmedRows := bytes.TrimSpace(tpl.Rows)
+		if len(trimmedRows) == 0 || trimmedRows[0] != '[' || !json.Valid(trimmedRows) {
+			t.Fatalf("template %s: rows is not a valid JSON array", tpl.ID)
+		}
+		trimmedSettings := bytes.TrimSpace(tpl.Settings)
+		if len(trimmedSettings) == 0 || trimmedSettings[0] != '{' || !json.Valid(trimmedSettings) {
+			t.Fatalf("template %s: settings is not a valid JSON object", tpl.ID)
+		}
+	}
+}
+
+func TestCreateDocumentFromEveryTemplateSucceeds(t *testing.T) {
+	svc, _, _ := newServiceForTest(nil)
+	ctx := context.Background()
+
+	for _, tpl := range svc.ListTemplates() {
+		templateID := tpl.ID
+		doc, err := svc.CreateDocument(ctx, CreateDocumentInput{
+			TenantID:   testTenant,
+			Title:      tpl.Title,
+			Module:     tpl.Module,
+			TemplateID: &templateID,
+			Rows:       json.RawMessage(tpl.Rows),
+			Settings:   json.RawMessage(tpl.Settings),
+		})
+		if err != nil {
+			t.Fatalf("CreateDocument from template %s: %v", tpl.ID, err)
+		}
+		if string(doc.Rows) != string(tpl.Rows) {
+			t.Errorf("template %s: rows not stored verbatim", tpl.ID)
+		}
+	}
+}
+
 // compile-time interface check for mockRepository
 var _ Repository = (*mockRepository)(nil)
+
+// --- share tokens -----------------------------------------------------------
+
+func (m *mockRepository) CreateShareToken(_ context.Context, t *ShareToken) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	copy := *t
+	m.shares[t.ID] = &copy
+	return nil
+}
+
+func (m *mockRepository) ListShareTokens(_ context.Context, tenantID, documentID uuid.UUID) ([]*ShareToken, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]*ShareToken, 0, len(m.shares))
+	for _, t := range m.shares {
+		if t.TenantID != tenantID || t.DocumentID != documentID || t.RevokedAt != nil {
+			continue
+		}
+		copy := *t
+		out = append(out, &copy)
+	}
+	return out, nil
+}
+
+func (m *mockRepository) RevokeShareToken(_ context.Context, tenantID, shareID uuid.UUID, at time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t, ok := m.shares[shareID]
+	if !ok || t.TenantID != tenantID || t.RevokedAt != nil {
+		return ErrShareNotFound
+	}
+	t.RevokedAt = &at
+	return nil
+}
+
+// GetShareTokenBySecret mirrors the production query: an exact match on the
+// secret, across all tenants, with no tenant filter — that is the whole point
+// of the system-context read it stands in for.
+func (m *mockRepository) GetShareTokenBySecret(_ context.Context, secret string) (*ShareToken, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if secret == "" {
+		return nil, ErrShareNotFound
+	}
+	for _, t := range m.shares {
+		if t.Token == secret {
+			copy := *t
+			return &copy, nil
+		}
+	}
+	return nil, ErrShareNotFound
+}
+
+func (m *mockRepository) IncrementShareView(_ context.Context, tenantID, shareID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t, ok := m.shares[shareID]
+	if !ok || t.TenantID != tenantID {
+		return ErrShareNotFound
+	}
+	t.ViewCount++
+	return nil
+}

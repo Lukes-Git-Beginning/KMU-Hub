@@ -1,47 +1,45 @@
 package gateway
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
-	slackadapter "github.com/kmuhub/kmuhub/internal/notification/integration/slack"
-	teamsadapter "github.com/kmuhub/kmuhub/internal/notification/integration/teams"
+	"github.com/kmuhub/kmuhub/internal/notification/integration"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	notificationv1 "github.com/kmuhub/kmuhub/proto/notification/v1"
 )
+
+// maxWebhookBody caps an inbound platform payload. Slack and Teams stay far
+// below this; the limit exists because these five routes are the only
+// unauthenticated write paths in the gateway.
+const maxWebhookBody = 1 << 20 // 1 MiB
+
+// webhookForwardHeaders are the only request headers tunneled to the
+// notification service: the two Slack signature headers, the Bot Framework
+// bearer token and the content type the form parser needs. Forwarding the whole
+// header set would ship cookies and proxy headers into another service for no
+// reason.
+var webhookForwardHeaders = []string{
+	"Content-Type",
+	"X-Slack-Signature",
+	"X-Slack-Request-Timestamp",
+	"Authorization",
+}
 
 // IntegrationRoutes handles HTTP routes for Teams/Slack integration admin config,
 // channel mappings, account linking, and inbound webhooks.
 type IntegrationRoutes struct {
 	registry *ServiceRegistry
-
-	// Inbound webhook handlers (injected directly, not via gRPC)
-	teamsWebhook *teamsadapter.WebhookHandler
-	slackWebhook *slackadapter.WebhookHandler
-	slackOAuth   *slackadapter.OAuthHandler
 }
 
 // NewIntegrationRoutes creates a new IntegrationRoutes.
 func NewIntegrationRoutes(registry *ServiceRegistry) *IntegrationRoutes {
 	return &IntegrationRoutes{registry: registry}
-}
-
-// SetTeamsWebhookHandler sets the Teams webhook handler for inbound activities.
-func (ir *IntegrationRoutes) SetTeamsWebhookHandler(h *teamsadapter.WebhookHandler) {
-	ir.teamsWebhook = h
-}
-
-// SetSlackWebhookHandler sets the Slack webhook handler for interactions.
-func (ir *IntegrationRoutes) SetSlackWebhookHandler(h *slackadapter.WebhookHandler) {
-	ir.slackWebhook = h
-}
-
-// SetSlackOAuthHandler sets the Slack OAuth handler for install flow.
-func (ir *IntegrationRoutes) SetSlackOAuthHandler(h *slackadapter.OAuthHandler) {
-	ir.slackOAuth = h
 }
 
 // ServiceName returns "notification" to reuse the existing gRPC connection
@@ -524,41 +522,97 @@ func (ir *IntegrationRoutes) HandleGetLinkStatus(w http.ResponseWriter, r *http.
 // ============================================================================
 
 func (ir *IntegrationRoutes) HandleTeamsWebhook(w http.ResponseWriter, r *http.Request) {
-	if ir.teamsWebhook == nil {
-		response.Error(w, http.StatusNotFound, "teams integration not configured")
-		return
-	}
-	ir.teamsWebhook.HandleWebhook(w, r)
+	ir.proxyPlatformWebhook(w, r, integration.PlatformTeams, integration.WebhookKindTeamsActivity)
 }
 
 func (ir *IntegrationRoutes) HandleSlackInteraction(w http.ResponseWriter, r *http.Request) {
-	if ir.slackWebhook == nil {
-		response.Error(w, http.StatusNotFound, "slack integration not configured")
-		return
-	}
-	ir.slackWebhook.HandleInteraction(w, r)
+	ir.proxyPlatformWebhook(w, r, integration.PlatformSlack, integration.WebhookKindSlackInteraction)
 }
 
 func (ir *IntegrationRoutes) HandleSlackSlashCommand(w http.ResponseWriter, r *http.Request) {
-	if ir.slackWebhook == nil {
-		response.Error(w, http.StatusNotFound, "slack integration not configured")
-		return
-	}
-	ir.slackWebhook.HandleSlashCommand(w, r)
+	ir.proxyPlatformWebhook(w, r, integration.PlatformSlack, integration.WebhookKindSlackCommand)
 }
 
-func (ir *IntegrationRoutes) HandleSlackOAuthInstall(w http.ResponseWriter, r *http.Request) {
-	if ir.slackOAuth == nil {
-		response.Error(w, http.StatusNotFound, "slack oauth not configured")
+// proxyPlatformWebhook tunnels one inbound platform request to the notification
+// service and writes its answer back verbatim.
+//
+// The gateway deliberately does no work of its own here: it does not parse the
+// payload, does not verify the signature and touches no database. Slack signs
+// the exact bytes it sent and the Bot Framework JWT covers the payload, so
+// re-serializing anywhere along the way would break verification -- tunneling
+// the raw body is the only form that keeps the check meaningful. It also keeps
+// the signing secret in the notification service, where the platform tokens
+// already live, and lets the tenant be resolved from the platform identity
+// behind the gRPC boundary instead of by a direct repository call from a proxy.
+func (ir *IntegrationRoutes) proxyPlatformWebhook(w http.ResponseWriter, r *http.Request, platform, kind string) {
+	client, err := ir.getNotificationClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
 		return
 	}
-	ir.slackOAuth.HandleInstall(w, r)
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxWebhookBody))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "request body unreadable or too large")
+		return
+	}
+
+	headers := make(map[string]string, len(webhookForwardHeaders))
+	for _, name := range webhookForwardHeaders {
+		if value := r.Header.Get(name); value != "" {
+			headers[name] = value
+		}
+	}
+
+	resp, err := client.HandlePlatformWebhook(r.Context(), &notificationv1.HandlePlatformWebhookRequest{
+		Platform: platform,
+		Kind:     kind,
+		Body:     body,
+		Headers:  headers,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	statusCode := int(resp.GetStatusCode())
+	if statusCode < 100 || statusCode > 599 {
+		slog.Error("integration webhook: service returned an invalid status code",
+			"platform", platform,
+			"kind", kind,
+			"status_code", statusCode,
+		)
+		response.Error(w, http.StatusBadGateway, "invalid response from notification service")
+		return
+	}
+
+	contentType := resp.GetContentType()
+	if contentType == "" {
+		contentType = "text/plain; charset=utf-8"
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(statusCode)
+	if _, err := w.Write(resp.GetBody()); err != nil {
+		slog.Warn("integration webhook: failed to write response", "platform", platform, "error", err)
+	}
 }
 
-func (ir *IntegrationRoutes) HandleSlackOAuthCallback(w http.ResponseWriter, r *http.Request) {
-	if ir.slackOAuth == nil {
-		response.Error(w, http.StatusNotFound, "slack oauth not configured")
-		return
-	}
-	ir.slackOAuth.HandleCallback(w, r)
+// respondOAuthNotAvailable answers the two Slack OAuth routes.
+//
+// They stay off on purpose rather than for lack of wiring: the install flow
+// hands back a per-workspace bot token, and there is nowhere to keep it.
+// integration_configs.credentials_vault_key is a bare string with no resolver
+// behind it, and the callback arrives unauthenticated, so it would additionally
+// need a signed state carrying the tenant from an authenticated install. Both
+// are their own unit; answering 501 is the honest state until then.
+func (ir *IntegrationRoutes) respondOAuthNotAvailable(w http.ResponseWriter) {
+	response.Error(w, http.StatusNotImplemented, "slack oauth install is not available on this deployment")
+}
+
+func (ir *IntegrationRoutes) HandleSlackOAuthInstall(w http.ResponseWriter, _ *http.Request) {
+	ir.respondOAuthNotAvailable(w)
+}
+
+func (ir *IntegrationRoutes) HandleSlackOAuthCallback(w http.ResponseWriter, _ *http.Request) {
+	ir.respondOAuthNotAvailable(w)
 }

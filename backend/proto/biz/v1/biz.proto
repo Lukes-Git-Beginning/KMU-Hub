@@ -50,6 +50,8 @@ service FinanceService {
   rpc EscalateDunning(EscalateDunningRequest) returns (EscalateDunningResponse);
   rpc GetDunningConfig(GetDunningConfigRequest) returns (GetDunningConfigResponse);
   rpc UpdateDunningConfig(UpdateDunningConfigRequest) returns (UpdateDunningConfigResponse);
+  // Open items (Offene Posten): the receivables the dunning run escalates.
+  rpc ListOpenItems(ListOpenItemsRequest) returns (ListOpenItemsResponse);
 
   // ==================== Dashboard ====================
   rpc GetFinanceDashboard(GetFinanceDashboardRequest) returns (GetFinanceDashboardResponse);
@@ -98,6 +100,23 @@ service FinanceService {
   rpc GetIncomingInvoice(GetIncomingInvoiceRequest) returns (GetIncomingInvoiceResponse);
   rpc ListIncomingInvoices(ListIncomingInvoicesRequest) returns (ListIncomingInvoicesResponse);
   rpc UpdateIncomingInvoiceStatus(UpdateIncomingInvoiceStatusRequest) returns (UpdateIncomingInvoiceStatusResponse);
+
+  // ==================== Recurring Invoices (Abo-Rechnungen) ====================
+  rpc CreateRecurringInvoice(CreateRecurringInvoiceRequest) returns (CreateRecurringInvoiceResponse);
+  rpc GetRecurringInvoice(GetRecurringInvoiceRequest) returns (GetRecurringInvoiceResponse);
+  rpc ListRecurringInvoices(ListRecurringInvoicesRequest) returns (ListRecurringInvoicesResponse);
+  rpc UpdateRecurringInvoice(UpdateRecurringInvoiceRequest) returns (UpdateRecurringInvoiceResponse);
+  rpc DeleteRecurringInvoice(DeleteRecurringInvoiceRequest) returns (DeleteRecurringInvoiceResponse);
+  rpc SetRecurringInvoiceStatus(SetRecurringInvoiceStatusRequest) returns (SetRecurringInvoiceStatusResponse);
+  rpc GenerateRecurringInvoice(GenerateRecurringInvoiceRequest) returns (GenerateRecurringInvoiceResponse);
+
+  // ==================== Bank Statements (Zahlungsabgleich) ====================
+  rpc ImportBankStatement(ImportBankStatementRequest) returns (ImportBankStatementResponse);
+  rpc GetBankStatement(GetBankStatementRequest) returns (GetBankStatementResponse);
+  rpc ListBankStatements(ListBankStatementsRequest) returns (ListBankStatementsResponse);
+  rpc ListBankTransactions(ListBankTransactionsRequest) returns (ListBankTransactionsResponse);
+  rpc ReconcileBankTransaction(ReconcileBankTransactionRequest) returns (ReconcileBankTransactionResponse);
+  rpc IgnoreBankTransaction(IgnoreBankTransactionRequest) returns (IgnoreBankTransactionResponse);
 }
 
 // ============================================================================
@@ -210,6 +229,9 @@ message Quote {
   string created_by = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
+  // ISO 4217 code of the document currency. Without it every amount renders
+  // with the EUR symbol, whatever the stored currency is.
+  string currency = 16;
 }
 
 message Invoice {
@@ -234,6 +256,17 @@ message Invoice {
   google.protobuf.Timestamp updated_at = 19;
   // Contact-360: CRM contact linked to this invoice (Migration 000141).
   optional string contact_id = 20;
+  // ISO 4217 code of the document currency. Without it every amount renders
+  // with the EUR symbol, whatever the stored currency is — Bexio mirrors are
+  // typically CHF.
+  string currency = 21;
+  // Provenance (Migration 000243): "cosmi" for own GoBD-numbered invoices,
+  // "bexio" for read-only mirrors. The detail view gates editing on this.
+  string source = 22;
+  optional string external_id = 23;
+  optional string external_number = 24;
+  // Set when this invoice was emitted by a recurring schedule (Migration 000246).
+  optional string recurring_id = 25;
 }
 
 message CreditNote {
@@ -250,6 +283,9 @@ message CreditNote {
   string created_by = 11;
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+  // ISO 4217 code of the document currency. Without it every amount renders
+  // with the EUR symbol, whatever the stored currency is.
+  string currency = 14;
 }
 
 message Payment {
@@ -516,6 +552,8 @@ message ListInvoicesRequest {
   int32 per_page = 4;
   // Contact-360 filter: return only invoices linked to this CRM contact.
   optional string contact_id = 5;
+  // Return only invoices emitted by this recurring schedule.
+  optional string recurring_id = 6;
 }
 
 message ListInvoicesResponse {
@@ -718,6 +756,79 @@ message UpdateDunningConfigRequest {
 
 message UpdateDunningConfigResponse {
   DunningConfig config = 1;
+}
+
+// ============================================================================
+// Open Items (Offene Posten)
+// ============================================================================
+
+// OpenItem is one unpaid receivable. open_amount is the gross total minus every
+// payment recorded against the invoice, so a partially paid invoice reports the
+// residual rather than the full amount.
+message OpenItem {
+  string invoice_id = 1;
+  string invoice_number = 2;
+  // Plain string, not InvoiceStatus: the gateway marshals enums as numbers
+  // (UseEnumNumbers), and the frontend types invoice status as a string union.
+  // A string here keeps the receivables wire readable without a mapping table
+  // on the client — same call as recurring.status.
+  string status = 3;                // sent | overdue
+  string customer_name = 4;
+  string customer_email = 5;
+  string currency = 6;              // ISO 4217
+  string gross_total = 7;           // Decimal as string
+  string paid_amount = 8;           // Decimal as string
+  string open_amount = 9;           // Decimal as string
+  string invoice_date = 10;         // Date string YYYY-MM-DD
+  string due_date = 11;             // Date string YYYY-MM-DD
+  int32 days_overdue = 12;          // Negative when not due yet
+  string aging_bucket = 13;         // current | d30 | d60 | d60plus
+  int32 dunning_level = 14;         // 0 when never dunned
+  string dunning_status = 15;       // Empty when never dunned
+  optional string last_dunned_at = 16; // RFC3339, absent when never dunned
+  optional string contact_id = 17;
+}
+
+// OpenItemBucketTotal is one aging bucket in one currency, over all of the
+// tenant's open items.
+message OpenItemBucketTotal {
+  string currency = 1;
+  string bucket = 2;                // current | d30 | d60 | d60plus
+  int32 count = 3;
+  string amount = 4;                // Decimal as string
+}
+
+// OpenItemCurrencyTotal sums the receivables of one currency. There is one entry
+// per currency in use: without a stored exchange rate the server cannot fold CHF
+// mirrors and EUR invoices into a single honest figure.
+message OpenItemCurrencyTotal {
+  string currency = 1;
+  string open_amount = 2;           // Decimal as string
+  int32 open_count = 3;
+  string overdue_amount = 4;        // Decimal as string
+  int32 overdue_count = 5;
+  int32 avg_days_overdue = 6;
+}
+
+// OpenItemsSummary always covers every open item of the tenant, never just the
+// returned page.
+message OpenItemsSummary {
+  repeated OpenItemCurrencyTotal totals = 1;
+  repeated OpenItemBucketTotal buckets = 2;
+}
+
+message ListOpenItemsRequest {
+  string tenant_id = 1;
+  string bucket = 2;                // Optional aging bucket filter
+  bool overdue_only = 3;
+  int32 page = 4;
+  int32 per_page = 5;
+}
+
+message ListOpenItemsResponse {
+  repeated OpenItem items = 1;
+  int32 total = 2;
+  OpenItemsSummary summary = 3;
 }
 
 // ============================================================================
@@ -1178,4 +1289,254 @@ message UpdateIncomingInvoiceStatusRequest {
 
 message UpdateIncomingInvoiceStatusResponse {
   IncomingInvoice invoice = 1;
+}
+
+// ============================================================================
+// Recurring Invoices (Abo-Rechnungen) — Migration 000246
+// ============================================================================
+
+// A recurring invoice schedule. Interval and status travel as strings because the
+// frontend types them as string unions (weekly|monthly|quarterly|yearly and
+// active|paused|ended); an enum would force a mapping on both ends for no gain.
+message RecurringInvoice {
+  string id                  = 1;
+  string tenant_id           = 2;
+  string title               = 3;
+  CustomerSnapshot customer  = 4;
+  repeated LineItem line_items = 5;
+  TaxMode tax_mode           = 6;
+  TaxBreakdown tax_breakdown = 7;
+  string currency            = 8;
+  string interval            = 9;   // weekly | monthly | quarterly | yearly
+  string status              = 10;  // active | paused | ended
+  string start_date          = 11;  // YYYY-MM-DD
+  string end_date            = 12;  // YYYY-MM-DD, empty when open-ended
+  string next_run            = 13;  // YYYY-MM-DD
+  int32  payment_terms_days  = 14;
+  int32  generated_count     = 15;
+  string last_generated_at   = 16;  // YYYY-MM-DD, empty before the first run
+  string notes               = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+
+message CreateRecurringInvoiceRequest {
+  string tenant_id             = 1;
+  string title                 = 2;
+  CustomerSnapshot customer    = 3;
+  repeated LineItem line_items = 4;
+  TaxMode tax_mode             = 5;
+  string currency              = 6;
+  string interval              = 7;
+  string start_date            = 8;   // YYYY-MM-DD
+  string end_date              = 9;   // YYYY-MM-DD, optional
+  int32  payment_terms_days    = 10;
+  string notes                 = 11;
+  string created_by            = 12;
+}
+
+message CreateRecurringInvoiceResponse {
+  RecurringInvoice recurring = 1;
+}
+
+message GetRecurringInvoiceRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message GetRecurringInvoiceResponse {
+  RecurringInvoice recurring = 1;
+}
+
+message ListRecurringInvoicesRequest {
+  string tenant_id = 1;
+  string status    = 2;  // optional filter
+  int32  page      = 3;
+  int32  per_page  = 4;
+}
+
+message ListRecurringInvoicesResponse {
+  repeated RecurringInvoice recurring = 1;
+  int32 total                         = 2;
+}
+
+// Partial update: only the fields the client sends are applied, matching
+// Partial<CreateRecurringInvoiceRequest> on the frontend. line_items is applied
+// when non-empty; clear_end_date removes an existing end date.
+message UpdateRecurringInvoiceRequest {
+  string tenant_id                    = 1;
+  string id                           = 2;
+  optional string title               = 3;
+  CustomerSnapshot customer           = 4;
+  repeated LineItem line_items        = 5;
+  optional TaxMode tax_mode           = 6;
+  optional string currency            = 7;
+  optional string interval            = 8;
+  optional string start_date          = 9;
+  optional string end_date            = 10;
+  bool clear_end_date                 = 11;
+  optional int32 payment_terms_days   = 12;
+  optional string notes               = 13;
+}
+
+message UpdateRecurringInvoiceResponse {
+  RecurringInvoice recurring = 1;
+}
+
+message DeleteRecurringInvoiceRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message DeleteRecurringInvoiceResponse {
+  bool success = 1;
+}
+
+message SetRecurringInvoiceStatusRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string status    = 3;  // active | paused | ended
+}
+
+message SetRecurringInvoiceStatusResponse {
+  RecurringInvoice recurring = 1;
+}
+
+message GenerateRecurringInvoiceRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string user_id   = 3;
+}
+
+// The emitted invoice plus the advanced schedule. A repeated call for the same
+// period returns the very same invoice — generation is idempotent per period.
+message GenerateRecurringInvoiceResponse {
+  Invoice invoice            = 1;
+  RecurringInvoice recurring = 2;
+}
+
+// ============================================================================
+// Bank Statements (Zahlungsabgleich CAMT.053 / MT940) — Migration 000247
+// ============================================================================
+
+// BankStatement is one imported account statement file.
+message BankStatement {
+  string id            = 1;
+  string format        = 2;   // camt053 | mt940
+  string filename      = 3;
+  // SHA-256 of the uploaded bytes. Importing the same file twice resolves to
+  // this same statement instead of creating a second one.
+  string content_hash  = 4;
+  string account_iban  = 5;
+  string statement_ref = 6;
+  string currency      = 7;   // ISO 4217
+  // Decimals as strings, like every other finance amount on this wire.
+  optional string opening_balance = 8;
+  optional string closing_balance = 9;
+  optional string statement_date  = 10;  // YYYY-MM-DD
+  int32 transaction_count         = 11;
+  optional string imported_by     = 12;
+  string created_at               = 13;  // RFC3339
+}
+
+// BankTransaction is one entry of a statement plus its reconciliation state.
+// Everything up to remittance_info is what the bank reported and is never
+// rewritten; the match_* fields carry what this system made of it.
+message BankTransaction {
+  string id            = 1;
+  string statement_id  = 2;
+  string entry_ref     = 3;
+  string end_to_end_id = 4;
+  string value_date    = 5;              // YYYY-MM-DD
+  optional string booking_date = 6;      // YYYY-MM-DD
+  // Signed: a credit (money in) is positive, a debit negative.
+  string amount            = 7;
+  string currency          = 8;
+  string counterparty_name = 9;
+  string counterparty_iban = 10;
+  string remittance_info   = 11;
+  // unmatched | suggested | matched | ignored. Plain string, not an enum: the
+  // gateway marshals enums as numbers and the frontend types these as a string
+  // union — same call as OpenItem.status.
+  string match_status = 12;
+  // Why the matcher suggested what it did: invoice_number+amount,
+  // invoice_number, amount, manual or ignored.
+  string match_reason                = 13;
+  optional string matched_invoice_id = 14;
+  optional string payment_id         = 15;
+  optional string reconciled_at      = 16;  // RFC3339
+  optional string reconciled_by      = 17;
+  string created_at                  = 18;  // RFC3339
+}
+
+message ImportBankStatementRequest {
+  string tenant_id = 1;
+  string filename  = 2;
+  bytes content    = 3;
+  string user_id   = 4;
+}
+
+message ImportBankStatementResponse {
+  BankStatement statement            = 1;
+  repeated BankTransaction transactions = 2;
+  // True when the identical file had been imported before. The response then
+  // carries the original statement, not a second copy.
+  bool already_imported = 3;
+}
+
+message GetBankStatementRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message GetBankStatementResponse {
+  BankStatement statement               = 1;
+  repeated BankTransaction transactions = 2;
+}
+
+message ListBankStatementsRequest {
+  string tenant_id = 1;
+  int32 page       = 2;
+  int32 per_page   = 3;
+}
+
+message ListBankStatementsResponse {
+  repeated BankStatement statements = 1;
+  int32 total                       = 2;
+}
+
+message ListBankTransactionsRequest {
+  string tenant_id           = 1;
+  optional string statement_id = 2;
+  string match_status        = 3;  // empty = all
+  int32 page                 = 4;
+  int32 per_page             = 5;
+}
+
+message ListBankTransactionsResponse {
+  repeated BankTransaction transactions = 1;
+  int32 total                           = 2;
+}
+
+message ReconcileBankTransactionRequest {
+  string tenant_id      = 1;
+  string id             = 2;
+  // Empty takes the suggested invoice, which is the common case: the user is
+  // confirming what was proposed.
+  string invoice_id = 3;
+  string user_id    = 4;
+}
+
+message ReconcileBankTransactionResponse {
+  BankTransaction transaction = 1;
+}
+
+message IgnoreBankTransactionRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string user_id   = 3;
+}
+
+message IgnoreBankTransactionResponse {
+  BankTransaction transaction = 1;
 }

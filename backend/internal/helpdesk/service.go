@@ -77,8 +77,8 @@ func (s *Service) CreateTicket(
 }
 
 // GetTicket retrieves a ticket by ID.
-func (s *Service) GetTicket(ctx context.Context, id uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id)
+func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("get ticket: %w", err)
 	}
@@ -105,13 +105,13 @@ func (s *Service) ListTickets(
 // UpdateTicket applies field-level patches to a ticket.
 func (s *Service) UpdateTicket(
 	ctx context.Context,
-	id uuid.UUID,
+	id, tenantID uuid.UUID,
 	subject *string,
 	priority *string,
 	assigneeID *uuid.UUID,
 	queueID *uuid.UUID,
 ) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id)
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update ticket – load: %w", err)
 	}
@@ -145,8 +145,8 @@ func (s *Service) UpdateTicket(
 }
 
 // CloseTicket transitions a ticket to closed status.
-func (s *Service) CloseTicket(ctx context.Context, id uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id)
+func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("close ticket – load: %w", err)
 	}
@@ -165,8 +165,8 @@ func (s *Service) CloseTicket(ctx context.Context, id uuid.UUID) (*Ticket, error
 }
 
 // ReopenTicket transitions a closed or solved ticket back to open.
-func (s *Service) ReopenTicket(ctx context.Context, id uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id)
+func (s *Service) ReopenTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("reopen ticket – load: %w", err)
 	}
@@ -188,8 +188,8 @@ func (s *Service) ReopenTicket(ctx context.Context, id uuid.UUID) (*Ticket, erro
 }
 
 // AssignTicket sets the assignee on a ticket.
-func (s *Service) AssignTicket(ctx context.Context, ticketID, assigneeID uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, ticketID)
+func (s *Service) AssignTicket(ctx context.Context, ticketID, tenantID, assigneeID uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, ticketID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("assign ticket – load: %w", err)
 	}
@@ -209,8 +209,8 @@ func (s *Service) AssignTicket(ctx context.Context, ticketID, assigneeID uuid.UU
 }
 
 // MergeTickets merges sourceID into targetID via the merge package logic.
-func (s *Service) MergeTickets(ctx context.Context, sourceID, targetID uuid.UUID) error {
-	if err := MergeTickets(ctx, s.repo, sourceID, targetID); err != nil {
+func (s *Service) MergeTickets(ctx context.Context, tenantID, sourceID, targetID uuid.UUID) error {
+	if err := MergeTickets(ctx, s.repo, tenantID, sourceID, targetID); err != nil {
 		return fmt.Errorf("merge tickets: %w", err)
 	}
 
@@ -229,7 +229,7 @@ func (s *Service) MergeTickets(ctx context.Context, sourceID, targetID uuid.UUID
 // first_response_at on the ticket if this is the first non-internal message.
 func (s *Service) AddMessage(
 	ctx context.Context,
-	ticketID uuid.UUID,
+	ticketID, tenantID uuid.UUID,
 	authorID uuid.UUID,
 	body string,
 	internal bool,
@@ -239,7 +239,7 @@ func (s *Service) AddMessage(
 		return nil, fmt.Errorf("message body must not be empty")
 	}
 
-	ticket, err := s.repo.GetTicketByID(ctx, ticketID)
+	ticket, err := s.repo.GetTicketByID(ctx, ticketID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("add message – load ticket: %w", err)
 	}
@@ -286,8 +286,8 @@ func (s *Service) AddMessage(
 }
 
 // ListMessages returns all messages for a ticket ordered by created_at ASC.
-func (s *Service) ListMessages(ctx context.Context, ticketID uuid.UUID) ([]*TicketMessage, error) {
-	messages, err := s.repo.ListMessagesByTicket(ctx, ticketID)
+func (s *Service) ListMessages(ctx context.Context, ticketID, tenantID uuid.UUID) ([]*TicketMessage, error) {
+	messages, err := s.repo.ListMessagesByTicket(ctx, ticketID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("list messages: %w", err)
 	}
@@ -337,12 +337,12 @@ func (s *Service) CreateQueue(
 // UpdateQueue applies field patches to a queue.
 func (s *Service) UpdateQueue(
 	ctx context.Context,
-	id uuid.UUID,
+	id, tenantID uuid.UUID,
 	name *string,
 	defaultAssigneeID *uuid.UUID,
 	slaPolicyID *uuid.UUID,
 ) (*TicketQueue, error) {
-	q, err := s.repo.GetQueueByID(ctx, id)
+	q, err := s.repo.GetQueueByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update queue – load: %w", err)
 	}
@@ -379,8 +379,8 @@ func (s *Service) ListQueues(ctx context.Context, tenantID uuid.UUID) ([]*Ticket
 }
 
 // DeleteQueue removes a queue.
-func (s *Service) DeleteQueue(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.DeleteQueue(ctx, id); err != nil {
+func (s *Service) DeleteQueue(ctx context.Context, id, tenantID uuid.UUID) error {
+	if err := s.repo.DeleteQueue(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("delete queue: %w", err)
 	}
 	s.log.InfoContext(ctx, "helpdesk: queue deleted", "queue_id", id)
@@ -429,11 +429,11 @@ func (s *Service) CreateCannedResponse(
 // UpdateCannedResponse patches name/body of a canned response.
 func (s *Service) UpdateCannedResponse(
 	ctx context.Context,
-	id uuid.UUID,
+	id, tenantID uuid.UUID,
 	name *string,
 	body *string,
 ) (*CannedResponse, error) {
-	cr, err := s.repo.GetCannedResponseByID(ctx, id)
+	cr, err := s.repo.GetCannedResponseByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update canned response – load: %w", err)
 	}
@@ -461,8 +461,8 @@ func (s *Service) UpdateCannedResponse(
 }
 
 // DeleteCannedResponse removes a canned response template.
-func (s *Service) DeleteCannedResponse(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.DeleteCannedResponse(ctx, id); err != nil {
+func (s *Service) DeleteCannedResponse(ctx context.Context, id, tenantID uuid.UUID) error {
+	if err := s.repo.DeleteCannedResponse(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("delete canned response: %w", err)
 	}
 	s.log.InfoContext(ctx, "helpdesk: canned response deleted", "canned_response_id", id)
@@ -528,13 +528,13 @@ func (s *Service) CreateSLAPolicy(
 // UpdateSLAPolicy applies patches to an existing SLA policy.
 func (s *Service) UpdateSLAPolicy(
 	ctx context.Context,
-	id uuid.UUID,
+	id, tenantID uuid.UUID,
 	name *string,
 	firstResponseMins *int,
 	resolutionMins *int,
 	businessHours map[string]any,
 ) (*SLAPolicy, error) {
-	p, err := s.repo.GetSLAPolicyByID(ctx, id)
+	p, err := s.repo.GetSLAPolicyByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update sla policy – load: %w", err)
 	}
@@ -580,13 +580,13 @@ func (s *Service) ListSLAPolicies(ctx context.Context, tenantID uuid.UUID) ([]*S
 }
 
 // ApplySLAPolicy assigns a policy to a ticket and recalculates due_at.
-func (s *Service) ApplySLAPolicy(ctx context.Context, ticketID, policyID uuid.UUID) (*Ticket, error) {
-	ticket, err := s.repo.GetTicketByID(ctx, ticketID)
+func (s *Service) ApplySLAPolicy(ctx context.Context, ticketID, tenantID, policyID uuid.UUID) (*Ticket, error) {
+	ticket, err := s.repo.GetTicketByID(ctx, ticketID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("apply sla policy – load ticket: %w", err)
 	}
 
-	policy, err := s.repo.GetSLAPolicyByID(ctx, policyID)
+	policy, err := s.repo.GetSLAPolicyByID(ctx, policyID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("apply sla policy – load policy: %w", err)
 	}
@@ -609,8 +609,8 @@ func (s *Service) ApplySLAPolicy(ctx context.Context, ticketID, policyID uuid.UU
 }
 
 // DeleteSLAPolicy removes an SLA policy.
-func (s *Service) DeleteSLAPolicy(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.DeleteSLAPolicy(ctx, id); err != nil {
+func (s *Service) DeleteSLAPolicy(ctx context.Context, id, tenantID uuid.UUID) error {
+	if err := s.repo.DeleteSLAPolicy(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("delete sla policy: %w", err)
 	}
 	s.log.InfoContext(ctx, "helpdesk: sla policy deleted", "policy_id", id)
@@ -618,15 +618,15 @@ func (s *Service) DeleteSLAPolicy(ctx context.Context, id uuid.UUID) error {
 }
 
 // GetSLAStatus computes the current SLA health of a ticket.
-func (s *Service) GetSLAStatus(ctx context.Context, ticketID uuid.UUID, policyID *uuid.UUID) (SLAStatus, error) {
-	ticket, err := s.repo.GetTicketByID(ctx, ticketID)
+func (s *Service) GetSLAStatus(ctx context.Context, ticketID, tenantID uuid.UUID, policyID *uuid.UUID) (SLAStatus, error) {
+	ticket, err := s.repo.GetTicketByID(ctx, ticketID, tenantID)
 	if err != nil {
 		return "", fmt.Errorf("get sla status – load ticket: %w", err)
 	}
 
 	var policy *SLAPolicy
 	if policyID != nil {
-		policy, err = s.repo.GetSLAPolicyByID(ctx, *policyID)
+		policy, err = s.repo.GetSLAPolicyByID(ctx, *policyID, tenantID)
 		if err != nil {
 			return "", fmt.Errorf("get sla status – load policy: %w", err)
 		}
@@ -678,8 +678,8 @@ func (s *Service) CreateKBArticle(
 }
 
 // GetKBArticle retrieves a KB article by ID.
-func (s *Service) GetKBArticle(ctx context.Context, id uuid.UUID) (*KBArticle, error) {
-	a, err := s.repo.GetKBArticleByID(ctx, id)
+func (s *Service) GetKBArticle(ctx context.Context, id, tenantID uuid.UUID) (*KBArticle, error) {
+	a, err := s.repo.GetKBArticleByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("get kb article: %w", err)
 	}
@@ -698,10 +698,10 @@ func (s *Service) ListKBArticles(ctx context.Context, tenantID uuid.UUID) ([]*KB
 // UpdateKBArticle patches a KB article.
 func (s *Service) UpdateKBArticle(
 	ctx context.Context,
-	id uuid.UUID,
+	id, tenantID uuid.UUID,
 	title, content, category, articleStatus *string,
 ) (*KBArticle, error) {
-	a, err := s.repo.GetKBArticleByID(ctx, id)
+	a, err := s.repo.GetKBArticleByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update kb article – load: %w", err)
 	}
@@ -732,8 +732,8 @@ func (s *Service) UpdateKBArticle(
 }
 
 // DeleteKBArticle removes a KB article.
-func (s *Service) DeleteKBArticle(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.DeleteKBArticle(ctx, id); err != nil {
+func (s *Service) DeleteKBArticle(ctx context.Context, id, tenantID uuid.UUID) error {
+	if err := s.repo.DeleteKBArticle(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("delete kb article: %w", err)
 	}
 	s.log.InfoContext(ctx, "helpdesk: kb article deleted", "article_id", id)
@@ -797,14 +797,14 @@ func (s *Service) ListRoutingRules(ctx context.Context, tenantID uuid.UUID) ([]*
 // UpdateRoutingRule patches a routing rule.
 func (s *Service) UpdateRoutingRule(
 	ctx context.Context,
-	id uuid.UUID,
+	id, tenantID uuid.UUID,
 	name *string,
 	conditions map[string]any,
 	targetQueueID *uuid.UUID,
 	priority *int,
 	enabled *bool,
 ) (*RoutingRule, error) {
-	rr, err := s.repo.GetRoutingRuleByID(ctx, id)
+	rr, err := s.repo.GetRoutingRuleByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("update routing rule – load: %w", err)
 	}
@@ -838,8 +838,8 @@ func (s *Service) UpdateRoutingRule(
 }
 
 // DeleteRoutingRule removes a routing rule.
-func (s *Service) DeleteRoutingRule(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.DeleteRoutingRule(ctx, id); err != nil {
+func (s *Service) DeleteRoutingRule(ctx context.Context, id, tenantID uuid.UUID) error {
+	if err := s.repo.DeleteRoutingRule(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("delete routing rule: %w", err)
 	}
 	s.log.InfoContext(ctx, "helpdesk: routing rule deleted", "rule_id", id)

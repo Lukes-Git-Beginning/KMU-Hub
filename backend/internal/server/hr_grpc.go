@@ -397,12 +397,17 @@ func (s *HRGRPCServer) ClockOut(ctx context.Context, req *hrv1.ClockOutReq) (*hr
 }
 
 func (s *HRGRPCServer) StartBreak(ctx context.Context, req *hrv1.StartBreakReq) (*hrv1.StartBreakResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	breakEntry, err := s.timetrackingService.StartBreak(ctx, userID)
+	breakEntry, err := s.timetrackingService.StartBreak(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -413,12 +418,17 @@ func (s *HRGRPCServer) StartBreak(ctx context.Context, req *hrv1.StartBreakReq) 
 }
 
 func (s *HRGRPCServer) EndBreak(ctx context.Context, req *hrv1.EndBreakReq) (*hrv1.EndBreakResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	breakEntry, err := s.timetrackingService.EndBreak(ctx, userID)
+	breakEntry, err := s.timetrackingService.EndBreak(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -429,12 +439,17 @@ func (s *HRGRPCServer) EndBreak(ctx context.Context, req *hrv1.EndBreakReq) (*hr
 }
 
 func (s *HRGRPCServer) GetActiveShift(ctx context.Context, req *hrv1.GetActiveShiftReq) (*hrv1.GetActiveShiftResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	shift, breaks, err := s.timetrackingService.GetActiveShift(ctx, userID)
+	shift, breaks, err := s.timetrackingService.GetActiveShift(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -512,6 +527,11 @@ func (s *HRGRPCServer) ListWorkTimeEntries(ctx context.Context, req *hrv1.ListWo
 }
 
 func (s *HRGRPCServer) GetDailySummary(ctx context.Context, req *hrv1.GetDailySummaryReq) (*hrv1.GetDailySummaryResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -522,7 +542,7 @@ func (s *HRGRPCServer) GetDailySummary(ctx context.Context, req *hrv1.GetDailySu
 		return nil, status.Error(codes.InvalidArgument, "invalid date")
 	}
 
-	summary, err := s.timetrackingService.GetDailySummary(ctx, userID, date)
+	summary, err := s.timetrackingService.GetDailySummary(ctx, tenantID, userID, date)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -533,6 +553,11 @@ func (s *HRGRPCServer) GetDailySummary(ctx context.Context, req *hrv1.GetDailySu
 }
 
 func (s *HRGRPCServer) GetWeeklySummary(ctx context.Context, req *hrv1.GetWeeklySummaryReq) (*hrv1.GetWeeklySummaryResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -543,7 +568,7 @@ func (s *HRGRPCServer) GetWeeklySummary(ctx context.Context, req *hrv1.GetWeekly
 		return nil, status.Error(codes.InvalidArgument, "invalid week_start")
 	}
 
-	summary, err := s.timetrackingService.GetWeeklySummary(ctx, userID, weekStart)
+	summary, err := s.timetrackingService.GetWeeklySummary(ctx, tenantID, userID, weekStart)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -588,6 +613,11 @@ func (s *HRGRPCServer) SubmitTimeCorrection(ctx context.Context, req *hrv1.Submi
 }
 
 func (s *HRGRPCServer) ApproveTimeCorrection(ctx context.Context, req *hrv1.ApproveTimeCorrectionReq) (*hrv1.ApproveTimeCorrectionResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.GetId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid id")
@@ -598,7 +628,7 @@ func (s *HRGRPCServer) ApproveTimeCorrection(ctx context.Context, req *hrv1.Appr
 		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
 	}
 
-	correction, err := s.timetrackingService.ApproveTimeCorrection(ctx, id, approverID)
+	correction, err := s.timetrackingService.ApproveTimeCorrection(ctx, tenantID, id, approverID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -873,6 +903,27 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 
 	return &hrv1.UploadEmployeeDocumentResp{
 		Document: toProtoEmployeeDocument(doc),
+	}, nil
+}
+
+func (s *HRGRPCServer) ListDocumentCategories(ctx context.Context, _ *hrv1.ListDocumentCategoriesReq) (*hrv1.ListDocumentCategoriesResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	categories, err := s.employeeService.ListDocumentCategories(ctx, tenantID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	protoCategories := make([]*hrv1.HRDocumentCategory, 0, len(categories))
+	for _, c := range categories {
+		protoCategories = append(protoCategories, toProtoDocumentCategory(c))
+	}
+
+	return &hrv1.ListDocumentCategoriesResp{
+		Categories: protoCategories,
 	}, nil
 }
 
@@ -1209,6 +1260,36 @@ func (s *HRGRPCServer) RejectWeek(ctx context.Context, req *hrv1.RejectWeekReq) 
 	}
 
 	return &hrv1.RejectWeekResp{WeekApproval: toProtoWeekApproval(wa)}, nil
+}
+
+// ReopenWeek unlocks a submitted or approved week so it accepts time entries again.
+func (s *HRGRPCServer) ReopenWeek(ctx context.Context, req *hrv1.ReopenWeekReq) (*hrv1.ReopenWeekResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	approverID, err := uuid.Parse(req.GetApproverId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
+	}
+
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+
+	weekStart, err := time.Parse("2006-01-02", req.GetWeekStart())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid week_start")
+	}
+
+	wa, err := s.timetrackingService.ReopenWeek(ctx, tenantID, approverID, employeeID, weekStart, req.GetReason())
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.ReopenWeekResp{WeekApproval: toProtoWeekApproval(wa)}, nil
 }
 
 // ============================================================================
@@ -1615,6 +1696,22 @@ func toProtoEmployeeDocument(d *models.EmployeeDocument) *hrv1.EmployeeDocument 
 	}
 }
 
+func toProtoDocumentCategory(c *models.HRDocumentCategory) *hrv1.HRDocumentCategory {
+	if c == nil {
+		return nil
+	}
+	return &hrv1.HRDocumentCategory{
+		Id:         c.ID.String(),
+		TenantId:   c.TenantID.String(),
+		Name:       c.Name,
+		Key:        c.Key,
+		Visibility: string(c.Visibility),
+		IsSystem:   c.IsSystem,
+		SortOrder:  int32(c.SortOrder),
+		CreatedAt:  timestamppb.New(c.CreatedAt),
+	}
+}
+
 func toProtoHRSettings(s *models.HRCompanySettings) *hrv1.HRSettings {
 	if s == nil {
 		return nil
@@ -1700,6 +1797,8 @@ func workTimeStatusToProto(s models.WorkTimeEntryStatus) hrv1.WorkTimeEntryStatu
 		return hrv1.WorkTimeEntryStatus_WORK_TIME_CORRECTION_PENDING
 	case models.WorkTimeStatusCorrectionApproved:
 		return hrv1.WorkTimeEntryStatus_WORK_TIME_CORRECTION_APPROVED
+	case models.WorkTimeStatusSuperseded:
+		return hrv1.WorkTimeEntryStatus_WORK_TIME_SUPERSEDED
 	default:
 		return hrv1.WorkTimeEntryStatus_WORK_TIME_ENTRY_STATUS_UNSPECIFIED
 	}
@@ -1892,6 +1991,10 @@ func mapHRError(err error) error {
 	case errors.Is(err, timetracking.ErrWeekAlreadySubmitted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, timetracking.ErrWeekNotSubmitted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, timetracking.ErrWeekLocked):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, timetracking.ErrWeekNotLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, timetracking.ErrInvalidManualEntry):
 		return status.Error(codes.InvalidArgument, err.Error())

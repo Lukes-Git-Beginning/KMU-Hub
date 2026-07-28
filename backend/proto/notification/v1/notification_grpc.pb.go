@@ -48,6 +48,7 @@ const (
 	NotificationService_LinkAccount_FullMethodName                  = "/notification.v1.NotificationService/LinkAccount"
 	NotificationService_UnlinkAccount_FullMethodName                = "/notification.v1.NotificationService/UnlinkAccount"
 	NotificationService_GetAccountLinkStatus_FullMethodName         = "/notification.v1.NotificationService/GetAccountLinkStatus"
+	NotificationService_HandlePlatformWebhook_FullMethodName        = "/notification.v1.NotificationService/HandlePlatformWebhook"
 )
 
 // NotificationServiceClient is the client API for NotificationService service.
@@ -91,6 +92,8 @@ type NotificationServiceClient interface {
 	LinkAccount(ctx context.Context, in *LinkAccountRequest, opts ...grpc.CallOption) (*LinkAccountResponse, error)
 	UnlinkAccount(ctx context.Context, in *UnlinkAccountRequest, opts ...grpc.CallOption) (*UnlinkAccountResponse, error)
 	GetAccountLinkStatus(ctx context.Context, in *GetAccountLinkStatusRequest, opts ...grpc.CallOption) (*GetAccountLinkStatusResponse, error)
+	// Inbound platform webhooks (Slack, Teams) -- tunneled from the gateway
+	HandlePlatformWebhook(ctx context.Context, in *HandlePlatformWebhookRequest, opts ...grpc.CallOption) (*HandlePlatformWebhookResponse, error)
 }
 
 type notificationServiceClient struct {
@@ -391,6 +394,16 @@ func (c *notificationServiceClient) GetAccountLinkStatus(ctx context.Context, in
 	return out, nil
 }
 
+func (c *notificationServiceClient) HandlePlatformWebhook(ctx context.Context, in *HandlePlatformWebhookRequest, opts ...grpc.CallOption) (*HandlePlatformWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HandlePlatformWebhookResponse)
+	err := c.cc.Invoke(ctx, NotificationService_HandlePlatformWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NotificationServiceServer is the server API for NotificationService service.
 // All implementations must embed UnimplementedNotificationServiceServer
 // for forward compatibility.
@@ -432,6 +445,8 @@ type NotificationServiceServer interface {
 	LinkAccount(context.Context, *LinkAccountRequest) (*LinkAccountResponse, error)
 	UnlinkAccount(context.Context, *UnlinkAccountRequest) (*UnlinkAccountResponse, error)
 	GetAccountLinkStatus(context.Context, *GetAccountLinkStatusRequest) (*GetAccountLinkStatusResponse, error)
+	// Inbound platform webhooks (Slack, Teams) -- tunneled from the gateway
+	HandlePlatformWebhook(context.Context, *HandlePlatformWebhookRequest) (*HandlePlatformWebhookResponse, error)
 	mustEmbedUnimplementedNotificationServiceServer()
 }
 
@@ -528,6 +543,9 @@ func (UnimplementedNotificationServiceServer) UnlinkAccount(context.Context, *Un
 }
 func (UnimplementedNotificationServiceServer) GetAccountLinkStatus(context.Context, *GetAccountLinkStatusRequest) (*GetAccountLinkStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAccountLinkStatus not implemented")
+}
+func (UnimplementedNotificationServiceServer) HandlePlatformWebhook(context.Context, *HandlePlatformWebhookRequest) (*HandlePlatformWebhookResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method HandlePlatformWebhook not implemented")
 }
 func (UnimplementedNotificationServiceServer) mustEmbedUnimplementedNotificationServiceServer() {}
 func (UnimplementedNotificationServiceServer) testEmbeddedByValue()                             {}
@@ -1072,6 +1090,24 @@ func _NotificationService_GetAccountLinkStatus_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NotificationService_HandlePlatformWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandlePlatformWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).HandlePlatformWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_HandlePlatformWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).HandlePlatformWebhook(ctx, req.(*HandlePlatformWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NotificationService_ServiceDesc is the grpc.ServiceDesc for NotificationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1194,6 +1230,10 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAccountLinkStatus",
 			Handler:    _NotificationService_GetAccountLinkStatus_Handler,
+		},
+		{
+			MethodName: "HandlePlatformWebhook",
+			Handler:    _NotificationService_HandlePlatformWebhook_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

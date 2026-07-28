@@ -33,6 +33,7 @@ const (
 	AuthService_GetProfile_FullMethodName              = "/auth.v1.AuthService/GetProfile"
 	AuthService_UpdateProfile_FullMethodName           = "/auth.v1.AuthService/UpdateProfile"
 	AuthService_ChangePassword_FullMethodName          = "/auth.v1.AuthService/ChangePassword"
+	AuthService_ProvisionTenant_FullMethodName         = "/auth.v1.AuthService/ProvisionTenant"
 	AuthService_CreateInvitation_FullMethodName        = "/auth.v1.AuthService/CreateInvitation"
 	AuthService_ListInvitations_FullMethodName         = "/auth.v1.AuthService/ListInvitations"
 	AuthService_AcceptInvitation_FullMethodName        = "/auth.v1.AuthService/AcceptInvitation"
@@ -71,6 +72,8 @@ type AuthServiceClient interface {
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UpdateProfileResponse, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
+	// Tenant provisioning — platform operation, gated by tenants:write.
+	ProvisionTenant(ctx context.Context, in *ProvisionTenantRequest, opts ...grpc.CallOption) (*ProvisionTenantResponse, error)
 	// Invitations
 	CreateInvitation(ctx context.Context, in *CreateInvitationRequest, opts ...grpc.CallOption) (*CreateInvitationResponse, error)
 	ListInvitations(ctx context.Context, in *ListInvitationsRequest, opts ...grpc.CallOption) (*ListInvitationsResponse, error)
@@ -237,6 +240,16 @@ func (c *authServiceClient) ChangePassword(ctx context.Context, in *ChangePasswo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ChangePasswordResponse)
 	err := c.cc.Invoke(ctx, AuthService_ChangePassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ProvisionTenant(ctx context.Context, in *ProvisionTenantRequest, opts ...grpc.CallOption) (*ProvisionTenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProvisionTenantResponse)
+	err := c.cc.Invoke(ctx, AuthService_ProvisionTenant_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -432,6 +445,8 @@ type AuthServiceServer interface {
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UpdateProfileResponse, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
+	// Tenant provisioning — platform operation, gated by tenants:write.
+	ProvisionTenant(context.Context, *ProvisionTenantRequest) (*ProvisionTenantResponse, error)
 	// Invitations
 	CreateInvitation(context.Context, *CreateInvitationRequest) (*CreateInvitationResponse, error)
 	ListInvitations(context.Context, *ListInvitationsRequest) (*ListInvitationsResponse, error)
@@ -505,6 +520,9 @@ func (UnimplementedAuthServiceServer) UpdateProfile(context.Context, *UpdateProf
 }
 func (UnimplementedAuthServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
+}
+func (UnimplementedAuthServiceServer) ProvisionTenant(context.Context, *ProvisionTenantRequest) (*ProvisionTenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProvisionTenant not implemented")
 }
 func (UnimplementedAuthServiceServer) CreateInvitation(context.Context, *CreateInvitationRequest) (*CreateInvitationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateInvitation not implemented")
@@ -826,6 +844,24 @@ func _AuthService_ChangePassword_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).ChangePassword(ctx, req.(*ChangePasswordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ProvisionTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProvisionTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ProvisionTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ProvisionTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ProvisionTenant(ctx, req.(*ProvisionTenantRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1198,6 +1234,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChangePassword",
 			Handler:    _AuthService_ChangePassword_Handler,
+		},
+		{
+			MethodName: "ProvisionTenant",
+			Handler:    _AuthService_ProvisionTenant_Handler,
 		},
 		{
 			MethodName: "CreateInvitation",

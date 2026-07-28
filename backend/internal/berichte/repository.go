@@ -23,6 +23,13 @@ type ListSchedulesFilter struct {
 	Active       *bool
 }
 
+// ListDocumentsFilter narrows a report document listing.
+type ListDocumentsFilter struct {
+	Module *string
+	Status *string
+	Search string
+}
+
 // Repository defines the persistence interface for the berichte module.
 type Repository interface {
 	// Definitions
@@ -50,4 +57,24 @@ type Repository interface {
 
 	// Runs
 	InsertRun(ctx context.Context, run *Run) error
+
+	// Documents (multi-page authoring)
+	CreateDocument(ctx context.Context, doc *Document) error
+	UpdateDocument(ctx context.Context, doc *Document) error
+	DeleteDocument(ctx context.Context, tenantID, documentID uuid.UUID) error
+	GetDocument(ctx context.Context, tenantID, documentID uuid.UUID) (*Document, error)
+	ListDocuments(ctx context.Context, tenantID uuid.UUID, filter ListDocumentsFilter, offset, limit int) ([]*Document, int, error)
+
+	// Share tokens (external read links)
+	CreateShareToken(ctx context.Context, token *ShareToken) error
+	ListShareTokens(ctx context.Context, tenantID, documentID uuid.UUID) ([]*ShareToken, error)
+	RevokeShareToken(ctx context.Context, tenantID, shareID uuid.UUID, at time.Time) error
+	// GetShareTokenBySecret looks a link up by its secret alone. It runs in the
+	// system context on purpose: the public request carries no tenant, and
+	// resolving it from this row is the whole point. Implementations must not
+	// widen this to any other read.
+	GetShareTokenBySecret(ctx context.Context, secret string) (*ShareToken, error)
+	// IncrementShareView counts one successful public read. Tenant-scoped:
+	// the caller has resolved the tenant by then.
+	IncrementShareView(ctx context.Context, tenantID, shareID uuid.UUID) error
 }

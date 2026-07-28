@@ -18,16 +18,18 @@ type EmployeeRepository interface {
 }
 
 // DocumentCategoryRepository defines the interface for HR document category persistence.
+// Both reads carry the tenant explicitly; they resolve the tenant's own categories
+// plus the system seeds (see PostgresDocCategoryRepo).
 type DocumentCategoryRepository interface {
 	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]*models.HRDocumentCategory, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*models.HRDocumentCategory, error)
+	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.HRDocumentCategory, error)
 }
 
 // EmployeeDocumentRepository defines the interface for employee document persistence.
 type EmployeeDocumentRepository interface {
 	Create(ctx context.Context, doc *models.EmployeeDocument) error
 	ListByEmployee(ctx context.Context, employeeID uuid.UUID, callerRole string) ([]*models.EmployeeDocument, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 }
 
 // EmployeeFilter contains filtering options for listing employees.

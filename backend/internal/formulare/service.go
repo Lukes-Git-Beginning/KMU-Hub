@@ -404,7 +404,7 @@ func (s *Service) CreateSubmission(ctx context.Context, in CreateSubmissionInput
 	// Collect active webhook IDs for transactional enqueue.
 	var webhookIDs []uuid.UUID
 	if in.FormSchemaID != nil {
-		webhooks, err := s.repo.ListActiveWebhooksForSchema(ctx, *in.FormSchemaID)
+		webhooks, err := s.repo.ListActiveWebhooksForSchema(ctx, in.TenantID, *in.FormSchemaID)
 		if err != nil {
 			return nil, fmt.Errorf("list active webhooks: %w", err)
 		}

@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/kmuhub/kmuhub/internal/biz/banking"
 	"github.com/kmuhub/kmuhub/internal/biz/bexio"
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
@@ -32,8 +33,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
-	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
+	"github.com/kmuhub/kmuhub/internal/biz/recurring"
 	"github.com/kmuhub/kmuhub/internal/cache"
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -184,8 +186,12 @@ func main() {
 	}
 	pdfGen := pdf.NewGenerator(*settings)
 
-	// DATEV exporter
+	// DATEV exporter. The Buchungsstapel builder is constructed once and shared
+	// by the GoBD download and the DATEV API upload — both must render the same
+	// batch from the same rows.
 	datevExp := datev.NewExporter()
+	datevBatchBuilder := datev.NewBuchungsstapelBuilder(datevExp, invoiceSvc, creditNoteSvc, companySettingsRepo)
+	datevBelegRenderer := datev.NewBelegRenderer(invoiceSvc, companySettingsRepo)
 
 	// =========================================================================
 	// GoBD Belegarchiv — MinIO file store + service (§147 AO)
@@ -209,6 +215,19 @@ func main() {
 	// Incoming e-invoice processing (E-Rechnung Eingang)
 	einvoiceRepo := einvoice.NewPostgresRepository(pool)
 	einvoiceSvc := einvoice.NewService(einvoiceRepo)
+
+	// Recurring invoice schedules (Abo-Rechnungen, Migration 000246). Emission
+	// goes through invoiceSvc, so numbering, tax and GoBD rules stay in one place.
+	recurringSvc := recurring.NewService(
+		recurring.NewPostgresRepository(pool), invoiceSvc, invoiceRepo,
+	)
+
+	// Bank statement import (Zahlungsabgleich, Migration 000247). Matching reads
+	// the open items off invoiceRepo, and a confirmed match is booked through
+	// paymentSvc — this service never writes finance_payments itself.
+	bankingSvc := banking.NewService(
+		banking.NewPostgresRepository(pool), invoiceRepo, paymentSvc, slog.Default(),
+	)
 
 	// =========================================================================
 	// gRPC Server
@@ -237,13 +256,15 @@ func main() {
 		dunningSvc,
 		dashboardSvc,
 		pdfGen,
-		datevExp,
+		datevBatchBuilder,
 		companySettingsRepo,
 		workTimeRepo,
 		crmServiceClient,
 		gobdArchiveSvc,
 		einvoiceSvc,
 	)
+	bizGRPC.SetRecurringService(recurringSvc)
+	bizGRPC.SetBankingService(bankingSvc)
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 
 	// =========================================================================
@@ -397,7 +418,7 @@ func main() {
 			datevUploadRepo := datev.NewPostgresUploadRepository(pool)
 			datevConfigRepo := datev.NewPostgresIntegrationConfigRepo(pool)
 
-			datevUploadSvc = datev.NewUploadService(datevExp, datevUploader, datevBelegUploader, datevUploadRepo, datevConfigRepo, datevOAuth)
+			datevUploadSvc = datev.NewUploadService(datevBatchBuilder, datevBelegRenderer, datevUploader, datevBelegUploader, datevUploadRepo, datevConfigRepo, datevOAuth)
 
 			datevUploadGRPC := server.NewDatevUploadGRPCServer(datevUploadSvc)
 			bizv1.RegisterDatevUploadServiceServer(grpcServer, datevUploadGRPC)

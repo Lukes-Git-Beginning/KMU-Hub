@@ -563,13 +563,9 @@ func (s *SecurityGRPCServer) UpdatePasswordPolicy(ctx context.Context, req *secu
 		policy.MaxAgeDays = &days
 	}
 
-	if req.Policy.Id != "" {
-		parsed, parseErr := uuid.Parse(req.Policy.Id)
-		if parseErr == nil {
-			policy.ID = parsed
-		}
-	}
-
+	// policy.ID is intentionally not taken from req.Policy.Id: UpdatePolicy resolves
+	// the row to update server-side, scoped to the caller's tenant, so a client can
+	// never target another tenant's policy row by supplying an arbitrary ID.
 	if err := s.passwordService.UpdatePolicy(ctx, policy, updatedBy); err != nil {
 		return nil, status.Error(codes.Internal, "failed to update password policy")
 	}

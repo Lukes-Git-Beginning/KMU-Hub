@@ -23,22 +23,26 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) Create(ctx context.Context, msg *models.InboxMessage) error {
+	if msg.Status == "" {
+		msg.Status = "open"
+	}
+
 	query := `
 		INSERT INTO inbox_messages (
 			id, tenant_id, user_id, channel, source_id, sender_name, sender_id, sender_email,
-			subject, preview, is_read, is_starred, is_archived, snoozed_until,
+			subject, preview, is_read, is_starred, is_archived, status, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8,
-			$9, $10, $11, $12, $13, $14,
-			$15, $16, $17, $18, $19,
-			$20, $21, NOW(), NOW()
+			$9, $10, $11, $12, $13, $14, $15,
+			$16, $17, $18, $19, $20,
+			$21, $22, NOW(), NOW()
 		)`
 
 	_, err := r.pool.Exec(ctx, query,
 		msg.ID, msg.TenantID, msg.UserID, msg.Channel, msg.SourceID, msg.SenderName, msg.SenderID, msg.SenderEmail,
-		msg.Subject, msg.Preview, msg.IsRead, msg.IsStarred, msg.IsArchived, msg.SnoozedUntil,
+		msg.Subject, msg.Preview, msg.IsRead, msg.IsStarred, msg.IsArchived, msg.Status, msg.SnoozedUntil,
 		msg.AssignedTo, msg.TeamInboxID, msg.Tags, msg.DeepLink, msg.CRMContactID,
 		msg.Metadata, msg.ReceivedAt,
 	)
@@ -47,16 +51,16 @@ func (r *PostgresRepository) Create(ctx context.Context, msg *models.InboxMessag
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error) {
 	query := `
-		SELECT id, user_id, channel, source_id, sender_name, sender_id, sender_email,
-			subject, preview, is_read, is_starred, is_archived, snoozed_until,
+		SELECT id, tenant_id, user_id, channel, source_id, sender_name, sender_id, sender_email,
+			subject, preview, is_read, is_starred, is_archived, status, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
 		FROM inbox_messages WHERE id = $1 AND tenant_id = $2`
 
 	msg := &models.InboxMessage{}
 	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
-		&msg.ID, &msg.UserID, &msg.Channel, &msg.SourceID, &msg.SenderName, &msg.SenderID, &msg.SenderEmail,
-		&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.SnoozedUntil,
+		&msg.ID, &msg.TenantID, &msg.UserID, &msg.Channel, &msg.SourceID, &msg.SenderName, &msg.SenderID, &msg.SenderEmail,
+		&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.Status, &msg.SnoozedUntil,
 		&msg.AssignedTo, &msg.TeamInboxID, &msg.Tags, &msg.DeepLink, &msg.CRMContactID,
 		&msg.Metadata, &msg.ReceivedAt, &msg.CreatedAt, &msg.UpdatedAt,
 	)
@@ -93,6 +97,11 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	} else {
 		// Default: exclude archived items
 		where += " AND is_archived = false"
+	}
+	if filter.Status != nil {
+		where += fmt.Sprintf(" AND status = $%d", argIdx)
+		args = append(args, *filter.Status)
+		argIdx++
 	}
 	if filter.TeamInboxID != nil {
 		where += fmt.Sprintf(" AND team_inbox_id = $%d", argIdx)
@@ -142,6 +151,11 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	} else {
 		countWhere += " AND is_archived = false"
 	}
+	if filter.Status != nil {
+		countWhere += fmt.Sprintf(" AND status = $%d", countIdx)
+		countArgs = append(countArgs, *filter.Status)
+		countIdx++
+	}
 	if filter.TeamInboxID != nil {
 		countWhere += fmt.Sprintf(" AND team_inbox_id = $%d", countIdx)
 		countArgs = append(countArgs, *filter.TeamInboxID)
@@ -167,7 +181,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 
 	dataQuery := fmt.Sprintf(`
 		SELECT id, user_id, channel, source_id, sender_name, sender_id, sender_email,
-			subject, preview, is_read, is_starred, is_archived, snoozed_until,
+			subject, preview, is_read, is_starred, is_archived, status, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
 		FROM inbox_messages %s
@@ -186,7 +200,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		msg := &models.InboxMessage{}
 		if err := rows.Scan(
 			&msg.ID, &msg.UserID, &msg.Channel, &msg.SourceID, &msg.SenderName, &msg.SenderID, &msg.SenderEmail,
-			&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.SnoozedUntil,
+			&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.Status, &msg.SnoozedUntil,
 			&msg.AssignedTo, &msg.TeamInboxID, &msg.Tags, &msg.DeepLink, &msg.CRMContactID,
 			&msg.Metadata, &msg.ReceivedAt, &msg.CreatedAt, &msg.UpdatedAt,
 		); err != nil {
@@ -201,15 +215,15 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 func (r *PostgresRepository) Update(ctx context.Context, msg *models.InboxMessage) error {
 	query := `
 		UPDATE inbox_messages SET
-			sender_name = $2, sender_id = $3, sender_email = $4,
-			subject = $5, preview = $6, is_read = $7, is_starred = $8, is_archived = $9,
-			snoozed_until = $10, assigned_to = $11, team_inbox_id = $12,
-			tags = $13, deep_link = $14, crm_contact_id = $15,
-			metadata = $16, updated_at = NOW()
-		WHERE id = $1`
+			sender_name = $3, sender_id = $4, sender_email = $5,
+			subject = $6, preview = $7, is_read = $8, is_starred = $9, is_archived = $10,
+			snoozed_until = $11, assigned_to = $12, team_inbox_id = $13,
+			tags = $14, deep_link = $15, crm_contact_id = $16,
+			metadata = $17, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2`
 
 	tag, err := r.pool.Exec(ctx, query,
-		msg.ID, msg.SenderName, msg.SenderID, msg.SenderEmail,
+		msg.ID, msg.TenantID, msg.SenderName, msg.SenderID, msg.SenderEmail,
 		msg.Subject, msg.Preview, msg.IsRead, msg.IsStarred, msg.IsArchived,
 		msg.SnoozedUntil, msg.AssignedTo, msg.TeamInboxID,
 		msg.Tags, msg.DeepLink, msg.CRMContactID,
@@ -224,10 +238,10 @@ func (r *PostgresRepository) Update(ctx context.Context, msg *models.InboxMessag
 	return nil
 }
 
-func (r *PostgresRepository) MarkRead(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) MarkRead(ctx context.Context, tenantID, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_read = true, updated_at = NOW() WHERE id = $1",
-		id,
+		"UPDATE inbox_messages SET is_read = true, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID,
 	)
 	if err != nil {
 		return err
@@ -238,10 +252,10 @@ func (r *PostgresRepository) MarkRead(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *PostgresRepository) MarkUnread(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) MarkUnread(ctx context.Context, tenantID, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_read = false, updated_at = NOW() WHERE id = $1",
-		id,
+		"UPDATE inbox_messages SET is_read = false, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID,
 	)
 	if err != nil {
 		return err
@@ -252,10 +266,10 @@ func (r *PostgresRepository) MarkUnread(ctx context.Context, id uuid.UUID) error
 	return nil
 }
 
-func (r *PostgresRepository) ToggleStar(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) ToggleStar(ctx context.Context, tenantID, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_starred = NOT is_starred, updated_at = NOW() WHERE id = $1",
-		id,
+		"UPDATE inbox_messages SET is_starred = NOT is_starred, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID,
 	)
 	if err != nil {
 		return err
@@ -266,10 +280,10 @@ func (r *PostgresRepository) ToggleStar(ctx context.Context, id uuid.UUID) error
 	return nil
 }
 
-func (r *PostgresRepository) Archive(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) SetStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_archived = true, updated_at = NOW() WHERE id = $1",
-		id,
+		"UPDATE inbox_messages SET status = $3, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID, status,
 	)
 	if err != nil {
 		return err
@@ -280,10 +294,41 @@ func (r *PostgresRepository) Archive(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *PostgresRepository) Unarchive(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) AddTag(ctx context.Context, tenantID, id uuid.UUID, tag string) error {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE inbox_messages
+		 SET tags = CASE WHEN $3 = ANY(tags) THEN tags ELSE array_append(tags, $3) END,
+		     updated_at = NOW()
+		 WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID, tag,
+	)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrMessageNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) RemoveTag(ctx context.Context, tenantID, id uuid.UUID, tag string) error {
+	ct, err := r.pool.Exec(ctx,
+		"UPDATE inbox_messages SET tags = array_remove(tags, $3), updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID, tag,
+	)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrMessageNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) Archive(ctx context.Context, tenantID, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_archived = false, updated_at = NOW() WHERE id = $1",
-		id,
+		"UPDATE inbox_messages SET is_archived = true, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID,
 	)
 	if err != nil {
 		return err
@@ -294,10 +339,10 @@ func (r *PostgresRepository) Unarchive(ctx context.Context, id uuid.UUID) error 
 	return nil
 }
 
-func (r *PostgresRepository) Snooze(ctx context.Context, id uuid.UUID, until time.Time) error {
+func (r *PostgresRepository) Unarchive(ctx context.Context, tenantID, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET snoozed_until = $2, is_read = true, updated_at = NOW() WHERE id = $1",
-		id, until,
+		"UPDATE inbox_messages SET is_archived = false, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID,
 	)
 	if err != nil {
 		return err
@@ -308,10 +353,10 @@ func (r *PostgresRepository) Snooze(ctx context.Context, id uuid.UUID, until tim
 	return nil
 }
 
-func (r *PostgresRepository) Unsnooze(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) Snooze(ctx context.Context, tenantID, id uuid.UUID, until time.Time) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET snoozed_until = NULL, is_read = false, updated_at = NOW() WHERE id = $1",
-		id,
+		"UPDATE inbox_messages SET snoozed_until = $3, is_read = true, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+		id, tenantID, until,
 	)
 	if err != nil {
 		return err
@@ -332,18 +377,18 @@ func (r *PostgresRepository) UnsnoozeExpired(ctx context.Context) (int, error) {
 	return int(tag.RowsAffected()), nil
 }
 
-func (r *PostgresRepository) AssignMessage(ctx context.Context, id uuid.UUID, assigneeID uuid.UUID) (bool, error) {
+func (r *PostgresRepository) AssignMessage(ctx context.Context, tenantID, id uuid.UUID, assigneeID uuid.UUID) (bool, error) {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET assigned_to = $2, updated_at = NOW() WHERE id = $1 AND assigned_to IS NULL",
-		id, assigneeID,
+		"UPDATE inbox_messages SET assigned_to = $3, updated_at = NOW() WHERE id = $1 AND tenant_id = $2 AND assigned_to IS NULL",
+		id, tenantID, assigneeID,
 	)
 	if err != nil {
 		return false, err
 	}
 	if tag.RowsAffected() == 0 {
-		// Check if message exists
+		// Check if message exists within the tenant
 		var exists bool
-		_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM inbox_messages WHERE id = $1)", id).Scan(&exists)
+		_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM inbox_messages WHERE id = $1 AND tenant_id = $2)", id, tenantID).Scan(&exists)
 		if !exists {
 			return false, ErrMessageNotFound
 		}
@@ -379,32 +424,32 @@ func (r *PostgresRepository) GetUnreadCounts(ctx context.Context, userID uuid.UU
 	return counts, rows.Err()
 }
 
-func (r *PostgresRepository) BulkMarkRead(ctx context.Context, ids []uuid.UUID) error {
+func (r *PostgresRepository) BulkMarkRead(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	_, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_read = true, updated_at = NOW() WHERE id = ANY($1)",
-		ids,
+		"UPDATE inbox_messages SET is_read = true, updated_at = NOW() WHERE id = ANY($1) AND tenant_id = $2",
+		ids, tenantID,
 	)
 	return err
 }
 
-func (r *PostgresRepository) BulkArchive(ctx context.Context, ids []uuid.UUID) error {
+func (r *PostgresRepository) BulkArchive(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	_, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_archived = true, updated_at = NOW() WHERE id = ANY($1)",
-		ids,
+		"UPDATE inbox_messages SET is_archived = true, updated_at = NOW() WHERE id = ANY($1) AND tenant_id = $2",
+		ids, tenantID,
 	)
 	return err
 }
 
 func (r *PostgresRepository) GetBySourceID(ctx context.Context, userID uuid.UUID, channel, sourceID string) (*models.InboxMessage, error) {
 	query := `
-		SELECT id, user_id, channel, source_id, sender_name, sender_id, sender_email,
-			subject, preview, is_read, is_starred, is_archived, snoozed_until,
+		SELECT id, tenant_id, user_id, channel, source_id, sender_name, sender_id, sender_email,
+			subject, preview, is_read, is_starred, is_archived, status, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
 		FROM inbox_messages
@@ -412,8 +457,8 @@ func (r *PostgresRepository) GetBySourceID(ctx context.Context, userID uuid.UUID
 
 	msg := &models.InboxMessage{}
 	err := r.pool.QueryRow(ctx, query, userID, channel, sourceID).Scan(
-		&msg.ID, &msg.UserID, &msg.Channel, &msg.SourceID, &msg.SenderName, &msg.SenderID, &msg.SenderEmail,
-		&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.SnoozedUntil,
+		&msg.ID, &msg.TenantID, &msg.UserID, &msg.Channel, &msg.SourceID, &msg.SenderName, &msg.SenderID, &msg.SenderEmail,
+		&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.Status, &msg.SnoozedUntil,
 		&msg.AssignedTo, &msg.TeamInboxID, &msg.Tags, &msg.DeepLink, &msg.CRMContactID,
 		&msg.Metadata, &msg.ReceivedAt, &msg.CreatedAt, &msg.UpdatedAt,
 	)

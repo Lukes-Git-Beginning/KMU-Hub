@@ -83,6 +83,9 @@ type ListFilter struct {
 	Overdue   bool // If true, only returns sent invoices past due_date
 	// ContactID filters to invoices linked to this CRM contact (Contact-360 view).
 	ContactID *uuid.UUID
+	// RecurringID filters to invoices emitted by this recurring schedule
+	// (Migration 000246) — the schedule detail view lists them.
+	RecurringID *uuid.UUID
 	Limit     int
 	Offset    int
 }

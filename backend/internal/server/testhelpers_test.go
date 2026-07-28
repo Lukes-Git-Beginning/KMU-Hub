@@ -53,6 +53,9 @@ type authMockRepo struct {
 	invByToken    map[string]*models.Invitation
 	sessions      map[uuid.UUID]*models.UserSession
 	policies      map[string]*models.TwoFactorPolicy
+
+	provisionedTenants map[uuid.UUID]*models.Tenant
+	provisionedModules map[uuid.UUID][]string
 }
 
 func newAuthMockRepo() *authMockRepo {
@@ -66,6 +69,9 @@ func newAuthMockRepo() *authMockRepo {
 		invByToken:    make(map[string]*models.Invitation),
 		sessions:      make(map[uuid.UUID]*models.UserSession),
 		policies:      make(map[string]*models.TwoFactorPolicy),
+
+		provisionedTenants: make(map[uuid.UUID]*models.Tenant),
+		provisionedModules: make(map[uuid.UUID][]string),
 	}
 }
 
@@ -208,6 +214,23 @@ func (m *authMockRepo) CreateInvitation(_ context.Context, inv *models.Invitatio
 	return nil
 }
 
+func (m *authMockRepo) GetPendingInvitationByEmail(_ context.Context, email string) (*models.Invitation, error) {
+	for _, inv := range m.invitations {
+		if inv.Email == email && inv.AcceptedAt == nil && inv.ExpiresAt.After(time.Now()) {
+			return inv, nil
+		}
+	}
+	return nil, auth.ErrInvitationNotFound
+}
+
+func (m *authMockRepo) ProvisionTenant(_ context.Context, tenant *models.Tenant, moduleIDs []string, inv *models.Invitation) error {
+	m.provisionedTenants[tenant.ID] = tenant
+	m.provisionedModules[tenant.ID] = moduleIDs
+	m.invitations[inv.ID] = inv
+	m.invByToken[inv.TokenHash] = inv
+	return nil
+}
+
 func (m *authMockRepo) GetInvitationByToken(_ context.Context, tokenHash string) (*models.Invitation, error) {
 	inv, ok := m.invByToken[tokenHash]
 	if !ok {
@@ -216,37 +239,49 @@ func (m *authMockRepo) GetInvitationByToken(_ context.Context, tokenHash string)
 	return inv, nil
 }
 
-func (m *authMockRepo) GetInvitationByID(_ context.Context, id uuid.UUID) (*models.Invitation, error) {
+func (m *authMockRepo) GetInvitationByID(_ context.Context, tenantID, id uuid.UUID) (*models.Invitation, error) {
 	inv, ok := m.invitations[id]
-	if !ok {
+	if !ok || inv.TenantID != tenantID {
 		return nil, auth.ErrInvitationNotFound
 	}
 	return inv, nil
 }
 
-func (m *authMockRepo) ListPendingInvitations(_ context.Context) ([]*models.Invitation, error) {
-	var pending []*models.Invitation
+func (m *authMockRepo) ListPendingInvitations(_ context.Context, tenantID uuid.UUID) ([]*models.Invitation, error) {
+	pending := []*models.Invitation{}
 	for _, inv := range m.invitations {
-		if inv.AcceptedAt == nil {
+		if inv.AcceptedAt == nil && inv.TenantID == tenantID {
 			pending = append(pending, inv)
 		}
 	}
 	return pending, nil
 }
 
-func (m *authMockRepo) MarkInvitationAccepted(_ context.Context, id uuid.UUID) error {
-	inv, ok := m.invitations[id]
+func (m *authMockRepo) AcceptInvitation(ctx context.Context, inv *models.Invitation, user *models.User) error {
+	stored, ok := m.invitations[inv.ID]
 	if !ok {
 		return auth.ErrInvitationNotFound
 	}
+	if stored.AcceptedAt != nil {
+		return auth.ErrInvitationAlreadyUsed
+	}
 	now := time.Now()
-	inv.AcceptedAt = &now
-	return nil
+	stored.AcceptedAt = &now
+	if err := m.CreateUser(ctx, user); err != nil {
+		return err
+	}
+	return m.AssignRole(ctx, user.ID, inv.Role)
 }
 
-func (m *authMockRepo) DeleteInvitation(_ context.Context, id uuid.UUID) error {
+// CountSeatsInUse: the mock tenant has no seat cap booked (nil limit), so the
+// invite path is never blocked here.
+func (m *authMockRepo) CountSeatsInUse(_ context.Context, _ uuid.UUID, _ *uuid.UUID) (int, *int, error) {
+	return 0, nil, nil
+}
+
+func (m *authMockRepo) DeleteInvitation(_ context.Context, tenantID, id uuid.UUID) error {
 	inv, ok := m.invitations[id]
-	if !ok {
+	if !ok || inv.TenantID != tenantID {
 		return auth.ErrInvitationNotFound
 	}
 	delete(m.invByToken, inv.TokenHash)

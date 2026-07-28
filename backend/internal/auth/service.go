@@ -440,12 +440,21 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassw
 
 const invitationExpiry = 7 * 24 * time.Hour // 7 days
 
-// CreateInvitation creates a new user invitation
-func (s *Service) CreateInvitation(ctx context.Context, email, role string, createdBy uuid.UUID) (*models.Invitation, string, error) {
+// CreateInvitation creates a new user invitation for the given tenant. The
+// tenant is passed in rather than read from ctx: internal/auth cannot import
+// internal/middleware (middleware → auth), so the gRPC layer resolves it.
+func (s *Service) CreateInvitation(ctx context.Context, tenantID uuid.UUID, email, role string, createdBy uuid.UUID) (*models.Invitation, string, error) {
 	email = normalizeEmail(email)
 	// Check if email already exists as a user
 	if existing, _ := s.repo.GetUserByEmail(ctx, email); existing != nil {
 		return nil, "", ErrUserExists
+	}
+
+	// A pending invitation holds a seat, so the limit has to be checked here
+	// and not only on acceptance — otherwise a tenant can invite past its plan
+	// and the overrun only surfaces days later, when people cannot sign up.
+	if err := s.assertSeatAvailable(ctx, tenantID, nil); err != nil {
+		return nil, "", err
 	}
 
 	// Generate secure token
@@ -454,6 +463,7 @@ func (s *Service) CreateInvitation(ctx context.Context, email, role string, crea
 
 	inv := &models.Invitation{
 		ID:        uuid.New(),
+		TenantID:  tenantID,
 		Email:     email,
 		Role:      role,
 		TokenHash: hash,
@@ -491,6 +501,14 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 		return nil, nil, ErrInvitationExpired
 	}
 
+	// The seat this invitation reserved may have been withdrawn in the meantime
+	// — a plan downgrade shrinks the limit without touching open invitations.
+	// The invitation itself is excluded from the count; it is about to stop
+	// being pending and become the user it invited.
+	if err := s.assertSeatAvailable(ctx, inv.TenantID, &inv.ID); err != nil {
+		return nil, nil, err
+	}
+
 	// Create user with pre-assigned role
 	pwHash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
@@ -498,8 +516,10 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 	}
 
 	user := &models.User{
-		ID:           uuid.New(),
-		TenantID:     models.DefaultTenantID,
+		ID: uuid.New(),
+		// The invitation carries the tenant — the account belongs to whoever
+		// invited it, not to the default tenant.
+		TenantID:     inv.TenantID,
 		Email:        inv.Email,
 		PasswordHash: string(pwHash),
 		FirstName:    firstName,
@@ -509,18 +529,11 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 		UpdatedAt:    time.Now(),
 	}
 
-	if createErr := s.repo.CreateUser(ctx, user); createErr != nil {
-		return nil, nil, createErr
-	}
-
-	// Assign the role from invitation
-	if assignErr := s.repo.AssignRole(ctx, user.ID, inv.Role); assignErr != nil {
-		slog.Error("failed to assign role from invitation", "user_id", user.ID, "role", inv.Role, "error", assignErr)
-	}
-
-	// Mark invitation as accepted
-	if acceptErr := s.repo.MarkInvitationAccepted(ctx, inv.ID); acceptErr != nil {
-		slog.Error("failed to mark invitation accepted", "invitation_id", inv.ID, "error", acceptErr)
+	// One transaction: claim the invitation, create the account, assign the
+	// role. The claim is what makes the token single-use — the earlier
+	// AcceptedAt check above is only there to answer a replay cheaply.
+	if err := s.repo.AcceptInvitation(ctx, inv, user); err != nil {
+		return nil, nil, err
 	}
 
 	// Generate tokens
@@ -529,18 +542,18 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 		return nil, nil, err
 	}
 
-	slog.Info("invitation accepted", "user_id", user.ID, "invitation_id", inv.ID)
+	slog.Info("invitation accepted", "user_id", user.ID, "invitation_id", inv.ID, "tenant_id", inv.TenantID)
 	return user, tokens, nil
 }
 
-// ListInvitations returns all pending invitations
-func (s *Service) ListInvitations(ctx context.Context) ([]*models.Invitation, error) {
-	return s.repo.ListPendingInvitations(ctx)
+// ListInvitations returns the tenant's pending invitations.
+func (s *Service) ListInvitations(ctx context.Context, tenantID uuid.UUID) ([]*models.Invitation, error) {
+	return s.repo.ListPendingInvitations(ctx, tenantID)
 }
 
-// CancelInvitation deletes a pending invitation
-func (s *Service) CancelInvitation(ctx context.Context, invitationID uuid.UUID) error {
-	inv, err := s.repo.GetInvitationByID(ctx, invitationID)
+// CancelInvitation deletes a pending invitation of the given tenant.
+func (s *Service) CancelInvitation(ctx context.Context, tenantID, invitationID uuid.UUID) error {
+	inv, err := s.repo.GetInvitationByID(ctx, tenantID, invitationID)
 	if err != nil {
 		return ErrInvitationNotFound
 	}
@@ -549,7 +562,25 @@ func (s *Service) CancelInvitation(ctx context.Context, invitationID uuid.UUID) 
 		return ErrInvitationAlreadyUsed
 	}
 
-	return s.repo.DeleteInvitation(ctx, invitationID)
+	return s.repo.DeleteInvitation(ctx, tenantID, invitationID)
+}
+
+// assertSeatAvailable returns ErrSeatLimitReached when the tenant has no free
+// seat. A nil limit means the tenant has no cap booked, which is the state
+// every tenant is in until the licence service writes one.
+func (s *Service) assertSeatAvailable(ctx context.Context, tenantID uuid.UUID, excludeInvitation *uuid.UUID) error {
+	used, limit, err := s.repo.CountSeatsInUse(ctx, tenantID, excludeInvitation)
+	if err != nil {
+		return err
+	}
+	if limit == nil {
+		return nil
+	}
+	if used >= *limit {
+		slog.Warn("seat limit reached", "tenant_id", tenantID, "used", used, "limit", *limit)
+		return ErrSeatLimitReached
+	}
+	return nil
 }
 
 func generateSecureToken() string {

@@ -155,6 +155,7 @@ message SearchArticlesResponse {
 
 message ListVersionsRequest {
   string article_id = 1;
+  string tenant_id = 2;
 }
 
 message ListVersionsResponse {
@@ -163,6 +164,7 @@ message ListVersionsResponse {
 
 message GetVersionRequest {
   string version_id = 1;
+  string tenant_id = 2;
 }
 
 message VersionResponse {
@@ -195,6 +197,7 @@ message AttachmentResponse {
 
 message ListAttachmentsRequest {
   string article_id = 1;
+  string tenant_id = 2;
 }
 
 message ListAttachmentsResponse {
@@ -203,6 +206,7 @@ message ListAttachmentsResponse {
 
 message DeleteAttachmentRequest {
   string attachment_id = 1;
+  string tenant_id = 2;
 }
 
 message DeleteAttachmentResponse {}

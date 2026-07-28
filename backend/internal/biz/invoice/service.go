@@ -125,7 +125,14 @@ type CreateInput struct {
 	SourceQuoteID    *uuid.UUID
 	// ContactID links this invoice to a CRM contact for Contact-360 view.
 	ContactID *uuid.UUID
-	UserID    uuid.UUID
+	// RecurringID marks this invoice as emitted by a recurring schedule
+	// (Migration 000246). Set by recurring.Service.Generate, nil otherwise.
+	RecurringID *uuid.UUID
+	// Currency overrides the tenant default (ISO 4217). Empty means "use the
+	// company setting" — a recurring schedule bills in its own currency, which
+	// may differ from the tenant default.
+	Currency    string
+	UserID      uuid.UUID
 }
 
 // Create creates a new draft invoice with tax calculation.
@@ -181,10 +188,14 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 		}
 	}
 
-	// Currency: tenant default from company settings, else the system default (EUR).
+	// Currency: explicit input wins, then the tenant default from company
+	// settings, then the system default (EUR).
 	currency := models.DefaultCurrency
 	if settings != nil && settings.DefaultCurrency != "" {
 		currency = settings.DefaultCurrency
+	}
+	if input.Currency != "" {
+		currency = input.Currency
 	}
 
 	invoiceDate := input.InvoiceDate
@@ -219,6 +230,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 		SourceQuoteID:   input.SourceQuoteID,
 		Notes:           input.Notes,
 		ContactID:       input.ContactID,
+		RecurringID:     input.RecurringID,
 		CreatedBy:       input.UserID,
 		CreatedAt:       now,
 		UpdatedAt:       now,

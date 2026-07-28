@@ -51,6 +51,7 @@ const (
 	FinanceService_EscalateDunning_FullMethodName              = "/biz.v1.FinanceService/EscalateDunning"
 	FinanceService_GetDunningConfig_FullMethodName             = "/biz.v1.FinanceService/GetDunningConfig"
 	FinanceService_UpdateDunningConfig_FullMethodName          = "/biz.v1.FinanceService/UpdateDunningConfig"
+	FinanceService_ListOpenItems_FullMethodName                = "/biz.v1.FinanceService/ListOpenItems"
 	FinanceService_GetFinanceDashboard_FullMethodName          = "/biz.v1.FinanceService/GetFinanceDashboard"
 	FinanceService_ExportDATEV_FullMethodName                  = "/biz.v1.FinanceService/ExportDATEV"
 	FinanceService_GenerateQuotePDF_FullMethodName             = "/biz.v1.FinanceService/GenerateQuotePDF"
@@ -77,6 +78,19 @@ const (
 	FinanceService_GetIncomingInvoice_FullMethodName           = "/biz.v1.FinanceService/GetIncomingInvoice"
 	FinanceService_ListIncomingInvoices_FullMethodName         = "/biz.v1.FinanceService/ListIncomingInvoices"
 	FinanceService_UpdateIncomingInvoiceStatus_FullMethodName  = "/biz.v1.FinanceService/UpdateIncomingInvoiceStatus"
+	FinanceService_CreateRecurringInvoice_FullMethodName       = "/biz.v1.FinanceService/CreateRecurringInvoice"
+	FinanceService_GetRecurringInvoice_FullMethodName          = "/biz.v1.FinanceService/GetRecurringInvoice"
+	FinanceService_ListRecurringInvoices_FullMethodName        = "/biz.v1.FinanceService/ListRecurringInvoices"
+	FinanceService_UpdateRecurringInvoice_FullMethodName       = "/biz.v1.FinanceService/UpdateRecurringInvoice"
+	FinanceService_DeleteRecurringInvoice_FullMethodName       = "/biz.v1.FinanceService/DeleteRecurringInvoice"
+	FinanceService_SetRecurringInvoiceStatus_FullMethodName    = "/biz.v1.FinanceService/SetRecurringInvoiceStatus"
+	FinanceService_GenerateRecurringInvoice_FullMethodName     = "/biz.v1.FinanceService/GenerateRecurringInvoice"
+	FinanceService_ImportBankStatement_FullMethodName          = "/biz.v1.FinanceService/ImportBankStatement"
+	FinanceService_GetBankStatement_FullMethodName             = "/biz.v1.FinanceService/GetBankStatement"
+	FinanceService_ListBankStatements_FullMethodName           = "/biz.v1.FinanceService/ListBankStatements"
+	FinanceService_ListBankTransactions_FullMethodName         = "/biz.v1.FinanceService/ListBankTransactions"
+	FinanceService_ReconcileBankTransaction_FullMethodName     = "/biz.v1.FinanceService/ReconcileBankTransaction"
+	FinanceService_IgnoreBankTransaction_FullMethodName        = "/biz.v1.FinanceService/IgnoreBankTransaction"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -121,6 +135,8 @@ type FinanceServiceClient interface {
 	EscalateDunning(ctx context.Context, in *EscalateDunningRequest, opts ...grpc.CallOption) (*EscalateDunningResponse, error)
 	GetDunningConfig(ctx context.Context, in *GetDunningConfigRequest, opts ...grpc.CallOption) (*GetDunningConfigResponse, error)
 	UpdateDunningConfig(ctx context.Context, in *UpdateDunningConfigRequest, opts ...grpc.CallOption) (*UpdateDunningConfigResponse, error)
+	// Open items (Offene Posten): the receivables the dunning run escalates.
+	ListOpenItems(ctx context.Context, in *ListOpenItemsRequest, opts ...grpc.CallOption) (*ListOpenItemsResponse, error)
 	// ==================== Dashboard ====================
 	GetFinanceDashboard(ctx context.Context, in *GetFinanceDashboardRequest, opts ...grpc.CallOption) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
@@ -158,6 +174,21 @@ type FinanceServiceClient interface {
 	GetIncomingInvoice(ctx context.Context, in *GetIncomingInvoiceRequest, opts ...grpc.CallOption) (*GetIncomingInvoiceResponse, error)
 	ListIncomingInvoices(ctx context.Context, in *ListIncomingInvoicesRequest, opts ...grpc.CallOption) (*ListIncomingInvoicesResponse, error)
 	UpdateIncomingInvoiceStatus(ctx context.Context, in *UpdateIncomingInvoiceStatusRequest, opts ...grpc.CallOption) (*UpdateIncomingInvoiceStatusResponse, error)
+	// ==================== Recurring Invoices (Abo-Rechnungen) ====================
+	CreateRecurringInvoice(ctx context.Context, in *CreateRecurringInvoiceRequest, opts ...grpc.CallOption) (*CreateRecurringInvoiceResponse, error)
+	GetRecurringInvoice(ctx context.Context, in *GetRecurringInvoiceRequest, opts ...grpc.CallOption) (*GetRecurringInvoiceResponse, error)
+	ListRecurringInvoices(ctx context.Context, in *ListRecurringInvoicesRequest, opts ...grpc.CallOption) (*ListRecurringInvoicesResponse, error)
+	UpdateRecurringInvoice(ctx context.Context, in *UpdateRecurringInvoiceRequest, opts ...grpc.CallOption) (*UpdateRecurringInvoiceResponse, error)
+	DeleteRecurringInvoice(ctx context.Context, in *DeleteRecurringInvoiceRequest, opts ...grpc.CallOption) (*DeleteRecurringInvoiceResponse, error)
+	SetRecurringInvoiceStatus(ctx context.Context, in *SetRecurringInvoiceStatusRequest, opts ...grpc.CallOption) (*SetRecurringInvoiceStatusResponse, error)
+	GenerateRecurringInvoice(ctx context.Context, in *GenerateRecurringInvoiceRequest, opts ...grpc.CallOption) (*GenerateRecurringInvoiceResponse, error)
+	// ==================== Bank Statements (Zahlungsabgleich) ====================
+	ImportBankStatement(ctx context.Context, in *ImportBankStatementRequest, opts ...grpc.CallOption) (*ImportBankStatementResponse, error)
+	GetBankStatement(ctx context.Context, in *GetBankStatementRequest, opts ...grpc.CallOption) (*GetBankStatementResponse, error)
+	ListBankStatements(ctx context.Context, in *ListBankStatementsRequest, opts ...grpc.CallOption) (*ListBankStatementsResponse, error)
+	ListBankTransactions(ctx context.Context, in *ListBankTransactionsRequest, opts ...grpc.CallOption) (*ListBankTransactionsResponse, error)
+	ReconcileBankTransaction(ctx context.Context, in *ReconcileBankTransactionRequest, opts ...grpc.CallOption) (*ReconcileBankTransactionResponse, error)
+	IgnoreBankTransaction(ctx context.Context, in *IgnoreBankTransactionRequest, opts ...grpc.CallOption) (*IgnoreBankTransactionResponse, error)
 }
 
 type financeServiceClient struct {
@@ -488,6 +519,16 @@ func (c *financeServiceClient) UpdateDunningConfig(ctx context.Context, in *Upda
 	return out, nil
 }
 
+func (c *financeServiceClient) ListOpenItems(ctx context.Context, in *ListOpenItemsRequest, opts ...grpc.CallOption) (*ListOpenItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOpenItemsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListOpenItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *financeServiceClient) GetFinanceDashboard(ctx context.Context, in *GetFinanceDashboardRequest, opts ...grpc.CallOption) (*GetFinanceDashboardResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetFinanceDashboardResponse)
@@ -748,6 +789,136 @@ func (c *financeServiceClient) UpdateIncomingInvoiceStatus(ctx context.Context, 
 	return out, nil
 }
 
+func (c *financeServiceClient) CreateRecurringInvoice(ctx context.Context, in *CreateRecurringInvoiceRequest, opts ...grpc.CallOption) (*CreateRecurringInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateRecurringInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_CreateRecurringInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GetRecurringInvoice(ctx context.Context, in *GetRecurringInvoiceRequest, opts ...grpc.CallOption) (*GetRecurringInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRecurringInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GetRecurringInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListRecurringInvoices(ctx context.Context, in *ListRecurringInvoicesRequest, opts ...grpc.CallOption) (*ListRecurringInvoicesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRecurringInvoicesResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListRecurringInvoices_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) UpdateRecurringInvoice(ctx context.Context, in *UpdateRecurringInvoiceRequest, opts ...grpc.CallOption) (*UpdateRecurringInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateRecurringInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_UpdateRecurringInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DeleteRecurringInvoice(ctx context.Context, in *DeleteRecurringInvoiceRequest, opts ...grpc.CallOption) (*DeleteRecurringInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRecurringInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DeleteRecurringInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) SetRecurringInvoiceStatus(ctx context.Context, in *SetRecurringInvoiceStatusRequest, opts ...grpc.CallOption) (*SetRecurringInvoiceStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetRecurringInvoiceStatusResponse)
+	err := c.cc.Invoke(ctx, FinanceService_SetRecurringInvoiceStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GenerateRecurringInvoice(ctx context.Context, in *GenerateRecurringInvoiceRequest, opts ...grpc.CallOption) (*GenerateRecurringInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateRecurringInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateRecurringInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ImportBankStatement(ctx context.Context, in *ImportBankStatementRequest, opts ...grpc.CallOption) (*ImportBankStatementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportBankStatementResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ImportBankStatement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GetBankStatement(ctx context.Context, in *GetBankStatementRequest, opts ...grpc.CallOption) (*GetBankStatementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBankStatementResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GetBankStatement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListBankStatements(ctx context.Context, in *ListBankStatementsRequest, opts ...grpc.CallOption) (*ListBankStatementsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBankStatementsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListBankStatements_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListBankTransactions(ctx context.Context, in *ListBankTransactionsRequest, opts ...grpc.CallOption) (*ListBankTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBankTransactionsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListBankTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ReconcileBankTransaction(ctx context.Context, in *ReconcileBankTransactionRequest, opts ...grpc.CallOption) (*ReconcileBankTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReconcileBankTransactionResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ReconcileBankTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) IgnoreBankTransaction(ctx context.Context, in *IgnoreBankTransactionRequest, opts ...grpc.CallOption) (*IgnoreBankTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IgnoreBankTransactionResponse)
+	err := c.cc.Invoke(ctx, FinanceService_IgnoreBankTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -790,6 +961,8 @@ type FinanceServiceServer interface {
 	EscalateDunning(context.Context, *EscalateDunningRequest) (*EscalateDunningResponse, error)
 	GetDunningConfig(context.Context, *GetDunningConfigRequest) (*GetDunningConfigResponse, error)
 	UpdateDunningConfig(context.Context, *UpdateDunningConfigRequest) (*UpdateDunningConfigResponse, error)
+	// Open items (Offene Posten): the receivables the dunning run escalates.
+	ListOpenItems(context.Context, *ListOpenItemsRequest) (*ListOpenItemsResponse, error)
 	// ==================== Dashboard ====================
 	GetFinanceDashboard(context.Context, *GetFinanceDashboardRequest) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
@@ -827,6 +1000,21 @@ type FinanceServiceServer interface {
 	GetIncomingInvoice(context.Context, *GetIncomingInvoiceRequest) (*GetIncomingInvoiceResponse, error)
 	ListIncomingInvoices(context.Context, *ListIncomingInvoicesRequest) (*ListIncomingInvoicesResponse, error)
 	UpdateIncomingInvoiceStatus(context.Context, *UpdateIncomingInvoiceStatusRequest) (*UpdateIncomingInvoiceStatusResponse, error)
+	// ==================== Recurring Invoices (Abo-Rechnungen) ====================
+	CreateRecurringInvoice(context.Context, *CreateRecurringInvoiceRequest) (*CreateRecurringInvoiceResponse, error)
+	GetRecurringInvoice(context.Context, *GetRecurringInvoiceRequest) (*GetRecurringInvoiceResponse, error)
+	ListRecurringInvoices(context.Context, *ListRecurringInvoicesRequest) (*ListRecurringInvoicesResponse, error)
+	UpdateRecurringInvoice(context.Context, *UpdateRecurringInvoiceRequest) (*UpdateRecurringInvoiceResponse, error)
+	DeleteRecurringInvoice(context.Context, *DeleteRecurringInvoiceRequest) (*DeleteRecurringInvoiceResponse, error)
+	SetRecurringInvoiceStatus(context.Context, *SetRecurringInvoiceStatusRequest) (*SetRecurringInvoiceStatusResponse, error)
+	GenerateRecurringInvoice(context.Context, *GenerateRecurringInvoiceRequest) (*GenerateRecurringInvoiceResponse, error)
+	// ==================== Bank Statements (Zahlungsabgleich) ====================
+	ImportBankStatement(context.Context, *ImportBankStatementRequest) (*ImportBankStatementResponse, error)
+	GetBankStatement(context.Context, *GetBankStatementRequest) (*GetBankStatementResponse, error)
+	ListBankStatements(context.Context, *ListBankStatementsRequest) (*ListBankStatementsResponse, error)
+	ListBankTransactions(context.Context, *ListBankTransactionsRequest) (*ListBankTransactionsResponse, error)
+	ReconcileBankTransaction(context.Context, *ReconcileBankTransactionRequest) (*ReconcileBankTransactionResponse, error)
+	IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -933,6 +1121,9 @@ func (UnimplementedFinanceServiceServer) GetDunningConfig(context.Context, *GetD
 func (UnimplementedFinanceServiceServer) UpdateDunningConfig(context.Context, *UpdateDunningConfigRequest) (*UpdateDunningConfigResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateDunningConfig not implemented")
 }
+func (UnimplementedFinanceServiceServer) ListOpenItems(context.Context, *ListOpenItemsRequest) (*ListOpenItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListOpenItems not implemented")
+}
 func (UnimplementedFinanceServiceServer) GetFinanceDashboard(context.Context, *GetFinanceDashboardRequest) (*GetFinanceDashboardResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetFinanceDashboard not implemented")
 }
@@ -1010,6 +1201,45 @@ func (UnimplementedFinanceServiceServer) ListIncomingInvoices(context.Context, *
 }
 func (UnimplementedFinanceServiceServer) UpdateIncomingInvoiceStatus(context.Context, *UpdateIncomingInvoiceStatusRequest) (*UpdateIncomingInvoiceStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateIncomingInvoiceStatus not implemented")
+}
+func (UnimplementedFinanceServiceServer) CreateRecurringInvoice(context.Context, *CreateRecurringInvoiceRequest) (*CreateRecurringInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRecurringInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) GetRecurringInvoice(context.Context, *GetRecurringInvoiceRequest) (*GetRecurringInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRecurringInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListRecurringInvoices(context.Context, *ListRecurringInvoicesRequest) (*ListRecurringInvoicesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRecurringInvoices not implemented")
+}
+func (UnimplementedFinanceServiceServer) UpdateRecurringInvoice(context.Context, *UpdateRecurringInvoiceRequest) (*UpdateRecurringInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRecurringInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) DeleteRecurringInvoice(context.Context, *DeleteRecurringInvoiceRequest) (*DeleteRecurringInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRecurringInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) SetRecurringInvoiceStatus(context.Context, *SetRecurringInvoiceStatusRequest) (*SetRecurringInvoiceStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetRecurringInvoiceStatus not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateRecurringInvoice(context.Context, *GenerateRecurringInvoiceRequest) (*GenerateRecurringInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateRecurringInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) ImportBankStatement(context.Context, *ImportBankStatementRequest) (*ImportBankStatementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportBankStatement not implemented")
+}
+func (UnimplementedFinanceServiceServer) GetBankStatement(context.Context, *GetBankStatementRequest) (*GetBankStatementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBankStatement not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListBankStatements(context.Context, *ListBankStatementsRequest) (*ListBankStatementsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBankStatements not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListBankTransactions(context.Context, *ListBankTransactionsRequest) (*ListBankTransactionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBankTransactions not implemented")
+}
+func (UnimplementedFinanceServiceServer) ReconcileBankTransaction(context.Context, *ReconcileBankTransactionRequest) (*ReconcileBankTransactionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReconcileBankTransaction not implemented")
+}
+func (UnimplementedFinanceServiceServer) IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IgnoreBankTransaction not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -1608,6 +1838,24 @@ func _FinanceService_UpdateDunningConfig_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_ListOpenItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOpenItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListOpenItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListOpenItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListOpenItems(ctx, req.(*ListOpenItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FinanceService_GetFinanceDashboard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetFinanceDashboardRequest)
 	if err := dec(in); err != nil {
@@ -2076,6 +2324,240 @@ func _FinanceService_UpdateIncomingInvoiceStatus_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_CreateRecurringInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRecurringInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).CreateRecurringInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_CreateRecurringInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).CreateRecurringInvoice(ctx, req.(*CreateRecurringInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GetRecurringInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRecurringInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GetRecurringInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GetRecurringInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GetRecurringInvoice(ctx, req.(*GetRecurringInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListRecurringInvoices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRecurringInvoicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListRecurringInvoices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListRecurringInvoices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListRecurringInvoices(ctx, req.(*ListRecurringInvoicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_UpdateRecurringInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRecurringInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).UpdateRecurringInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_UpdateRecurringInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).UpdateRecurringInvoice(ctx, req.(*UpdateRecurringInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DeleteRecurringInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRecurringInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DeleteRecurringInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DeleteRecurringInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DeleteRecurringInvoice(ctx, req.(*DeleteRecurringInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_SetRecurringInvoiceStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRecurringInvoiceStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).SetRecurringInvoiceStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_SetRecurringInvoiceStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).SetRecurringInvoiceStatus(ctx, req.(*SetRecurringInvoiceStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GenerateRecurringInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateRecurringInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateRecurringInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateRecurringInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateRecurringInvoice(ctx, req.(*GenerateRecurringInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ImportBankStatement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportBankStatementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ImportBankStatement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ImportBankStatement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ImportBankStatement(ctx, req.(*ImportBankStatementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GetBankStatement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBankStatementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GetBankStatement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GetBankStatement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GetBankStatement(ctx, req.(*GetBankStatementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListBankStatements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBankStatementsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListBankStatements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListBankStatements_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListBankStatements(ctx, req.(*ListBankStatementsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListBankTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBankTransactionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListBankTransactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListBankTransactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListBankTransactions(ctx, req.(*ListBankTransactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ReconcileBankTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReconcileBankTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ReconcileBankTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ReconcileBankTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ReconcileBankTransaction(ctx, req.(*ReconcileBankTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_IgnoreBankTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IgnoreBankTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).IgnoreBankTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_IgnoreBankTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).IgnoreBankTransaction(ctx, req.(*IgnoreBankTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2212,6 +2694,10 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FinanceService_UpdateDunningConfig_Handler,
 		},
 		{
+			MethodName: "ListOpenItems",
+			Handler:    _FinanceService_ListOpenItems_Handler,
+		},
+		{
 			MethodName: "GetFinanceDashboard",
 			Handler:    _FinanceService_GetFinanceDashboard_Handler,
 		},
@@ -2314,6 +2800,58 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateIncomingInvoiceStatus",
 			Handler:    _FinanceService_UpdateIncomingInvoiceStatus_Handler,
+		},
+		{
+			MethodName: "CreateRecurringInvoice",
+			Handler:    _FinanceService_CreateRecurringInvoice_Handler,
+		},
+		{
+			MethodName: "GetRecurringInvoice",
+			Handler:    _FinanceService_GetRecurringInvoice_Handler,
+		},
+		{
+			MethodName: "ListRecurringInvoices",
+			Handler:    _FinanceService_ListRecurringInvoices_Handler,
+		},
+		{
+			MethodName: "UpdateRecurringInvoice",
+			Handler:    _FinanceService_UpdateRecurringInvoice_Handler,
+		},
+		{
+			MethodName: "DeleteRecurringInvoice",
+			Handler:    _FinanceService_DeleteRecurringInvoice_Handler,
+		},
+		{
+			MethodName: "SetRecurringInvoiceStatus",
+			Handler:    _FinanceService_SetRecurringInvoiceStatus_Handler,
+		},
+		{
+			MethodName: "GenerateRecurringInvoice",
+			Handler:    _FinanceService_GenerateRecurringInvoice_Handler,
+		},
+		{
+			MethodName: "ImportBankStatement",
+			Handler:    _FinanceService_ImportBankStatement_Handler,
+		},
+		{
+			MethodName: "GetBankStatement",
+			Handler:    _FinanceService_GetBankStatement_Handler,
+		},
+		{
+			MethodName: "ListBankStatements",
+			Handler:    _FinanceService_ListBankStatements_Handler,
+		},
+		{
+			MethodName: "ListBankTransactions",
+			Handler:    _FinanceService_ListBankTransactions_Handler,
+		},
+		{
+			MethodName: "ReconcileBankTransaction",
+			Handler:    _FinanceService_ReconcileBankTransaction_Handler,
+		},
+		{
+			MethodName: "IgnoreBankTransaction",
+			Handler:    _FinanceService_IgnoreBankTransaction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

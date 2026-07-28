@@ -103,6 +103,12 @@ func (a *GuestAdapter) HandleReply(ctx context.Context, messageID uuid.UUID, use
 	return nil
 }
 
+// HandleForward is not supported for guest chat — there is no concept of
+// forwarding a guest conversation to an arbitrary external recipient.
+func (a *GuestAdapter) HandleForward(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ string, _ string) error {
+	return ErrForwardNotSupported
+}
+
 // MarkReadOnSource is a no-op for guest messages (agents manage read status in chat).
 func (a *GuestAdapter) MarkReadOnSource(ctx context.Context, sourceID string, userID uuid.UUID) error {
 	return nil

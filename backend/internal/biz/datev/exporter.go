@@ -64,6 +64,7 @@ type StreamWriter struct {
 	customerIndex map[string]int
 	nextIndex     int
 	lineCount     int
+	documentCount int
 }
 
 // NewStreamWriter writes the UTF-8 BOM, EXTF header and column headers to w and
@@ -112,11 +113,16 @@ func (sw *StreamWriter) WriteInvoices(invoices []*models.Invoice) error {
 			return fmt.Errorf("parse invoice %s line items: %w", inv.ID, err)
 		}
 
+		wroteLine := false
 		for _, item := range lineItems {
 			if err := writeBookingLine(sw.w, item, "S", debitorAccount, inv.TaxMode, inv.Currency, inv.InvoiceDate, inv.InvoiceNumber, false); err != nil {
 				return fmt.Errorf("write invoice booking line: %w", err)
 			}
 			sw.lineCount++
+			wroteLine = true
+		}
+		if wroteLine {
+			sw.documentCount++
 		}
 	}
 
@@ -139,11 +145,16 @@ func (sw *StreamWriter) WriteCreditNotes(creditNotes []*models.CreditNote) error
 			return fmt.Errorf("parse credit note %s line items: %w", cn.ID, err)
 		}
 
+		wroteLine := false
 		for _, item := range lineItems {
 			if err := writeBookingLine(sw.w, item, "H", debitorAccount, cn.TaxMode, cn.Currency, cn.CreatedAt, cn.CreditNoteNumber, true); err != nil {
 				return fmt.Errorf("write credit note booking line: %w", err)
 			}
 			sw.lineCount++
+			wroteLine = true
+		}
+		if wroteLine {
+			sw.documentCount++
 		}
 	}
 
@@ -167,6 +178,14 @@ func (sw *StreamWriter) LineCount() int {
 	return sw.lineCount
 }
 
+// DocumentCount returns the number of invoices and credit notes that actually
+// produced booking lines. Drafts and documents without line items are skipped by
+// the writers and are not counted — reporting the number of rows handed in would
+// tell the client that documents reached DATEV which the file never contained.
+func (sw *StreamWriter) DocumentCount() int {
+	return sw.documentCount
+}
+
 // Close flushes any buffered data and returns the first write error encountered.
 func (sw *StreamWriter) Close() error {
 	sw.w.Flush()
@@ -180,26 +199,26 @@ func (sw *StreamWriter) Close() error {
 func writeEXTFHeader(w *csv.Writer, beraterNr, mandantNr string, fiscalYearStart, generatedAt time.Time) error {
 	// EXTF format: "EXTF";700;21;"Buchungsstapel";13;timestamp;;"KMU Hub";;;Berater;Mandant;fiscal_year_start_YYYYMMDD;4;...
 	record := []string{
-		"EXTF",                                      // Format
-		"700",                                       // Format version
-		"21",                                        // Data category (Buchungsstapel)
-		"Buchungsstapel",                            // Format name
-		"13",                                        // Format version (inner)
-		generatedAt.Format("20060102150405000"),      // Generated timestamp
-		"",                                          // Imported
-		"KMU Hub",                                   // Source application
-		"",                                          // Exported by
-		"",                                          // Imported by
-		beraterNr,                                   // Beraternummer
-		mandantNr,                                   // Mandantennummer
-		fiscalYearStart.Format("20060102"),           // Fiscal year start
-		"4",                                         // Account length (SKR03 = 4 digits)
-		"",                                          // Reserved
-		"",                                          // Reserved
-		"",                                          // Reserved
-		"",                                          // Reserved
-		"",                                          // Reserved
-		"",                                          // Reserved
+		"EXTF",                                  // Format
+		"700",                                   // Format version
+		"21",                                    // Data category (Buchungsstapel)
+		"Buchungsstapel",                        // Format name
+		"13",                                    // Format version (inner)
+		generatedAt.Format("20060102150405000"), // Generated timestamp
+		"",                                      // Imported
+		"KMU Hub",                               // Source application
+		"",                                      // Exported by
+		"",                                      // Imported by
+		beraterNr,                               // Beraternummer
+		mandantNr,                               // Mandantennummer
+		fiscalYearStart.Format("20060102"),      // Fiscal year start
+		"4",                                     // Account length (SKR03 = 4 digits)
+		"",                                      // Reserved
+		"",                                      // Reserved
+		"",                                      // Reserved
+		"",                                      // Reserved
+		"",                                      // Reserved
+		"",                                      // Reserved
 	}
 	return w.Write(record)
 }

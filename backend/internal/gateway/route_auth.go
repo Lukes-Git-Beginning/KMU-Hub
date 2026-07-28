@@ -109,6 +109,16 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.With(middleware.RequireRole("admin")).Delete("/{id}/roles", a.HandleRemoveRole)
 	})
 
+	// Tenant provisioning. Not RequireRole("admin"): a tenant admin
+	// administers their own tenant, creating one is a platform operation.
+	// tenants:write is held by the platform_admin role alone (migration
+	// 000251), and that role cannot be handed out over the API — the invite
+	// and role-assign handlers accept oneof=admin manager member.
+	r.Route("/api/v1/tenants", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("tenants", "write")).Post("/", a.HandleProvisionTenant)
+	})
+
 	// Invitation routes
 	r.Route("/api/v1/invitations", func(r chi.Router) {
 		// Public: accept invitation (no auth)
@@ -562,6 +572,58 @@ func (a *AuthRoutes) HandleResetPassword(w http.ResponseWriter, r *http.Request)
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "password reset successful"})
+}
+
+// ============================================================================
+// Tenant Provisioning Handler
+// ============================================================================
+
+// provisionTenantRequest mirrors the proto message. seat_limit is a pointer so
+// "not booked" (omitted) stays distinguishable from a cap of zero, which is
+// rejected — the administrator's invitation takes the first seat.
+type provisionTenantRequest struct {
+	Name             string   `json:"name" validate:"required,max=200"`
+	PlanType         string   `json:"plan_type" validate:"omitempty,oneof=cosmi orbit"`
+	SupportTier      string   `json:"support_tier" validate:"omitempty,oneof=standard priority enterprise"`
+	SeatLimit        *int32   `json:"seat_limit" validate:"omitempty,min=1"`
+	BillingPeriodEnd string   `json:"billing_period_end" validate:"omitempty,datetime=2006-01-02"`
+	Modules          []string `json:"modules"`
+	AdminEmail       string   `json:"admin_email" validate:"required,email"`
+}
+
+func (a *AuthRoutes) HandleProvisionTenant(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[provisionTenantRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &authv1.ProvisionTenantRequest{
+		Name:             req.Name,
+		PlanType:         req.PlanType,
+		SupportTier:      req.SupportTier,
+		BillingPeriodEnd: req.BillingPeriodEnd,
+		Modules:          req.Modules,
+		AdminEmail:       req.AdminEmail,
+		CreatedBy:        middleware.GetUserID(r.Context()),
+	}
+	if req.SeatLimit != nil {
+		grpcReq.SeatLimit = *req.SeatLimit
+		grpcReq.HasSeatLimit = true
+	}
+
+	resp, err := client.ProvisionTenant(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.Proto(w, http.StatusCreated, resp)
 }
 
 // ============================================================================

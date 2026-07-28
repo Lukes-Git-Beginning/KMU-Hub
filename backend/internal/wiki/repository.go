@@ -28,17 +28,17 @@ type Repository interface {
 	SearchArticles(ctx context.Context, tenantID uuid.UUID, tsquery string, limit int) ([]*Article, error)
 	SlugExists(ctx context.Context, tenantID uuid.UUID, slug string, excludeID *uuid.UUID) (bool, error)
 
-	// Versions
+	// Versions. Reads take an explicit tenantID for the same defense-in-depth
+	// reason as the article reads above — not just relying on RLS.
 	CreateVersion(ctx context.Context, version *Version) error
-	ListVersions(ctx context.Context, articleID uuid.UUID) ([]*Version, error)
-	GetVersion(ctx context.Context, versionID uuid.UUID) (*Version, error)
-	GetLatestVersionNumber(ctx context.Context, articleID uuid.UUID) (int, error)
+	ListVersions(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Version, error)
+	GetVersion(ctx context.Context, tenantID, versionID uuid.UUID) (*Version, error)
+	GetLatestVersionNumber(ctx context.Context, tenantID, articleID uuid.UUID) (int, error)
 
 	// Attachments
 	CreateAttachment(ctx context.Context, attachment *Attachment) error
-	ListAttachments(ctx context.Context, articleID uuid.UUID) ([]*Attachment, error)
-	GetAttachment(ctx context.Context, attachmentID uuid.UUID) (*Attachment, error)
-	DeleteAttachment(ctx context.Context, attachmentID uuid.UUID) error
+	ListAttachments(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Attachment, error)
+	DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error
 
 	// Categories
 	CreateCategory(ctx context.Context, category *Category) error
@@ -47,9 +47,9 @@ type Repository interface {
 	DeleteCategory(ctx context.Context, tenantID, categoryID uuid.UUID) error
 	UpdateCategory(ctx context.Context, category *Category) error
 
-	// Share tokens
+	// Share tokens. Delete and list take an explicit tenantID for the same
+	// defense-in-depth reason as the reads above.
 	CreateShareToken(ctx context.Context, token *ShareToken) error
-	GetShareToken(ctx context.Context, token string) (*ShareToken, error)
-	DeleteShareToken(ctx context.Context, tokenID uuid.UUID) error
-	ListShareTokensByArticle(ctx context.Context, articleID uuid.UUID) ([]*ShareToken, error)
+	DeleteShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error
+	ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error)
 }

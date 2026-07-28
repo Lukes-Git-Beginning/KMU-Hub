@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // PostgresRepository implements Repository using PostgreSQL (pgx v5).
@@ -479,6 +481,265 @@ func (r *PostgresRepository) scanScheduleFromRows(rows pgx.Rows) (*Schedule, err
 		return nil, fmt.Errorf("scan schedule row: %w", err)
 	}
 	return &s, nil
+}
+
+// ============================================================================
+// Documents
+// ============================================================================
+
+const documentColumns = `id, tenant_id, title, description, module, status,
+	        "rows", settings, template_id, created_by, created_at, updated_at, released_at`
+
+func (r *PostgresRepository) CreateDocument(ctx context.Context, doc *Document) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO report_documents
+		    (id, tenant_id, title, description, module, status, "rows", settings,
+		     template_id, created_by, created_at, updated_at, released_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		doc.ID, doc.TenantID, doc.Title, doc.Description, doc.Module, doc.Status,
+		doc.Rows, doc.Settings, doc.TemplateID, doc.CreatedBy,
+		doc.CreatedAt, doc.UpdatedAt, doc.ReleasedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("create document: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) UpdateDocument(ctx context.Context, doc *Document) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE report_documents
+		 SET title = $1, description = $2, module = $3, status = $4,
+		     "rows" = $5, settings = $6, updated_at = $7, released_at = $8
+		 WHERE id = $9 AND tenant_id = $10`,
+		doc.Title, doc.Description, doc.Module, doc.Status,
+		doc.Rows, doc.Settings, doc.UpdatedAt, doc.ReleasedAt,
+		doc.ID, doc.TenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("update document: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrDocumentNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) DeleteDocument(ctx context.Context, tenantID, documentID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM report_documents WHERE id = $1 AND tenant_id = $2`,
+		documentID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete document: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrDocumentNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetDocument(ctx context.Context, tenantID, documentID uuid.UUID) (*Document, error) {
+	return scanDocument(r.pool.QueryRow(ctx,
+		`SELECT `+documentColumns+`
+		 FROM report_documents WHERE id = $1 AND tenant_id = $2`,
+		documentID, tenantID,
+	))
+}
+
+func (r *PostgresRepository) ListDocuments(ctx context.Context, tenantID uuid.UUID, filter ListDocumentsFilter, offset, limit int) ([]*Document, int, error) {
+	conditions := []string{"tenant_id = $1"}
+	args := []any{tenantID}
+	argNum := 2
+
+	if filter.Module != nil {
+		conditions = append(conditions, fmt.Sprintf("module = $%d", argNum))
+		args = append(args, *filter.Module)
+		argNum++
+	}
+	if filter.Status != nil {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argNum))
+		args = append(args, *filter.Status)
+		argNum++
+	}
+	if filter.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("LOWER(title) LIKE $%d", argNum))
+		args = append(args, "%"+strings.ToLower(filter.Search)+"%")
+		argNum++
+	}
+
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
+
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		fmt.Sprintf("SELECT COUNT(*) FROM report_documents %s", whereClause),
+		args...,
+	).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count documents: %w", err)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT `+documentColumns+`
+		FROM report_documents %s
+		ORDER BY updated_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argNum, argNum+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list documents: %w", err)
+	}
+	defer rows.Close()
+
+	docs := make([]*Document, 0, limit)
+	for rows.Next() {
+		doc, scanErr := scanDocument(rows)
+		if scanErr != nil {
+			return nil, 0, scanErr
+		}
+		docs = append(docs, doc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate documents: %w", err)
+	}
+	return docs, total, nil
+}
+
+// scanDocument reads one report_documents row. pgx.Row and pgx.Rows share the
+// Scan signature, so the same helper serves single-row and list reads.
+func scanDocument(row pgx.Row) (*Document, error) {
+	var d Document
+	err := row.Scan(
+		&d.ID, &d.TenantID, &d.Title, &d.Description, &d.Module, &d.Status,
+		&d.Rows, &d.Settings, &d.TemplateID, &d.CreatedBy,
+		&d.CreatedAt, &d.UpdatedAt, &d.ReleasedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrDocumentNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("scan document: %w", err)
+	}
+	return &d, nil
+}
+
+// ============================================================================
+// Share tokens
+// ============================================================================
+
+const shareTokenColumns = `id, tenant_id, document_id, token, password_hash,
+	        expires_at, revoked_at, view_count, created_by, created_at`
+
+func (r *PostgresRepository) CreateShareToken(ctx context.Context, t *ShareToken) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO report_share_tokens
+		    (id, tenant_id, document_id, token, password_hash, expires_at,
+		     revoked_at, view_count, created_by, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		t.ID, t.TenantID, t.DocumentID, t.Token, t.PasswordHash, t.ExpiresAt,
+		t.RevokedAt, t.ViewCount, t.CreatedBy, t.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("create share token: %w", err)
+	}
+	return nil
+}
+
+// ListShareTokens returns the still-usable links of one document. Revoked rows
+// stay in the table for the audit trail but are not listed — the frontend
+// renders this list as "these links are live right now".
+func (r *PostgresRepository) ListShareTokens(ctx context.Context, tenantID, documentID uuid.UUID) ([]*ShareToken, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+shareTokenColumns+`
+		 FROM report_share_tokens
+		 WHERE tenant_id = $1 AND document_id = $2 AND revoked_at IS NULL
+		 ORDER BY created_at DESC`,
+		tenantID, documentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list share tokens: %w", err)
+	}
+	defer rows.Close()
+
+	tokens := make([]*ShareToken, 0, 4)
+	for rows.Next() {
+		t, scanErr := scanShareToken(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		tokens = append(tokens, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate share tokens: %w", err)
+	}
+	return tokens, nil
+}
+
+// RevokeShareToken cuts a live link. Revoking an already-revoked one reports
+// ErrShareNotFound rather than succeeding silently, so a double revoke from a
+// stale UI does not read as a fresh one.
+func (r *PostgresRepository) RevokeShareToken(ctx context.Context, tenantID, shareID uuid.UUID, at time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE report_share_tokens SET revoked_at = $1
+		 WHERE id = $2 AND tenant_id = $3 AND revoked_at IS NULL`,
+		at, shareID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("revoke share token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrShareNotFound
+	}
+	return nil
+}
+
+// GetShareTokenBySecret resolves a link — and with it its tenant — from the
+// secret alone.
+//
+// This is the one read in this service that runs without a tenant in the
+// session, because the public request has none: RLS would filter away the
+// single row that answers which tenant the caller may see. The query is
+// therefore pinned to an exact match on the unique token column and returns
+// everything the service needs to decide; it is never a listing and never
+// takes a filter. The revoked/expired verdict is the service's, not this
+// query's, so that a revoked link still resolves far enough to be logged.
+func (r *PostgresRepository) GetShareTokenBySecret(ctx context.Context, secret string) (*ShareToken, error) {
+	if secret == "" {
+		return nil, ErrShareNotFound
+	}
+	return scanShareToken(r.pool.QueryRow(database.WithSystemContext(ctx),
+		`SELECT `+shareTokenColumns+`
+		 FROM report_share_tokens WHERE token = $1`,
+		secret,
+	))
+}
+
+func (r *PostgresRepository) IncrementShareView(ctx context.Context, tenantID, shareID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE report_share_tokens SET view_count = view_count + 1
+		 WHERE id = $1 AND tenant_id = $2`,
+		shareID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("increment share view: %w", err)
+	}
+	return nil
+}
+
+func scanShareToken(row pgx.Row) (*ShareToken, error) {
+	var t ShareToken
+	err := row.Scan(
+		&t.ID, &t.TenantID, &t.DocumentID, &t.Token, &t.PasswordHash,
+		&t.ExpiresAt, &t.RevokedAt, &t.ViewCount, &t.CreatedBy, &t.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("scan share token: %w", err)
+	}
+	return &t, nil
 }
 
 // compile-time interface check

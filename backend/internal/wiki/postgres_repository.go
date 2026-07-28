@@ -208,12 +208,12 @@ func (r *PostgresRepository) CreateVersion(ctx context.Context, version *Version
 	return err
 }
 
-func (r *PostgresRepository) ListVersions(ctx context.Context, articleID uuid.UUID) ([]*Version, error) {
+func (r *PostgresRepository) ListVersions(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Version, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, article_id, version_number, content, changed_by, changed_at
-		 FROM wiki_versions WHERE article_id = $1
+		 FROM wiki_versions WHERE article_id = $1 AND tenant_id = $2
 		 ORDER BY version_number DESC`,
-		articleID,
+		articleID, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list versions: %w", err)
@@ -232,12 +232,12 @@ func (r *PostgresRepository) ListVersions(ctx context.Context, articleID uuid.UU
 	return versions, rows.Err()
 }
 
-func (r *PostgresRepository) GetVersion(ctx context.Context, versionID uuid.UUID) (*Version, error) {
+func (r *PostgresRepository) GetVersion(ctx context.Context, tenantID, versionID uuid.UUID) (*Version, error) {
 	var v Version
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, article_id, version_number, content, changed_by, changed_at
-		 FROM wiki_versions WHERE id = $1`,
-		versionID,
+		 FROM wiki_versions WHERE id = $1 AND tenant_id = $2`,
+		versionID, tenantID,
 	).Scan(&v.ID, &v.ArticleID, &v.VersionNumber, &v.Content, &v.ChangedBy, &v.ChangedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrVersionNotFound
@@ -248,11 +248,11 @@ func (r *PostgresRepository) GetVersion(ctx context.Context, versionID uuid.UUID
 	return &v, nil
 }
 
-func (r *PostgresRepository) GetLatestVersionNumber(ctx context.Context, articleID uuid.UUID) (int, error) {
+func (r *PostgresRepository) GetLatestVersionNumber(ctx context.Context, tenantID, articleID uuid.UUID) (int, error) {
 	var n int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COALESCE(MAX(version_number), 0) FROM wiki_versions WHERE article_id = $1`,
-		articleID,
+		`SELECT COALESCE(MAX(version_number), 0) FROM wiki_versions WHERE article_id = $1 AND tenant_id = $2`,
+		articleID, tenantID,
 	).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("get latest version number: %w", err)
@@ -274,12 +274,12 @@ func (r *PostgresRepository) CreateAttachment(ctx context.Context, attachment *A
 	return err
 }
 
-func (r *PostgresRepository) ListAttachments(ctx context.Context, articleID uuid.UUID) ([]*Attachment, error) {
+func (r *PostgresRepository) ListAttachments(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Attachment, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, article_id, file_ref, mime, size, uploaded_by, created_at
-		 FROM wiki_attachments WHERE article_id = $1
+		 FROM wiki_attachments WHERE article_id = $1 AND tenant_id = $2
 		 ORDER BY created_at DESC`,
-		articleID,
+		articleID, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list attachments: %w", err)
@@ -298,25 +298,16 @@ func (r *PostgresRepository) ListAttachments(ctx context.Context, articleID uuid
 	return attachments, rows.Err()
 }
 
-func (r *PostgresRepository) GetAttachment(ctx context.Context, attachmentID uuid.UUID) (*Attachment, error) {
-	var a Attachment
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, article_id, file_ref, mime, size, uploaded_by, created_at
-		 FROM wiki_attachments WHERE id = $1`,
-		attachmentID,
-	).Scan(&a.ID, &a.ArticleID, &a.FileRef, &a.Mime, &a.Size, &a.UploadedBy, &a.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrArticleNotFound
-	}
+func (r *PostgresRepository) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM wiki_attachments WHERE id = $1 AND tenant_id = $2`, attachmentID, tenantID)
 	if err != nil {
-		return nil, fmt.Errorf("get attachment: %w", err)
+		return err
 	}
-	return &a, nil
-}
-
-func (r *PostgresRepository) DeleteAttachment(ctx context.Context, attachmentID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM wiki_attachments WHERE id = $1`, attachmentID)
-	return err
+	if tag.RowsAffected() == 0 {
+		return ErrAttachmentNotFound
+	}
+	return nil
 }
 
 // ============================================================================
@@ -406,33 +397,24 @@ func (r *PostgresRepository) CreateShareToken(ctx context.Context, token *ShareT
 	return err
 }
 
-func (r *PostgresRepository) GetShareToken(ctx context.Context, token string) (*ShareToken, error) {
-	var t ShareToken
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, article_id, token, expires_at, permissions, created_at
-		 FROM wiki_share_tokens WHERE token = $1`,
-		token,
-	).Scan(&t.ID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions, &t.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrArticleNotFound
-	}
+func (r *PostgresRepository) DeleteShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM wiki_share_tokens WHERE id = $1 AND tenant_id = $2`, tokenID, tenantID)
 	if err != nil {
-		return nil, fmt.Errorf("get share token: %w", err)
+		return err
 	}
-	return &t, nil
+	if tag.RowsAffected() == 0 {
+		return ErrShareTokenNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) DeleteShareToken(ctx context.Context, tokenID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM wiki_share_tokens WHERE id = $1`, tokenID)
-	return err
-}
-
-func (r *PostgresRepository) ListShareTokensByArticle(ctx context.Context, articleID uuid.UUID) ([]*ShareToken, error) {
+func (r *PostgresRepository) ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, article_id, token, expires_at, permissions, created_at
-		 FROM wiki_share_tokens WHERE article_id = $1
+		 FROM wiki_share_tokens WHERE article_id = $1 AND tenant_id = $2
 		 ORDER BY created_at DESC`,
-		articleID,
+		articleID, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list share tokens: %w", err)

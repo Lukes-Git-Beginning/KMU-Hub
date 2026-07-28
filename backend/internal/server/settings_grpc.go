@@ -466,3 +466,94 @@ func protoToEntries(protoEntries []*settingsv1.SettingEntry) ([]*settings.Settin
 	}
 	return out, nil
 }
+
+// ============================================================================
+// Licensing RPCs
+// ============================================================================
+
+func (s *SettingsGRPCServer) GetTenantLicense(ctx context.Context, req *settingsv1.GetTenantLicenseRequest) (*settingsv1.GetTenantLicenseResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	mods, err := s.svc.GetTenantLicense(ctx, tenantID)
+	if err != nil {
+		slog.Error("GetTenantLicense failed", "error", err, "tenant_id", tenantID)
+		return nil, status.Error(codes.Internal, "failed to load tenant license")
+	}
+
+	resp := &settingsv1.GetTenantLicenseResponse{
+		Modules: make([]*settingsv1.TenantModule, 0, len(mods)),
+	}
+	for _, m := range mods {
+		resp.Modules = append(resp.Modules, tenantModuleToProto(m))
+	}
+	return resp, nil
+}
+
+func (s *SettingsGRPCServer) SetTenantModuleActive(ctx context.Context, req *settingsv1.SetTenantModuleActiveRequest) (*settingsv1.TenantModule, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	var updatedBy *uuid.UUID
+	if req.GetUpdatedBy() != "" {
+		uid, parseErr := uuid.Parse(req.GetUpdatedBy())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid updated_by: %v", parseErr)
+		}
+		updatedBy = &uid
+	}
+
+	m, err := s.svc.SetTenantModuleActive(ctx, tenantID, req.GetModuleId(), req.GetActive(), updatedBy)
+	switch {
+	case errors.Is(err, settings.ErrInvalidModuleID), errors.Is(err, settings.ErrUnknownModule):
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	case err != nil:
+		slog.Error("SetTenantModuleActive failed", "error", err, "tenant_id", tenantID, "module_id", req.GetModuleId())
+		return nil, status.Error(codes.Internal, "failed to change module activation")
+	}
+	return tenantModuleToProto(m), nil
+}
+
+func (s *SettingsGRPCServer) GetTenantSubscription(ctx context.Context, req *settingsv1.GetTenantSubscriptionRequest) (*settingsv1.TenantSubscription, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	sub, err := s.svc.GetTenantSubscription(ctx, tenantID)
+	switch {
+	case errors.Is(err, settings.ErrNotFound):
+		return nil, status.Error(codes.NotFound, "tenant not found")
+	case err != nil:
+		slog.Error("GetTenantSubscription failed", "error", err, "tenant_id", tenantID)
+		return nil, status.Error(codes.Internal, "failed to load subscription")
+	}
+
+	out := &settingsv1.TenantSubscription{
+		PlanType:    sub.PlanType,
+		SupportTier: sub.SupportTier,
+		Status:      sub.Status,
+	}
+	if sub.BillingPeriodEnd != nil {
+		end := sub.BillingPeriodEnd.Format("2006-01-02")
+		out.BillingPeriodEnd = &end
+	}
+	if sub.TotalSeats != nil {
+		out.TotalSeats = sub.TotalSeats
+	}
+	return out, nil
+}
+
+func tenantModuleToProto(m *settings.TenantModule) *settingsv1.TenantModule {
+	return &settingsv1.TenantModule{
+		ModuleId:      m.ModuleID,
+		Group:         m.Group,
+		Active:        m.Active,
+		AssignedSeats: m.AssignedSeats,
+		FlagKey:       m.FlagKey,
+	}
+}

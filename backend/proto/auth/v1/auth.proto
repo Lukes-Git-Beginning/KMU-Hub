@@ -24,6 +24,9 @@ service AuthService {
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
 
+  // Tenant provisioning — platform operation, gated by tenants:write.
+  rpc ProvisionTenant(ProvisionTenantRequest) returns (ProvisionTenantResponse);
+
   // Invitations
   rpc CreateInvitation(CreateInvitationRequest) returns (CreateInvitationResponse);
   rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
@@ -201,6 +204,48 @@ message ChangePasswordRequest {
 }
 
 message ChangePasswordResponse {}
+
+// Tenant provisioning messages
+//
+// Dates are RFC3339 strings, matching the invitation messages below. The
+// gateway marshals with UseEnumNumbers, so nothing here is an enum.
+
+message TenantInfo {
+  string id = 1;
+  string name = 2;
+  string plan_type = 3;
+  string support_tier = 4;
+  string subscription_status = 5;
+  // Empty when no billing period has been agreed.
+  string billing_period_end = 6;
+  // Unset (has_seat_limit = false) means an uncapped tenant.
+  int32 seat_limit = 7;
+  bool has_seat_limit = 8;
+  string created_at = 9;
+  // The module ids activated at provisioning time.
+  repeated string modules = 10;
+}
+
+message ProvisionTenantRequest {
+  string name = 1;
+  string plan_type = 2;
+  string support_tier = 3;
+  int32 seat_limit = 4;
+  bool has_seat_limit = 5;
+  string billing_period_end = 6;
+  // Empty activates the whole catalogue.
+  repeated string modules = 7;
+  string admin_email = 8;
+  // The platform operator issuing the invitation.
+  string created_by = 9;
+}
+
+message ProvisionTenantResponse {
+  TenantInfo tenant = 1;
+  InvitationInfo invitation = 2;
+  // The plaintext invitation token, returned once and never stored.
+  string invitation_token = 3;
+}
 
 // Invitation messages
 

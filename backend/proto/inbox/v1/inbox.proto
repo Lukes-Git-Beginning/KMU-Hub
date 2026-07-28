@@ -9,18 +9,22 @@ import "google/protobuf/struct.proto";
 
 service InboxService {
   // =========================================================================
-  // Messages (14 RPCs)
+  // Messages (18 RPCs)
   // =========================================================================
   rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
   rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
   rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
   rpc MarkUnread(MarkUnreadRequest) returns (MarkUnreadResponse);
   rpc ToggleStar(ToggleStarRequest) returns (ToggleStarResponse);
+  rpc SetMessageStatus(SetMessageStatusRequest) returns (SetMessageStatusResponse);
+  rpc AddMessageTag(AddMessageTagRequest) returns (AddMessageTagResponse);
+  rpc RemoveMessageTag(RemoveMessageTagRequest) returns (RemoveMessageTagResponse);
   rpc ArchiveMessage(ArchiveMessageRequest) returns (ArchiveMessageResponse);
   rpc UnarchiveMessage(UnarchiveMessageRequest) returns (UnarchiveMessageResponse);
   rpc SnoozeMessage(SnoozeMessageRequest) returns (SnoozeMessageResponse);
   rpc UnsnoozeMessage(UnsnoozeMessageRequest) returns (UnsnoozeMessageResponse);
   rpc ReplyToMessage(ReplyToMessageRequest) returns (ReplyToMessageResponse);
+  rpc ForwardMessage(ForwardMessageRequest) returns (ForwardMessageResponse);
   rpc AssignMessage(AssignMessageRequest) returns (AssignMessageResponse);
   rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
   rpc BulkMarkRead(BulkMarkReadRequest) returns (BulkMarkReadResponse);
@@ -118,6 +122,8 @@ message InboxMessageInfo {
   google.protobuf.Timestamp received_at = 20;
   google.protobuf.Timestamp created_at = 21;
   google.protobuf.Timestamp updated_at = 22;
+  // Conversation-level status: "open" | "pending" | "resolved" | "closed".
+  string status = 23;
 }
 
 message TeamInboxInfo {
@@ -170,6 +176,8 @@ message ListMessagesRequest {
   optional string search_query = 7;
   int32 page_size = 8;
   string page_token = 9;
+  // Filter by conversation status: "open" | "pending" | "resolved" | "closed".
+  optional string status = 10;
 }
 
 message ListMessagesResponse {
@@ -211,6 +219,37 @@ message ToggleStarRequest {
 }
 
 message ToggleStarResponse {
+  InboxMessageInfo message = 1;
+}
+
+message SetMessageStatusRequest {
+  string message_id = 1;
+  string user_id = 2;
+  // One of "open" | "pending" | "resolved" | "closed".
+  string status = 3;
+}
+
+message SetMessageStatusResponse {
+  InboxMessageInfo message = 1;
+}
+
+message AddMessageTagRequest {
+  string message_id = 1;
+  string user_id = 2;
+  string tag = 3;
+}
+
+message AddMessageTagResponse {
+  InboxMessageInfo message = 1;
+}
+
+message RemoveMessageTagRequest {
+  string message_id = 1;
+  string user_id = 2;
+  string tag = 3;
+}
+
+message RemoveMessageTagResponse {
   InboxMessageInfo message = 1;
 }
 
@@ -258,6 +297,18 @@ message ReplyToMessageRequest {
 }
 
 message ReplyToMessageResponse {
+  bool success = 1;
+}
+
+message ForwardMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+  // Recipient — email address or free-text name/handle, channel-dependent.
+  string to = 3;
+  optional string note = 4;
+}
+
+message ForwardMessageResponse {
   bool success = 1;
 }
 

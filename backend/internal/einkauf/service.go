@@ -474,6 +474,10 @@ func (s *Service) AddPOLine(ctx context.Context, input AddPOLineInput) (*POLine,
 		return nil, fmt.Errorf("add po line: %w", err)
 	}
 
+	if err := s.repo.RecomputePOTotal(ctx, input.TenantID, input.POID); err != nil {
+		return nil, fmt.Errorf("recompute po total: %w", err)
+	}
+
 	slog.Info("einkauf po line added", "line_id", line.ID, "po_id", line.POID, "tenant_id", line.TenantID)
 	return line, nil
 }
@@ -514,17 +518,25 @@ func (s *Service) UpdatePOLine(ctx context.Context, input UpdatePOLineInput) (*P
 		return nil, fmt.Errorf("update po line: %w", updateErr)
 	}
 
+	if err := s.repo.RecomputePOTotal(ctx, input.TenantID, line.POID); err != nil {
+		return nil, fmt.Errorf("recompute po total: %w", err)
+	}
+
 	slog.Info("einkauf po line updated", "line_id", line.ID, "tenant_id", input.TenantID)
 	return line, nil
 }
 
 // DeletePOLine removes a line item from a PO.
 func (s *Service) DeletePOLine(ctx context.Context, tenantID, lineID uuid.UUID) error {
-	if _, err := s.repo.GetPOLine(ctx, tenantID, lineID); err != nil {
+	line, err := s.repo.GetPOLine(ctx, tenantID, lineID)
+	if err != nil {
 		return err
 	}
 	if delErr := s.repo.DeletePOLine(ctx, tenantID, lineID); delErr != nil {
 		return fmt.Errorf("delete po line: %w", delErr)
+	}
+	if err := s.repo.RecomputePOTotal(ctx, tenantID, line.POID); err != nil {
+		return fmt.Errorf("recompute po total: %w", err)
 	}
 	slog.Info("einkauf po line deleted", "line_id", lineID, "tenant_id", tenantID)
 	return nil
@@ -564,6 +576,27 @@ func (s *Service) SubmitPO(ctx context.Context, tenantID, poID uuid.UUID) (*Purc
 
 	po.Status = POStatusSubmitted
 	slog.Info("einkauf po submitted", "po_id", poID, "tenant_id", tenantID)
+	return po, nil
+}
+
+// CancelPO cancels an open purchase order. Only PO statuses that precede any
+// goods receipt (draft, submitted, sent) are cancellable — once receiving has
+// started the order must be handled through the receive/close workflow instead.
+func (s *Service) CancelPO(ctx context.Context, tenantID, poID uuid.UUID) (*PurchaseOrder, error) {
+	po, err := s.repo.GetPO(ctx, tenantID, poID)
+	if err != nil {
+		return nil, err
+	}
+	if po.Status != POStatusDraft && po.Status != POStatusSubmitted && po.Status != POStatusSent {
+		return nil, ErrPONotCancellable
+	}
+
+	if err := s.repo.UpdatePOStatus(ctx, tenantID, poID, POStatusCancelled); err != nil {
+		return nil, fmt.Errorf("cancel po: %w", err)
+	}
+
+	po.Status = POStatusCancelled
+	slog.Info("einkauf po cancelled", "po_id", poID, "tenant_id", tenantID)
 	return po, nil
 }
 
@@ -711,12 +744,6 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 
 	slog.Info("einkauf partial receive applied", "po_id", poID, "tenant_id", tenantID, "new_status", newStatus)
 	return po, nil
-}
-
-// ExportPO is a stub for exporting a PO as PDF/CSV.
-// Full streaming implementation is a follow-up task in Sprint 3.
-func (s *Service) ExportPO(ctx context.Context, tenantID, poID uuid.UUID, format string) (*PurchaseOrder, error) {
-	return s.repo.GetPOWithLines(ctx, tenantID, poID)
 }
 
 // ============================================================================

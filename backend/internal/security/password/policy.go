@@ -12,6 +12,7 @@ import (
 	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -29,7 +30,12 @@ func NewService(repo Repository) *Service {
 // Returns (valid, failure reasons, error). The failure reasons list is empty
 // when the password passes all checks.
 func (s *Service) ValidatePassword(ctx context.Context, password string) (bool, []string, error) {
-	policy, err := s.repo.GetPolicy(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return false, nil, fmt.Errorf("password: tenant id missing from context: %w", err)
+	}
+
+	policy, err := s.repo.GetPolicy(ctx, tenantID)
 	if err != nil {
 		return false, nil, fmt.Errorf("password: failed to load policy: %w", err)
 	}
@@ -75,7 +81,12 @@ func (s *Service) ValidatePassword(ctx context.Context, password string) (bool, 
 // CheckPasswordHistory checks whether the new password was previously used.
 // Returns true if the password is NOT in history (i.e., safe to use).
 func (s *Service) CheckPasswordHistory(ctx context.Context, userID uuid.UUID, newPassword string) (bool, error) {
-	policy, err := s.repo.GetPolicy(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return false, fmt.Errorf("password: tenant id missing from context: %w", err)
+	}
+
+	policy, err := s.repo.GetPolicy(ctx, tenantID)
 	if err != nil {
 		return false, fmt.Errorf("password: failed to load policy: %w", err)
 	}
@@ -108,17 +119,35 @@ func (s *Service) RecordPassword(ctx context.Context, userID uuid.UUID, password
 	return nil
 }
 
-// GetPolicy returns the current password policy.
+// GetPolicy returns the current password policy for the caller's tenant.
 func (s *Service) GetPolicy(ctx context.Context) (*models.PasswordPolicy, error) {
-	return s.repo.GetPolicy(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("password: tenant id missing from context: %w", err)
+	}
+	return s.repo.GetPolicy(ctx, tenantID)
 }
 
-// UpdatePolicy updates the password policy.
+// UpdatePolicy updates the password policy for the caller's tenant. The row ID is
+// always resolved server-side via a tenant-scoped GetPolicy -- any ID on the incoming
+// policy is ignored, so a caller can never target another tenant's policy row.
 func (s *Service) UpdatePolicy(ctx context.Context, policy *models.PasswordPolicy, updatedBy uuid.UUID) error {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return fmt.Errorf("password: tenant id missing from context: %w", err)
+	}
+
+	current, err := s.repo.GetPolicy(ctx, tenantID)
+	if err != nil {
+		return fmt.Errorf("password: failed to load current policy: %w", err)
+	}
+
+	policy.ID = current.ID
+	policy.TenantID = tenantID
 	policy.UpdatedAt = time.Now().UTC()
 	policy.UpdatedBy = &updatedBy
 
-	if err := s.repo.UpdatePolicy(ctx, policy); err != nil {
+	if err := s.repo.UpdatePolicy(ctx, tenantID, policy); err != nil {
 		return fmt.Errorf("password: failed to update policy: %w", err)
 	}
 

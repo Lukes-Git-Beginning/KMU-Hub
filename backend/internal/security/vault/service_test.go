@@ -43,7 +43,7 @@ func NewMockRepository() *MockRepository {
 	}
 }
 
-func (m *MockRepository) GetByKeyName(ctx context.Context, keyName string) (*models.VaultSecret, error) {
+func (m *MockRepository) GetByKeyName(ctx context.Context, tenantID uuid.UUID, keyName string) (*models.VaultSecret, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -54,7 +54,7 @@ func (m *MockRepository) GetByKeyName(ctx context.Context, keyName string) (*mod
 	return s, nil
 }
 
-func (m *MockRepository) List(ctx context.Context) ([]*models.VaultSecret, error) {
+func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*models.VaultSecret, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -83,7 +83,7 @@ func (m *MockRepository) Update(ctx context.Context, secret *models.VaultSecret)
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -161,7 +161,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := newTestService(t, repo)
 
-	_, err := svc.GetSecret(context.Background(), "nonexistent")
+	_, err := svc.GetSecret(testCtx(), "nonexistent")
 
 	assert.ErrorIs(t, err, ErrSecretNotFound)
 }
@@ -173,7 +173,7 @@ func TestGetSecret_RepoError(t *testing.T) {
 	repoErr := errors.New("database connection lost")
 	repo.getErr = repoErr
 
-	_, err := svc.GetSecret(context.Background(), "any-key")
+	_, err := svc.GetSecret(testCtx(), "any-key")
 
 	assert.ErrorIs(t, err, repoErr)
 }
@@ -284,7 +284,7 @@ func TestListSecrets_Empty(t *testing.T) {
 	repo := NewMockRepository()
 	svc := newTestService(t, repo)
 
-	secrets, err := svc.ListSecrets(context.Background())
+	secrets, err := svc.ListSecrets(testCtx())
 
 	require.NoError(t, err)
 	assert.Empty(t, secrets)
@@ -313,7 +313,7 @@ func TestDeleteSecret_RepoError(t *testing.T) {
 	svc := newTestService(t, repo)
 
 	// Deleting a non-existent ID returns ErrSecretNotFound from mock
-	err := svc.DeleteSecret(context.Background(), uuid.New())
+	err := svc.DeleteSecret(testCtx(), uuid.New())
 
 	assert.ErrorIs(t, err, ErrSecretNotFound)
 }

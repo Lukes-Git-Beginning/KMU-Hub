@@ -2,6 +2,7 @@ package timetracking
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -28,6 +29,12 @@ type mockWorkTimeRepo struct {
 	weeklyBatchCalls      int
 	activeShiftBatchCalls int
 	dailyRangeCalls       int
+
+	// Every tenantID the service handed down, in call order. The queries
+	// themselves are pinned against a real database in
+	// postgres_tenant_scope_test.go; this records that the service passes the
+	// caller's tenant through instead of uuid.Nil.
+	seenTenantIDs []uuid.UUID
 }
 
 func newMockWorkTimeRepo() *mockWorkTimeRepo {
@@ -44,15 +51,22 @@ func (m *mockWorkTimeRepo) Create(_ context.Context, entry *models.HRWorkTimeEnt
 	return nil
 }
 
-func (m *mockWorkTimeRepo) GetByID(_ context.Context, id uuid.UUID) (*models.HRWorkTimeEntry, error) {
+func (m *mockWorkTimeRepo) GetByID(_ context.Context, tenantID, id uuid.UUID) (*models.HRWorkTimeEntry, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	entry, ok := m.entries[id]
 	if !ok {
+		return nil, ErrWorkTimeEntryNotFound
+	}
+	// The real query filters on tenant_id, so a foreign entry is not found
+	// rather than returned to the wrong caller.
+	if tenantID != uuid.Nil && entry.TenantID != tenantID {
 		return nil, ErrWorkTimeEntryNotFound
 	}
 	return entry, nil
 }
 
-func (m *mockWorkTimeRepo) GetActiveShift(_ context.Context, _ uuid.UUID) (*models.HRWorkTimeEntry, error) {
+func (m *mockWorkTimeRepo) GetActiveShift(_ context.Context, tenantID, _ uuid.UUID) (*models.HRWorkTimeEntry, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	return m.activeShift, nil
 }
 
@@ -66,6 +80,22 @@ func (m *mockWorkTimeRepo) Update(_ context.Context, entry *models.HRWorkTimeEnt
 	return nil
 }
 
+func (m *mockWorkTimeRepo) ApproveCorrection(_ context.Context, correction *models.HRWorkTimeEntry, originalID *uuid.UUID) error {
+	m.entries[correction.ID] = correction
+	if originalID == nil {
+		return nil
+	}
+	original, ok := m.entries[*originalID]
+	if !ok || original.TenantID != correction.TenantID {
+		return nil
+	}
+	if original.Status == models.WorkTimeStatusActive || original.Status == models.WorkTimeStatusCompleted {
+		original.Status = models.WorkTimeStatusSuperseded
+		original.UpdatedAt = correction.UpdatedAt
+	}
+	return nil
+}
+
 func (m *mockWorkTimeRepo) List(_ context.Context, _ WorkTimeFilter) ([]*models.HRWorkTimeEntry, int, error) {
 	var result []*models.HRWorkTimeEntry
 	for _, e := range m.entries {
@@ -74,25 +104,29 @@ func (m *mockWorkTimeRepo) List(_ context.Context, _ WorkTimeFilter) ([]*models.
 	return result, len(result), nil
 }
 
-func (m *mockWorkTimeRepo) GetPreviousShiftEnd(_ context.Context, _ uuid.UUID, _ time.Time) (*time.Time, error) {
+func (m *mockWorkTimeRepo) GetPreviousShiftEnd(_ context.Context, tenantID, _ uuid.UUID, _ time.Time) (*time.Time, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	return m.previousShiftEnd, nil
 }
 
-func (m *mockWorkTimeRepo) GetDailySummary(_ context.Context, _ uuid.UUID, _ time.Time) (*DailySummary, error) {
+func (m *mockWorkTimeRepo) GetDailySummary(_ context.Context, tenantID, _ uuid.UUID, _ time.Time) (*DailySummary, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	if m.dailySummary != nil {
 		return m.dailySummary, nil
 	}
 	return &DailySummary{}, nil
 }
 
-func (m *mockWorkTimeRepo) GetWeeklySummary(_ context.Context, _ uuid.UUID, _ time.Time) (*WeeklySummary, error) {
+func (m *mockWorkTimeRepo) GetWeeklySummary(_ context.Context, tenantID, _ uuid.UUID, _ time.Time) (*WeeklySummary, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	if m.weeklySummary != nil {
 		return m.weeklySummary, nil
 	}
 	return &WeeklySummary{}, nil
 }
 
-func (m *mockWorkTimeRepo) GetDailySummaryRange(_ context.Context, _ uuid.UUID, start time.Time, numDays int) ([]DailySummary, error) {
+func (m *mockWorkTimeRepo) GetDailySummaryRange(_ context.Context, tenantID, _ uuid.UUID, start time.Time, numDays int) ([]DailySummary, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	m.dailyRangeCalls++
 	days := make([]DailySummary, numDays)
 	for i := range days {
@@ -104,7 +138,8 @@ func (m *mockWorkTimeRepo) GetDailySummaryRange(_ context.Context, _ uuid.UUID, 
 	return days, nil
 }
 
-func (m *mockWorkTimeRepo) GetWeeklySummaryBatch(_ context.Context, employeeIDs []uuid.UUID, _ time.Time) (map[uuid.UUID]*WeeklySummary, error) {
+func (m *mockWorkTimeRepo) GetWeeklySummaryBatch(_ context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID, _ time.Time) (map[uuid.UUID]*WeeklySummary, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	m.weeklyBatchCalls++
 	result := make(map[uuid.UUID]*WeeklySummary, len(employeeIDs))
 	for _, id := range employeeIDs {
@@ -117,7 +152,8 @@ func (m *mockWorkTimeRepo) GetWeeklySummaryBatch(_ context.Context, employeeIDs 
 	return result, nil
 }
 
-func (m *mockWorkTimeRepo) GetActiveShiftEmployeeIDs(_ context.Context, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+func (m *mockWorkTimeRepo) GetActiveShiftEmployeeIDs(_ context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	m.seenTenantIDs = append(m.seenTenantIDs, tenantID)
 	m.activeShiftBatchCalls++
 	result := make(map[uuid.UUID]bool, len(employeeIDs))
 	if m.activeShift != nil {
@@ -153,7 +189,13 @@ func (m *mockBreakRepo) Create(_ context.Context, entry *models.HRBreakEntry) er
 	return nil
 }
 
-func (m *mockBreakRepo) GetActiveBreak(_ context.Context, _ uuid.UUID) (*models.HRBreakEntry, error) {
+// GetActiveBreak filters on the tenant the caller passed, not just on the
+// entry id — otherwise a service that forgets to pass one would still look
+// correct here while writing uuid.Nil into the query in production.
+func (m *mockBreakRepo) GetActiveBreak(_ context.Context, tenantID, _ uuid.UUID) (*models.HRBreakEntry, error) {
+	if m.activeBreak != nil && m.activeBreak.TenantID != tenantID {
+		return nil, nil
+	}
 	return m.activeBreak, nil
 }
 
@@ -165,10 +207,10 @@ func (m *mockBreakRepo) Update(_ context.Context, entry *models.HRBreakEntry) er
 	return nil
 }
 
-func (m *mockBreakRepo) ListByWorkTimeEntry(_ context.Context, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
+func (m *mockBreakRepo) ListByWorkTimeEntry(_ context.Context, tenantID, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
 	var result []*models.HRBreakEntry
 	for _, b := range m.breaks {
-		if b.WorkTimeEntryID == workTimeEntryID {
+		if b.TenantID == tenantID && b.WorkTimeEntryID == workTimeEntryID {
 			result = append(result, b)
 		}
 	}
@@ -337,6 +379,7 @@ func TestClockOut_TenHoursWithManualBreak_AutoDeducts15Min(t *testing.T) {
 	breakEnd := tenHoursAgo.Add(4*time.Hour + 30*time.Minute)
 	breakEntry := &models.HRBreakEntry{
 		ID:              uuid.New(),
+		TenantID:        tenantID,
 		WorkTimeEntryID: entry.ID,
 		StartTime:       tenHoursAgo.Add(4 * time.Hour),
 		EndTime:         &breakEnd,
@@ -368,17 +411,20 @@ func TestStartBreak_EndBreak_Lifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start break
-	breakEntry, err := svc.StartBreak(ctx, employeeID)
+	breakEntry, err := svc.StartBreak(ctx, tenantID, employeeID)
 	require.NoError(t, err)
 	assert.NotNil(t, breakEntry)
 	assert.Nil(t, breakEntry.EndTime)
+	// hr_break_entries.tenant_id is NOT NULL since migration 000230; a break
+	// created without one does not reach the database at all.
+	assert.Equal(t, tenantID, breakEntry.TenantID)
 
 	// Can't start another break
-	_, err = svc.StartBreak(ctx, employeeID)
+	_, err = svc.StartBreak(ctx, tenantID, employeeID)
 	assert.ErrorIs(t, err, ErrAlreadyOnBreak)
 
 	// End break
-	endedBreak, err := svc.EndBreak(ctx, employeeID)
+	endedBreak, err := svc.EndBreak(ctx, tenantID, employeeID)
 	require.NoError(t, err)
 	assert.NotNil(t, endedBreak)
 	assert.NotNil(t, endedBreak.EndTime)
@@ -392,21 +438,22 @@ func TestStartBreak_NotClockedIn(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.StartBreak(ctx, uuid.New())
+	_, err := svc.StartBreak(ctx, uuid.New(), uuid.New())
 	assert.ErrorIs(t, err, ErrNotClockedIn)
 }
 
 func TestEndBreak_NotOnBreak(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
+	tenantID := uuid.New()
 	employeeID := uuid.New()
 
 	// Clock in first
-	_, _, err := svc.ClockIn(ctx, uuid.New(), employeeID)
+	_, _, err := svc.ClockIn(ctx, tenantID, employeeID)
 	require.NoError(t, err)
 
 	// Try to end break without starting one
-	_, err = svc.EndBreak(ctx, employeeID)
+	_, err = svc.EndBreak(ctx, tenantID, employeeID)
 	assert.ErrorIs(t, err, ErrNotOnBreak)
 }
 
@@ -502,11 +549,123 @@ func TestApproveTimeCorrection_TransitionsStatus(t *testing.T) {
 	}
 	workRepo.entries[correction.ID] = correction
 
-	approved, err := svc.ApproveTimeCorrection(ctx, correction.ID, approverID)
+	approved, err := svc.ApproveTimeCorrection(ctx, correction.TenantID, correction.ID, approverID)
 	require.NoError(t, err)
 	assert.Equal(t, models.WorkTimeStatusCorrectionApproved, approved.Status)
 	assert.Equal(t, &approverID, approved.CorrectionApprovedBy)
 	assert.NotNil(t, approved.CorrectionApprovedAt)
+}
+
+// sumBalanceMinutes mirrors what the daily and weekly aggregates do in SQL: sum
+// net_work_minutes over the entries whose status counts towards a balance. It reads
+// the same balanceStatuses the queries are parameterised with, so the expectation
+// here cannot drift away from the one the database applies.
+func sumBalanceMinutes(entries map[uuid.UUID]*models.HRWorkTimeEntry) int {
+	var total int
+	for _, e := range entries {
+		if !slices.Contains(balanceStatuses, string(e.Status)) {
+			continue
+		}
+		if e.NetWorkMinutes != nil {
+			total += *e.NetWorkMinutes
+		}
+	}
+	return total
+}
+
+func TestApproveTimeCorrection_SupersedesOriginal(t *testing.T) {
+	svc, workRepo, _ := newTestService()
+	ctx := context.Background()
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+	approverID := uuid.New()
+
+	now := time.Now()
+	originalNet := 480
+	originalOut := now.Add(-1 * time.Hour)
+	original := &models.HRWorkTimeEntry{
+		ID:             uuid.New(),
+		TenantID:       tenantID,
+		EmployeeID:     employeeID,
+		ClockIn:        now.Add(-9 * time.Hour),
+		ClockOut:       &originalOut,
+		NetWorkMinutes: &originalNet,
+		Status:         models.WorkTimeStatusCompleted,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	workRepo.entries[original.ID] = original
+
+	correctedNet := 360
+	correctedOut := now.Add(-3 * time.Hour)
+	correction := &models.HRWorkTimeEntry{
+		ID:               uuid.New(),
+		TenantID:         tenantID,
+		EmployeeID:       employeeID,
+		ClockIn:          now.Add(-9 * time.Hour),
+		ClockOut:         &correctedOut,
+		NetWorkMinutes:   &correctedNet,
+		Status:           models.WorkTimeStatusCorrectionPending,
+		IsCorrection:     true,
+		OriginalEntryID:  &original.ID,
+		CorrectionReason: "Left three hours earlier than recorded",
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	workRepo.entries[correction.ID] = correction
+
+	// A pending correction is a proposal: until it is approved the day still counts
+	// the original alone.
+	assert.Equal(t, originalNet, sumBalanceMinutes(workRepo.entries))
+
+	approved, err := svc.ApproveTimeCorrection(ctx, correction.TenantID, correction.ID, approverID)
+	require.NoError(t, err)
+	assert.Equal(t, models.WorkTimeStatusCorrectionApproved, approved.Status)
+
+	assert.Equal(t, models.WorkTimeStatusSuperseded, workRepo.entries[original.ID].Status,
+		"the replaced original must leave the balance")
+	assert.Equal(t, correctedNet, sumBalanceMinutes(workRepo.entries),
+		"an approved correction replaces the original, it does not add to it")
+}
+
+func TestApproveTimeCorrection_LeavesForeignOriginalAlone(t *testing.T) {
+	svc, workRepo, _ := newTestService()
+	ctx := context.Background()
+
+	now := time.Now()
+	foreignNet := 480
+	foreign := &models.HRWorkTimeEntry{
+		ID:             uuid.New(),
+		TenantID:       uuid.New(),
+		EmployeeID:     uuid.New(),
+		ClockIn:        now.Add(-9 * time.Hour),
+		NetWorkMinutes: &foreignNet,
+		Status:         models.WorkTimeStatusCompleted,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	workRepo.entries[foreign.ID] = foreign
+
+	correctedNet := 360
+	correction := &models.HRWorkTimeEntry{
+		ID:              uuid.New(),
+		TenantID:        uuid.New(),
+		EmployeeID:      uuid.New(),
+		ClockIn:         now.Add(-9 * time.Hour),
+		NetWorkMinutes:  &correctedNet,
+		Status:          models.WorkTimeStatusCorrectionPending,
+		IsCorrection:    true,
+		OriginalEntryID: &foreign.ID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	workRepo.entries[correction.ID] = correction
+
+	_, err := svc.ApproveTimeCorrection(ctx, correction.TenantID, correction.ID, uuid.New())
+	require.NoError(t, err)
+
+	assert.Equal(t, models.WorkTimeStatusCompleted, workRepo.entries[foreign.ID].Status,
+		"a correction must never retire an entry of another tenant")
 }
 
 func TestClockOut_NotClockedIn(t *testing.T) {
@@ -521,7 +680,7 @@ func TestGetActiveShift_NoShift(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	shift, breaks, err := svc.GetActiveShift(ctx, uuid.New())
+	shift, breaks, err := svc.GetActiveShift(ctx, uuid.New(), uuid.New())
 	require.NoError(t, err)
 	assert.Nil(t, shift)
 	assert.Nil(t, breaks)
@@ -531,7 +690,7 @@ func TestGetWorkTimeStatus_NotClockedIn(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	status, err := svc.GetWorkTimeStatus(ctx, uuid.New())
+	status, err := svc.GetWorkTimeStatus(ctx, uuid.New(), uuid.New())
 	require.NoError(t, err)
 	assert.False(t, status.IsClockedIn)
 	assert.False(t, status.IsOnBreak)
@@ -547,7 +706,7 @@ func TestGetWorkTimeStatus_ClockedIn(t *testing.T) {
 	_, _, err := svc.ClockIn(ctx, tenantID, employeeID)
 	require.NoError(t, err)
 
-	status, err := svc.GetWorkTimeStatus(ctx, employeeID)
+	status, err := svc.GetWorkTimeStatus(ctx, tenantID, employeeID)
 	require.NoError(t, err)
 	assert.True(t, status.IsClockedIn)
 	assert.False(t, status.IsOnBreak)
@@ -591,3 +750,87 @@ func TestGetTimeAnalytics_BatchesDailyQueries(t *testing.T) {
 
 	assert.Equal(t, 1, workRepo.dailyRangeCalls)
 }
+
+// TestServicePassesCallerTenantToRepo pins the plumbing half of the tenant scope.
+// The queries filter on tenant_id (see postgres_tenant_scope_test.go), but that
+// only helps if the service hands its caller's tenant down instead of uuid.Nil —
+// a zero tenant would match no row and turn every read into a phantom 404.
+func TestServicePassesCallerTenantToRepo(t *testing.T) {
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+
+	t.Run("clock in reads the balance and rest period for the caller's tenant", func(t *testing.T) {
+		svc, workRepo, _ := newTestService()
+		_, _, err := svc.ClockIn(context.Background(), tenantID, employeeID)
+		require.NoError(t, err)
+		assertAllTenants(t, workRepo, tenantID)
+	})
+
+	t.Run("break and status paths carry the tenant too", func(t *testing.T) {
+		svc, workRepo, _ := newTestService()
+		ctx := context.Background()
+		_, _, err := svc.ClockIn(ctx, tenantID, employeeID)
+		require.NoError(t, err)
+		_, err = svc.StartBreak(ctx, tenantID, employeeID)
+		require.NoError(t, err)
+		_, err = svc.EndBreak(ctx, tenantID, employeeID)
+		require.NoError(t, err)
+		_, err = svc.GetWorkTimeStatus(ctx, tenantID, employeeID)
+		require.NoError(t, err)
+		assertAllTenants(t, workRepo, tenantID)
+	})
+
+	t.Run("approving a correction scopes the lookup", func(t *testing.T) {
+		svc, workRepo, _ := newTestService()
+		now := time.Now()
+		correction := &models.HRWorkTimeEntry{
+			ID:              uuid.New(),
+			TenantID:        tenantID,
+			EmployeeID:      employeeID,
+			ClockIn:         now.Add(-3 * time.Hour),
+			ClockOut:        &now,
+			Status:          models.WorkTimeStatusCorrectionPending,
+			IsCorrection:    true,
+			NetWorkMinutes:  ptrTo(180),
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		workRepo.entries[correction.ID] = correction
+
+		_, err := svc.ApproveTimeCorrection(context.Background(), tenantID, correction.ID, uuid.New())
+		require.NoError(t, err)
+		assertAllTenants(t, workRepo, tenantID)
+	})
+
+	t.Run("a foreign tenant cannot approve the correction", func(t *testing.T) {
+		svc, workRepo, _ := newTestService()
+		now := time.Now()
+		correction := &models.HRWorkTimeEntry{
+			ID:           uuid.New(),
+			TenantID:     tenantID,
+			EmployeeID:   employeeID,
+			ClockIn:      now.Add(-3 * time.Hour),
+			ClockOut:     &now,
+			Status:       models.WorkTimeStatusCorrectionPending,
+			IsCorrection: true,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		workRepo.entries[correction.ID] = correction
+
+		_, err := svc.ApproveTimeCorrection(context.Background(), uuid.New(), correction.ID, uuid.New())
+		assert.ErrorIs(t, err, ErrWorkTimeEntryNotFound)
+		assert.Equal(t, models.WorkTimeStatusCorrectionPending, correction.Status,
+			"a foreign approval must leave the correction untouched")
+	})
+}
+
+func assertAllTenants(t *testing.T, repo *mockWorkTimeRepo, want uuid.UUID) {
+	t.Helper()
+	require.NotEmpty(t, repo.seenTenantIDs, "no tenant-scoped repo call was made")
+	for i, got := range repo.seenTenantIDs {
+		assert.Equal(t, want, got, "repo call %d received the wrong tenant", i)
+	}
+}
+
+func ptrTo[T any](v T) *T { return &v }

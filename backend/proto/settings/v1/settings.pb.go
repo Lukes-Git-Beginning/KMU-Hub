@@ -1573,6 +1573,367 @@ func (x *PutUserSettingsResponse) GetEntries() []*SettingEntry {
 	return nil
 }
 
+// TenantModule is one catalogue module plus this tenant's activation state.
+// flag_key names the deployment-wide feature flag gating the module ("" when
+// the module ships unconditionally); the gateway resolves it and never puts it
+// on the wire.
+type TenantModule struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModuleId      string                 `protobuf:"bytes,1,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
+	Group         string                 `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
+	Active        bool                   `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`
+	AssignedSeats int32                  `protobuf:"varint,4,opt,name=assigned_seats,json=assignedSeats,proto3" json:"assigned_seats,omitempty"`
+	FlagKey       string                 `protobuf:"bytes,5,opt,name=flag_key,json=flagKey,proto3" json:"flag_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TenantModule) Reset() {
+	*x = TenantModule{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TenantModule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TenantModule) ProtoMessage() {}
+
+func (x *TenantModule) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TenantModule.ProtoReflect.Descriptor instead.
+func (*TenantModule) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *TenantModule) GetModuleId() string {
+	if x != nil {
+		return x.ModuleId
+	}
+	return ""
+}
+
+func (x *TenantModule) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *TenantModule) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *TenantModule) GetAssignedSeats() int32 {
+	if x != nil {
+		return x.AssignedSeats
+	}
+	return 0
+}
+
+func (x *TenantModule) GetFlagKey() string {
+	if x != nil {
+		return x.FlagKey
+	}
+	return ""
+}
+
+type GetTenantLicenseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTenantLicenseRequest) Reset() {
+	*x = GetTenantLicenseRequest{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTenantLicenseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTenantLicenseRequest) ProtoMessage() {}
+
+func (x *GetTenantLicenseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTenantLicenseRequest.ProtoReflect.Descriptor instead.
+func (*GetTenantLicenseRequest) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *GetTenantLicenseRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+type GetTenantLicenseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Modules       []*TenantModule        `protobuf:"bytes,1,rep,name=modules,proto3" json:"modules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTenantLicenseResponse) Reset() {
+	*x = GetTenantLicenseResponse{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTenantLicenseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTenantLicenseResponse) ProtoMessage() {}
+
+func (x *GetTenantLicenseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTenantLicenseResponse.ProtoReflect.Descriptor instead.
+func (*GetTenantLicenseResponse) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *GetTenantLicenseResponse) GetModules() []*TenantModule {
+	if x != nil {
+		return x.Modules
+	}
+	return nil
+}
+
+type SetTenantModuleActiveRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ModuleId string                 `protobuf:"bytes,2,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
+	Active   bool                   `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`
+	// The admin performing the change; recorded on the activation row.
+	UpdatedBy     string `protobuf:"bytes,4,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetTenantModuleActiveRequest) Reset() {
+	*x = SetTenantModuleActiveRequest{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetTenantModuleActiveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetTenantModuleActiveRequest) ProtoMessage() {}
+
+func (x *SetTenantModuleActiveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetTenantModuleActiveRequest.ProtoReflect.Descriptor instead.
+func (*SetTenantModuleActiveRequest) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *SetTenantModuleActiveRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *SetTenantModuleActiveRequest) GetModuleId() string {
+	if x != nil {
+		return x.ModuleId
+	}
+	return ""
+}
+
+func (x *SetTenantModuleActiveRequest) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *SetTenantModuleActiveRequest) GetUpdatedBy() string {
+	if x != nil {
+		return x.UpdatedBy
+	}
+	return ""
+}
+
+type GetTenantSubscriptionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTenantSubscriptionRequest) Reset() {
+	*x = GetTenantSubscriptionRequest{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTenantSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTenantSubscriptionRequest) ProtoMessage() {}
+
+func (x *GetTenantSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTenantSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*GetTenantSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *GetTenantSubscriptionRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+// TenantSubscription is the booked contract, not a usage snapshot: seats in use
+// are counted where they are enforced (the invitation path in auth).
+type TenantSubscription struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	PlanType    string                 `protobuf:"bytes,1,opt,name=plan_type,json=planType,proto3" json:"plan_type,omitempty"`          // cosmi | orbit
+	SupportTier string                 `protobuf:"bytes,2,opt,name=support_tier,json=supportTier,proto3" json:"support_tier,omitempty"` // standard | priority | enterprise
+	Status      string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                              // active | past_due | paused
+	// ISO date (YYYY-MM-DD); absent while no billing period has been agreed.
+	BillingPeriodEnd *string `protobuf:"bytes,4,opt,name=billing_period_end,json=billingPeriodEnd,proto3,oneof" json:"billing_period_end,omitempty"`
+	// Booked seats; absent means unlimited.
+	TotalSeats    *int32 `protobuf:"varint,5,opt,name=total_seats,json=totalSeats,proto3,oneof" json:"total_seats,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TenantSubscription) Reset() {
+	*x = TenantSubscription{}
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TenantSubscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TenantSubscription) ProtoMessage() {}
+
+func (x *TenantSubscription) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_settings_v1_settings_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TenantSubscription.ProtoReflect.Descriptor instead.
+func (*TenantSubscription) Descriptor() ([]byte, []int) {
+	return file_proto_settings_v1_settings_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *TenantSubscription) GetPlanType() string {
+	if x != nil {
+		return x.PlanType
+	}
+	return ""
+}
+
+func (x *TenantSubscription) GetSupportTier() string {
+	if x != nil {
+		return x.SupportTier
+	}
+	return ""
+}
+
+func (x *TenantSubscription) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TenantSubscription) GetBillingPeriodEnd() string {
+	if x != nil && x.BillingPeriodEnd != nil {
+		return *x.BillingPeriodEnd
+	}
+	return ""
+}
+
+func (x *TenantSubscription) GetTotalSeats() int32 {
+	if x != nil && x.TotalSeats != nil {
+		return *x.TotalSeats
+	}
+	return 0
+}
+
 var File_proto_settings_v1_settings_proto protoreflect.FileDescriptor
 
 const file_proto_settings_v1_settings_proto_rawDesc = "" +
@@ -1689,8 +2050,34 @@ const file_proto_settings_v1_settings_proto_rawDesc = "" +
 	"\tmodule_id\x18\x03 \x01(\tR\bmoduleId\x123\n" +
 	"\aentries\x18\x04 \x03(\v2\x19.settings.v1.SettingEntryR\aentries\"N\n" +
 	"\x17PutUserSettingsResponse\x123\n" +
-	"\aentries\x18\x01 \x03(\v2\x19.settings.v1.SettingEntryR\aentries2\x85\n" +
+	"\aentries\x18\x01 \x03(\v2\x19.settings.v1.SettingEntryR\aentries\"\x9b\x01\n" +
+	"\fTenantModule\x12\x1b\n" +
+	"\tmodule_id\x18\x01 \x01(\tR\bmoduleId\x12\x14\n" +
+	"\x05group\x18\x02 \x01(\tR\x05group\x12\x16\n" +
+	"\x06active\x18\x03 \x01(\bR\x06active\x12%\n" +
+	"\x0eassigned_seats\x18\x04 \x01(\x05R\rassignedSeats\x12\x19\n" +
+	"\bflag_key\x18\x05 \x01(\tR\aflagKey\"6\n" +
+	"\x17GetTenantLicenseRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"O\n" +
+	"\x18GetTenantLicenseResponse\x123\n" +
+	"\amodules\x18\x01 \x03(\v2\x19.settings.v1.TenantModuleR\amodules\"\x8f\x01\n" +
+	"\x1cSetTenantModuleActiveRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\tmodule_id\x18\x02 \x01(\tR\bmoduleId\x12\x16\n" +
+	"\x06active\x18\x03 \x01(\bR\x06active\x12\x1d\n" +
 	"\n" +
+	"updated_by\x18\x04 \x01(\tR\tupdatedBy\";\n" +
+	"\x1cGetTenantSubscriptionRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\xec\x01\n" +
+	"\x12TenantSubscription\x12\x1b\n" +
+	"\tplan_type\x18\x01 \x01(\tR\bplanType\x12!\n" +
+	"\fsupport_tier\x18\x02 \x01(\tR\vsupportTier\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x121\n" +
+	"\x12billing_period_end\x18\x04 \x01(\tH\x00R\x10billingPeriodEnd\x88\x01\x01\x12$\n" +
+	"\vtotal_seats\x18\x05 \x01(\x05H\x01R\n" +
+	"totalSeats\x88\x01\x01B\x15\n" +
+	"\x13_billing_period_endB\x0e\n" +
+	"\f_total_seats2\xaa\f\n" +
 	"\x0fSettingsService\x12\\\n" +
 	"\x0fListModuleLeads\x12#.settings.v1.ListModuleLeadsRequest\x1a$.settings.v1.ListModuleLeadsResponse\x12O\n" +
 	"\x0fGrantModuleLead\x12#.settings.v1.GrantModuleLeadRequest\x1a\x17.settings.v1.ModuleLead\x12_\n" +
@@ -1704,7 +2091,10 @@ const file_proto_settings_v1_settings_proto_rawDesc = "" +
 	"\x11GetTenantSettings\x12%.settings.v1.GetTenantSettingsRequest\x1a&.settings.v1.GetTenantSettingsResponse\x12b\n" +
 	"\x11PutTenantSettings\x12%.settings.v1.PutTenantSettingsRequest\x1a&.settings.v1.PutTenantSettingsResponse\x12\\\n" +
 	"\x0fGetUserSettings\x12#.settings.v1.GetUserSettingsRequest\x1a$.settings.v1.GetUserSettingsResponse\x12\\\n" +
-	"\x0fPutUserSettings\x12#.settings.v1.PutUserSettingsRequest\x1a$.settings.v1.PutUserSettingsResponseB7Z5github.com/kmuhub/kmuhub/proto/settings/v1;settingsv1b\x06proto3"
+	"\x0fPutUserSettings\x12#.settings.v1.PutUserSettingsRequest\x1a$.settings.v1.PutUserSettingsResponse\x12_\n" +
+	"\x10GetTenantLicense\x12$.settings.v1.GetTenantLicenseRequest\x1a%.settings.v1.GetTenantLicenseResponse\x12]\n" +
+	"\x15SetTenantModuleActive\x12).settings.v1.SetTenantModuleActiveRequest\x1a\x19.settings.v1.TenantModule\x12c\n" +
+	"\x15GetTenantSubscription\x12).settings.v1.GetTenantSubscriptionRequest\x1a\x1f.settings.v1.TenantSubscriptionB7Z5github.com/kmuhub/kmuhub/proto/settings/v1;settingsv1b\x06proto3"
 
 var (
 	file_proto_settings_v1_settings_proto_rawDescOnce sync.Once
@@ -1718,7 +2108,7 @@ func file_proto_settings_v1_settings_proto_rawDescGZIP() []byte {
 	return file_proto_settings_v1_settings_proto_rawDescData
 }
 
-var file_proto_settings_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_proto_settings_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_proto_settings_v1_settings_proto_goTypes = []any{
 	(*ModuleLead)(nil),                     // 0: settings.v1.ModuleLead
 	(*SettingEntry)(nil),                   // 1: settings.v1.SettingEntry
@@ -1748,15 +2138,21 @@ var file_proto_settings_v1_settings_proto_goTypes = []any{
 	(*GetUserSettingsResponse)(nil),        // 25: settings.v1.GetUserSettingsResponse
 	(*PutUserSettingsRequest)(nil),         // 26: settings.v1.PutUserSettingsRequest
 	(*PutUserSettingsResponse)(nil),        // 27: settings.v1.PutUserSettingsResponse
-	(*timestamppb.Timestamp)(nil),          // 28: google.protobuf.Timestamp
-	(*structpb.Value)(nil),                 // 29: google.protobuf.Value
+	(*TenantModule)(nil),                   // 28: settings.v1.TenantModule
+	(*GetTenantLicenseRequest)(nil),        // 29: settings.v1.GetTenantLicenseRequest
+	(*GetTenantLicenseResponse)(nil),       // 30: settings.v1.GetTenantLicenseResponse
+	(*SetTenantModuleActiveRequest)(nil),   // 31: settings.v1.SetTenantModuleActiveRequest
+	(*GetTenantSubscriptionRequest)(nil),   // 32: settings.v1.GetTenantSubscriptionRequest
+	(*TenantSubscription)(nil),             // 33: settings.v1.TenantSubscription
+	(*timestamppb.Timestamp)(nil),          // 34: google.protobuf.Timestamp
+	(*structpb.Value)(nil),                 // 35: google.protobuf.Value
 }
 var file_proto_settings_v1_settings_proto_depIdxs = []int32{
-	28, // 0: settings.v1.ModuleLead.granted_at:type_name -> google.protobuf.Timestamp
-	29, // 1: settings.v1.SettingEntry.value:type_name -> google.protobuf.Value
+	34, // 0: settings.v1.ModuleLead.granted_at:type_name -> google.protobuf.Timestamp
+	35, // 1: settings.v1.SettingEntry.value:type_name -> google.protobuf.Value
 	0,  // 2: settings.v1.ListModuleLeadsResponse.leads:type_name -> settings.v1.ModuleLead
-	28, // 3: settings.v1.UserModuleGrant.granted_at:type_name -> google.protobuf.Timestamp
-	28, // 4: settings.v1.UserModuleGrant.last_active_at:type_name -> google.protobuf.Timestamp
+	34, // 3: settings.v1.UserModuleGrant.granted_at:type_name -> google.protobuf.Timestamp
+	34, // 4: settings.v1.UserModuleGrant.last_active_at:type_name -> google.protobuf.Timestamp
 	9,  // 5: settings.v1.ListModuleGrantsResponse.grants:type_name -> settings.v1.UserModuleGrant
 	15, // 6: settings.v1.BulkRevokeModuleAccessRequest.refs:type_name -> settings.v1.ModuleGrantRef
 	1,  // 7: settings.v1.GetResolvedSettingsResponse.entries:type_name -> settings.v1.SettingEntry
@@ -1766,37 +2162,44 @@ var file_proto_settings_v1_settings_proto_depIdxs = []int32{
 	1,  // 11: settings.v1.GetUserSettingsResponse.entries:type_name -> settings.v1.SettingEntry
 	1,  // 12: settings.v1.PutUserSettingsRequest.entries:type_name -> settings.v1.SettingEntry
 	1,  // 13: settings.v1.PutUserSettingsResponse.entries:type_name -> settings.v1.SettingEntry
-	2,  // 14: settings.v1.SettingsService.ListModuleLeads:input_type -> settings.v1.ListModuleLeadsRequest
-	4,  // 15: settings.v1.SettingsService.GrantModuleLead:input_type -> settings.v1.GrantModuleLeadRequest
-	5,  // 16: settings.v1.SettingsService.RevokeModuleLead:input_type -> settings.v1.RevokeModuleLeadRequest
-	7,  // 17: settings.v1.SettingsService.GetMyModuleLeads:input_type -> settings.v1.GetMyModuleLeadsRequest
-	10, // 18: settings.v1.SettingsService.ListModuleGrants:input_type -> settings.v1.ListModuleGrantsRequest
-	12, // 19: settings.v1.SettingsService.GrantModuleAccess:input_type -> settings.v1.GrantModuleAccessRequest
-	13, // 20: settings.v1.SettingsService.RevokeModuleAccess:input_type -> settings.v1.RevokeModuleAccessRequest
-	16, // 21: settings.v1.SettingsService.BulkRevokeModuleAccess:input_type -> settings.v1.BulkRevokeModuleAccessRequest
-	18, // 22: settings.v1.SettingsService.GetResolvedSettings:input_type -> settings.v1.GetResolvedSettingsRequest
-	20, // 23: settings.v1.SettingsService.GetTenantSettings:input_type -> settings.v1.GetTenantSettingsRequest
-	22, // 24: settings.v1.SettingsService.PutTenantSettings:input_type -> settings.v1.PutTenantSettingsRequest
-	24, // 25: settings.v1.SettingsService.GetUserSettings:input_type -> settings.v1.GetUserSettingsRequest
-	26, // 26: settings.v1.SettingsService.PutUserSettings:input_type -> settings.v1.PutUserSettingsRequest
-	3,  // 27: settings.v1.SettingsService.ListModuleLeads:output_type -> settings.v1.ListModuleLeadsResponse
-	0,  // 28: settings.v1.SettingsService.GrantModuleLead:output_type -> settings.v1.ModuleLead
-	6,  // 29: settings.v1.SettingsService.RevokeModuleLead:output_type -> settings.v1.RevokeModuleLeadResponse
-	8,  // 30: settings.v1.SettingsService.GetMyModuleLeads:output_type -> settings.v1.GetMyModuleLeadsResponse
-	11, // 31: settings.v1.SettingsService.ListModuleGrants:output_type -> settings.v1.ListModuleGrantsResponse
-	9,  // 32: settings.v1.SettingsService.GrantModuleAccess:output_type -> settings.v1.UserModuleGrant
-	14, // 33: settings.v1.SettingsService.RevokeModuleAccess:output_type -> settings.v1.RevokeModuleAccessResponse
-	17, // 34: settings.v1.SettingsService.BulkRevokeModuleAccess:output_type -> settings.v1.BulkRevokeModuleAccessResponse
-	19, // 35: settings.v1.SettingsService.GetResolvedSettings:output_type -> settings.v1.GetResolvedSettingsResponse
-	21, // 36: settings.v1.SettingsService.GetTenantSettings:output_type -> settings.v1.GetTenantSettingsResponse
-	23, // 37: settings.v1.SettingsService.PutTenantSettings:output_type -> settings.v1.PutTenantSettingsResponse
-	25, // 38: settings.v1.SettingsService.GetUserSettings:output_type -> settings.v1.GetUserSettingsResponse
-	27, // 39: settings.v1.SettingsService.PutUserSettings:output_type -> settings.v1.PutUserSettingsResponse
-	27, // [27:40] is the sub-list for method output_type
-	14, // [14:27] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	28, // 14: settings.v1.GetTenantLicenseResponse.modules:type_name -> settings.v1.TenantModule
+	2,  // 15: settings.v1.SettingsService.ListModuleLeads:input_type -> settings.v1.ListModuleLeadsRequest
+	4,  // 16: settings.v1.SettingsService.GrantModuleLead:input_type -> settings.v1.GrantModuleLeadRequest
+	5,  // 17: settings.v1.SettingsService.RevokeModuleLead:input_type -> settings.v1.RevokeModuleLeadRequest
+	7,  // 18: settings.v1.SettingsService.GetMyModuleLeads:input_type -> settings.v1.GetMyModuleLeadsRequest
+	10, // 19: settings.v1.SettingsService.ListModuleGrants:input_type -> settings.v1.ListModuleGrantsRequest
+	12, // 20: settings.v1.SettingsService.GrantModuleAccess:input_type -> settings.v1.GrantModuleAccessRequest
+	13, // 21: settings.v1.SettingsService.RevokeModuleAccess:input_type -> settings.v1.RevokeModuleAccessRequest
+	16, // 22: settings.v1.SettingsService.BulkRevokeModuleAccess:input_type -> settings.v1.BulkRevokeModuleAccessRequest
+	18, // 23: settings.v1.SettingsService.GetResolvedSettings:input_type -> settings.v1.GetResolvedSettingsRequest
+	20, // 24: settings.v1.SettingsService.GetTenantSettings:input_type -> settings.v1.GetTenantSettingsRequest
+	22, // 25: settings.v1.SettingsService.PutTenantSettings:input_type -> settings.v1.PutTenantSettingsRequest
+	24, // 26: settings.v1.SettingsService.GetUserSettings:input_type -> settings.v1.GetUserSettingsRequest
+	26, // 27: settings.v1.SettingsService.PutUserSettings:input_type -> settings.v1.PutUserSettingsRequest
+	29, // 28: settings.v1.SettingsService.GetTenantLicense:input_type -> settings.v1.GetTenantLicenseRequest
+	31, // 29: settings.v1.SettingsService.SetTenantModuleActive:input_type -> settings.v1.SetTenantModuleActiveRequest
+	32, // 30: settings.v1.SettingsService.GetTenantSubscription:input_type -> settings.v1.GetTenantSubscriptionRequest
+	3,  // 31: settings.v1.SettingsService.ListModuleLeads:output_type -> settings.v1.ListModuleLeadsResponse
+	0,  // 32: settings.v1.SettingsService.GrantModuleLead:output_type -> settings.v1.ModuleLead
+	6,  // 33: settings.v1.SettingsService.RevokeModuleLead:output_type -> settings.v1.RevokeModuleLeadResponse
+	8,  // 34: settings.v1.SettingsService.GetMyModuleLeads:output_type -> settings.v1.GetMyModuleLeadsResponse
+	11, // 35: settings.v1.SettingsService.ListModuleGrants:output_type -> settings.v1.ListModuleGrantsResponse
+	9,  // 36: settings.v1.SettingsService.GrantModuleAccess:output_type -> settings.v1.UserModuleGrant
+	14, // 37: settings.v1.SettingsService.RevokeModuleAccess:output_type -> settings.v1.RevokeModuleAccessResponse
+	17, // 38: settings.v1.SettingsService.BulkRevokeModuleAccess:output_type -> settings.v1.BulkRevokeModuleAccessResponse
+	19, // 39: settings.v1.SettingsService.GetResolvedSettings:output_type -> settings.v1.GetResolvedSettingsResponse
+	21, // 40: settings.v1.SettingsService.GetTenantSettings:output_type -> settings.v1.GetTenantSettingsResponse
+	23, // 41: settings.v1.SettingsService.PutTenantSettings:output_type -> settings.v1.PutTenantSettingsResponse
+	25, // 42: settings.v1.SettingsService.GetUserSettings:output_type -> settings.v1.GetUserSettingsResponse
+	27, // 43: settings.v1.SettingsService.PutUserSettings:output_type -> settings.v1.PutUserSettingsResponse
+	30, // 44: settings.v1.SettingsService.GetTenantLicense:output_type -> settings.v1.GetTenantLicenseResponse
+	28, // 45: settings.v1.SettingsService.SetTenantModuleActive:output_type -> settings.v1.TenantModule
+	33, // 46: settings.v1.SettingsService.GetTenantSubscription:output_type -> settings.v1.TenantSubscription
+	31, // [31:47] is the sub-list for method output_type
+	15, // [15:31] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_proto_settings_v1_settings_proto_init() }
@@ -1807,13 +2210,14 @@ func file_proto_settings_v1_settings_proto_init() {
 	file_proto_settings_v1_settings_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_settings_v1_settings_proto_msgTypes[9].OneofWrappers = []any{}
 	file_proto_settings_v1_settings_proto_msgTypes[10].OneofWrappers = []any{}
+	file_proto_settings_v1_settings_proto_msgTypes[33].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_settings_v1_settings_proto_rawDesc), len(file_proto_settings_v1_settings_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -37,8 +37,23 @@ type ListFilter struct {
 	Offset    int
 }
 
-// InvoiceReader provides read access to invoices for dunning detection.
+// InvoiceReader provides read access to invoices for dunning detection and for
+// the open-items (Offene Posten) list, which is the read side of the same
+// receivables domain: the same invoices, seen as outstanding amounts rather than
+// as documents.
 type InvoiceReader interface {
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error)
 	GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]*models.Invoice, error)
+	// ListOpenItems returns one page of unpaid receivables plus the total row
+	// count, most overdue first. An invoice is an open item when it is sent or
+	// overdue and its gross total is not yet fully covered by recorded payments.
+	ListOpenItems(ctx context.Context, tenantID uuid.UUID, filter models.OpenItemFilter) ([]*models.OpenItem, int, error)
+	// SummarizeOpenItems aggregates every open item of the tenant — not just the
+	// requested page — grouped by currency and aging bucket index. The service
+	// folds those groups into the per-currency totals.
+	SummarizeOpenItems(ctx context.Context, tenantID uuid.UUID, asOf time.Time) ([]*models.OpenItemBucketTotal, error)
 }
+
+// The open-items filter lives in the models package (models.OpenItemFilter):
+// the invoice repository implements this interface structurally, and a filter
+// type declared here would force that package to import dunning.

@@ -11,27 +11,32 @@ import (
 type CampaignRepository interface {
 	// Campaign CRUD
 	Create(ctx context.Context, c *Campaign) error
-	GetByID(ctx context.Context, id uuid.UUID) (*Campaign, error)
 	GetByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error)
 	List(ctx context.Context, tenantID uuid.UUID, statusFilter *string, page, pageSize int) ([]*Campaign, int, error)
-	Update(ctx context.Context, c *Campaign) error
-	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	// Update, UpdateStatus and Delete take an explicit tenantID and filter on it
+	// in the WHERE clause — not just relying on RLS — so a caller with a
+	// campaign ID from the wrong tenant fails closed (0 rows affected) instead
+	// of depending solely on the session's app.tenant_id being set correctly.
+	Update(ctx context.Context, c *Campaign, tenantID uuid.UUID) error
+	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 
-	// Campaign contact queue management
-	AddContacts(ctx context.Context, campaignID uuid.UUID, contacts []CampaignContact) (added int, skipped int, err error)
+	// Campaign contact queue management. Writes and reads take an explicit
+	// tenantID for the same defense-in-depth reason as the campaign writes
+	// above — not just relying on RLS.
+	AddContacts(ctx context.Context, tenantID, campaignID uuid.UUID, contacts []CampaignContact) (added int, skipped int, err error)
 	GetNextPendingContact(ctx context.Context, campaignID uuid.UUID) (*CampaignContact, error)
-	ListContacts(ctx context.Context, campaignID uuid.UUID, statusFilter *string, page, pageSize int) ([]*CampaignContact, int, error)
-	UpdateContactStatus(ctx context.Context, id uuid.UUID, status string, outcomeID *uuid.UUID) error
-	SetContactCallback(ctx context.Context, id uuid.UUID, callbackAt time.Time) error
-	SkipContact(ctx context.Context, id uuid.UUID) error
-	RequeueContact(ctx context.Context, id uuid.UUID) error
-	IncrementContactCallCount(ctx context.Context, id uuid.UUID) error
-	GetCampaignContactByID(ctx context.Context, id uuid.UUID) (*CampaignContact, error)
+	ListContacts(ctx context.Context, tenantID, campaignID uuid.UUID, statusFilter *string, page, pageSize int) ([]*CampaignContact, int, error)
+	UpdateContactStatus(ctx context.Context, id, tenantID uuid.UUID, status string, outcomeID *uuid.UUID) error
+	SetContactCallback(ctx context.Context, id, tenantID uuid.UUID, callbackAt time.Time) error
+	SkipContact(ctx context.Context, id, tenantID uuid.UUID) error
+	RequeueContact(ctx context.Context, id, tenantID uuid.UUID) error
+	IncrementContactCallCount(ctx context.Context, id, tenantID uuid.UUID) error
+	GetCampaignContactByID(ctx context.Context, id, tenantID uuid.UUID) (*CampaignContact, error)
 
 	// Aggregate stats and denormalized counts
-	GetCampaignStats(ctx context.Context, campaignID uuid.UUID) (*CampaignStats, error)
-	GetAgentStats(ctx context.Context, agentID uuid.UUID) (*AgentStats, error)
+	GetCampaignStats(ctx context.Context, tenantID, campaignID uuid.UUID) (*CampaignStats, error)
+	GetAgentStats(ctx context.Context, tenantID, agentID uuid.UUID) (*AgentStats, error)
 	UpdateCampaignCounts(ctx context.Context, campaignID uuid.UUID) error
 }
 
@@ -59,8 +64,9 @@ type CallRepository interface {
 	GetRecentCallsForTenant(ctx context.Context, tenantID uuid.UUID, limit int) ([]RecentCallRow, error)
 
 	// ListCallsByContact returns all call sessions for a campaign contact,
-	// enriched with outcome and agent display data.
-	ListCallsByContact(ctx context.Context, campaignContactID uuid.UUID) ([]ContactCallRow, error)
+	// enriched with outcome and agent display data. Takes tenantID explicitly
+	// for the same defense-in-depth reason as the other tenant-scoped reads.
+	ListCallsByContact(ctx context.Context, tenantID, campaignContactID uuid.UUID) ([]ContactCallRow, error)
 
 	// GetTenantCallsTodayCount returns the total number of calls made today for
 	// all agents within the given tenant.
@@ -81,10 +87,13 @@ type CallRepository interface {
 // OutcomeRepository handles persistence for call outcomes (per-tenant configurable).
 type OutcomeRepository interface {
 	Create(ctx context.Context, o *CallOutcome) error
-	GetByID(ctx context.Context, id uuid.UUID) (*CallOutcome, error)
+	GetByID(ctx context.Context, id, tenantID uuid.UUID) (*CallOutcome, error)
 	List(ctx context.Context, tenantID uuid.UUID, includeInactive bool) ([]*CallOutcome, error)
+	// Update trusts o.TenantID (populated by a tenant-scoped GetByID beforehand)
+	// as the predicate; Delete takes tenantID explicitly since it has no
+	// preceding object load.
 	Update(ctx context.Context, o *CallOutcome) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 	// EnsureDefaults creates the 4 standard outcomes for a tenant if none exist yet.
 	EnsureDefaults(ctx context.Context, tenantID uuid.UUID) error
 }

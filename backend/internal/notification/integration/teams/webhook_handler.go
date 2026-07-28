@@ -1,8 +1,9 @@
 package teams
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -12,157 +13,187 @@ import (
 	"github.com/kmuhub/kmuhub/internal/notification/integration"
 )
 
-// NotificationService is the interface for marking notifications read, etc.
-type NotificationService interface {
-	MarkReadByID(ctx context.Context, notifID, userID uuid.UUID) error
-}
-
 // WebhookHandler processes inbound Teams Bot Framework activities.
+//
+// It runs inside the notification service, not the gateway: Bot Framework JWT
+// verification, the integration repository and the tenant resolution all live
+// here, and the gateway stays a proxy that never parses the payload.
 type WebhookHandler struct {
-	client      *Client
-	repo        integration.Repository
-	linkService *integration.AccountLinkService
+	client        *Client
+	repo          integration.Repository
+	linkService   *integration.AccountLinkService
+	tenants       integration.TenantResolver
+	notifications integration.NotificationAcknowledger
 }
 
 // NewWebhookHandler creates a new Teams webhook handler.
-func NewWebhookHandler(client *Client, repo integration.Repository, linkService *integration.AccountLinkService) *WebhookHandler {
+func NewWebhookHandler(
+	client *Client,
+	repo integration.Repository,
+	linkService *integration.AccountLinkService,
+	tenants integration.TenantResolver,
+	notifications integration.NotificationAcknowledger,
+) *WebhookHandler {
 	return &WebhookHandler{
-		client:      client,
-		repo:        repo,
-		linkService: linkService,
+		client:        client,
+		repo:          repo,
+		linkService:   linkService,
+		tenants:       tenants,
+		notifications: notifications,
 	}
 }
 
-// HandleWebhook processes incoming Teams Bot Framework activities.
-// Teams calls this endpoint for all bot interactions: messages, invoke (Action.Execute), etc.
-func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Parse and verify the incoming activity (JWT verification by adapter)
-	incoming, err := h.client.HandleIncomingActivity(ctx, r)
-	if err != nil {
-		slog.Error("teams webhook: failed to parse activity", "error", err)
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+// Process verifies and dispatches one inbound Teams activity.
+//
+// The Bot Framework adapter validates the JWT against the raw payload, so the
+// tunneled bytes are handed to it unchanged inside a synthetic request. Nothing
+// is read from the database before that check passes.
+func (h *WebhookHandler) Process(ctx context.Context, req integration.WebhookRequest) integration.WebhookResponse {
+	if h.client == nil {
+		return integration.TextResponse(http.StatusServiceUnavailable, "teams integration not configured")
 	}
 
-	act := incoming.Activity
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "/", bytes.NewReader(req.Body))
+	if err != nil {
+		return integration.TextResponse(http.StatusInternalServerError, "internal error")
+	}
+	for name, value := range req.Headers {
+		httpReq.Header.Set(name, value)
+	}
+	if httpReq.Header.Get("Content-Type") == "" {
+		httpReq.Header.Set("Content-Type", "application/json")
+	}
 
-	switch act.Type {
+	incoming, err := h.client.HandleIncomingActivity(ctx, httpReq)
+	if err != nil {
+		slog.Warn("teams webhook: failed to verify or parse activity", "error", err)
+		return integration.TextResponse(http.StatusUnauthorized, "unauthorized")
+	}
+
+	switch incoming.Activity.Type {
 	case schema.Invoke:
-		h.handleInvoke(ctx, w, incoming)
+		return h.handleInvoke(ctx, incoming)
 	case schema.Message:
-		h.handleMessage(ctx, w, incoming)
+		return h.handleMessage(ctx, incoming)
 	default:
-		// Acknowledge other activity types with 200 OK
-		w.WriteHeader(http.StatusOK)
+		return integration.EmptyResponse(http.StatusOK)
 	}
 }
 
 // handleInvoke processes Action.Execute (adaptiveCard/action) invocations.
-func (h *WebhookHandler) handleInvoke(ctx context.Context, w http.ResponseWriter, incoming *IncomingAction) {
-	// Resolve external user -> KMU Hub user
+func (h *WebhookHandler) handleInvoke(ctx context.Context, incoming *IncomingAction) integration.WebhookResponse {
+	ctx, tenantID, err := h.tenantContext(ctx, incoming)
+	if err != nil {
+		return invokeMessage("Diese Teams-Organisation ist keinem Cosmi-Mandanten zugeordnet. Bitte im Cosmi-Admin unter Integrationen die Tenant-ID hinterlegen.")
+	}
+
 	link, err := h.repo.GetAccountLink(ctx, integration.PlatformTeams, incoming.ExternalUserID)
 	if err != nil {
-		// Unlinked user: respond with link instructions card
 		slog.Info("teams webhook: unlinked user attempted action",
 			"external_user_id", incoming.ExternalUserID,
 		)
-		respondWithLinkPrompt(w)
-		return
+		return invokeMessage("Bitte verknuepfen Sie Ihr Konto mit dem Befehl: /kmuhub link")
 	}
 
-	// Execute action based on type
-	switch incoming.ActionType {
-	case string(integration.ActionAcknowledge):
-		h.handleAcknowledge(ctx, link, incoming)
-	case string(integration.ActionApprove), string(integration.ActionReject):
-		// For v1, log the action -- module-specific routing will be added via automation engine
-		slog.Info("teams webhook: approval action received",
+	// Only acknowledge has an effect in Cosmi today; approve, reject and reply
+	// have no counterpart yet and must not be answered as if they had.
+	if incoming.ActionType != string(integration.ActionAcknowledge) {
+		slog.Info("teams webhook: unsupported action requested",
 			"action_type", incoming.ActionType,
 			"notification_id", incoming.NotificationID,
 			"user_id", link.KMUHubUserID,
 		)
-	case string(integration.ActionReply):
-		slog.Info("teams webhook: reply action received",
-			"notification_id", incoming.NotificationID,
-			"reply_text", incoming.ReplyText,
-			"user_id", link.KMUHubUserID,
-		)
+		return invokeMessage("Diese Aktion wird von Cosmi noch nicht ausgefuehrt. Bitte erledigen Sie sie in Cosmi.")
 	}
 
-	// Respond within 5 seconds per Teams requirement with 200 OK
-	// The updated card will be sent asynchronously if needed
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"statusCode": 200,
-		"type":       "application/vnd.microsoft.activity.message",
-		"value":      "Aktion verarbeitet",
-	})
+	if err := h.acknowledge(ctx, tenantID, link, incoming.NotificationID); err != nil {
+		slog.Error("teams webhook: acknowledge failed",
+			"notification_id", incoming.NotificationID,
+			"user_id", link.KMUHubUserID,
+			"error", err,
+		)
+		return invokeMessage("Die Benachrichtigung konnte nicht als gelesen markiert werden.")
+	}
+
+	return invokeMessage("Als gelesen markiert.")
 }
 
 // handleMessage processes text messages (e.g., /kmuhub link command).
-func (h *WebhookHandler) handleMessage(ctx context.Context, w http.ResponseWriter, incoming *IncomingAction) {
+func (h *WebhookHandler) handleMessage(ctx context.Context, incoming *IncomingAction) integration.WebhookResponse {
 	text := incoming.Activity.Text
 
-	if text == "/kmuhub link" || text == "link" {
-		h.handleLinkCommand(ctx, w, incoming)
-		return
+	if text != "/kmuhub link" && text != "link" {
+		return textMessage("Verfuegbare Befehle:\n- `/kmuhub link` - Konto verknuepfen\n")
 	}
 
-	// Default: respond with help text
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"type": "message",
-		"text": "Verfuegbare Befehle:\n- `/kmuhub link` - Konto verknuepfen\n",
-	})
-}
+	ctx, _, err := h.tenantContext(ctx, incoming)
+	if err != nil {
+		return textMessage("Diese Teams-Organisation ist keinem Cosmi-Mandanten zugeordnet. Bitte im Cosmi-Admin unter Integrationen die Tenant-ID hinterlegen.")
+	}
 
-// handleLinkCommand generates a link token and responds with instructions.
-func (h *WebhookHandler) handleLinkCommand(ctx context.Context, w http.ResponseWriter, incoming *IncomingAction) {
 	token, err := h.linkService.GenerateLinkToken(ctx, integration.PlatformTeams, incoming.ExternalUserID)
 	if err != nil {
 		slog.Error("teams webhook: failed to generate link token", "error", err)
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"type": "message",
-			"text": "Fehler beim Erstellen des Verknuepfungstokens. Bitte versuchen Sie es erneut.",
-		})
-		return
+		return textMessage("Fehler beim Erstellen des Verknuepfungstokens. Bitte versuchen Sie es erneut.")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"type": "message",
-		"text": "Ihr Verknuepfungstoken (gueltig fuer 5 Minuten):\n\n`" + token + "`\n\nBitte fuegen Sie diesen Token in KMU Hub unter Einstellungen > Integrationen > Konto verknuepfen ein.",
+	return textMessage("Ihr Verknuepfungstoken (gueltig fuer 5 Minuten):\n\n`" + token +
+		"`\n\nBitte fuegen Sie diesen Token in KMU Hub unter Einstellungen > Integrationen > Konto verknuepfen ein.")
+}
+
+// tenantContext resolves the Teams organisation to a Cosmi tenant and attaches
+// it. Every data access below this line runs under the resolved tenant.
+func (h *WebhookHandler) tenantContext(ctx context.Context, incoming *IncomingAction) (context.Context, uuid.UUID, error) {
+	workspaceID := activityTenantID(incoming.Activity)
+
+	tenantID, err := h.tenants.ResolveTenant(ctx, integration.PlatformTeams, workspaceID)
+	if err != nil {
+		slog.Warn("teams webhook: organisation not mapped to a tenant",
+			"teams_tenant_id", workspaceID,
+			"error", err,
+		)
+		return ctx, uuid.Nil, err
+	}
+	return integration.WithTenant(ctx, tenantID), tenantID, nil
+}
+
+// activityTenantID reads channelData.tenant.id, the Azure AD tenant of the
+// Teams organisation the activity came from.
+func activityTenantID(act schema.Activity) string {
+	tenant, ok := act.ChannelData["tenant"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	id, _ := tenant["id"].(string)
+	return id
+}
+
+// acknowledge marks the notification read for the linked user.
+func (h *WebhookHandler) acknowledge(ctx context.Context, tenantID uuid.UUID, link *integration.AccountLink, notificationID string) error {
+	notifID, err := uuid.Parse(notificationID)
+	if err != nil {
+		return err
+	}
+	if h.notifications == nil {
+		return errors.New("notification service not wired")
+	}
+	_, err = h.notifications.MarkRead(ctx, tenantID, notifID, link.KMUHubUserID)
+	return err
+}
+
+// invokeMessage builds the Bot Framework invoke response shape.
+func invokeMessage(text string) integration.WebhookResponse {
+	return integration.JSONResponse(http.StatusOK, map[string]any{
+		"statusCode": 200,
+		"type":       "application/vnd.microsoft.activity.message",
+		"value":      text,
 	})
 }
 
-// handleAcknowledge marks a notification as read.
-func (h *WebhookHandler) handleAcknowledge(ctx context.Context, link *integration.AccountLink, incoming *IncomingAction) {
-	notifID, err := uuid.Parse(incoming.NotificationID)
-	if err != nil {
-		slog.Warn("teams webhook: invalid notification_id", "notification_id", incoming.NotificationID)
-		return
-	}
-
-	// Log the acknowledgement -- actual MarkRead is done via gRPC from gateway
-	slog.Info("teams webhook: notification acknowledged",
-		"notification_id", notifID,
-		"user_id", link.KMUHubUserID,
-	)
-}
-
-// respondWithLinkPrompt sends a card telling unlinked users to link their account.
-func respondWithLinkPrompt(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"statusCode": 200,
-		"type":       "application/vnd.microsoft.activity.message",
-		"value":      "Bitte verknuepfen Sie Ihr Konto mit dem Befehl: /kmuhub link",
+// textMessage builds a plain Teams message response.
+func textMessage(text string) integration.WebhookResponse {
+	return integration.JSONResponse(http.StatusOK, map[string]any{
+		"type": "message",
+		"text": text,
 	})
 }

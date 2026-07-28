@@ -45,12 +45,6 @@ func (r *mockCampaignRepo) Create(_ context.Context, c *Campaign) error {
 	r.campaigns[c.ID] = c
 	return nil
 }
-func (r *mockCampaignRepo) GetByID(_ context.Context, id uuid.UUID) (*Campaign, error) {
-	if c, ok := r.campaigns[id]; ok {
-		return c, nil
-	}
-	return nil, ErrCampaignNotFound
-}
 func (r *mockCampaignRepo) GetByIDForTenant(_ context.Context, id, _ uuid.UUID) (*Campaign, error) {
 	if c, ok := r.campaigns[id]; ok {
 		return c, nil
@@ -60,13 +54,13 @@ func (r *mockCampaignRepo) GetByIDForTenant(_ context.Context, id, _ uuid.UUID) 
 func (r *mockCampaignRepo) List(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*Campaign, int, error) {
 	return nil, 0, nil
 }
-func (r *mockCampaignRepo) Update(_ context.Context, _ *Campaign) error  { return nil }
-func (r *mockCampaignRepo) UpdateStatus(_ context.Context, id uuid.UUID, status string) error {
+func (r *mockCampaignRepo) Update(_ context.Context, _ *Campaign, _ uuid.UUID) error { return nil }
+func (r *mockCampaignRepo) UpdateStatus(_ context.Context, id, _ uuid.UUID, status string) error {
 	r.updateStatusCalls = append(r.updateStatusCalls, struct{ ID uuid.UUID; Status string }{id, status})
 	return nil
 }
-func (r *mockCampaignRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
-func (r *mockCampaignRepo) AddContacts(_ context.Context, _ uuid.UUID, contacts []CampaignContact) (int, int, error) {
+func (r *mockCampaignRepo) Delete(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (r *mockCampaignRepo) AddContacts(_ context.Context, _, _ uuid.UUID, contacts []CampaignContact) (int, int, error) {
 	r.addedContacts = append(r.addedContacts, contacts...)
 	return len(contacts), r.addedSkipped, nil
 }
@@ -80,33 +74,33 @@ func (r *mockCampaignRepo) GetNextPendingContact(_ context.Context, _ uuid.UUID)
 	}
 	return nil, ErrNoContactsAvailable
 }
-func (r *mockCampaignRepo) ListContacts(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*CampaignContact, int, error) {
+func (r *mockCampaignRepo) ListContacts(_ context.Context, _, _ uuid.UUID, _ *string, _, _ int) ([]*CampaignContact, int, error) {
 	return nil, 0, nil
 }
-func (r *mockCampaignRepo) UpdateContactStatus(_ context.Context, _ uuid.UUID, _ string, _ *uuid.UUID) error {
+func (r *mockCampaignRepo) UpdateContactStatus(_ context.Context, _, _ uuid.UUID, _ string, _ *uuid.UUID) error {
 	return nil
 }
-func (r *mockCampaignRepo) SetContactCallback(_ context.Context, _ uuid.UUID, _ time.Time) error {
+func (r *mockCampaignRepo) SetContactCallback(_ context.Context, _, _ uuid.UUID, _ time.Time) error {
 	return nil
 }
-func (r *mockCampaignRepo) SkipContact(_ context.Context, _ uuid.UUID) error    { return nil }
-func (r *mockCampaignRepo) RequeueContact(_ context.Context, _ uuid.UUID) error { return nil }
-func (r *mockCampaignRepo) IncrementContactCallCount(_ context.Context, _ uuid.UUID) error {
+func (r *mockCampaignRepo) SkipContact(_ context.Context, _, _ uuid.UUID) error    { return nil }
+func (r *mockCampaignRepo) RequeueContact(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (r *mockCampaignRepo) IncrementContactCallCount(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
-func (r *mockCampaignRepo) GetCampaignContactByID(_ context.Context, id uuid.UUID) (*CampaignContact, error) {
+func (r *mockCampaignRepo) GetCampaignContactByID(_ context.Context, id, _ uuid.UUID) (*CampaignContact, error) {
 	if cc, ok := r.contacts[id]; ok {
 		return cc, nil
 	}
 	return nil, ErrCampaignContactNotFound
 }
-func (r *mockCampaignRepo) GetCampaignStats(_ context.Context, _ uuid.UUID) (*CampaignStats, error) {
+func (r *mockCampaignRepo) GetCampaignStats(_ context.Context, _, _ uuid.UUID) (*CampaignStats, error) {
 	if r.stats != nil {
 		return r.stats, nil
 	}
 	return &CampaignStats{PendingContacts: 1}, nil
 }
-func (r *mockCampaignRepo) GetAgentStats(_ context.Context, _ uuid.UUID) (*AgentStats, error) {
+func (r *mockCampaignRepo) GetAgentStats(_ context.Context, _, _ uuid.UUID) (*AgentStats, error) {
 	return &AgentStats{}, nil
 }
 func (r *mockCampaignRepo) UpdateCampaignCounts(_ context.Context, _ uuid.UUID) error { return nil }
@@ -209,7 +203,7 @@ func (r *mockCallRepo) GetRecentCallsForTenant(_ context.Context, _ uuid.UUID, _
 	return nil, nil
 }
 
-func (r *mockCallRepo) ListCallsByContact(_ context.Context, _ uuid.UUID) ([]ContactCallRow, error) {
+func (r *mockCallRepo) ListCallsByContact(_ context.Context, _, _ uuid.UUID) ([]ContactCallRow, error) {
 	return nil, nil
 }
 
@@ -241,7 +235,7 @@ func (r *mockOutcomeRepo) Create(_ context.Context, o *CallOutcome) error {
 	r.outcomes[o.ID] = o
 	return nil
 }
-func (r *mockOutcomeRepo) GetByID(_ context.Context, id uuid.UUID) (*CallOutcome, error) {
+func (r *mockOutcomeRepo) GetByID(_ context.Context, id, _ uuid.UUID) (*CallOutcome, error) {
 	if o, ok := r.outcomes[id]; ok {
 		return o, nil
 	}
@@ -251,7 +245,7 @@ func (r *mockOutcomeRepo) List(_ context.Context, _ uuid.UUID, _ bool) ([]*CallO
 	return nil, nil
 }
 func (r *mockOutcomeRepo) Update(_ context.Context, _ *CallOutcome) error { return nil }
-func (r *mockOutcomeRepo) Delete(_ context.Context, _ uuid.UUID) error    { return nil }
+func (r *mockOutcomeRepo) Delete(_ context.Context, _, _ uuid.UUID) error { return nil }
 func (r *mockOutcomeRepo) EnsureDefaults(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
@@ -564,7 +558,7 @@ func TestCheckCampaignCompleteByContact(t *testing.T) {
 		CallbackContacts: 0,
 	}
 
-	err := h.svc.checkCampaignCompleteByContact(context.Background(), ccID)
+	err := h.svc.checkCampaignCompleteByContact(context.Background(), ccID, uuid.New())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -742,7 +736,7 @@ func TestStartCampaign_HappyPath(t *testing.T) {
 		ContactCount: 3,
 	}
 
-	c, err := h.svc.StartCampaign(context.Background(), campaignID)
+	c, err := h.svc.StartCampaign(context.Background(), campaignID, uuid.New())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -763,7 +757,7 @@ func TestStartCampaign_AlreadyActive(t *testing.T) {
 		ContactCount: 1,
 	}
 
-	_, err := h.svc.StartCampaign(context.Background(), campaignID)
+	_, err := h.svc.StartCampaign(context.Background(), campaignID, uuid.New())
 	if !errors.Is(err, ErrCampaignNotDraft) {
 		t.Errorf("expected ErrCampaignNotDraft, got %v", err)
 	}
@@ -771,7 +765,7 @@ func TestStartCampaign_AlreadyActive(t *testing.T) {
 
 func TestStartCampaign_NotFound(t *testing.T) {
 	h := newTestHarness()
-	_, err := h.svc.StartCampaign(context.Background(), uuid.New())
+	_, err := h.svc.StartCampaign(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, ErrCampaignNotFound) {
 		t.Errorf("expected ErrCampaignNotFound, got %v", err)
 	}
@@ -782,7 +776,7 @@ func TestPauseCampaign_ActiveToPaused(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
 
-	c, err := h.svc.PauseCampaign(context.Background(), campaignID)
+	c, err := h.svc.PauseCampaign(context.Background(), campaignID, uuid.New())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -796,7 +790,7 @@ func TestPauseCampaign_PausedToActive(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusPaused}
 
-	c, err := h.svc.PauseCampaign(context.Background(), campaignID)
+	c, err := h.svc.PauseCampaign(context.Background(), campaignID, uuid.New())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -810,7 +804,7 @@ func TestPauseCampaign_InvalidTransition(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusDraft}
 
-	_, err := h.svc.PauseCampaign(context.Background(), campaignID)
+	_, err := h.svc.PauseCampaign(context.Background(), campaignID, uuid.New())
 	if !errors.Is(err, ErrInvalidStatusTransition) {
 		t.Errorf("expected ErrInvalidStatusTransition, got %v", err)
 	}
@@ -821,7 +815,7 @@ func TestArchiveCampaign_CompletedToArchived(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusCompleted}
 
-	err := h.svc.ArchiveCampaign(context.Background(), campaignID)
+	err := h.svc.ArchiveCampaign(context.Background(), campaignID, uuid.New())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -835,14 +829,14 @@ func TestArchiveCampaign_PausedToArchived(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusPaused}
 
-	if err := h.svc.ArchiveCampaign(context.Background(), campaignID); err != nil {
+	if err := h.svc.ArchiveCampaign(context.Background(), campaignID, uuid.New()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestArchiveCampaign_NotFound(t *testing.T) {
 	h := newTestHarness()
-	err := h.svc.ArchiveCampaign(context.Background(), uuid.New())
+	err := h.svc.ArchiveCampaign(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, ErrCampaignNotFound) {
 		t.Errorf("expected ErrCampaignNotFound, got %v", err)
 	}
@@ -853,7 +847,7 @@ func TestArchiveCampaign_InvalidFromActive(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
 
-	err := h.svc.ArchiveCampaign(context.Background(), campaignID)
+	err := h.svc.ArchiveCampaign(context.Background(), campaignID, uuid.New())
 	if !errors.Is(err, ErrInvalidStatusTransition) {
 		t.Errorf("expected ErrInvalidStatusTransition, got %v", err)
 	}
@@ -984,7 +978,7 @@ func TestGetNextContact_Happy(t *testing.T) {
 		Phone: "+4915112345678",
 	}
 
-	cc, err := h.svc.GetNextContact(context.Background(), campaignID)
+	cc, err := h.svc.GetNextContact(context.Background(), campaignID, uuid.New())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1003,7 +997,7 @@ func TestGetNextContact_QueueExhausted(t *testing.T) {
 	// Signal exhausted queue: repo returns nil,nil to trigger auto-complete path.
 	h.campaigns.nextContactQueueEmpty = true
 
-	_, err := h.svc.GetNextContact(context.Background(), campaignID)
+	_, err := h.svc.GetNextContact(context.Background(), campaignID, uuid.New())
 	if !errors.Is(err, ErrNoContactsAvailable) {
 		t.Errorf("expected ErrNoContactsAvailable, got %v", err)
 	}
@@ -1024,7 +1018,7 @@ func TestGetNextContact_CampaignNotActive(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusPaused}
 
-	_, err := h.svc.GetNextContact(context.Background(), campaignID)
+	_, err := h.svc.GetNextContact(context.Background(), campaignID, uuid.New())
 	if !errors.Is(err, ErrCampaignNotActive) {
 		t.Errorf("expected ErrCampaignNotActive, got %v", err)
 	}
@@ -1057,6 +1051,7 @@ func TestAddContactsToCampaign_PhoneNormalization(t *testing.T) {
 
 	added, skipped, err := h.svc.AddContactsToCampaign(
 		context.Background(),
+		uuid.New(),
 		campaignID,
 		[]uuid.UUID{contactWithPhone, contactNoPhone, contactBadPhone},
 		nil,
@@ -1098,6 +1093,7 @@ func TestAddContactsToCampaign_BridgeFetchFailSkips(t *testing.T) {
 
 	added, skipped, err := h.svc.AddContactsToCampaign(
 		context.Background(),
+		uuid.New(),
 		campaignID,
 		[]uuid.UUID{knownID, uuid.New(), uuid.New()},
 		nil,
@@ -1118,7 +1114,7 @@ func TestAddContactsToCampaign_CampaignNotDraft(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
 
-	_, _, err := h.svc.AddContactsToCampaign(context.Background(), campaignID, []uuid.UUID{uuid.New()}, nil)
+	_, _, err := h.svc.AddContactsToCampaign(context.Background(), uuid.New(), campaignID, []uuid.UUID{uuid.New()}, nil)
 	if !errors.Is(err, ErrCampaignNotDraft) {
 		t.Errorf("expected ErrCampaignNotDraft, got %v", err)
 	}
@@ -1162,7 +1158,7 @@ func TestUpdateCallOutcome_AllNilPointers(t *testing.T) {
 	}
 
 	// All optional fields nil — should be a no-op (no field changes).
-	o, err := h.svc.UpdateCallOutcome(context.Background(), outcomeID, nil, nil, nil, nil, nil, nil, nil)
+	o, err := h.svc.UpdateCallOutcome(context.Background(), outcomeID, uuid.New(), nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1185,7 +1181,7 @@ func TestUpdateCallOutcome_PartialUpdate(t *testing.T) {
 	newSort := 99
 	inactive := false
 
-	o, err := h.svc.UpdateCallOutcome(context.Background(), outcomeID, &newLabel, nil, nil, nil, nil, &newSort, &inactive)
+	o, err := h.svc.UpdateCallOutcome(context.Background(), outcomeID, uuid.New(), &newLabel, nil, nil, nil, nil, &newSort, &inactive)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1202,7 +1198,7 @@ func TestUpdateCallOutcome_PartialUpdate(t *testing.T) {
 
 func TestUpdateCallOutcome_NotFound(t *testing.T) {
 	h := newTestHarness()
-	_, err := h.svc.UpdateCallOutcome(context.Background(), uuid.New(), nil, nil, nil, nil, nil, nil, nil)
+	_, err := h.svc.UpdateCallOutcome(context.Background(), uuid.New(), uuid.New(), nil, nil, nil, nil, nil, nil, nil)
 	if !errors.Is(err, ErrOutcomeNotFound) {
 		t.Errorf("expected ErrOutcomeNotFound, got %v", err)
 	}
@@ -1214,21 +1210,21 @@ func TestUpdateCallOutcome_NotFound(t *testing.T) {
 
 func TestSkipContact_Happy(t *testing.T) {
 	h := newTestHarness()
-	if err := h.svc.SkipContact(context.Background(), uuid.New()); err != nil {
+	if err := h.svc.SkipContact(context.Background(), uuid.New(), uuid.New()); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestRequeueContact_Happy(t *testing.T) {
 	h := newTestHarness()
-	if err := h.svc.RequeueContact(context.Background(), uuid.New()); err != nil {
+	if err := h.svc.RequeueContact(context.Background(), uuid.New(), uuid.New()); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestListCampaignContacts_Happy(t *testing.T) {
 	h := newTestHarness()
-	contacts, total, err := h.svc.ListCampaignContacts(context.Background(), uuid.New(), nil, 1, 20)
+	contacts, total, err := h.svc.ListCampaignContacts(context.Background(), uuid.New(), uuid.New(), nil, 1, 20)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -1252,7 +1248,7 @@ func TestDeleteCallOutcome_Happy(t *testing.T) {
 	h := newTestHarness()
 	outcomeID := uuid.New()
 	h.outcomes.outcomes[outcomeID] = &CallOutcome{ID: outcomeID, Label: "To Delete"}
-	if err := h.svc.DeleteCallOutcome(context.Background(), outcomeID); err != nil {
+	if err := h.svc.DeleteCallOutcome(context.Background(), outcomeID, uuid.New()); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -1262,7 +1258,7 @@ func TestGetCampaignDashboard_Happy(t *testing.T) {
 	campaignID := uuid.New()
 	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
 
-	stats, err := h.svc.GetCampaignDashboard(context.Background(), campaignID)
+	stats, err := h.svc.GetCampaignDashboard(context.Background(), uuid.New(), campaignID)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -1279,7 +1275,7 @@ func TestStartCampaign_NoContacts(t *testing.T) {
 		Status:       CampaignStatusDraft,
 		ContactCount: 0, // no contacts
 	}
-	_, err := h.svc.StartCampaign(context.Background(), campaignID)
+	_, err := h.svc.StartCampaign(context.Background(), campaignID, uuid.New())
 	if !errors.Is(err, ErrCampaignHasNoContacts) {
 		t.Errorf("expected ErrCampaignHasNoContacts, got %v", err)
 	}

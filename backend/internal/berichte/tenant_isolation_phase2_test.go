@@ -61,6 +61,15 @@ func TestTenantIsolation_Berichte(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "report_runs", runID)
 
+	// Seed a report_document (Migration 000245). Columns beyond tenant_id/title
+	// carry defaults, so the block tree stays out of the seed.
+	docID := testutil.SeedRow(t, pool, "report_documents", map[string]any{
+		"tenant_id": testutil.TenantA,
+		"title":     "Quartalsbericht " + uuid.New().String(),
+		"module":    "finanzen",
+	})
+	defer testutil.CleanupRow(t, pool, "report_documents", docID)
+
 	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
 	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
 
@@ -73,6 +82,7 @@ func TestTenantIsolation_Berichte(t *testing.T) {
 		{"report_cache", "report_cache", cacheID},
 		{"report_schedules", "report_schedules", schedID},
 		{"report_runs", "report_runs", runID},
+		{"report_documents", "report_documents", docID},
 	}
 
 	for _, tc := range tests {

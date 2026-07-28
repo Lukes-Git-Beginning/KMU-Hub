@@ -173,10 +173,10 @@ func (r *PostgresLeaveRequestRepo) Update(ctx context.Context, req *models.Leave
 		`UPDATE hr_leave_requests SET
 			status = $1, approved_by = $2, approval_comment = $3, approved_at = $4,
 			au_document_required = $5, au_document_file_id = $6, updated_at = $7
-		WHERE id = $8`,
+		WHERE id = $8 AND tenant_id = $9`,
 		req.Status, req.ApprovedBy, req.ApprovalComment, req.ApprovedAt,
 		req.AUDocumentRequired, req.AUDocumentFileID, req.UpdatedAt,
-		req.ID,
+		req.ID, req.TenantID,
 	)
 	return err
 }

@@ -51,6 +51,9 @@ service NotificationService {
   rpc LinkAccount(LinkAccountRequest) returns (LinkAccountResponse);
   rpc UnlinkAccount(UnlinkAccountRequest) returns (UnlinkAccountResponse);
   rpc GetAccountLinkStatus(GetAccountLinkStatusRequest) returns (GetAccountLinkStatusResponse);
+
+  // Inbound platform webhooks (Slack, Teams) -- tunneled from the gateway
+  rpc HandlePlatformWebhook(HandlePlatformWebhookRequest) returns (HandlePlatformWebhookResponse);
 }
 
 // ============================================================================
@@ -378,7 +381,10 @@ message TestIntegrationConfigRequest {
 
 message TestIntegrationConfigResponse {
   bool success = 1;
-  optional string error_message = 2;
+  // Human-readable detail about what answered — e.g. the bot identity the
+  // credentials resolved to. Failures travel as a gRPC error, not as
+  // success=false, so this field is only ever the success story.
+  string message = 2;
 }
 
 // ============================================================================
@@ -466,4 +472,30 @@ message AccountLinkInfo {
 
 message GetAccountLinkStatusResponse {
   repeated AccountLinkInfo links = 1;
+}
+
+// ============================================================================
+// Inbound Platform Webhook Messages
+// ============================================================================
+
+// HandlePlatformWebhookRequest tunnels an inbound Slack/Teams request from the
+// gateway to the notification service unchanged.
+//
+// The body travels as raw bytes on purpose: Slack signs the exact request body
+// and the Bot Framework JWT covers the payload, so re-serializing anywhere on
+// the way would destroy the signature. The gateway is a pure proxy here -- it
+// neither parses the payload nor touches the database, which keeps the signing
+// secret and the tenant resolution inside the service that owns them.
+message HandlePlatformWebhookRequest {
+  string platform = 1; // "slack" | "teams"
+  string kind = 2;     // "slack_interaction" | "slack_command" | "teams_activity"
+  bytes body = 3;      // raw request body, byte-identical to what the platform sent
+  map<string, string> headers = 4; // only the headers the verification needs
+}
+
+// HandlePlatformWebhookResponse is written back to the platform verbatim.
+message HandlePlatformWebhookResponse {
+  int32 status_code = 1;
+  string content_type = 2;
+  bytes body = 3;
 }

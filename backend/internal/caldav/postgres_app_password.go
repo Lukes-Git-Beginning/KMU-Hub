@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // PostgresAppPasswordRepository implements AppPasswordRepository using PostgreSQL.
@@ -83,6 +84,11 @@ func (r *PostgresAppPasswordRepository) Revoke(ctx context.Context, id, userID u
 }
 
 func (r *PostgresAppPasswordRepository) FindActiveByUser(ctx context.Context, userID uuid.UUID) ([]*models.AppSpecificPassword, error) {
+	// CalDAV/CardDAV Basic Auth validates credentials before any tenant is
+	// known (that's the point of this lookup) — system-context read, same
+	// sanctioned case as sysctx's documented "login flow" bypass.
+	ctx = sysctx.With(ctx)
+
 	query := `
 		SELECT id, user_id, label, password_hash, password_prefix, scope,
 			last_used_at, created_at, revoked_at
@@ -118,6 +124,10 @@ func (r *PostgresAppPasswordRepository) FindActiveByUser(ctx context.Context, us
 }
 
 func (r *PostgresAppPasswordRepository) UpdateLastUsed(ctx context.Context, id uuid.UUID) error {
+	// Called right after FindActiveByUser during Basic Auth validation —
+	// same no-tenant-yet situation, same bypass.
+	ctx = sysctx.With(ctx)
+
 	query := `UPDATE app_specific_passwords SET last_used_at = NOW() WHERE id = $1`
 	_, err := r.pool.Exec(ctx, query, id)
 	return err

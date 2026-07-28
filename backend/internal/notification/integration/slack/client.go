@@ -25,6 +25,21 @@ func NewClient(botToken string) *Client {
 	}
 }
 
+// ProbeConnection verifies the bot token against Slack's auth.test endpoint.
+// auth.test is the cheapest call that actually reaches Slack with the token and
+// it writes nothing into any channel, which is what an admin pressing "test
+// connection" expects.
+func (c *Client) ProbeConnection(ctx context.Context) (*integration.ProbeResult, error) {
+	resp, err := c.api.AuthTestContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("slack auth.test: %w", err)
+	}
+
+	return &integration.ProbeResult{
+		Detail: fmt.Sprintf("authenticated as %s in workspace %s", resp.User, resp.Team),
+	}, nil
+}
+
 // PostNotification sends a notification as a Block Kit message to a Slack channel.
 func (c *Client) PostNotification(ctx context.Context, mapping *integration.ChannelMapping, notif *models.Notification, actions []integration.ActionType) (*integration.DeliveryResult, error) {
 	blocks := BuildBlocks(notif, actions)

@@ -287,12 +287,12 @@ func (r *PostgresRepository) CreateExecution(ctx context.Context, e *models.Auto
 func (r *PostgresRepository) UpdateExecution(ctx context.Context, e *models.AutomationExecution) error {
 	query := `
 		UPDATE automation_executions SET
-			condition_result = $2, status = $3, steps = $4,
-			error_message = $5, completed_at = $6, duration_ms = $7
-		WHERE id = $1`
+			condition_result = $3, status = $4, steps = $5,
+			error_message = $6, completed_at = $7, duration_ms = $8
+		WHERE id = $1 AND tenant_id = $2`
 
 	tag, err := r.pool.Exec(ctx, query,
-		e.ID, e.ConditionResult, e.Status, e.Steps,
+		e.ID, e.TenantID, e.ConditionResult, e.Status, e.Steps,
 		e.ErrorMessage, e.CompletedAt, e.DurationMs,
 	)
 	if err != nil {
@@ -304,14 +304,14 @@ func (r *PostgresRepository) UpdateExecution(ctx context.Context, e *models.Auto
 	return nil
 }
 
-func (r *PostgresRepository) GetExecution(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error) {
+func (r *PostgresRepository) GetExecution(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.AutomationExecution, error) {
 	query := `
 		SELECT id, tenant_id, automation_id, chain_id, trigger_event, condition_result,
 			status, steps, error_message, started_at, completed_at, duration_ms
-		FROM automation_executions WHERE id = $1`
+		FROM automation_executions WHERE id = $1 AND tenant_id = $2`
 
 	e := &models.AutomationExecution{}
-	err := r.pool.QueryRow(ctx, query, id).Scan(
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
 		&e.ID, &e.TenantID, &e.AutomationID, &e.ChainID, &e.TriggerEvent, &e.ConditionResult,
 		&e.Status, &e.Steps, &e.ErrorMessage, &e.StartedAt, &e.CompletedAt, &e.DurationMs,
 	)
@@ -325,9 +325,10 @@ func (r *PostgresRepository) GetExecution(ctx context.Context, id uuid.UUID) (*m
 }
 
 func (r *PostgresRepository) ListExecutions(ctx context.Context, filter ExecutionFilter) ([]*models.AutomationExecution, int, error) {
-	var conditions []string
-	var args []any
-	argIndex := 1
+	// tenant_id is always the first condition for isolation
+	conditions := []string{fmt.Sprintf("tenant_id = $%d", 1)}
+	args := []any{filter.TenantID}
+	argIndex := 2
 
 	if filter.AutomationID != nil {
 		conditions = append(conditions, fmt.Sprintf("automation_id = $%d", argIndex))
@@ -350,10 +351,7 @@ func (r *PostgresRepository) ListExecutions(ctx context.Context, filter Executio
 		argIndex++
 	}
 
-	where := ""
-	if len(conditions) > 0 {
-		where = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	where := "WHERE " + strings.Join(conditions, " AND ")
 
 	limit := filter.Limit
 	if limit <= 0 {

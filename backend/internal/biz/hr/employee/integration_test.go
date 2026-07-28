@@ -4,6 +4,7 @@ package employee
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -208,5 +209,99 @@ func TestIntegrationEmployeeCrossTenantIsolation(t *testing.T) {
 		if e.TenantID == tenantA {
 			t.Errorf("cross-tenant leak: tenant B sees employee %s from tenant A", e.ID)
 		}
+	}
+}
+
+// seedDocCategory inserts an hr_document_categories row via superPool and
+// returns its id. Used for the per-tenant rows; the four system seeds already
+// come from migration 000046.
+func seedDocCategory(t *testing.T, superPool *pgxpool.Pool, tenantID uuid.UUID, key, name string) uuid.UUID {
+	t.Helper()
+	catID := uuid.New()
+	_, err := superPool.Exec(context.Background(),
+		`INSERT INTO hr_document_categories (id, tenant_id, key, name, visibility, is_system, sort_order)
+		 VALUES ($1, $2, $3, $4, 'hr_only', FALSE, 90)`,
+		catID, tenantID, key, name,
+	)
+	if err != nil {
+		t.Fatalf("seedDocCategory %s: %v", key, err)
+	}
+	return catID
+}
+
+// TestIntegrationDocCategoriesIncludeSystemSeeds pins that a tenant without any
+// categories of its own still sees the four system seeds from migration 000046.
+// They carry the zero-UUID tenant, so a query restricted to the real tenant
+// returns nothing — and then the upload dialog has no category to pick, which
+// makes the whole HR document feature unusable rather than merely empty.
+func TestIntegrationDocCategoriesIncludeSystemSeeds(t *testing.T) {
+	appPool, superURL := pgtc.StartPostgres(t)
+	superPool := pgtc.SuperPool(t, superURL)
+	t.Cleanup(superPool.Close)
+
+	tenantID := uuid.New()
+	ctx := pgtc.TenantCtx(context.Background(), tenantID)
+	seedTenant(t, superPool, tenantID)
+
+	repo := NewPostgresDocCategoryRepo(appPool)
+	cats, err := repo.ListByTenant(ctx, tenantID)
+	if err != nil {
+		t.Fatalf("ListByTenant: %v", err)
+	}
+
+	want := map[string]bool{"arbeitsvertrag": false, "zeugnisse": false, "abmahnungen": false, "sonstiges": false}
+	for _, c := range cats {
+		if _, ok := want[c.Key]; ok {
+			want[c.Key] = true
+		}
+	}
+	for key, seen := range want {
+		if !seen {
+			t.Errorf("system seed category %q missing from ListByTenant", key)
+		}
+	}
+
+	// A system seed id must also resolve through GetByID, because that is what
+	// UploadEmployeeDocument validates the client-supplied category_id against.
+	for _, c := range cats {
+		if !c.IsSystem {
+			continue
+		}
+		if _, err := repo.GetByID(ctx, tenantID, c.ID); err != nil {
+			t.Errorf("GetByID on system seed %q: %v", c.Key, err)
+		}
+	}
+}
+
+// TestIntegrationDocCategoriesCrossTenantIsolation pins that a foreign tenant's
+// category is neither listed nor resolvable by id — GetByID guards the upload
+// path, where category_id comes straight from the client.
+func TestIntegrationDocCategoriesCrossTenantIsolation(t *testing.T) {
+	appPool, superURL := pgtc.StartPostgres(t)
+	superPool := pgtc.SuperPool(t, superURL)
+	t.Cleanup(superPool.Close)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	seedTenant(t, superPool, tenantA)
+	seedTenant(t, superPool, tenantB)
+
+	catA := seedDocCategory(t, superPool, tenantA, "geheim", "Geheimakte A")
+	ctxB := pgtc.TenantCtx(context.Background(), tenantB)
+
+	repo := NewPostgresDocCategoryRepo(appPool)
+
+	catsB, err := repo.ListByTenant(ctxB, tenantB)
+	if err != nil {
+		t.Fatalf("ListByTenant B: %v", err)
+	}
+	for _, c := range catsB {
+		if c.ID == catA {
+			t.Errorf("cross-tenant leak: tenant B lists category %s of tenant A", catA)
+		}
+	}
+
+	if _, err := repo.GetByID(ctxB, tenantB, catA); !errors.Is(err, ErrDocumentCategoryNotFound) {
+		t.Errorf("GetByID across tenants: got %v, want ErrDocumentCategoryNotFound", err)
 	}
 }

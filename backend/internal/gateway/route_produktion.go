@@ -61,6 +61,9 @@ func (pr *ProduktionRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 				r.With(middleware.RequirePermission("produktion:order", "write")).Post("/complete", pr.HandleCompleteOrder)
 				r.With(middleware.RequirePermission("produktion:order", "write")).Post("/cancel", pr.HandleCancelOrder)
 			})
+
+			// Work Steps (per order) — see route_produktion_ext.go
+			pr.registerWorkStepRoutes(r)
 		})
 
 		// Machine Bookings
@@ -85,6 +88,9 @@ func (pr *ProduktionRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 				r.With(middleware.RequirePermission("produktion:plan", "read")).Get("/capacity", pr.HandleGetCapacityOverview)
 			})
 		})
+
+		// BOMs, machines and quality checks — see route_produktion_ext.go
+		pr.registerExtRoutes(r)
 	})
 }
 

@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -9,6 +10,10 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// ErrForwardNotSupported is returned by HandleForward when a channel has no
+// concept of forwarding to an arbitrary recipient (chat, guest, notification).
+var ErrForwardNotSupported = errors.New("forward not supported for this channel")
 
 // ChannelAdapter normalizes messages from a specific source (email, chat, notification)
 // into the unified InboxMessage format.
@@ -22,6 +27,11 @@ type ChannelAdapter interface {
 
 	// HandleReply routes a reply back through the originating channel.
 	HandleReply(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, body string) error
+
+	// HandleForward routes a message to a new recipient through the originating
+	// channel. Returns ErrForwardNotSupported if the channel has no concept of
+	// forwarding to an arbitrary recipient.
+	HandleForward(ctx context.Context, messageID uuid.UUID, userID uuid.UUID, to string, note string) error
 
 	// MarkReadOnSource syncs read status back to the originating system.
 	MarkReadOnSource(ctx context.Context, sourceID string, userID uuid.UUID) error

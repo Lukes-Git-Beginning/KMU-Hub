@@ -233,6 +233,10 @@ func main() {
 	// Booking routes — admin (via registrars) + public (outside loop)
 	bookingRoutes := gateway.NewBookingRoutes(registry, captchaVerifier)
 
+	// Berichte routes — authenticated (via registrars) + the public read of a
+	// shared report (outside loop, behind the strict public rate limiter)
+	berichteRoutes := gateway.NewBerichteRoutes(registry, flagRegistry)
+
 	// CRM routes — standard (via registrars) + advisory protocols (outside loop)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
 
@@ -249,14 +253,26 @@ func main() {
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry, cfg.BexioStateSecret),
+		// DATEV upload shares the Bexio OAuth state secret: the signed state only
+		// binds tenant + expiry, both flows are admin-only, and a second secret
+		// would be a new required env var in production for no security gain.
+		gateway.NewDatevUploadRoutes(registry, cfg.BexioStateSecret),
 		gateway.NewLexwareRoutes(registry, cfg.LexwareWebhookSecret, isProd),
+		// Teams/Slack integration admin config, channel mappings, account
+		// linking and the inbound webhooks. The webhook routes tunnel the raw
+		// request to the notification service (HandlePlatformWebhook): the
+		// signature check needs the untouched bytes, the signing secret belongs
+		// where the platform tokens already are, and the tenant has to be
+		// resolved from the platform identity — none of which a gateway holding
+		// a direct DB repo could do without bypassing the gRPC layer.
+		gateway.NewIntegrationRoutes(registry),
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),
 		gateway.NewAutomationRoutes(registry),
 		gateway.NewDialerRoutes(registry),
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
-		gateway.NewBerichteRoutes(registry, flagRegistry),
+		berichteRoutes,
 		gateway.NewFormulareRoutes(registry, flagRegistry),
 		gateway.NewInventarRoutes(registry, flagRegistry),
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
@@ -272,7 +288,7 @@ func main() {
 		gateway.NewFeatureFlagRoutes(flagRegistry),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 		bookingRoutes,
-		gateway.NewSettingsRoutes(registry),
+		gateway.NewSettingsRoutes(registry, flagRegistry),
 	}
 
 	for _, reg := range registrars {
@@ -320,6 +336,12 @@ func main() {
 	// independent of the global limiter — prevents booking-spam and page scraping.
 	bookingRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "booking-public")
+
+	// Public read of a shared report (no auth middleware). Same strict per-IP
+	// limiter: the share token is the whole credential, so this route must not
+	// sit behind the generous authenticated limit.
+	berichteRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
+	slog.Info("routes registered", "service", "berichte-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

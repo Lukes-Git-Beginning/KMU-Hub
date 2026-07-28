@@ -24,11 +24,15 @@ const (
 	InboxService_MarkRead_FullMethodName             = "/inbox.v1.InboxService/MarkRead"
 	InboxService_MarkUnread_FullMethodName           = "/inbox.v1.InboxService/MarkUnread"
 	InboxService_ToggleStar_FullMethodName           = "/inbox.v1.InboxService/ToggleStar"
+	InboxService_SetMessageStatus_FullMethodName     = "/inbox.v1.InboxService/SetMessageStatus"
+	InboxService_AddMessageTag_FullMethodName        = "/inbox.v1.InboxService/AddMessageTag"
+	InboxService_RemoveMessageTag_FullMethodName     = "/inbox.v1.InboxService/RemoveMessageTag"
 	InboxService_ArchiveMessage_FullMethodName       = "/inbox.v1.InboxService/ArchiveMessage"
 	InboxService_UnarchiveMessage_FullMethodName     = "/inbox.v1.InboxService/UnarchiveMessage"
 	InboxService_SnoozeMessage_FullMethodName        = "/inbox.v1.InboxService/SnoozeMessage"
 	InboxService_UnsnoozeMessage_FullMethodName      = "/inbox.v1.InboxService/UnsnoozeMessage"
 	InboxService_ReplyToMessage_FullMethodName       = "/inbox.v1.InboxService/ReplyToMessage"
+	InboxService_ForwardMessage_FullMethodName       = "/inbox.v1.InboxService/ForwardMessage"
 	InboxService_AssignMessage_FullMethodName        = "/inbox.v1.InboxService/AssignMessage"
 	InboxService_GetUnreadCount_FullMethodName       = "/inbox.v1.InboxService/GetUnreadCount"
 	InboxService_BulkMarkRead_FullMethodName         = "/inbox.v1.InboxService/BulkMarkRead"
@@ -58,18 +62,22 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type InboxServiceClient interface {
 	// =========================================================================
-	// Messages (14 RPCs)
+	// Messages (18 RPCs)
 	// =========================================================================
 	ListMessages(ctx context.Context, in *ListMessagesRequest, opts ...grpc.CallOption) (*ListMessagesResponse, error)
 	GetMessage(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
 	MarkRead(ctx context.Context, in *MarkReadRequest, opts ...grpc.CallOption) (*MarkReadResponse, error)
 	MarkUnread(ctx context.Context, in *MarkUnreadRequest, opts ...grpc.CallOption) (*MarkUnreadResponse, error)
 	ToggleStar(ctx context.Context, in *ToggleStarRequest, opts ...grpc.CallOption) (*ToggleStarResponse, error)
+	SetMessageStatus(ctx context.Context, in *SetMessageStatusRequest, opts ...grpc.CallOption) (*SetMessageStatusResponse, error)
+	AddMessageTag(ctx context.Context, in *AddMessageTagRequest, opts ...grpc.CallOption) (*AddMessageTagResponse, error)
+	RemoveMessageTag(ctx context.Context, in *RemoveMessageTagRequest, opts ...grpc.CallOption) (*RemoveMessageTagResponse, error)
 	ArchiveMessage(ctx context.Context, in *ArchiveMessageRequest, opts ...grpc.CallOption) (*ArchiveMessageResponse, error)
 	UnarchiveMessage(ctx context.Context, in *UnarchiveMessageRequest, opts ...grpc.CallOption) (*UnarchiveMessageResponse, error)
 	SnoozeMessage(ctx context.Context, in *SnoozeMessageRequest, opts ...grpc.CallOption) (*SnoozeMessageResponse, error)
 	UnsnoozeMessage(ctx context.Context, in *UnsnoozeMessageRequest, opts ...grpc.CallOption) (*UnsnoozeMessageResponse, error)
 	ReplyToMessage(ctx context.Context, in *ReplyToMessageRequest, opts ...grpc.CallOption) (*ReplyToMessageResponse, error)
+	ForwardMessage(ctx context.Context, in *ForwardMessageRequest, opts ...grpc.CallOption) (*ForwardMessageResponse, error)
 	AssignMessage(ctx context.Context, in *AssignMessageRequest, opts ...grpc.CallOption) (*AssignMessageResponse, error)
 	GetUnreadCount(ctx context.Context, in *GetUnreadCountRequest, opts ...grpc.CallOption) (*GetUnreadCountResponse, error)
 	BulkMarkRead(ctx context.Context, in *BulkMarkReadRequest, opts ...grpc.CallOption) (*BulkMarkReadResponse, error)
@@ -164,6 +172,36 @@ func (c *inboxServiceClient) ToggleStar(ctx context.Context, in *ToggleStarReque
 	return out, nil
 }
 
+func (c *inboxServiceClient) SetMessageStatus(ctx context.Context, in *SetMessageStatusRequest, opts ...grpc.CallOption) (*SetMessageStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetMessageStatusResponse)
+	err := c.cc.Invoke(ctx, InboxService_SetMessageStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) AddMessageTag(ctx context.Context, in *AddMessageTagRequest, opts ...grpc.CallOption) (*AddMessageTagResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddMessageTagResponse)
+	err := c.cc.Invoke(ctx, InboxService_AddMessageTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) RemoveMessageTag(ctx context.Context, in *RemoveMessageTagRequest, opts ...grpc.CallOption) (*RemoveMessageTagResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveMessageTagResponse)
+	err := c.cc.Invoke(ctx, InboxService_RemoveMessageTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *inboxServiceClient) ArchiveMessage(ctx context.Context, in *ArchiveMessageRequest, opts ...grpc.CallOption) (*ArchiveMessageResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ArchiveMessageResponse)
@@ -208,6 +246,16 @@ func (c *inboxServiceClient) ReplyToMessage(ctx context.Context, in *ReplyToMess
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ReplyToMessageResponse)
 	err := c.cc.Invoke(ctx, InboxService_ReplyToMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inboxServiceClient) ForwardMessage(ctx context.Context, in *ForwardMessageRequest, opts ...grpc.CallOption) (*ForwardMessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ForwardMessageResponse)
+	err := c.cc.Invoke(ctx, InboxService_ForwardMessage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -439,18 +487,22 @@ func (c *inboxServiceClient) TestRoutingRule(ctx context.Context, in *TestRoutin
 // for forward compatibility.
 type InboxServiceServer interface {
 	// =========================================================================
-	// Messages (14 RPCs)
+	// Messages (18 RPCs)
 	// =========================================================================
 	ListMessages(context.Context, *ListMessagesRequest) (*ListMessagesResponse, error)
 	GetMessage(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
 	MarkRead(context.Context, *MarkReadRequest) (*MarkReadResponse, error)
 	MarkUnread(context.Context, *MarkUnreadRequest) (*MarkUnreadResponse, error)
 	ToggleStar(context.Context, *ToggleStarRequest) (*ToggleStarResponse, error)
+	SetMessageStatus(context.Context, *SetMessageStatusRequest) (*SetMessageStatusResponse, error)
+	AddMessageTag(context.Context, *AddMessageTagRequest) (*AddMessageTagResponse, error)
+	RemoveMessageTag(context.Context, *RemoveMessageTagRequest) (*RemoveMessageTagResponse, error)
 	ArchiveMessage(context.Context, *ArchiveMessageRequest) (*ArchiveMessageResponse, error)
 	UnarchiveMessage(context.Context, *UnarchiveMessageRequest) (*UnarchiveMessageResponse, error)
 	SnoozeMessage(context.Context, *SnoozeMessageRequest) (*SnoozeMessageResponse, error)
 	UnsnoozeMessage(context.Context, *UnsnoozeMessageRequest) (*UnsnoozeMessageResponse, error)
 	ReplyToMessage(context.Context, *ReplyToMessageRequest) (*ReplyToMessageResponse, error)
+	ForwardMessage(context.Context, *ForwardMessageRequest) (*ForwardMessageResponse, error)
 	AssignMessage(context.Context, *AssignMessageRequest) (*AssignMessageResponse, error)
 	GetUnreadCount(context.Context, *GetUnreadCountRequest) (*GetUnreadCountResponse, error)
 	BulkMarkRead(context.Context, *BulkMarkReadRequest) (*BulkMarkReadResponse, error)
@@ -510,6 +562,15 @@ func (UnimplementedInboxServiceServer) MarkUnread(context.Context, *MarkUnreadRe
 func (UnimplementedInboxServiceServer) ToggleStar(context.Context, *ToggleStarRequest) (*ToggleStarResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ToggleStar not implemented")
 }
+func (UnimplementedInboxServiceServer) SetMessageStatus(context.Context, *SetMessageStatusRequest) (*SetMessageStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetMessageStatus not implemented")
+}
+func (UnimplementedInboxServiceServer) AddMessageTag(context.Context, *AddMessageTagRequest) (*AddMessageTagResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddMessageTag not implemented")
+}
+func (UnimplementedInboxServiceServer) RemoveMessageTag(context.Context, *RemoveMessageTagRequest) (*RemoveMessageTagResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveMessageTag not implemented")
+}
 func (UnimplementedInboxServiceServer) ArchiveMessage(context.Context, *ArchiveMessageRequest) (*ArchiveMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ArchiveMessage not implemented")
 }
@@ -524,6 +585,9 @@ func (UnimplementedInboxServiceServer) UnsnoozeMessage(context.Context, *Unsnooz
 }
 func (UnimplementedInboxServiceServer) ReplyToMessage(context.Context, *ReplyToMessageRequest) (*ReplyToMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplyToMessage not implemented")
+}
+func (UnimplementedInboxServiceServer) ForwardMessage(context.Context, *ForwardMessageRequest) (*ForwardMessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ForwardMessage not implemented")
 }
 func (UnimplementedInboxServiceServer) AssignMessage(context.Context, *AssignMessageRequest) (*AssignMessageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AssignMessage not implemented")
@@ -702,6 +766,60 @@ func _InboxService_ToggleStar_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InboxService_SetMessageStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetMessageStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).SetMessageStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_SetMessageStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).SetMessageStatus(ctx, req.(*SetMessageStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_AddMessageTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddMessageTagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).AddMessageTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_AddMessageTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).AddMessageTag(ctx, req.(*AddMessageTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_RemoveMessageTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveMessageTagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).RemoveMessageTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_RemoveMessageTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).RemoveMessageTag(ctx, req.(*RemoveMessageTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _InboxService_ArchiveMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ArchiveMessageRequest)
 	if err := dec(in); err != nil {
@@ -788,6 +906,24 @@ func _InboxService_ReplyToMessage_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InboxServiceServer).ReplyToMessage(ctx, req.(*ReplyToMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InboxService_ForwardMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ForwardMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InboxServiceServer).ForwardMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InboxService_ForwardMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InboxServiceServer).ForwardMessage(ctx, req.(*ForwardMessageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1216,6 +1352,18 @@ var InboxService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _InboxService_ToggleStar_Handler,
 		},
 		{
+			MethodName: "SetMessageStatus",
+			Handler:    _InboxService_SetMessageStatus_Handler,
+		},
+		{
+			MethodName: "AddMessageTag",
+			Handler:    _InboxService_AddMessageTag_Handler,
+		},
+		{
+			MethodName: "RemoveMessageTag",
+			Handler:    _InboxService_RemoveMessageTag_Handler,
+		},
+		{
 			MethodName: "ArchiveMessage",
 			Handler:    _InboxService_ArchiveMessage_Handler,
 		},
@@ -1234,6 +1382,10 @@ var InboxService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplyToMessage",
 			Handler:    _InboxService_ReplyToMessage_Handler,
+		},
+		{
+			MethodName: "ForwardMessage",
+			Handler:    _InboxService_ForwardMessage_Handler,
 		},
 		{
 			MethodName: "AssignMessage",

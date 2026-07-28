@@ -57,8 +57,13 @@ func (s *Service) RegisterErasureHandler(handler ErasureHandler) {
 // RequestExport creates a new data export request for the given user.
 // Returns an error if the user already has a pending request.
 func (s *Service) RequestExport(ctx context.Context, userID uuid.UUID) (*models.GDPRExportRequest, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("gdpr: tenant id missing from context: %w", err)
+	}
+
 	// Check for existing pending request
-	existing, err := s.repo.ListExportRequests(ctx, userID, models.ExportStatusPending)
+	existing, err := s.repo.ListExportRequests(ctx, tenantID, userID, models.ExportStatusPending)
 	if err != nil {
 		return nil, fmt.Errorf("gdpr: failed to check existing requests: %w", err)
 	}
@@ -88,13 +93,22 @@ func (s *Service) RequestExport(ctx context.Context, userID uuid.UUID) (*models.
 // Pass uuid.Nil for userID to return all requests (admin view).
 // Pass empty string for status to return all statuses.
 func (s *Service) ListExports(ctx context.Context, userID uuid.UUID, status string) ([]*models.GDPRExportRequest, error) {
-	return s.repo.ListExportRequests(ctx, userID, status)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("gdpr: tenant id missing from context: %w", err)
+	}
+	return s.repo.ListExportRequests(ctx, tenantID, userID, status)
 }
 
 // ApproveExport marks an export request as approved and triggers async export generation.
 // The actual ZIP generation runs asynchronously via ExecuteExportAsync.
 func (s *Service) ApproveExport(ctx context.Context, exportID uuid.UUID, reviewerID uuid.UUID, note string) (*models.GDPRExportRequest, error) {
-	req, err := s.repo.GetExportRequest(ctx, exportID)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("gdpr: tenant id missing from context: %w", err)
+	}
+
+	req, err := s.repo.GetExportRequest(ctx, tenantID, exportID)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +123,7 @@ func (s *Service) ApproveExport(ctx context.Context, exportID uuid.UUID, reviewe
 	req.ReviewedAt = &now
 	req.ReviewNote = note
 
-	if err := s.repo.UpdateExportStatus(ctx, req); err != nil {
+	if err := s.repo.UpdateExportStatus(ctx, tenantID, req); err != nil {
 		return nil, fmt.Errorf("gdpr: failed to approve export: %w", err)
 	}
 
@@ -121,10 +135,7 @@ func (s *Service) ApproveExport(ctx context.Context, exportID uuid.UUID, reviewe
 	// Trigger async export generation. The tenant must be carried over to the
 	// detached context: the RLS pool hook stamps app.tenant_id from the context,
 	// so a bare Background() would hide every row from the export handlers.
-	bgCtx := context.Background()
-	if tenantID, tErr := middleware.GetTenantID(ctx); tErr == nil {
-		bgCtx = context.WithValue(bgCtx, middleware.TenantIDKey, tenantID.String())
-	}
+	bgCtx := context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
 	go func() {
 		if execErr := s.ExecuteExportAsync(bgCtx, exportID); execErr != nil {
 			slog.Error("gdpr: async export generation failed",
@@ -139,7 +150,12 @@ func (s *Service) ApproveExport(ctx context.Context, exportID uuid.UUID, reviewe
 
 // DenyExport marks an export request as denied with a review note.
 func (s *Service) DenyExport(ctx context.Context, exportID uuid.UUID, reviewerID uuid.UUID, note string) (*models.GDPRExportRequest, error) {
-	req, err := s.repo.GetExportRequest(ctx, exportID)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("gdpr: tenant id missing from context: %w", err)
+	}
+
+	req, err := s.repo.GetExportRequest(ctx, tenantID, exportID)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +170,7 @@ func (s *Service) DenyExport(ctx context.Context, exportID uuid.UUID, reviewerID
 	req.ReviewedAt = &now
 	req.ReviewNote = note
 
-	if err := s.repo.UpdateExportStatus(ctx, req); err != nil {
+	if err := s.repo.UpdateExportStatus(ctx, tenantID, req); err != nil {
 		return nil, fmt.Errorf("gdpr: failed to deny export: %w", err)
 	}
 
@@ -168,7 +184,12 @@ func (s *Service) DenyExport(ctx context.Context, exportID uuid.UUID, reviewerID
 // ExecuteExportAsync generates the ZIP export file and stores the result.
 // This is called asynchronously after admin approval.
 func (s *Service) ExecuteExportAsync(ctx context.Context, exportID uuid.UUID) error {
-	req, err := s.repo.GetExportRequest(ctx, exportID)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return fmt.Errorf("gdpr: tenant id missing from context: %w", err)
+	}
+
+	req, err := s.repo.GetExportRequest(ctx, tenantID, exportID)
 	if err != nil {
 		return err
 	}
@@ -179,7 +200,7 @@ func (s *Service) ExecuteExportAsync(ctx context.Context, exportID uuid.UUID) er
 
 	// Update status to processing
 	req.Status = models.ExportStatusProcessing
-	if err := s.repo.UpdateExportStatus(ctx, req); err != nil {
+	if err := s.repo.UpdateExportStatus(ctx, tenantID, req); err != nil {
 		return fmt.Errorf("gdpr: failed to set processing status: %w", err)
 	}
 
@@ -188,7 +209,7 @@ func (s *Service) ExecuteExportAsync(ctx context.Context, exportID uuid.UUID) er
 	if err != nil {
 		// Revert to approved status on failure so retry is possible
 		req.Status = models.ExportStatusApproved
-		_ = s.repo.UpdateExportStatus(ctx, req)
+		_ = s.repo.UpdateExportStatus(ctx, tenantID, req)
 		return fmt.Errorf("gdpr: export generation failed: %w", err)
 	}
 
@@ -201,7 +222,7 @@ func (s *Service) ExecuteExportAsync(ctx context.Context, exportID uuid.UUID) er
 	// Download link expires in 7 days
 	expiresAt := time.Now().UTC().Add(7 * 24 * time.Hour)
 
-	if err := s.repo.StoreExportResult(ctx, exportID, zipData, token, expiresAt); err != nil {
+	if err := s.repo.StoreExportResult(ctx, tenantID, exportID, zipData, token, expiresAt); err != nil {
 		return fmt.Errorf("gdpr: failed to store export result: %w", err)
 	}
 
@@ -216,7 +237,12 @@ func (s *Service) ExecuteExportAsync(ctx context.Context, exportID uuid.UUID) er
 // GetExportDownload retrieves the export data by download token.
 // Marks the export as downloaded after successful retrieval.
 func (s *Service) GetExportDownload(ctx context.Context, token string) ([]byte, string, error) {
-	req, err := s.repo.GetExportByToken(ctx, token)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("gdpr: tenant id missing from context: %w", err)
+	}
+
+	req, err := s.repo.GetExportByToken(ctx, tenantID, token)
 	if err != nil {
 		return nil, "", err
 	}
@@ -232,7 +258,7 @@ func (s *Service) GetExportDownload(ctx context.Context, token string) ([]byte, 
 
 	// Mark as downloaded
 	if req.Status == models.ExportStatusReady {
-		if markErr := s.repo.MarkDownloaded(ctx, req.ID); markErr != nil {
+		if markErr := s.repo.MarkDownloaded(ctx, tenantID, req.ID); markErr != nil {
 			slog.Error("gdpr: failed to mark export as downloaded",
 				"request_id", req.ID,
 				"error", markErr,

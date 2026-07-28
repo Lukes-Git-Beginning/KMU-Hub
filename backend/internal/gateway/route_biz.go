@@ -90,6 +90,19 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/validate-number", b.HandleValidateInvoiceNumber)
 	})
 
+	// Recurring invoices (Abo-Rechnungen)
+	r.Route("/api/v1/finance/recurring", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListRecurringInvoices)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "delete")).Delete("/{id}", b.HandleDeleteRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/pause", b.HandlePauseRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/resume", b.HandleResumeRecurringInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/generate", b.HandleGenerateRecurringInvoice)
+	})
+
 	// Credit Notes
 	r.Route("/api/v1/finance/credit-notes", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -119,6 +132,28 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		// GoBD dunning gaps (Sprint 2 / Wave 1.B)
 		r.With(middleware.RequirePermission("finance", "admin")).Put("/{id}/status", b.HandleUpdateDunningStatus)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/notice", b.HandleSendDunningNotice)
+	})
+
+	// Open items (Offene Posten) — receivables aging, the read side of dunning
+	r.Route("/api/v1/finance/open-items", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListOpenItems)
+	})
+
+	// Bank statements (Zahlungsabgleich): CAMT.053 / MT940 import
+	r.Route("/api/v1/finance/bank-statements", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankStatements)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/import", b.HandleImportBankStatement)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetBankStatement)
+	})
+
+	// Bank transactions: the reconciliation queue of the imports above
+	r.Route("/api/v1/finance/bank-transactions", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankTransactions)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reconcile", b.HandleReconcileBankTransaction)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/ignore", b.HandleIgnoreBankTransaction)
 	})
 
 	// Dashboard

@@ -35,8 +35,10 @@ func newTestBerichteServerWithSvc(repo berichte.Repository, exec berichte.Execut
 
 // stubBerichteRepo is a minimal in-memory repository for service-layer tests.
 type stubBerichteRepo struct {
-	def  *berichte.Definition
-	sch  *berichte.Schedule
+	def   *berichte.Definition
+	sch   *berichte.Schedule
+	doc   *berichte.Document
+	share *berichte.ShareToken
 }
 
 func (r *stubBerichteRepo) CreateDefinition(_ context.Context, def *berichte.Definition) error {
@@ -99,6 +101,28 @@ func (r *stubBerichteRepo) UpdateScheduleLastRun(_ context.Context, _ uuid.UUID,
 	return nil
 }
 func (r *stubBerichteRepo) InsertRun(_ context.Context, _ *berichte.Run) error { return nil }
+
+func (r *stubBerichteRepo) CreateDocument(_ context.Context, doc *berichte.Document) error {
+	r.doc = doc
+	return nil
+}
+func (r *stubBerichteRepo) UpdateDocument(_ context.Context, doc *berichte.Document) error {
+	r.doc = doc
+	return nil
+}
+func (r *stubBerichteRepo) DeleteDocument(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (r *stubBerichteRepo) GetDocument(_ context.Context, _, _ uuid.UUID) (*berichte.Document, error) {
+	if r.doc == nil {
+		return nil, berichte.ErrDocumentNotFound
+	}
+	return r.doc, nil
+}
+func (r *stubBerichteRepo) ListDocuments(_ context.Context, _ uuid.UUID, _ berichte.ListDocumentsFilter, _, _ int) ([]*berichte.Document, int, error) {
+	if r.doc == nil {
+		return nil, 0, nil
+	}
+	return []*berichte.Document{r.doc}, 1, nil
+}
 
 // ============================================================================
 // UUID-Validation tests — these never reach the service layer
@@ -699,6 +723,26 @@ func TestBerichteGRPCServer_GetDashboardKPIs_NoExecutor(t *testing.T) {
 	assertGRPCCode(t, err, codes.Unavailable)
 }
 
+func TestBerichteGRPCServer_ListTemplates(t *testing.T) {
+	srv := newTestBerichteServerWithSvc(&stubBerichteRepo{}, nil)
+
+	resp, err := srv.ListTemplates(context.Background(), &berichtev1.ListTemplatesRequest{})
+	if err != nil {
+		t.Fatalf("ListTemplates: %v", err)
+	}
+	if len(resp.GetTemplates()) == 0 {
+		t.Fatal("ListTemplates returned no templates")
+	}
+	for _, tpl := range resp.GetTemplates() {
+		if tpl.GetId() == "" || tpl.GetModule() == "" {
+			t.Fatalf("template missing id/module: %+v", tpl)
+		}
+		if len(tpl.GetRows()) == 0 {
+			t.Fatalf("template %s: empty rows", tpl.GetId())
+		}
+	}
+}
+
 // ============================================================================
 // Helper
 // ============================================================================
@@ -714,5 +758,101 @@ func assertGRPCCode(t *testing.T, err error, want codes.Code) {
 	}
 	if st.Code() != want {
 		t.Errorf("gRPC code mismatch: got %v want %v (msg: %s)", st.Code(), want, st.Message())
+	}
+}
+
+func (r *stubBerichteRepo) CreateShareToken(_ context.Context, t *berichte.ShareToken) error {
+	r.share = t
+	return nil
+}
+
+func (r *stubBerichteRepo) ListShareTokens(_ context.Context, _, _ uuid.UUID) ([]*berichte.ShareToken, error) {
+	if r.share == nil {
+		return nil, nil
+	}
+	return []*berichte.ShareToken{r.share}, nil
+}
+
+func (r *stubBerichteRepo) RevokeShareToken(_ context.Context, _, _ uuid.UUID, at time.Time) error {
+	if r.share == nil || r.share.RevokedAt != nil {
+		return berichte.ErrShareNotFound
+	}
+	r.share.RevokedAt = &at
+	return nil
+}
+
+func (r *stubBerichteRepo) GetShareTokenBySecret(_ context.Context, secret string) (*berichte.ShareToken, error) {
+	if r.share == nil || r.share.Token != secret {
+		return nil, berichte.ErrShareNotFound
+	}
+	return r.share, nil
+}
+
+func (r *stubBerichteRepo) IncrementShareView(_ context.Context, _, _ uuid.UUID) error {
+	if r.share == nil {
+		return berichte.ErrShareNotFound
+	}
+	r.share.ViewCount++
+	return nil
+}
+
+func TestBerichteGRPCServer_ExportDocumentPDF_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	tenantID := uuid.New()
+	repo := &stubBerichteRepo{doc: &berichte.Document{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		Title:    "Q3 Bericht",
+		Module:   "finanzen",
+		Status:   "draft",
+		Rows: []byte(`[{"columns":[{"width":1,"blocks":[
+			{"id":"b1","type":"heading","level":1,"text":"Kennzahlen"},
+			{"id":"b2","type":"kpi","label":"Umsatz","value":"12345"}
+		]}]}]`),
+		Settings: []byte(`{}`),
+	}}
+	s := newTestBerichteServerWithSvc(repo, nil)
+
+	resp, err := s.ExportDocumentPDF(context.Background(), &berichtev1.ExportDocumentPDFRequest{
+		TenantId:   tenantID.String(),
+		DocumentId: repo.doc.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("ExportDocumentPDF: %v", err)
+	}
+	if len(resp.GetPdfData()) < 4 || string(resp.GetPdfData()[:4]) != "%PDF" {
+		t.Fatalf("expected a %%PDF-prefixed payload, got %d bytes", len(resp.GetPdfData()))
+	}
+	if resp.GetFilename() == "" {
+		t.Error("expected a non-empty filename")
+	}
+}
+
+func TestBerichteGRPCServer_ExportDocumentPDF_NotFound(t *testing.T) {
+	t.Parallel()
+
+	repo := &stubBerichteRepo{}
+	s := newTestBerichteServerWithSvc(repo, nil)
+
+	_, err := s.ExportDocumentPDF(context.Background(), &berichtev1.ExportDocumentPDFRequest{
+		TenantId:   uuid.New().String(),
+		DocumentId: uuid.New().String(),
+	})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v", err)
+	}
+}
+
+func TestBerichteGRPCServer_ExportDocumentPDF_InvalidTenantID(t *testing.T) {
+	t.Parallel()
+
+	s := newTestBerichteServer()
+	_, err := s.ExportDocumentPDF(context.Background(), &berichtev1.ExportDocumentPDFRequest{
+		TenantId:   "not-a-uuid",
+		DocumentId: uuid.New().String(),
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", err)
 	}
 }

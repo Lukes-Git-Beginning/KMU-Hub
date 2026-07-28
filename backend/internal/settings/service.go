@@ -5,6 +5,8 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/modules"
 )
 
 // RoleChecker is a narrow interface to determine whether a user has admin role.
@@ -288,4 +290,83 @@ func (s *Service) callerMayWriteTenantSettings(ctx context.Context, tenantID, ca
 		return true, nil
 	}
 	return s.repo.IsModuleLead(ctx, tenantID, callerID, moduleID)
+}
+
+// ============================================================================
+// Licensing
+// ============================================================================
+
+// GetTenantLicense returns every catalogue module with this tenant's activation
+// state and the number of users holding a grant for it.
+//
+// The catalogue drives the list, not the table: a module the tenant has never
+// touched has no row and comes back inactive, which is what an unbooked module
+// is. Seats are reported as 0 for an inactive module — the grants stay in the
+// database so reactivating restores them, but a module nobody can reach does
+// not occupy seats in the cost view.
+func (s *Service) GetTenantLicense(ctx context.Context, tenantID uuid.UUID) ([]*TenantModule, error) {
+	activations, err := s.repo.ListModuleActivations(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	seats, err := s.repo.CountGrantsByModule(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*TenantModule, 0, len(modules.Catalog))
+	for _, m := range modules.Catalog {
+		out = append(out, buildTenantModule(m, activations[m.ID], seats[m.ID]))
+	}
+	return out, nil
+}
+
+// SetTenantModuleActive activates or deactivates a module tenant-wide.
+//
+// It does not consult the modules.* feature flags: those describe what the
+// deployment runs, which the gateway knows and this service does not. The
+// gateway rejects an activation the flag does not cover before calling here.
+func (s *Service) SetTenantModuleActive(ctx context.Context, tenantID uuid.UUID, moduleID string, active bool, updatedBy *uuid.UUID) (*TenantModule, error) {
+	if moduleID == "" {
+		return nil, ErrInvalidModuleID
+	}
+	m, ok := modules.Get(moduleID)
+	if !ok {
+		return nil, ErrUnknownModule
+	}
+
+	if err := s.repo.SetModuleActivation(ctx, tenantID, moduleID, active, updatedBy); err != nil {
+		return nil, err
+	}
+
+	seats, err := s.repo.CountGrantsByModule(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info("tenant module activation changed",
+		"tenant_id", tenantID,
+		"module_id", moduleID,
+		"active", active,
+	)
+	return buildTenantModule(m, active, seats[moduleID]), nil
+}
+
+// GetTenantSubscription returns the booked plan of the tenant.
+func (s *Service) GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) (*TenantSubscription, error) {
+	return s.repo.GetTenantSubscription(ctx, tenantID)
+}
+
+func buildTenantModule(m modules.Module, active bool, grantedSeats int32) *TenantModule {
+	seats := grantedSeats
+	if !active {
+		seats = 0
+	}
+	return &TenantModule{
+		ModuleID:      m.ID,
+		Group:         string(m.Group),
+		Active:        active,
+		AssignedSeats: seats,
+		FlagKey:       m.FlagKey,
+	}
 }

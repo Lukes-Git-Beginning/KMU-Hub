@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
+	"github.com/kmuhub/kmuhub/internal/berichte/downstream"
 	"github.com/kmuhub/kmuhub/internal/berichte/executor"
 	"github.com/kmuhub/kmuhub/internal/berichte/export"
 	"github.com/kmuhub/kmuhub/internal/berichte/scheduler"
@@ -49,7 +50,12 @@ func main() {
 
 	// Repository, executor, and service
 	repo := berichte.NewPostgresRepository(pool)
-	exec := executor.New(executor.Deps{}) // downstream repos nil in Sprint 1; added per module in Sprint 2+
+	// Report-kind repos (finance/crm/helpdesk/inventar/datev) are still nil —
+	// those kinds degrade to "downstream_not_available". The dashboard KPIs read
+	// the module tables directly.
+	exec := executor.New(executor.Deps{
+		KPI: downstream.NewPostgresKPIRepo(pool),
+	})
 	svc := berichte.NewService(repo, exec, berichte.Options{})
 
 	exporterFactory := server.BerichteExporterFactory(func(format string) (server.BerichteExporter, error) {

@@ -86,20 +86,20 @@ func (r *PostgresRepository) GetLatestConsents(ctx context.Context, tenantID, co
 
 func (r *PostgresRepository) CreateDeletionRequest(ctx context.Context, req *GDPRDeletionRequest) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gdpr_deletion_requests (id, contact_id, requested_by, reason, status, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		req.ID, req.ContactID, req.RequestedBy, req.Reason, req.Status, req.CreatedAt,
+		`INSERT INTO gdpr_deletion_requests (id, tenant_id, contact_id, requested_by, reason, status, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		req.ID, req.TenantID, req.ContactID, req.RequestedBy, req.Reason, req.Status, req.CreatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetDeletionRequest(ctx context.Context, id uuid.UUID) (*GDPRDeletionRequest, error) {
+func (r *PostgresRepository) GetDeletionRequest(ctx context.Context, id, tenantID uuid.UUID) (*GDPRDeletionRequest, error) {
 	var req GDPRDeletionRequest
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, contact_id, requested_by, reason, status, completed_at, created_at
-		 FROM gdpr_deletion_requests WHERE id = $1`,
-		id,
-	).Scan(&req.ID, &req.ContactID, &req.RequestedBy, &req.Reason, &req.Status, &req.CompletedAt, &req.CreatedAt)
+		`SELECT id, tenant_id, contact_id, requested_by, reason, status, completed_at, created_at
+		 FROM gdpr_deletion_requests WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	).Scan(&req.ID, &req.TenantID, &req.ContactID, &req.RequestedBy, &req.Reason, &req.Status, &req.CompletedAt, &req.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrDeletionRequestNotFound
 	}
@@ -108,13 +108,13 @@ func (r *PostgresRepository) GetDeletionRequest(ctx context.Context, id uuid.UUI
 
 func (r *PostgresRepository) UpdateDeletionRequest(ctx context.Context, req *GDPRDeletionRequest) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE gdpr_deletion_requests SET status = $1, completed_at = $2 WHERE id = $3`,
-		req.Status, req.CompletedAt, req.ID,
+		`UPDATE gdpr_deletion_requests SET status = $1, completed_at = $2 WHERE id = $3 AND tenant_id = $4`,
+		req.Status, req.CompletedAt, req.ID, req.TenantID,
 	)
 	return err
 }
 
-func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID uuid.UUID) error {
+func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, tenantID uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -131,16 +131,16 @@ func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID uui
 			position = NULL,
 			notes = NULL,
 			updated_at = NOW()
-		 WHERE id = $1`,
-		contactID,
+		 WHERE id = $1 AND tenant_id = $2`,
+		contactID, tenantID,
 	); err != nil {
 		return err
 	}
 
 	// Anonymize activity descriptions
 	if _, err := tx.Exec(ctx,
-		`UPDATE activities SET description = NULL, updated_at = NOW() WHERE contact_id = $1`,
-		contactID,
+		`UPDATE activities SET description = NULL, updated_at = NOW() WHERE contact_id = $1 AND tenant_id = $2`,
+		contactID, tenantID,
 	); err != nil {
 		return err
 	}
@@ -148,10 +148,10 @@ func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID uui
 	return tx.Commit(ctx)
 }
 
-func (r *PostgresRepository) ContactExists(ctx context.Context, contactID uuid.UUID) (bool, error) {
+func (r *PostgresRepository) ContactExists(ctx context.Context, contactID, tenantID uuid.UUID) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM contacts WHERE id = $1)`, contactID,
+		`SELECT EXISTS(SELECT 1 FROM contacts WHERE id = $1 AND tenant_id = $2)`, contactID, tenantID,
 	).Scan(&exists)
 	return exists, err
 }

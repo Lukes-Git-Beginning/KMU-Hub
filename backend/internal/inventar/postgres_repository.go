@@ -513,7 +513,7 @@ func (r *PostgresRepository) GetInventurSession(ctx context.Context, tenantID, s
 		return nil, fmt.Errorf("get inventur session: %w", err)
 	}
 
-	counts, cErr := r.ListInventurCounts(ctx, s.ID)
+	counts, cErr := r.ListInventurCounts(ctx, tenantID, s.ID)
 	if cErr != nil {
 		return nil, cErr
 	}
@@ -565,11 +565,11 @@ func (r *PostgresRepository) UpsertInventurCount(ctx context.Context, count *Inv
 	return err
 }
 
-func (r *PostgresRepository) ListInventurCounts(ctx context.Context, sessionID uuid.UUID) ([]*InventurCount, error) {
+func (r *PostgresRepository) ListInventurCounts(ctx context.Context, tenantID, sessionID uuid.UUID) ([]*InventurCount, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, session_id, item_id, expected, counted, counted_at
-		 FROM inventur_counts WHERE session_id=$1 ORDER BY item_id`,
-		sessionID,
+		 FROM inventur_counts WHERE tenant_id=$1 AND session_id=$2 ORDER BY item_id`,
+		tenantID, sessionID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list inventur counts: %w", err)

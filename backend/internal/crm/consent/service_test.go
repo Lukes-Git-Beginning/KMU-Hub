@@ -73,7 +73,7 @@ func (m *MockRepository) CreateDeletionRequest(_ context.Context, req *GDPRDelet
 	return nil
 }
 
-func (m *MockRepository) GetDeletionRequest(_ context.Context, id uuid.UUID) (*GDPRDeletionRequest, error) {
+func (m *MockRepository) GetDeletionRequest(_ context.Context, id, _ uuid.UUID) (*GDPRDeletionRequest, error) {
 	if m.getDeletionErr != nil {
 		return nil, m.getDeletionErr
 	}
@@ -92,14 +92,14 @@ func (m *MockRepository) UpdateDeletionRequest(_ context.Context, req *GDPRDelet
 	return nil
 }
 
-func (m *MockRepository) AnonymizeContact(_ context.Context, _ uuid.UUID) error {
+func (m *MockRepository) AnonymizeContact(_ context.Context, _, _ uuid.UUID) error {
 	if m.anonymizeErr != nil {
 		return m.anonymizeErr
 	}
 	return nil
 }
 
-func (m *MockRepository) ContactExists(_ context.Context, contactID uuid.UUID) (bool, error) {
+func (m *MockRepository) ContactExists(_ context.Context, contactID, _ uuid.UUID) (bool, error) {
 	if m.contactExistsErr != nil {
 		return false, m.contactExistsErr
 	}
@@ -452,6 +452,7 @@ func TestService_RequestDeletion_Success(t *testing.T) {
 
 	req, err := svc.RequestDeletion(
 		context.Background(),
+		uuid.New(),
 		contactID,
 		"GDPR Art. 17 request from data subject",
 		&requestedBy,
@@ -476,6 +477,7 @@ func TestService_RequestDeletion_ContactNotFound(t *testing.T) {
 
 	_, err := svc.RequestDeletion(
 		context.Background(),
+		uuid.New(),
 		uuid.New(),
 		"reason",
 		nil,
@@ -503,7 +505,7 @@ func TestService_ProcessDeletion_Success(t *testing.T) {
 		CreatedAt: time.Now(),
 	})
 
-	err := svc.ProcessDeletion(context.Background(), requestID)
+	err := svc.ProcessDeletion(context.Background(), uuid.New(), requestID)
 
 	require.NoError(t, err)
 
@@ -528,7 +530,7 @@ func TestService_ProcessDeletion_AlreadyComplete(t *testing.T) {
 		CreatedAt:   time.Now(),
 	})
 
-	err := svc.ProcessDeletion(context.Background(), requestID)
+	err := svc.ProcessDeletion(context.Background(), uuid.New(), requestID)
 
 	assert.ErrorIs(t, err, ErrDeletionAlreadyComplete)
 }
@@ -537,7 +539,7 @@ func TestService_ProcessDeletion_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.ProcessDeletion(context.Background(), uuid.New())
+	err := svc.ProcessDeletion(context.Background(), uuid.New(), uuid.New())
 
 	assert.ErrorIs(t, err, ErrDeletionRequestNotFound)
 }
@@ -557,7 +559,7 @@ func TestService_ProcessDeletion_AnonymizeError(t *testing.T) {
 	})
 	repo.anonymizeErr = errors.New("anonymization failed")
 
-	err := svc.ProcessDeletion(context.Background(), requestID)
+	err := svc.ProcessDeletion(context.Background(), uuid.New(), requestID)
 
 	assert.Error(t, err)
 	assert.Equal(t, "anonymization failed", err.Error())

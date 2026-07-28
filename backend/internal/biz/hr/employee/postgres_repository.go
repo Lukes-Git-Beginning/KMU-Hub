@@ -201,13 +201,23 @@ func NewPostgresDocCategoryRepo(pool *pgxpool.Pool) *PostgresDocCategoryRepo {
 	return &PostgresDocCategoryRepo{pool: pool}
 }
 
+// systemSeedTenantID is the placeholder tenant the system document categories
+// carry (migration 000046). The RLS policy from migration 000123 explicitly
+// permits reading those rows from any tenant, and they are the only categories
+// that exist until a tenant defines its own — a query restricted to the real
+// tenant returns nothing and leaves the upload dialog without any category.
+var systemSeedTenantID = uuid.UUID{}
+
 func (r *PostgresDocCategoryRepo) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]*models.HRDocumentCategory, error) {
+	// lean: system seeds and tenant rows are returned side by side; a tenant row
+	// does not supersede the system row carrying the same key. Add that
+	// precedence once categories become creatable per tenant (no write path today).
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, name, key, visibility, is_system, sort_order, created_at
 		FROM hr_document_categories
-		WHERE tenant_id = $1
+		WHERE tenant_id IN ($1, $2)
 		ORDER BY sort_order, name`,
-		tenantID,
+		tenantID, systemSeedTenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -228,12 +238,12 @@ func (r *PostgresDocCategoryRepo) ListByTenant(ctx context.Context, tenantID uui
 	return results, rows.Err()
 }
 
-func (r *PostgresDocCategoryRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.HRDocumentCategory, error) {
+func (r *PostgresDocCategoryRepo) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.HRDocumentCategory, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, key, visibility, is_system, sort_order, created_at
 		FROM hr_document_categories
-		WHERE id = $1`,
-		id,
+		WHERE id = $1 AND tenant_id IN ($2, $3)`,
+		id, tenantID, systemSeedTenantID,
 	)
 	var cat models.HRDocumentCategory
 	err := row.Scan(
@@ -321,9 +331,9 @@ func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID
 	return results, rows.Err()
 }
 
-func (r *PostgresEmployeeDocRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresEmployeeDocRepo) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`DELETE FROM hr_employee_documents WHERE id = $1`, id,
+		`DELETE FROM hr_employee_documents WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return err
 }

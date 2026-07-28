@@ -23,11 +23,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (r *PostgresRepository) GetByKeyName(ctx context.Context, keyName string) (*models.VaultSecret, error) {
+func (r *PostgresRepository) GetByKeyName(ctx context.Context, tenantID uuid.UUID, keyName string) (*models.VaultSecret, error) {
 	var s models.VaultSecret
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, key_name, encrypted_value, key_version, description, created_by, created_at, updated_at
-		 FROM vault_secrets WHERE key_name = $1`, keyName,
+		 FROM vault_secrets WHERE key_name = $1 AND tenant_id = $2`, keyName, tenantID,
 	).Scan(
 		&s.ID, &s.TenantID, &s.KeyName, &s.EncryptedValue, &s.KeyVersion,
 		&s.Description, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt,
@@ -41,10 +41,11 @@ func (r *PostgresRepository) GetByKeyName(ctx context.Context, keyName string) (
 	return &s, nil
 }
 
-func (r *PostgresRepository) List(ctx context.Context) ([]*models.VaultSecret, error) {
+func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*models.VaultSecret, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, key_name, key_version, description, created_by, created_at, updated_at
-		 FROM vault_secrets ORDER BY key_name`,
+		 FROM vault_secrets WHERE tenant_id = $1 ORDER BY key_name`,
+		tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -79,14 +80,14 @@ func (r *PostgresRepository) Create(ctx context.Context, secret *models.VaultSec
 func (r *PostgresRepository) Update(ctx context.Context, secret *models.VaultSecret) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE vault_secrets SET encrypted_value = $1, key_version = $2, description = $3, updated_at = $4
-		 WHERE id = $5`,
-		secret.EncryptedValue, secret.KeyVersion, secret.Description, secret.UpdatedAt, secret.ID,
+		 WHERE id = $5 AND tenant_id = $6`,
+		secret.EncryptedValue, secret.KeyVersion, secret.Description, secret.UpdatedAt, secret.ID, secret.TenantID,
 	)
 	return err
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	result, err := r.pool.Exec(ctx, `DELETE FROM vault_secrets WHERE id = $1`, id)
+func (r *PostgresRepository) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	result, err := r.pool.Exec(ctx, `DELETE FROM vault_secrets WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	if err != nil {
 		return err
 	}

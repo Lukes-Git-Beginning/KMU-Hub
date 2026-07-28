@@ -17,4 +17,22 @@ var (
 
 	// ErrDuplicateMessage is returned when a source_id already exists for the user+channel.
 	ErrDuplicateMessage = errors.New("duplicate inbox message for this user and channel")
+
+	// ErrInvalidStatus is returned when a status value is not one of the allowed states.
+	ErrInvalidStatus = errors.New("status must be one of: open, pending, resolved, closed")
+
+	// ErrInvalidTag is returned when a tag is empty after trimming whitespace.
+	ErrInvalidTag = errors.New("tag must not be empty")
+
+	// ErrForwardNotSupported is returned when the message's channel adapter
+	// has no concept of forwarding to an arbitrary recipient.
+	ErrForwardNotSupported = errors.New("forward is not supported for this channel")
 )
+
+// ValidStatuses lists the allowed conversation-level status values.
+var ValidStatuses = map[string]bool{
+	"open":     true,
+	"pending":  true,
+	"resolved": true,
+	"closed":   true,
+}

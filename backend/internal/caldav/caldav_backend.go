@@ -19,6 +19,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 	calendarv1 "github.com/kmuhub/kmuhub/proto/calendar/v1"
 )
 
@@ -40,6 +41,22 @@ func UserFromCtx(ctx context.Context) uuid.UUID {
 // CtxWithUser returns a context with the authenticated user ID set.
 func CtxWithUser(ctx context.Context, userID uuid.UUID) context.Context {
 	return context.WithValue(ctx, caldavUserKey{}, userID)
+}
+
+// resolveTenantID looks up the tenant owning userID. CalDAV/CardDAV requests
+// authenticate via Basic Auth (app-specific password) and never carry a JWT,
+// so the request context has no tenant set — this is the one legitimate
+// lookup that must cross tenants to find out which one the user belongs to.
+func resolveTenantID(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID) (uuid.UUID, error) {
+	var tenantID uuid.UUID
+	err := pool.QueryRow(sysctx.With(ctx),
+		`SELECT tenant_id FROM users WHERE id = $1`,
+		userID,
+	).Scan(&tenantID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("resolve tenant for caldav user: %w", err)
+	}
+	return tenantID, nil
 }
 
 // CalDAVBackend implements the caldav.Backend interface from go-webdav,
@@ -446,7 +463,12 @@ func (b *CalDAVBackend) PutCalendarObject(ctx context.Context, path string, cal 
 	}
 
 	// Increment sync token
-	if syncErr := b.syncService.IncrementAndLog(ctx, "calendar", calID, path, "modified"); syncErr != nil {
+	if tenantID, tErr := resolveTenantID(ctx, b.pool, userID); tErr != nil {
+		slog.Warn("failed to resolve tenant for sync token after CalDAV PUT",
+			"calendar_id", calID,
+			"error", tErr,
+		)
+	} else if syncErr := b.syncService.IncrementAndLog(ctx, tenantID, "calendar", calID, path, "modified"); syncErr != nil {
 		slog.Warn("failed to increment sync token after CalDAV PUT",
 			"calendar_id", calID,
 			"error", syncErr,
@@ -494,7 +516,12 @@ func (b *CalDAVBackend) DeleteCalendarObject(ctx context.Context, path string) e
 	}
 
 	// Increment sync token
-	if syncErr := b.syncService.IncrementAndLog(ctx, "calendar", calID, path, "deleted"); syncErr != nil {
+	if tenantID, tErr := resolveTenantID(ctx, b.pool, userID); tErr != nil {
+		slog.Warn("failed to resolve tenant for sync token after CalDAV DELETE",
+			"calendar_id", calID,
+			"error", tErr,
+		)
+	} else if syncErr := b.syncService.IncrementAndLog(ctx, tenantID, "calendar", calID, path, "deleted"); syncErr != nil {
 		slog.Warn("failed to increment sync token after CalDAV DELETE",
 			"calendar_id", calID,
 			"error", syncErr,

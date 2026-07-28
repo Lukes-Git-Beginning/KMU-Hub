@@ -3,6 +3,7 @@ package response
 import (
 	"encoding/json"
 	"log/slog"
+	"maps"
 	"net/http"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -71,6 +72,30 @@ func ProtoList[T proto.Message](w http.ResponseWriter, status int, msgs []T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(parts)
+}
+
+// ProtoListWrapped writes a slice of proto messages under `key` in a JSON
+// object, with the same protojson per-item encoding as ProtoList (so
+// Timestamps/enums stay consistent), plus any additional top-level fields.
+// Use this instead of ProtoList when the frontend type expects a wrapped
+// list (e.g. `{folders:[...], total}`) rather than a bare array.
+func ProtoListWrapped[T proto.Message](w http.ResponseWriter, status int, key string, msgs []T, extra map[string]any) {
+	parts := make([]json.RawMessage, 0, len(msgs))
+	for _, m := range msgs {
+		b, err := protoMarshaler.Marshal(m)
+		if err != nil {
+			slog.Error("proto json marshal failed", "error", err)
+			Error(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+		parts = append(parts, b)
+	}
+	body := make(map[string]any, len(extra)+1)
+	maps.Copy(body, extra)
+	body[key] = parts
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 func Error(w http.ResponseWriter, status int, message string) {

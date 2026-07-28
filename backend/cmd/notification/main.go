@@ -89,6 +89,16 @@ func main() {
 	accountLinkService := integration.NewAccountLinkService(integrationRepo)
 	rateLimiter := integration.NewRateLimiter()
 
+	// Platform clients double as connection probers for the admin-facing
+	// connection test; a platform missing here cannot be tested and the RPC
+	// reports that instead of a green check.
+	connectionProbers := make(map[string]integration.ConnectionProber)
+
+	// Inbound webhook processors. A platform only appears here when it can
+	// actually verify a request; without its credentials the RPC answers
+	// "not configured" rather than processing an unverified payload.
+	webhookProcessors := make(map[string]integration.WebhookProcessor)
+
 	// Initialize Teams client (nil-safe: disabled when env vars not set)
 	var teamsClient integration.PlatformPoster
 	teamsAppID := os.Getenv("TEAMS_APP_ID")
@@ -99,6 +109,9 @@ func main() {
 			slog.Error("failed to create teams client", "error", err)
 		} else {
 			teamsClient = tc
+			connectionProbers[integration.PlatformTeams] = tc
+			webhookProcessors[integration.PlatformTeams] = teamsadapter.NewWebhookHandler(
+				tc, integrationRepo, accountLinkService, integrationRepo, notifService)
 		}
 	}
 
@@ -106,7 +119,18 @@ func main() {
 	var slackClient integration.PlatformPoster
 	slackBotToken := os.Getenv("SLACK_BOT_TOKEN")
 	if slackBotToken != "" {
-		slackClient = slackadapter.NewClient(slackBotToken)
+		sc := slackadapter.NewClient(slackBotToken)
+		slackClient = sc
+		connectionProbers[integration.PlatformSlack] = sc
+
+		// Deliberately os.Getenv, never config.RequireX: an absent signing
+		// secret must leave the inbound routes off, not crash the service.
+		if slackSigningSecret := os.Getenv("SLACK_SIGNING_SECRET"); slackSigningSecret != "" {
+			webhookProcessors[integration.PlatformSlack] = slackadapter.NewWebhookHandler(
+				sc, slackSigningSecret, integrationRepo, accountLinkService, integrationRepo, notifService)
+		} else {
+			slog.Warn("slack bot token set without SLACK_SIGNING_SECRET -- inbound slack webhooks stay disabled")
+		}
 	}
 
 	// Initialize forwarder and register as delivery callback
@@ -116,6 +140,7 @@ func main() {
 	slog.Info("integration forwarder initialized",
 		"teams_enabled", teamsClient != nil,
 		"slack_enabled", slackClient != nil,
+		"inbound_webhooks", len(webhookProcessors),
 	)
 
 	// Initialize event bus
@@ -193,6 +218,8 @@ func main() {
 	)
 	notifGRPC := server.NewNotificationGRPCServer(notifService, prefService, registry,
 		server.WithIntegration(integrationRepo, accountLinkService),
+		server.WithConnectionProbers(connectionProbers),
+		server.WithPlatformWebhooks(webhookProcessors),
 	)
 	notificationv1.RegisterNotificationServiceServer(grpcServer, notifGRPC)
 

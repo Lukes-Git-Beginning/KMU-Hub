@@ -39,39 +39,44 @@ func defaultPolicy() *models.PasswordPolicy {
 	}
 }
 
-func (r *PostgresRepository) GetPolicy(ctx context.Context) (*models.PasswordPolicy, error) {
+func (r *PostgresRepository) GetPolicy(ctx context.Context, tenantID uuid.UUID) (*models.PasswordPolicy, error) {
 	var p models.PasswordPolicy
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, min_length, require_uppercase, require_lowercase, require_digit, require_special,
 		        min_entropy, max_age_days, prevent_reuse_count, updated_at, updated_by
 		 FROM password_policies
+		 WHERE tenant_id = $1
 		 ORDER BY updated_at DESC
 		 LIMIT 1`,
+		tenantID,
 	).Scan(
 		&p.ID, &p.MinLength, &p.RequireUppercase, &p.RequireLowercase,
 		&p.RequireDigit, &p.RequireSpecial, &p.MinEntropy, &p.MaxAgeDays,
 		&p.PreventReuseCount, &p.UpdatedAt, &p.UpdatedBy,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return defaultPolicy(), nil
+		policy := defaultPolicy()
+		policy.TenantID = tenantID
+		return policy, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	p.TenantID = tenantID
 	return &p, nil
 }
 
-func (r *PostgresRepository) UpdatePolicy(ctx context.Context, policy *models.PasswordPolicy) error {
+func (r *PostgresRepository) UpdatePolicy(ctx context.Context, tenantID uuid.UUID, policy *models.PasswordPolicy) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE password_policies
 		 SET min_length = $1, require_uppercase = $2, require_lowercase = $3,
 		     require_digit = $4, require_special = $5, min_entropy = $6,
 		     max_age_days = $7, prevent_reuse_count = $8, updated_at = $9, updated_by = $10
-		 WHERE id = $11`,
+		 WHERE id = $11 AND tenant_id = $12`,
 		policy.MinLength, policy.RequireUppercase, policy.RequireLowercase,
 		policy.RequireDigit, policy.RequireSpecial, policy.MinEntropy,
 		policy.MaxAgeDays, policy.PreventReuseCount, policy.UpdatedAt, policy.UpdatedBy,
-		policy.ID,
+		policy.ID, tenantID,
 	)
 	return err
 }

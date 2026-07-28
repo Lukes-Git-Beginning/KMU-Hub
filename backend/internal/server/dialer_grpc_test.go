@@ -78,41 +78,38 @@ func newStubCampaignRepo() *stubCampaignRepo {
 }
 
 func (r *stubCampaignRepo) Create(_ context.Context, c *dialer.Campaign) error { r.campaigns[c.ID] = c; return nil }
-func (r *stubCampaignRepo) GetByID(_ context.Context, id uuid.UUID) (*dialer.Campaign, error) {
+func (r *stubCampaignRepo) GetByIDForTenant(_ context.Context, id, _ uuid.UUID) (*dialer.Campaign, error) {
 	if c, ok := r.campaigns[id]; ok { return c, nil }
 	return nil, dialer.ErrCampaignNotFound
-}
-func (r *stubCampaignRepo) GetByIDForTenant(_ context.Context, id, _ uuid.UUID) (*dialer.Campaign, error) {
-	return r.GetByID(context.Background(), id)
 }
 func (r *stubCampaignRepo) List(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*dialer.Campaign, int, error) {
 	return nil, 0, nil
 }
-func (r *stubCampaignRepo) Update(_ context.Context, _ *dialer.Campaign) error       { return nil }
-func (r *stubCampaignRepo) UpdateStatus(_ context.Context, _ uuid.UUID, _ string) error { return nil }
-func (r *stubCampaignRepo) Delete(_ context.Context, _ uuid.UUID) error              { return nil }
-func (r *stubCampaignRepo) AddContacts(_ context.Context, _ uuid.UUID, contacts []dialer.CampaignContact) (int, int, error) {
+func (r *stubCampaignRepo) Update(_ context.Context, _ *dialer.Campaign, _ uuid.UUID) error { return nil }
+func (r *stubCampaignRepo) UpdateStatus(_ context.Context, _, _ uuid.UUID, _ string) error  { return nil }
+func (r *stubCampaignRepo) Delete(_ context.Context, _, _ uuid.UUID) error                  { return nil }
+func (r *stubCampaignRepo) AddContacts(_ context.Context, _, _ uuid.UUID, contacts []dialer.CampaignContact) (int, int, error) {
 	return len(contacts), 0, nil
 }
 func (r *stubCampaignRepo) GetNextPendingContact(_ context.Context, _ uuid.UUID) (*dialer.CampaignContact, error) {
 	return nil, dialer.ErrNoContactsAvailable
 }
-func (r *stubCampaignRepo) ListContacts(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*dialer.CampaignContact, int, error) {
+func (r *stubCampaignRepo) ListContacts(_ context.Context, _, _ uuid.UUID, _ *string, _, _ int) ([]*dialer.CampaignContact, int, error) {
 	return nil, 0, nil
 }
-func (r *stubCampaignRepo) UpdateContactStatus(_ context.Context, _ uuid.UUID, _ string, _ *uuid.UUID) error { return nil }
-func (r *stubCampaignRepo) SetContactCallback(_ context.Context, _ uuid.UUID, _ time.Time) error            { return nil }
-func (r *stubCampaignRepo) SkipContact(_ context.Context, _ uuid.UUID) error                                { return nil }
-func (r *stubCampaignRepo) RequeueContact(_ context.Context, _ uuid.UUID) error                             { return nil }
-func (r *stubCampaignRepo) IncrementContactCallCount(_ context.Context, _ uuid.UUID) error                  { return nil }
-func (r *stubCampaignRepo) GetCampaignContactByID(_ context.Context, id uuid.UUID) (*dialer.CampaignContact, error) {
+func (r *stubCampaignRepo) UpdateContactStatus(_ context.Context, _, _ uuid.UUID, _ string, _ *uuid.UUID) error { return nil }
+func (r *stubCampaignRepo) SetContactCallback(_ context.Context, _, _ uuid.UUID, _ time.Time) error            { return nil }
+func (r *stubCampaignRepo) SkipContact(_ context.Context, _, _ uuid.UUID) error                                { return nil }
+func (r *stubCampaignRepo) RequeueContact(_ context.Context, _, _ uuid.UUID) error                             { return nil }
+func (r *stubCampaignRepo) IncrementContactCallCount(_ context.Context, _, _ uuid.UUID) error                  { return nil }
+func (r *stubCampaignRepo) GetCampaignContactByID(_ context.Context, id, _ uuid.UUID) (*dialer.CampaignContact, error) {
 	if cc, ok := r.contacts[id]; ok { return cc, nil }
 	return nil, dialer.ErrCampaignContactNotFound
 }
-func (r *stubCampaignRepo) GetCampaignStats(_ context.Context, _ uuid.UUID) (*dialer.CampaignStats, error) {
+func (r *stubCampaignRepo) GetCampaignStats(_ context.Context, _, _ uuid.UUID) (*dialer.CampaignStats, error) {
 	return &dialer.CampaignStats{PendingContacts: 1}, nil
 }
-func (r *stubCampaignRepo) GetAgentStats(_ context.Context, _ uuid.UUID) (*dialer.AgentStats, error) {
+func (r *stubCampaignRepo) GetAgentStats(_ context.Context, _, _ uuid.UUID) (*dialer.AgentStats, error) {
 	return &dialer.AgentStats{}, nil
 }
 func (r *stubCampaignRepo) UpdateCampaignCounts(_ context.Context, _ uuid.UUID) error { return nil }
@@ -160,7 +157,7 @@ func (r *stubCallRepo) ListEventsBySession(_ context.Context, sessionID uuid.UUI
 func (r *stubCallRepo) GetRecentCallsForTenant(_ context.Context, _ uuid.UUID, _ int) ([]dialer.RecentCallRow, error) {
 	return nil, nil
 }
-func (r *stubCallRepo) ListCallsByContact(_ context.Context, _ uuid.UUID) ([]dialer.ContactCallRow, error) {
+func (r *stubCallRepo) ListCallsByContact(_ context.Context, _, _ uuid.UUID) ([]dialer.ContactCallRow, error) {
 	return nil, nil
 }
 func (r *stubCallRepo) GetTenantCallsTodayCount(_ context.Context, _ uuid.UUID) (int, error) {
@@ -187,13 +184,13 @@ func newStubOutcomeRepo() *stubOutcomeRepo {
 func (r *stubOutcomeRepo) Create(_ context.Context, o *dialer.CallOutcome) error {
 	r.outcomes[o.ID] = o; return nil
 }
-func (r *stubOutcomeRepo) GetByID(_ context.Context, id uuid.UUID) (*dialer.CallOutcome, error) {
+func (r *stubOutcomeRepo) GetByID(_ context.Context, id, _ uuid.UUID) (*dialer.CallOutcome, error) {
 	if o, ok := r.outcomes[id]; ok { return o, nil }
 	return nil, dialer.ErrOutcomeNotFound
 }
 func (r *stubOutcomeRepo) List(_ context.Context, _ uuid.UUID, _ bool) ([]*dialer.CallOutcome, error) { return nil, nil }
 func (r *stubOutcomeRepo) Update(_ context.Context, _ *dialer.CallOutcome) error { return nil }
-func (r *stubOutcomeRepo) Delete(_ context.Context, _ uuid.UUID) error           { return nil }
+func (r *stubOutcomeRepo) Delete(_ context.Context, _, _ uuid.UUID) error        { return nil }
 func (r *stubOutcomeRepo) EnsureDefaults(_ context.Context, _ uuid.UUID) error   { return nil }
 
 type stubAgentStatusRepo struct{}

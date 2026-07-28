@@ -32,4 +32,21 @@ var (
 
 	// ErrInvalidPlatform is returned when an unsupported platform value is provided.
 	ErrInvalidPlatform = errors.New("invalid platform: must be teams or slack")
+
+	// ErrTenantMissing is returned when a write is attempted without a tenant in
+	// the context. Every integration table carries tenant_id NOT NULL (migration
+	// 000115) under FORCE row level security (000122), so there is no row the
+	// write could legitimately land in — refusing is the only honest answer.
+	ErrTenantMissing = errors.New("integration write without tenant context")
+
+	// ErrTenantUnresolved is returned when an inbound webhook's workspace
+	// identity maps to no active integration config. The request is refused:
+	// picking any tenant would expose one customer's data to another's
+	// workspace.
+	ErrTenantUnresolved = errors.New("no tenant configured for this platform workspace")
+
+	// ErrTenantAmbiguous is returned when the same workspace identity is
+	// configured for more than one tenant. Refusing is the only safe answer —
+	// there is no tie-breaker that is not a guess.
+	ErrTenantAmbiguous = errors.New("platform workspace is configured for more than one tenant")
 )

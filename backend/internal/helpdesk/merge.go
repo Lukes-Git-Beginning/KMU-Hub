@@ -38,12 +38,12 @@ func DetectDuplicates(ctx context.Context, repo Repository, tenantID uuid.UUID, 
 //  1. Validates that source != target and source is not already merged.
 //  2. Reassigns all messages from source to target.
 //  3. Sets source.merged_into_id = targetID and status = 'merged'.
-func MergeTickets(ctx context.Context, repo Repository, sourceID, targetID uuid.UUID) error {
+func MergeTickets(ctx context.Context, repo Repository, tenantID, sourceID, targetID uuid.UUID) error {
 	if sourceID == targetID {
 		return ErrCannotMergeSelf
 	}
 
-	source, err := repo.GetTicketByID(ctx, sourceID)
+	source, err := repo.GetTicketByID(ctx, sourceID, tenantID)
 	if err != nil {
 		return fmt.Errorf("merge tickets – load source: %w", err)
 	}
@@ -52,7 +52,7 @@ func MergeTickets(ctx context.Context, repo Repository, sourceID, targetID uuid.
 	}
 
 	// Verify target exists.
-	if _, err := repo.GetTicketByID(ctx, targetID); err != nil {
+	if _, err := repo.GetTicketByID(ctx, targetID, tenantID); err != nil {
 		return fmt.Errorf("merge tickets – load target: %w", err)
 	}
 

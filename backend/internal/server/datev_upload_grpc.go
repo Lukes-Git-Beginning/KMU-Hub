@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -14,6 +15,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
+
+// datevDateLayout is the wire format for the period fields of the upload RPCs.
+const datevDateLayout = "2006-01-02"
 
 // DatevUploadGRPCServer implements the DatevUploadService gRPC service.
 type DatevUploadGRPCServer struct {
@@ -100,67 +104,96 @@ func (s *DatevUploadGRPCServer) GetDatevConnectionStatus(ctx context.Context, re
 	}, nil
 }
 
-// UploadDatevBuchungsstapel triggers a DATEV Buchungsstapel export and upload.
+// UploadDatevBuchungsstapel renders the tenant's booking batch for the requested
+// period and transfers it to DATEV.
+//
+// The period is mandatory here, unlike in the transport layer where the fields
+// are optional: an absent range used to mean "everything the tenant ever
+// booked", which is not a request anyone makes on purpose. Success requires that
+// the batch actually reached DATEV — the predecessor of this RPC uploaded a
+// document-less CSV and wrote a "completed" log for it.
 func (s *DatevUploadGRPCServer) UploadDatevBuchungsstapel(ctx context.Context, req *bizv1.UploadDatevBuchungsstapelRequest) (*bizv1.UploadDatevBuchungsstapelResponse, error) {
 	tenantID, err := uuid.Parse(req.GetTenantId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
-	// Parse fiscal year start from request
-	fiscalYearStart, err := time.Parse("2006-01-02", req.GetFiscalYearStart())
+	startDate, err := time.Parse(datevDateLayout, req.GetStartDate())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid fiscal_year_start: %v", err)
+		return nil, status.Error(codes.InvalidArgument, "invalid start_date (expected YYYY-MM-DD)")
+	}
+	endDate, err := time.Parse(datevDateLayout, req.GetEndDate())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid end_date (expected YYYY-MM-DD)")
 	}
 
-	// ExportAndUpload requires invoices and credit notes to be fetched by the caller.
-	// At the gRPC level we pass empty slices — the real orchestration happens in a
-	// higher-level handler that fetches invoices for the date range. This RPC serves
-	// as the upload trigger; the gateway handler will coordinate the full flow.
-	csvData, err := s.uploadService.ExportAndUpload(
-		ctx,
-		tenantID,
-		[]*models.Invoice{},
-		[]*models.CreditNote{},
-		fiscalYearStart,
-	)
+	fiscalYearStart := startDate
+	if req.GetFiscalYearStart() != "" {
+		fys, fysErr := time.Parse(datevDateLayout, req.GetFiscalYearStart())
+		if fysErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid fiscal_year_start (expected YYYY-MM-DD)")
+		}
+		fiscalYearStart = fys
+	}
+
+	batch, err := s.uploadService.UploadBuchungsstapel(ctx, tenantID, startDate, endDate, fiscalYearStart)
 	if err != nil {
-		slog.Error("datev buchungsstapel upload failed",
-			"tenant_id", tenantID,
-			"error", err,
-		)
-		return &bizv1.UploadDatevBuchungsstapelResponse{
-			Success:      false,
-			ErrorMessage: err.Error(),
-		}, nil
+		slog.Error("datev buchungsstapel upload failed", "tenant_id", tenantID, "error", err)
+		return nil, mapDatevUploadError(err)
 	}
 
 	return &bizv1.UploadDatevBuchungsstapelResponse{
 		Success:       true,
-		DocumentCount: 0,
-		FileSize:      int32(len(csvData)),
+		DocumentCount: int32(batch.DocumentCount),
+		FileSize:      int32(len(batch.CSV)),
 	}, nil
 }
 
-// UploadDatevBeleg uploads a single invoice PDF as a DATEV Belegbild.
+// UploadDatevBeleg renders the invoice PDF and transfers it as a Belegbild.
+// It reports success only after the transfer returned without error; the
+// predecessor logged the request and claimed success without fetching a PDF.
 func (s *DatevUploadGRPCServer) UploadDatevBeleg(ctx context.Context, req *bizv1.UploadDatevBelegRequest) (*bizv1.UploadDatevBelegResponse, error) {
 	tenantID, err := uuid.Parse(req.GetTenantId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
-	if req.GetInvoiceId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "invoice_id is required")
+	invoiceID, err := uuid.Parse(req.GetInvoiceId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid invoice_id")
 	}
 
-	// The actual PDF data retrieval happens at a higher level. This RPC is a
-	// placeholder that will be wired to the invoice PDF renderer + upload.
-	// For now, log and return success to allow end-to-end wiring.
-	slog.Info("datev beleg upload requested",
-		"tenant_id", tenantID,
-		"invoice_id", req.GetInvoiceId(),
-	)
+	if err := s.uploadService.UploadInvoiceBeleg(ctx, tenantID, invoiceID); err != nil {
+		slog.Error("datev belegbild upload failed", "tenant_id", tenantID, "invoice_id", invoiceID, "error", err)
+		return nil, mapDatevUploadError(err)
+	}
 
 	return &bizv1.UploadDatevBelegResponse{Success: true}, nil
+}
+
+// mapDatevUploadError translates the upload service's sentinels into gRPC codes.
+// Everything the tenant can fix — a missing OAuth connection, an unset client or
+// advisor number, an empty period — is FailedPrecondition and carries its reason
+// to the client, because "upload failed" alone leaves an admin without a next
+// step. There is deliberately no success=false path: the field would be omitted
+// from the JSON entirely by the proto marshaler.
+func mapDatevUploadError(err error) error {
+	switch {
+	case errors.Is(err, datev.ErrInvoiceNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, datev.ErrInvalidPeriod):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, datev.ErrNotConnected),
+		errors.Is(err, datev.ErrNoAPIConfig),
+		errors.Is(err, datev.ErrNoUploadConfig),
+		errors.Is(err, datev.ErrAdvisorNumbersMissing),
+		errors.Is(err, datev.ErrCompanySettingsIncomplete),
+		errors.Is(err, datev.ErrNothingToUpload):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, datev.ErrBuilderNotConfigured):
+		return status.Error(codes.Unavailable, err.Error())
+	default:
+		return status.Error(codes.Internal, "DATEV upload failed")
+	}
 }
 
 // GetDatevUploadConfig returns the current DATEV upload configuration.

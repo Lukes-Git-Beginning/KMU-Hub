@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
+	"github.com/kmuhub/kmuhub/internal/berichte/export"
 	berichtev1 "github.com/kmuhub/kmuhub/proto/berichte/v1"
 )
 
@@ -43,7 +44,7 @@ type BerichteExporterFactory func(format string) (BerichteExporter, error)
 // BerichteGRPCServer implements the BerichteService gRPC server.
 type BerichteGRPCServer struct {
 	berichtev1.UnimplementedBerichteServiceServer
-	svc            *berichte.Service
+	svc             *berichte.Service
 	exporterFactory BerichteExporterFactory
 }
 
@@ -52,7 +53,7 @@ type BerichteGRPCServer struct {
 // as the factory. A nil factory causes ExportReport to return codes.Internal.
 func NewBerichteGRPCServer(svc *berichte.Service, exporterFactory BerichteExporterFactory) *BerichteGRPCServer {
 	return &BerichteGRPCServer{
-		svc:            svc,
+		svc:             svc,
 		exporterFactory: exporterFactory,
 	}
 }
@@ -500,6 +501,233 @@ func (s *BerichteGRPCServer) GetDashboardKPIs(ctx context.Context, req *berichte
 // Conversion helpers
 // ============================================================================
 
+// ============================================================================
+// Document RPCs (multi-page authoring)
+// ============================================================================
+
+func (s *BerichteGRPCServer) CreateDocument(ctx context.Context, req *berichtev1.CreateDocumentRequest) (*berichtev1.DocumentResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	input := berichte.CreateDocumentInput{
+		TenantID:    tenantID,
+		Title:       req.GetTitle(),
+		Description: req.GetDescription(),
+		Module:      req.GetModule(),
+		TemplateID:  req.TemplateId,
+		Rows:        json.RawMessage(req.GetRows()),
+		Settings:    json.RawMessage(req.GetSettings()),
+	}
+	if req.CreatedBy != nil {
+		id, parseErr := uuid.Parse(*req.CreatedBy)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		input.CreatedBy = &id
+	}
+
+	doc, err := s.svc.CreateDocument(ctx, input)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+func (s *BerichteGRPCServer) GetDocument(ctx context.Context, req *berichtev1.GetDocumentRequest) (*berichtev1.DocumentResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	doc, err := s.svc.GetDocument(ctx, tenantID, documentID)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+func (s *BerichteGRPCServer) UpdateDocument(ctx context.Context, req *berichtev1.UpdateDocumentRequest) (*berichtev1.DocumentResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	doc, err := s.svc.UpdateDocument(ctx, berichte.UpdateDocumentInput{
+		TenantID:    tenantID,
+		DocumentID:  documentID,
+		Title:       req.Title,
+		Description: req.Description,
+		Module:      req.Module,
+		Status:      req.Status,
+		Rows:        json.RawMessage(req.GetRows()),
+		Settings:    json.RawMessage(req.GetSettings()),
+	})
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+func (s *BerichteGRPCServer) DeleteDocument(ctx context.Context, req *berichtev1.DeleteDocumentRequest) (*berichtev1.DeleteDocumentResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.svc.DeleteDocument(ctx, tenantID, documentID); err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.DeleteDocumentResponse{}, nil
+}
+
+func (s *BerichteGRPCServer) ListDocuments(ctx context.Context, req *berichtev1.ListDocumentsRequest) (*berichtev1.ListDocumentsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	docs, total, err := s.svc.ListDocuments(ctx, berichte.ListDocumentsInput{
+		TenantID: tenantID,
+		Module:   req.Module,
+		Status:   req.Status,
+		Search:   req.GetSearch(),
+		Page:     int(req.GetPage()),
+		PageSize: int(req.GetPageSize()),
+	})
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+
+	out := make([]*berichtev1.Document, 0, len(docs))
+	for _, d := range docs {
+		out = append(out, documentToProto(d))
+	}
+	return &berichtev1.ListDocumentsResponse{Documents: out, Total: int32(total)}, nil
+}
+
+// ExportDocumentPDF renders the document's block tree to a PDF via
+// export.DocumentPDFExporter. Chart/table blocks that reference a saved
+// definition are resolved through the same Service.RunReport path (and cache)
+// as ExportReport — a broken chart definition logs a warning and renders as
+// unavailable rather than failing the whole document (a report with 9 good
+// charts and 1 stale one should still download).
+func (s *BerichteGRPCServer) ExportDocumentPDF(ctx context.Context, req *berichtev1.ExportDocumentPDFRequest) (*berichtev1.ExportDocumentPDFResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	doc, err := s.svc.GetDocument(ctx, tenantID, documentID)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+
+	definitionIDs, err := export.ChartTableDefinitionIDs(doc.Rows)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "parse document rows: %v", err)
+	}
+
+	chartResults := make(map[string]*berichte.ReportResult, len(definitionIDs))
+	for _, idStr := range definitionIDs {
+		definitionID, parseErr := uuid.Parse(idStr)
+		if parseErr != nil {
+			continue
+		}
+		result, _, runErr := s.svc.RunReport(ctx, berichte.RunReportInput{
+			TenantID:     tenantID,
+			DefinitionID: definitionID,
+			Trigger:      "document-export",
+		})
+		if runErr != nil {
+			slog.Warn("document pdf export: chart/table definition failed to run",
+				"definition_id", idStr, "document_id", documentID, "error", runErr)
+			continue
+		}
+		chartResults[idStr] = result
+	}
+
+	var buf bytes.Buffer
+	exporter := &export.DocumentPDFExporter{}
+	if exportErr := exporter.Export(doc, chartResults, &buf); exportErr != nil {
+		return nil, status.Errorf(codes.Internal, "generate document pdf: %v", exportErr)
+	}
+
+	return &berichtev1.ExportDocumentPDFResponse{
+		PdfData:  buf.Bytes(),
+		Filename: fmt.Sprintf("bericht-%s.pdf", documentID.String()),
+	}, nil
+}
+
+// ============================================================================
+// Template RPC
+// ============================================================================
+
+func (s *BerichteGRPCServer) ListTemplates(ctx context.Context, req *berichtev1.ListTemplatesRequest) (*berichtev1.ListTemplatesResponse, error) {
+	templates := s.svc.ListTemplates()
+	out := make([]*berichtev1.Template, 0, len(templates))
+	for _, t := range templates {
+		out = append(out, berichteTemplateToProto(&t))
+	}
+	return &berichtev1.ListTemplatesResponse{Templates: out}, nil
+}
+
+func berichteTemplateToProto(t *berichte.Template) *berichtev1.Template {
+	if t == nil {
+		return nil
+	}
+	proto := &berichtev1.Template{
+		Id:          t.ID,
+		Title:       t.Title,
+		Description: t.Description,
+		Module:      t.Module,
+		Icon:        t.Icon,
+		Rows:        t.Rows,
+		Settings:    t.Settings,
+	}
+	return proto
+}
+
+func parseTenantAndDocumentID(rawTenantID, rawDocumentID string) (uuid.UUID, uuid.UUID, error) {
+	tenantID, err := uuid.Parse(rawTenantID)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	documentID, err := uuid.Parse(rawDocumentID)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, status.Errorf(codes.InvalidArgument, "invalid document_id: %v", err)
+	}
+	return tenantID, documentID, nil
+}
+
+func documentToProto(d *berichte.Document) *berichtev1.Document {
+	if d == nil {
+		return nil
+	}
+	proto := &berichtev1.Document{
+		Id:          d.ID.String(),
+		TenantId:    d.TenantID.String(),
+		Title:       d.Title,
+		Description: d.Description,
+		Module:      d.Module,
+		Status:      d.Status,
+		Rows:        d.Rows,
+		Settings:    d.Settings,
+		TemplateId:  d.TemplateID,
+		CreatedAt:   timestamppb.New(d.CreatedAt),
+		UpdatedAt:   timestamppb.New(d.UpdatedAt),
+	}
+	if d.CreatedBy != nil {
+		s := d.CreatedBy.String()
+		proto.CreatedBy = &s
+	}
+	if d.ReleasedAt != nil {
+		proto.ReleasedAt = timestamppb.New(*d.ReleasedAt)
+	}
+	return proto
+}
+
 func definitionToProto(d *berichte.Definition) *berichtev1.Definition {
 	if d == nil {
 		return nil
@@ -591,9 +819,9 @@ func resultToProto(r *berichte.ReportResult) *berichtev1.ReportResult {
 	}
 	payload, _ := json.Marshal(r)
 	proto := &berichtev1.ReportResult{
-		Payload:     payload,
-		RowCount:    int32(r.Meta.RowCount),
-		FromCache:   r.Meta.FromCache,
+		Payload:   payload,
+		RowCount:  int32(r.Meta.RowCount),
+		FromCache: r.Meta.FromCache,
 	}
 	if !r.Meta.GeneratedAt.IsZero() {
 		proto.GeneratedAt = timestamppb.New(r.Meta.GeneratedAt)
@@ -645,8 +873,126 @@ func mapBerichteError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, berichte.ErrExecutorUnavailable):
 		return status.Error(codes.Unavailable, err.Error())
+	case errors.Is(err, berichte.ErrDocumentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, berichte.ErrInvalidTitle),
+		errors.Is(err, berichte.ErrInvalidStatus),
+		errors.Is(err, berichte.ErrInvalidRows),
+		errors.Is(err, berichte.ErrInvalidSettings),
+		errors.Is(err, berichte.ErrDocumentTooLarge):
+		return status.Error(codes.InvalidArgument, err.Error())
+	// Unknown, expired and revoked share links all land here as the same
+	// NotFound the gateway turns into a 404. Nothing in this branch tells an
+	// unauthenticated caller which of the three it hit.
+	case errors.Is(err, berichte.ErrShareNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, berichte.ErrSharePasswordRequired),
+		errors.Is(err, berichte.ErrSharePasswordInvalid):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, berichte.ErrInvalidShareExpiry),
+		errors.Is(err, berichte.ErrSharePasswordTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled berichte service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
+}
+
+// ============================================================================
+// Share tokens
+// ============================================================================
+
+func (s *BerichteGRPCServer) CreateShareToken(ctx context.Context, req *berichtev1.CreateShareTokenRequest) (*berichtev1.ShareTokenResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	in := berichte.CreateShareTokenInput{
+		TenantID:   tenantID,
+		DocumentID: documentID,
+		Password:   req.GetPassword(),
+	}
+	if req.ExpiresInDays != nil {
+		in.ExpiresInDays = req.ExpiresInDays
+	}
+	if raw := req.GetCreatedBy(); raw != "" {
+		createdBy, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		in.CreatedBy = &createdBy
+	}
+
+	token, err := s.svc.CreateShareToken(ctx, in)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.ShareTokenResponse{Share: reportShareTokenToProto(token)}, nil
+}
+
+func (s *BerichteGRPCServer) ListShareTokens(ctx context.Context, req *berichtev1.ListShareTokensRequest) (*berichtev1.ListShareTokensResponse, error) {
+	tenantID, documentID, err := parseTenantAndDocumentID(req.GetTenantId(), req.GetDocumentId())
+	if err != nil {
+		return nil, err
+	}
+
+	tokens, err := s.svc.ListShareTokens(ctx, tenantID, documentID)
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+
+	protoTokens := make([]*berichtev1.ShareToken, len(tokens))
+	for i, t := range tokens {
+		protoTokens[i] = reportShareTokenToProto(t)
+	}
+	return &berichtev1.ListShareTokensResponse{Tokens: protoTokens}, nil
+}
+
+func (s *BerichteGRPCServer) RevokeShareToken(ctx context.Context, req *berichtev1.RevokeShareTokenRequest) (*berichtev1.RevokeShareTokenResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	shareID, err := uuid.Parse(req.GetShareId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid share_id: %v", err)
+	}
+
+	if err := s.svc.RevokeShareToken(ctx, tenantID, shareID); err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.RevokeShareTokenResponse{}, nil
+}
+
+// GetSharedDocument is the only RPC in this service that takes no tenant_id.
+// The caller is an anonymous visitor holding a link; the service resolves the
+// tenant from the link itself and scopes everything after that to it.
+func (s *BerichteGRPCServer) GetSharedDocument(ctx context.Context, req *berichtev1.GetSharedDocumentRequest) (*berichtev1.GetSharedDocumentResponse, error) {
+	doc, err := s.svc.GetSharedDocument(ctx, req.GetToken(), req.GetPassword())
+	if err != nil {
+		return nil, mapBerichteError(err)
+	}
+	return &berichtev1.GetSharedDocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+// reportShareTokenToProto maps a share link to the wire. PasswordHash has no field on
+// the proto message at all — the bcrypt hash must not leave the service, and
+// leaving it unmappable is a stronger guarantee than remembering not to set it.
+func reportShareTokenToProto(t *berichte.ShareToken) *berichtev1.ShareToken {
+	if t == nil {
+		return nil
+	}
+	p := &berichtev1.ShareToken{
+		Id:          t.ID.String(),
+		DocumentId:  t.DocumentID.String(),
+		Token:       t.Token,
+		HasPassword: t.PasswordHash != nil,
+		ViewCount:   int32(t.ViewCount),
+		CreatedAt:   timestamppb.New(t.CreatedAt),
+	}
+	if t.ExpiresAt != nil {
+		p.ExpiresAt = timestamppb.New(*t.ExpiresAt)
+	}
+	return p
 }

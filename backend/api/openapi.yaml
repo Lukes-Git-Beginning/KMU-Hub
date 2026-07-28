@@ -482,10 +482,51 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/tenants:
+    post:
+      summary: Provision a tenant
+      description: >-
+        Creates a tenant, activates its modules and issues the invitation for
+        its first administrator, all in one transaction. Requires the
+        tenants:write permission, which only the platform_admin role holds —
+        a tenant administrator cannot create tenants. The plaintext invitation
+        token is returned once and never again; without it the tenant has no
+        way in. An admin_email that already has an account, or an open
+        invitation in any tenant, is rejected with 409.
+      tags: [users]
+      operationId: provisionTenant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProvisionTenantRequest"
+      responses:
+        "201":
+          description: Tenant provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProvisionTenantResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/v1/invitations:
     post:
       summary: Create user invitation
-      description: Creates an invitation to join the system. Requires admin or manager role.
+      description: >-
+        Creates an invitation to join the caller's tenant. Requires admin or
+        manager role. An active user and a pending, unexpired invitation each
+        occupy one seat; if the tenant has a seat limit booked and no seat is
+        free, the request is rejected with 409.
       tags: [users]
       operationId: createInvitation
       security:
@@ -564,9 +605,10 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           description: >-
-            Invitation expired or already used. The backend maps both cases to
-            gRPC FailedPrecondition, which the gateway returns as 409 Conflict
-            (changed from 410 in the R3 hardening wave).
+            Invitation expired, already used, or the tenant has no free seat
+            left. The backend maps these cases to gRPC FailedPrecondition,
+            which the gateway returns as 409 Conflict (changed from 410 in the
+            R3 hardening wave).
           content:
             application/json:
               schema:
@@ -7698,6 +7740,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: recurring_id
+          in: query
+          description: Filter to invoices emitted by this recurring schedule (Migration 000246)
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: List of invoices
@@ -7856,6 +7904,185 @@ paths:
   # ===========================================================================
   # Finance: Credit Notes
   # ===========================================================================
+  /api/v1/finance/recurring:
+    get:
+      summary: List recurring invoice schedules
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, paused, ended]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: List of schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recurring:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RecurringInvoice"
+                  total:
+                    type: integer
+    post:
+      summary: Create a recurring invoice schedule
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecurringInvoiceRequest"
+      responses:
+        "201":
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recurring:
+                    $ref: "#/components/schemas/RecurringInvoice"
+        "400":
+          description: Invalid interval, date range or empty line items
+
+  /api/v1/finance/recurring/{id}:
+    get:
+      summary: Get a recurring invoice schedule
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Schedule details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recurring:
+                    $ref: "#/components/schemas/RecurringInvoice"
+        "404":
+          description: Schedule not found
+    put:
+      summary: Update a recurring invoice schedule (partial)
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecurringInvoiceRequest"
+      responses:
+        "200":
+          description: Updated schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recurring:
+                    $ref: "#/components/schemas/RecurringInvoice"
+        "400":
+          description: Invalid interval or date range
+        "404":
+          description: Schedule not found
+    delete:
+      summary: Delete a recurring invoice schedule
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Schedule deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "404":
+          description: Schedule not found
+
+  /api/v1/finance/recurring/{id}/pause:
+    post:
+      summary: Pause a recurring invoice schedule
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Paused schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recurring:
+                    $ref: "#/components/schemas/RecurringInvoice"
+        "404":
+          description: Schedule not found
+
+  /api/v1/finance/recurring/{id}/resume:
+    post:
+      summary: Resume a paused recurring invoice schedule
+      description: A schedule whose end date has passed stays ended.
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Resumed schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recurring:
+                    $ref: "#/components/schemas/RecurringInvoice"
+        "404":
+          description: Schedule not found
+
+  /api/v1/finance/recurring/{id}/generate:
+    post:
+      summary: Emit the invoice for the current period of the schedule
+      description: >
+        Idempotent per period. A repeated call for the same period returns the
+        invoice that was already emitted instead of creating a second one.
+      tags: [recurring-invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "201":
+          description: Emitted invoice plus the advanced schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    $ref: "#/components/schemas/Invoice"
+                  recurring:
+                    $ref: "#/components/schemas/RecurringInvoice"
+        "404":
+          description: Schedule not found
+        "412":
+          description: Schedule is paused, ended or past its end date
+
   /api/v1/finance/credit-notes:
     post:
       summary: Create a credit note
@@ -7963,6 +8190,345 @@ paths:
   # ===========================================================================
   # Finance: Dunning
   # ===========================================================================
+  /api/v1/finance/bank-statements:
+    get:
+      summary: List imported bank statements
+      description: Imported account statements, newest first.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Imported statements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statements:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankStatement"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-statements/import:
+    post:
+      summary: Import a bank statement (CAMT.053 or MT940)
+      description: >
+        Uploads an account statement. The format is detected from the content,
+        not from the filename or MIME type. Every credit is matched against the
+        open items of the tenant and carries a suggestion; nothing is booked
+        here — a payment is only recorded when a transaction is reconciled.
+
+        The import is idempotent on the file content: uploading the identical
+        file again returns the original statement with already_imported=true and
+        200 instead of 201, and creates no second set of transactions.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CAMT.053 XML or MT940 text file, at most 10 MiB
+      responses:
+        "201":
+          description: Statement imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankStatementImportResult"
+        "200":
+          description: The identical file had already been imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankStatementImportResult"
+        "400":
+          description: Missing file, unrecognised format or malformed statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: File exceeds the 10 MiB limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-statements/{id}:
+    get:
+      summary: Get one bank statement with its transactions
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Statement with its transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statement:
+                    $ref: "#/components/schemas/BankStatement"
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankTransaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions:
+    get:
+      summary: List imported bank transactions
+      description: >
+        The reconciliation queue. Filter by statement or by match status to see
+        what is still waiting for a decision.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: statement_id
+          in: query
+          description: Restrict to one import
+          schema:
+            type: string
+            format: uuid
+        - name: match_status
+          in: query
+          description: Restrict to one reconciliation state
+          schema:
+            type: string
+            enum: [unmatched, suggested, matched, ignored]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Imported transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BankTransaction"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions/{id}/reconcile:
+    post:
+      summary: Book a bank credit as a payment against an invoice
+      description: >
+        Records a payment through the payment service, so invoice status,
+        numbering and the GoBD trail keep running through the one path that owns
+        them. An absent invoice_id confirms the suggestion the import attached.
+        The payment carries an idempotency key derived from the transaction, so
+        a retried confirmation records exactly one payment.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_id:
+                  type: string
+                  format: uuid
+                  description: Overrides the suggested invoice
+      responses:
+        "200":
+          description: The reconciled transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankTransaction"
+        "400":
+          description: Invalid id or invoice_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >
+            Already reconciled, or the entry is a debit — money leaving the
+            account cannot settle a receivable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions/{id}/ignore:
+    post:
+      summary: Take a bank transaction out of the reconciliation queue
+      description: >
+        For entries that are not customer payments — bank fees, own transfers.
+        A booked transaction cannot be ignored: undoing it means deleting its
+        payment.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The ignored transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankTransaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The transaction is already booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/open-items:
+    get:
+      summary: List open items (Offene Posten) with receivables aging
+      description: >
+        Unpaid receivables — sent or overdue invoices whose gross total is not
+        yet covered by recorded payments. open_amount is the residual, so a
+        partially paid invoice appears for the remainder only. The summary always
+        covers every open item of the tenant, not just the returned page, and is
+        reported per currency: without a stored exchange rate the server cannot
+        fold CHF mirrors and EUR invoices into a single figure.
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: bucket
+          in: query
+          description: Restrict to one aging bucket
+          schema:
+            type: string
+            enum: [current, d30, d60, d60plus]
+        - name: overdue_only
+          in: query
+          description: Drop items that are not past due yet
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Open items with the tenant-wide aging summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OpenItem"
+                  total:
+                    type: integer
+                  summary:
+                    $ref: "#/components/schemas/OpenItemsSummary"
+        "400":
+          description: Unknown aging bucket
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing finance read permission
+        "503":
+          description: Finance service unavailable
+
   /api/v1/finance/dunning:
     get:
       summary: List dunning records
@@ -8750,6 +9316,35 @@ paths:
                 $ref: "#/components/schemas/EmployeeDocument"
 
   # ===========================================================================
+  # HR: Document categories (tenant master data)
+  # ===========================================================================
+  /api/v1/hr/document-categories:
+    get:
+      summary: List HR document categories
+      description: >
+        Returns the tenant's document categories plus the system seed categories
+        (migration 000046), which are the ones every tenant starts with. These
+        are tenant master data, not an employee attribute — the ids returned here
+        are the ones POST /api/v1/hr/employees/{id}/documents accepts.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HRDocumentCategory"
+        "401": { description: Missing or invalid tenant }
+        "403": { description: Missing hr:read permission }
+        "503": { description: HR service unavailable }
+
+  # ===========================================================================
   # HR: Settings (admin only)
   # ===========================================================================
   /api/v1/hr/settings:
@@ -8796,6 +9391,7 @@ paths:
         - { name: channel, in: query, schema: { type: string, enum: [email, chat, notification] } }
         - { name: is_read, in: query, schema: { type: boolean } }
         - { name: is_starred, in: query, schema: { type: boolean } }
+        - { name: status, in: query, schema: { type: string, enum: [open, pending, resolved, closed] } }
         - { name: team_inbox_id, in: query, schema: { type: string, format: uuid } }
         - { name: search, in: query, schema: { type: string } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
@@ -8871,6 +9467,123 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/status:
+    post:
+      summary: Set conversation-level status on a message
+      tags: [inbox-messages]
+      operationId: setInboxMessageStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [open, pending, resolved, closed] }
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/v1/inbox/messages/{id}/tags:
+    post:
+      summary: Add a tag to a message
+      tags: [inbox-messages]
+      operationId: addInboxMessageTag
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tag]
+              properties:
+                tag: { type: string }
+      responses:
+        "200":
+          description: Tag added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Remove a tag from a message
+      tags: [inbox-messages]
+      operationId: removeInboxMessageTag
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tag]
+              properties:
+                tag: { type: string }
+      responses:
+        "200":
+          description: Tag removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/inbox/messages/{id}/forward:
+    post:
+      summary: Forward message to a new recipient through the originating channel
+      tags: [inbox-messages]
+      operationId: forwardInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string, description: "Recipient — email address or free-text name/handle" }
+                note: { type: string }
+      responses:
+        "200":
+          description: Message forwarded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "501":
+          description: Forwarding is not supported for this message's channel
 
   /api/v1/inbox/messages/{id}/archive:
     post:
@@ -13929,6 +14642,32 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/einkauf/pos/{id}/cancel:
+    post:
+      summary: Cancel a purchase order
+      description: >
+        Cancels a purchase order that has not been received yet. Only orders in
+        draft, submitted or sent state can be cancelled; any other state is
+        rejected with 409.
+      tags: [einkauf]
+      operationId: cancelPurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Purchase order cancelled
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Purchase order is not in a cancellable state
+          content:
+            application/json:
+              schema: { type: object }
+
   /api/v1/einkauf/pos/{id}/receive:
     post:
       summary: Mark a purchase order as fully received
@@ -13976,24 +14715,6 @@ paths:
             application/json:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
-  /api/v1/einkauf/pos/{id}/export:
-    post:
-      summary: Export a purchase order as PDF or other format
-      tags: [einkauf]
-      operationId: exportPurchaseOrder
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: format, in: query, schema: { type: string, enum: [pdf, csv], default: pdf } }
-      responses:
-        "200":
-          description: Export file
-          content:
-            application/octet-stream:
-              schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -20500,6 +21221,395 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/berichte/documents:
+    get:
+      summary: List report documents
+      description: >
+        Requires berichte:reports:read permission. Returns the tenant's report
+        documents, newest first. The library view has no pager, so page_size
+        defaults to 100 (capped at 100 server-side).
+      tags: [berichte]
+      operationId: listBerichteDocuments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, description: Case-insensitive title match, schema: { type: string } }
+        - name: module
+          in: query
+          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross"
+          schema: { type: string }
+        - name: status
+          in: query
+          description: "Filter by status: draft|final|released|archived"
+          schema: { type: string }
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: Report document list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items: { $ref: "#/components/schemas/BerichtDocument" }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Create a report document
+      description: >
+        Requires berichte:reports:write permission. Every field is optional:
+        the title falls back to "Neuer Bericht", the module to "cross", rows to
+        an empty array and settings to an empty object. New documents always
+        start in status "draft".
+      tags: [berichte]
+      operationId: createBerichteDocument
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                module:
+                  type: string
+                  description: "finanzen|crm|helpdesk|inventar|produktion|cross (defaults to cross)"
+                template_id:
+                  type: string
+                  nullable: true
+                rows:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                settings:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: Report document created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/berichte/documents/{id}:
+    get:
+      summary: Get a report document by ID
+      description: Requires berichte:reports:read permission.
+      tags: [berichte]
+      operationId: getBerichteDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Report document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a report document
+      description: >
+        Requires berichte:reports:write permission. Only present fields are
+        changed; omitted rows/settings keep their stored value. The first
+        transition to status "released" stamps released_at, later edits leave
+        it untouched.
+      tags: [berichte]
+      operationId: updateBerichteDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                module:
+                  type: string
+                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                status:
+                  type: string
+                  description: "draft|final|released|archived"
+                rows:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                settings:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Report document updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a report document
+      description: Requires berichte:reports:write permission.
+      tags: [berichte]
+      operationId: deleteBerichteDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Report document deleted
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/berichte/documents/{id}/export/pdf:
+    get:
+      summary: Server-rendered PDF of a report document
+      description: >
+        Requires berichte:reports:read permission. Renders the document's
+        block tree (rows -> columns -> blocks) via the maroto/v2 renderer —
+        chart and table blocks are rendered as data tables, not charts (no
+        chart-rendering dependency added). Blocks backed by an inline query
+        instead of a saved definition render as unavailable, since the
+        executor only runs saved definitions.
+      tags: [berichte]
+      operationId: exportBerichteDocumentPdf
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/berichte/documents/{id}/shares:
+    get:
+      summary: List the live share links of a report document
+      description: >
+        Requires berichte:reports:read permission. Returns only links that are
+        still live: revoked ones stay in the database for the audit trail but
+        are not listed. The token is returned in clear because the frontend
+        renders it as a copyable URL.
+      tags: [berichte]
+      operationId: listBerichteDocumentShares
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Share links of the document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shares:
+                    type: array
+                    items: { $ref: "#/components/schemas/BerichtShareToken" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create an external share link for a report document
+      description: >
+        Requires berichte:reports:write permission — minting a link hands out
+        an unauthenticated read path to the document, so it sits behind the
+        same permission as changing the document itself.
+
+
+        The returned token is the whole credential for
+        POST /api/v1/public/berichte/reports/{token}. An optional password is
+        bcrypt-hashed and never returned; the response only reports whether one
+        is set. expires_in_days is capped at 365; omitting it or passing 0
+        creates a link that never expires.
+      tags: [berichte]
+      operationId: createBerichteDocumentShare
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in_days:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                  maximum: 365
+                  description: "null or 0 = never expires"
+                password:
+                  type: string
+                  maxLength: 72
+                  description: >
+                    Optional. Capped at 72 bytes because bcrypt ignores input
+                    past that length, which would make two different passwords
+                    interchangeable.
+      responses:
+        "201":
+          description: Share link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share: { $ref: "#/components/schemas/BerichtShareToken" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/berichte/shares/{shareId}:
+    delete:
+      summary: Revoke an external share link
+      description: >
+        Requires berichte:reports:write permission. The link stops working
+        immediately; the row is kept with a revocation timestamp so the view
+        count survives. Revoking an already-revoked link answers 404.
+      tags: [berichte]
+      operationId: revokeBerichteDocumentShare
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: shareId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Share link revoked
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/public/berichte/reports/{token}:
+    post:
+      summary: Read a shared report document (public, unauthenticated)
+      description: >
+        No authentication. The share token in the path is the entire
+        credential; the tenant is resolved from it server-side and the response
+        can only ever be the one document the link names.
+
+
+        It is a POST rather than a GET because the password must not travel in
+        a URL — where it would land in access logs, browser history and Referer
+        headers — and because the call increments the link's view counter,
+        which no prefetching GET should be free to do. The request body is
+        optional: a link without a password is read with no body at all.
+
+
+        Unknown, expired and revoked links all answer 404, deliberately
+        indistinguishable. A missing or wrong password answers 401. This route
+        is behind the strict per-IP public rate limit
+        (PUBLIC_RATE_LIMIT_RPS), not the authenticated one.
+
+
+        The response is a reduced document: tenant_id, created_by and the
+        editing status are withheld from anonymous callers.
+      tags: [berichte]
+      operationId: getPublicBerichteSharedReport
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+          description: The share link secret (43-char base64url).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  description: Required only if the link is password-protected.
+      responses:
+        "200":
+          description: The shared report document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document: { $ref: "#/components/schemas/BerichtPublicDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: The link is password-protected and no valid password was given
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such link, or it expired or was revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /api/v1/berichte/templates:
+    get:
+      summary: List report starter templates
+      description: >
+        Requires berichte:reports:read permission. Returns the static set of
+        starter block structures for "Neuer Bericht aus Vorlage" — not tenant
+        data, so the response is identical for every tenant.
+      tags: [berichte]
+      operationId: listBerichteTemplates
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Report template list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/BerichtTemplate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /api/v1/berichte/kpis:
     get:
       summary: Get dashboard KPI tiles
@@ -20557,14 +21667,18 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentFolder"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
-                        updated_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  folders:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentFolder"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
+                            updated_at: { type: string, format: date-time }
+                  total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -20697,13 +21811,16 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Breadcrumb segments (protojson bare array)
+          description: Breadcrumb segments
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DocumentFolderPathSegment"
+                type: object
+                properties:
+                  segments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentFolderPathSegment"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -21048,13 +22165,16 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Version history (protojson bare array, oldest→newest as stored)
+          description: Version history (oldest→newest as stored)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DocumentFileVersion"
+                type: object
+                properties:
+                  versions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentFileVersion"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -21107,17 +22227,20 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Entity links (protojson bare array)
+          description: Entity links (protojson — created_at as RFC3339 string)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentEntityLink"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  links:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentEntityLink"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -21292,13 +22415,16 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentShare"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  shares:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentShare"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -21344,13 +22470,16 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/DocumentTag"
-                    - type: object
-                      properties:
-                        created_at: { type: string, format: date-time }
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DocumentTag"
+                        - type: object
+                          properties:
+                            created_at: { type: string, format: date-time }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -22847,11 +23976,13 @@ paths:
     post:
       summary: Test an integration config
       description: >-
-        Requires admin role. NOTE (current backend state): TestIntegrationConfig
-        is a stub -- it always returns success=true without actually probing the
-        platform or validating that a config for the platform exists; real
-        notification-send testing will be wired once the forwarder/platform
-        clients are available to the notification service.
+        Requires admin role. Probes the platform with the credentials the
+        notification service holds: Slack via auth.test, Teams via a Bot
+        Framework client_credentials token request. Neither writes anything into
+        a channel. A 200 therefore means the platform actually answered -- there
+        is no success=false response; a config that does not exist for this
+        tenant is 404, and a platform that refuses or that the server has no
+        credentials for is 409 with the reason in the error message.
       tags: [integrations]
       operationId: testIntegrationConfig
       security: [{ bearerAuth: [] }]
@@ -22863,16 +23994,35 @@ paths:
           description: "Integration platform identifier, e.g. slack or teams"
       responses:
         "200":
-          description: Test result
+          description: Platform answered the probe
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  error_message: { type: string }
+                  success: { type: boolean, example: true }
+                  message:
+                    type: string
+                    description: Identity the credentials resolved to
+                    example: authenticated as cosmi-bot in workspace Zentria
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: >-
+            Platform refused the credentials, or the server holds no client for
+            this platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Notification service or integration storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/integrations/configs/{platform}/mappings:
     get:
@@ -23073,10 +24223,14 @@ paths:
     get:
       summary: Get the caller's account link status for a platform
       description: >-
-        Any authenticated user (no admin role required). NOTE: despite the
-        platform path segment, the handler currently ignores it and always
-        returns ALL of the caller's linked platforms (GetAccountLinkStatus is
-        called with only user_id, no platform filter).
+        Any authenticated user (no admin role required). GetAccountLinkStatus is
+        called with only user_id (it returns every platform the caller has
+        linked); the gateway handler then picks the link matching the platform
+        path segment and flattens it into the single-platform shape the frontend
+        types as AccountLinkStatus. No link for that platform is a 200 with
+        linked=false, not a 404. linked_at is hand-formatted RFC3339 in the
+        handler, so it is a genuine timestamp string here (unlike the
+        ProtoTimestamp-shaped IntegrationAccountLink schema).
       tags: [integrations]
       operationId: getIntegrationAccountLinkStatus
       security: [{ bearerAuth: [] }]
@@ -23085,18 +24239,25 @@ paths:
           in: path
           required: true
           schema: { type: string }
-          description: "Integration platform identifier, e.g. slack or teams (currently unused by the handler)"
+          description: "Integration platform identifier, e.g. slack or teams"
       responses:
         "200":
-          description: All account links for the caller
+          description: Link status of the caller for the requested platform
           content:
             application/json:
               schema:
                 type: object
+                required: [linked, platform]
                 properties:
-                  links:
-                    type: array
-                    items: { $ref: "#/components/schemas/IntegrationAccountLink" }
+                  linked: { type: boolean }
+                  platform: { type: string, description: "Echo of the path parameter" }
+                  external_display_name:
+                    type: string
+                    description: "Only present when linked is true"
+                  linked_at:
+                    type: string
+                    format: date-time
+                    description: "RFC3339. Only present when linked is true and the link carries a timestamp"
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/integrations/teams/webhook:
@@ -23104,13 +24265,28 @@ paths:
       summary: Inbound Microsoft Teams Bot Framework webhook
       description: >-
         Public endpoint (no bearerAuth) called by the Microsoft Bot Framework
-        for all bot interactions (messages, Action.Execute invokes).
-        Authenticity is verified internally via Bot Framework JWT validation,
-        not the gateway's standard auth middleware. Returns 404 (JSON
-        ErrorResponse) if the Teams integration is not configured on this
-        deployment (teamsWebhook handler unset). On JWT verification failure
-        the underlying handler writes a PLAIN TEXT "unauthorized" body via
-        http.Error (not the JSON ErrorResponse shape).
+        for all bot interactions (messages, Action.Execute invokes). The
+        gateway is a pure proxy here: it forwards the raw body and the
+        Authorization header to the notification service, which validates the
+        Bot Framework JWT and only then reads any data.
+
+        Tenant resolution: the request is unauthenticated, so the tenant comes
+        from channelData.tenant.id (the Azure AD tenant of the Teams
+        organisation), matched against the `tenant_id` key in
+        integration_configs.metadata. An admin sets that key via
+        POST /api/v1/integrations/configs (metadata is free-form JSON). Until
+        it is set the organisation resolves to no tenant and the activity is
+        answered with an explanatory message instead of being processed --
+        no tenant is ever guessed.
+
+        Effect: only the acknowledge card action runs (it marks the
+        notification read). approve, reject and reply have no counterpart in
+        Cosmi yet and are answered as not-yet-executed rather than confirmed.
+
+        Returns 501 if Teams webhooks are not configured on this deployment
+        (TEAMS_APP_ID / TEAMS_APP_PASSWORD unset). On JWT verification failure
+        the body is PLAIN TEXT "unauthorized" (not the JSON ErrorResponse
+        shape).
       tags: [integrations]
       operationId: handleTeamsWebhook
       security: []
@@ -23136,20 +24312,39 @@ paths:
           content:
             text/plain:
               schema: { type: string, example: "unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+        "501":
+          description: Teams webhooks are not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/slack/interact:
     post:
       summary: Inbound Slack interactive message callback (Block Kit button clicks)
       description: >-
         Public endpoint (no bearerAuth) called by Slack for block_actions
-        interaction payloads. Authenticity is verified internally via the
-        Slack request signing secret, not the gateway's standard auth
-        middleware. Body is application/x-www-form-urlencoded with a single
-        `payload` field containing the JSON-encoded Slack InteractionCallback.
-        Returns 404 (JSON ErrorResponse) if the Slack integration is not
-        configured. Signature/parse failures return a PLAIN TEXT body via
-        http.Error (not the JSON ErrorResponse shape).
+        interaction payloads. The gateway is a pure proxy here: it forwards the
+        raw body and the two X-Slack-* headers to the notification service,
+        which verifies the signature over the untouched bytes before anything
+        is parsed or read. Body is application/x-www-form-urlencoded with a
+        single `payload` field containing the JSON-encoded Slack
+        InteractionCallback.
+
+        Tenant resolution: the request is unauthenticated, so the tenant comes
+        from the Slack workspace id (payload team.id), matched against the
+        `team_id` key in integration_configs.metadata. An admin sets that key
+        via POST /api/v1/integrations/configs (metadata is free-form JSON).
+        Until it is set the workspace resolves to no tenant and the user gets
+        an explanatory ephemeral message -- no tenant is ever guessed.
+
+        Effect: only the acknowledge action runs (it marks the notification
+        read) and only then is the card rewritten with a resolved banner.
+        approve, reject and reply have no counterpart in Cosmi yet; they leave
+        the card untouched and answer with an ephemeral note.
+
+        Returns 501 if Slack webhooks are not configured on this deployment
+        (SLACK_BOT_TOKEN / SLACK_SIGNING_SECRET unset). Signature and parse
+        failures return a PLAIN TEXT body (not the JSON ErrorResponse shape).
       tags: [integrations]
       operationId: handleSlackInteraction
       security: []
@@ -23175,21 +24370,36 @@ paths:
           content:
             text/plain:
               schema: { type: string, example: "unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+        "501":
+          description: Slack webhooks are not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/slack/commands:
     post:
       summary: Inbound Slack slash command (/kmuhub)
       description: >-
         Public endpoint (no bearerAuth) called by Slack for the /kmuhub slash
-        command. Authenticity is verified internally via the Slack request
-        signing secret, not the gateway's standard auth middleware. Body is
-        application/x-www-form-urlencoded (Slack SlashCommand payload: command,
-        text, user_id, channel_id, ...). Supported text subcommands: `link`,
-        `unlink`; anything else returns a help message. Returns 404 (JSON
-        ErrorResponse) if the Slack integration is not configured.
-        Signature/parse failures return a PLAIN TEXT body via http.Error (not
-        the JSON ErrorResponse shape).
+        command. The gateway is a pure proxy here: it forwards the raw body and
+        the two X-Slack-* headers to the notification service, which verifies
+        the signature over the untouched bytes before anything is parsed or
+        read. Body is application/x-www-form-urlencoded (Slack SlashCommand
+        payload: command, text, user_id, team_id, channel_id, ...). Supported
+        text subcommands: `link`, `unlink`; anything else returns a help
+        message.
+
+        Tenant resolution: the request is unauthenticated, so the tenant comes
+        from the `team_id` form field, matched against the `team_id` key in
+        integration_configs.metadata. An admin sets that key via
+        POST /api/v1/integrations/configs (metadata is free-form JSON). Until
+        it is set the workspace resolves to no tenant and the command answers
+        with an explanatory ephemeral message -- no tenant is ever guessed, and
+        no link token is issued without one.
+
+        Returns 501 if Slack webhooks are not configured on this deployment
+        (SLACK_BOT_TOKEN / SLACK_SIGNING_SECRET unset). Signature and parse
+        failures return a PLAIN TEXT body (not the JSON ErrorResponse shape).
       tags: [integrations]
       operationId: handleSlackSlashCommand
       security: []
@@ -23220,65 +24430,59 @@ paths:
           content:
             text/plain:
               schema: { type: string, example: "unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+        "501":
+          description: Slack webhooks are not configured on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/slack/oauth/install:
     get:
-      summary: Start the Slack app install (OAuth authorize) redirect
+      summary: Start the Slack app install (OAuth authorize) redirect -- NOT IMPLEMENTED
       description: >-
-        Public endpoint (no bearerAuth). Redirects the browser to Slack's
-        OAuth v2 authorize URL. Returns 404 (JSON ErrorResponse) if Slack
-        OAuth is not configured (slackOAuth handler unset).
+        Public endpoint (no bearerAuth), reserved for the Slack app install
+        flow. It always answers 501 today, and that is a decision rather than
+        missing wiring: the install hands back a per-workspace bot token and
+        there is nowhere to keep it -- integration_configs.credentials_vault_key
+        is a bare string with no resolver behind it. Until a credential store
+        exists, Slack is configured with a single deployment-wide bot token
+        from the environment.
       tags: [integrations]
       operationId: slackOAuthInstall
       security: []
       responses:
-        "307":
-          description: Redirect to https://slack.com/oauth/v2/authorize
-          headers:
-            Location:
-              schema: { type: string, format: uri }
-        "404": { $ref: "#/components/responses/NotFound" }
+        "501":
+          description: Slack OAuth install is not available on this deployment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/integrations/slack/oauth/callback:
     get:
-      summary: Slack OAuth install callback
+      summary: Slack OAuth install callback -- NOT IMPLEMENTED
       description: >-
-        Public endpoint (no bearerAuth) -- Slack redirects here after the user
-        approves the app install. Exchanges the authorization code for a bot
-        token and redirects back into the app. NOTE (current backend state):
-        the exchanged bot token is only logged, not yet persisted via
-        CreateIntegrationConfig -- the frontend is expected to complete setup
-        by calling POST /api/v1/integrations/configs with the vault key.
-        Returns 404 (JSON ErrorResponse) if Slack OAuth is not configured.
-        code/exchange failures return a PLAIN TEXT body via http.Error (not
-        the JSON ErrorResponse shape).
+        Public endpoint (no bearerAuth), reserved for the Slack app install
+        callback. It always answers 501 today, for two reasons that both need
+        their own work: the exchanged bot token has nowhere to live (see
+        /oauth/install), and the callback arrives unauthenticated, so it would
+        additionally need a signed `state` carrying the tenant from a prior
+        authenticated install step. Answering 501 is the honest state until
+        both exist.
       tags: [integrations]
       operationId: slackOAuthCallback
       security: []
       parameters:
         - name: code
           in: query
-          required: true
+          required: false
           schema: { type: string }
-          description: "OAuth authorization code issued by Slack"
+          description: "OAuth authorization code issued by Slack (ignored while the flow is disabled)"
       responses:
-        "307":
-          description: Redirect to /settings?tab=integrations&slack=connected
-          headers:
-            Location:
-              schema: { type: string, format: uri }
-        "400":
-          description: Missing code parameter (plain text body, not JSON)
+        "501":
+          description: Slack OAuth install is not available on this deployment
           content:
-            text/plain:
-              schema: { type: string, example: "missing code parameter" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "500":
-          description: Token exchange with Slack failed (plain text body, not JSON)
-          content:
-            text/plain:
-              schema: { type: string, example: "oauth exchange failed" }
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   # ==========================================================================
   # route_datev_upload.go -- DATEV OAuth connection + Buchungsstapel/Beleg
@@ -23408,50 +24612,69 @@ paths:
     post:
       summary: Trigger a DATEV Buchungsstapel export and upload
       description: >-
-        Requires admin role. NOTE (current backend state): the upload service
-        is invoked with empty invoice/credit-note slices at the gRPC layer, so
-        document_count is always 0 regardless of the date range passed -- the
-        full fetch-then-export orchestration is not yet wired end-to-end.
-        On export/upload failure the RPC returns success=false with a 200
-        response (not an HTTP error), except for an invalid fiscal_year_start
-        which is a 400.
+        Requires admin role. Renders the tenant's booking batch for the requested
+        period (the same rows and EXTF header the GoBD export produces) and
+        transfers it to DATEV. Success means the batch reached DATEV; every
+        precondition that would produce a meaningless transfer answers 409
+        instead: no active DATEV connection, no client number in the upload
+        config, no Berater-/Mandantennummer in the company settings, or a period
+        without a single bookable document. The period is mandatory.
       tags: [datev]
       operationId: uploadDatevBuchungsstapel
       security: [{ bearerAuth: [] }]
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [start_date, end_date]
               properties:
                 start_date: { type: string, description: "YYYY-MM-DD" }
                 end_date: { type: string, description: "YYYY-MM-DD" }
-                fiscal_year_start: { type: string, description: "YYYY-MM-DD" }
+                fiscal_year_start:
+                  type: string
+                  description: "YYYY-MM-DD; defaults to start_date"
       responses:
         "200":
-          description: Upload result
+          description: Batch transferred to DATEV
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
-                  document_count: { type: integer, format: int32 }
-                  file_size: { type: integer, format: int32 }
-                  error_message: { type: string }
+                  document_count:
+                    type: integer
+                    description: Invoices and credit notes that produced booking lines (drafts are skipped)
+                  file_size: { type: integer, description: CSV size in bytes }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: >-
+            Upload preconditions unmet (not connected, client number or advisor
+            numbers missing, or no bookable document in the period)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: DATEV upload service not available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/finance/datev/upload/beleg/{invoice_id}:
     post:
       summary: Upload a single invoice PDF as a DATEV Belegbild
       description: >-
-        Requires admin role. NOTE (current backend state): this is a
-        placeholder RPC -- it logs the request and always returns success=true
-        without retrieving or uploading a PDF; the invoice_id path parameter
-        is also not validated as a UUID by the handler.
+        Requires admin role. Renders the invoice PDF with the same generator the
+        finance module serves for download and transfers it as a Belegbild.
+        Success means the document reached DATEV. Answers 409 when a
+        precondition is unmet (no active DATEV connection, no client number, or
+        company settings missing a Pflichtangabe of section 14 UStG, which would
+        render a document the tax advisor may not book) and 404 when the invoice
+        does not exist in this tenant.
       tags: [datev]
       operationId: uploadDatevBeleg
       security: [{ bearerAuth: [] }]
@@ -23462,16 +24685,27 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         "200":
-          description: Upload result
+          description: Belegbild transferred to DATEV
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
-                  error_message: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Upload preconditions unmet (not connected, client number or company settings incomplete)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: DATEV upload service not available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/finance/datev/config:
     get:
@@ -25286,6 +26520,87 @@ paths:
   # Handler: internal/gateway/route_settings.go (SettingsRoutes)
   # ==========================================================================
 
+  /api/v1/admin/license:
+    get:
+      summary: List every Cosmi module with its tenant-wide activation state
+      description: >
+        Returns the full module catalogue, not only the activated ones. A module
+        the deployment does not run (modules.* feature flag off) always reports
+        active=false regardless of the stored activation.
+      tags: [Settings]
+      operationId: getTenantLicense
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Module activation state for the tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TenantModule"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    patch:
+      summary: Activate or deactivate one module tenant-wide (admin only)
+      tags: [Settings]
+      operationId: setTenantModuleActive
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [moduleId, active]
+              properties:
+                moduleId:
+                  type: string
+                  description: Catalogue module id (see GET for the list)
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: The updated module
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  module:
+                    $ref: "#/components/schemas/TenantModule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Unknown module id
+        "409":
+          description: Module is not available in this deployment (feature flag off)
+
+  /api/v1/admin/subscription:
+    get:
+      summary: Booked plan, support tier and seats of the tenant
+      tags: [Settings]
+      operationId: getTenantSubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: The tenant's subscription
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription:
+                    $ref: "#/components/schemas/TenantSubscription"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Tenant not found
+
   /api/v1/tenant/module-grants:
     get:
       summary: List module-access grants for the tenant
@@ -26544,6 +27859,34 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /api/v1/hr/time/weeks/reopen:
+    post:
+      summary: Reopen a submitted or approved week for corrections (manager/admin)
+      description: >
+        A submitted or approved week rejects every write of work time — clock-in,
+        manual entry and time corrections all return 409. Reopening is the only
+        way back to an editable week. A week that is open or rejected is already
+        editable and returns 409.
+      tags: [hr-time]
+      operationId: reopenHrTimeWeek
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HrTimeReopenWeekRequest" }
+      responses:
+        "200":
+          description: Week reopened
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HrTimeWeekApproval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   # === openapi-drift sweep: r2c-misc-gaps ===
   # --- 2FA: pending-login validation (backend/internal/gateway/route_auth.go) ---
   # Public route (no bearer token) — called after POST /auth/login returns a
@@ -27162,6 +28505,93 @@ components:
         new_password:
           type: string
           minLength: 8
+
+    ProvisionTenantRequest:
+      type: object
+      required: [name, admin_email]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        plan_type:
+          type: string
+          enum: [cosmi, orbit]
+          default: cosmi
+        support_tier:
+          type: string
+          enum: [standard, priority, enterprise]
+          default: standard
+        seat_limit:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: >-
+            Booked seats. Omit for an uncapped tenant. The administrator's
+            invitation takes the first seat, so 0 is rejected.
+        billing_period_end:
+          type: string
+          format: date
+          description: End of the current billing period (YYYY-MM-DD).
+        modules:
+          type: array
+          items:
+            type: string
+          description: >-
+            Catalogue module ids to activate. Omit or leave empty to activate
+            the whole catalogue. An unknown id is rejected rather than skipped.
+        admin_email:
+          type: string
+          format: email
+          description: >-
+            Receives the invitation that creates the first account. Mandatory:
+            a tenant without a way in is stranded, not provisioned.
+
+    TenantInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        planType:
+          type: string
+          enum: [cosmi, orbit]
+        supportTier:
+          type: string
+          enum: [standard, priority, enterprise]
+        subscriptionStatus:
+          type: string
+          enum: [active, past_due, paused]
+        billingPeriodEnd:
+          type: string
+          description: YYYY-MM-DD, empty when no period has been agreed.
+        seatLimit:
+          type: integer
+        hasSeatLimit:
+          type: boolean
+          description: False means the tenant is uncapped; seatLimit is then meaningless.
+        createdAt:
+          type: string
+          format: date-time
+        modules:
+          type: array
+          items:
+            type: string
+          description: The module ids activated at provisioning time.
+
+    ProvisionTenantResponse:
+      type: object
+      properties:
+        tenant:
+          $ref: "#/components/schemas/TenantInfo"
+        invitation:
+          $ref: "#/components/schemas/InvitationInfo"
+        invitationToken:
+          type: string
+          description: >-
+            Plaintext invitation token. Returned once, never stored and never
+            retrievable again.
 
     CreateInvitationRequest:
       type: object
@@ -31129,6 +32559,10 @@ components:
         updated_at:
           type: string
           format: date-time
+        currency:
+          type: string
+          description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
+          example: EUR
 
     CreateQuoteRequest:
       type: object
@@ -31223,6 +32657,148 @@ components:
           type: string
           format: uuid
           description: CRM contact linked to this invoice (Contact-360, Migration 000141)
+        currency:
+          type: string
+          description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
+          example: EUR
+        source:
+          type: string
+          enum: [cosmi, bexio]
+          description: Provenance (Migration 000243). Bexio rows are read-only mirrors.
+        external_id:
+          type: string
+          description: Identity in the source system. Absent for cosmi invoices.
+        external_number:
+          type: string
+          description: Document number in the source system. Absent for cosmi invoices.
+        recurring_id:
+          type: string
+          format: uuid
+          description: Recurring schedule that emitted this invoice (Migration 000246). Absent for manually created invoices.
+
+    RecurringInvoice:
+      type: object
+      description: A schedule that emits draft invoices at a fixed interval (Migration 000246).
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        tax_breakdown:
+          $ref: "#/components/schemas/TaxBreakdown"
+        currency:
+          type: string
+          example: EUR
+        interval:
+          type: string
+          enum: [weekly, monthly, quarterly, yearly]
+        status:
+          type: string
+          enum: [active, paused, ended]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          description: Empty when the schedule is open-ended.
+        next_run:
+          type: string
+          format: date
+        payment_terms_days:
+          type: integer
+        generated_count:
+          type: integer
+        last_generated_at:
+          type: string
+          format: date
+          description: Empty before the first run.
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateRecurringInvoiceRequest:
+      type: object
+      required: [customer, line_items, tax_mode, interval, start_date]
+      properties:
+        title:
+          type: string
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        currency:
+          type: string
+          example: EUR
+        interval:
+          type: string
+          enum: [weekly, monthly, quarterly, yearly]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        payment_terms_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+        notes:
+          type: string
+
+    UpdateRecurringInvoiceRequest:
+      type: object
+      description: Partial update; omitted fields stay unchanged, an empty end_date clears it.
+      properties:
+        title:
+          type: string
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        currency:
+          type: string
+        interval:
+          type: string
+          enum: [weekly, monthly, quarterly, yearly]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        payment_terms_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+        notes:
+          type: string
 
     CreateInvoiceRequest:
       type: object
@@ -31321,6 +32897,10 @@ components:
         updated_at:
           type: string
           format: date-time
+        currency:
+          type: string
+          description: ISO 4217 code of the document currency. EUR for rows written before the column existed.
+          example: EUR
 
     CreateCreditNoteRequest:
       type: object
@@ -31389,6 +32969,223 @@ components:
           type: string
         notes:
           type: string
+
+    BankStatement:
+      type: object
+      description: One imported account statement file (Migration 000247).
+      properties:
+        id:
+          type: string
+          format: uuid
+        format:
+          type: string
+          enum: [camt053, mt940]
+        filename:
+          type: string
+        content_hash:
+          type: string
+          description: >
+            SHA-256 of the uploaded bytes. Importing the same file twice
+            resolves to this same statement instead of creating a second one.
+        account_iban:
+          type: string
+        statement_ref:
+          type: string
+        currency:
+          type: string
+          description: ISO 4217
+        opening_balance:
+          type: string
+          description: Decimal as string
+        closing_balance:
+          type: string
+          description: Decimal as string
+        statement_date:
+          type: string
+          format: date
+        transaction_count:
+          type: integer
+        imported_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    BankTransaction:
+      type: object
+      description: >
+        One entry of a statement plus its reconciliation state. Everything up to
+        remittance_info is what the bank reported and is never rewritten after
+        import; the match_ fields carry what this system made of it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        statement_id:
+          type: string
+          format: uuid
+        entry_ref:
+          type: string
+        end_to_end_id:
+          type: string
+        value_date:
+          type: string
+          format: date
+        booking_date:
+          type: string
+          format: date
+        amount:
+          type: string
+          description: >
+            Decimal as string, signed: a credit (money in) is positive, a debit
+            negative.
+        currency:
+          type: string
+        counterparty_name:
+          type: string
+        counterparty_iban:
+          type: string
+        remittance_info:
+          type: string
+        match_status:
+          type: string
+          enum: [unmatched, suggested, matched, ignored]
+        match_reason:
+          type: string
+          description: >
+            Why the matcher suggested what it did.
+          enum: ["", invoice_number+amount, invoice_number, amount, manual, ignored]
+        matched_invoice_id:
+          type: string
+          format: uuid
+        payment_id:
+          type: string
+          format: uuid
+        reconciled_at:
+          type: string
+          format: date-time
+        reconciled_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    BankStatementImportResult:
+      type: object
+      properties:
+        statement:
+          $ref: "#/components/schemas/BankStatement"
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/BankTransaction"
+        already_imported:
+          type: boolean
+          description: >
+            True when the identical file had been imported before. The response
+            then carries the original statement, not a second copy.
+
+    OpenItem:
+      type: object
+      description: One unpaid receivable with its aging and dunning state.
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        invoice_number:
+          type: string
+        status:
+          type: string
+          enum: [sent, overdue]
+        customer_name:
+          type: string
+        customer_email:
+          type: string
+        currency:
+          type: string
+          description: ISO 4217 code
+        gross_total:
+          type: string
+          description: Decimal as string
+        paid_amount:
+          type: string
+          description: Decimal as string — everything recorded in finance_payments
+        open_amount:
+          type: string
+          description: Decimal as string — gross_total minus paid_amount
+        invoice_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        days_overdue:
+          type: integer
+          description: Negative when the item is not due yet
+        aging_bucket:
+          type: string
+          enum: [current, d30, d60, d60plus]
+        dunning_level:
+          type: integer
+          description: Highest dunning level reached, 0 when never dunned
+        dunning_status:
+          type: string
+          description: Empty when never dunned
+        last_dunned_at:
+          type: string
+          format: date-time
+        contact_id:
+          type: string
+          format: uuid
+
+    OpenItemBucketTotal:
+      type: object
+      description: One aging bucket in one currency, over all open items.
+      properties:
+        currency:
+          type: string
+        bucket:
+          type: string
+          enum: [current, d30, d60, d60plus]
+        count:
+          type: integer
+        amount:
+          type: string
+          description: Decimal as string
+
+    OpenItemCurrencyTotal:
+      type: object
+      description: Receivables totals for one currency.
+      properties:
+        currency:
+          type: string
+        open_amount:
+          type: string
+          description: Decimal as string
+        open_count:
+          type: integer
+        overdue_amount:
+          type: string
+          description: Decimal as string
+        overdue_count:
+          type: integer
+        avg_days_overdue:
+          type: integer
+
+    OpenItemsSummary:
+      type: object
+      description: Tenant-wide receivables aggregates, never page-scoped.
+      properties:
+        totals:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenItemCurrencyTotal"
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenItemBucketTotal"
 
     DunningRecord:
       type: object
@@ -31584,7 +33381,7 @@ components:
         break_minutes: { type: integer }
         auto_break_deducted: { type: integer }
         net_work_minutes: { type: integer }
-        status: { type: string, enum: [active, completed, correction_pending, correction_approved] }
+        status: { type: string, enum: [active, completed, correction_pending, correction_approved, superseded] }
         is_correction: { type: boolean }
         original_entry_id: { type: string, format: uuid }
         correction_reason: { type: string }
@@ -31723,6 +33520,18 @@ components:
         uploaded_by_name: { type: string }
         created_at: { type: string, format: date-time }
 
+    HRDocumentCategory:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        name: { type: string }
+        key: { type: string }
+        visibility: { type: string, enum: [hr_only, manager, employee] }
+        is_system: { type: boolean }
+        sort_order: { type: integer }
+        created_at: { type: string, format: date-time }
+
     HRSettings:
       type: object
       properties:
@@ -31768,6 +33577,7 @@ components:
         is_read: { type: boolean }
         is_starred: { type: boolean }
         is_archived: { type: boolean }
+        status: { type: string, enum: [open, pending, resolved, closed] }
         snoozed_until: { type: string, format: date-time }
         assigned_to: { type: string, format: uuid }
         team_inbox_id: { type: string, format: uuid }
@@ -35721,6 +37531,164 @@ components:
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
 
+    BerichtShareToken:
+      type: object
+      description: >
+        An external, unauthenticated read link for one report document.
+        Mirrors ReportShareToken in berichte-types.ts. The bcrypt password hash
+        has no field here at all — it never leaves the service; has_password is
+        all a client learns.
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          description: >
+            The link secret in clear (43-char base64url, 32 bytes of
+            crypto/rand). Returned so the UI can render a copyable URL; it is
+            the entire credential for the public read route.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: null = never expires
+        has_password:
+          type: boolean
+        view_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    BerichtPublicDocument:
+      type: object
+      description: >
+        The reduced report document an anonymous visitor sees through a share
+        link. Deliberately not BerichtDocument: tenant_id, created_by and the
+        editing status are internal facts withheld from unauthenticated
+        callers.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+        rows:
+          type: array
+          description: Block tree (rows -> columns -> blocks), opaque JSONB.
+          items:
+            type: object
+            additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
+        updated_at:
+          type: string
+          format: date-time
+        released_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    BerichtDocument:
+      type: object
+      description: >
+        A multi-page report authoring document ("Schicht 4"): cover page,
+        headings, rich text and embedded chart/table/KPI blocks. Distinct from
+        BerichtDefinition, which is a single data widget. Unlike the other
+        berichte endpoints, the document handlers serialize a hand-built wire
+        struct (encoding/json), so timestamps are RFC3339 strings and
+        rows/settings are nested JSON, not base64.
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+        status:
+          type: string
+          description: "draft|final|released|archived"
+        rows:
+          type: array
+          description: >
+            Block tree (rows -> columns -> blocks). Stored and returned as
+            opaque JSONB; the block structure is owned by the editor and its
+            keys are camelCase.
+          items:
+            type: object
+            additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
+          description: Document-level page setup (header/footer/page numbers, palette).
+        template_id:
+          type: string
+          nullable: true
+          description: Frontend-side starter template key; not a foreign key.
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        released_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when the status first transitions to "released".
+
+    BerichtTemplate:
+      type: object
+      description: >
+        A static starter block structure for "Neuer Bericht aus Vorlage".
+        Not tenant data — served from a server-side constant, identical for
+        every tenant. Same wire rationale as BerichtDocument: served via
+        response.JSON, not response.Proto.
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+        icon:
+          type: string
+          nullable: true
+          description: Lucide icon name resolved in the picker UI.
+        rows:
+          type: array
+          description: Block tree (rows -> columns -> blocks), same shape as BerichtDocument.rows.
+          items:
+            type: object
+            additionalProperties: true
+        settings:
+          type: object
+          additionalProperties: true
+
     BerichtSchedule:
       type: object
       description: A recurring delivery schedule for a report definition.
@@ -37512,6 +39480,48 @@ components:
           format: date-time
           nullable: true
 
+    TenantModule:
+      type: object
+      description: >
+        One catalogue module with this tenant's activation state. assignedSeats
+        counts the users holding a module grant and is reported as 0 while the
+        module is inactive — the grants themselves survive a deactivation.
+      properties:
+        moduleId:
+          type: string
+          description: One of the ModuleId values (see lib/pricing.ts)
+        group:
+          type: string
+          enum: [core, comm, team, industry, tools]
+        active:
+          type: boolean
+        assignedSeats:
+          type: integer
+
+    TenantSubscription:
+      type: object
+      description: >
+        The booked contract of the tenant. Seats in use are not part of it —
+        they are counted where they are enforced (the invitation path).
+      properties:
+        planType:
+          type: string
+          enum: [cosmi, orbit]
+        supportTier:
+          type: string
+          enum: [standard, priority, enterprise]
+        status:
+          type: string
+          enum: [active, past_due, paused]
+        billingPeriodEnd:
+          type: string
+          format: date
+          nullable: true
+        totalSeats:
+          type: integer
+          nullable: true
+          description: Booked seats; null means unlimited
+
     # -----------------------------------------------------------------------
     # route_files.go -- generic presigned upload/download request/response
     # shapes (Document service). Timestamps go through resp.ExpiresAt
@@ -38004,6 +40014,16 @@ components:
         week_start: { type: string, format: date }
         rejection_reason: { type: string }
 
+    HrTimeReopenWeekRequest:
+      type: object
+      required: [employee_id, week_start]
+      properties:
+        employee_id: { type: string, format: uuid }
+        week_start: { type: string, format: date }
+        reason:
+          type: string
+          description: Logged with the reopen event, not stored on the approval record.
+
     HrTimeAnalytics:
       type: object
       description: hr.v1.GetTimeAnalyticsResp serialized via response.JSON (no timestamp fields).
@@ -38388,6 +40408,18 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     Conflict:
       description: Conflict (e.g. duplicate email)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: Upstream service unavailable
       content:
         application/json:
           schema:

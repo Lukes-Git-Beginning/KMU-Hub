@@ -399,3 +399,86 @@ func (r *PostgresRepository) PutUserSettings(ctx context.Context, tenantID, user
 
 	return r.GetUserSettings(ctx, tenantID, userID, moduleID)
 }
+
+// ============================================================================
+// Licensing
+// ============================================================================
+
+// ListModuleActivations returns module_id → active for the tenant. A module
+// without a row is absent from the map and reads as not activated.
+func (r *PostgresRepository) ListModuleActivations(ctx context.Context, tenantID uuid.UUID) (map[string]bool, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT module_id, active FROM tenant_module_activations WHERE tenant_id = $1`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string]bool)
+	for rows.Next() {
+		var moduleID string
+		var active bool
+		if err := rows.Scan(&moduleID, &active); err != nil {
+			return nil, err
+		}
+		out[moduleID] = active
+	}
+	return out, rows.Err()
+}
+
+// SetModuleActivation upserts the activation row and returns nothing but the
+// error: the caller re-reads seats and catalogue data to build the response.
+func (r *PostgresRepository) SetModuleActivation(ctx context.Context, tenantID uuid.UUID, moduleID string, active bool, updatedBy *uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO tenant_module_activations (tenant_id, module_id, active, updated_by, updated_at)
+		 VALUES ($1, $2, $3, $4, NOW())
+		 ON CONFLICT (tenant_id, module_id)
+		 DO UPDATE SET active = EXCLUDED.active, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+		tenantID, moduleID, active, updatedBy)
+	return err
+}
+
+// CountGrantsByModule returns module_id → number of users holding a grant,
+// scoped to the tenant. Modules nobody holds are absent from the map.
+func (r *PostgresRepository) CountGrantsByModule(ctx context.Context, tenantID uuid.UUID) (map[string]int32, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT module_id, COUNT(*)::int FROM user_module_grants
+		 WHERE tenant_id = $1 GROUP BY module_id`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string]int32)
+	for rows.Next() {
+		var moduleID string
+		var count int32
+		if err := rows.Scan(&moduleID, &count); err != nil {
+			return nil, err
+		}
+		out[moduleID] = count
+	}
+	return out, rows.Err()
+}
+
+// GetTenantSubscription reads the booked contract off the tenant row. RLS on
+// tenants only exposes the caller's own tenant, so a missing row is either a
+// bad id or a cross-tenant read attempt — both are ErrNotFound.
+func (r *PostgresRepository) GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) (*TenantSubscription, error) {
+	var sub TenantSubscription
+	var periodEnd *time.Time
+	var seats *int32
+	err := r.pool.QueryRow(ctx,
+		`SELECT plan_type, support_tier, subscription_status, billing_period_end, seat_limit
+		 FROM tenants WHERE id = $1`, tenantID,
+	).Scan(&sub.PlanType, &sub.SupportTier, &sub.Status, &periodEnd, &seats)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	sub.BillingPeriodEnd = periodEnd
+	sub.TotalSeats = seats
+	return &sub, nil
+}

@@ -100,6 +100,12 @@ func (a *NotificationAdapter) HandleReply(_ context.Context, _ uuid.UUID, _ uuid
 	return nil
 }
 
+// HandleForward is not supported for notifications — they have no external
+// recipient concept; actionable notifications direct users via deep_link.
+func (a *NotificationAdapter) HandleForward(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ string, _ string) error {
+	return ErrForwardNotSupported
+}
+
 // MarkReadOnSource marks a notification as read on the notification service.
 func (a *NotificationAdapter) MarkReadOnSource(ctx context.Context, sourceID string, userID uuid.UUID) error {
 	if a.client == nil {

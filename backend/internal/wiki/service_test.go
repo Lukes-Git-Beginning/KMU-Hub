@@ -130,7 +130,7 @@ func (m *mockRepository) CreateVersion(ctx context.Context, version *Version) er
 	return nil
 }
 
-func (m *mockRepository) ListVersions(ctx context.Context, articleID uuid.UUID) ([]*Version, error) {
+func (m *mockRepository) ListVersions(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Version, error) {
 	var result []*Version
 	for _, v := range m.versions {
 		if v.ArticleID == articleID {
@@ -140,7 +140,7 @@ func (m *mockRepository) ListVersions(ctx context.Context, articleID uuid.UUID) 
 	return result, nil
 }
 
-func (m *mockRepository) GetVersion(ctx context.Context, versionID uuid.UUID) (*Version, error) {
+func (m *mockRepository) GetVersion(ctx context.Context, tenantID, versionID uuid.UUID) (*Version, error) {
 	v, ok := m.versions[versionID]
 	if !ok {
 		return nil, ErrVersionNotFound
@@ -148,7 +148,7 @@ func (m *mockRepository) GetVersion(ctx context.Context, versionID uuid.UUID) (*
 	return v, nil
 }
 
-func (m *mockRepository) GetLatestVersionNumber(ctx context.Context, articleID uuid.UUID) (int, error) {
+func (m *mockRepository) GetLatestVersionNumber(ctx context.Context, tenantID, articleID uuid.UUID) (int, error) {
 	max := 0
 	for _, v := range m.versions {
 		if v.ArticleID == articleID && v.VersionNumber > max {
@@ -163,7 +163,7 @@ func (m *mockRepository) CreateAttachment(ctx context.Context, attachment *Attac
 	return nil
 }
 
-func (m *mockRepository) ListAttachments(ctx context.Context, articleID uuid.UUID) ([]*Attachment, error) {
+func (m *mockRepository) ListAttachments(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Attachment, error) {
 	var result []*Attachment
 	for _, a := range m.attachments {
 		if a.ArticleID == articleID {
@@ -173,15 +173,11 @@ func (m *mockRepository) ListAttachments(ctx context.Context, articleID uuid.UUI
 	return result, nil
 }
 
-func (m *mockRepository) GetAttachment(ctx context.Context, attachmentID uuid.UUID) (*Attachment, error) {
+func (m *mockRepository) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
 	a, ok := m.attachments[attachmentID]
-	if !ok {
-		return nil, ErrArticleNotFound
+	if !ok || a.TenantID != tenantID {
+		return ErrAttachmentNotFound
 	}
-	return a, nil
-}
-
-func (m *mockRepository) DeleteAttachment(ctx context.Context, attachmentID uuid.UUID) error {
 	delete(m.attachments, attachmentID)
 	return nil
 }
@@ -224,28 +220,23 @@ func (m *mockRepository) CreateShareToken(ctx context.Context, token *ShareToken
 	return nil
 }
 
-func (m *mockRepository) GetShareToken(ctx context.Context, token string) (*ShareToken, error) {
-	t, ok := m.tokens[token]
-	if !ok {
-		return nil, ErrArticleNotFound
-	}
-	return t, nil
-}
-
-func (m *mockRepository) DeleteShareToken(ctx context.Context, tokenID uuid.UUID) error {
+func (m *mockRepository) DeleteShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
 	for k, t := range m.tokens {
 		if t.ID == tokenID {
+			if t.TenantID != tenantID {
+				return ErrShareTokenNotFound
+			}
 			delete(m.tokens, k)
-			break
+			return nil
 		}
 	}
-	return nil
+	return ErrShareTokenNotFound
 }
 
-func (m *mockRepository) ListShareTokensByArticle(ctx context.Context, articleID uuid.UUID) ([]*ShareToken, error) {
+func (m *mockRepository) ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error) {
 	var result []*ShareToken
 	for _, t := range m.tokens {
-		if t.ArticleID == articleID {
+		if t.ArticleID == articleID && t.TenantID == tenantID {
 			result = append(result, t)
 		}
 	}
@@ -473,7 +464,7 @@ func TestService_UpdateArticle_CreatesVersion(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	versions, listErr := repo.ListVersions(context.Background(), a.ID)
+	versions, listErr := repo.ListVersions(context.Background(), tenantID, a.ID)
 	require.NoError(t, listErr)
 	require.Len(t, versions, 1)
 	assert.Equal(t, originalContent, versions[0].Content)
@@ -598,7 +589,7 @@ func TestService_ListVersions_Success(t *testing.T) {
 	repo.versions[v1.ID] = v1
 	repo.versions[v2.ID] = v2
 
-	versions, err := svc.ListVersions(context.Background(), a.ID)
+	versions, err := svc.ListVersions(context.Background(), tenantID, a.ID)
 
 	require.NoError(t, err)
 	assert.Len(t, versions, 2)
@@ -608,7 +599,7 @@ func TestService_GetVersion_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.GetVersion(context.Background(), uuid.New())
+	_, err := svc.GetVersion(context.Background(), uuid.New(), uuid.New())
 
 	assert.ErrorIs(t, err, ErrVersionNotFound)
 }
@@ -754,7 +745,7 @@ func TestService_ListAttachments_Success(t *testing.T) {
 	repo.attachments[uuid.New()] = &Attachment{ID: uuid.New(), ArticleID: articleID, FileRef: "a.pdf", CreatedAt: time.Now()}
 	repo.attachments[uuid.New()] = &Attachment{ID: uuid.New(), ArticleID: articleID, FileRef: "b.docx", CreatedAt: time.Now()}
 
-	attachments, err := svc.ListAttachments(context.Background(), articleID)
+	attachments, err := svc.ListAttachments(context.Background(), uuid.New(), articleID)
 
 	require.NoError(t, err)
 	assert.Len(t, attachments, 2)

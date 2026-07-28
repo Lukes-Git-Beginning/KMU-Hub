@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,8 @@ type NotificationGRPCServer struct {
 	registry        *event.EventTypeRegistry
 	integrationRepo integration.Repository
 	linkService     *integration.AccountLinkService
+	probers         map[string]integration.ConnectionProber
+	webhooks        map[string]integration.WebhookProcessor
 }
 
 // NewNotificationGRPCServer creates a new Notification gRPC server.
@@ -57,6 +60,27 @@ func WithIntegration(repo integration.Repository, linkService *integration.Accou
 	return func(s *NotificationGRPCServer) {
 		s.integrationRepo = repo
 		s.linkService = linkService
+	}
+}
+
+// WithConnectionProbers registers the platform clients that TestIntegrationConfig
+// probes, keyed by platform. A platform without a prober — because its
+// credentials are absent from the environment — cannot be tested, and the RPC
+// says so instead of reporting success.
+func WithConnectionProbers(probers map[string]integration.ConnectionProber) NotificationGRPCOption {
+	return func(s *NotificationGRPCServer) {
+		s.probers = probers
+	}
+}
+
+// WithPlatformWebhooks registers the inbound webhook processors, keyed by
+// platform. A platform is only present when its credentials — and for Slack the
+// signing secret — are in the environment; without them there is nothing to
+// verify a request against, and HandlePlatformWebhook says so instead of
+// processing an unverified payload.
+func WithPlatformWebhooks(processors map[string]integration.WebhookProcessor) NotificationGRPCOption {
+	return func(s *NotificationGRPCServer) {
+		s.webhooks = processors
 	}
 }
 
@@ -658,6 +682,8 @@ func mapNotificationError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, integration.ErrInvalidPlatform):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, integration.ErrTenantMissing):
+		return status.Error(codes.Unauthenticated, err.Error())
 	default:
 		slog.Error("unhandled notification service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
@@ -796,11 +822,56 @@ func (s *NotificationGRPCServer) DeleteIntegrationConfig(ctx context.Context, re
 	return &notificationv1.DeleteIntegrationConfigResponse{}, nil
 }
 
-func (s *NotificationGRPCServer) TestIntegrationConfig(_ context.Context, _ *notificationv1.TestIntegrationConfigRequest) (*notificationv1.TestIntegrationConfigResponse, error) {
-	// Test notification sending will be wired in cmd/notification/main.go
-	// where the forwarder and platform clients are available.
+// probeTimeout bounds the outbound call to the platform so a hanging Slack or
+// Bot Framework endpoint cannot pin the admin's request open.
+const probeTimeout = 10 * time.Second
+
+// TestIntegrationConfig probes the platform with the configured credentials.
+//
+// It used to return Success=true unconditionally — without probing the platform,
+// without sending anything, without even checking that a config for the platform
+// exists. SlackSetupWizard/TeamsSetupWizard show a green "connection successful"
+// on exactly that field, so the admin finished the wizard believing the
+// integration worked while nothing had been verified.
+//
+// Success now requires that a config for the platform exists in this tenant and
+// that the platform answered the probe. Everything else is a gRPC error the
+// wizard renders in its error branch: there is deliberately no success=false
+// path, because "false with no reason" is the same silence in a different shape.
+func (s *NotificationGRPCServer) TestIntegrationConfig(ctx context.Context, req *notificationv1.TestIntegrationConfigRequest) (*notificationv1.TestIntegrationConfigResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	platform := strings.ToLower(strings.TrimSpace(req.Platform))
+	if !integration.ValidPlatforms[platform] {
+		return nil, status.Error(codes.InvalidArgument, "invalid platform")
+	}
+
+	// The config lookup is what makes this a test of *this tenant's* setup and
+	// not just of the server's environment variables. RLS scopes the read.
+	if _, err := s.integrationRepo.GetConfigByPlatform(ctx, platform); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	prober := s.probers[platform]
+	if prober == nil {
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"no %s client configured on the server — the platform credentials are missing from the notification service environment", platform)
+	}
+
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	result, err := prober.ProbeConnection(probeCtx)
+	if err != nil {
+		slog.Warn("integration connection test failed", "platform", platform, "error", err)
+		return nil, status.Errorf(codes.FailedPrecondition, "%s rejected the connection test: %v", platform, err)
+	}
+
 	return &notificationv1.TestIntegrationConfigResponse{
 		Success: true,
+		Message: result.Detail,
 	}, nil
 }
 

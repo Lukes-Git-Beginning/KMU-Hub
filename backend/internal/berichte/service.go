@@ -1,10 +1,14 @@
 package berichte
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -13,6 +17,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // ============================================================================
@@ -617,6 +624,245 @@ func (s *Service) GetDashboardKPIs(ctx context.Context, tenantID uuid.UUID, modu
 }
 
 // ============================================================================
+// Documents (multi-page authoring)
+// ============================================================================
+
+const (
+	maxDocumentTitleLen = 200
+	// lean: one flat size cap for the whole block tree instead of per-block
+	// limits; revisit when a real report hits it (the editor has no cap today).
+	maxDocumentPayloadBytes = 4 << 20 // 4 MiB
+)
+
+var validDocStatuses = map[string]struct{}{
+	"draft": {}, "final": {}, "released": {}, "archived": {},
+}
+
+func isValidDocStatus(s string) bool { _, ok := validDocStatuses[s]; return ok }
+
+// CreateDocumentInput captures data for creating a report document.
+type CreateDocumentInput struct {
+	TenantID    uuid.UUID
+	Title       string // "" defaults to "Neuer Bericht"
+	Description string
+	Module      string // "" defaults to "cross"
+	TemplateID  *string
+	Rows        json.RawMessage // empty defaults to []
+	Settings    json.RawMessage // empty defaults to {}
+	CreatedBy   *uuid.UUID
+}
+
+// UpdateDocumentInput captures partial updates on a report document.
+type UpdateDocumentInput struct {
+	TenantID    uuid.UUID
+	DocumentID  uuid.UUID
+	Title       *string
+	Description *string
+	Module      *string
+	Status      *string
+	Rows        json.RawMessage // empty = no change
+	Settings    json.RawMessage // empty = no change
+}
+
+// ListDocumentsInput is the user-facing document list request.
+type ListDocumentsInput struct {
+	TenantID uuid.UUID
+	Module   *string
+	Status   *string
+	Search   string
+	Page     int
+	PageSize int
+}
+
+func (s *Service) CreateDocument(ctx context.Context, in CreateDocumentInput) (*Document, error) {
+	title := strings.TrimSpace(in.Title)
+	if title == "" {
+		title = "Neuer Bericht"
+	}
+	if len(title) > maxDocumentTitleLen {
+		return nil, ErrInvalidTitle
+	}
+
+	module := in.Module
+	if module == "" {
+		module = "cross"
+	}
+	if !isValidModule(module) {
+		return nil, ErrInvalidModule
+	}
+
+	rows, err := normalizeDocumentRows(in.Rows)
+	if err != nil {
+		return nil, err
+	}
+	settings, err := normalizeDocumentSettings(in.Settings)
+	if err != nil {
+		return nil, err
+	}
+
+	now := s.clock.Now()
+	doc := &Document{
+		ID:          uuid.New(),
+		TenantID:    in.TenantID,
+		Title:       title,
+		Description: strings.TrimSpace(in.Description),
+		Module:      module,
+		Status:      "draft",
+		Rows:        rows,
+		Settings:    settings,
+		TemplateID:  in.TemplateID,
+		CreatedBy:   in.CreatedBy,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := s.repo.CreateDocument(ctx, doc); err != nil {
+		return nil, fmt.Errorf("create document: %w", err)
+	}
+
+	slog.Info("berichte document created",
+		"document_id", doc.ID,
+		"tenant_id", doc.TenantID,
+		"module", doc.Module,
+	)
+	return doc, nil
+}
+
+func (s *Service) UpdateDocument(ctx context.Context, in UpdateDocumentInput) (*Document, error) {
+	doc, err := s.repo.GetDocument(ctx, in.TenantID, in.DocumentID)
+	if err != nil {
+		return nil, err
+	}
+
+	if in.Title != nil {
+		t := strings.TrimSpace(*in.Title)
+		if t == "" || len(t) > maxDocumentTitleLen {
+			return nil, ErrInvalidTitle
+		}
+		doc.Title = t
+	}
+	if in.Description != nil {
+		doc.Description = strings.TrimSpace(*in.Description)
+	}
+	if in.Module != nil {
+		if !isValidModule(*in.Module) {
+			return nil, ErrInvalidModule
+		}
+		doc.Module = *in.Module
+	}
+	if in.Status != nil {
+		if !isValidDocStatus(*in.Status) {
+			return nil, ErrInvalidStatus
+		}
+		doc.Status = *in.Status
+	}
+	if len(in.Rows) > 0 {
+		rows, rowsErr := normalizeDocumentRows(in.Rows)
+		if rowsErr != nil {
+			return nil, rowsErr
+		}
+		doc.Rows = rows
+	}
+	if len(in.Settings) > 0 {
+		settings, settingsErr := normalizeDocumentSettings(in.Settings)
+		if settingsErr != nil {
+			return nil, settingsErr
+		}
+		doc.Settings = settings
+	}
+
+	now := s.clock.Now()
+	doc.UpdatedAt = now
+	// Stamp the release date once, on the first transition into "released".
+	if doc.Status == "released" && doc.ReleasedAt == nil {
+		doc.ReleasedAt = pointerTime(now)
+	}
+
+	if err := s.repo.UpdateDocument(ctx, doc); err != nil {
+		return nil, err
+	}
+
+	slog.Info("berichte document updated",
+		"document_id", doc.ID,
+		"tenant_id", doc.TenantID,
+		"status", doc.Status,
+	)
+	return doc, nil
+}
+
+func (s *Service) GetDocument(ctx context.Context, tenantID, documentID uuid.UUID) (*Document, error) {
+	return s.repo.GetDocument(ctx, tenantID, documentID)
+}
+
+func (s *Service) DeleteDocument(ctx context.Context, tenantID, documentID uuid.UUID) error {
+	if err := s.repo.DeleteDocument(ctx, tenantID, documentID); err != nil {
+		return err
+	}
+	slog.Info("berichte document deleted", "document_id", documentID, "tenant_id", tenantID)
+	return nil
+}
+
+func (s *Service) ListDocuments(ctx context.Context, in ListDocumentsInput) ([]*Document, int, error) {
+	if in.Module != nil && !isValidModule(*in.Module) {
+		return nil, 0, ErrInvalidModule
+	}
+	if in.Status != nil && !isValidDocStatus(*in.Status) {
+		return nil, 0, ErrInvalidStatus
+	}
+
+	page, pageSize := in.Page, in.PageSize
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	return s.repo.ListDocuments(ctx, in.TenantID, ListDocumentsFilter{
+		Module: in.Module,
+		Status: in.Status,
+		Search: strings.TrimSpace(in.Search),
+	}, (page-1)*pageSize, pageSize)
+}
+
+// ListTemplates returns the static starter templates for "Neuer Bericht aus
+// Vorlage" (see templates_data.go). Templates are frontend-owned starter
+// content, not tenant data, so this reads no repository and needs no
+// tenant scoping.
+func (s *Service) ListTemplates() []Template {
+	return demoTemplates
+}
+
+// normalizeDocumentRows validates the opaque block tree: it must be a JSON
+// array within the size cap. Block semantics stay frontend-owned.
+func normalizeDocumentRows(raw json.RawMessage) ([]byte, error) {
+	return normalizeDocumentJSON(raw, '[', "[]", ErrInvalidRows)
+}
+
+// normalizeDocumentSettings validates the document-level page setup: it must be
+// a JSON object within the size cap.
+func normalizeDocumentSettings(raw json.RawMessage) ([]byte, error) {
+	return normalizeDocumentJSON(raw, '{', "{}", ErrInvalidSettings)
+}
+
+func normalizeDocumentJSON(raw json.RawMessage, prefix byte, empty string, shapeErr error) ([]byte, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return []byte(empty), nil
+	}
+	if len(trimmed) > maxDocumentPayloadBytes {
+		return nil, ErrDocumentTooLarge
+	}
+	if trimmed[0] != prefix || !json.Valid(trimmed) {
+		return nil, shapeErr
+	}
+	return append([]byte(nil), trimmed...), nil
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
@@ -701,3 +947,192 @@ func (s *Service) insertRun(ctx context.Context, run *Run) error {
 }
 
 func pointerTime(t time.Time) *time.Time { return &t }
+
+// ============================================================================
+// Share tokens (external, unauthenticated read links)
+// ============================================================================
+
+const (
+	// shareTokenBytes is the entropy behind a share link. 32 bytes is not a
+	// round number picked for looks: the public route answers on the token
+	// alone, so the token is the entire access control. At 256 bits a guessing
+	// attack is not slowed by the rate limit, it is impossible.
+	shareTokenBytes = 32
+	// maxSharePasswordLen caps what is fed to bcrypt. bcrypt silently ignores
+	// input past 72 bytes, so an uncapped field would accept two different
+	// passwords as the same one.
+	maxSharePasswordLen = 72
+	// maxShareExpiryDays bounds a link's lifetime. An external read path that
+	// outlives anyone's memory of creating it is the failure mode here.
+	maxShareExpiryDays = 365
+	// shareBcryptCost matches internal/auth.
+	shareBcryptCost = 12
+)
+
+// CreateShareTokenInput is the request to hand out an external read link.
+type CreateShareTokenInput struct {
+	TenantID      uuid.UUID
+	DocumentID    uuid.UUID
+	ExpiresInDays *int32 // nil or 0 = never expires
+	Password      string // empty = no password
+	CreatedBy     *uuid.UUID
+}
+
+// CreateShareToken issues an external read link for one document.
+//
+// The document is read first, tenant-scoped: a link may only ever be minted for
+// a document the caller's own tenant owns, and that read is what proves it.
+// Without it a caller could name any UUID and get back a working public link to
+// another tenant's report.
+func (s *Service) CreateShareToken(ctx context.Context, in CreateShareTokenInput) (*ShareToken, error) {
+	if _, err := s.repo.GetDocument(ctx, in.TenantID, in.DocumentID); err != nil {
+		return nil, err
+	}
+
+	now := s.clock.Now()
+	token := &ShareToken{
+		ID:         uuid.New(),
+		TenantID:   in.TenantID,
+		DocumentID: in.DocumentID,
+		CreatedBy:  in.CreatedBy,
+		CreatedAt:  now,
+	}
+
+	if in.ExpiresInDays != nil && *in.ExpiresInDays != 0 {
+		days := *in.ExpiresInDays
+		if days < 0 || days > maxShareExpiryDays {
+			return nil, ErrInvalidShareExpiry
+		}
+		expiry := now.AddDate(0, 0, int(days))
+		token.ExpiresAt = &expiry
+	}
+
+	if in.Password != "" {
+		if len(in.Password) > maxSharePasswordLen {
+			return nil, ErrSharePasswordTooLong
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(in.Password), shareBcryptCost)
+		if err != nil {
+			return nil, fmt.Errorf("hash share password: %w", err)
+		}
+		hashStr := string(hash)
+		token.PasswordHash = &hashStr
+	}
+
+	secret, err := newShareSecret()
+	if err != nil {
+		return nil, err
+	}
+	token.Token = secret
+
+	if err := s.repo.CreateShareToken(ctx, token); err != nil {
+		return nil, fmt.Errorf("create share token: %w", err)
+	}
+
+	// The secret itself is never logged: this line would otherwise be a
+	// working public link sitting in the log pipeline.
+	slog.Info("berichte share link created",
+		"share_id", token.ID,
+		"document_id", token.DocumentID,
+		"tenant_id", token.TenantID,
+		"has_password", token.PasswordHash != nil,
+		"expires_at", token.ExpiresAt,
+	)
+	return token, nil
+}
+
+func (s *Service) ListShareTokens(ctx context.Context, tenantID, documentID uuid.UUID) ([]*ShareToken, error) {
+	// Same reason as CreateShareToken: prove the document is ours before
+	// listing anything attached to it.
+	if _, err := s.repo.GetDocument(ctx, tenantID, documentID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListShareTokens(ctx, tenantID, documentID)
+}
+
+func (s *Service) RevokeShareToken(ctx context.Context, tenantID, shareID uuid.UUID) error {
+	if err := s.repo.RevokeShareToken(ctx, tenantID, shareID, s.clock.Now()); err != nil {
+		return err
+	}
+	slog.Info("berichte share link revoked", "share_id", shareID, "tenant_id", tenantID)
+	return nil
+}
+
+// GetSharedDocument serves the unauthenticated public read.
+//
+// This is the only path in the service that starts without a tenant, so the
+// order of the checks is the security property, not a style choice:
+//
+//  1. resolve the link by its secret in the system context — the one read that
+//     must escape RLS, because which tenant may be seen is exactly what it
+//     answers;
+//  2. refuse revoked and expired links before anything else, all as the same
+//     "not found" a wholly unknown token gets;
+//  3. verify the password against the stored bcrypt hash;
+//  4. only then re-enter tenant scope and read the one document the link names.
+//
+// Step 4 reads through GetDocument with the resolved tenant rather than
+// trusting the link's DocumentID alone, so RLS still has the final say and the
+// path can reach exactly one row: the shared report, never a listing.
+func (s *Service) GetSharedDocument(ctx context.Context, secret, password string) (*Document, error) {
+	share, err := s.repo.GetShareTokenBySecret(ctx, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	now := s.clock.Now()
+	if !share.Usable(now) {
+		slog.Info("berichte share link refused",
+			"share_id", share.ID,
+			"revoked", share.RevokedAt != nil,
+			"expired", share.ExpiresAt != nil && !now.Before(*share.ExpiresAt),
+		)
+		return nil, ErrShareNotFound
+	}
+
+	if share.PasswordHash != nil {
+		if password == "" {
+			return nil, ErrSharePasswordRequired
+		}
+		// bcrypt's own comparison is the constant-time one; a byte-wise
+		// comparison of the hashes here would be the timing leak.
+		if bcrypt.CompareHashAndPassword([]byte(*share.PasswordHash), []byte(password)) != nil {
+			slog.Warn("berichte share link password rejected", "share_id", share.ID)
+			return nil, ErrSharePasswordInvalid
+		}
+	}
+
+	ctx = WithTenant(ctx, share.TenantID)
+	doc, err := s.repo.GetDocument(ctx, share.TenantID, share.DocumentID)
+	if err != nil {
+		// A link whose document is gone is a dead link, not a server fault.
+		if errors.Is(err, ErrDocumentNotFound) {
+			return nil, ErrShareNotFound
+		}
+		return nil, err
+	}
+
+	// Counting the view must not fail the read the visitor already earned.
+	if err := s.repo.IncrementShareView(ctx, share.TenantID, share.ID); err != nil {
+		slog.Warn("berichte share view not counted", "share_id", share.ID, "error", err)
+	}
+	return doc, nil
+}
+
+// WithTenant attaches a tenant resolved from a share link to the context, so
+// the repository and the RLS session GUCs see it. This is the single place a
+// public path may set a tenant, and it is only ever reached with the tenant the
+// link itself resolved to.
+func WithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
+}
+
+// newShareSecret draws a link secret from crypto/rand. base64url keeps it
+// usable in a URL path segment without escaping.
+func newShareSecret() (string, error) {
+	buf := make([]byte, shareTokenBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate share token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}

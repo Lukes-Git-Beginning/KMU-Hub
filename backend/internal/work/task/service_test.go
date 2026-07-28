@@ -80,7 +80,7 @@ func (m *mockRepo) Delete(_ context.Context, id, _ uuid.UUID) error {
 	return nil
 }
 
-func (m *mockRepo) MoveTask(_ context.Context, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
+func (m *mockRepo) MoveTask(_ context.Context, _ uuid.UUID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
 	tw, ok := m.tasks[taskID]
 	if !ok {
 		return ErrNotFound
@@ -90,7 +90,7 @@ func (m *mockRepo) MoveTask(_ context.Context, taskID uuid.UUID, newStatusID uui
 	return nil
 }
 
-func (m *mockRepo) GetNextTaskNumber(_ context.Context, _ uuid.UUID) (int, error) {
+func (m *mockRepo) GetNextTaskNumber(_ context.Context, _, _ uuid.UUID) (int, error) {
 	num := m.nextNumber
 	m.nextNumber++
 	return num, nil
@@ -117,7 +117,7 @@ func (m *mockRepo) CreateDependency(_ context.Context, dep *models.TaskDependenc
 	return nil
 }
 
-func (m *mockRepo) DeleteDependency(_ context.Context, id uuid.UUID) error {
+func (m *mockRepo) DeleteDependency(_ context.Context, _, id uuid.UUID) error {
 	for i, d := range m.deps {
 		if d.ID == id {
 			m.deps = append(m.deps[:i], m.deps[i+1:]...)
@@ -160,7 +160,7 @@ func (m *mockRepo) LinkEntity(_ context.Context, link *models.TaskEntityLink) er
 	return nil
 }
 
-func (m *mockRepo) UnlinkEntity(_ context.Context, _ uuid.UUID) error {
+func (m *mockRepo) UnlinkEntity(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
 
@@ -176,7 +176,7 @@ func (m *mockRepo) AttachFile(_ context.Context, _ *models.TaskFile) error {
 	return nil
 }
 
-func (m *mockRepo) RemoveFile(_ context.Context, _ uuid.UUID) error {
+func (m *mockRepo) RemoveFile(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
 
@@ -951,6 +951,7 @@ func TestService_CreateFromTemplate(t *testing.T) {
 	projRepo := newMockProjectRepo()
 	svc := NewService(repo, projRepo)
 
+	tenantID := uuid.New()
 	sourceProjectID := uuid.New()
 	targetProjectID := uuid.New()
 	actorID := uuid.New()
@@ -989,7 +990,7 @@ func TestService_CreateFromTemplate(t *testing.T) {
 		},
 	}
 
-	err := svc.CreateFromTemplate(ctx, sourceProjectID, targetProjectID, actorID)
+	err := svc.CreateFromTemplate(ctx, tenantID, sourceProjectID, targetProjectID, actorID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -1020,6 +1021,7 @@ func TestService_CreateFromTemplate(t *testing.T) {
 	}
 	if childTask == nil {
 		t.Fatal("child task not found in target project")
+		return // staticcheck SA5011 does not read t.Fatal as terminating
 	}
 	if childTask.ParentTaskID == nil {
 		t.Error("expected child to have parent_task_id set")

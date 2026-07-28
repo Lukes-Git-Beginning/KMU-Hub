@@ -2,6 +2,7 @@ package gdpr
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -37,16 +38,17 @@ func (r *PostgresRepository) CreateExportRequest(ctx context.Context, req *model
 	return err
 }
 
-func (r *PostgresRepository) GetExportRequest(ctx context.Context, id uuid.UUID) (*models.GDPRExportRequest, error) {
+func (r *PostgresRepository) GetExportRequest(ctx context.Context, tenantID, id uuid.UUID) (*models.GDPRExportRequest, error) {
 	var req models.GDPRExportRequest
+	var reviewNote, downloadToken sql.NullString
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, user_id, status, requested_at, reviewed_by, reviewed_at,
 		        review_note, export_data, download_token, download_expires_at, downloaded_at
-		 FROM gdpr_export_requests WHERE id = $1`, id,
+		 FROM gdpr_export_requests WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	).Scan(
 		&req.ID, &req.UserID, &req.Status, &req.RequestedAt,
-		&req.ReviewedBy, &req.ReviewedAt, &req.ReviewNote,
-		&req.ExportData, &req.DownloadToken, &req.DownloadExpiresAt, &req.DownloadedAt,
+		&req.ReviewedBy, &req.ReviewedAt, &reviewNote,
+		&req.ExportData, &downloadToken, &req.DownloadExpiresAt, &req.DownloadedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrExportNotFound
@@ -54,15 +56,17 @@ func (r *PostgresRepository) GetExportRequest(ctx context.Context, id uuid.UUID)
 	if err != nil {
 		return nil, err
 	}
+	req.ReviewNote = reviewNote.String
+	req.DownloadToken = downloadToken.String
 	return &req, nil
 }
 
-func (r *PostgresRepository) ListExportRequests(ctx context.Context, userID uuid.UUID, status string) ([]*models.GDPRExportRequest, error) {
+func (r *PostgresRepository) ListExportRequests(ctx context.Context, tenantID, userID uuid.UUID, status string) ([]*models.GDPRExportRequest, error) {
 	query := `SELECT id, user_id, status, requested_at, reviewed_by, reviewed_at,
 	                 review_note, download_token, download_expires_at, downloaded_at
-	          FROM gdpr_export_requests WHERE 1=1`
-	args := []interface{}{}
-	argIdx := 1
+	          FROM gdpr_export_requests WHERE tenant_id = $1`
+	args := []any{tenantID}
+	argIdx := 2
 
 	if userID != uuid.Nil {
 		query += fmt.Sprintf(" AND user_id = $%d", argIdx)
@@ -85,25 +89,29 @@ func (r *PostgresRepository) ListExportRequests(ctx context.Context, userID uuid
 	var requests []*models.GDPRExportRequest
 	for rows.Next() {
 		var req models.GDPRExportRequest
+		var reviewNote, downloadToken sql.NullString
 		if scanErr := rows.Scan(
 			&req.ID, &req.UserID, &req.Status, &req.RequestedAt,
-			&req.ReviewedBy, &req.ReviewedAt, &req.ReviewNote,
-			&req.DownloadToken, &req.DownloadExpiresAt, &req.DownloadedAt,
+			&req.ReviewedBy, &req.ReviewedAt, &reviewNote,
+			&downloadToken, &req.DownloadExpiresAt, &req.DownloadedAt,
 		); scanErr != nil {
 			return nil, scanErr
 		}
+		req.ReviewNote = reviewNote.String
+		req.DownloadToken = downloadToken.String
+		req.TenantID = tenantID
 		// ExportData intentionally omitted from list query for performance
 		requests = append(requests, &req)
 	}
 	return requests, rows.Err()
 }
 
-func (r *PostgresRepository) UpdateExportStatus(ctx context.Context, req *models.GDPRExportRequest) error {
+func (r *PostgresRepository) UpdateExportStatus(ctx context.Context, tenantID uuid.UUID, req *models.GDPRExportRequest) error {
 	result, err := r.pool.Exec(ctx,
 		`UPDATE gdpr_export_requests
 		 SET status = $1, reviewed_by = $2, reviewed_at = $3, review_note = $4
-		 WHERE id = $5`,
-		req.Status, req.ReviewedBy, req.ReviewedAt, req.ReviewNote, req.ID,
+		 WHERE id = $5 AND tenant_id = $6`,
+		req.Status, req.ReviewedBy, req.ReviewedAt, req.ReviewNote, req.ID, tenantID,
 	)
 	if err != nil {
 		return err
@@ -114,7 +122,7 @@ func (r *PostgresRepository) UpdateExportStatus(ctx context.Context, req *models
 	return nil
 }
 
-func (r *PostgresRepository) StoreExportResult(ctx context.Context, id uuid.UUID, data []byte, token string, expiresAt interface{}) error {
+func (r *PostgresRepository) StoreExportResult(ctx context.Context, tenantID, id uuid.UUID, data []byte, token string, expiresAt interface{}) error {
 	var expiresTime *time.Time
 	switch v := expiresAt.(type) {
 	case time.Time:
@@ -126,8 +134,8 @@ func (r *PostgresRepository) StoreExportResult(ctx context.Context, id uuid.UUID
 	result, err := r.pool.Exec(ctx,
 		`UPDATE gdpr_export_requests
 		 SET status = $1, export_data = $2, download_token = $3, download_expires_at = $4
-		 WHERE id = $5`,
-		models.ExportStatusReady, data, token, expiresTime, id,
+		 WHERE id = $5 AND tenant_id = $6`,
+		models.ExportStatusReady, data, token, expiresTime, id, tenantID,
 	)
 	if err != nil {
 		return err
@@ -138,16 +146,17 @@ func (r *PostgresRepository) StoreExportResult(ctx context.Context, id uuid.UUID
 	return nil
 }
 
-func (r *PostgresRepository) GetExportByToken(ctx context.Context, token string) (*models.GDPRExportRequest, error) {
+func (r *PostgresRepository) GetExportByToken(ctx context.Context, tenantID uuid.UUID, token string) (*models.GDPRExportRequest, error) {
 	var req models.GDPRExportRequest
+	var reviewNote, downloadToken sql.NullString
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, user_id, status, requested_at, reviewed_by, reviewed_at,
 		        review_note, export_data, download_token, download_expires_at, downloaded_at
-		 FROM gdpr_export_requests WHERE download_token = $1`, token,
+		 FROM gdpr_export_requests WHERE download_token = $1 AND tenant_id = $2`, token, tenantID,
 	).Scan(
 		&req.ID, &req.UserID, &req.Status, &req.RequestedAt,
-		&req.ReviewedBy, &req.ReviewedAt, &req.ReviewNote,
-		&req.ExportData, &req.DownloadToken, &req.DownloadExpiresAt, &req.DownloadedAt,
+		&req.ReviewedBy, &req.ReviewedAt, &reviewNote,
+		&req.ExportData, &downloadToken, &req.DownloadExpiresAt, &req.DownloadedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTokenNotFound
@@ -155,14 +164,16 @@ func (r *PostgresRepository) GetExportByToken(ctx context.Context, token string)
 	if err != nil {
 		return nil, err
 	}
+	req.ReviewNote = reviewNote.String
+	req.DownloadToken = downloadToken.String
 	return &req, nil
 }
 
-func (r *PostgresRepository) MarkDownloaded(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) MarkDownloaded(ctx context.Context, tenantID, id uuid.UUID) error {
 	now := time.Now()
 	result, err := r.pool.Exec(ctx,
-		`UPDATE gdpr_export_requests SET status = $1, downloaded_at = $2 WHERE id = $3`,
-		models.ExportStatusDownloaded, now, id,
+		`UPDATE gdpr_export_requests SET status = $1, downloaded_at = $2 WHERE id = $3 AND tenant_id = $4`,
+		models.ExportStatusDownloaded, now, id, tenantID,
 	)
 	if err != nil {
 		return err

@@ -3130,6 +3130,11 @@ func (s *CRMGRPCServer) GetConsentHistory(ctx context.Context, req *crmv1.GetCon
 }
 
 func (s *CRMGRPCServer) RequestDeletion(ctx context.Context, req *crmv1.RequestDeletionRequest) (*crmv1.RequestDeletionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
@@ -3143,7 +3148,7 @@ func (s *CRMGRPCServer) RequestDeletion(ctx context.Context, req *crmv1.RequestD
 		}
 	}
 
-	deletionReq, err := s.consentService.RequestDeletion(ctx, contactID, req.Reason, requestedBy)
+	deletionReq, err := s.consentService.RequestDeletion(ctx, tenantID, contactID, req.Reason, requestedBy)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -3170,12 +3175,17 @@ func (s *CRMGRPCServer) RequestDeletion(ctx context.Context, req *crmv1.RequestD
 }
 
 func (s *CRMGRPCServer) ProcessDeletion(ctx context.Context, req *crmv1.ProcessDeletionRequest) (*crmv1.ProcessDeletionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	requestID, err := uuid.Parse(req.RequestId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
 	}
 
-	if err := s.consentService.ProcessDeletion(ctx, requestID); err != nil {
+	if err := s.consentService.ProcessDeletion(ctx, tenantID, requestID); err != nil {
 		return nil, mapCRMError(err)
 	}
 

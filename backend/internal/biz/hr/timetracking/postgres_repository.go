@@ -55,7 +55,7 @@ func (r *PostgresWorkTimeRepo) Create(ctx context.Context, entry *models.HRWorkT
 	return err
 }
 
-func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.HRWorkTimeEntry, error) {
+func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.HRWorkTimeEntry, error) {
 	entry := &models.HRWorkTimeEntry{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT w.id, w.tenant_id, w.employee_id, w.clock_in, w.clock_out,
@@ -68,8 +68,8 @@ func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 		FROM hr_work_time_entries w
 		LEFT JOIN hr_employee_profiles ep ON w.employee_id = ep.user_id
 		LEFT JOIN users u ON ep.user_id = u.id
-		WHERE w.id = $1`,
-		id,
+		WHERE w.id = $1 AND w.tenant_id = $2`,
+		id, tenantID,
 	).Scan(
 		&entry.ID, &entry.TenantID, &entry.EmployeeID, &entry.ClockIn, &entry.ClockOut,
 		&entry.BreakMinutes, &entry.AutoBreakDeducted, &entry.NetWorkMinutes,
@@ -88,7 +88,7 @@ func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 	return entry, nil
 }
 
-func (r *PostgresWorkTimeRepo) GetActiveShift(ctx context.Context, employeeID uuid.UUID) (*models.HRWorkTimeEntry, error) {
+func (r *PostgresWorkTimeRepo) GetActiveShift(ctx context.Context, tenantID, employeeID uuid.UUID) (*models.HRWorkTimeEntry, error) {
 	entry := &models.HRWorkTimeEntry{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, employee_id, clock_in, clock_out,
@@ -98,9 +98,9 @@ func (r *PostgresWorkTimeRepo) GetActiveShift(ctx context.Context, employeeID uu
 			created_at, updated_at,
 			category_id, project_id, location_lat, location_lng, location_address
 		FROM hr_work_time_entries
-		WHERE employee_id = $1 AND status = 'active'
+		WHERE tenant_id = $2 AND employee_id = $1 AND status = 'active'
 		LIMIT 1`,
-		employeeID,
+		employeeID, tenantID,
 	).Scan(
 		&entry.ID, &entry.TenantID, &entry.EmployeeID, &entry.ClockIn, &entry.ClockOut,
 		&entry.BreakMinutes, &entry.AutoBreakDeducted, &entry.NetWorkMinutes,
@@ -125,13 +125,55 @@ func (r *PostgresWorkTimeRepo) Update(ctx context.Context, entry *models.HRWorkT
 			net_work_minutes = $5, status = $6,
 			correction_approved_by = $7, correction_approved_at = $8,
 			updated_at = $9
-		WHERE id = $1`,
+		WHERE id = $1 AND tenant_id = $10`,
 		entry.ID, entry.ClockOut, entry.BreakMinutes, entry.AutoBreakDeducted,
 		entry.NetWorkMinutes, entry.Status,
 		entry.CorrectionApprovedBy, entry.CorrectionApprovedAt,
-		entry.UpdatedAt,
+		entry.UpdatedAt, entry.TenantID,
 	)
 	return err
+}
+
+// ApproveCorrection stores the approved correction and retires the entry it
+// replaces in one transaction, so the two writes that together keep the balance
+// correct can never land separately.
+func (r *PostgresWorkTimeRepo) ApproveCorrection(ctx context.Context, correction *models.HRWorkTimeEntry, originalID *uuid.UUID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE hr_work_time_entries SET
+			clock_out = $2, break_minutes = $3, auto_break_deducted = $4,
+			net_work_minutes = $5, status = $6,
+			correction_approved_by = $7, correction_approved_at = $8,
+			updated_at = $9
+		WHERE id = $1 AND tenant_id = $10`,
+		correction.ID, correction.ClockOut, correction.BreakMinutes, correction.AutoBreakDeducted,
+		correction.NetWorkMinutes, correction.Status,
+		correction.CorrectionApprovedBy, correction.CorrectionApprovedAt,
+		correction.UpdatedAt, correction.TenantID,
+	); err != nil {
+		return err
+	}
+
+	if originalID != nil {
+		// Scoped to the correction's tenant and to the states an original can be in:
+		// a second approval must not pull an already superseded entry around again.
+		if _, err = tx.Exec(ctx,
+			`UPDATE hr_work_time_entries
+			SET status = $3, updated_at = $4
+			WHERE id = $1 AND tenant_id = $2 AND status = ANY($5)`,
+			*originalID, correction.TenantID, models.WorkTimeStatusSuperseded, correction.UpdatedAt,
+			[]string{string(models.WorkTimeStatusActive), string(models.WorkTimeStatusCompleted)},
+		); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) ([]*models.HRWorkTimeEntry, int, error) {
@@ -233,15 +275,15 @@ func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) 
 	return entries, total, nil
 }
 
-func (r *PostgresWorkTimeRepo) GetPreviousShiftEnd(ctx context.Context, employeeID uuid.UUID, before time.Time) (*time.Time, error) {
+func (r *PostgresWorkTimeRepo) GetPreviousShiftEnd(ctx context.Context, tenantID, employeeID uuid.UUID, before time.Time) (*time.Time, error) {
 	var clockOut *time.Time
 	err := r.pool.QueryRow(ctx,
 		`SELECT clock_out
 		FROM hr_work_time_entries
-		WHERE employee_id = $1 AND clock_out IS NOT NULL AND clock_in < $2
+		WHERE tenant_id = $3 AND employee_id = $1 AND clock_out IS NOT NULL AND clock_in < $2
 		ORDER BY clock_in DESC
 		LIMIT 1`,
-		employeeID, before,
+		employeeID, before, tenantID,
 	).Scan(&clockOut)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -252,7 +294,7 @@ func (r *PostgresWorkTimeRepo) GetPreviousShiftEnd(ctx context.Context, employee
 	return clockOut, nil
 }
 
-func (r *PostgresWorkTimeRepo) GetDailySummary(ctx context.Context, employeeID uuid.UUID, date time.Time) (*DailySummary, error) {
+func (r *PostgresWorkTimeRepo) GetDailySummary(ctx context.Context, tenantID, employeeID uuid.UUID, date time.Time) (*DailySummary, error) {
 	dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	dayEnd := dayStart.Add(24 * time.Hour)
 
@@ -265,10 +307,10 @@ func (r *PostgresWorkTimeRepo) GetDailySummary(ctx context.Context, employeeID u
 			COALESCE(SUM(COALESCE(net_work_minutes, 0)), 0),
 			COUNT(*)
 		FROM hr_work_time_entries
-		WHERE employee_id = $1
+		WHERE tenant_id = $5 AND employee_id = $1
 			AND clock_in >= $2 AND clock_in < $3
-			AND status IN ('active', 'completed', 'correction_approved')`,
-		employeeID, dayStart, dayEnd,
+			AND status = ANY($4)`,
+		employeeID, dayStart, dayEnd, balanceStatuses, tenantID,
 	).Scan(
 		&summary.TotalWorkedMinutes,
 		&summary.TotalBreakMinutes,
@@ -297,8 +339,8 @@ func (r *PostgresWorkTimeRepo) GetDailySummary(ctx context.Context, employeeID u
 	return summary, nil
 }
 
-func (r *PostgresWorkTimeRepo) GetWeeklySummary(ctx context.Context, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error) {
-	batch, err := r.GetWeeklySummaryBatch(ctx, []uuid.UUID{employeeID}, weekStart)
+func (r *PostgresWorkTimeRepo) GetWeeklySummary(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error) {
+	batch, err := r.GetWeeklySummaryBatch(ctx, tenantID, []uuid.UUID{employeeID}, weekStart)
 	if err != nil {
 		return nil, err
 	}
@@ -307,14 +349,14 @@ func (r *PostgresWorkTimeRepo) GetWeeklySummary(ctx context.Context, employeeID 
 
 // GetWeeklySummaryBatch aggregates the weekly summary for every requested employee
 // in a single GROUP BY query, replacing the previous N×7 per-day round-trips.
-func (r *PostgresWorkTimeRepo) GetWeeklySummaryBatch(ctx context.Context, employeeIDs []uuid.UUID, weekStart time.Time) (map[uuid.UUID]*WeeklySummary, error) {
+func (r *PostgresWorkTimeRepo) GetWeeklySummaryBatch(ctx context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID, weekStart time.Time) (map[uuid.UUID]*WeeklySummary, error) {
 	// Ensure weekStart is a Monday at local midnight.
 	for weekStart.Weekday() != time.Monday {
 		weekStart = weekStart.AddDate(0, 0, -1)
 	}
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
 
-	buckets, err := r.aggregateDailyBuckets(ctx, employeeIDs, weekStart, 7)
+	buckets, err := r.aggregateDailyBuckets(ctx, tenantID, employeeIDs, weekStart, 7)
 	if err != nil {
 		return nil, err
 	}
@@ -336,8 +378,8 @@ func (r *PostgresWorkTimeRepo) GetWeeklySummaryBatch(ctx context.Context, employ
 
 // GetDailySummaryRange returns one DailySummary per day for [start, start+numDays)
 // in a single aggregated query, replacing numDays per-day GetDailySummary calls.
-func (r *PostgresWorkTimeRepo) GetDailySummaryRange(ctx context.Context, employeeID uuid.UUID, start time.Time, numDays int) ([]DailySummary, error) {
-	buckets, err := r.aggregateDailyBuckets(ctx, []uuid.UUID{employeeID}, start, numDays)
+func (r *PostgresWorkTimeRepo) GetDailySummaryRange(ctx context.Context, tenantID, employeeID uuid.UUID, start time.Time, numDays int) ([]DailySummary, error) {
+	buckets, err := r.aggregateDailyBuckets(ctx, tenantID, []uuid.UUID{employeeID}, start, numDays)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +391,7 @@ func (r *PostgresWorkTimeRepo) GetDailySummaryRange(ctx context.Context, employe
 // numDays days. It returns, per requested employee, a slice of numDays DailySummary
 // values (index == day offset), applying the same per-day net/overtime recomputation
 // as GetDailySummary. Employees without entries get a zeroed slice.
-func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, employeeIDs []uuid.UUID, start time.Time, numDays int) (map[uuid.UUID][]DailySummary, error) {
+func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID, start time.Time, numDays int) (map[uuid.UUID][]DailySummary, error) {
 	start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 	// Use exact 24h windows so day_idx is always in [0, numDays): no gaps/overlaps,
 	// even across DST (matches GetDailySummary's dayEnd = dayStart + 24h semantics).
@@ -376,11 +418,11 @@ func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, employ
 			COALESCE(SUM(COALESCE(net_work_minutes, 0)), 0),
 			COUNT(*)
 		FROM hr_work_time_entries
-		WHERE employee_id = ANY($1)
+		WHERE tenant_id = $5 AND employee_id = ANY($1)
 			AND clock_in >= $2 AND clock_in < $3
-			AND status IN ('active', 'completed', 'correction_approved')
+			AND status = ANY($4)
 		GROUP BY employee_id, day_idx`,
-		employeeIDs, start, end,
+		employeeIDs, start, end, balanceStatuses, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -420,7 +462,7 @@ func (r *PostgresWorkTimeRepo) aggregateDailyBuckets(ctx context.Context, employ
 
 // GetActiveShiftEmployeeIDs returns the set of employee IDs with a currently active
 // shift in a single query, replacing N per-employee GetActiveShift calls.
-func (r *PostgresWorkTimeRepo) GetActiveShiftEmployeeIDs(ctx context.Context, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+func (r *PostgresWorkTimeRepo) GetActiveShiftEmployeeIDs(ctx context.Context, tenantID uuid.UUID, employeeIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
 	result := make(map[uuid.UUID]bool, len(employeeIDs))
 	if len(employeeIDs) == 0 {
 		return result, nil
@@ -429,8 +471,8 @@ func (r *PostgresWorkTimeRepo) GetActiveShiftEmployeeIDs(ctx context.Context, em
 	rows, err := r.pool.Query(ctx,
 		`SELECT DISTINCT employee_id
 		FROM hr_work_time_entries
-		WHERE employee_id = ANY($1) AND status = 'active'`,
-		employeeIDs,
+		WHERE tenant_id = $2 AND employee_id = ANY($1) AND status = 'active'`,
+		employeeIDs, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -456,10 +498,10 @@ func (r *PostgresWorkTimeRepo) GetProjectBreakdown(ctx context.Context, tenantID
 		LEFT JOIN hr_time_projects p ON w.project_id = p.id
 		WHERE w.tenant_id = $1 AND w.employee_id = $2
 			AND w.clock_in >= $3 AND w.clock_in < $4
-			AND w.status = 'completed'
+			AND w.status = ANY($5)
 		GROUP BY w.project_id, p.name
 		ORDER BY minutes DESC`,
-		tenantID, employeeID, dateFrom, dateTo.Add(24*time.Hour),
+		tenantID, employeeID, dateFrom, dateTo.Add(24*time.Hour), billableStatuses,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get project breakdown: %w", err)
@@ -485,18 +527,19 @@ func (r *PostgresWorkTimeRepo) GetProjectBreakdown(ctx context.Context, tenantID
 }
 
 // AggregateWorkTimeForInvoice returns the total net_work_minutes and entry IDs
-// for all completed work time entries of the given employee within [from, to].
+// for the billable work time entries of the given employee within [from, to] —
+// finished entries and approved corrections, never the originals they replaced.
 func (r *PostgresWorkTimeRepo) AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (int, []string, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, net_work_minutes
 		 FROM hr_work_time_entries
 		 WHERE tenant_id = $1
 		   AND employee_id = $2
-		   AND status = 'completed'
+		   AND status = ANY($5)
 		   AND clock_in >= $3
 		   AND clock_in <= $4
 		   AND net_work_minutes IS NOT NULL`,
-		tenantID, employeeID, from, to,
+		tenantID, employeeID, from, to, billableStatuses,
 	)
 	if err != nil {
 		return 0, nil, err
@@ -533,22 +576,22 @@ func NewPostgresBreakRepo(pool *pgxpool.Pool) *PostgresBreakRepo {
 
 func (r *PostgresBreakRepo) Create(ctx context.Context, entry *models.HRBreakEntry) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO hr_break_entries (id, work_time_entry_id, start_time, end_time, duration_minutes, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		entry.ID, entry.WorkTimeEntryID, entry.StartTime, entry.EndTime, entry.DurationMinutes, entry.CreatedAt,
+		`INSERT INTO hr_break_entries (id, tenant_id, work_time_entry_id, start_time, end_time, duration_minutes, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		entry.ID, entry.TenantID, entry.WorkTimeEntryID, entry.StartTime, entry.EndTime, entry.DurationMinutes, entry.CreatedAt,
 	)
 	return err
 }
 
-func (r *PostgresBreakRepo) GetActiveBreak(ctx context.Context, workTimeEntryID uuid.UUID) (*models.HRBreakEntry, error) {
+func (r *PostgresBreakRepo) GetActiveBreak(ctx context.Context, tenantID, workTimeEntryID uuid.UUID) (*models.HRBreakEntry, error) {
 	entry := &models.HRBreakEntry{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
+		`SELECT id, tenant_id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
 		FROM hr_break_entries
-		WHERE work_time_entry_id = $1 AND end_time IS NULL
+		WHERE tenant_id = $2 AND work_time_entry_id = $1 AND end_time IS NULL
 		LIMIT 1`,
-		workTimeEntryID,
-	).Scan(&entry.ID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime, &entry.DurationMinutes, &entry.CreatedAt)
+		workTimeEntryID, tenantID,
+	).Scan(&entry.ID, &entry.TenantID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime, &entry.DurationMinutes, &entry.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -560,19 +603,19 @@ func (r *PostgresBreakRepo) GetActiveBreak(ctx context.Context, workTimeEntryID 
 
 func (r *PostgresBreakRepo) Update(ctx context.Context, entry *models.HRBreakEntry) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE hr_break_entries SET end_time = $2, duration_minutes = $3 WHERE id = $1`,
-		entry.ID, entry.EndTime, entry.DurationMinutes,
+		`UPDATE hr_break_entries SET end_time = $2, duration_minutes = $3 WHERE id = $1 AND tenant_id = $4`,
+		entry.ID, entry.EndTime, entry.DurationMinutes, entry.TenantID,
 	)
 	return err
 }
 
-func (r *PostgresBreakRepo) ListByWorkTimeEntry(ctx context.Context, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
+func (r *PostgresBreakRepo) ListByWorkTimeEntry(ctx context.Context, tenantID, workTimeEntryID uuid.UUID) ([]*models.HRBreakEntry, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
+		`SELECT id, tenant_id, work_time_entry_id, start_time, end_time, duration_minutes, created_at
 		FROM hr_break_entries
-		WHERE work_time_entry_id = $1
+		WHERE tenant_id = $2 AND work_time_entry_id = $1
 		ORDER BY start_time ASC`,
-		workTimeEntryID,
+		workTimeEntryID, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -583,7 +626,7 @@ func (r *PostgresBreakRepo) ListByWorkTimeEntry(ctx context.Context, workTimeEnt
 	for rows.Next() {
 		entry := &models.HRBreakEntry{}
 		if scanErr := rows.Scan(
-			&entry.ID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime,
+			&entry.ID, &entry.TenantID, &entry.WorkTimeEntryID, &entry.StartTime, &entry.EndTime,
 			&entry.DurationMinutes, &entry.CreatedAt,
 		); scanErr != nil {
 			return nil, scanErr
