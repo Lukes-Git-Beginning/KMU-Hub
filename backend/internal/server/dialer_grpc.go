@@ -235,6 +235,10 @@ func (s *DialerGRPCServer) AddContactsToCampaign(ctx context.Context, req *diale
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
 
 	var contactIDs []uuid.UUID
 	for _, idStr := range req.GetContactIds() {
@@ -254,7 +258,7 @@ func (s *DialerGRPCServer) AddContactsToCampaign(ctx context.Context, req *diale
 		filterID = &fid
 	}
 
-	added, skipped, err := s.svc.AddContactsToCampaign(ctx, campaignID, contactIDs, filterID)
+	added, skipped, err := s.svc.AddContactsToCampaign(ctx, tenantID, campaignID, contactIDs, filterID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -315,6 +319,10 @@ func (s *DialerGRPCServer) ListCampaignContacts(ctx context.Context, req *dialer
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
 
 	var statusFilter *string
 	if req.StatusFilter != nil && req.GetStatusFilter() != dialerv1.CampaignContactStatus_CAMPAIGN_CONTACT_STATUS_UNSPECIFIED {
@@ -331,7 +339,7 @@ func (s *DialerGRPCServer) ListCampaignContacts(ctx context.Context, req *dialer
 		pageSize = 50
 	}
 
-	contacts, total, err := s.svc.ListCampaignContacts(ctx, campaignID, statusFilter, page, pageSize)
+	contacts, total, err := s.svc.ListCampaignContacts(ctx, tenantID, campaignID, statusFilter, page, pageSize)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -604,7 +612,11 @@ func (s *DialerGRPCServer) GetCampaignDashboard(ctx context.Context, req *dialer
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
-	stats, err := s.svc.GetCampaignDashboard(ctx, campaignID)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	stats, err := s.svc.GetCampaignDashboard(ctx, tenantID, campaignID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -616,7 +628,11 @@ func (s *DialerGRPCServer) GetAgentDashboard(ctx context.Context, req *dialerv1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
-	stats, err := s.svc.GetAgentDashboard(ctx, agentID)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	stats, err := s.svc.GetAgentDashboard(ctx, tenantID, agentID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -650,8 +666,12 @@ func (s *DialerGRPCServer) GetContactCalls(ctx context.Context, req *dialerv1.Ge
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_contact_id: %v", err)
 	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
 
-	rows, err := s.svc.GetContactCalls(ctx, ccID)
+	rows, err := s.svc.GetContactCalls(ctx, tenantID, ccID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}

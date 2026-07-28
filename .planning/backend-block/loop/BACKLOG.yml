@@ -2210,7 +2210,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 54 — tenantID threaded through 5 reads, dead GetByID/GetCampaign removed
     scope: >
       Folge-Fund aus wp-helpdesk-dialer (Iteration 52/53), bewusst
       ausserhalb von deren Scope gehalten. `Service.AddContactsToCampaign`
@@ -2236,6 +2236,39 @@ units:
       - jede der fuenf genannten Stellen bewusst entschieden (Fix oder
         dokumentiert "internal, kein Fremd-Tenant-Zugriff moeglich")
       - go build/vet/lint/test gruen
+    result: >
+      ERLEDIGT Iteration 54. `Service.GetCampaign` (die "interne, ungescopte"
+      Methode) hatte null Aufrufer im ganzen Repo -- toter Code, entfernt statt
+      gefixt (samt der zugrunde liegenden `CampaignRepository.GetByID`, deren
+      Doc-Kommentar einen "dialer worker" behauptete, den es nirgends gibt --
+      Stale-Kommentar, keine reale Verwendung). Die verbleibenden fuenf echten
+      Lesepfade (AddContactsToCampaign, ListCampaignContacts,
+      GetCampaignDashboard, GetAgentDashboard, GetContactCalls) bekommen jetzt
+      explizit tenantID durchgereicht (Service-Signatur + Repo-Signatur +
+      WHERE-Praedikat), statt sich allein auf die RLS-GUC zu verlassen --
+      selbes Defense-in-Depth-Muster wie bei den Schreibpfaden aus
+      wp-helpdesk-dialer. AddContactsToCampaign validiert die Kampagne jetzt
+      ueber `GetByIDForTenant` statt der ungescopten Variante, bevor sie
+      schreibt. Der dritte, bisher ungescopte `campaigns.GetByID`-Aufruf in
+      `GetSupervisorOverview` (Aufloesen des Kampagnennamens fuer den aktiven
+      Agenten) lief auf `GetByIDForTenant` um -- tenantID war dort bereits
+      Parameter der Funktion. Verifiziert (Grep, nicht angenommen): PrepareConn
+      (`internal/database/postgres.go`) setzt die RLS-GUC `app.tenant_id` pro
+      Connection-Checkout aus dem Request-ctx, unabhaengig davon, ob der
+      Handler `middleware.GetTenantID` selbst aufruft -- die fuenf Lesepfade
+      waren also schon vor dem Fix durch RLS gegen den *normalen*
+      Request-Pfad geschuetzt; die neue Pruedikat-Ebene ist Verteidigung gegen
+      einen zukuenftigen RLS-Policy-Bug oder einen Worker-/System-Kontext ohne
+      gesetzten Tenant, nicht ein akuter Bypass. NICHT gefixt: die
+      "Aktive-Kampagne"-Subquery in `GetAgentStats` liest
+      `dialer_agent_status_log`, eine Tabelle ganz ohne `tenant_id`-Spalte
+      (Migration 000067) -- ausserhalb des benannten Fuenfer-Scopes und braucht
+      eine eigene Migration; bei einem fremden `agentID` kann der
+      Kampagnenname des fremden Agenten durchsickern (kein Datenzugriff,
+      nur ein Namensfeld). Kein Deploy-Hazard (keine Migration, kein Proto,
+      keine neue Route) -- reine Signatur-Aenderung innerhalb von
+      `internal/dialer` und `internal/server/dialer_grpc.go`, Mocks in
+      service_test.go/consent_test.go/dialer_grpc_test.go mitgezogen.
 
   - id: wp-document-wiki
     phase: 3

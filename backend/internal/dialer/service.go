@@ -142,16 +142,6 @@ func (s *Service) CreateCampaign(
 	return c, nil
 }
 
-// GetCampaign retrieves a campaign by ID (internal — no tenant scoping).
-// For user-facing requests use GetCampaignForTenant to enforce cross-tenant isolation.
-func (s *Service) GetCampaign(ctx context.Context, id uuid.UUID) (*Campaign, error) {
-	c, err := s.campaigns.GetByID(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("get campaign: %w", err)
-	}
-	return c, nil
-}
-
 // GetCampaignForTenant retrieves a campaign by ID scoped to the given tenant.
 func (s *Service) GetCampaignForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error) {
 	c, err := s.campaigns.GetByIDForTenant(ctx, id, tenantID)
@@ -322,11 +312,12 @@ func (s *Service) ArchiveCampaign(ctx context.Context, id, tenantID uuid.UUID) e
 // CRM filter (filterID takes precedence when both are provided).
 func (s *Service) AddContactsToCampaign(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	campaignID uuid.UUID,
 	contactIDs []uuid.UUID,
 	filterID *uuid.UUID,
 ) (added, skipped int, err error) {
-	c, err := s.campaigns.GetByID(ctx, campaignID)
+	c, err := s.campaigns.GetByIDForTenant(ctx, campaignID, tenantID)
 	if err != nil {
 		return 0, 0, fmt.Errorf("add contacts – load campaign: %w", err)
 	}
@@ -403,7 +394,7 @@ func (s *Service) AddContactsToCampaign(
 		})
 	}
 
-	batchAdded, batchSkipped, err := s.campaigns.AddContacts(ctx, campaignID, contacts)
+	batchAdded, batchSkipped, err := s.campaigns.AddContacts(ctx, tenantID, campaignID, contacts)
 	if err != nil {
 		return 0, 0, fmt.Errorf("add contacts – batch insert: %w", err)
 	}
@@ -509,11 +500,12 @@ func (s *Service) RequeueContact(ctx context.Context, campaignContactID, tenantI
 // campaign contacts (queue entries) for a given campaign.
 func (s *Service) ListCampaignContacts(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	campaignID uuid.UUID,
 	statusFilter *string,
 	page, pageSize int,
 ) ([]*CampaignContact, int, error) {
-	contacts, total, err := s.campaigns.ListContacts(ctx, campaignID, statusFilter, page, pageSize)
+	contacts, total, err := s.campaigns.ListContacts(ctx, tenantID, campaignID, statusFilter, page, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list campaign contacts: %w", err)
 	}
@@ -1017,8 +1009,8 @@ func (s *Service) DeleteCallOutcome(ctx context.Context, id, tenantID uuid.UUID)
 
 // GetCampaignDashboard returns aggregate progress and outcome statistics for
 // a campaign.
-func (s *Service) GetCampaignDashboard(ctx context.Context, campaignID uuid.UUID) (*CampaignStats, error) {
-	stats, err := s.campaigns.GetCampaignStats(ctx, campaignID)
+func (s *Service) GetCampaignDashboard(ctx context.Context, tenantID, campaignID uuid.UUID) (*CampaignStats, error) {
+	stats, err := s.campaigns.GetCampaignStats(ctx, tenantID, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("get campaign dashboard: %w", err)
 	}
@@ -1026,8 +1018,8 @@ func (s *Service) GetCampaignDashboard(ctx context.Context, campaignID uuid.UUID
 }
 
 // GetAgentDashboard returns today's performance statistics for an agent.
-func (s *Service) GetAgentDashboard(ctx context.Context, agentID uuid.UUID) (*AgentStats, error) {
-	stats, err := s.campaigns.GetAgentStats(ctx, agentID)
+func (s *Service) GetAgentDashboard(ctx context.Context, tenantID, agentID uuid.UUID) (*AgentStats, error) {
+	stats, err := s.campaigns.GetAgentStats(ctx, tenantID, agentID)
 	if err != nil {
 		return nil, fmt.Errorf("get agent dashboard: %w", err)
 	}
@@ -1102,7 +1094,7 @@ func (s *Service) GetSupervisorOverview(ctx context.Context, tenantID uuid.UUID)
 
 		// Resolve active campaign name if agent is on a campaign.
 		if row.CampaignID != nil {
-			if c, err := s.campaigns.GetByID(ctx, *row.CampaignID); err == nil {
+			if c, err := s.campaigns.GetByIDForTenant(ctx, *row.CampaignID, tenantID); err == nil {
 				row.ActiveCampaignName = &c.Name
 			}
 		}
@@ -1154,8 +1146,8 @@ func (s *Service) GetSupervisorOverview(ctx context.Context, tenantID uuid.UUID)
 }
 
 // GetContactCalls returns the call history for a given campaign contact.
-func (s *Service) GetContactCalls(ctx context.Context, campaignContactID uuid.UUID) ([]ContactCallRow, error) {
-	rows, err := s.calls.ListCallsByContact(ctx, campaignContactID)
+func (s *Service) GetContactCalls(ctx context.Context, tenantID, campaignContactID uuid.UUID) ([]ContactCallRow, error) {
+	rows, err := s.calls.ListCallsByContact(ctx, tenantID, campaignContactID)
 	if err != nil {
 		return nil, fmt.Errorf("get contact calls: %w", err)
 	}
@@ -1169,7 +1161,7 @@ func (s *Service) GetContactCalls(ctx context.Context, campaignContactID uuid.UU
 // checkCampaignComplete transitions the campaign to "completed" when no pending
 // or callback contacts remain. It accepts a campaignID directly.
 func (s *Service) checkCampaignComplete(ctx context.Context, campaignID, tenantID uuid.UUID) error {
-	stats, err := s.campaigns.GetCampaignStats(ctx, campaignID)
+	stats, err := s.campaigns.GetCampaignStats(ctx, tenantID, campaignID)
 	if err != nil {
 		return fmt.Errorf("check campaign complete – get stats: %w", err)
 	}

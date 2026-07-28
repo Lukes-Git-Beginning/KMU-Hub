@@ -4001,3 +4001,51 @@ bleibt.
   Teil dieser Iteration, betrifft nur die lokale Dev-DB, nicht CI/Prod).
   `wp-dialer-read-scoping` steht als neue `todo`-Unit im Backlog fuer eine
   kuenftige Iteration bereit.
+
+## Iteration 54 — wp-dialer-read-scoping — done — 2026-07-28
+
+- Verify-Vorspann: Commit `3df01c52` (Iteration 53, dialer DB-Tests +
+  Idempotency-Check) geprueft — reiner Test-Zusatz, kein Proto/Route/Tabellen-
+  Diff, sauber gegen alle sechs Fehlerklassen.
+- gebaut: fuenf ungescopte Lesepfade in `internal/dialer` gefixt
+  (AddContactsToCampaign, ListCampaignContacts, GetCampaignDashboard,
+  GetAgentDashboard, GetContactCalls) — Service- und Repo-Signaturen nehmen
+  jetzt explizit `tenantID`, Postgres-Queries tragen ein `tenant_id`-Praedikat
+  statt sich allein auf die RLS-GUC zu verlassen. `AddContactsToCampaign`
+  validiert die Kampagne jetzt ueber `GetByIDForTenant` statt der ungescopten
+  Variante. `Service.GetCampaign` und die zugrunde liegende
+  `CampaignRepository.GetByID` waren toter Code (null Aufrufer im Repo, der
+  Doc-Kommentar behauptete einen "dialer worker", den es nicht gibt) —
+  entfernt statt gefixt. Dritter ungescopter `GetByID`-Aufruf in
+  `GetSupervisorOverview` auf `GetByIDForTenant` umgestellt (tenantID war dort
+  bereits Parameter).
+- Verifiziert statt angenommen: `PrepareConn`
+  (`internal/database/postgres.go`) setzt die RLS-GUC `app.tenant_id` pro
+  Connection-Checkout aus dem Request-ctx — unabhaengig davon, ob der
+  Handler `middleware.GetTenantID` selbst aufruft. Die fuenf Lesepfade waren
+  also schon vor dem Fix ueber den normalen Request-Pfad RLS-geschuetzt; die
+  neue explizite Pruedikat-Ebene ist Verteidigung gegen einen zukuenftigen
+  RLS-Policy-Bug oder einen Worker-/System-Kontext ohne gesetzten Tenant,
+  kein akuter Bypass.
+- Nicht gefixt (ausserhalb des Fuenfer-Scopes, in BACKLOG.yml dokumentiert):
+  die "Aktive-Kampagne"-Subquery in `GetAgentStats` liest
+  `dialer_agent_status_log`, eine Tabelle ganz ohne `tenant_id`-Spalte
+  (Migration 000067) — braucht eine eigene Migration; bei fremdem `agentID`
+  kann der Kampagnenname des fremden Agenten durchsickern (kein
+  Datenzugriff, nur ein Namensfeld).
+- gate: `go build -p 2 ./internal/dialer/... ./internal/server/...
+  ./internal/gateway/... ./cmd/dialer/... ./cmd/gateway/...` gruen | `go vet`
+  gruen | `golangci-lint run --config .golangci.yml ./internal/dialer/...
+  ./internal/server/...` 0 issues | `DATABASE_URL` gesetzt (kmuhub_app) |
+  `go test -count=1 -v ./internal/dialer/...` 72 PASS, 0 Skip, 0 Fail |
+  `go test -count=1 ./internal/server/...` gruen | `go test -count=1
+  ./internal/gateway/` (TestOpenAPIRouteDrift) gruen. Migration: n.a.
+  (keine neue Tabelle/Spalte). Proto: n.a. (keine RPC-Signatur geaendert,
+  nur interne Service-/Repo-Signaturen). RLS-Smoke: n.a. (keine Tabelle/
+  Policy angefasst) — Tenant-Isolation der neuen Praedikate indirekt durch
+  die 72 gruenen dialer-Tests belegt (u.a. tenant_write_test.go aus
+  Iteration 53 gegen dieselben Tabellen).
+- offen: fuer Luke — `dialer_agent_status_log` hat keine `tenant_id`-Spalte;
+  falls die Kampagnennamen-Leckage in `GetAgentStats` (Zeile ~503) als
+  relevant genug fuer eine eigene Migration eingestuft wird, eigene Unit
+  anlegen. Kein FE-Impact in dieser Iteration (keine Proto-/Wire-Aenderung).

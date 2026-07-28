@@ -52,19 +52,6 @@ func (r *PostgresCampaignRepository) Create(ctx context.Context, c *Campaign) er
 	return err
 }
 
-func (r *PostgresCampaignRepository) GetByID(ctx context.Context, id uuid.UUID) (*Campaign, error) {
-	// NOTE: tenantID filter is enforced at the service layer via GetByIDForTenant where
-	// cross-tenant isolation is required. This method is used for internal lookup by the
-	// dialer worker (which uses campaign IDs from its own queue, not user input).
-	row := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, name, description, status, mode, settings,
-		        created_by, assigned_agent_ids, contact_count, completed_count,
-		        created_at, updated_at, started_at, completed_at
-		 FROM dialer_campaigns WHERE id = $1`, id,
-	)
-	return scanCampaign(row)
-}
-
 func (r *PostgresCampaignRepository) GetByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, description, status, mode, settings,
@@ -176,7 +163,7 @@ func (r *PostgresCampaignRepository) Delete(ctx context.Context, id, tenantID uu
 
 // AddContacts inserts campaign contacts as a batch, skipping duplicate
 // (campaign_id, contact_id) pairs. Returns counts of added and skipped rows.
-func (r *PostgresCampaignRepository) AddContacts(ctx context.Context, campaignID uuid.UUID, contacts []CampaignContact) (added int, skipped int, err error) {
+func (r *PostgresCampaignRepository) AddContacts(ctx context.Context, tenantID, campaignID uuid.UUID, contacts []CampaignContact) (added int, skipped int, err error) {
 	if len(contacts) == 0 {
 		return 0, 0, nil
 	}
@@ -186,9 +173,9 @@ func (r *PostgresCampaignRepository) AddContacts(ctx context.Context, campaignID
 		batch.Queue(
 			`INSERT INTO dialer_campaign_contacts
 			    (id, tenant_id, campaign_id, contact_id, position, status, created_at, updated_at)
-			 VALUES ($1, (SELECT tenant_id FROM dialer_campaigns WHERE id = $2), $2, $3, $4, 'pending', NOW(), NOW())
+			 VALUES ($1, (SELECT tenant_id FROM dialer_campaigns WHERE id = $2 AND tenant_id = $5), $2, $3, $4, 'pending', NOW(), NOW())
 			 ON CONFLICT ON CONSTRAINT uq_campaign_contact DO NOTHING`,
-			cc.ID, campaignID, cc.ContactID, cc.Position,
+			cc.ID, campaignID, cc.ContactID, cc.Position, tenantID,
 		)
 	}
 
@@ -247,21 +234,21 @@ func (r *PostgresCampaignRepository) GetNextPendingContact(ctx context.Context, 
 	return cc, err
 }
 
-func (r *PostgresCampaignRepository) ListContacts(ctx context.Context, campaignID uuid.UUID, statusFilter *string, page, pageSize int) ([]*CampaignContact, int, error) {
+func (r *PostgresCampaignRepository) ListContacts(ctx context.Context, tenantID, campaignID uuid.UUID, statusFilter *string, page, pageSize int) ([]*CampaignContact, int, error) {
 	offset := (page - 1) * pageSize
 
 	var (
 		whereExtra string
 		args       []any
 	)
-	args = append(args, campaignID)
+	args = append(args, campaignID, tenantID)
 	if statusFilter != nil {
-		whereExtra = " AND status = $2"
+		whereExtra = " AND status = $3"
 		args = append(args, *statusFilter)
 	}
 
 	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM dialer_campaign_contacts WHERE campaign_id = $1%s", whereExtra)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM dialer_campaign_contacts WHERE campaign_id = $1 AND tenant_id = $2%s", whereExtra)
 	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
@@ -274,7 +261,7 @@ func (r *PostgresCampaignRepository) ListContacts(ctx context.Context, campaignI
 		`SELECT id, campaign_id, contact_id, position, status, outcome_id, notes,
 		        callback_at, last_called_at, call_count, created_at, updated_at
 		 FROM dialer_campaign_contacts
-		 WHERE campaign_id = $1%s
+		 WHERE campaign_id = $1 AND tenant_id = $2%s
 		 ORDER BY position ASC
 		 LIMIT $%d OFFSET $%d`,
 		whereExtra, limitArg, offsetArg,
@@ -395,7 +382,7 @@ func (r *PostgresCampaignRepository) IncrementContactCallCount(ctx context.Conte
 }
 
 // GetCampaignStats returns aggregated progress and outcome breakdown for a campaign.
-func (r *PostgresCampaignRepository) GetCampaignStats(ctx context.Context, campaignID uuid.UUID) (*CampaignStats, error) {
+func (r *PostgresCampaignRepository) GetCampaignStats(ctx context.Context, tenantID, campaignID uuid.UUID) (*CampaignStats, error) {
 	var stats CampaignStats
 
 	if err := r.pool.QueryRow(ctx,
@@ -406,8 +393,8 @@ func (r *PostgresCampaignRepository) GetCampaignStats(ctx context.Context, campa
 		    COUNT(*) FILTER (WHERE status = 'skipped')                    AS skipped,
 		    COUNT(*) FILTER (WHERE status = 'callback')                   AS callback
 		 FROM dialer_campaign_contacts
-		 WHERE campaign_id = $1`,
-		campaignID,
+		 WHERE campaign_id = $1 AND tenant_id = $2`,
+		campaignID, tenantID,
 	).Scan(
 		&stats.TotalContacts,
 		&stats.CompletedContacts,
@@ -426,8 +413,8 @@ func (r *PostgresCampaignRepository) GetCampaignStats(ctx context.Context, campa
 		 FROM dialer_call_sessions s
 		 JOIN dialer_campaign_contacts cc ON cc.id = s.campaign_contact_id
 		 LEFT JOIN dialer_call_outcomes o ON o.id = s.outcome_id
-		 WHERE cc.campaign_id = $1`,
-		campaignID,
+		 WHERE cc.campaign_id = $1 AND cc.tenant_id = $2`,
+		campaignID, tenantID,
 	).Scan(&stats.TotalCalls, &stats.PositiveCalls, &stats.AvgDurationSecs); err != nil {
 		return nil, err
 	}
@@ -437,10 +424,10 @@ func (r *PostgresCampaignRepository) GetCampaignStats(ctx context.Context, campa
 		 FROM dialer_call_sessions s
 		 JOIN dialer_campaign_contacts cc ON cc.id = s.campaign_contact_id
 		 JOIN dialer_call_outcomes o ON o.id = s.outcome_id
-		 WHERE cc.campaign_id = $1
+		 WHERE cc.campaign_id = $1 AND cc.tenant_id = $2
 		 GROUP BY o.id, o.label, o.color
 		 ORDER BY cnt DESC`,
-		campaignID,
+		campaignID, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -462,7 +449,7 @@ func (r *PostgresCampaignRepository) GetCampaignStats(ctx context.Context, campa
 }
 
 // GetAgentStats returns today's aggregated performance figures for a given agent.
-func (r *PostgresCampaignRepository) GetAgentStats(ctx context.Context, agentID uuid.UUID) (*AgentStats, error) {
+func (r *PostgresCampaignRepository) GetAgentStats(ctx context.Context, tenantID, agentID uuid.UUID) (*AgentStats, error) {
 	var stats AgentStats
 
 	if err := r.pool.QueryRow(ctx,
@@ -470,9 +457,9 @@ func (r *PostgresCampaignRepository) GetAgentStats(ctx context.Context, agentID 
 		    COUNT(*)                                                                              AS total_calls,
 		    COALESCE(AVG(duration_seconds) FILTER (WHERE duration_seconds IS NOT NULL), 0)       AS avg_duration
 		 FROM dialer_call_sessions
-		 WHERE agent_id = $1
+		 WHERE agent_id = $1 AND tenant_id = $2
 		   AND created_at >= CURRENT_DATE`,
-		agentID,
+		agentID, tenantID,
 	).Scan(&stats.TotalCallsToday, &stats.AvgDurationSecs); err != nil {
 		return nil, err
 	}
@@ -490,11 +477,11 @@ func (r *PostgresCampaignRepository) GetAgentStats(ctx context.Context, agentID 
 		`SELECT o.id, o.label, o.color, COUNT(s.id) AS cnt
 		 FROM dialer_call_sessions s
 		 JOIN dialer_call_outcomes o ON o.id = s.outcome_id
-		 WHERE s.agent_id = $1
+		 WHERE s.agent_id = $1 AND s.tenant_id = $2
 		   AND s.created_at >= CURRENT_DATE
 		 GROUP BY o.id, o.label, o.color
 		 ORDER BY cnt DESC`,
-		agentID,
+		agentID, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -745,7 +732,7 @@ func (r *PostgresCallRepository) GetRecentCallsForTenant(ctx context.Context, te
 
 // ListCallsByContact returns all call sessions for a campaign contact, newest first,
 // enriched with outcome and agent display data.
-func (r *PostgresCallRepository) ListCallsByContact(ctx context.Context, campaignContactID uuid.UUID) ([]ContactCallRow, error) {
+func (r *PostgresCallRepository) ListCallsByContact(ctx context.Context, tenantID, campaignContactID uuid.UUID) ([]ContactCallRow, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT
 		    s.id,
@@ -759,9 +746,9 @@ func (r *PostgresCallRepository) ListCallsByContact(ctx context.Context, campaig
 		 FROM dialer_call_sessions s
 		 JOIN users u                     ON u.id = s.agent_id
 		 LEFT JOIN dialer_call_outcomes o ON o.id = s.outcome_id
-		 WHERE s.campaign_contact_id = $1
+		 WHERE s.campaign_contact_id = $1 AND s.tenant_id = $2
 		 ORDER BY s.created_at DESC`,
-		campaignContactID,
+		campaignContactID, tenantID,
 	)
 	if err != nil {
 		return nil, err
