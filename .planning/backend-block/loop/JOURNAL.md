@@ -3721,6 +3721,8 @@ bleibt.
 
 ## Iteration 48 — wp-inbox-einkauf — done — 2026-07-28
 
+- commit: `2083615c` (siehe Iteration 49 — dieser Lauf hat Code/Backlog/Journal
+  geschrieben, aber nie committet; Iteration 49 hat es nachgeholt)
 - **einkauf:** bereits sauber — alle Write-Pfade (CreateSupplier/UpdatePO/PO-Lines/
   RecomputePOTotal/UpdatePOStatus etc.) tragen schon ein `tenant_id`-Praedikat.
   Neuer `tenant_write_test.go` beweist das jetzt gegen die echte Repository statt
@@ -3758,3 +3760,33 @@ bleibt.
   `tenant_id`-Spalten genutzt, keine neue Route).
 - offen: nichts Neues aus dieser Unit. Naechste offene Unit ohne deps:
   `wp-helpdesk-dialer`.
+
+## Iteration 49 — Recovery (kein neues Backlog-Item) — done — 2026-07-28
+
+- commit: `2083615c`
+- Gleiche Prozess-Luecke wie schon in Iteration 47 vermerkt: der Lauf startete
+  mit dem kompletten, bereits fertig geschriebenen Diff von Iteration 48
+  (wp-inbox-einkauf) unstaged/uncommitted im Arbeitsbaum — Backlog auf `done`,
+  Journal-Eintrag vorhanden, aber kein Commit. Kein Hinweis auf die
+  Abbruchursache.
+- Verifikation statt Neubau: kompletten Diff gegen die sechs Fehlerklassen und
+  den Journal-Text gelesen (`repository.go`, `postgres_repository.go`,
+  `service.go`, `inbox_grpc.go`, `team/service.go`, beide neuen
+  `tenant_write_test.go`) — Befund deckt sich mit der Journal-Beschreibung,
+  kein Wire-Shape-/Route-/Seed-Problem gefunden.
+- Gate selbst nachgefahren (nicht nur der Journal-Behauptung vertraut):
+  `GOFLAGS=-p=2 go build ./...` ok | `go vet ./internal/inbox/...
+  ./internal/einkauf/... ./internal/server/...` ok | `golangci-lint run`
+  0 issues | `kmuhub_app`-Passwort war abgelaufen (wie in Iteration 47) —
+  neu gesetzt via `docker exec docker-postgres-1 psql -U kmuhub -d kmuhub -c
+  "ALTER ROLE kmuhub_app WITH LOGIN PASSWORD 'app_dev';"` (Docker-Compose,
+  nicht die native `psql`, die in dieser Bash fehlt) — danach `go test -count=1
+  ./internal/inbox/... ./internal/einkauf/... ./internal/server/...` komplett
+  gruen, beide neuen Tenant-Write-Tests laufen mit `-v` bestaetigt ohne Skip.
+- Commit `2083615c` traegt den kompletten Iteration-48-Diff (Code + Backlog +
+  Journal-Eintrag).
+- offen: fuer Luke — zweiter Vorfall dieser Art in Folge (47, jetzt 48). Falls
+  sich das wiederholt, lohnt sich ein Blick auf die Abbruch-/Timeout-Ursache
+  der Vorlauf-Sessions, nicht nur das Nachraeumen. Naechste offene Unit ohne
+  deps: `wp-helpdesk-dialer`. Diese Iteration hat bewusst keine neue Unit
+  begonnen (Recovery war der volle Scope).
