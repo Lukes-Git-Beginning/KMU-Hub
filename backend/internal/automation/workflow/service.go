@@ -103,6 +103,20 @@ func (s *Service) Create(ctx context.Context, auto *models.Automation) error {
 		auto.MaxSteps = 10
 	}
 
+	// trigger_config/conditions/actions are NOT NULL in the schema (default
+	// '{}'/'{}'/'[]'); a caller that omits them (e.g. a trigger with no extra
+	// config, or no conditions) leaves the Go field nil, which the repo would
+	// otherwise INSERT as an explicit NULL and violate the constraint.
+	if auto.TriggerConfig == nil {
+		auto.TriggerConfig = json.RawMessage(`{}`)
+	}
+	if auto.Conditions == nil {
+		auto.Conditions = json.RawMessage(`{}`)
+	}
+	if auto.Actions == nil {
+		auto.Actions = json.RawMessage(`[]`)
+	}
+
 	return s.repo.Create(ctx, auto)
 }
 
@@ -161,9 +175,9 @@ func (s *Service) ListExecutions(ctx context.Context, filter ExecutionFilter) ([
 	return s.execRepo.ListExecutions(ctx, filter)
 }
 
-// GetExecution retrieves a single execution log by ID.
-func (s *Service) GetExecution(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error) {
-	return s.execRepo.GetExecution(ctx, id)
+// GetExecution retrieves a single execution log by ID, scoped to the tenant.
+func (s *Service) GetExecution(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.AutomationExecution, error) {
+	return s.execRepo.GetExecution(ctx, id, tenantID)
 }
 
 // ============================================================================
@@ -264,8 +278,9 @@ func (s *Service) GetStats(ctx context.Context, tenantID uuid.UUID) (*Automation
 
 	statusCompleted := models.ExecutionStatusCompleted
 	_, completedCount, err := s.execRepo.ListExecutions(ctx, ExecutionFilter{
-		Status: &statusCompleted,
-		Limit:  1,
+		TenantID: tenantID,
+		Status:   &statusCompleted,
+		Limit:    1,
 	})
 	if err != nil {
 		slog.Warn("failed to count completed executions", "error", err)
@@ -275,8 +290,9 @@ func (s *Service) GetStats(ctx context.Context, tenantID uuid.UUID) (*Automation
 
 	statusFailed := models.ExecutionStatusFailed
 	_, failedCount, err := s.execRepo.ListExecutions(ctx, ExecutionFilter{
-		Status: &statusFailed,
-		Limit:  1,
+		TenantID: tenantID,
+		Status:   &statusFailed,
+		Limit:    1,
 	})
 	if err != nil {
 		slog.Warn("failed to count failed executions", "error", err)
@@ -286,8 +302,9 @@ func (s *Service) GetStats(ctx context.Context, tenantID uuid.UUID) (*Automation
 
 	statusSkipped := models.ExecutionStatusSkipped
 	_, skippedCount, err := s.execRepo.ListExecutions(ctx, ExecutionFilter{
-		Status: &statusSkipped,
-		Limit:  1,
+		TenantID: tenantID,
+		Status:   &statusSkipped,
+		Limit:    1,
 	})
 	if err != nil {
 		slog.Warn("failed to count skipped executions", "error", err)

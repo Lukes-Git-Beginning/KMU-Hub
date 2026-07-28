@@ -2471,7 +2471,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 59 — workflow-Paket, zwei echte Funde (Defense-in-depth + Dead-Write)
     scope: >
       Letztes verbliebenes Modul aus wp-branchen-module-2/-3: automation
       (Unterpakete action/condition/engine/template/trigger/workflow — andere
@@ -2488,12 +2488,77 @@ units:
       tenant-scoped ankommen. Das ist eine eigene Untersuchung
       (gRPC-Metadata-Propagation fuer den Nicht-JWT-Pfad), keine
       automation-Aufgabe, aber bevor CalDAV/CardDAV produktiv genutzt wird
-      sollte das jemand pruefen.
+      sollte das jemand pruefen. Nicht in dieser Iteration angefasst.
+      ERLEDIGT Iteration 59. Explorationsergebnis: von den sechs
+      Unterpaketen (action/condition/engine/template/trigger/workflow) hat
+      NUR `workflow` einen echten repository.go/postgres_repository.go
+      -Zugriff auf Postgres (automations, automation_executions,
+      automation_templates); die anderen fuenf sind reine Business-Logik ohne
+      eigenen DB-Schreibpfad. Scope also korrekt auf `internal/automation/workflow`
+      begrenzt. Zwei echte Funde, beide gegen echtes Postgres verifiziert:
+      (a) Defense-in-depth-Luecke: `GetExecution`, `UpdateExecution` und
+      `ListExecutions` liefen komplett ohne `tenant_id`-Praedikat in der
+      Query (`WHERE id = $1` bzw. gar keine WHERE-Klausel) — verlassen sich
+      seither ausschliesslich auf die RLS-Session-GUC aus
+      `database.NewPostgresPool`s `PrepareConn` (setzt `app.tenant_id` aus
+      `middleware.GetTenantID(ctx)` pro Connection). Kein aktiver Leak (RLS
+      greift), aber Verstoss gegen die Projektregel "jeder SELECT
+      tenant-gescoped" UND der User-facing Pfad
+      `GET /api/v1/automations/executions/{executionId}` reichte gar kein
+      `tenantID` durch den gRPC-Handler (`AutomationGRPCServer.GetExecution`/
+      `ListExecutions` riefen `middleware.GetTenantID(ctx)` nie auf, anders
+      als jeder Nachbar-Handler in derselben Datei). Fix: `tenantID` explizit
+      durch `ExecutionRepository.GetExecution`/`ExecutionFilter.TenantID`/
+      `Service.GetExecution`/`Service.GetStats`(Nutzung)/beide gRPC-Handler
+      gezogen; `UpdateExecution` nutzt das bereits vorhandene `e.TenantID`-Feld
+      im WHERE. Da der Engine-Executor (`engine.go`) die Automation bereits als
+      `auto` in Scope haelt, wurde `auto.TenantID` an alle fuenf
+      `ExecutionLogger`-Methoden (LogConditionSkipped/-Error/LogActionResult/
+      LogComplete/LogStepLimitReached) durchgereicht statt eine
+      System-Bypass-Ausnahme einzufuehren. Per Falsifikation belegt: Tenant-
+      Praedikat aus `GetExecution` testweise entfernt → zwei Subtests wurden
+      rot ("expected 1 arguments, got 2" bzw. NotFound blieb aus), danach
+      sauber zurueckgesetzt. (b) Dead Write (kein Tenant-Bug, aber ein
+      Repo-Write, der gegen echtes Postgres bricht): `Service.Create` defaultete
+      `TriggerConfig`/`Conditions`/`Actions` nie, wenn der Aufrufer sie nicht
+      setzte — `trigger_config`/`conditions`/`actions` sind in der Tabelle
+      `NOT NULL DEFAULT '{}'/'{}'/'[]'`, aber `PostgresRepository.Create` insertiert
+      immer explizit den Go-Feldwert, ein `nil json.RawMessage` wird also als
+      explizites SQL-NULL gesendet und schlaegt an der Constraint fehl statt
+      auf den Spalten-Default zurueckzufallen. Jede Automation ohne
+      trigger_config (z.B. ein simpler Event-Trigger ohne Zusatzkonfiguration)
+      oder ohne conditions liess `CreateAutomation` serverseitig hart
+      scheitern. Fix in der Service-Schicht (thick service, nicht im Repo):
+      `Create()` defaultet beide Felder vor dem Insert. Reproduziert im neuen
+      DB-Test (erster Anlauf schlug exakt an dieser Constraint fehl, bevor der
+      Fix stand) und zusaetzlich mit einem schnellen Mock-Unit-Test
+      (`TestCreate_DefaultsNilJSONBFields`, laeuft ohne DATABASE_URL) verriegelt.
+      `scope`-Spalte hat eine CHECK-Constraint (personal/team/organization,
+      kein NOT-NULL-Fallback bei leerem String) — im Code kein Fund, weil
+      `scopeFromProto` bereits konsequent auf "personal" defaultet; nur der
+      eigene Testaufbau musste das Feld setzen.
     done_when:
       - tenant_write_test.go nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts
       - tote Writes im selben Commit repariert
       - go build/vet/lint/test gruen
+    result: >
+      Neu: `internal/automation/workflow/tenant_write_test.go`
+      (TestAutomationWrites_LandInCallerTenant, real DB, `DATABASE_URL` als
+      `kmuhub_app`) deckt Create/Update (automations) und
+      CreateExecution/GetExecution/UpdateExecution/ListExecutions
+      (automation_executions) ab, inkl. expliziter Fremd-Tenant-Subtests fuer
+      die drei reparierten Lesepfade. Plus
+      `TestCreate_DefaultsNilJSONBFields` in service_test.go (kein DB-Bedarf).
+      Gate: `GOFLAGS=-p=2 go build ./...` gruen, `go vet ./...` gruen,
+      `golangci-lint run --config .golangci.yml ./internal/automation/...
+      ./internal/server/...` 0 issues, `go test -count=1
+      ./internal/automation/... ./internal/server/... ./internal/gateway/...
+      ./cmd/automation/... ./cmd/gateway/...` mit echtem `DATABASE_URL`
+      (kmuhub_app) vollstaendig gruen inkl. `TestOpenAPIRouteDrift` (keine
+      neue Route, kein openapi.yaml-Diff noetig — nur Signatur-/Query-
+      Aenderungen, keine neue RPC). Migration: keine (keine neue Spalte,
+      keine neue Policy). Proto: keine Aenderung.
 
   - id: wp-testutil-guard
     phase: 3

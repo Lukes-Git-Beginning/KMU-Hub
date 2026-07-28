@@ -103,11 +103,11 @@ func (m *mockRepo) UpdateLastTriggered(ctx context.Context, id uuid.UUID, at tim
 }
 
 type mockExecRepo struct {
-	createExecFn  func(ctx context.Context, e *models.AutomationExecution) error
-	updateExecFn  func(ctx context.Context, e *models.AutomationExecution) error
-	getExecFn     func(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error)
-	listExecFn    func(ctx context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error)
-	cleanupOldFn  func(ctx context.Context, olderThan time.Duration) (int64, error)
+	createExecFn func(ctx context.Context, e *models.AutomationExecution) error
+	updateExecFn func(ctx context.Context, e *models.AutomationExecution) error
+	getExecFn    func(ctx context.Context, id, tenantID uuid.UUID) (*models.AutomationExecution, error)
+	listExecFn   func(ctx context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error)
+	cleanupOldFn func(ctx context.Context, olderThan time.Duration) (int64, error)
 }
 
 func (m *mockExecRepo) CreateExecution(ctx context.Context, e *models.AutomationExecution) error {
@@ -124,9 +124,9 @@ func (m *mockExecRepo) UpdateExecution(ctx context.Context, e *models.Automation
 	return nil
 }
 
-func (m *mockExecRepo) GetExecution(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error) {
+func (m *mockExecRepo) GetExecution(ctx context.Context, id, tenantID uuid.UUID) (*models.AutomationExecution, error) {
 	if m.getExecFn != nil {
-		return m.getExecFn(ctx, id)
+		return m.getExecFn(ctx, id, tenantID)
 	}
 	return nil, nil
 }
@@ -245,6 +245,36 @@ func TestCreate_Success(t *testing.T) {
 	assert.False(t, captured.CreatedAt.IsZero())
 	assert.False(t, captured.UpdatedAt.IsZero())
 	assert.Equal(t, 10, captured.MaxSteps, "default MaxSteps should be 10")
+}
+
+// TestCreate_DefaultsNilJSONBFields verifies that omitted trigger_config/
+// conditions carry the schema's NOT NULL default instead of a nil
+// json.RawMessage, which the repo would otherwise INSERT as an explicit NULL
+// and violate the constraint (found via a real-DB write test, see
+// tenant_write_test.go).
+func TestCreate_DefaultsNilJSONBFields(t *testing.T) {
+	var captured *models.Automation
+	repo := &mockRepo{
+		createFn: func(_ context.Context, a *models.Automation) error {
+			captured = a
+			return nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	auto := &models.Automation{
+		Name:        "No Trigger Config Or Conditions",
+		TriggerType: "event",
+		Actions:     mustJSON([]models.ActionConfig{{Type: "send_email"}}),
+	}
+
+	require.Nil(t, auto.TriggerConfig, "test setup: TriggerConfig must start nil")
+	require.Nil(t, auto.Conditions, "test setup: Conditions must start nil")
+
+	err := svc.Create(context.Background(), auto)
+	require.NoError(t, err)
+	assert.Equal(t, json.RawMessage(`{}`), captured.TriggerConfig)
+	assert.Equal(t, json.RawMessage(`{}`), captured.Conditions)
 }
 
 func TestCreate_UnknownTriggerType(t *testing.T) {
@@ -509,15 +539,15 @@ func TestListExecutions_LimitClampOver100(t *testing.T) {
 // ============================================================================
 
 func TestGetExecution_Success(t *testing.T) {
-	expected := &models.AutomationExecution{ID: uuid.New(), Status: "completed"}
+	expected := &models.AutomationExecution{ID: uuid.New(), TenantID: uuid.New(), Status: "completed"}
 	execRepo := &mockExecRepo{
-		getExecFn: func(_ context.Context, id uuid.UUID) (*models.AutomationExecution, error) {
+		getExecFn: func(_ context.Context, id, tenantID uuid.UUID) (*models.AutomationExecution, error) {
 			return expected, nil
 		},
 	}
 	svc := newTestService(nil, execRepo, nil)
 
-	result, err := svc.GetExecution(context.Background(), expected.ID)
+	result, err := svc.GetExecution(context.Background(), expected.ID, expected.TenantID)
 	require.NoError(t, err)
 	assert.Equal(t, expected.ID, result.ID)
 }

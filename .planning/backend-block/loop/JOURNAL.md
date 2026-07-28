@@ -4327,3 +4327,63 @@ bleibt.
 - offen: fuer Luke — automation wartet in `wp-branchen-module-4`, dort auch
   die gRPC-Metadata-Propagations-Frage fuer den CalDAV/CardDAV-BasicAuth-Pfad
   vermerkt.
+
+## Iteration 59 — wp-branchen-module-4 — done (automation, zwei echte Funde) — 2026-07-28
+
+- Verify-Vorspann: Commit `c1bb9ca4` (Iteration 58) geprueft — Diff gegen
+  `internal/caldav`, `internal/formulare`, `internal/vermietung` gegengelesen
+  (drei neue `tenant_write_test.go` + die zwei dokumentierten caldav-Fixes:
+  `resolveTenantID`-Helper in sync_token-Callsites, `sysctx.With` um
+  `AppPasswordRepository.FindActiveByUser`/`UpdateLastUsed`). Muster korrekt,
+  Fixes minimal und an der richtigen Stelle, nichts zu beanstanden.
+- Gewaehlt: `wp-branchen-module-4` (einzige verbleibende `deps: []`-Unit vor
+  `wp-testutil-guard`, das nur noch auf diese Iteration wartet, um dann eine
+  dritte Referenz-Unit fuer den Helper zu haben).
+- Exploration: automation hat sechs Unterpakete
+  (action/condition/engine/template/trigger/workflow). Nur `workflow` hat
+  einen echten `repository.go`/`postgres_repository.go`-Zugriff auf Postgres
+  (automations, automation_executions, automation_templates) — die anderen
+  fuenf sind Business-Logik ohne eigenen DB-Schreibpfad. Scope also korrekt
+  auf `internal/automation/workflow` begrenzt, kein Rest fuer eine weitere
+  Iteration.
+- Fund (a) — Defense-in-depth-Luecke: `GetExecution`, `UpdateExecution` und
+  `ListExecutions` liefen ohne jedes `tenant_id`-Praedikat (`WHERE id = $1`
+  bzw. gar keine WHERE-Klausel), verliessen sich komplett auf die
+  RLS-Session-GUC aus `database.NewPostgresPool`s `PrepareConn`. Kein
+  aktiver Leak (RLS greift korrekt), aber der User-facing Pfad
+  `GET /api/v1/automations/executions/{executionId}` reichte gar kein
+  `tenantID` durch den gRPC-Handler — `AutomationGRPCServer.GetExecution`/
+  `ListExecutions` riefen `middleware.GetTenantID(ctx)` nie auf, anders als
+  jeder Nachbar-Handler in derselben Datei. Fix: `tenantID` explizit durch
+  `ExecutionRepository.GetExecution`/`ExecutionFilter.TenantID`/
+  `Service.GetExecution`/`Service.GetStats`/beide gRPC-Handler gezogen; da
+  der Engine-Executor `auto.TenantID` bereits im Scope haelt, wurde es an
+  alle fuenf `ExecutionLogger`-Methoden durchgereicht statt eine
+  System-Bypass-Ausnahme einzufuehren. Per Falsifikation belegt: Praedikat
+  aus `GetExecution` testweise entfernt, zwei Subtests wurden rot, danach
+  sauber zurueckgesetzt.
+- Fund (b) — Dead Write: `Service.Create` defaultete `TriggerConfig`/
+  `Conditions`/`Actions` nie, wenn der Aufrufer sie ausliess. Die Spalten
+  sind `NOT NULL DEFAULT '{}'/'{}'/'[]'`, aber `PostgresRepository.Create`
+  insertiert immer den expliziten Go-Feldwert — ein `nil json.RawMessage`
+  geht als SQL-NULL raus und bricht an der Constraint, statt auf den
+  Spalten-Default zu fallen. Jede Automation ohne trigger_config (z.B. ein
+  simpler Event-Trigger ohne Zusatzkonfiguration) liess `CreateAutomation`
+  serverseitig hart scheitern. Fix in der Service-Schicht: `Create()`
+  defaultet beide Felder vor dem Insert. Reproduziert im neuen DB-Test
+  (schlug beim ersten Anlauf exakt an dieser Constraint fehl) und
+  zusaetzlich mit `TestCreate_DefaultsNilJSONBFields` (kein DB-Bedarf)
+  verriegelt.
+- gate: `GOFLAGS=-p=2 go build ./...` gruen | `go vet ./...` gruen |
+  `golangci-lint run --config .golangci.yml ./internal/automation/...
+  ./internal/server/...` 0 issues | `go test -count=1 ./internal/automation/...
+  ./internal/server/... ./internal/gateway/... ./cmd/automation/...
+  ./cmd/gateway/...` mit echtem `DATABASE_URL` (`kmuhub_app`, ohne
+  Passwort-Reset gueltig) vollstaendig gruen, inkl.
+  `TestAutomationWrites_LandInCallerTenant` (neu) und
+  `TestOpenAPIRouteDrift` (keine neue Route, kein openapi.yaml-Diff noetig).
+  Migration: keine. Proto: keine Aenderung.
+- offen: fuer Luke — die gRPC-Metadata-Propagations-Frage aus Iteration 58
+  (CalDAV/CardDAV-BasicAuth-Pfad) bleibt unangetastet, war nicht Teil dieser
+  Unit. `wp-testutil-guard` ist jetzt die letzte offene `todo`-Unit im
+  Backlog (deps `wp-settings`, `wp-chat` — beide done).

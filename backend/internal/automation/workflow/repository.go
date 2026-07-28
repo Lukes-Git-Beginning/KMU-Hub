@@ -25,7 +25,7 @@ type Repository interface {
 type ExecutionRepository interface {
 	CreateExecution(ctx context.Context, execution *models.AutomationExecution) error
 	UpdateExecution(ctx context.Context, execution *models.AutomationExecution) error
-	GetExecution(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error)
+	GetExecution(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.AutomationExecution, error)
 	ListExecutions(ctx context.Context, filter ExecutionFilter) ([]*models.AutomationExecution, int, error)
 	CleanupOldExecutions(ctx context.Context, olderThan time.Duration) (int64, error)
 }
@@ -50,10 +50,11 @@ type ListFilter struct {
 
 // ExecutionFilter defines filtering criteria for listing executions.
 type ExecutionFilter struct {
-	AutomationID *uuid.UUID
-	Status       *string
-	StartedAfter *time.Time
+	TenantID      uuid.UUID // Required: always filters by tenant
+	AutomationID  *uuid.UUID
+	Status        *string
+	StartedAfter  *time.Time
 	StartedBefore *time.Time
-	Limit        int
-	Offset       int
+	Limit         int
+	Offset        int
 }

@@ -55,7 +55,7 @@ func (m *mockExecRepo) CreateExecution(_ context.Context, _ *models.AutomationEx
 func (m *mockExecRepo) UpdateExecution(_ context.Context, _ *models.AutomationExecution) error {
 	return nil
 }
-func (m *mockExecRepo) GetExecution(_ context.Context, _ uuid.UUID) (*models.AutomationExecution, error) {
+func (m *mockExecRepo) GetExecution(_ context.Context, _, _ uuid.UUID) (*models.AutomationExecution, error) {
 	return &models.AutomationExecution{Steps: []byte("[]")}, nil
 }
 func (m *mockExecRepo) ListExecutions(_ context.Context, _ workflow.ExecutionFilter) ([]*models.AutomationExecution, int, error) {

@@ -57,8 +57,8 @@ func (l *ExecutionLogger) LogStart(ctx context.Context, execID, tenantID, automa
 }
 
 // LogConditionSkipped updates the execution status to "skipped".
-func (l *ExecutionLogger) LogConditionSkipped(ctx context.Context, execID uuid.UUID) {
-	l.updateExecution(ctx, execID, func(exec *models.AutomationExecution) {
+func (l *ExecutionLogger) LogConditionSkipped(ctx context.Context, execID, tenantID uuid.UUID) {
+	l.updateExecution(ctx, execID, tenantID, func(exec *models.AutomationExecution) {
 		exec.Status = models.ExecutionStatusSkipped
 		exec.ConditionResult = false
 		now := time.Now()
@@ -69,8 +69,8 @@ func (l *ExecutionLogger) LogConditionSkipped(ctx context.Context, execID uuid.U
 }
 
 // LogConditionError updates the execution status to "failed" with the error.
-func (l *ExecutionLogger) LogConditionError(ctx context.Context, execID uuid.UUID, condErr error) {
-	l.updateExecution(ctx, execID, func(exec *models.AutomationExecution) {
+func (l *ExecutionLogger) LogConditionError(ctx context.Context, execID, tenantID uuid.UUID, condErr error) {
+	l.updateExecution(ctx, execID, tenantID, func(exec *models.AutomationExecution) {
 		exec.Status = models.ExecutionStatusFailed
 		exec.ConditionResult = false
 		errMsg := condErr.Error()
@@ -83,7 +83,7 @@ func (l *ExecutionLogger) LogConditionError(ctx context.Context, execID uuid.UUI
 }
 
 // LogActionResult appends an action step to the execution's steps array.
-func (l *ExecutionLogger) LogActionResult(ctx context.Context, execID uuid.UUID, stepIndex int, actionType string, result action.ActionResult, execErr error) {
+func (l *ExecutionLogger) LogActionResult(ctx context.Context, execID, tenantID uuid.UUID, stepIndex int, actionType string, result action.ActionResult, execErr error) {
 	step := models.ExecutionStep{
 		ActionType: actionType,
 	}
@@ -102,7 +102,7 @@ func (l *ExecutionLogger) LogActionResult(ctx context.Context, execID uuid.UUID,
 		step.Error = &result.Error
 	}
 
-	l.updateExecution(ctx, execID, func(exec *models.AutomationExecution) {
+	l.updateExecution(ctx, execID, tenantID, func(exec *models.AutomationExecution) {
 		exec.ConditionResult = true
 
 		var steps []models.ExecutionStep
@@ -127,8 +127,8 @@ func (l *ExecutionLogger) LogActionResult(ctx context.Context, execID uuid.UUID,
 }
 
 // LogComplete updates the execution status to "completed" with the duration.
-func (l *ExecutionLogger) LogComplete(ctx context.Context, execID uuid.UUID, duration time.Duration) {
-	l.updateExecution(ctx, execID, func(exec *models.AutomationExecution) {
+func (l *ExecutionLogger) LogComplete(ctx context.Context, execID, tenantID uuid.UUID, duration time.Duration) {
+	l.updateExecution(ctx, execID, tenantID, func(exec *models.AutomationExecution) {
 		// Only mark completed if not already failed
 		if exec.Status == models.ExecutionStatusRunning {
 			exec.Status = models.ExecutionStatusCompleted
@@ -141,8 +141,8 @@ func (l *ExecutionLogger) LogComplete(ctx context.Context, execID uuid.UUID, dur
 }
 
 // LogStepLimitReached updates the execution status to "aborted" when the step limit is exceeded.
-func (l *ExecutionLogger) LogStepLimitReached(ctx context.Context, execID uuid.UUID, limit int) {
-	l.updateExecution(ctx, execID, func(exec *models.AutomationExecution) {
+func (l *ExecutionLogger) LogStepLimitReached(ctx context.Context, execID, tenantID uuid.UUID, limit int) {
+	l.updateExecution(ctx, execID, tenantID, func(exec *models.AutomationExecution) {
 		exec.Status = models.ExecutionStatusAborted
 		errMsg := "step limit reached: " + string(rune(limit+'0'))
 		exec.ErrorMessage = &errMsg
@@ -154,8 +154,8 @@ func (l *ExecutionLogger) LogStepLimitReached(ctx context.Context, execID uuid.U
 }
 
 // updateExecution loads an execution, applies the mutation, and persists it.
-func (l *ExecutionLogger) updateExecution(ctx context.Context, execID uuid.UUID, mutate func(*models.AutomationExecution)) {
-	exec, err := l.execRepo.GetExecution(ctx, execID)
+func (l *ExecutionLogger) updateExecution(ctx context.Context, execID, tenantID uuid.UUID, mutate func(*models.AutomationExecution)) {
+	exec, err := l.execRepo.GetExecution(ctx, execID, tenantID)
 	if err != nil {
 		slog.Error("failed to load execution for update",
 			"execution_id", execID,
