@@ -449,14 +449,14 @@ func (r *PostgresRepository) ListWebhooks(ctx context.Context, formSchemaID, ten
 	return out, rows.Err()
 }
 
-func (r *PostgresRepository) ListActiveWebhooksForSchema(ctx context.Context, formSchemaID uuid.UUID) ([]*FormWebhook, error) {
+func (r *PostgresRepository) ListActiveWebhooksForSchema(ctx context.Context, tenantID, formSchemaID uuid.UUID) ([]*FormWebhook, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, form_schema_id, tenant_id, url, secret, events, active,
 		        last_triggered_at, last_status, created_at, updated_at
 		 FROM form_webhooks
-		 WHERE form_schema_id = $1 AND active = TRUE
+		 WHERE tenant_id = $1 AND form_schema_id = $2 AND active = TRUE
 		 ORDER BY created_at ASC`,
-		formSchemaID,
+		tenantID, formSchemaID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list active webhooks for schema: %w", err)

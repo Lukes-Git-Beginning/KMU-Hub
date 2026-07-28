@@ -264,7 +264,7 @@ func (r *stubFormulareRepo) ListWebhooks(_ context.Context, formSchemaID, tenant
 	return out, nil
 }
 
-func (r *stubFormulareRepo) ListActiveWebhooksForSchema(_ context.Context, formSchemaID uuid.UUID) ([]*formulare.FormWebhook, error) {
+func (r *stubFormulareRepo) ListActiveWebhooksForSchema(_ context.Context, _ uuid.UUID, formSchemaID uuid.UUID) ([]*formulare.FormWebhook, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []*formulare.FormWebhook

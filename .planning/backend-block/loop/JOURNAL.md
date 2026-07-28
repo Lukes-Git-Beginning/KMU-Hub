@@ -4228,3 +4228,102 @@ bleibt.
   Zeile, fremder nicht).
 - offen: fuer Luke — vier Module warten in `wp-branchen-module-3`
   (vermietung, formulare, caldav, automation).
+
+## Iteration 58 — wp-branchen-module-3 — done (3/4 Module, zwei echte Bugs) — 2026-07-28
+
+- Verify-Vorspann: Commit `a133ebd2` (Iteration 57) geprueft — Diff gegen
+  `internal/schichten`, `internal/rapporte`, `internal/vertraege` (drei neue
+  `tenant_write_test.go`, keine Produktionscode-Aenderung) gegengelesen,
+  Muster identisch zu Iteration 56, nichts zu beanstanden.
+- Gewaehlt: `wp-branchen-module-3` (einzige `deps: []`-Unit vor
+  `wp-testutil-guard`, die weiterhin auf `wp-settings`/`wp-chat` wartet).
+- Abgearbeitet: vermietung, formulare, caldav (3 von 4). automation in
+  `wp-branchen-module-4` weitergereicht (eigene Paketstruktur mit
+  Unterpaketen, verdient eine frische Iteration statt eines Restehappens).
+- vermietung: kein Fund. CreateObject/CreateRental/CreateInspection und alle
+  Update/Delete/Select-Pfade in `PostgresRepository` waren bereits
+  konsequent `tenant_id`-gescoped. `tenant_write_test.go` ergaenzt
+  (rental_objects/rentals/rental_inspections).
+- formulare: ein Defense-in-depth-Fund derselben Klasse wie `ListInventurCounts`
+  in Iteration 56 — `ListActiveWebhooksForSchema` (aufgerufen aus
+  `Service.CreateSubmission`, um beim Einreichen eines Formulars aktive
+  Webhooks fuer Transaktions-Enqueue zu sammeln) filterte nur auf
+  `form_schema_id`, kein `tenant_id`-Praedikat. RLS deckte das ab (die
+  formSchemaID kommt aus derselben authentifizierten Tenant-Session), aber
+  die Query selbst verstiess gegen die Projektregel "jeder SELECT
+  tenant-gescoped". Signatur um `tenantID` erweitert: Interface
+  (`repository.go`), Postgres-Impl (`postgres_repository.go`), Call in
+  `Service.CreateSubmission` (`in.TenantID` durchgereicht), zwei
+  Mock-Stubs in `internal/formulare/service_test.go` und
+  `internal/server/formulare_grpc_test.go` angepasst. Neuer Testfall
+  beweist explizit: Fremd-Tenant mit korrekter (bekannter) form_schema_id
+  sieht trotzdem keine Webhooks.
+- caldav: zwei echte, voneinander unabhaengige Bugs — beide seit ihrer
+  jeweiligen RLS-Migration (000114/000115, Sprint 4 Welle 1b) latent und nie
+  gegen echtes RLS-Postgres ueber den echten Code-Pfad verifiziert (die
+  vorhandenen `tenant_isolation_phase2_test.go`-Faelle seeden
+  `caldav_sync_versions` per Hand-SQL mit gesetztem `tenant_id` statt ueber
+  `SyncTokenService` — genau die Verdeckung, die `testutil.SeedRow` bei den
+  anderen Modulen auch verursacht haette).
+  (a) `sync_token.go`: `GetSyncToken`/`IncrementAndLog` insertierten in
+  `caldav_sync_versions`/`caldav_change_log` ohne `tenant_id`, obwohl beide
+  Spalten seit Migration 000115 `NOT NULL` sind — jeder Aufruf schlaegt
+  gegen echtes Postgres fehl. Der Fehler ist bei `IncrementAndLog` nur eine
+  geloggte Warnung (der Aufrufer schluckt sie bewusst, um das eigentliche
+  PUT/DELETE nicht zu blocken) — der CalDAV/CardDAV-Sync-Fortschritt bleibt
+  dadurch aber dauerhaft kaputt, unbemerkt. Fix: `tenantID` als expliziter
+  Parameter durch `GetSyncToken`/`IncrementAndLog`/`GetChangesSince`
+  gezogen (INSERT setzt die Spalte, SELECT/WHERE bekommt das Praedikat).
+  Aufloesung an den vier Call-Sites (`caldav_backend.go` PUT/DELETE,
+  `carddav_backend.go` PUT/DELETE) ueber einen neuen `resolveTenantID`-
+  Helper: der Basic-Auth-Ctx traegt nur die `userID` (kein JWT, kein
+  Tenant), `resolveTenantID` liest `users.tenant_id` unter `sysctx.With` —
+  der in `sysctx.go` dokumentiert sanktionierte "Tenant/Identitaet noch
+  unbekannt"-Bypass, keine neue Ausnahme.
+  (b) `AppPasswordRepository.FindActiveByUser`/`UpdateLastUsed` — das ist
+  der Basic-Auth-Credential-Check selbst, lief komplett ohne
+  Systemkontext. CalDAV/CardDAV authentifiziert ausschliesslich ueber ein
+  App-Password (nie per JWT), die Validierung passiert also zwangslaeufig
+  BEVOR ueberhaupt ein Tenant bekannt ist. `app_specific_passwords` hat
+  `FORCE ROW LEVEL SECURITY`; ohne `sysctx.With` blockt die Policy jede
+  Zeile — CalDAV/CardDAV-Basic-Auth konnte gegen echtes RLS-Postgres nie
+  erfolgreich validieren (immer "invalid credentials", unabhaengig vom
+  Passwort). Fix: beide Methoden mit `sysctx.With(ctx)` gewrappt — derselbe
+  sanktionierte Login-Flow-Fall, den `user_preferences.go` fuer
+  `GetCalDAVEnabled`/`ListCalDAVUsers` bereits nutzt.
+  Bewusst NICHT angefasst: `ListByUser`/`Revoke` (JWT-authentifizierter
+  REST-Pfad `/api/v1/caldav/passwords`, Tenant dort bereits korrekt per
+  `middleware.GetTenantID` gesetzt — reiner Defense-in-depth-Fall, kein
+  aktiver Bug, Scope-Kontrolle). Ebenfalls nicht verfolgt: ob die
+  eigentlichen Kalender-/Kontakt-CRUD-Aufrufe ueber die gRPC-Clients
+  (`calendarClient`/`crmClient`) im selben Basic-Auth-Ctx serverseitig
+  tenant-korrekt ankommen — das ist eine eigene, groessere Untersuchung
+  (gRPC-Metadata-Propagation fuer den Nicht-JWT-Pfad), als offene Frage in
+  `wp-branchen-module-4` vermerkt.
+- gate: `GOFLAGS=-p=2 go build ./...` (kompletter Repo-Build, wegen
+  Interface-Signaturaenderung in `formulare.Repository`) gruen | `go vet
+  ./internal/caldav/... ./internal/formulare/... ./internal/vermietung/...
+  ./internal/server/... ./internal/gateway/...` gruen | `golangci-lint run
+  --config .golangci.yml ./internal/caldav/... ./internal/formulare/...
+  ./internal/vermietung/... ./internal/server/...` 0 issues |
+  `kmuhub_app`-Passwort diesmal ohne Reset gueltig | `go test -count=1 -v
+  ./internal/vermietung/...` gruen inkl.
+  `TestVermietungWrites_LandInCallerTenant` | `go test -count=1 -v
+  ./internal/formulare/...` gruen inkl.
+  `TestFormulareWrites_LandInCallerTenant` (inkl. Subtest fuer den
+  ListActiveWebhooksForSchema-Fix) | `go test -count=1 -v
+  ./internal/caldav/...` gruen inkl. `TestCalDAVWrites_LandInCallerTenant`
+  (Subtests beweisen beide Fixes: SyncTokenService-Schreibpfad
+  tenant-isoliert, `FindActiveByUser`/`UpdateLastUsed` funktionieren jetzt
+  mit `context.Background()` — genau die Basic-Auth-Situation ohne Tenant)
+  | `go test -count=1 ./internal/server/... ./internal/gateway/...
+  ./cmd/formulare/... ./cmd/gateway/...` gruen (inkl.
+  `TestOpenAPIRouteDrift` — keine neue REST-Route, kein openapi.yaml-Diff
+  noetig). Migration: n.a. (keine neue Tabelle/Spalte, nur bisher
+  unbefuellte NOT-NULL-Spalten korrekt gesetzt). Proto: n.a. RLS-Smoke:
+  n.a. explizit — durch die neuen Write-Tests selbst belegt (eigener
+  Tenant sieht die Zeile, fremder nicht; Basic-Auth-Pfad funktioniert jetzt
+  ueberhaupt).
+- offen: fuer Luke — automation wartet in `wp-branchen-module-4`, dort auch
+  die gRPC-Metadata-Propagations-Frage fuer den CalDAV/CardDAV-BasicAuth-Pfad
+  vermerkt.

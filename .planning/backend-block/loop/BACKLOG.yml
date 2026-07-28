@@ -2398,7 +2398,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: []
-    status: todo
+    status: done   # Iteration 58 — vermietung/formulare/caldav (3/4), zwei echte Bugs in caldav gefunden+repariert
     scope: >
       Rest der Branchenmodule aus wp-branchen-module-2: vermietung,
       formulare, caldav, automation. Gleiches Muster — echter Repo-Write
@@ -2412,11 +2412,87 @@ units:
       Vier Module. In der genannten Reihenfolge abarbeiten; falls in einer
       Iteration nicht alle vier schaffbar sind, Rest in `wp-branchen-module-4`
       weiterreichen, bevor du aufhoerst.
+      ERLEDIGT (dieser Teil) Iteration 58: vermietung, formulare, caldav.
+      vermietung: kein Fund, alle CreateX/UpdateX bereits konsequent
+      tenant-gescoped (Create/Update/Delete/Select). tenant_write_test.go
+      ergaenzt.
+      formulare: ein Defense-in-depth-Fund analog ListInventurCounts
+      (Iteration 56) — `ListActiveWebhooksForSchema` filterte nur auf
+      `form_schema_id`, kein `tenant_id`-Praedikat; RLS deckte es ab (die
+      formSchemaID ist serverseitig aus derselben Tenant-Session aufgeloest),
+      aber die Query selbst war nicht gescoped. Signatur um `tenantID`
+      erweitert (Interface, Postgres-Impl, Service.CreateSubmission-Call,
+      zwei Test-Stubs). Test deckt jetzt explizit ab, dass ein Fremd-Tenant
+      mit korrekter (bekannter) form_schema_id trotzdem nichts sieht.
+      caldav: zwei echte, unabhaengige Bugs gefunden — beide seit ihrer
+      jeweiligen Migration (000114/000115, Sprint 4 Welle 1b) latent, nie
+      gegen echtes RLS-Postgres verifiziert (die vorhandenen
+      tenant_isolation_phase2_test.go-Tests seeden `caldav_sync_versions` per
+      Hand mit `tenant_id` gesetzt statt ueber den echten Service-Code-Pfad —
+      genau das Muster, das testutil.SeedRow sonst auch verdeckt). (a)
+      `sync_token.go`s INSERTs in `caldav_sync_versions`/`caldav_change_log`
+      setzten nie `tenant_id`, obwohl beide Spalten seit Migration 000115
+      NOT NULL sind — jeder Aufruf von `GetSyncToken`/`IncrementAndLog`
+      schlaegt gegen echtes Postgres fehl (bei IncrementAndLog nur als
+      geloggte Warnung sichtbar, der Sync-Fortschritt fuer CalDAV/CardDAV-
+      Clients bleibt dadurch aber dauerhaft kaputt). Fix: `tenantID` als
+      Parameter durch GetSyncToken/IncrementAndLog/GetChangesSince gezogen,
+      an den vier Call-Sites (caldav_backend.go PUT/DELETE,
+      carddav_backend.go PUT/DELETE) ueber einen neuen `resolveTenantID`-
+      Helper aufgeloest (Basic-Auth-Ctx traegt nur die userID, keinen Tenant
+      — `resolveTenantID` liest `users.tenant_id` unter `sysctx.With`, der
+      dokumentiert sanktionierte "Identitaet/Tenant noch unbekannt"-Bypass).
+      (b) `AppPasswordRepository.FindActiveByUser`/`UpdateLastUsed` (der
+      Basic-Auth-Credential-Check selbst) liefen komplett ohne Tenant-Kontext
+      — CalDAV/CardDAV authentifiziert ueber ein App-Password, nie per JWT,
+      Basic-Auth-Validierung passiert also zwangslaeufig BEVOR ueberhaupt ein
+      Tenant bekannt ist. `app_specific_passwords` hat `FORCE ROW LEVEL
+      SECURITY`; ohne Systemkontext-Bypass blockt die Policy jede Zeile —
+      CalDAV-Basic-Auth konnte gegen echtes RLS-Postgres nie erfolgreich
+      validieren. Fix: beide Methoden mit `sysctx.With(ctx)` gewrappt,
+      derselbe sanktionierte Login-Flow-Fall wie in `user_preferences.go`
+      bereits dokumentiert. NICHT angefasst (bewusst, Scope-Kontrolle):
+      `ListByUser`/`Revoke` (JWT-authentifizierter REST-Pfad, Tenant bereits
+      korrekt gesetzt — reiner Defense-in-depth-Fall, kein aktiver Bug) und
+      die Frage, ob die eigentlichen Kalender-/Kontakt-CRUD-Aufrufe ueber die
+      gRPC-Clients (calendarClient/crmClient) im selben Basic-Auth-Ctx
+      tenant-korrekt durchgereicht werden — das ist eine eigene, groessere
+      Untersuchung (gRPC-Metadata-Propagation), nicht Teil dieser Unit.
+      automation in `wp-branchen-module-4` weitergereicht.
     done_when:
       - tenant_write_test.go je bearbeitetem Modul nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts
       - tote Writes im selben Commit repariert
       - Folge-Unit fuer nicht geschaffte Module angelegt (falls noetig)
+      - go build/vet/lint/test gruen
+
+  - id: wp-branchen-module-4
+    phase: 3
+    service: querschnitt
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Letztes verbliebenes Modul aus wp-branchen-module-2/-3: automation
+      (Unterpakete action/condition/engine/template/trigger/workflow — andere
+      Struktur als die bisherigen Module, kein einzelnes flaches
+      repository.go/postgres_repository.go-Paar, erst explorieren). Gleiches
+      Muster — echter Repo-Write ueber ctx statt testutil.SeedRow.
+    sources:
+      - backend/internal/automation/
+    notes: >
+      Offen fuer Luke: bei caldav (wp-branchen-module-3) wurde eine offene
+      Frage bewusst nicht verfolgt — ob die calendarClient()/crmClient()-
+      gRPC-Aufrufe aus dem CalDAV/CardDAV-BasicAuth-Handler (kein JWT, keine
+      Tenant-Metadata im Request) auf der Server-Seite ueberhaupt korrekt
+      tenant-scoped ankommen. Das ist eine eigene Untersuchung
+      (gRPC-Metadata-Propagation fuer den Nicht-JWT-Pfad), keine
+      automation-Aufgabe, aber bevor CalDAV/CardDAV produktiv genutzt wird
+      sollte das jemand pruefen.
+    done_when:
+      - tenant_write_test.go nach dem gemeinsamen Muster
+      - Tests laufen real, Fremd-Tenant sieht nichts
+      - tote Writes im selben Commit repariert
       - go build/vet/lint/test gruen
 
   - id: wp-testutil-guard

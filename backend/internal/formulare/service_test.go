@@ -317,7 +317,7 @@ func (r *stubRepo) ListWebhooks(_ context.Context, formSchemaID, tenantID uuid.U
 	return out, nil
 }
 
-func (r *stubRepo) ListActiveWebhooksForSchema(_ context.Context, formSchemaID uuid.UUID) ([]*FormWebhook, error) {
+func (r *stubRepo) ListActiveWebhooksForSchema(_ context.Context, _ uuid.UUID, formSchemaID uuid.UUID) ([]*FormWebhook, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []*FormWebhook
