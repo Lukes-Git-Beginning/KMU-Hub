@@ -3658,7 +3658,7 @@ bleibt.
 
 ## Iteration 47 — wp-security — done — 2026-07-28
 
-- commit: siehe unten (dieser Commit)
+- commit: `6fa63192`
 - Sonderfall: diese Iteration begann mit einem bereits **unvollstaendig
   abgebrochenen Vorlauf** — der Arbeitsbaum enthielt beim Start bereits alle
   Code-Aenderungen fuer wp-security (gdpr/vault/password + drei neue
