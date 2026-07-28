@@ -3819,3 +3819,51 @@ bleibt.
   vollen Testlauf nachholen, dann tenant_write_test.go fuer helpdesk
   schreiben, dann dialer angehen. Backlog-Status bewusst `in_progress`
   belassen (nicht `done`), Detail-Notiz im Backlog-Eintrag selbst.
+
+## Iteration 51 — wp-helpdesk-dialer (Teil 2: helpdesk-Verifikation) — in_progress — 2026-07-28
+
+- Verify-Vorspann: Commit `e0bccf02` (Iteration 50) gegen die sechs
+  Fehlerklassen gelesen (`postgres_repository.go`, `service.go`,
+  `helpdesk_grpc.go`, `merge.go`, `repository.go`) — Muster konsistent
+  ueber alle sechs Entities (Ticket/Queue/CannedResponse/SLAPolicy/
+  KBArticle/RoutingRule): Get/Update/Delete tragen jetzt `id, tenantID`
+  bzw. `t.TenantID` im WHERE, Update/Delete pruefen `RowsAffected()==0` ->
+  Not-Found. Kein Befund.
+- Umsetzung dieser Iteration: neuer `internal/helpdesk/tenant_write_test.go`
+  nach dem Write-Read-Foreign-Own-Muster aus einkauf/inbox — schliesst
+  Luecke (a) aus Iteration 50 (Praedikate gesetzt, aber nicht gegen echtes
+  Postgres bewiesen). Sieben Testfunktionen: `TestTicketWrites_...` (Update/
+  Delete + `ReassignMessages` ueber ein zweites Ticket als Ziel),
+  `TestMergeTicketTx_RespectsTenant` separat (braucht zwei Tickets + eigene
+  Merge-Semantik), `TestQueueWrites_...`, `TestCannedResponseWrites_...`,
+  `TestSLAPolicyWrites_...`, `TestKBArticleWrites_...`,
+  `TestRoutingRuleWrites_...`. Jeder Write einmal aus einem Fremd-Tenant-Ctx
+  mit der echten tenantID als explizitem Parameter (nur RLS, nicht die
+  WHERE-Klausel, kann stoppen), danach derselbe Call im eigenen Ctx.
+  Besonderheit `ReassignMessages`: die Methode hat keinen RowsAffected-Guard
+  (Iteration 50 hat dort bewusst keinen NotFound-Fehler ergaenzt, da
+  `ReassignMessages` per Bulk-Semantik gedacht ist) — ein Fremd-Tenant-Call
+  liefert `nil` und trifft still 0 Zeilen; die Isolation wird deshalb per
+  `ListMessagesByTicket`-Read statt per erwartetem Fehler geprueft, analog
+  zu `TestBulkMessageWrites_LandInCallerTenant` in inbox/message.
+- gate: `GOFLAGS=-p=2 go build ./...` gruen | `go vet
+  ./internal/helpdesk/...` gruen | `golangci-lint run
+  ./internal/helpdesk/...` 0 issues | `kmuhub_app`-Passwort erneut abgelaufen
+  (dritter Vorfall in Folge, 47/48/51) — neu gesetzt via `docker exec
+  docker-postgres-1 psql -U kmuhub -d kmuhub -c "ALTER ROLE kmuhub_app WITH
+  LOGIN PASSWORD 'app_dev';"` | `go test -count=1 -v
+  ./internal/helpdesk/...` komplett gruen (0.256s gesamt, kein Skip), alle
+  sieben neuen Tests einzeln bestaetigt in der `-v`-Ausgabe. Migration: n.a.
+  (keine neue Tabelle/Spalte, keine neue Route, kein Proto-Regen).
+- offen: fuer Luke — `kmuhub_app`-Passwort laeuft zwischen Iterationen
+  wiederholt ab (47, 48, 51); falls das stoert, laenger gueltiges Passwort
+  oder ein Fixup im Docker-Compose-Setup pruefen. Fuer die naechste
+  Iteration: (b) dialer (CampaignRepository.Update/UpdateStatus/Delete,
+  Contact-Queue-Writes UpdateContactStatus/SetContactCallback/SkipContact/
+  RequeueContact/IncrementContactCallCount tragen KEIN tenant_id-Praedikat —
+  CampaignContact hat trotz Spalte seit Migration 000119 kein TenantID-Feld
+  im Go-Modell; OutcomeRepository.Update/Delete/GetByID ebenso) ist noch
+  unangefasst, das ist mit ~1100 Zeilen Repository + ~1300 Zeilen Service ein
+  eigener substanzieller Block; (c) idempotency-Package noch nicht auf
+  Tenant-Tragung im Key-Pfad geprueft. Backlog-Status bewusst `in_progress`
+  belassen.

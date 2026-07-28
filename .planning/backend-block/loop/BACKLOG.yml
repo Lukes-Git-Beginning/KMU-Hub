@@ -2106,17 +2106,29 @@ units:
       und gRPC-Handler durchgereicht (Proto-Requests fuer Get/Update/Delete
       hatten nie ein tenant_id-Feld -- Handler holen es stattdessen ueber
       middleware.GetTenantID(ctx), kein Proto-Regen noetig). go build/vet
-      gruen. OFFEN fuer die Fortsetzung: (a) neuer tenant_write_test.go fuer
-      internal/helpdesk (Muster wie einkauf/inbox) fehlt noch -- die
-      Tenant-Praedikate sind gesetzt, aber nicht gegen echtes Postgres
-      bewiesen; (b) dialer (CampaignRepository.Update/UpdateStatus/Delete,
-      Contact-Queue-Writes UpdateContactStatus/SetContactCallback/
-      SkipContact/RequeueContact/IncrementContactCallCount tragen KEIN
-      tenant_id-Praedikat -- CampaignContact hat nicht mal ein TenantID-Feld
-      im Go-Modell trotz Spalte seit Migration 000119; OutcomeRepository.
-      Update/Delete/GetByID ebenso) ist noch unangefasst; (c)
-      idempotency-Package noch nicht auf Tenant-Tragung im Key-Pfad geprueft.
-      Naechste Iteration knuepft hier an, nicht neu von vorn.
+      gruen.
+      Iteration 51: Punkt (a) geschlossen -- neuer
+      internal/helpdesk/tenant_write_test.go nach dem Muster aus
+      einkauf/inbox, sieben Testfunktionen (Ticket inkl. ReassignMessages,
+      MergeTicketTx separat, Queue, CannedResponse, SLAPolicy, KBArticle,
+      RoutingRule): jeder Write einmal aus einem Fremd-Tenant-Ctx mit der
+      echten tenantID als explizitem Parameter (nur RLS, nicht die
+      WHERE-Klausel, kann stoppen), danach derselbe Call im eigenen Ctx.
+      ReassignMessages hat keinen RowsAffected-Guard (kein Fehler bei 0
+      Treffern) -- dort per Read statt per Fehler verifiziert, analog
+      inbox.BulkMarkRead. Gate: `GOFLAGS=-p=2 go build ./...` gruen,
+      `go vet ./internal/helpdesk/...` gruen, `golangci-lint run
+      ./internal/helpdesk/...` 0 issues, `go test -count=1 -v
+      ./internal/helpdesk/...` komplett gruen (kmuhub_app, kein Skip), alle
+      sieben neuen Tests bestaetigt.
+      OFFEN fuer die Fortsetzung: (b) dialer (CampaignRepository.Update/
+      UpdateStatus/Delete, Contact-Queue-Writes UpdateContactStatus/
+      SetContactCallback/SkipContact/RequeueContact/IncrementContactCallCount
+      tragen KEIN tenant_id-Praedikat -- CampaignContact hat nicht mal ein
+      TenantID-Feld im Go-Modell trotz Spalte seit Migration 000119;
+      OutcomeRepository.Update/Delete/GetByID ebenso) ist noch unangefasst;
+      (c) idempotency-Package noch nicht auf Tenant-Tragung im Key-Pfad
+      geprueft. Naechste Iteration knuepft hier an, nicht neu von vorn.
     sources:
       - backend/internal/helpdesk/
       - backend/internal/dialer/
