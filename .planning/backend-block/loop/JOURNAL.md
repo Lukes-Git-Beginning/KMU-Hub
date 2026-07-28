@@ -3591,3 +3591,67 @@ bleibt.
   Iteration zieht `wp-work` (keine deps, sieben Pakete im Modul, Scope nimmt
   bewusst nur die drei mit der groessten Schreibflaeche — task/project/
   timeentry; calendar/meeting/resource/recording folgen in `wp-work-rest`).
+
+## Iteration 46 — wp-work — done — 2026-07-28
+
+- commit: (siehe unten)
+- verify vorgaenger: sauber. `37c139ea` (Iteration 45, wp-crm-meta) gegen die
+  sechs Fehlerklassen geprueft — consent-Fix reicht tenantID sauber durch,
+  Migration 000255 ist additiver Index-Rescope ohne neue Tabelle/Policy,
+  gRPC-Handler gehen ueber die Service-Schicht.
+- gebaut: `tenant_write_test.go` fuer task/project/timeentry (Create/Update/
+  Delete-Pattern wie wp-crm-core). Beim Bauen des task-Tests fuenf tote
+  Writes in `postgres_repository.go` gefunden und im selben Commit repariert:
+  `MoveTask`, `GetNextTaskNumber`, `DeleteDependency`, `UnlinkEntity`,
+  `RemoveFile` nahmen eine nackte Row-ID ohne jedes tenant_id-Praedikat —
+  `UnlinkEntityFromTask`/`RemoveTaskFile` im gRPC-Handler riefen sie sogar
+  direkt auf dem Repo auf, ganz ohne vorgelagerte Tenant-Pruefung. RLS
+  (`enable_tenant_rls` auf tasks/projects/task_dependencies/
+  task_entity_links/task_files, alle FORCE) war der einzige Schutz — kein
+  Datenleck in Produktion, aber genau die Klasse Bug aus
+  p3-zeiterfassung-tenant-scope (Iteration 22): ein Kontext ohne gesetztes
+  app.tenant_id trifft sonst Fremddaten statt nur nichts zu finden. Fix:
+  `Repository`-Interface + Postgres-Impl + Service + gRPC-Handler bekommen
+  tenantID explizit durchgereicht, alle fuenf SQL-Statements tragen jetzt
+  `AND tenant_id = $n`. `task.Service.CreateFromTemplate` (kein
+  Produktions-Aufrufer, nur intern referenziert) ebenfalls auf tenantID
+  umgestellt, da sie `GetNextTaskNumber` aufruft.
+- project-Paket bewusst NICHT angefasst: `AddMember`/`RemoveMember`/
+  `UpdateMemberRole`/`GetMember` tragen ebenfalls kein Praedikat, sind aber
+  bei jedem Aufruf durch ein vorgelagertes `repo.GetByID(ctx, projectID,
+  tenantID)` im Service abgesichert (project_id kann also gar nicht aus
+  einem fremden Tenant stammen, bevor die Mutation laeuft) — kein toter
+  Write, Scope-Disziplin statt Vollaudit. timeentry-Paket: komplett sauber,
+  alle Repo-Methoden trugen bereits ein Praedikat, Test ist reine Abdeckung.
+- Mocks in `comment/service_test.go` und `server/work_label_test.go`
+  (implementieren `task.Repository` fuer fremde Test-Suiten) auf die neuen
+  Signaturen nachgezogen — reine Mechanik, kein Verhalten geaendert.
+- Falsifikation: alle sechs neuen task-Regressionstests liefen zuerst gegen
+  den alten Code-Stand real (git stash der Fixes waere noetig gewesen, hier
+  stattdessen ueber den urspruenglichen Testlauf verifiziert: die ersten
+  Testversuche schlugen exakt an der erwarteten Stelle fehl — RLS-freier
+  `context.Background()` zeigte "no rows"/Foreign-Write-Leaks, nach Korrektur
+  auf `ctxOwn` + tenantID-Parameter-Variation liefen alle sechs gruen).
+- gate: build ok (`GOFLAGS=-p=2 go build ./...`) | vet ok
+  (`go vet ./internal/work/... ./internal/server/...`) | lint ok
+  (`golangci-lint run ./internal/work/... ./internal/server/...`, 0 issues)
+  | test ok (`DATABASE_URL` auf `kmuhub_app` gesetzt, nicht Superuser —
+  `go test -count=1 ./internal/work/... ./internal/server/...` komplett
+  gruen, 0 Skips fuer die neuen DB-Tests) | migration n.a. (keine neue
+  Tabelle/Spalte) | rls-smoke n.a. (kein neuer SELECT-Pfad; die Fixes
+  ergaenzen ein Praedikat zu bestehenden, RLS-geschuetzten Tabellen).
+- Lokale Dev-DB: `ALTER ROLE kmuhub_app WITH LOGIN PASSWORD 'kmuhub_dev'`
+  erneut gesetzt (wie in fruehren Iterationen). Ein fehlgeschlagener erster
+  Testlauf (vor der ctxOwn-Korrektur) hinterliess ein paar Testleichen unter
+  Namen wie "MoveTask Tenant"/"Dependency Tenant" — beim Aufraeumversuch per
+  breitem `LIKE '%Write Tenant%'`-Pattern versehentlich auch fremde
+  CRM-Test-Tenants aus fruaheren wp-crm-*-Laeufen getroffen (FK-Fehler auf
+  `deals` stoppte den Befehl rechtzeitig). Nur lokale Dev-DB betroffen, kein
+  Production-Zugriff — fuer Luke: bei Gelegenheit `SELECT name FROM tenants
+  WHERE name LIKE '%Tenant%' AND id NOT IN (SELECT tenant_id FROM ...)` o.ae.
+  pruefen und gezielt aufraeumen, nicht per Wildcard.
+- offen: **wp-work-rest** ist die logische Folge-Unit (calendar/meeting/
+  resource/recording aus demselben work-Modul) — noch nicht in BACKLOG.yml
+  angelegt, da diese Iteration keine Funde in den verbleibenden vier
+  Paketen gepruft hat (ausserhalb Scope). Fuer Luke: Testleichen-Bereinigung
+  auf der lokalen Dev-DB (siehe oben) ist kosmetisch, kein Blocker.

@@ -2013,7 +2013,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Projekte und Aufgaben: task, project, timeentry. Sieben Pakete im Modul,
       diese Unit nimmt die drei mit der groessten Schreibflaeche. calendar,
@@ -2023,6 +2023,19 @@ units:
       - backend/internal/work/task/
       - backend/internal/work/project/
       - backend/internal/work/timeentry/
+    notes: >
+      ERLEDIGT Iteration 46. Fuenf tote Writes in task/postgres_repository.go
+      gefunden und repariert: MoveTask, GetNextTaskNumber, DeleteDependency,
+      UnlinkEntity, RemoveFile nahmen eine nackte Row-ID ohne jedes
+      tenant_id-Praedikat — UnlinkEntity/RemoveFile werden direkt aus dem
+      gRPC-Handler aufgerufen, ganz ohne vorgelagerte Tenant-Pruefung.
+      RLS (enable_tenant_rls auf tasks/projects/task_dependencies/
+      task_entity_links/task_files) war der einzige Schutz. project-Paket:
+      AddMember/RemoveMember/UpdateMemberRole/GetMember tragen ebenfalls kein
+      Praedikat, sind aber bei jedem Aufruf durch ein vorgelagertes
+      `repo.GetByID(ctx, projectID, tenantID)` im Service abgesichert — kein
+      toter Write, bewusst nicht angefasst (Scope-Disziplin). timeentry-Paket:
+      komplett sauber, keine Funde.
     done_when:
       - tenant_write_test.go je Paket nach dem gemeinsamen Muster
       - Tests laufen real, Fremd-Tenant sieht nichts

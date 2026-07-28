@@ -38,12 +38,12 @@ func (r *PostgresRepository) Create(ctx context.Context, task *models.Task) erro
 	return err
 }
 
-func (r *PostgresRepository) GetNextTaskNumber(ctx context.Context, projectID uuid.UUID) (int, error) {
+func (r *PostgresRepository) GetNextTaskNumber(ctx context.Context, tenantID, projectID uuid.UUID) (int, error) {
 	var num int
 	err := r.pool.QueryRow(ctx,
-		`UPDATE projects SET next_task_number = next_task_number + 1 WHERE id = $1
+		`UPDATE projects SET next_task_number = next_task_number + 1 WHERE id = $1 AND tenant_id = $2
 		 RETURNING next_task_number - 1`,
-		projectID,
+		projectID, tenantID,
 	).Scan(&num)
 	if err != nil {
 		return 0, fmt.Errorf("get next task number: %w", err)
@@ -266,10 +266,10 @@ func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID)
 	return nil
 }
 
-func (r *PostgresRepository) MoveTask(ctx context.Context, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
+func (r *PostgresRepository) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE tasks SET status_id = $1, sort_order = $2, updated_at = $3 WHERE id = $4`,
-		newStatusID, newSortOrder, time.Now(), taskID,
+		`UPDATE tasks SET status_id = $1, sort_order = $2, updated_at = $3 WHERE id = $4 AND tenant_id = $5`,
+		newStatusID, newSortOrder, time.Now(), taskID, tenantID,
 	)
 	return err
 }
@@ -377,8 +377,8 @@ func (r *PostgresRepository) CreateDependency(ctx context.Context, dep *models.T
 	return err
 }
 
-func (r *PostgresRepository) DeleteDependency(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM task_dependencies WHERE id = $1`, id)
+func (r *PostgresRepository) DeleteDependency(ctx context.Context, tenantID, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM task_dependencies WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	return err
 }
 
@@ -488,8 +488,8 @@ func (r *PostgresRepository) LinkEntity(ctx context.Context, link *models.TaskEn
 	return err
 }
 
-func (r *PostgresRepository) UnlinkEntity(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM task_entity_links WHERE id = $1`, id)
+func (r *PostgresRepository) UnlinkEntity(ctx context.Context, tenantID, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM task_entity_links WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	return err
 }
 
@@ -552,8 +552,8 @@ func (r *PostgresRepository) AttachFile(ctx context.Context, file *models.TaskFi
 	return err
 }
 
-func (r *PostgresRepository) RemoveFile(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM task_files WHERE id = $1`, id)
+func (r *PostgresRepository) RemoveFile(ctx context.Context, tenantID, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM task_files WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	return err
 }
 

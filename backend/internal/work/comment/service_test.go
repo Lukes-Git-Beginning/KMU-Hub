@@ -99,10 +99,12 @@ func (m *mockTaskRepo) List(_ context.Context, _ uuid.UUID, _ task.TaskFilters) 
 }
 func (m *mockTaskRepo) Update(_ context.Context, _ *models.Task) error          { return nil }
 func (m *mockTaskRepo) Delete(_ context.Context, _, _ uuid.UUID) error          { return nil }
-func (m *mockTaskRepo) MoveTask(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ float64) error {
+func (m *mockTaskRepo) MoveTask(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ uuid.UUID, _ float64) error {
 	return nil
 }
-func (m *mockTaskRepo) GetNextTaskNumber(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil }
+func (m *mockTaskRepo) GetNextTaskNumber(_ context.Context, _, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
 func (m *mockTaskRepo) GetSubtasks(_ context.Context, _ uuid.UUID, _ int) ([]models.TaskWithRelations, error) {
 	return nil, nil
 }
@@ -113,7 +115,7 @@ func (m *mockTaskRepo) GetDepth(_ context.Context, _ uuid.UUID) (int, error) { r
 func (m *mockTaskRepo) CreateDependency(_ context.Context, _ *models.TaskDependency) error {
 	return nil
 }
-func (m *mockTaskRepo) DeleteDependency(_ context.Context, _ uuid.UUID) error { return nil }
+func (m *mockTaskRepo) DeleteDependency(_ context.Context, _, _ uuid.UUID) error { return nil }
 func (m *mockTaskRepo) ListDependencies(_ context.Context, _ uuid.UUID) ([]models.TaskDependency, error) {
 	return nil, nil
 }
@@ -124,7 +126,7 @@ func (m *mockTaskRepo) ListActivities(_ context.Context, _ uuid.UUID, _, _ int) 
 	return nil, 0, nil
 }
 func (m *mockTaskRepo) LinkEntity(_ context.Context, _ *models.TaskEntityLink) error { return nil }
-func (m *mockTaskRepo) UnlinkEntity(_ context.Context, _ uuid.UUID) error            { return nil }
+func (m *mockTaskRepo) UnlinkEntity(_ context.Context, _, _ uuid.UUID) error         { return nil }
 func (m *mockTaskRepo) ListEntityLinks(_ context.Context, _ uuid.UUID) ([]models.TaskEntityLink, error) {
 	return nil, nil
 }
@@ -132,7 +134,7 @@ func (m *mockTaskRepo) ListTasksForEntity(_ context.Context, _ string, _ uuid.UU
 	return nil, nil
 }
 func (m *mockTaskRepo) AttachFile(_ context.Context, _ *models.TaskFile) error { return nil }
-func (m *mockTaskRepo) RemoveFile(_ context.Context, _ uuid.UUID) error        { return nil }
+func (m *mockTaskRepo) RemoveFile(_ context.Context, _, _ uuid.UUID) error     { return nil }
 func (m *mockTaskRepo) ListFiles(_ context.Context, _ uuid.UUID) ([]models.TaskFile, error) {
 	return nil, nil
 }

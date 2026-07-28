@@ -20,10 +20,10 @@ type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error)
 	Update(ctx context.Context, task *models.Task) error
 	Delete(ctx context.Context, id, tenantID uuid.UUID) error
-	MoveTask(ctx context.Context, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error
+	MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error
 
 	// Task number
-	GetNextTaskNumber(ctx context.Context, projectID uuid.UUID) (int, error)
+	GetNextTaskNumber(ctx context.Context, tenantID, projectID uuid.UUID) (int, error)
 
 	// Nesting
 	GetSubtasks(ctx context.Context, parentID uuid.UUID, maxDepth int) ([]models.TaskWithRelations, error)
@@ -32,7 +32,7 @@ type Repository interface {
 
 	// Dependencies
 	CreateDependency(ctx context.Context, dep *models.TaskDependency) error
-	DeleteDependency(ctx context.Context, id uuid.UUID) error
+	DeleteDependency(ctx context.Context, tenantID, id uuid.UUID) error
 	ListDependencies(ctx context.Context, taskID uuid.UUID) ([]models.TaskDependency, error)
 	HasCycle(ctx context.Context, sourceID, targetID uuid.UUID) (bool, error)
 
@@ -42,13 +42,13 @@ type Repository interface {
 
 	// Entity links
 	LinkEntity(ctx context.Context, link *models.TaskEntityLink) error
-	UnlinkEntity(ctx context.Context, id uuid.UUID) error
+	UnlinkEntity(ctx context.Context, tenantID, id uuid.UUID) error
 	ListEntityLinks(ctx context.Context, taskID uuid.UUID) ([]models.TaskEntityLink, error)
 	ListTasksForEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]models.TaskWithRelations, error)
 
 	// Files
 	AttachFile(ctx context.Context, file *models.TaskFile) error
-	RemoveFile(ctx context.Context, id uuid.UUID) error
+	RemoveFile(ctx context.Context, tenantID, id uuid.UUID) error
 	ListFiles(ctx context.Context, taskID uuid.UUID) ([]models.TaskFile, error)
 
 	// Custom fields

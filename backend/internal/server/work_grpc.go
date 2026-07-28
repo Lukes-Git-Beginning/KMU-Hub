@@ -942,12 +942,17 @@ func (s *WorkGRPCServer) CreateTaskDependency(ctx context.Context, req *workv1.C
 }
 
 func (s *WorkGRPCServer) DeleteTaskDependency(ctx context.Context, req *workv1.DeleteTaskDependencyRequest) (*workv1.DeleteTaskDependencyResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid dependency id")
 	}
 
-	if err := s.taskService.DeleteDependency(ctx, id); err != nil {
+	if err := s.taskService.DeleteDependency(ctx, tenantID, id); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1124,12 +1129,17 @@ func (s *WorkGRPCServer) LinkEntityToTask(ctx context.Context, req *workv1.LinkE
 }
 
 func (s *WorkGRPCServer) UnlinkEntityFromTask(ctx context.Context, req *workv1.UnlinkEntityFromTaskRequest) (*workv1.UnlinkEntityFromTaskResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid link id")
 	}
 
-	if err := s.taskRepo.UnlinkEntity(ctx, id); err != nil {
+	if err := s.taskRepo.UnlinkEntity(ctx, tenantID, id); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1253,12 +1263,17 @@ func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.Attac
 }
 
 func (s *WorkGRPCServer) RemoveTaskFile(ctx context.Context, req *workv1.RemoveTaskFileRequest) (*workv1.RemoveTaskFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
 	}
 
-	if err := s.taskRepo.RemoveFile(ctx, id); err != nil {
+	if err := s.taskRepo.RemoveFile(ctx, tenantID, id); err != nil {
 		return nil, mapWorkError(err)
 	}
 
