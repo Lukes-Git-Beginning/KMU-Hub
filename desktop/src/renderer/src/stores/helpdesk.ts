@@ -205,6 +205,8 @@ interface HelpdeskStore {
   /** CSAT survey config (tenant): auto-send after close + the delay before it goes out. */
   csatEnabled: boolean
   csatDelayHours: number
+  /** The question the customer sees in the satisfaction survey (tenant-editable). */
+  csatQuestion: string
   /**
    * Intake-channel config (tenant, Ticket-Intake P6+). The three ways a ticket can
    * be created are individually on/off; the module's origin tabs and the
@@ -240,6 +242,7 @@ interface HelpdeskStore {
   saveRoutingRules: (rules: RoutingRule[]) => void
   setCsatEnabled: (enabled: boolean) => void
   setCsatDelayHours: (hours: number) => void
+  setCsatQuestion: (question: string) => void
   setIntakeChannel: (channel: 'agent' | 'selfservice' | 'external', enabled: boolean) => void
   setIntakeForm: (channel: 'agent' | 'selfservice' | 'external', id: string) => void
 
@@ -483,6 +486,7 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       holidays: MOCK_HOLIDAYS,
       csatEnabled: true,
       csatDelayHours: 24,
+      csatQuestion: 'Wie zufrieden waren Sie mit der Bearbeitung Ihres Anliegens?',
       intakeChannels: { agent: true, selfservice: true, external: false },
       intakeForms: {
         agent: 'form-ticket-agent',
@@ -665,6 +669,7 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
 
       setCsatEnabled: (enabled) => set({ csatEnabled: enabled }),
       setCsatDelayHours: (hours) => set({ csatDelayHours: hours }),
+      setCsatQuestion: (question) => set({ csatQuestion: question }),
 
       setIntakeChannel: (channel, enabled) =>
         set((s) => ({ intakeChannels: { ...s.intakeChannels, [channel]: enabled } })),

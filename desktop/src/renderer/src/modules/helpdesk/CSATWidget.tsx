@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Star, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTickets, useSaveCsat } from '@/api/hooks/useHelpdesk'
+import { useHelpdeskStore } from '@/stores/helpdesk'
 
 function StarRating({ value, onChange, size = 'md', readOnly }: {
   value: number; onChange?: (r: number) => void; size?: 'sm' | 'md'; readOnly?: boolean
@@ -45,6 +46,7 @@ interface CSATWidgetProps {
 export function CSATWidget({ ticketId, ticketStatus, csatRating, csatComment }: CSATWidgetProps) {
   const { t } = useTranslation()
   const saveCsat = useSaveCsat()
+  const csatQuestion = useHelpdeskStore((s) => s.csatQuestion)
   const hasRating = typeof csatRating === 'number'
   const [rating, setRating] = useState(csatRating ?? 0)
   const [comment, setComment] = useState(csatComment ?? '')
@@ -87,6 +89,7 @@ export function CSATWidget({ ticketId, ticketStatus, csatRating, csatComment }: 
         </div>
       ) : (
         <div className="space-y-3">
+          {csatQuestion.trim() && <p className="text-sm text-foreground">{csatQuestion}</p>}
           <StarRating value={rating} onChange={setRating} />
           <textarea
             value={comment}

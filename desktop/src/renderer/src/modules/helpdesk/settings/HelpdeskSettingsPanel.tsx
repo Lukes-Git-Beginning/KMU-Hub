@@ -84,8 +84,10 @@ function HelpdeskCsatConfig() {
   const { t } = useTranslation()
   const csatEnabled = useHelpdeskStore((s) => s.csatEnabled)
   const csatDelayHours = useHelpdeskStore((s) => s.csatDelayHours)
+  const csatQuestion = useHelpdeskStore((s) => s.csatQuestion)
   const setCsatEnabled = useHelpdeskStore((s) => s.setCsatEnabled)
   const setCsatDelayHours = useHelpdeskStore((s) => s.setCsatDelayHours)
+  const setCsatQuestion = useHelpdeskStore((s) => s.setCsatQuestion)
 
   return (
     <div className="space-y-5">
@@ -121,6 +123,20 @@ function HelpdeskCsatConfig() {
           <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         </div>
         <p className="text-xs text-muted-foreground">{t('helpdesk.settings.csat.delayHint')}</p>
+      </div>
+
+      {/* Survey question — what the customer sees in the survey */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground">{t('helpdesk.settings.csat.questionLabel')}</label>
+        <textarea
+          value={csatQuestion}
+          disabled={!csatEnabled}
+          onChange={(e) => setCsatQuestion(e.target.value)}
+          rows={2}
+          placeholder={t('helpdesk.settings.csat.questionPlaceholder')}
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        <p className="text-xs text-muted-foreground">{t('helpdesk.settings.csat.questionHint')}</p>
       </div>
     </div>
   )
