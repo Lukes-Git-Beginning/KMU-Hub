@@ -4965,6 +4965,7 @@
   "helpdesk.sort.status": "Stato",
   "helpdesk.stats.avgResponseTime": "Tempo di risposta medio",
   "helpdesk.stats.byPriority": "Per priorità",
+  "helpdesk.stats.byField": "Per {field}",
   "helpdesk.stats.allHidden": "Tutti gli elementi statistici sono nascosti.",
   "helpdesk.stats.byStatus": "Per stato",
   "helpdesk.stats.customerSatisfaction": "Soddisfazione clienti",

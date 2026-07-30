@@ -241,6 +241,10 @@ export default function HelpdeskPage() {
   // when an option is missing. The editor sandbox layers the draft on top → live.
   const priorityValueSet = useModuleValueSet('ticket_priority')
   const statusValueSet = useModuleValueSet('ticket_status')
+  // Custom-field defs drive the dynamic statistics breakdowns (B1): every select
+  // field with a value list gets its own "distribution by <field>" widget, so a
+  // new value list added in the editor shows up in the stats automatically.
+  const statFieldDefs = useModuleCustomFields('helpdesk_ticket')
   const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
   const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
   const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
@@ -852,6 +856,51 @@ export default function HelpdeskPage() {
         // survey setting lands with the Helpdesk settings step.
         const showStat = (key: string): boolean => areaEnabled[`stat:${key}`] !== false
         const CSAT_FEATURE_ENABLED = csatEnabled
+        // Generic value-list breakdown (B1): one row per option, label + colour
+        // pulled from the value set, so renaming/adding options in the editor is
+        // reflected here live. Used by status/priority AND every select custom field.
+        const renderBreakdown = (
+          keyId: string,
+          heading: React.ReactNode,
+          rows: { id: string; label: string; color?: string; fallbackClass?: string; count: number }[],
+        ) => (
+          <div key={keyId} className="rounded-lg border border-border bg-card p-4">
+            <h3 className="text-sm font-medium text-foreground mb-3">{heading}</h3>
+            <div className="space-y-2">
+              {rows.map((r) => {
+                const pct = tickets.length > 0 ? Math.round((r.count / tickets.length) * 100) : 0
+                return (
+                  <div key={r.id} className="flex items-center gap-3">
+                    <VsChip label={r.label} color={r.color} fallbackClass={r.fallbackClass} className="w-28 text-center" />
+                    <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
+                      <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs text-muted-foreground w-10 text-right">{r.count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+        // Dynamic breakdowns: every select custom field with options becomes a
+        // "distribution by <field>" widget (togglable via stat:field:<key>).
+        const fieldBreakdowns = statFieldDefs
+          .filter((f) => f.type === 'select' && f.options.length > 0)
+          .map((f) =>
+            showStat(`field:${f.key}`)
+              ? renderBreakdown(
+                  `f-${f.key}`,
+                  t('helpdesk.stats.byField', { field: f.label }),
+                  f.options.map((opt) => ({
+                    id: opt,
+                    label: opt,
+                    count: tickets.filter(
+                      (tk) => tk.customFields?.[f.key] != null && String(tk.customFields[f.key]) === opt,
+                    ).length,
+                  })),
+                )
+              : false,
+          )
         const statCards = [
           showStat('openTickets') && <StatCard key="ot" icon={AlertCircle} label={<EditableText dkey="helpdesk.stats.openTickets" />} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />,
           showStat('avgResponseTime') && <StatCard key="art" icon={Clock} label={<EditableText dkey="helpdesk.stats.avgResponseTime" />} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />,
@@ -877,46 +926,23 @@ export default function HelpdeskPage() {
             </div>
           ),
           CSAT_FEATURE_ENABLED && showStat('csatChart') && <CSATAggregate key="csat-agg" />,
-          showStat('byStatus') && (
-            <div key="bs" className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byStatus" /></h3>
-              <div className="space-y-2">
-                {activeStatusOptions.map((o) => {
-                  const count = tickets.filter((t) => t.status === o.id).length
-                  const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
-                  return (
-                    <div key={o.id} className="flex items-center gap-3">
-                      <VsChip label={o.label} color={o.color} fallbackClass={statusColors[o.id]} className="w-28 text-center" />
-                      <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
-                        <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-10 text-right">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+          showStat('byStatus') && renderBreakdown(
+            'bs',
+            <EditableText as="span" dkey="helpdesk.stats.byStatus" />,
+            activeStatusOptions.map((o) => ({
+              id: o.id, label: o.label, color: o.color, fallbackClass: statusColors[o.id],
+              count: tickets.filter((tk) => tk.status === o.id).length,
+            })),
           ),
-          showStat('byPriority') && (
-            <div key="bp" className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3"><EditableText as="span" dkey="helpdesk.stats.byPriority" /></h3>
-              <div className="space-y-2">
-                {activePriorityOptions.map((o) => {
-                  const count = tickets.filter((t) => t.priority === o.id).length
-                  const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
-                  return (
-                    <div key={o.id} className="flex items-center gap-3">
-                      <VsChip label={o.label} color={o.color} fallbackClass={priorityColors[o.id]} className="w-28 text-center" />
-                      <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
-                        <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-10 text-right">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+          showStat('byPriority') && renderBreakdown(
+            'bp',
+            <EditableText as="span" dkey="helpdesk.stats.byPriority" />,
+            activePriorityOptions.map((o) => ({
+              id: o.id, label: o.label, color: o.color, fallbackClass: priorityColors[o.id],
+              count: tickets.filter((tk) => tk.priority === o.id).length,
+            })),
           ),
+          ...fieldBreakdowns,
         ].filter(Boolean)
         return (
           <div className="animate-fade-up">

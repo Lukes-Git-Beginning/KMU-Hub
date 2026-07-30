@@ -4995,6 +4995,7 @@
   "helpdesk.sort.status": "Status",
   "helpdesk.stats.avgResponseTime": "Avg. response time",
   "helpdesk.stats.byPriority": "By priority",
+  "helpdesk.stats.byField": "By {field}",
   "helpdesk.stats.allHidden": "All statistics widgets are hidden.",
   "helpdesk.stats.byStatus": "By status",
   "helpdesk.stats.customerSatisfaction": "Customer satisfaction",
