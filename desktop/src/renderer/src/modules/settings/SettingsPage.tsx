@@ -979,7 +979,7 @@ function AboutTab() {
   // Only shown when the tenant enabled the self-service channel in the editor.
   const profile = useSettingsStore((s) => s.profile)
   const selfserviceEnabled = useHelpdeskStore((s) => s.intakeChannels.selfservice)
-  const intakeFormId = useHelpdeskStore((s) => s.intakeFormId)
+  const intakeFormId = useHelpdeskStore((s) => s.intakeForms.selfservice)
   const [supportOpen, setSupportOpen] = useState(false)
 
   return (

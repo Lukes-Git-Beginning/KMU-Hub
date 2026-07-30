@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, type SyntheticEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueries } from '@tanstack/react-query'
 import {
   DndContext,
@@ -768,6 +769,24 @@ export default function FormularePage() {
     setPreviewPage(0)
     setShowAddFieldMenu(false)
   }
+
+  // Ticket-Intake A4 — deep-link target: the editor's Kanäle panel navigates to
+  // /formulare?edit=<id> so the concrete bound form opens directly (both windows
+  // share the app's hash router). Clear the param once handled so a refresh/back
+  // doesn't reopen it.
+  const [editParams, setEditParams] = useSearchParams()
+  useEffect(() => {
+    const editId = editParams.get('edit')
+    if (!editId || schemasLoading) return
+    const schema = schemasItems.find((s) => s.id === editId)
+    if (!schema) return
+    openEditor(schema)
+    const next = new URLSearchParams(editParams)
+    next.delete('edit')
+    setEditParams(next, { replace: true })
+    // openEditor is stable in effect (guarded by the param delete above)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParams, schemasLoading, schemasItems, setEditParams])
 
   // FT-1 — open the form detail modal on its Details tab.
   const openFormDetail = (schema: FormSchema) => {

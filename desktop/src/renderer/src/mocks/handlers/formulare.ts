@@ -245,6 +245,50 @@ function buildSchemas(): FormSchema[] {
         f({ type: 'textarea', label: 'Problembeschreibung', required: true, placeholder: 'Was ist passiert?' }),
       ],
     }),
+    // ── Intake channel forms (Ticket-Intake, real editable forms per channel) ──
+    // Bound to the Helpdesk ticket target; the editor's Kanäle panel assigns one
+    // per channel. These are real forms (isTemplate: false) so they are directly
+    // editable — unlike the seed *template* below, which is a duplication start.
+    base({
+      id: 'form-ticket-selfservice',
+      title: 'Support-Ticket (Selfservice)',
+      description:
+        'Schlankes Ticket-Formular für Mitarbeitende und externe Melder — Kontaktdaten werden bei internen Meldern automatisch übernommen.',
+      status: 'active',
+      isPublic: true,
+      submissionCount: 0,
+      createdAt: isoAgo(30 * DAY),
+      updatedAt: isoAgo(3 * DAY),
+      intakeTargetId: 'helpdesk_ticket',
+      fields: [
+        f({ type: 'text', label: 'Betreff', required: true, placeholder: 'Kurz: worum geht es?', role: 'subject' }),
+        f({ type: 'textarea', label: 'Beschreibung', required: true, placeholder: 'Bitte schildern Sie Ihr Anliegen …', role: 'description' }),
+        f({ type: 'select', label: 'Kategorie', required: false, options: ['Technisch', 'Abrechnung', 'Allgemein', 'Sonstiges'], role: 'category' }),
+        f({ type: 'select', label: 'Priorität', required: false, options: ['Niedrig', 'Normal', 'Hoch', 'Dringend'], role: 'priority' }),
+        f({ type: 'text', label: 'Ihr Name', required: true, placeholder: 'Vor- und Nachname', role: 'requester_name' }),
+        f({ type: 'email', label: 'Ihre E-Mail', required: true, placeholder: 'name@beispiel.de', role: 'requester_email' }),
+        consentField(),
+      ],
+    }),
+    base({
+      id: 'form-ticket-agent',
+      title: 'Agent-Ticket (intern)',
+      description:
+        'Erweitertes Ticket-Formular für Agenten — mit technischen Zusatzfeldern. Kontakt, Priorität und Zuweisung kommen aus den Agent-Werkzeugen im Dialog.',
+      status: 'active',
+      isPublic: false,
+      submissionCount: 0,
+      createdAt: isoAgo(30 * DAY),
+      updatedAt: isoAgo(3 * DAY),
+      intakeTargetId: 'helpdesk_ticket',
+      fields: [
+        f({ type: 'text', label: 'Betreff', required: true, placeholder: 'Kurz: worum geht es?', role: 'subject' }),
+        f({ type: 'textarea', label: 'Beschreibung', required: true, placeholder: 'Problem und bisherige Schritte …', role: 'description' }),
+        f({ type: 'select', label: 'Kategorie', required: false, options: ['Technisch', 'Abrechnung', 'Allgemein', 'Sonstiges'], role: 'category' }),
+        f({ type: 'text', label: 'Gerät / Anlage', required: false, placeholder: 'z.B. Kassensystem Filiale 3' }),
+        f({ type: 'text', label: 'Fehlercode', required: false, placeholder: 'z.B. E-4711' }),
+      ],
+    }),
     // ── Templates ──
     // P2 — intake template: submissions become Helpdesk tickets. Each field is
     // mapped to a ticket role via `role`; the unmarked field flows into the

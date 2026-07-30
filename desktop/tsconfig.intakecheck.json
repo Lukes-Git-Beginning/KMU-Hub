@@ -28,6 +28,7 @@
     "src/renderer/src/api/formulare-client.ts",
     "src/renderer/src/stores/formulare.ts",
     "src/renderer/src/mocks/handlers/formulare.ts",
-    "src/renderer/src/modules/formulare/FormularePage.tsx"
+    "src/renderer/src/modules/formulare/FormularePage.tsx",
+    "src/renderer/src/modules/admin/anpassungen/editor/KanaelePanel.tsx"
   ]
 }

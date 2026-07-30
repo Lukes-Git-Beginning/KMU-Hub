@@ -206,16 +206,17 @@ interface HelpdeskStore {
   csatEnabled: boolean
   csatDelayHours: number
   /**
-   * Intake-channel config (tenant, Ticket-Intake P6). The three ways a ticket can
+   * Intake-channel config (tenant, Ticket-Intake P6+). The three ways a ticket can
    * be created are individually on/off; the module's origin tabs and the
-   * self-service / public entry points read this. `intakeFormId` binds the form
-   * that the self-service + external channels render (a form with
-   * intakeTargetId 'helpdesk_ticket'). Functional toggle — configured in the
-   * module editor's Kanäle panel, applied directly (like csatEnabled), not via
-   * the draft/deploy overlay used for content customization.
+   * self-service / public entry points read this. `intakeForms` binds ONE form per
+   * channel (each a form with intakeTargetId 'helpdesk_ticket') — so agents can be
+   * given a different template than self-service submitters (they may also share
+   * the same form id). Functional toggle — configured in the module editor's
+   * Kanäle panel, applied directly (like csatEnabled), not via the draft/deploy
+   * overlay used for content customization.
    */
   intakeChannels: { agent: boolean; selfservice: boolean; external: boolean }
-  intakeFormId: string
+  intakeForms: { agent: string; selfservice: string; external: string }
 
   // ── Ticket actions ──
   /** Create a ticket with auto number (HD-YYYY-NNNN), SLA + timestamps; prepends it. Returns the new id. */
@@ -240,7 +241,7 @@ interface HelpdeskStore {
   setCsatEnabled: (enabled: boolean) => void
   setCsatDelayHours: (hours: number) => void
   setIntakeChannel: (channel: 'agent' | 'selfservice' | 'external', enabled: boolean) => void
-  setIntakeFormId: (id: string) => void
+  setIntakeForm: (channel: 'agent' | 'selfservice' | 'external', id: string) => void
 
   // ── Knowledge base ──
   /** Edited KB article bodies (HTML), overriding the static fallback. */
@@ -483,7 +484,11 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       csatEnabled: true,
       csatDelayHours: 24,
       intakeChannels: { agent: true, selfservice: true, external: false },
-      intakeFormId: 'tmpl-ticket-intake',
+      intakeForms: {
+        agent: 'form-ticket-agent',
+        selfservice: 'form-ticket-selfservice',
+        external: 'form-ticket-selfservice',
+      },
       kbBodies: {},
 
       addTicket: (input) => {
@@ -663,7 +668,8 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
 
       setIntakeChannel: (channel, enabled) =>
         set((s) => ({ intakeChannels: { ...s.intakeChannels, [channel]: enabled } })),
-      setIntakeFormId: (id) => set({ intakeFormId: id }),
+      setIntakeForm: (channel, id) =>
+        set((s) => ({ intakeForms: { ...s.intakeForms, [channel]: id } })),
 
       saveKbBody: (id, html) => set((s) => ({ kbBodies: { ...s.kbBodies, [id]: html } })),
     }),
