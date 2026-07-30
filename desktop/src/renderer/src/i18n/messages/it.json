@@ -4893,6 +4893,8 @@
   "helpdesk.newTicket.category": "Categoria",
   "helpdesk.newTicket.contact": "Persona di contatto",
   "helpdesk.newTicket.contactPlaceholder": "Nome della persona di contatto...",
+  "helpdesk.newTicket.internalSection": "Assegnazione interna (solo agente)",
+  "helpdesk.newTicket.noAgentForm": "Nessun modulo di ticket impostato per il canale agente. Scegli un modello in « Canali » nell'editor.",
   "helpdesk.newTicket.createButton": "Crea ticket",
   "helpdesk.newTicket.createError": "Impossibile creare il ticket.",
   "helpdesk.newTicket.created": "Ticket \"{subject}\" creato.",

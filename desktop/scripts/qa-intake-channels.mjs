@@ -39,6 +39,23 @@ const waitForText = (x, timeout = 15000) =>
   page.waitForFunction((t) => document.body.innerText.includes(t), x, { timeout }).catch(() => {})
 
 try {
+  // ── S0 Agent new-ticket dialog: bound template fields + internal tools ───────
+  await page.goto(`${BASE}/#/helpdesk`, { waitUntil: 'domcontentloaded' })
+  await wait(2800)
+  await waitForText('Ticket', 15000)
+  await page.getByRole('button', { name: /Neues Ticket/i }).first().click().catch(() => {})
+  await wait(1200)
+  await shot('00-agent-new-ticket-dialog.png')
+  {
+    const txt = await bodyText()
+    // Agent form drives subject/description/category + extras; pro tools separate.
+    const hasTemplateFields = txt.includes('Gerät / Anlage') && txt.includes('Fehlercode')
+    const hasInternal = txt.toLowerCase().includes('interne zuordnung')
+    out.push({ step: 'S0 Agent-Dialog: Vorlage-Felder (Gerät/Fehlercode) + interne Zuordnung', hasTemplateFields, hasInternal, pass: hasTemplateFields && hasInternal })
+  }
+  await page.keyboard.press('Escape').catch(() => {})
+  await wait(500)
+
   // ── S1 Editor Kanäle-Panel: per-channel form pickers ────────────────────────
   let s1 = false
   try {

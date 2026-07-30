@@ -22,6 +22,7 @@
     "src/renderer/src/components/shared/intake/useIntakeSubmit.ts",
     "src/renderer/src/components/shared/intake/index.ts",
     "src/renderer/src/components/shared/intake/IntakeFormFill.tsx",
+    "src/renderer/src/components/shared/intake/IntakeFieldInputs.tsx",
     "src/renderer/src/modules/helpdesk/intake/helpdesk-ticket-target.ts",
     "src/renderer/src/modules/helpdesk/intake/register-intake.ts",
     "src/renderer/src/api/formulare-types.ts",

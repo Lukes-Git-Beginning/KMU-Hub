@@ -46,7 +46,7 @@ import {
   useUpdateKBArticle,
   useHelpdeskStats,
 } from '@/api/hooks/useHelpdesk'
-import type { KBArticle, TicketChannel } from '@/api/helpdesk-types'
+import type { KBArticle, TicketChannel, CreateTicketInput } from '@/api/helpdesk-types'
 import {
   wireTicketToDisplay,
   displayStatusToWire,
@@ -71,6 +71,9 @@ import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
 import { EditableText, useEditorGuard, useModuleValueSet, useModuleAreas, useValueSetMigration, useModuleCustomFields } from '@/components/customization/EditorSurface'
+import { mapSubmissionToRecord, IntakeFieldInputs } from '@/components/shared/intake'
+import { useFormSchema } from '@/api/hooks/useFormulare'
+import type { FormField } from '@/api/formulare-types'
 import { useCapabilitySet, useCapability, useScopedCapability, useHasCapability } from '@/hooks/useCapability'
 import { RestrictedModeBadge } from '@/components/shared/rbac/RestrictedModeBadge'
 import { useAuthStore } from '@/stores/auth'
@@ -238,9 +241,6 @@ export default function HelpdeskPage() {
   // when an option is missing. The editor sandbox layers the draft on top → live.
   const priorityValueSet = useModuleValueSet('ticket_priority')
   const statusValueSet = useModuleValueSet('ticket_status')
-  // Tenant-defined custom fields for tickets — rendered as inputs in the new-ticket
-  // dialog so values can be captured on creation (draft ⊕ live; previews in editor).
-  const ticketFieldDefs = useModuleCustomFields('helpdesk_ticket')
   const prioBy = new Map((priorityValueSet?.options ?? []).map((o) => [o.id, o]))
   const statusBy = new Map((statusValueSet?.options ?? []).map((o) => [o.id, o]))
   const priorityColorOf = (id: string): string | undefined => prioBy.get(id)?.color
@@ -295,16 +295,27 @@ export default function HelpdeskPage() {
   const [replyText, setReplyText] = useState('')
   const [showInternalNotes, setShowInternalNotes] = useState(false)
 
-  // New ticket dialog
+  // New ticket dialog (agent channel). The bound agent form (intakeForms.agent)
+  // drives the submitter-facing fields (subject/description/category + extras);
+  // the professional tools below (priority/assignee/contact) stay fixed — agents
+  // keep contact search, priority and assignment that a plain form can't express.
   const [newTicketOpen, setNewTicketOpen] = useState(false)
-  const [ntSubject, setNtSubject] = useState('')
-  const [ntDescription, setNtDescription] = useState('')
   const [ntPriority, setNtPriority] = useState<DisplayTicket['priority']>('medium')
   const [ntAssignee, setNtAssignee] = useState('Marco Hartmann')
   const [ntContact, setNtContact] = useState('')
-  const [ntCategory, setNtCategory] = useState<string>('Sonstiges')
-  // Custom-field values entered in the new-ticket dialog (keyed by field.key).
-  const [ntCustomFields, setNtCustomFields] = useState<Record<string, string>>({})
+  // Agent-form answers keyed by form field id (fed through the intake engine on save).
+  const [ntFormValues, setNtFormValues] = useState<Record<string, unknown>>({})
+  const [ntErrors, setNtErrors] = useState<Record<string, string>>({})
+  const agentFormId = useHelpdeskStore((s) => s.intakeForms.agent)
+  const { data: agentForm } = useFormSchema(agentFormId)
+  // Fields the agent fills: drop page breaks and requester roles (the agent notes
+  // the contact via the pro tool, not as a form field).
+  const agentFields = useMemo(() => {
+    const fields = (agentForm?.fields ?? []) as FormField[]
+    return fields.filter(
+      (f) => f.label !== '__page_break__' && f.role !== 'requester_name' && f.role !== 'requester_email',
+    )
+  }, [agentForm])
 
   // KB article detail
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null)
@@ -391,37 +402,55 @@ export default function HelpdeskPage() {
 
   // Handlers
   const handleOpenNewTicket = () => {
-    setNtSubject(''); setNtDescription(''); setNtPriority('medium')
-    setNtAssignee('Marco Hartmann'); setNtContact(''); setNtCategory('Sonstiges')
-    setNtCustomFields({})
+    setNtFormValues({}); setNtErrors({})
+    setNtPriority('medium'); setNtAssignee('Marco Hartmann'); setNtContact('')
     setNewTicketOpen(true)
   }
 
   const handleSaveNewTicket = () => {
-    if (!ntSubject.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
-    // Intake P1 (agent channel): the whole form flows onto the wire ticket —
-    // description, category, contact and the custom-field values — so nothing
-    // is lost on creation and no session overlay is needed for new tickets.
-    const enteredFields = Object.fromEntries(
-      Object.entries(ntCustomFields).filter(([, v]) => v !== undefined && v !== ''),
-    )
+    // Validate required agent-form fields (the bound template drives them).
+    const errs: Record<string, string> = {}
+    for (const f of agentFields) {
+      const raw = ntFormValues[f.id]
+      const missing =
+        f.type === 'consent' || f.type === 'checkbox' ? raw !== true : String(raw ?? '').trim() === ''
+      if (f.required && missing) errs[f.id] = t('intake.fill.required')
+    }
+    setNtErrors(errs)
+    if (Object.keys(errs).length > 0) return
+
+    // Map the agent-form answers onto a ticket via the shared intake engine, then
+    // layer the professional tools (priority/assignee/contact) on top.
+    let record: CreateTicketInput
+    try {
+      record = mapSubmissionToRecord<CreateTicketInput>(
+        'helpdesk_ticket',
+        (agentForm?.fields ?? []) as FormField[],
+        ntFormValues,
+        { channel: 'agent' },
+      ).record
+    } catch {
+      toast.error(t('helpdesk.newTicket.createError'))
+      return
+    }
+    if (!record.subject?.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
+
     createTicketMut.mutate(
       {
-        subject: ntSubject.trim(),
-        description: ntDescription.trim() || undefined,
-        category: ntCategory || undefined,
+        ...record,
         priority: displayPriorityToWire(ntPriority),
         assignee_id: ntAssignee || undefined,
-        channel: 'agent',
-        // The agent notes the contact manually; ownership stays with the creator
-        // (scope=own) so the new ticket remains visible to them.
-        requester_name: ntContact.trim() || undefined,
-        custom_fields: Object.keys(enteredFields).length > 0 ? enteredFields : undefined,
+        // The agent notes the contact manually; keep it internal (not external) so
+        // the new ticket stays visible to the creator (scope=own).
+        requester_name: ntContact.trim() || record.requester_name,
+        requester_is_external: false,
       },
       {
         onSuccess: () => {
-          toast.success(t('helpdesk.newTicket.created', { subject: ntSubject.trim() }))
+          toast.success(t('helpdesk.newTicket.created', { subject: record.subject }))
           setNewTicketOpen(false)
+          setNtFormValues({})
+          setNtErrors({})
         },
         onError: () => toast.error(t('helpdesk.newTicket.createError')),
       },
@@ -938,67 +967,50 @@ export default function HelpdeskPage() {
             <DialogTitle>{t('helpdesk.newTicket.title')}</DialogTitle>
           </DialogHeader>
             <div className="space-y-4 px-6 py-5">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.subject')}</label>
-                <input type="text" value={ntSubject} onChange={(e) => setNtSubject(e.target.value)} placeholder={t('helpdesk.newTicket.subjectPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.description')}</label>
-                <textarea value={ntDescription} onChange={(e) => setNtDescription(e.target.value)} placeholder={t('helpdesk.newTicket.descriptionPlaceholder')} rows={4} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none" />
-              </div>
-              {/* Category (5.10) */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.category')}</label>
-                <div className="relative">
-                  <select value={ntCategory} onChange={(e) => setNtCategory(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                    {MOCK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.priorityLabel')}</label>
-                <div className="flex gap-2">
-                  {(['low', 'medium', 'high', 'critical'] as DisplayTicket['priority'][]).map((p) => (
-                    <label key={p} className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs cursor-pointer transition-colors ${ntPriority === p ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-secondary'}`}>
-                      <input type="radio" name="priority" value={p} checked={ntPriority === p} onChange={() => setNtPriority(p)} className="sr-only" />
-                      {priorityLabels[p]}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.assignTo')}</label>
-                <div className="relative">
-                  <select value={ntAssignee} onChange={(e) => setNtAssignee(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                    <option value="Marco Hartmann">Marco Hartmann</option>
-                    <option value="Sandra Buerki">Sandra Buerki</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.contact')}</label>
-                <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder={t('helpdesk.newTicket.contactPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
-              </div>
-              {/* Zusatzfelder — tenant-defined custom fields as inputs (G2). */}
-              {ticketFieldDefs.length > 0 && (
-                <div className="space-y-3 border-t border-border pt-4">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('helpdesk.ticket.customFields')}</p>
-                  {ticketFieldDefs.map((def) => (
-                    <div key={def.id}>
-                      <label className="mb-1.5 block text-xs font-medium text-foreground">
-                        {def.label}{def.required && <span className="text-destructive"> *</span>}
-                      </label>
-                      <CustomFieldControl
-                        def={def}
-                        value={ntCustomFields[def.key] ?? ''}
-                        onChange={(v) => setNtCustomFields((m) => ({ ...m, [def.key]: v }))}
-                      />
-                    </div>
-                  ))}
-                </div>
+              {/* Submitter-facing fields from the bound agent form (intakeForms.agent). */}
+              {agentFields.length > 0 ? (
+                <IntakeFieldInputs
+                  fields={agentFields}
+                  values={ntFormValues}
+                  errors={ntErrors}
+                  onChange={(id, v) => setNtFormValues((m) => ({ ...m, [id]: v }))}
+                />
+              ) : (
+                <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  {t('helpdesk.newTicket.noAgentForm')}
+                </p>
               )}
+
+              {/* Internal tools — agents keep contact search, priority and assignment.
+                  These are not part of the form and never shown to self-service. */}
+              <div className="space-y-4 border-t border-border pt-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('helpdesk.newTicket.internalSection')}</p>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.priorityLabel')}</label>
+                  <div className="flex gap-2">
+                    {(['low', 'medium', 'high', 'critical'] as DisplayTicket['priority'][]).map((p) => (
+                      <label key={p} className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs cursor-pointer transition-colors ${ntPriority === p ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-secondary'}`}>
+                        <input type="radio" name="priority" value={p} checked={ntPriority === p} onChange={() => setNtPriority(p)} className="sr-only" />
+                        {priorityLabels[p]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.assignTo')}</label>
+                  <div className="relative">
+                    <select value={ntAssignee} onChange={(e) => setNtAssignee(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
+                      <option value="Marco Hartmann">Marco Hartmann</option>
+                      <option value="Sandra Buerki">Sandra Buerki</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.contact')}</label>
+                  <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder={t('helpdesk.newTicket.contactPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
+                </div>
+              </div>
             </div>
             <DialogFooter className="px-6 py-4 border-t border-border">
               <button onClick={() => setNewTicketOpen(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>

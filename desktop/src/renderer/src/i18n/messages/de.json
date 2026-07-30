@@ -4923,6 +4923,8 @@
   "helpdesk.newTicket.category": "Kategorie",
   "helpdesk.newTicket.contact": "Kontaktperson",
   "helpdesk.newTicket.contactPlaceholder": "Name der Kontaktperson...",
+  "helpdesk.newTicket.internalSection": "Interne Zuordnung (nur Agent)",
+  "helpdesk.newTicket.noAgentForm": "Für den Agent-Kanal ist kein Ticket-Formular hinterlegt. Wähle im Editor unter „Kanäle“ eine Vorlage.",
   "helpdesk.newTicket.createButton": "Ticket erstellen",
   "helpdesk.newTicket.createError": "Ticket konnte nicht erstellt werden.",
   "helpdesk.newTicket.created": "Ticket \"{subject}\" wurde erstellt.",

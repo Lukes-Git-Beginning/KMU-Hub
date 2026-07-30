@@ -4923,6 +4923,8 @@
   "helpdesk.newTicket.category": "Category",
   "helpdesk.newTicket.contact": "Contact person",
   "helpdesk.newTicket.contactPlaceholder": "Contact person name...",
+  "helpdesk.newTicket.internalSection": "Internal assignment (agent only)",
+  "helpdesk.newTicket.noAgentForm": "No ticket form is set for the agent channel. Pick a template under “Channels” in the editor.",
   "helpdesk.newTicket.createButton": "Create ticket",
   "helpdesk.newTicket.createError": "Could not create ticket.",
   "helpdesk.newTicket.created": "Ticket \"{subject}\" has been created.",
