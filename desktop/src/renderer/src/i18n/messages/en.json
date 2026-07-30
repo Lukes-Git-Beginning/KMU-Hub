@@ -11739,6 +11739,7 @@
   "customization.fields.inUseHint": "This field has stored values",
   "customization.fields.hidden": "hidden",
   "customization.fields.emptyTitle": "No custom fields yet",
+  "customization.fields.internalHint": "These fields are internal — only people working in the module see them (e.g. in the ticket detail). Fields that submitters fill in on creation are edited in the ticket form under “Channels”.",
   "customization.fields.emptyHint": "Create the first field for this entity.",
   "customization.fields.newFieldTitle": "New field",
   "customization.fields.editFieldTitle": "Edit {label}",

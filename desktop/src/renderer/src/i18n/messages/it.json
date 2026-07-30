@@ -11705,6 +11705,7 @@
   "customization.fields.inUseHint": "Questo campo contiene valori salvati",
   "customization.fields.hidden": "nascosto",
   "customization.fields.emptyTitle": "Nessun campo personalizzato ancora",
+  "customization.fields.internalHint": "Questi campi sono interni — solo chi lavora nel modulo li vede (es. nel dettaglio del ticket). I campi compilati dai richiedenti alla creazione si modificano nel modulo di ticket sotto « Canali ».",
   "customization.fields.emptyHint": "Crea il primo campo per questa entità.",
   "customization.fields.newFieldTitle": "Nuovo campo",
   "customization.fields.editFieldTitle": "Modifica {label}",

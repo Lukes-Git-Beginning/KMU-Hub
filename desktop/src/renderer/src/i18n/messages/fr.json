@@ -11705,6 +11705,7 @@
   "customization.fields.inUseHint": "Ce champ contient des valeurs enregistrées",
   "customization.fields.hidden": "masqué",
   "customization.fields.emptyTitle": "Aucun champ personnalisé pour le moment",
+  "customization.fields.internalHint": "Ces champs sont internes — seules les personnes travaillant dans le module les voient (p. ex. dans le détail du ticket). Les champs remplis par les demandeurs à la création se modifient dans le formulaire de ticket sous « Canaux ».",
   "customization.fields.emptyHint": "Crée le premier champ pour cette entité.",
   "customization.fields.newFieldTitle": "Nouveau champ",
   "customization.fields.editFieldTitle": "Modifier {label}",

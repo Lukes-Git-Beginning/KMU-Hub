@@ -11739,6 +11739,7 @@
   "customization.fields.inUseHint": "Dieses Feld hat gespeicherte Werte",
   "customization.fields.hidden": "ausgeblendet",
   "customization.fields.emptyTitle": "Noch keine benutzerdefinierten Felder",
+  "customization.fields.internalHint": "Diese Felder sind intern — nur Mitarbeitende im Modul sehen sie (z.B. im Ticket-Detail). Felder, die Einreicher beim Erstellen ausfüllen, bearbeitest du im Ticket-Formular unter „Kanäle“.",
   "customization.fields.emptyHint": "Lege das erste Feld für diese Entität an.",
   "customization.fields.newFieldTitle": "Neues Feld anlegen",
   "customization.fields.editFieldTitle": "{label} bearbeiten",

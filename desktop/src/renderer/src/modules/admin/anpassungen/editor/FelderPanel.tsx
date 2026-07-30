@@ -369,7 +369,8 @@ function EntityFieldsEditor({ entity }: { entity: CustomFieldEntity }): React.Re
 export function FelderPanel({ moduleKey }: { moduleKey: string }): React.ReactElement {
   const { t } = useTranslation()
   const { customFields } = useDraftConfig()
-  const entities = getEditorModule(moduleKey)?.fieldEntities ?? []
+  const moduleDef = getEditorModule(moduleKey)
+  const entities = moduleDef?.fieldEntities ?? []
   const [activeEntity, setActiveEntity] = useState<CustomFieldEntity>(entities[0] ?? 'crm_contact')
 
   if (entities.length === 0) {
@@ -382,6 +383,11 @@ export function FelderPanel({ moduleKey }: { moduleKey: string }): React.ReactEl
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {moduleDef?.intake && (
+        <p className="border-b bg-muted/30 px-4 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          {t('customization.fields.internalHint')}
+        </p>
+      )}
       {entities.length > 1 && (
         <div className="border-b px-4 py-2.5">
           <div role="radiogroup" aria-label={t('customization.fields.entityLabel')} className="flex flex-wrap gap-1">
