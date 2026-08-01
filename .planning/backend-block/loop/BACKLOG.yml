@@ -886,7 +886,7 @@ units:
     service: querschnitt
     model: opus
     deps: [p2-owner-fk-crm, p1a-resolver]
-    status: todo
+    status: done
     scope: >
       Bei aufgeloestem Scope `own` die LISTE serverseitig auf die eigenen Datensaetze filtern,
       statt nur den Fremd-Detail-Zugriff mit 403 abzuweisen. Exemplarisch an zwei bis drei
@@ -901,6 +901,21 @@ units:
       Nachfilter im Handler — sonst stimmen Pagination und Gesamtzahl nicht.
       `team`-Scope braucht einen Reporting-Line-Resolver und ist NICHT Teil dieser Unit; wenn der
       Scope `team` ist, verhaelt sich der Endpoint wie bisher.
+
+      ERGEBNIS (2026-08-01, Commit 78985af4): Der Scope war bis hierher **nirgends zur Laufzeit
+      lesbar** — der JWT trug nur `perms []string` (Keys ohne Scope), `role_permissions.scope` lag
+      allein in der DB. Diese Unit hat deshalb zuerst den Transportweg gebaut:
+      `Service.NarrowedScopes` (nutzt den vorhandenen Union-Resolver aus `p1a-resolver`) ->
+      JWT-Claim `scopes` (nur Keys mit Scope < `all`) -> `middleware.PermissionScope(ctx, resource,
+      action)`. Abwesenheit = `all`, damit Alt-Tokens unveraendert weiterlaufen.
+      SCOPE-KORREKTUR gegen den urspruenglichen Plan: **CRM war der falsche Ort.** Kein einziger
+      CRM-Key traegt im Seed (000256) Scope `own` — ein Filter auf `contacts`/`deals` waere toter
+      Code gewesen. Die einzigen READ-Keys mit `own` sind `rapporte:report:read` und
+      `helpdesk:ticket:read` (beide Rolle `member`); dort sitzt der Filter jetzt (drei Endpoints:
+      `/rapporte/reports`, `/rapporte/pending`, `/helpdesk/tickets`).
+      Gemeinsamer Helper `ownerFilterForScope(w, r, resource, action)` in `internal/gateway/
+      helpers.go` — jeder weitere Listen-Endpoint haengt sich mit vier Zeilen daran; die Doku des
+      Musters steht als Godoc dort und an `middleware.PermissionScope`.
     done_when:
       - Zwei bis drei Listen-Endpoints filtern bei scope=own serverseitig
       - total/Pagination stimmen mit dem gefilterten Ergebnis ueberein

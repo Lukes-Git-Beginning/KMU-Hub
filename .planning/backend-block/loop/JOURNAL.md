@@ -1502,3 +1502,98 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       Erinnerung, betrifft diese Unit nicht direkt.
   (3) TOKEN-GROESSE (Iteration 14-16) unveraendert offen, durch diese Unit nicht beruehrt (keine
       neuen Permission-Keys).
+
+## Iteration 23 — p2-own-scope-list-filter — done — 2026-08-01 22:10 (Nachtlauf 3)
+- commit: `78985af4` feat(rbac): filter list endpoints server-side when a grant is scoped to own
+- ausgangslage: Der Scope war **zur Laufzeit nirgends lesbar**. Der JWT traegt `perms []string`
+  (nur Keys), `role_permissions.scope` lag ausschliesslich in der DB, und `GetEffectivePermissions`
+  wurde nur von der `/auth/me/permissions`-Route fuers Admin-UI benutzt. Die Unit war damit zu
+  ~70 % Transportweg-Bau und nur zu ~30 % Filter.
+- gebaut, drei Schichten:
+  (1) TRANSPORT. `Service.NarrowedScopes(ctx, userID)` (`internal/auth/effective_permissions.go`)
+      faehrt den vorhandenen Union-Resolver aus `p1a-resolver` und behaelt nur die Keys mit Scope
+      < `all`. `createTokenPair` legt die Map in den neuen JWT-Claim `scopes` (`omitempty`).
+      `middleware.PermissionScope(ctx, resource, action)` liest sie zurueck.
+      **Abwesenheit = `all`** — bewusst, zweifach begruendet: (a) in einem neu ausgestellten Token
+      ist ein fehlender Key per Konstruktion unbeschraenkt, (b) ein Alt-Token ohne den Claim
+      verhaelt sich exakt wie bisher. Die Gegenrichtung (`own` als Default) haette JEDEM User mit
+      gueltigem Alt-Token alle Listen geleert. Der Guard entscheidet weiterhin das Ob, der Scope nur
+      das Wieviel — ohne Guard-Pass erreicht niemand den Handler.
+      Token-Groesse: nur verengte Keys reisen. Gemessen an der lokalen DB traegt `member` 17 solche
+      Keys, `admin` **null** (alle 454 Grants stehen auf `all`) — der Claim entfaellt dort ganz.
+      Fehler beim Scope-Lookup ist im Gegensatz zu `GetUserRoles`/`GetUserPermissions` **fatal**
+      (Login schlaegt fehl): eine leere Map liest sich als "alles unbeschraenkt".
+  (2) SCOPE-KORREKTUR — CRM war der falsche Ort. Die Unit-deps zeigten auf `p2-owner-fk-crm`, aber
+      **kein einziger CRM-Key traegt im Seed 000256 Scope `own`**; ein Filter auf `contacts`/`deals`
+      waere toter Code gewesen (und die offene `created_by`-vs-`owner_id`-Frage aus Iteration 22
+      damit gegenstandslos — sie stellt sich erst, wenn jemand einem CRM-Key `own` gibt).
+      Die einzigen READ-Keys mit `own` im Seed sind `rapporte:report:read` und
+      `helpdesk:ticket:read`, beide an Rolle `member`. Die uebrigen 15 `own`-Keys sind Edit-/
+      Create-Keys (`work:task:edit`, `wiki:article:edit`, …) — die verengen eine Liste nicht, weil
+      der Listen-Guard der Read-Key ist. `schichten:swap:read` hat `own`, ist aber **nicht
+      umsetzbar**: `shift_swap_requests` fuehrt `requested_by_employee_id` (employee-ID), und ein
+      user-zu-employee-Mapping existiert in der DB nicht (es gibt gar keine `employees`-Tabelle).
+      Die `team:*:view`-Keys sind FE-only, im Backend nirgends verdrahtet.
+  (3) FILTER an drei Endpoints. Gemeinsamer Helper `ownerFilterForScope(w, r, resource, action)
+      (*string, bool)` in `internal/gateway/helpers.go` — Hausstil analog `validateUUIDParam`,
+      schreibt im Fehlerfall selbst 401. Angeschlossen:
+      - `GET /rapporte/reports` — `author_id`-Filter existierte bereits samt Index
+        `idx_work_reports_author (tenant_id, author_id)`; **kein** Proto/Repo-Change noetig.
+        Bei `own` ueberschreibt die Caller-ID ein vom Client mitgegebenes `author_id`.
+      - `GET /rapporte/pending` — neues Proto-Feld `author_id`; `Service.ListPendingApprovals`
+        delegierte schon an `ListReports`, also nur durchreichen, kein Repo-Change.
+      - `GET /helpdesk/tickets` — neues Proto-Feld `participant_id`; Repo-Condition
+        `(requester_id = $n OR assignee_id = $n)`. Ownership ist bewusst requester-ODER-assignee:
+        ein Agent, der sein zugewiesenes Ticket nicht sieht, kann es nicht bearbeiten.
+      Filter sitzt ueberall in der WHERE-Klausel, nie als Nachfilter — `total` und Seitengrenzen
+      beschreiben dieselbe Menge wie die Zeilen.
+- gate: build ok (`-p 2`, `./internal/... ./cmd/{gateway,auth,helpdesk,rapporte}/...`; `go build ./...`
+  ohne `-p 2` stirbt weiterhin an OOM) | vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL`
+  gegen `kmuhub_app`: `./internal/{auth,middleware,helpdesk,rapporte,server}/...` + `./internal/
+  gateway/` gruen, TestOpenAPIRouteDrift gruen. openapi n.a. — **keine neue Route**, nur
+  Verhaltensaenderung bestehender; keine neuen Query-Parameter (der Filter ist serverseitig
+  erzwungen, nicht anfragbar). migration n.a. gofmt: neun Dateien von `gofmt -l` gemeldet, alle
+  CRLF-Checkout-Artefakt (LF-Kopien durch `gofmt -l` gejagt: sauber) bis auf
+  `server/rapporte_grpc.go` — dort ein vorbestehender Alignment-Fund im Measurement-Mapping
+  (Z. ~972), gegen `git show HEAD:` gegengeprueft, nicht von dieser Iteration, nicht angefasst.
+- neue tests: `helpdesk/own_scope_list_test.go` (echte DB — 4 Tickets, own-Scope liefert 3 Zeilen
+  UND total 3, Fremdticket fehlt; zusaetzlich Status+Participant kombiniert, weil der
+  Platzhalter dabei von `$2` auf `$3` wandert), `rapporte/own_scope_list_test.go` (echte DB, ueber
+  den Service wegen page-zu-offset-Umrechnung; deckt Liste + Genehmigungsqueue ab und prueft, dass
+  die ungefilterte Queue unveraendert 2 liefert), `middleware/scope_test.go` (vier Faelle durch ein
+  echtes signiertes Token: own, team, Key-nicht-verengt, Legacy-Token ohne Claim),
+  `gateway/own_scope_filter_test.go` (Helper inkl. 401 ohne User-ID),
+  zwei Faelle fuer `NarrowedScopes` (nur Verengtes; nil wenn nichts verengt ist).
+  Beide DB-Tests seeden **eigene** Tenants (sie zaehlen alle Zeilen des Tenants) und raeumen per
+  `defer`, nicht `t.Cleanup` — letzteres laeuft nach dem deferten `pool.Close()` und liess die
+  Zeilen beim ersten Lauf mit "closed pool" liegen.
+- rls-verifikation (per psql als `kmuhub_app`, ohne Tenant-Kontext — so laeuft der Login):
+  `current_tenant_id()` ist NULL, `is_system_context()` false, und die Preset-Scopes sind trotzdem
+  lesbar (17 verengte Keys fuer `member`, darunter `rapporte:report:read` und
+  `helpdesk:ticket:read`, beide `own`). Die `roles`-Policy `tenant_id IS NULL OR tenant_id =
+  current_tenant_id() OR is_system_context()` traegt also auch den Token-Pfad.
+- verify vorgaenger: `9e29cbe8` (p2-owner-fk-crm) gegen die acht Fehlerklassen geprueft. Diff sind
+  ausschliesslich vier Testdateien plus BACKLOG/JOURNAL, kein Produktionscode, kein Proto, keine
+  Migration, keine Route. Kein Fund.
+- offen fuer Luke:
+  (1) CUSTOM-ROLLEN UND DER LOGIN-PFAD (aus der psql-Verifikation oben, betrifft Welle 1b): der
+      Login laeuft ohne Tenant-Kontext, die `roles`-Policy zeigt dort nur `tenant_id IS NULL`.
+      Sobald es Custom-Rollen mit gesetztem `tenant_id` gibt, sind die beim Token-Bau unsichtbar —
+      ihre Permissions fehlen dann im Token (fail-closed, faellt sofort auf) und ihre Scopes auch
+      (fail-open, faellt NICHT auf: der Key steht dann auf `all`). Das ist Bestandsverhalten von
+      `GetUserPermissions`, kein Regress dieser Unit, aber vor Welle 1b zu loesen — sonst ist die
+      erste Custom-Rolle mit `own`-Scope wirkungslos. Loesung vermutlich: Token-Bau im
+      System-Kontext oder mit dem Tenant des Users fahren.
+  (2) NUR LISTEN, NICHT DETAILS. `GET /rapporte/reports/{id}`, `/export/pdf`, `/stats` und der
+      Ticket-Detailzugriff bleiben tenant-weit — ein `member` mit `own` kann einen fremden Rapport
+      weiterhin per direkter ID oeffnen. Die Unit-Beschreibung ging davon aus, dass der
+      Detailzugriff bereits 403 liefert; das tut er nicht, es gab vor dieser Unit ueberhaupt keine
+      Scope-Auswertung. Braucht eine eigene Unit (Muster: Scope im Handler lesen, ID-Read gegen die
+      Owner-Spalte pruefen, 404 statt 403 — sonst verraet der Statuscode die Existenz).
+  (3) `schichten:swap:read` traegt `own` im Seed, ist aber mangels user-zu-employee-Mapping nicht
+      erfuellbar (s.o.). Entweder Mapping nachziehen oder den Scope im Seed auf `all` korrigieren —
+      aktuell verspricht die Rechteverwaltung dort eine Einschraenkung, die es nicht gibt.
+  (4) `team`-Scope verhaelt sich weiterhin wie `all` (Reporting-Line-Resolver fehlt). Betrifft
+      heute nur `crm:contact:create/edit` bei `member` und `wiki:article:edit` bei `manager`.
+  (5) TOKEN-GROESSE (Iteration 14-16) unveraendert offen; diese Unit erhoeht sie fuer `member` um
+      17 Map-Eintraege, fuer `admin` um nichts.
