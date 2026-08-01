@@ -812,7 +812,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: [p2c-inventar-einkauf-produktion-vertraege]
-    status: todo
+    status: done
     scope: >
       Wie p2a, fuer schichten, fuhrpark, vermietung und rapporte.
     sources:

@@ -43,10 +43,23 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// FuhrparkPage.tsx actually gates on). Reads already match the fine
+		// key 1:1 and stay plain RequirePermission. No FE caller for vehicle/
+		// service/damage/fuel/trip update or delete (verified against
+		// FuhrparkDetailModals.tsx and FuhrparkPage.tsx) — those legacy
+		// guards stay as-is.
+		vehicleManage := middleware.RequirePermissionAny([2]string{"fuhrpark:vehicle", "write"}, [2]string{"fuhrpark:vehicle", "manage"})
+		serviceCreate := middleware.RequirePermissionAny([2]string{"fuhrpark:service", "write"}, [2]string{"fuhrpark:service", "create"})
+		damageCreate := middleware.RequirePermissionAny([2]string{"fuhrpark:damage", "write"}, [2]string{"fuhrpark:damage", "create"})
+		fuelCreate := middleware.RequirePermissionAny([2]string{"fuhrpark:fuel", "write"}, [2]string{"fuhrpark:fuel", "create"})
+		tripCreate := middleware.RequirePermissionAny([2]string{"fuhrpark:trip", "write"}, [2]string{"fuhrpark:trip", "create"})
+
 		// Vehicles
 		r.Route("/vehicles", func(r chi.Router) {
 			r.With(middleware.RequirePermission("fuhrpark:vehicle", "read")).Get("/", fr.HandleListVehicles)
-			r.With(middleware.RequirePermission("fuhrpark:vehicle", "write")).Post("/", fr.HandleCreateVehicle)
+			r.With(vehicleManage).Post("/", fr.HandleCreateVehicle)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("fuhrpark:vehicle", "read")).Get("/", fr.HandleGetVehicle)
@@ -57,11 +70,23 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 				// Services sub-resource
 				r.With(middleware.RequirePermission("fuhrpark:service", "read")).Get("/services", fr.HandleListVehicleServices)
-				r.With(middleware.RequirePermission("fuhrpark:service", "write")).Post("/services", fr.HandleScheduleService)
+				r.With(serviceCreate).Post("/services", fr.HandleScheduleService)
 
 				// Damages sub-resource
 				r.With(middleware.RequirePermission("fuhrpark:damage", "read")).Get("/damages", fr.HandleListVehicleDamages)
-				r.With(middleware.RequirePermission("fuhrpark:damage", "write")).Post("/damages", fr.HandleReportDamage)
+				r.With(damageCreate).Post("/damages", fr.HandleReportDamage)
+
+				// Fuel logs, trip logs, documents (was a second r.Route("/vehicles/{id}", ...)
+				// mounted at the same prefix -- chi only dispatches to the LAST mount
+				// registered at an identical pattern, which silently 404'd every route
+				// above (Get/UpdateVehicle, history, services, damages) in production.
+				// Merged into this single mount so nothing shadows.
+				r.With(middleware.RequirePermission("fuhrpark:fuel", "read")).Get("/fuel-logs", fr.HandleListVehicleFuelLogs)
+				r.With(fuelCreate).Post("/fuel-logs", fr.HandleCreateFuelLog)
+				r.With(middleware.RequirePermission("fuhrpark:trip", "read")).Get("/trip-logs", fr.HandleListVehicleTripLogs)
+				r.With(tripCreate).Post("/trip-logs", fr.HandleCreateTripLog)
+				r.With(middleware.RequirePermission("fuhrpark:document", "read")).Get("/documents", fr.HandleListVehicleDocuments)
+				r.With(middleware.RequirePermission("fuhrpark:document", "write")).Post("/documents", fr.HandleCreateVehicleDocument)
 			})
 		})
 
@@ -117,16 +142,6 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 			r.With(middleware.RequirePermission("fuhrpark:gps", "write")).Post("/ingest", fr.HandleIngestGpsPositions)
 			r.With(middleware.RequirePermission("fuhrpark:gps", "read")).Get("/routes", fr.HandleGetVehicleRoutes)
 			r.With(middleware.RequirePermission("fuhrpark:gps", "read")).Get("/positions", fr.HandleGetGpsPositions)
-		})
-
-		// Vehicle sub-resources (extended)
-		r.Route("/vehicles/{id}", func(r chi.Router) {
-			r.With(middleware.RequirePermission("fuhrpark:fuel", "read")).Get("/fuel-logs", fr.HandleListVehicleFuelLogs)
-			r.With(middleware.RequirePermission("fuhrpark:fuel", "write")).Post("/fuel-logs", fr.HandleCreateFuelLog)
-			r.With(middleware.RequirePermission("fuhrpark:trip", "read")).Get("/trip-logs", fr.HandleListVehicleTripLogs)
-			r.With(middleware.RequirePermission("fuhrpark:trip", "write")).Post("/trip-logs", fr.HandleCreateTripLog)
-			r.With(middleware.RequirePermission("fuhrpark:document", "read")).Get("/documents", fr.HandleListVehicleDocuments)
-			r.With(middleware.RequirePermission("fuhrpark:document", "write")).Post("/documents", fr.HandleCreateVehicleDocument)
 		})
 
 		// TUEV check

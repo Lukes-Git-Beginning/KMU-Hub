@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newVermietungRoutes(registry *ServiceRegistry) *VermietungRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_VERMIETUNG_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewVermietungRoutes(registry, flags)
+}
 
 // VermietungRoutes.ServiceName() uses "vermietung".
 

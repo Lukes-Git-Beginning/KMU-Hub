@@ -3,7 +3,19 @@ package gateway
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 )
+
+func newSchichtenRoutes(registry *ServiceRegistry) *SchichtenRoutes {
+	flags := featureflag.NewRegistry().Load(func(key string) string {
+		if key == "COSMI_MODULE_SCHICHTEN_ENABLED" {
+			return "true"
+		}
+		return ""
+	})
+	return NewSchichtenRoutes(registry, flags)
+}
 
 // SchichtenRoutes.ServiceName() uses "schichten".
 

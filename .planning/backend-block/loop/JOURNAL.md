@@ -1251,3 +1251,105 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       Blocker, nur Karteileiche.
   (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht
       (keine neuen Permission-Keys, nur zusaetzliche OR-Bedingungen).
+
+## Iteration 20 — p2c-schichten-fuhrpark-vermietung-rapporte — done — 2026-08-01 20:17 (Nachtlauf 3)
+- commit: (siehe naechster `git log`, wird nach diesem Eintrag erstellt)
+- gebaut: additive `RequirePermissionAny(legacy, catalogue)`-Guards fuer schichten (shift:publish,
+  assignment:manage, template:manage), fuhrpark (vehicle:manage, service/damage/fuel/trip:create),
+  vermietung (object create/edit/delete, rental create/edit/cancel/handover, inspection:create) und
+  rapporte (report create/edit/delete). Alle 19 referenzierten Keys vorab per SQL gegen die lokale
+  DB verifiziert (aus `p1a-migration`/000256 geseedet) — keine neue Migration noetig.
+  schichten (`route_schichten.go`): `shift:publish` auf PublishShifts; `assignment:manage` auf
+  AssignEmployee UND UnassignEmployee (ShiftDetailModal.tsx `onUnassign`); `template:manage` auf
+  Create/Update/DeleteTemplate (alle drei haengen an `getTemplateActions`, komplett hinter
+  `canTemplateManage` versteckt). ZWEI CROSS-RESOURCE-FAELLE (Legacy-Verb bleibt, Zusatz-Key kommt
+  von einer ANDEREN Ressource, analog zum Kanban-Status-Fund aus Iteration 17): CreateShift ist nur
+  ueber den "Schicht zuweisen"-Dialog erreichbar (`handleAssignSubmit` legt bei fehlender
+  Datum+Vorlage-Kombination erst die Shift an, dann die Zuweisung) — additiver Key ist
+  `schichten:assignment:manage`, nicht ein `shift:*`-Key; ApplyTemplate liegt komplett hinter
+  `canTemplateManage`, additiver Key ist `schichten:template:manage` bei Legacy `schichten:shift:write`.
+  Swap-Requests (Create/Approve/Reject) nutzen bereits die feinen Katalog-Keys direkt (`create`/
+  `approve`, kein grobes `write` je existiert) — unangetastet.
+  fuhrpark (`route_fuhrpark.go`): `vehicle:manage` NUR auf CreateVehicle (kein FE-Aufrufer fuer
+  Update/Delete, verifiziert — `FuhrparkDetailModals.tsx` hat keine Mutation-Hooks, `FuhrparkPage.tsx`
+  ruft nie `useUpdateVehicle`/`useDeleteVehicle`); `service:create`/`damage:create`/`fuel:create`/
+  `trip:create` je auf den einzigen Create-Endpoint ihrer Ressource. Update/Delete/Complete/Resolve
+  fuer alle vier Ressourcen legacy-only, weil der Katalog dafuer gar keinen Key hat (nicht weil kein
+  FE-Aufrufer existiert — bei service/fuel/trip GIBT es Update/Delete-Aufrufer im FE, aber keinen
+  passenden Katalog-Key, also Guard unveraendert per Vorgabe (d)). `fuhrpark:document:*` hat ueberhaupt
+  keinen Katalog-Key, GPS-Guards bleiben unangetastet (gps:read matcht 1:1, gps:write hat keinen
+  Katalog-Key, gps:read bewusst NICHT grosszuegig erweitern lt. Backlog-Notiz). `fuhrpark:export:run`
+  wieder ohne Backend-Anker (CSV/PDF laufen client-seitig aus geladenen Daten).
+  **FUND (Routing-Bug, nicht RBAC):** `/vehicles/{id}` war ZWEIMAL gemountet — einmal verschachtelt
+  unter `r.Route("/vehicles", ...)` (GetVehicle/UpdateVehicle/DeleteVehicle/History/Services/Damages)
+  und ein zweites Mal als eigener Top-Level-Block "Vehicle sub-resources (extended)"
+  (Fuel-Logs/Trip-Logs/Documents). chi dispatcht bei zwei Mounts auf demselben Pattern nur zum
+  ZULETZT registrierten — dadurch waren GetVehicle, UpdateVehicle, DeleteVehicle, GetVehicleHistory,
+  ListVehicleServices, ScheduleService, ListVehicleDamages und ReportDamage in Produktion komplett
+  unerreichbar (404), obwohl `chi.Walk` sie brav als registriert auflistete (Dispatch != Walk-Baum).
+  Gefunden durch den neuen Capability-Guard-Test (erster Test, der die echte chi-Route ueber
+  `ServeHTTP` statt direkten Handler-Aufruf ausloest — die Bestandstests riefen `routes.HandleX()`
+  immer direkt auf und haben das Mounting nie geprueft). Bug ist vorbestehend (verifiziert: identische
+  Struktur bereits im Commit vor dieser Iteration), nicht durch RBAC-Arbeit eingefuehrt. Behoben im
+  selben Commit durch Zusammenlegen beider Bloecke in EINEN `r.Route("/{id}", ...)`-Mount — noetig,
+  weil sonst `service:create`/`damage:create` (meine eigenen neuen Guards) unerreichbar geblieben
+  waeren UND weil es ein launch-kritischer Funktionsbug ist (Fahrzeug-Detail/-Update/-Loeschen,
+  Wartungshistorie, Schadensliste alle kaputt). Routenzahl unveraendert (739/741 vor und nach dem
+  Merge — der Merge aendert nur, WELCHER Mount gewinnt, nicht welche Pfade existieren).
+  vermietung (`route_vermietung.go`): `object:create/edit/delete` additiv, matcht 1:1 auf
+  `canCreateObject`/`canEditObject`/`canDeleteObject` in `VermietungPage.tsx`; `rental:create/edit`
+  additiv; `rental:cancel` auf DeleteRental (RentalDetailModal.tsx "Stornieren"-Button ist ein
+  Soft-Label ueber dem echten DELETE-Call, per Code verifiziert — viertes Beispiel dieses Musters
+  nach einkauf/supplier, vertraege/contract); `rental:handover` oeffnet SOWOHL StartRental ALS AUCH
+  EndRental (beide Buttons in `RentalDetailModal.tsx` teilen sich den einen `canHandoverRental`-Gate,
+  kein separates Katalog-Verb fuer Start vs. Ende); `inspection:create` auf CreateInspection
+  (ZustandsprotokollDialog.tsx). Signature hat keinen Katalog-Key, legacy-only. `vermietung:export:run`
+  wieder ohne Backend-Anker (client-seitig).
+  rapporte (`route_rapporte.go`): `report:create/edit/delete` additiv (edit/delete sind FE-seitig
+  `useScopedCapability`-gated auf `report.authorId` — der eigentliche own-Scope-Listenfilter ist
+  separate Zukunfts-Unit `p2-own-scope-list-filter`, hier nur die Guard-Verdrahtung). Approve/Reject
+  nutzen bereits den feinen `approve`-Key direkt, unangetastet. Submit/Lines/Attachments/Signature
+  haben keinen Katalog-Key, legacy-only. **FUND:** `rapporte:measurement:read`/`:manage` haben TROTZ
+  existierendem Katalog-Key KEINEN Backend-Anker — der komplette "Aufmass"-Tab (`RapportePage.tsx`)
+  laeuft auf einem rein lokalen Zustand-Store (`stores/rapporte.ts`, `MOCK_MEASUREMENTS`, kein
+  einziger API-Call fuer Create/Delete/AddPosition) — analog zum Advisory-Protokoll-Fund aus
+  Iteration 18 (Katalog-Key real, FE-Consumer ist ein No-op-Mock). Measurement-Routen bleiben
+  komplett legacy-only. `rapporte:export:run` ebenfalls ohne Backend-Anker (PDF client-seitig via
+  `buildReportPdf`, obwohl ein echter `HandleExportPDF`/`GET /export/pdf`-Endpoint existiert — der
+  wird vom FE schlicht nie aufgerufen).
+  Test: `route_capability_guard_test.go` um vier neue Router-Setups (`schichtenRouter`,
+  `fuhrparkRouter`, `vermietungRouter`, `rapporteRouter`) und 58 neue Faelle erweitert. Alle vier
+  Module sind feature-flag-gated, brauchten also eigene Test-Konstruktoren (`newSchichtenRoutes` etc.
+  in den jeweiligen `route_<modul>_test.go`, Muster von `newInventarRoutes` uebernommen).
+- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
+  vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`:
+  `./internal/gateway/...` komplett gruen (`TestCapabilityGuards_AdditiveWiring` alle Faelle inkl.
+  58 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert), 0 Skips. migration n.a.
+  (alle Keys per SQL gegen die laufende DB verifiziert). openapi n.a. (keine neue Route, nur Guards
+  + der Mount-Merge, der KEINE neuen Pfade registriert). rls-smoke n.a. (keine Tabelle/Policy
+  angefasst). gofmt: `route_schichten.go`/`route_fuhrpark.go`/`route_vermietung.go`/`route_rapporte.go`
+  von `gofmt -l` gemeldet — CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15-19),
+  nach CRLF-Strip clean. `route_schichten_test.go` bleibt auch NACH CRLF-Strip gemeldet
+  (Map-Literal-Spaltenausrichtung ab Zeile 111) — verifiziert VORBESTEHEND im Commit vor dieser
+  Iteration (`git show HEAD:...` + CRLF-Strip zeigt denselben Drift), nicht durch diese Iteration
+  eingefuehrt, nicht angefasst (ausserhalb Scope).
+- verify vorgaenger: `07004000` (p2c-inventar-einkauf-produktion-vertraege) gegen die Fehlerklassen
+  geprueft. Diff: sechs Route-Dateien + `route_capability_guard_test.go`, kein Proto/Migration/neue
+  Route/Handler-Direktzugriff/Stub. Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden
+  additiv durch `RequirePermissionAny(alt, neu)` ersetzt. Stichprobe: alle 36 referenzierten
+  Capability-Keys per SQL gegen die laufende DB verifiziert (vorhanden). Kein Fund.
+- offen fuer Luke:
+  (1) `p2c-dialer-berichte-formulare-automatisierung` ist die naechste ziehbare Unit in Block B
+      (deps bereits erfuellt).
+  (2) ROUTING-BUG-MUSTER: der `/vehicles/{id}`-Doppel-Mount in fuhrpark koennte sich in anderen
+      Modulen wiederholen, wenn dort ebenfalls ein "erweiterter" Routen-Block spaeter unter
+      demselben Prefix wie ein frueherer verschachtelter Block gemountet wurde. Bisher nur in
+      fuhrpark gefunden (durch den ersten echten `ServeHTTP`-Dispatch-Test in diesem Modul) — ein
+      gezielter Grep/Audit auf "gleiches Mount-Pattern zweimal in derselben `RegisterRoutes`" ueber
+      alle Gateway-Route-Dateien waere ein guter Kandidat fuer eine eigene Unit, da Bestandstests
+      (die immer `routes.HandleX()` direkt aufrufen) so etwas grundsaetzlich nicht faengen.
+  (3) `rapporte:measurement:*` und `rapporte:export:run` haben trotz Katalog-Keys keinen
+      Backend-Anker (Mock-Store bzw. Client-Export) — analog zu den bereits bekannten toten
+      Katalog-Keys aus Iteration 17/18/19. Kein Blocker, nur zur Kenntnis.
+  (4) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit kaum
+      (nur zusaetzliche OR-Bedingungen, keine neuen Permission-Keys).

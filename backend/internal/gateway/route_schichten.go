@@ -47,33 +47,52 @@ func (sr *SchichtenRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
+		// Additive RBAC guards (RequirePermissionAny keeps the legacy "write"
+		// token valid while granting the capability-catalog.ts fine keys that
+		// SchichtenPage.tsx/ShiftDetailModal.tsx actually gate on). Reads
+		// already match the fine key 1:1 and stay plain RequirePermission.
+		//
+		// CreateShift is only reachable through the "Schicht zuweisen" dialog
+		// (handleAssignSubmit creates the shift first when none exists yet for
+		// the date+template, then assigns) — that whole flow is gated by
+		// assignment:manage in SchichtenPage.tsx, not a fine shift key.
+		shiftCreate := middleware.RequirePermissionAny([2]string{"schichten:shift", "write"}, [2]string{"schichten:assignment", "manage"})
+		shiftPublish := middleware.RequirePermissionAny([2]string{"schichten:shift", "write"}, [2]string{"schichten:shift", "publish"})
+		assignmentManage := middleware.RequirePermissionAny([2]string{"schichten:assignment", "write"}, [2]string{"schichten:assignment", "manage"})
+		templateManage := middleware.RequirePermissionAny([2]string{"schichten:template", "write"}, [2]string{"schichten:template", "manage"})
+		// ApplyTemplate is only reachable via getTemplateActions, which is
+		// entirely gated by canTemplateManage — same cross-resource extension
+		// as shiftCreate above.
+		templateApply := middleware.RequirePermissionAny([2]string{"schichten:shift", "write"}, [2]string{"schichten:template", "manage"})
+
 		// Shifts
 		r.Route("/shifts", func(r chi.Router) {
 			r.With(middleware.RequirePermission("schichten:shift", "read")).Get("/", sr.HandleListShifts)
-			r.With(middleware.RequirePermission("schichten:shift", "write")).Post("/", sr.HandleCreateShift)
-			r.With(middleware.RequirePermission("schichten:shift", "write")).Post("/publish", sr.HandlePublishShifts)
+			r.With(shiftCreate).Post("/", sr.HandleCreateShift)
+			r.With(shiftPublish).Post("/publish", sr.HandlePublishShifts)
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(middleware.RequirePermission("schichten:shift", "read")).Get("/", sr.HandleGetShift)
+				// No FE caller for shift update/delete — legacy guards stay as-is.
 				r.With(middleware.RequirePermission("schichten:shift", "write")).Patch("/", sr.HandleUpdateShift)
 				r.With(middleware.RequirePermission("schichten:shift", "write")).Delete("/", sr.HandleDeleteShift)
 
 				// Assignments
 				r.With(middleware.RequirePermission("schichten:assignment", "read")).Get("/assignments", sr.HandleListAssignments)
-				r.With(middleware.RequirePermission("schichten:assignment", "write")).Post("/assignments", sr.HandleAssignEmployee)
-				r.With(middleware.RequirePermission("schichten:assignment", "write")).Delete("/assignments/{employee_id}", sr.HandleUnassignEmployee)
+				r.With(assignmentManage).Post("/assignments", sr.HandleAssignEmployee)
+				r.With(assignmentManage).Delete("/assignments/{employee_id}", sr.HandleUnassignEmployee)
 			})
 		})
 
 		// Templates
 		r.Route("/templates", func(r chi.Router) {
 			r.With(middleware.RequirePermission("schichten:template", "read")).Get("/", sr.HandleListTemplates)
-			r.With(middleware.RequirePermission("schichten:template", "write")).Post("/", sr.HandleCreateTemplate)
+			r.With(templateManage).Post("/", sr.HandleCreateTemplate)
 
 			r.Route("/{id}", func(r chi.Router) {
-				r.With(middleware.RequirePermission("schichten:template", "write")).Patch("/", sr.HandleUpdateTemplate)
-				r.With(middleware.RequirePermission("schichten:template", "write")).Delete("/", sr.HandleDeleteTemplate)
-				r.With(middleware.RequirePermission("schichten:shift", "write")).Post("/apply", sr.HandleApplyTemplate)
+				r.With(templateManage).Patch("/", sr.HandleUpdateTemplate)
+				r.With(templateManage).Delete("/", sr.HandleDeleteTemplate)
+				r.With(templateApply).Post("/apply", sr.HandleApplyTemplate)
 			})
 		})
 

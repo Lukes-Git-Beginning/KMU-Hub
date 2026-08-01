@@ -78,6 +78,18 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 	vertraegeRouter := chi.NewRouter()
 	newVertraegeRoutes(emptyRegistry()).RegisterRoutes(vertraegeRouter, guardTestAuth)
 
+	schichtenRouter := chi.NewRouter()
+	newSchichtenRoutes(emptyRegistry()).RegisterRoutes(schichtenRouter, guardTestAuth)
+
+	fuhrparkRouter := chi.NewRouter()
+	newFuhrparkRoutes(emptyRegistry()).RegisterRoutes(fuhrparkRouter, guardTestAuth)
+
+	vermietungRouter := chi.NewRouter()
+	newVermietungRoutes(emptyRegistry()).RegisterRoutes(vermietungRouter, guardTestAuth)
+
+	rapporteRouter := chi.NewRouter()
+	newRapporteRoutes(emptyRegistry()).RegisterRoutes(rapporteRouter, guardTestAuth)
+
 	const articleID = "11111111-1111-1111-1111-111111111111"
 
 	const (
@@ -474,6 +486,98 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"party add with party:write", vertraegeRouter, "POST", "/api/v1/vertraege/contracts/" + articleID + "/parties", []string{"vertraege:party:write"}, allowed},
 		{"reminder create still requires reminder:write only", vertraegeRouter, "POST", "/api/v1/vertraege/contracts/" + articleID + "/reminders", []string{"vertraege:contract:edit"}, denied},
 		{"reminder create with reminder:write", vertraegeRouter, "POST", "/api/v1/vertraege/contracts/" + articleID + "/reminders", []string{"vertraege:reminder:write"}, allowed},
+
+		// --- schichten: shifts (create is also reachable via assignment:manage — see route_schichten.go) ---
+		{"shift create, legacy key only", schichtenRouter, "POST", "/api/v1/schichten/shifts", []string{"schichten:shift:write"}, allowed},
+		{"shift create, catalogue assignment:manage key also grants it", schichtenRouter, "POST", "/api/v1/schichten/shifts", []string{"schichten:assignment:manage"}, allowed},
+		{"shift create, template:manage does not grant it", schichtenRouter, "POST", "/api/v1/schichten/shifts", []string{"schichten:template:manage"}, denied},
+		{"shift publish, catalogue key only", schichtenRouter, "POST", "/api/v1/schichten/shifts/publish", []string{"schichten:shift:publish"}, allowed},
+		{"shift publish, assignment:manage does not grant it", schichtenRouter, "POST", "/api/v1/schichten/shifts/publish", []string{"schichten:assignment:manage"}, denied},
+
+		// --- schichten: shift update/delete have no FE caller, untouched ---
+		{"shift update still requires shift:write only", schichtenRouter, "PATCH", "/api/v1/schichten/shifts/" + articleID, []string{"schichten:shift:publish"}, denied},
+		{"shift update with shift:write", schichtenRouter, "PATCH", "/api/v1/schichten/shifts/" + articleID, []string{"schichten:shift:write"}, allowed},
+
+		// --- schichten: assignments ---
+		{"assignment create, catalogue key only", schichtenRouter, "POST", "/api/v1/schichten/shifts/" + articleID + "/assignments", []string{"schichten:assignment:manage"}, allowed},
+		{"assignment delete, catalogue key only", schichtenRouter, "DELETE", "/api/v1/schichten/shifts/" + articleID + "/assignments/" + articleID, []string{"schichten:assignment:manage"}, allowed},
+		{"assignment delete, denied without either key", schichtenRouter, "DELETE", "/api/v1/schichten/shifts/" + articleID + "/assignments/" + articleID, []string{"schichten:shift:publish"}, denied},
+
+		// --- schichten: templates (apply is also reachable via template:manage only, see route_schichten.go) ---
+		{"template create, catalogue key only", schichtenRouter, "POST", "/api/v1/schichten/templates", []string{"schichten:template:manage"}, allowed},
+		{"template edit, catalogue key only", schichtenRouter, "PATCH", "/api/v1/schichten/templates/" + articleID, []string{"schichten:template:manage"}, allowed},
+		{"template delete, catalogue key only", schichtenRouter, "DELETE", "/api/v1/schichten/templates/" + articleID, []string{"schichten:template:manage"}, allowed},
+		{"template apply, catalogue template:manage key only", schichtenRouter, "POST", "/api/v1/schichten/templates/" + articleID + "/apply", []string{"schichten:template:manage"}, allowed},
+		{"template apply, legacy shift:write also grants it", schichtenRouter, "POST", "/api/v1/schichten/templates/" + articleID + "/apply", []string{"schichten:shift:write"}, allowed},
+		{"template apply, assignment:manage does not grant it", schichtenRouter, "POST", "/api/v1/schichten/templates/" + articleID + "/apply", []string{"schichten:assignment:manage"}, denied},
+
+		// --- schichten: swap requests already use fine keys directly, untouched ---
+		{"swap create requires the fine create key", schichtenRouter, "POST", "/api/v1/schichten/swap-requests", []string{"schichten:swap:read"}, denied},
+		{"swap create with fine create key", schichtenRouter, "POST", "/api/v1/schichten/swap-requests", []string{"schichten:swap:create"}, allowed},
+		{"swap approve with fine approve key", schichtenRouter, "POST", "/api/v1/schichten/swap-requests/" + articleID + "/approve", []string{"schichten:swap:approve"}, allowed},
+
+		// --- fuhrpark: vehicles ---
+		{"vehicle create, legacy key only", fuhrparkRouter, "POST", "/api/v1/fuhrpark/vehicles", []string{"fuhrpark:vehicle:write"}, allowed},
+		{"vehicle create, catalogue manage key only", fuhrparkRouter, "POST", "/api/v1/fuhrpark/vehicles", []string{"fuhrpark:vehicle:manage"}, allowed},
+		{"vehicle create, denied without either key", fuhrparkRouter, "POST", "/api/v1/fuhrpark/vehicles", []string{"fuhrpark:service:create"}, denied},
+
+		// --- fuhrpark: vehicle update/delete have no FE caller, untouched ---
+		{"vehicle update still requires vehicle:write only", fuhrparkRouter, "PATCH", "/api/v1/fuhrpark/vehicles/" + articleID, []string{"fuhrpark:vehicle:manage"}, denied},
+		{"vehicle update with vehicle:write", fuhrparkRouter, "PATCH", "/api/v1/fuhrpark/vehicles/" + articleID, []string{"fuhrpark:vehicle:write"}, allowed},
+
+		// --- fuhrpark: service/damage/fuel/trip create ---
+		{"service schedule, catalogue key only", fuhrparkRouter, "POST", "/api/v1/fuhrpark/vehicles/" + articleID + "/services", []string{"fuhrpark:service:create"}, allowed},
+		{"damage report, catalogue key only", fuhrparkRouter, "POST", "/api/v1/fuhrpark/vehicles/" + articleID + "/damages", []string{"fuhrpark:damage:create"}, allowed},
+		{"fuel log create, catalogue key only", fuhrparkRouter, "POST", "/api/v1/fuhrpark/vehicles/" + articleID + "/fuel-logs", []string{"fuhrpark:fuel:create"}, allowed},
+		{"trip log create, catalogue key only", fuhrparkRouter, "POST", "/api/v1/fuhrpark/vehicles/" + articleID + "/trip-logs", []string{"fuhrpark:trip:create"}, allowed},
+
+		// --- fuhrpark: service/damage/fuel/trip update+delete have no catalogue key, untouched ---
+		{"service update still requires service:write only", fuhrparkRouter, "PATCH", "/api/v1/fuhrpark/services/" + articleID, []string{"fuhrpark:service:create"}, denied},
+		{"service update with service:write", fuhrparkRouter, "PATCH", "/api/v1/fuhrpark/services/" + articleID, []string{"fuhrpark:service:write"}, allowed},
+
+		// --- vermietung: objects ---
+		{"object create, legacy key only", vermietungRouter, "POST", "/api/v1/vermietung/objects", []string{"vermietung:object:write"}, allowed},
+		{"object create, catalogue key only", vermietungRouter, "POST", "/api/v1/vermietung/objects", []string{"vermietung:object:create"}, allowed},
+		{"object create, edit key does not grant create", vermietungRouter, "POST", "/api/v1/vermietung/objects", []string{"vermietung:object:edit"}, denied},
+		{"object edit, catalogue key only", vermietungRouter, "PATCH", "/api/v1/vermietung/objects/" + articleID, []string{"vermietung:object:edit"}, allowed},
+		{"object delete, catalogue key only", vermietungRouter, "DELETE", "/api/v1/vermietung/objects/" + articleID, []string{"vermietung:object:delete"}, allowed},
+		{"object delete, edit key does not grant delete", vermietungRouter, "DELETE", "/api/v1/vermietung/objects/" + articleID, []string{"vermietung:object:edit"}, denied},
+
+		// --- vermietung: rentals ---
+		{"rental create, catalogue key only", vermietungRouter, "POST", "/api/v1/vermietung/rentals", []string{"vermietung:rental:create"}, allowed},
+		{"rental edit, catalogue key only", vermietungRouter, "PATCH", "/api/v1/vermietung/rentals/" + articleID, []string{"vermietung:rental:edit"}, allowed},
+		{"rental cancel (stornieren), catalogue key only", vermietungRouter, "DELETE", "/api/v1/vermietung/rentals/" + articleID, []string{"vermietung:rental:cancel"}, allowed},
+		{"rental cancel, edit key does not grant it", vermietungRouter, "DELETE", "/api/v1/vermietung/rentals/" + articleID, []string{"vermietung:rental:edit"}, denied},
+		{"rental start (handover), catalogue key only", vermietungRouter, "POST", "/api/v1/vermietung/rentals/" + articleID + "/start", []string{"vermietung:rental:handover"}, allowed},
+		{"rental end (handover), catalogue key only", vermietungRouter, "POST", "/api/v1/vermietung/rentals/" + articleID + "/end", []string{"vermietung:rental:handover"}, allowed},
+		{"rental start, edit key does not grant it", vermietungRouter, "POST", "/api/v1/vermietung/rentals/" + articleID + "/start", []string{"vermietung:rental:edit"}, denied},
+
+		// --- vermietung: signature has no catalogue key, untouched ---
+		{"rental signature still requires rental:write only", vermietungRouter, "PUT", "/api/v1/vermietung/rentals/" + articleID + "/signature", []string{"vermietung:rental:edit"}, denied},
+		{"rental signature with rental:write", vermietungRouter, "PUT", "/api/v1/vermietung/rentals/" + articleID + "/signature", []string{"vermietung:rental:write"}, allowed},
+
+		// --- vermietung: inspections ---
+		{"inspection create, catalogue key only", vermietungRouter, "POST", "/api/v1/vermietung/rentals/" + articleID + "/inspections", []string{"vermietung:inspection:create"}, allowed},
+
+		// --- rapporte: reports ---
+		{"report create, legacy key only", rapporteRouter, "POST", "/api/v1/rapporte/reports", []string{"rapporte:report:write"}, allowed},
+		{"report create, catalogue key only", rapporteRouter, "POST", "/api/v1/rapporte/reports", []string{"rapporte:report:create"}, allowed},
+		{"report create, edit key does not grant create", rapporteRouter, "POST", "/api/v1/rapporte/reports", []string{"rapporte:report:edit"}, denied},
+		{"report edit, catalogue key only", rapporteRouter, "PATCH", "/api/v1/rapporte/reports/" + articleID, []string{"rapporte:report:edit"}, allowed},
+		{"report delete, catalogue key only", rapporteRouter, "DELETE", "/api/v1/rapporte/reports/" + articleID, []string{"rapporte:report:delete"}, allowed},
+		{"report delete, edit key does not grant delete", rapporteRouter, "DELETE", "/api/v1/rapporte/reports/" + articleID, []string{"rapporte:report:edit"}, denied},
+
+		// --- rapporte: approve/reject already use the fine key directly, untouched ---
+		{"report approve requires the fine approve key", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/approve", []string{"rapporte:report:edit"}, denied},
+		{"report approve with fine approve key", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/approve", []string{"rapporte:report:approve"}, allowed},
+
+		// --- rapporte: submit/lines/attachments/signature have no catalogue key, untouched ---
+		{"report submit still requires report:write only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:edit"}, denied},
+		{"report submit with report:write", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:write"}, allowed},
+
+		// --- rapporte: measurements have no FE caller (local mock store), untouched ---
+		{"measurement create still requires measurement:write only", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:manage"}, denied},
+		{"measurement create with measurement:write", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:write"}, allowed},
 	}
 
 	for _, tt := range tests {
