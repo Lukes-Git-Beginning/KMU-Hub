@@ -877,3 +877,60 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       komprimiert/als Bitmaske fuehren. Vor dem Launch entscheiden, nicht danach.
   (2) Der Helper hat noch keinen einzigen Aufrufer — das ist Absicht (`p2a` ff. verdrahten ihn).
       Bis dahin veraendert dieser Commit das Verhalten in Produktion an keiner Stelle.
+
+## Iteration 15 — p2a-wiki-zeiterfassung-infra — done — 2026-08-01 (Nachtlauf 3)
+- commit: 20685fab
+- Fortsetzung einer bereits im Arbeitsverzeichnis vorbereiteten, aber nie committeten Iteration
+  (Code + BACKLOG-Statuswechsel lagen unstaged vor, kein eigener Journal-Eintrag). Vor dem Commit
+  vollstaendig gegengeprueft statt blind uebernommen: Diff gelesen, Guard-Logik gegen
+  `RequirePermissionAny` aus Iteration 14 nachvollzogen, alle neun referenzierten Katalog-Keys per
+  SQL gegen die laufende DB verifiziert (`wiki:article:{read,create,edit,delete}`,
+  `wiki:category:manage`, `wiki:share_token:create`, `zeiterfassung:{team:view,week:approve,
+  corrections:approve}` — alle vorhanden, aus dem `p1a-migration`-Gesamtkatalog).
+- gebaut: `RequirePermissionAny(alt, neu)` auf allen wiki- und zeiterfassung-Supervisor-Routen.
+  `route_wiki.go`: sechs Guard-Variablen (`wikiRead/Create/Edit/Delete/Share/CatManage`) vor
+  `r.Route(...)`, additiv auf Artikel/Versionen/Attachments/Share-Tokens/Kategorien. Alt-Key bleibt
+  ueberall erhalten. `wiki:categories:read` hat keine Katalog-Entsprechung und blieb unveraendert
+  auf dem reinen `RequirePermission`. `route_hr.go`: drei Guard-Variablen
+  (`zeitTeamView/WeekApprove/CorrApprove`) auf `/team`, `/weeks/{approve,reject,reopen}`,
+  `/corrections/{id}/approve`. Persoenliche Zeiterfassung (Clock-in/-out, eigene Eintraege,
+  Wochenstatus) bleibt bewusst auf dem groben `hr:read`/`hr:write` — der Katalog fuehrt dafuer
+  keinen eigenen Key.
+  Drittes Modul im Scope, **infrastructure, hat ueberhaupt keine Backend-Routen** — verifiziert per
+  Grep (`grep -rn infrastructure backend/internal/gateway/` — 0 Treffer) und per Sub-Agent-Recherche:
+  `InfrastrukturPage.tsx` ist explizit als Mock deklariert ("All data is mock — the real backend
+  integration comes in Luke's phases"), keine `fetch`/`apiClient`-Aufrufe, alle Aktionen (Service
+  restart, Backup, SSL renew, Firewall-Toggle, Update-Check, Log-Export) enden in
+  `toast.success(...)` ohne Netzwerk-Call. Die fuenf `infrastructure:*`-Katalog-Keys existieren zwar
+  seit `p1a-migration` in `permissions` (per SQL bestaetigt), aber es gibt nichts zu gaten — keine
+  Route erfunden, wie in den Unit-Notes Punkt (d) gefordert.
+- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
+  vet ok | lint ok (golangci-lint auf gateway+middleware: 0 issues) | gofmt: `route_hr.go`/
+  `route_wiki.go` von `gofmt -l` gemeldet, aber Fehlalarm — Diff gegen den committeten HEAD-Stand
+  zeigt reinen CRLF-Checkout-Artefakt (`core.autocrlf=true`, Datei-Tool hat die Zeilenenden des
+  Bestands beibehalten), der committete Inhalt ist LF und gofmt-clean (git normalisiert beim
+  Commit zurueck). Neue Testdatei selbst gofmt-clean.
+  test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/gateway/...` (inkl. der 22 neuen Faelle
+  in `TestCapabilityGuards_AdditiveWiring` und `TestOpenAPIRouteDrift` — 739 Routen/741 Pfade, keine
+  neue Route in dieser Unit) und `./internal/middleware/...` beide gruen. Kein Skip.
+  migration n.a. (Seeds bereits aus 000256 vorhanden). openapi n.a. (keine neue Route, nur Guards
+  ausgetauscht).
+- verify vorgaenger: `dfb10919` (p2-guard-compat) gegen die acht Fehlerklassen geprueft. Diff: nur
+  `rbac.go`+`rbac_test.go` (plus BACKLOG/JOURNAL). `RequirePermissionAny` folgt exakt dem
+  Nachbarmuster `RequireRole`/`RequirePermission` (Map-Aufbau beim Wiring, ein Lookup pro Request,
+  `response.Error` bei Miss), Signatur mit gezogenem erstem Parameter wie in den Notes gefordert,
+  `RequirePermission` unangetastet. Kein Handler/Proto/Migration/Route/Wire-Shape in diesem Commit,
+  Fehlerklassen 1/3/5/6/7 n.a. Kein Fund.
+- offen fuer Luke:
+  (1) Block B (RBAC Phase 2, Guard-Verfeinerung) ist mit dieser Unit fuer wiki+zeiterfassung
+      abgeschlossen, `p2b-helpdesk-kommunikation-kalender` ist die naechste ziehbare Unit — ihre
+      Notes tragen jetzt einen "MUSTER AUS p2a"-Absatz mit fuenf konkreten Punkten (Seed-Check-Query,
+      Guard-als-lokale-Variable-Konvention, Testdatei-Konvention, Endpoint-ohne-Key/Key-ohne-Endpoint-
+      Regel, additiv-heisst-erweiternd), damit die naechste Iteration nicht bei null anfaengt.
+  (2) infrastructure bleibt ein reines FE-Mock ohne Backend — falls/wenn Luke das Modul mit echten
+      Endpoints baut (Service-Steuerung, Backup-Trigger, o.ae.), MUESSEN die fuenf bereits geseedeten
+      `infrastructure:*`-Keys von Anfang an als Guards verdrahtet werden, nicht nachtraeglich. Keine
+      Backlog-Unit dafuer angelegt — das ist Neubau, nicht additive Guard-Tightening, und ausserhalb
+      dessen, was dieser Loop bauen darf ohne Rueckfrage.
+  (3) TOKEN-GROESSE (Iteration 14, Punkt 1) bleibt unveraendert offen und wird durch diese Unit nicht
+      groesser: keine neuen Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards.
