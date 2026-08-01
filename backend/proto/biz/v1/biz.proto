@@ -118,6 +118,7 @@ service FinanceService {
   rpc ListBankTransactions(ListBankTransactionsRequest) returns (ListBankTransactionsResponse);
   rpc ReconcileBankTransaction(ReconcileBankTransactionRequest) returns (ReconcileBankTransactionResponse);
   rpc IgnoreBankTransaction(IgnoreBankTransactionRequest) returns (IgnoreBankTransactionResponse);
+  rpc RejectBankTransactionMatch(RejectBankTransactionMatchRequest) returns (RejectBankTransactionMatchResponse);
 
   // ==================== Bank accounts (Bankkonten) ====================
   rpc ListBankAccounts(ListBankAccountsRequest) returns (ListBankAccountsResponse);
@@ -1506,6 +1507,10 @@ message BankTransaction {
   optional string reconciled_at      = 16;  // RFC3339
   optional string reconciled_by      = 17;
   string created_at                  = 18;  // RFC3339
+  // Human-readable number of the matched invoice, joined on read. The frontend
+  // shows the number, not the id, and resolving it here keeps that from
+  // becoming a second round trip per row.
+  optional string matched_invoice_number = 19;
 }
 
 message ImportBankStatementRequest {
@@ -1550,6 +1555,10 @@ message ListBankTransactionsRequest {
   string match_status        = 3;  // empty = all
   int32 page                 = 4;
   int32 per_page             = 5;
+  // States to leave out of an otherwise unfiltered list. The reconciliation
+  // queue passes "ignored" here: an entry taken out on purpose should not
+  // reappear in it, but a caller asking for that state by name still gets it.
+  repeated string exclude_match_status = 6;
 }
 
 message ListBankTransactionsResponse {
@@ -1564,9 +1573,26 @@ message ReconcileBankTransactionRequest {
   // confirming what was proposed.
   string invoice_id = 3;
   string user_id    = 4;
+  // Alternative to invoice_id for a manual assignment: the operator picks an
+  // invoice by its number, which is what the document carries. Ignored when
+  // invoice_id is set.
+  string invoice_number = 5;
 }
 
 message ReconcileBankTransactionResponse {
+  BankTransaction transaction = 1;
+}
+
+// RejectBankTransactionMatch discards a suggestion without booking anything —
+// distinct from IgnoreBankTransaction, which takes the entry out of the queue
+// entirely. Rejecting puts it back in front of the operator as unmatched.
+message RejectBankTransactionMatchRequest {
+  string tenant_id = 1;
+  string id        = 2;
+  string user_id   = 3;
+}
+
+message RejectBankTransactionMatchResponse {
   BankTransaction transaction = 1;
 }
 

@@ -8472,8 +8472,9 @@ paths:
     get:
       summary: List imported bank transactions
       description: >
-        The reconciliation queue. Filter by statement or by match status to see
-        what is still waiting for a decision.
+        The reconciliation queue. Without a status this is what still needs a
+        decision and leaves out entries that were set aside; status=ignored asks
+        for exactly those.
       tags: [finance]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -8483,12 +8484,14 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: match_status
+        - name: status
           in: query
-          description: Restrict to one reconciliation state
+          description: >
+            Restrict to one reconciliation state. Absent or "all" returns the
+            queue, which excludes ignored entries.
           schema:
             type: string
-            enum: [unmatched, suggested, matched, ignored]
+            enum: [all, unmatched, suggested, matched, ignored]
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/page_size"
       responses:
@@ -8502,9 +8505,15 @@ paths:
                   transactions:
                     type: array
                     items:
-                      $ref: "#/components/schemas/BankTransaction"
+                      $ref: "#/components/schemas/BankTransactionQueueEntry"
                   total:
                     type: integer
+        "400":
+          description: Unknown status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -8516,15 +8525,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v1/finance/bank-transactions/{id}/reconcile:
+  /api/v1/finance/bank-transactions/{id}/match:
     post:
       summary: Book a bank credit as a payment against an invoice
       description: >
         Records a payment through the payment service, so invoice status,
         numbering and the GoBD trail keep running through the one path that owns
-        them. An absent invoice_id confirms the suggestion the import attached.
-        The payment carries an idempotency key derived from the transaction, so
-        a retried confirmation records exactly one payment.
+        them. An empty body confirms the suggestion the import attached; an
+        invoice_id or invoice_number assigns a different one, and invoice_id
+        wins where both are given. The payment carries an idempotency key
+        derived from the transaction, so a retried confirmation records exactly
+        one payment.
       tags: [finance]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -8545,15 +8556,83 @@ paths:
                   type: string
                   format: uuid
                   description: Overrides the suggested invoice
+                invoice_number:
+                  type: string
+                  description: >
+                    The same override as the operator sees it on the document.
+                    Read only when invoice_id is absent.
       responses:
         "200":
-          description: The reconciled transaction
+          description: The matched transaction
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BankTransaction"
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/BankTransactionQueueEntry"
         "400":
-          description: Invalid id or invoice_id
+          description: Invalid id, invoice_id or invoice_number
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: >
+            No such transaction, or no invoice carries the given number within
+            the tenant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            Already reconciled, or the entry is a debit — money leaving the
+            account cannot settle a receivable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Finance service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/finance/bank-transactions/{id}/reject-match:
+    post:
+      summary: Discard the suggested match of a bank transaction
+      description: >
+        Says "not this invoice" and puts the entry back in front of the operator
+        as unmatched — distinct from ignore, which says it is not a customer
+        payment at all. An already unmatched entry is returned unchanged rather
+        than refused: the outcome the caller asked for holds.
+      tags: [finance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The transaction, now unmatched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/BankTransactionQueueEntry"
+        "400":
+          description: Invalid id
           content:
             application/json:
               schema:
@@ -8566,8 +8645,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           description: >
-            Already reconciled, or the entry is a debit — money leaving the
-            account cannot settle a receivable.
+            The entry is booked or was set aside — both are reversals, not
+            rejections.
           content:
             application/json:
               schema:
@@ -8601,7 +8680,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BankTransaction"
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/BankTransactionQueueEntry"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -34013,6 +34095,49 @@ components:
         created_at:
           type: string
           format: date-time
+        matched_invoice_number:
+          type: string
+          description: >
+            Number of the matched invoice, joined on read. Absent while nothing
+            is matched.
+
+    BankTransactionQueueEntry:
+      type: object
+      description: >
+        One entry of the reconciliation queue, in the shape the desktop client
+        reads. Narrower than BankTransaction on purpose: the queue shows what an
+        operator decides on, not the full bank record, which the statement
+        endpoints carry.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+          description: Value date of the entry.
+        description:
+          type: string
+          description: >
+            Remittance information, falling back to the bank's entry reference
+            where the payer left it empty.
+        amount:
+          type: number
+          description: "Signed: a credit (money in) is positive, a debit negative."
+        type:
+          type: string
+          enum: [credit, debit]
+          description: Restates the sign of amount.
+        counterpart:
+          type: string
+        matchStatus:
+          type: string
+          enum: [unmatched, suggested, matched, ignored]
+        matchedInvoice:
+          type: string
+          description: >
+            Number of the matched invoice — not its id. Absent while nothing is
+            matched.
 
     BankStatementImportResult:
       type: object

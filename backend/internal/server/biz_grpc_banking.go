@@ -40,9 +40,11 @@ func bankingError(err error) error {
 		errors.Is(err, banking.ErrTooManyEntries):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, banking.ErrStatementNotFound),
-		errors.Is(err, banking.ErrTransactionNotFound):
+		errors.Is(err, banking.ErrTransactionNotFound),
+		errors.Is(err, banking.ErrInvoiceNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, banking.ErrAlreadyReconciled),
+		errors.Is(err, banking.ErrNothingToReject),
 		errors.Is(err, banking.ErrNotACredit):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
@@ -135,7 +137,10 @@ func (s *BizGRPCServer) ListBankTransactions(ctx context.Context, req *bizv1.Lis
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
-	filter := models.BankTransactionFilter{MatchStatus: req.GetMatchStatus()}
+	filter := models.BankTransactionFilter{
+		MatchStatus:        req.GetMatchStatus(),
+		ExcludeMatchStatus: req.GetExcludeMatchStatus(),
+	}
 	if raw := req.GetStatementId(); raw != "" {
 		statementID, parseErr := uuid.Parse(raw)
 		if parseErr != nil {
@@ -182,12 +187,39 @@ func (s *BizGRPCServer) ReconcileBankTransaction(ctx context.Context, req *bizv1
 		TenantID:      tenantID,
 		TransactionID: id,
 		InvoiceID:     invoiceID,
+		InvoiceNumber: req.GetInvoiceNumber(),
 		UserID:        userID,
 	})
 	if err != nil {
 		return nil, bankingError(err)
 	}
 	return &bizv1.ReconcileBankTransactionResponse{Transaction: bankTransactionToProto(tx)}, nil
+}
+
+// RejectBankTransactionMatch discards a suggestion. Distinct from
+// IgnoreBankTransaction: the entry stays in the queue as unmatched.
+func (s *BizGRPCServer) RejectBankTransactionMatch(ctx context.Context, req *bizv1.RejectBankTransactionMatchRequest) (*bizv1.RejectBankTransactionMatchResponse, error) {
+	if err := s.requireBanking(); err != nil {
+		return nil, err
+	}
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+	id, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+	userID, err := parseOptionalUUID(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	tx, err := s.bankingSvc.RejectMatch(ctx, tenantID, id, userID)
+	if err != nil {
+		return nil, bankingError(err)
+	}
+	return &bizv1.RejectBankTransactionMatchResponse{Transaction: bankTransactionToProto(tx)}, nil
 }
 
 func (s *BizGRPCServer) IgnoreBankTransaction(ctx context.Context, req *bizv1.IgnoreBankTransactionRequest) (*bizv1.IgnoreBankTransactionResponse, error) {
@@ -284,6 +316,10 @@ func bankTransactionToProto(t *models.BankTransaction) *bizv1.BankTransaction {
 	if t.MatchedInvoiceID != nil {
 		v := t.MatchedInvoiceID.String()
 		out.MatchedInvoiceId = &v
+	}
+	if t.MatchedInvoiceNumber != "" {
+		v := t.MatchedInvoiceNumber
+		out.MatchedInvoiceNumber = &v
 	}
 	if t.PaymentID != nil {
 		v := t.PaymentID.String()

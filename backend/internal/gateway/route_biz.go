@@ -184,11 +184,17 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetBankStatement)
 	})
 
-	// Bank transactions: the reconciliation queue of the imports above
+	// Bank transactions: the reconciliation queue of the imports above.
+	//
+	// match/reject-match are what the desktop client calls; reconcile was the
+	// same operation under an earlier name and is gone rather than aliased --
+	// two names for one booking is how the two drift apart. ignore stays: it is
+	// a different decision (not a customer payment at all), not a synonym.
 	r.Route("/api/v1/finance/bank-transactions", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListBankTransactions)
-		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reconcile", b.HandleReconcileBankTransaction)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/match", b.HandleMatchBankTransaction)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/reject-match", b.HandleRejectBankTransactionMatch)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/ignore", b.HandleIgnoreBankTransaction)
 	})
 

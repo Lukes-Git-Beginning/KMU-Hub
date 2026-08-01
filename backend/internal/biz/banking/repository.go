@@ -34,6 +34,12 @@ var (
 	// ErrInvalidAccount is returned when a required field of an account is
 	// missing or malformed.
 	ErrInvalidAccount = errors.New("banking: invalid bank account")
+	// ErrInvoiceNotFound is returned when an invoice picked by its number does
+	// not exist within the tenant.
+	ErrInvoiceNotFound = errors.New("banking: invoice not found")
+	// ErrNothingToReject is returned when a transaction carries no suggestion to
+	// discard — a booked or set-aside entry has to be reversed first.
+	ErrNothingToReject = errors.New("banking: transaction has no suggested match to reject")
 )
 
 // Repository persists imported statements and their transactions. Every method
@@ -58,6 +64,9 @@ type Repository interface {
 	// UpdateTransactionMatch writes the reconciliation state. It only touches
 	// the match columns; what the bank reported stays as imported.
 	UpdateTransactionMatch(ctx context.Context, tx *models.BankTransaction) error
+	// FindInvoiceIDByNumber resolves an invoice an operator picked by number.
+	// Returns ErrInvoiceNotFound when the tenant holds no such invoice.
+	FindInvoiceIDByNumber(ctx context.Context, tenantID uuid.UUID, number string) (uuid.UUID, error)
 
 	// Bank accounts (Migration 000258). The master data the statements above
 	// attach to. Balance and LastSync are read from the newest statement of the

@@ -92,6 +92,7 @@ const (
 	FinanceService_ListBankTransactions_FullMethodName         = "/biz.v1.FinanceService/ListBankTransactions"
 	FinanceService_ReconcileBankTransaction_FullMethodName     = "/biz.v1.FinanceService/ReconcileBankTransaction"
 	FinanceService_IgnoreBankTransaction_FullMethodName        = "/biz.v1.FinanceService/IgnoreBankTransaction"
+	FinanceService_RejectBankTransactionMatch_FullMethodName   = "/biz.v1.FinanceService/RejectBankTransactionMatch"
 	FinanceService_ListBankAccounts_FullMethodName             = "/biz.v1.FinanceService/ListBankAccounts"
 	FinanceService_CreateBankAccount_FullMethodName            = "/biz.v1.FinanceService/CreateBankAccount"
 	FinanceService_UpdateBankAccount_FullMethodName            = "/biz.v1.FinanceService/UpdateBankAccount"
@@ -202,6 +203,7 @@ type FinanceServiceClient interface {
 	ListBankTransactions(ctx context.Context, in *ListBankTransactionsRequest, opts ...grpc.CallOption) (*ListBankTransactionsResponse, error)
 	ReconcileBankTransaction(ctx context.Context, in *ReconcileBankTransactionRequest, opts ...grpc.CallOption) (*ReconcileBankTransactionResponse, error)
 	IgnoreBankTransaction(ctx context.Context, in *IgnoreBankTransactionRequest, opts ...grpc.CallOption) (*IgnoreBankTransactionResponse, error)
+	RejectBankTransactionMatch(ctx context.Context, in *RejectBankTransactionMatchRequest, opts ...grpc.CallOption) (*RejectBankTransactionMatchResponse, error)
 	// ==================== Bank accounts (Bankkonten) ====================
 	ListBankAccounts(ctx context.Context, in *ListBankAccountsRequest, opts ...grpc.CallOption) (*ListBankAccountsResponse, error)
 	CreateBankAccount(ctx context.Context, in *CreateBankAccountRequest, opts ...grpc.CallOption) (*CreateBankAccountResponse, error)
@@ -955,6 +957,16 @@ func (c *financeServiceClient) IgnoreBankTransaction(ctx context.Context, in *Ig
 	return out, nil
 }
 
+func (c *financeServiceClient) RejectBankTransactionMatch(ctx context.Context, in *RejectBankTransactionMatchRequest, opts ...grpc.CallOption) (*RejectBankTransactionMatchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectBankTransactionMatchResponse)
+	err := c.cc.Invoke(ctx, FinanceService_RejectBankTransactionMatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *financeServiceClient) ListBankAccounts(ctx context.Context, in *ListBankAccountsRequest, opts ...grpc.CallOption) (*ListBankAccountsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListBankAccountsResponse)
@@ -1162,6 +1174,7 @@ type FinanceServiceServer interface {
 	ListBankTransactions(context.Context, *ListBankTransactionsRequest) (*ListBankTransactionsResponse, error)
 	ReconcileBankTransaction(context.Context, *ReconcileBankTransactionRequest) (*ReconcileBankTransactionResponse, error)
 	IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error)
+	RejectBankTransactionMatch(context.Context, *RejectBankTransactionMatchRequest) (*RejectBankTransactionMatchResponse, error)
 	// ==================== Bank accounts (Bankkonten) ====================
 	ListBankAccounts(context.Context, *ListBankAccountsRequest) (*ListBankAccountsResponse, error)
 	CreateBankAccount(context.Context, *CreateBankAccountRequest) (*CreateBankAccountResponse, error)
@@ -1403,6 +1416,9 @@ func (UnimplementedFinanceServiceServer) ReconcileBankTransaction(context.Contex
 }
 func (UnimplementedFinanceServiceServer) IgnoreBankTransaction(context.Context, *IgnoreBankTransactionRequest) (*IgnoreBankTransactionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method IgnoreBankTransaction not implemented")
+}
+func (UnimplementedFinanceServiceServer) RejectBankTransactionMatch(context.Context, *RejectBankTransactionMatchRequest) (*RejectBankTransactionMatchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectBankTransactionMatch not implemented")
 }
 func (UnimplementedFinanceServiceServer) ListBankAccounts(context.Context, *ListBankAccountsRequest) (*ListBankAccountsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListBankAccounts not implemented")
@@ -2772,6 +2788,24 @@ func _FinanceService_IgnoreBankTransaction_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_RejectBankTransactionMatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectBankTransactionMatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).RejectBankTransactionMatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_RejectBankTransactionMatch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).RejectBankTransactionMatch(ctx, req.(*RejectBankTransactionMatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FinanceService_ListBankAccounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListBankAccountsRequest)
 	if err := dec(in); err != nil {
@@ -3268,6 +3302,10 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IgnoreBankTransaction",
 			Handler:    _FinanceService_IgnoreBankTransaction_Handler,
+		},
+		{
+			MethodName: "RejectBankTransactionMatch",
+			Handler:    _FinanceService_RejectBankTransactionMatch_Handler,
 		},
 		{
 			MethodName: "ListBankAccounts",

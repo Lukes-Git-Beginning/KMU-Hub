@@ -30,11 +30,22 @@ const statementColumns = `
 	currency, opening_balance::text, closing_balance::text, statement_date,
 	transaction_count, imported_by, created_at`
 
+// transactionColumns is aliased on t because every read joins the matched
+// invoice for its number — the frontend shows "RE-2026-003", not a uuid, and
+// resolving it here avoids a second query per row.
 const transactionColumns = `
-	id, tenant_id, statement_id, entry_ref, end_to_end_id, value_date,
-	booking_date, amount::text, currency, counterparty_name, counterparty_iban,
-	remittance_info, match_status, match_reason, matched_invoice_id, payment_id,
-	reconciled_at, reconciled_by, created_at`
+	t.id, t.tenant_id, t.statement_id, t.entry_ref, t.end_to_end_id, t.value_date,
+	t.booking_date, t.amount::text, t.currency, t.counterparty_name, t.counterparty_iban,
+	t.remittance_info, t.match_status, t.match_reason, t.matched_invoice_id, t.payment_id,
+	t.reconciled_at, t.reconciled_by, t.created_at, i.invoice_number`
+
+// transactionFrom carries the tenant into the join as well. RLS already scopes
+// finance_invoices, but the explicit predicate keeps the join honest under a
+// system context too.
+const transactionFrom = `
+	FROM finance_bank_transactions t
+	LEFT JOIN finance_invoices i
+	       ON i.id = t.matched_invoice_id AND i.tenant_id = t.tenant_id`
 
 func (r *PostgresRepository) GetStatementByHash(ctx context.Context, tenantID uuid.UUID, hash string) (*models.BankStatement, error) {
 	row := r.pool.QueryRow(ctx, `
@@ -129,10 +140,27 @@ func (r *PostgresRepository) CreateStatement(ctx context.Context, stmt *models.B
 
 func (r *PostgresRepository) GetTransaction(ctx context.Context, tenantID, id uuid.UUID) (*models.BankTransaction, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT `+transactionColumns+`
-		FROM finance_bank_transactions
-		WHERE tenant_id = $1 AND id = $2`, tenantID, id)
+		SELECT `+transactionColumns+transactionFrom+`
+		WHERE t.tenant_id = $1 AND t.id = $2`, tenantID, id)
 	return scanTransaction(row)
+}
+
+// FindInvoiceIDByNumber resolves the invoice an operator picked by its number.
+// Returns ErrInvoiceNotFound when the tenant has no such invoice — a typed
+// number that matches nothing must not silently book against the suggestion.
+func (r *PostgresRepository) FindInvoiceIDByNumber(ctx context.Context, tenantID uuid.UUID, number string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM finance_invoices WHERE tenant_id = $1 AND invoice_number = $2`,
+		tenantID, number,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrInvoiceNotFound
+	}
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("find invoice by number: %w", err)
+	}
+	return id, nil
 }
 
 func (r *PostgresRepository) ListTransactions(ctx context.Context, tenantID uuid.UUID, filter models.BankTransactionFilter) ([]*models.BankTransaction, int, error) {
@@ -140,29 +168,32 @@ func (r *PostgresRepository) ListTransactions(ctx context.Context, tenantID uuid
 	var conditions []string
 	if filter.StatementID != nil {
 		args = append(args, *filter.StatementID)
-		conditions = append(conditions, fmt.Sprintf("statement_id = $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("t.statement_id = $%d", len(args)))
 	}
 	if filter.MatchStatus != "" {
 		args = append(args, filter.MatchStatus)
-		conditions = append(conditions, fmt.Sprintf("match_status = $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("t.match_status = $%d", len(args)))
 	}
-	where := "WHERE tenant_id = $1"
+	if len(filter.ExcludeMatchStatus) > 0 {
+		args = append(args, filter.ExcludeMatchStatus)
+		conditions = append(conditions, fmt.Sprintf("t.match_status <> ALL($%d)", len(args)))
+	}
+	where := "WHERE t.tenant_id = $1"
 	if len(conditions) > 0 {
 		where += " AND " + strings.Join(conditions, " AND ")
 	}
 
 	var total int
 	if err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM finance_bank_transactions `+where, args...,
+		`SELECT COUNT(*) FROM finance_bank_transactions t `+where, args...,
 	).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count transactions: %w", err)
 	}
 
 	args = append(args, filter.Limit, filter.Offset)
 	rows, err := r.pool.Query(ctx, `
-		SELECT `+transactionColumns+`
-		FROM finance_bank_transactions `+where+`
-		ORDER BY value_date DESC, created_at DESC, id
+		SELECT `+transactionColumns+transactionFrom+` `+where+`
+		ORDER BY t.value_date DESC, t.created_at DESC, t.id
 		LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list transactions: %w", err)
@@ -182,10 +213,9 @@ func (r *PostgresRepository) ListTransactions(ctx context.Context, tenantID uuid
 
 func (r *PostgresRepository) ListTransactionsByStatement(ctx context.Context, tenantID, statementID uuid.UUID) ([]*models.BankTransaction, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT `+transactionColumns+`
-		FROM finance_bank_transactions
-		WHERE tenant_id = $1 AND statement_id = $2
-		ORDER BY value_date, created_at, id`, tenantID, statementID)
+		SELECT `+transactionColumns+transactionFrom+`
+		WHERE t.tenant_id = $1 AND t.statement_id = $2
+		ORDER BY t.value_date, t.created_at, t.id`, tenantID, statementID)
 	if err != nil {
 		return nil, fmt.Errorf("list transactions of statement: %w", err)
 	}
@@ -254,20 +284,24 @@ func scanStatement(row rowScanner) (*models.BankStatement, error) {
 
 func scanTransaction(row rowScanner) (*models.BankTransaction, error) {
 	var (
-		t      models.BankTransaction
-		amount string
+		t             models.BankTransaction
+		amount        string
+		invoiceNumber *string
 	)
 	err := row.Scan(
 		&t.ID, &t.TenantID, &t.StatementID, &t.EntryRef, &t.EndToEndID, &t.ValueDate,
 		&t.BookingDate, &amount, &t.Currency, &t.CounterpartyName, &t.CounterpartyIBAN,
 		&t.RemittanceInfo, &t.MatchStatus, &t.MatchReason, &t.MatchedInvoiceID,
-		&t.PaymentID, &t.ReconciledAt, &t.ReconciledBy, &t.CreatedAt,
+		&t.PaymentID, &t.ReconciledAt, &t.ReconciledBy, &t.CreatedAt, &invoiceNumber,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTransactionNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("scan transaction: %w", err)
+	}
+	if invoiceNumber != nil {
+		t.MatchedInvoiceNumber = *invoiceNumber
 	}
 	parsed, err := parseDecimal(amount)
 	if err != nil {

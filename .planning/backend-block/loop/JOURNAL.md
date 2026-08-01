@@ -1793,3 +1793,106 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   (5) `connected` OHNE FOLGEN. Ein verbundenes Konto tut heute nichts anderes als ein
       unverbundenes — kein Polling, kein automatischer Abruf. Der Upgrade-Trigger steht als
       `lean:`-Marker an `Service.ConnectAccount`.
+
+## Iteration 26 — fe-finance-bank-transactions-matching — done — 2026-08-01 22:15 (Nachtlauf 3)
+- ausgangslage bestaetigt: die Scope-Korrektur der Unit stimmte. Tabelle (000247), Import, Matcher,
+  `Reconcile`/`Ignore` und drei Gateway-Routen waren da. **Keine Migration**, kein neuer Service —
+  die Unit war Namensgebung, Wire-Shape und eine echte Luecke (siehe unten).
+- namensfrage entschieden: `POST .../{id}/reconcile` **umbenannt** zu `.../match`; `.../ignore`
+  BLEIBT. Begruendung: `match` und `reconcile` sind dieselbe Operation (bestaetigen + buchen), zwei
+  Namen dafuer driften auseinander — die Backlog-Vorgabe "nicht beide Namenspaare" trifft genau
+  dieses Paar. `ignore` dagegen ist eine ANDERE Entscheidung als `reject-match`: ablehnen heisst
+  "nicht diese Rechnung" (zurueck in die Queue als `unmatched`), ignorieren heisst "gar keine
+  Kundenzahlung" (raus aus der Queue als `ignored`). Beide zu einem Endpoint zu verschmelzen haette
+  Eintraege aus der Queue genommen, die noch eine Entscheidung brauchen. Kein Alias auf den alten
+  Pfad: das FE ruft `reconcile` nirgends (grep ueber `desktop/src` leer), es gibt keinen externen
+  Konsumenten, und ein Alias waere genau die Doppelung, die vermieden werden soll.
+- echte luecke gefunden: **`reject-match` existierte im Backend gar nicht.** Der Bestand konnte
+  einen Vorschlag nur buchen (`Reconcile`) oder aus der Queue nehmen (`Ignore`) — "diesen Vorschlag
+  verwerfen, Eintrag bleibt offen" war nicht abbildbar, obwohl der MSW-Mock (`handlers/finance.ts`)
+  genau das seit P2.5e tut. Neu: `Service.RejectMatch` + RPC `RejectBankTransactionMatch`.
+  Idempotent auf `unmatched` (zweimal geklickt = dasselbe Ergebnis, kein 409), `matched`/`ignored`
+  dagegen `ErrNothingToReject` -> FailedPrecondition -> **409**: beides sind Umkehrungen, die eine
+  Zahlung bzw. eine bewusste Ablage aufloesen muessten, und das gehoert nicht in diesen Endpoint.
+- wire-shape (gegen `types/finance-types.ts:397` und `api/finance-client.ts:581ff` geprueft, nicht
+  geraten): flach + camelCase (`matchStatus`, `matchedInvoice`, `counterpart`), `amount` als
+  JSON-**Zahl** mit erhaltenem Vorzeichen, `type` als `credit|debit` aus dem Vorzeichen abgeleitet,
+  `date` = `value_date`, `description` = `remittance_info` mit Fallback auf `entry_ref` (eine
+  Bankgebuehr hat oft keinen Verwendungszweck, eine leere Zeile in der Queue ist nicht
+  entscheidbar). Liste `{transactions:[...], total}` (leer als `[]`), Einzelentitaet
+  `{transaction}` — auch bei `ignore`, das vorher als nacktes Proto antwortete.
+  Zwei Tests darauf (`route_biz_bank_transactions_test.go`), inkl. Gegenprobe, dass
+  `statement_id`/`counterparty_iban`/`matched_invoice_id` nicht in die Antwort lecken und
+  `matchedInvoice` bei nichts-gematcht **fehlt** (der FE-Typ hat es optional, nicht nullable).
+- `ignored` wird aus der Queue gefiltert: der FE-Typ `BankMatchStatus` kennt nur
+  `matched|suggested|unmatched`; ein durchgereichtes `ignored` liefe in
+  `BankTransactionDetailPanel.tsx:18` in `STATUS_LABEL_KEYS[undefined]` und damit in `t(undefined)`.
+  Deshalb `?status=` (ersetzt `?match_status=`): leer oder `all` = Queue ohne `ignored`,
+  `status=ignored` holt sie explizit. Umgesetzt ueber `BankTransactionFilter.ExcludeMatchStatus` +
+  Proto-Feld `exclude_match_status` — im Gateway nachzufiltern haette `total` und die Seitengroesse
+  loechrig gemacht. Unbekannter Wert = 400, nicht stillschweigend "alles".
+- `matchedInvoice` ist die Rechnungs**nummer** und kommt aus einem LEFT JOIN auf `finance_invoices`
+  im Repo (Backlog-Vorgabe c), nicht aus einem zweiten Roundtrip. Dafuer sind `transactionColumns`
+  jetzt auf `t` aliasiert und `transactionFrom` traegt den Join — **wer dort eine WHERE-Bedingung
+  ergaenzt, muss praefixen**, sonst ist sie mehrdeutig. Der Join fuehrt `tenant_id` mit, obwohl RLS
+  `finance_invoices` schon scoped: unter einem System-Context waere die Nummer sonst
+  tenant-uebergreifend lesbar.
+- zwei stillere funde, beide gefixt, weil das FE `matchedInvoice` DIREKT anzeigt:
+  (1) `Reconcile` setzte nach einem Override `matched_invoice_id` neu, liess die Nummer aber stehen
+      — die Antwort haette den Namen der ERSETZTEN Rechnung getragen. Jetzt liest `Reconcile` nach
+      dem Update einmal nach (der Join ist die einzige Wahrheit); schlaegt der Read fehl, kostet das
+      die Nummer, nicht die Buchung.
+  (2) `Ignore` liess die Nummer ebenfalls stehen, obwohl es `matched_invoice_id` auf NULL setzt.
+  Ausserdem traegt `MatchResult` jetzt die Nummer mit, damit die Import-Antwort den Vorschlag
+  genauso benennt wie ein spaeterer Read der Queue.
+- manuelle zuordnung per nummer: das FE sendet `{invoice_number}` (nicht die id). Aufloesung im
+  Repo (`FindInvoiceIDByNumber`, tenant-gescopt) und im **Service**, nicht im Handler. Eine Nummer,
+  die nichts trifft, ist `ErrInvoiceNotFound` -> **404** und faellt NICHT auf den Vorschlag zurueck
+  — das haette Geld gegen eine Rechnung gebucht, die niemand gewaehlt hat. `invoice_id` schlaegt
+  `invoice_number`, wenn beides kommt (die id ist eindeutig, die Nummer nur pro Tenant).
+- openapi: `reconcile`-Pfad raus, `match` und `reject-match` rein, GET-Parameter auf `status`
+  umgestellt, neues Schema `BankTransactionQueueEntry`. Zwei Schemas fuer dieselbe Tabelle ist
+  Absicht: die Statement-Routen liefern weiter das volle proto-`BankTransaction` (entry_ref,
+  end_to_end_id, counterparty_iban, payment_id …), die Queue nur das, worueber entschieden wird.
+  Alle Codes dokumentiert, die der Handler wirklich liefert — inkl. 400 (unbekannter Status) und
+  409 (bereits gebucht / Debit / nichts zu verwerfen).
+- guards unveraendert: bestehende `RequirePermission("finance","read"/"write")`, kein neuer Key,
+  keine Seed-Pflicht. `capability-catalog.ts` hat weiterhin keinen `finance:bank-transaction:*`-Key.
+- gate: build ok (`-p 2`) | vet ok | lint ok (0 issues) | test ok mit `DATABASE_URL` gegen
+  `kmuhub_app`: `./internal/biz/banking/...` **47 PASS, 0 SKIP, 0 FAIL** (im `-v`-Lauf gezaehlt),
+  `./internal/gateway/`, `./internal/server/...`, `./internal/biz/payment/...`,
+  `./internal/biz/invoice/...` gruen. TestOpenAPIRouteDrift gruen: 748 registrierte Routen gegen
+  750 dokumentierte Pfade. Proto im selben Commit regeneriert (biz.pb.go + biz_grpc.pb.go).
+  gofmt: die acht gemeldeten Bestandsdateien sind das bekannte CRLF-Checkout-Artefakt (mit `cat -A`
+  verifiziert, ganze Datei als `^M`-Diff); die drei neuen Dateien sind sauber.
+- CRLF-FALLE (kostet sonst eine Iteration): ein `python`-Replace mit LF-Suchstring greift auf diesen
+  Dateien **still nicht** — es meldet Erfolg und aendert nichts. Erst der naechste Build zeigt es.
+  Fuer Bestandsdateien in `internal/biz/banking` das Edit-Tool nehmen.
+- rls-smoke (als `kmuhub_app`, alles in einer zurueckgerollten Transaktion, zwei Tenants mit je
+  einer Rechnung + gematchter Transaktion): Tenant A sieht **2** Zeilen (seine gematchte + seine
+  ignorierte) und als Nummer **nur** `RE-SMOKE-MINE`; die Queue-Bedingung `match_status <> ALL`
+  liefert dort **1**; Tenant B sieht **1** Zeile mit `RE-SMOKE-THEIRS`. Der Join leckt also keine
+  fremde Rechnungsnummer. Zusaetzlich im Go-Test: fremde Transaktion liest als
+  ErrTransactionNotFound, `FindInvoiceIDByNumber` findet die Nummer eines fremden Tenants nicht.
+- verify vorgaenger: `689149dd` (fe-finance-bank-accounts) gegen die Fehlerklassen geprueft. Alle
+  fuenf Handler ueber `b.getBizClient()`; jeder SELECT/UPDATE/DELETE in
+  `postgres_repository_accounts.go` traegt `tenant_id = $1`, der laterale Statement-Read joint ueber
+  `s.tenant_id = a.tenant_id`; `.proto` + beide `.pb.go` im selben Commit; openapi.yaml im selben
+  Commit; Migration 000258 mit up UND down. Kein Stub, kein Fund.
+- offen fuer Luke:
+  (1) DER MOCK BLEIBT AKTIV. `handlers/finance.ts` beantwortet `/finance/bank-transactions*`
+      weiterhin aus `mockBanking.transactions` — das Umschalten des FE aufs echte Backend war nicht
+      Teil dieser Unit. Fuer die Queue heisst das: erst wenn der Mock faellt, sieht jemand, dass die
+      Liste ohne importierten Kontoauszug leer ist.
+  (2) KEIN FEINER CAPABILITY-KEY, dritte Unit in Folge mit derselben Lage. Wer `finance:read` hat,
+      sieht jede Kontobewegung des Tenants inklusive Gegenpartei und Betrag. Bei Gehaltszahlungen
+      ("Gehaelter Februar" steht so im Mock) ist das mehr als "Buchhaltung darf Rechnungen sehen" —
+      hier waere ein eigener Key wertvoller als bei Ausgaben und Konten.
+  (3) `reject-match` SETZT `reconciled_at`/`reconciled_by`. Die Spalten heissen nach dem Buchen,
+      tragen jetzt aber auch "wer hat wann abgelehnt". Das ist bewusst (die Information ist es wert)
+      und `match_reason = 'rejected'` unterscheidet die Faelle — aber wer die Spalte fuer eine
+      Buchungs-Statistik auswertet, muss auf `match_status` filtern, nicht auf `reconciled_at IS
+      NOT NULL`.
+  (4) EINE ABGELEHNTE ZUORDNUNG KOMMT SOFORT ZURUECK. `RejectMatch` setzt `unmatched`, der naechste
+      Import-Lauf matcht dieselbe Rechnung womoeglich erneut vor. Ein "nicht mehr vorschlagen"-
+      Merker existiert nicht; ob er gebraucht wird, zeigt der Pilot.

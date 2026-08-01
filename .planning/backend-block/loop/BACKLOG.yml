@@ -1008,7 +1008,7 @@ units:
     service: finance
     model: opus
     deps: [fe-finance-bank-accounts]
-    status: todo
+    status: done
     scope: >
       Banktransaktionen und Zuordnung: `GET /api/v1/finance/bank-transactions`,
       `POST /finance/bank-transactions/{id}/match`, `.../reject-match`.
@@ -1044,6 +1044,24 @@ units:
           nicht in einen zweiten Roundtrip im Handler.
       Die Doppelzuordnung ist bereits abgedeckt (`ErrAlreadyReconciled` -> FailedPrecondition ->
       409). Atomizitaet der Zahlungsbuchung laeuft schon ueber `payment.Service`.
+
+      ERGEBNIS (2026-08-01, Iteration 26): Routen auf die FE-Namen gezogen, Detail im Journal.
+      Kurzfassung fuer Folge-Units in Block D:
+      (a) `reconcile` ist WEG (umbenannt zu `match`), `ignore` BLEIBT: `reject-match` und `ignore`
+          sind zwei verschiedene Entscheidungen ("nicht diese Rechnung" vs. "gar keine
+          Kundenzahlung"), kein Namenspaar. `RejectMatch` war im Service nicht vorhanden und ist
+          neu — der Bestand konnte einen Vorschlag nur buchen oder aus der Queue nehmen.
+      (b) `?status=` ersetzt `?match_status=`. Ohne Angabe (und bei `all`) liefert die Liste die
+          QUEUE, also ohne `ignored` — der FE-Typ `BankMatchStatus` kennt den Wert nicht, ein
+          durchgereichtes `ignored` liefe im DetailPanel in `t(undefined)`. Dafuer gibt es
+          `BankTransactionFilter.ExcludeMatchStatus` + Proto-Feld `exclude_match_status`.
+      (c) `matchedInvoice` kommt aus einem LEFT JOIN auf `finance_invoices` im Repo
+          (`transactionColumns`/`transactionFrom` sind jetzt auf `t` aliasiert — wer dort eine
+          Bedingung ergaenzt, muss praefixen). `Reconcile` liest nach dem Update einmal nach, sonst
+          traegt die Antwort nach einem Override die Nummer der ERSETZTEN Rechnung.
+      (d) Zwei Wire-Schemas fuer dieselbe Tabelle sind Absicht: `BankTransaction` (proto,
+          snake_case) fuer die Statement-Routen, `BankTransactionQueueEntry` (flach, camelCase)
+          fuer die Queue. Die Statement-Routen haben keinen FE-Konsumenten mit anderem Vertrag.
     done_when:
       - Zuordnen und Loesen funktionieren, Doppelzuordnung 409
       - Rechnungsstatus und Zuordnung atomar

@@ -607,6 +607,10 @@ type BankTransaction struct {
 	MatchStatus      string          `json:"match_status"`
 	MatchReason      string          `json:"match_reason"`
 	MatchedInvoiceID *uuid.UUID      `json:"matched_invoice_id,omitempty"`
+	// MatchedInvoiceNumber is joined on read and never written: the number
+	// belongs to the invoice, and a copy here would age the moment that invoice
+	// is renumbered.
+	MatchedInvoiceNumber string `json:"matched_invoice_number,omitempty"`
 	PaymentID        *uuid.UUID      `json:"payment_id,omitempty"`
 	ReconciledAt     *time.Time      `json:"reconciled_at,omitempty"`
 	ReconciledBy     *uuid.UUID      `json:"reconciled_by,omitempty"`
@@ -625,6 +629,10 @@ type BankTransactionFilter struct {
 	StatementID *uuid.UUID
 	// MatchStatus restricts to one reconciliation state (empty = all).
 	MatchStatus string
-	Limit       int
-	Offset      int
+	// ExcludeMatchStatus drops states from an otherwise unfiltered list. The
+	// reconciliation queue uses it to hide entries someone deliberately set
+	// aside without hiding them from a caller that asks for them by name.
+	ExcludeMatchStatus []string
+	Limit              int
+	Offset             int
 }
