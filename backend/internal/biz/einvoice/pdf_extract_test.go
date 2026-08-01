@@ -1,16 +1,21 @@
-package einvoice
+// This file is an external test package on purpose. It exercises the extraction
+// side against a PDF built by internal/biz/pdf, and that package now depends on
+// einvoice for the CII document itself — an in-package test importing pdf would
+// close an import cycle.
+package einvoice_test
 
 import (
 	"os"
 	"testing"
+	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/models"
-	"github.com/shopspring/decimal"
-	"time"
 )
 
 // ============================================================================
@@ -67,7 +72,7 @@ func TestExtractXMLFromPDF_HappyPath(t *testing.T) {
 		t.Skip("pdfcpu could not embed XML into stub PDF — skipping extraction test")
 	}
 
-	extracted, err := ExtractXMLFromPDF(pdfWithXML)
+	extracted, err := einvoice.ExtractXMLFromPDF(pdfWithXML)
 	require.NoError(t, err)
 	assert.Equal(t, xmlBytes, extracted)
 }
@@ -76,14 +81,14 @@ func TestExtractXMLFromPDF_HappyPath(t *testing.T) {
 // for a PDF without any embedded XML attachment.
 func TestExtractXMLFromPDF_NoAttachment(t *testing.T) {
 	pdfBytes := loadMinimalPDFOrSkip(t)
-	_, err := ExtractXMLFromPDF(pdfBytes)
-	assert.ErrorIs(t, err, ErrNoEmbeddedXML)
+	_, err := einvoice.ExtractXMLFromPDF(pdfBytes)
+	assert.ErrorIs(t, err, einvoice.ErrNoEmbeddedXML)
 }
 
 // TestExtractXMLFromPDF_NotPDF verifies that random bytes return ErrNoEmbeddedXML.
 func TestExtractXMLFromPDF_NotPDF(t *testing.T) {
-	_, err := ExtractXMLFromPDF([]byte("this is not a PDF file"))
-	assert.ErrorIs(t, err, ErrNoEmbeddedXML)
+	_, err := einvoice.ExtractXMLFromPDF([]byte("this is not a PDF file"))
+	assert.ErrorIs(t, err, einvoice.ErrNoEmbeddedXML)
 }
 
 // ============================================================================

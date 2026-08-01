@@ -19,6 +19,24 @@ func assertXMLContains(t *testing.T, xml, sub, msg string) {
 	}
 }
 
+// singleLineItemJSON is one 100.00 net line at 19 % VAT — subtotal 100.00,
+// tax 19.00, gross 119.00. EN 16931 BG-25 requires at least one line, so every
+// invoice that is expected to render needs one.
+func singleLineItemJSON(t *testing.T) []byte {
+	t.Helper()
+	raw, err := json.Marshal([]models.LineItem{{
+		ID: "1", Position: 1, Description: "Leistung",
+		Quantity:  decimal.NewFromInt(1),
+		UnitPrice: decimal.NewFromInt(100),
+		TaxRate:   decimal.NewFromInt(19),
+		LineTotal: decimal.NewFromInt(100),
+	}})
+	if err != nil {
+		t.Fatalf("marshal line items: %v", err)
+	}
+	return raw
+}
+
 func completeTestSettings() models.CompanySettings {
 	return models.CompanySettings{
 		Name:         "Muster GmbH",
@@ -91,6 +109,7 @@ func TestGenerateZUGFeRDXML_CurrencyFromInvoice(t *testing.T) {
 		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
 		Currency:      "CHF",
+		LineItems:     singleLineItemJSON(t),
 	}
 	out, err := GenerateZUGFeRDXML(inv, completeTestSettings())
 	if err != nil {
@@ -112,6 +131,7 @@ func TestGenerateZUGFeRDXML_CurrencyDefaultsToEUR(t *testing.T) {
 		InvoiceNumber: "RE-2026-0001",
 		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
+		LineItems:     singleLineItemJSON(t),
 		// Currency intentionally left empty — must fall back to EUR.
 	}
 	out, err := GenerateZUGFeRDXML(inv, completeTestSettings())
@@ -120,6 +140,23 @@ func TestGenerateZUGFeRDXML_CurrencyDefaultsToEUR(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "<ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>") {
 		t.Error("expected currency to default to EUR when invoice.Currency is empty")
+	}
+}
+
+// TestGenerateZUGFeRDXML_NoLineItems pins the stricter behaviour the shared
+// renderer brought to this path: an invoice without a single line violates
+// EN 16931 BG-25 and is rejected instead of producing a line-less document that
+// the receiver silently discards.
+func TestGenerateZUGFeRDXML_NoLineItems(t *testing.T) {
+	t.Parallel()
+
+	inv := models.Invoice{
+		InvoiceNumber: "RE-2026-0001",
+		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
+	}
+	if _, err := GenerateZUGFeRDXML(inv, completeTestSettings()); err == nil {
+		t.Fatal("expected an error for an invoice without line items, got nil")
 	}
 }
 

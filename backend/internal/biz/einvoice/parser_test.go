@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/shopspring/decimal"
 )
@@ -72,13 +71,13 @@ func TestParseCII_FromFixture(t *testing.T) {
 	assert.Equal(t, "zugferd_cii", parsed.SourceFormat)
 }
 
-// TestParseCII_Roundtrip uses GenerateZUGFeRDXML to produce CII XML,
+// TestParseCII_Roundtrip uses GenerateCII to produce CII XML,
 // then parses it back — testing end-to-end roundtrip compatibility.
 func TestParseCII_Roundtrip(t *testing.T) {
 	inv := buildTestInvoice()
 	settings := buildTestSettings()
 
-	xmlBytes, err := pdf.GenerateZUGFeRDXML(inv, settings)
+	xmlBytes, err := GenerateCII(inv, settings, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, xmlBytes)
 

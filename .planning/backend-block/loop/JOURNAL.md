@@ -487,3 +487,77 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   Ausgangsroute (`w5-route`) haengt weiterhin hinter Validierung und PDF-Entscheidung. Fuer die
   Route offen: woher die Leitweg-ID kommt — sie hat kein Feld in `finance_invoices` und muss
   entweder als Request-Parameter durchgereicht oder am Kontakt/Tenant hinterlegt werden.
+
+## Iteration 9 — w5-cii-generator — done — 2026-08-01 (Nachtlauf 3)
+
+- commit: Feature-Commit dieser Iteration
+- gebaut: `internal/biz/einvoice/generator_cii.go` — `GenerateCII(invoice, settings,
+  buyerReference)` rendert ZUGFeRD 2.1 / Factur-X (CII, Profil EN16931) ueber `buildInvoiceDoc`,
+  also ueber dieselbe Betrags- und Steuergruppenlogik wie `GenerateUBL`. Write-Structs mit
+  `rsm:`/`ram:`/`udt:`-Praefixen, getrennt von den Lesestructs in `parser.go` — identische
+  Begruendung wie beim UBL-Writer (der Parser matcht namespace-agnostisch, das Schreiben braucht
+  woertliche Praefixe; ein Feld kann nur eines von beidem).
+- ZUSAMMENFUEHRUNG statt Neubau, wie die Unit-Note es nach dem Fund aus Iteration 8 verlangte:
+  `pdf.GenerateZUGFeRDXML` ist jetzt ein Delegator auf `einvoice.GenerateCII`. Der alte
+  `fmt.Sprintf`-Template-Writer samt `buildHeaderTradeTax`, `xmlEscape` und `countryCode` ist
+  entfallen (rund 200 Zeilen). Die beiden §14-UStG-Vorbedingungen des PDF-Pfades — Faelligkeits-
+  datum und vollstaendiger Ausstellerblock (`ValidateCompanySettingsForPDF`) — bleiben in
+  `GenerateZUGFeRDXML`, weil sie nur fuer die PDF-Auslieferung gelten, nicht fuer reines XML.
+- die zwei Abweichungen aus der Unit-Note sind damit beseitigt, jede mit eigenem Test:
+  (a) BR-S-08: Der Bestand nahm `Quantity*UnitPrice` als Steuerbasis, schrieb als Zeilenbetrag
+      aber `LineTotal`. Bei einer rabattierten Position (3 x 100,00 -> 270,00) ergab das ein
+      Dokument, dessen Kategorie-Basis 300,00 und dessen Zeilensumme 270,00 sagte.
+      `TestGenerateCII_TaxBasisMatchesLineAmounts` faehrt genau diesen Fall und prueft nach dem
+      Roundtrip `TaxBreakdown[0].TaxableNet == LineItems[0].LineTotal`.
+  (b) CategoryCode `S` auch bei 0 % -> jetzt `Z` (`TestGenerateCII_ZeroRatedLineUsesCategoryZ`).
+- DRITTER FUND beim Bau, nicht in der Note: der alte Writer schrieb die
+  `IncludedSupplyChainTradeLineItem`-Bloecke ans ENDE von `SupplyChainTradeTransaction`. Die
+  CII-XSD-Sequenz verlangt sie VOR den drei Header-Gruppen. Das parst hier durch und faellt
+  erst beim Empfaenger in der Schema-Validierung auf — also unsichtbar, bis eine Rechnung
+  draussen abgelehnt wird. `TestGenerateCII_LineItemsPrecedeHeaderGroups` haelt die Reihenfolge
+  fest. Erzeugtes Dokument einmal vollstaendig ausgegeben und gegengelesen, nicht nur die
+  Assertions geglaubt.
+- IMPORT-ZYKLUS (der eigentliche Umbau-Aufwand): `pdf` importiert jetzt `einvoice`. Die
+  einvoice-Tests lagen alle in `package einvoice` und zwei davon importierten `pdf` — das
+  schliesst im Test-Build einen Zyklus. Aufgeloest ohne Testabdeckung zu verlieren:
+  `parser_test.go` erzeugt sein CII jetzt direkt ueber `GenerateCII` (der `pdf`-Import faellt
+  weg), `pdf_extract_test.go` liegt in `package einvoice_test`, weil es `EmbedZUGFeRDXML`
+  wirklich braucht. Die Richtung `pdf -> einvoice` ist damit fest; als Randbedingung in die
+  Notes von `w5-pdfa3-embed` uebernommen.
+- VERHALTENSAENDERUNG AM PDF-PFAD, bewusst: `buildInvoiceDoc` lehnt eine Rechnung ohne Positionen
+  ab (BG-25). Der Bestand erzeugte dafuer ein zeilenloses Dokument. Zwei bestehende Tests
+  (`_CurrencyFromInvoice`, `_CurrencyDefaultsToEUR`) nutzten positionslose Rechnungen, um die
+  Waehrung zu pruefen — die haben jetzt eine Position, und `TestGenerateZUGFeRDXML_NoLineItems`
+  haelt die Verschaerfung ausdruecklich fest. Ebenso erbt der PDF-Pfad `assertTotalsMatch`.
+  Beides ist die gewollte Folge der Zusammenfuehrung, kein Kollateralschaden.
+- keine neue Dependency (`go.mod`/`go.sum` unveraendert), reine Stdlib `encoding/xml`.
+- FUNDE IM BESTAND (in die Notes der Folge-Units uebertragen):
+  (a) `pdf.GenerateZUGFeRDInvoicePDF` hat **keinen einzigen Test** — nicht nur die Einbettung ist
+      ungetestet, der ganze PDF-plus-XML-Pfad ist es. -> `w5-pdfa3-embed`.
+  (b) `server/biz_grpc.go:1365` faengt JEDEN Generierungsfehler ab und liefert still das PDF ohne
+      XML aus. Durch die BG-25-Verschaerfung trifft das jetzt auch positionslose Rechnungen: der
+      Aufrufer bekommt ein PDF und kann nicht erkennen, dass kein E-Rechnungs-XML entstanden ist.
+      Fuer `w5-route` festgehalten (dort 422 statt stiller Degradation), fuer `w5-pdfa3-embed` als
+      Mit-zu-aendernder Aufrufer.
+  (c) Fuer `w5-en16931-validation`: die Validierung gehoert auf `invoiceDoc`, nicht auf
+      `models.Invoice` — dort gilt sie fuer beide Formate zugleich. In die Notes uebernommen.
+- gate: build ok (`go build -p 2 ./...`, ganzes Backend) | vet ok (`./...`) | lint ok
+  (golangci-lint auf einvoice + pdf: 0 issues) | gofmt ok (alle sechs beruehrten Dateien, gegen
+  LF-normalisierten Inhalt geprueft — `gofmt -l` meldet auf diesem Windows-Tree sonst reine
+  CRLF-Treffer; der Index ist LF) |
+  test ok: `./internal/biz/...` und `./internal/server/...` vollstaendig gruen, mit
+  `DATABASE_URL` gegen `kmuhub_app`. 66 Testfaelle im einvoice-Paket, 15 davon neu; einziger SKIP
+  im Lauf ist der bestehende `TestExtractXMLFromPDF_HappyPath` (Fund (b) aus Iteration 8).
+  migration n.a. (keine Schema-Aenderung). openapi n.a. (keine Route — die kommt in `w5-route`).
+- verify vorgaenger: `58b27948` (w5-ubl-generator) gegen die sechs Fehlerklassen geprueft.
+  Diff umfasst nur `errors.go`, `generator_doc.go`, `generator_ubl.go`, `generator_ubl_test.go`
+  plus Loop-Dateien: keine Migration, keine Route, kein Proto, kein neuer Guard, kein DB-Zugriff,
+  kein gRPC-Layer betroffen — die vier darauf zielenden Klassen sind hier gegenstandslos. Kein
+  Stub und kein `Unimplemented` im Diff; `buildInvoiceDoc`/`renderUBL` sind vollstaendig
+  implementiert und durch 30 Testfaelle gedeckt. Die Wire-Shape-Klasse trifft nicht zu (kein
+  JSON-Handler), das erzeugte XML habe ich in dieser Iteration ohnehin gegen `ParseUBL` und gegen
+  den CII-Zwilling gegengeprueft. Kein Fund. Beim Weiterbauen bestaetigt: `buildInvoiceDoc` traegt
+  die Betragslogik tatsaechlich vollstaendig, der CII-Writer brauchte keine eigene Zahl.
+- offen: `w5-en16931-validation` als naechste Unit (Ansatzpunkt `invoiceDoc`, siehe oben).
+  Weiterhin offen fuer `w5-route`: woher die Leitweg-ID (BT-10) kommt — sie hat kein Feld in
+  `finance_invoices`.

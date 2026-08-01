@@ -312,7 +312,7 @@ units:
     service: einvoice
     model: opus
     deps: [w5-ubl-generator]
-    status: todo
+    status: done
     scope: >
       ZUGFeRD-/Factur-X-Generator (CII, `CrossIndustryInvoice`, EN 16931 Profil EN16931/Comfort)
       in `internal/biz/einvoice/generator_cii.go`, analog zum UBL-Generator.
@@ -362,6 +362,17 @@ units:
     sources:
       - backend/internal/biz/einvoice/errors.go
     notes: >
+      ANSATZPUNKT (Fund aus `w5-cii-generator`, 2026-08-01): Die Validierung gehoert auf
+      `invoiceDoc` aus `internal/biz/einvoice/generator_doc.go`, NICHT auf `models.Invoice`. Das
+      neutrale Modell traegt bereits Steuerkategorien, die BG-23-Gruppen und die neu berechneten
+      Summen, und beide Ausgabeformate durchlaufen es — eine Pruefung dort gilt automatisch fuer
+      XRechnung UND ZUGFeRD. Auf `models.Invoice` geprueft muesste man die Ableitungen ein zweites
+      Mal nachbauen, und genau das war der Fehler, den `w5-cii-generator` gerade beseitigt hat.
+      `buildInvoiceDoc` lehnt heute schon ab: leere Rechnungsnummer (BT-1), fehlendes
+      Ausstellungsdatum (BT-2), keine Positionen (BG-25), unparsebare Positionen, Summen-Drift.
+      Diese Faelle NICHT doppeln — die Validierung ergaenzt die Felder, die ein Dokument formal
+      erzeugbar, aber beim Empfaenger unzustellbar machen.
+
       Der Fehlerfall ist der wichtige: eine E-Rechnung, die beim Empfaenger abgelehnt wird, faellt
       dem Kunden erst Wochen spaeter auf. Deshalb ALLE fehlenden Felder auf einmal melden (Liste),
       nicht beim ersten abbrechen — sonst klickt sich der Nutzer einzeln durch.
@@ -399,6 +410,16 @@ units:
       ist; die Einbettung ist damit faktisch ungetestet. Beides in dieser Unit adressieren:
       Fehler nach oben geben statt still zu degradieren, und den Test gegen ein echtes
       maroto-erzeugtes PDF fahren statt gegen den Stub.
+      NACHTRAG (aus `w5-cii-generator`, 2026-08-01), drei Randbedingungen:
+      (a) Die Import-Richtung ist jetzt fest `pdf` -> `einvoice` (GenerateZUGFeRDXML delegiert an
+          `einvoice.GenerateCII`). Ein Test in `package einvoice`, der `pdf` importiert, schliesst
+          einen Zyklus — `pdf_extract_test.go` liegt deshalb bereits in `package einvoice_test`.
+          Der geforderte Test gegen ein echtes maroto-PDF gehoert am besten nach `internal/biz/pdf`.
+      (b) `GenerateZUGFeRDInvoicePDF` (`pdf/generator.go:281`) hat **keinen einzigen Test** —
+          der komplette PDF-plus-XML-Pfad ist unabgedeckt, nicht nur die Einbettung.
+      (c) `server/biz_grpc.go:1365` faengt heute JEDEN Generierungsfehler ab und liefert
+          stillschweigend das PDF ohne XML aus. Wird `EmbedZUGFeRDXML` hart gemacht, muss dieser
+          Aufrufer mit — sonst ist der neue Fehlerpfad von aussen weiterhin unsichtbar.
 
       ENTSCHEIDUNGSPUNKT, nicht blind bauen. `internal/biz/pdf/generator.go` nutzt maroto/v2. Pruef
       zuerst, ob maroto/v2 (bzw. das darunterliegende gofpdf/pdfcpu, falls schon im Modulgraph)
@@ -429,6 +450,14 @@ units:
       - backend/internal/gateway/route_finance.go
       - backend/api/openapi.yaml
     notes: >
+      EINSTIEGSPUNKTE (aus `w5-cii-generator`, 2026-08-01): `einvoice.GenerateUBL(invoice,
+      settings, buyerReference)` fuer `xrechnung`, `einvoice.GenerateCII(...)` fuer `zugferd` —
+      beide mit derselben Signatur. Der dritte Parameter ist die Leitweg-ID (BT-10), die kein Feld
+      in `finance_invoices` hat; sie muss als Request-Parameter durchgereicht oder am Kontakt
+      hinterlegt werden (offene Entscheidung, siehe Journal-Eintrag zu `w5-ubl-generator`).
+      Beide geben `ErrGenerateFailed` bzw. `ErrTotalsMismatch` zurueck — beides ist 422 mit
+      lesbarer Meldung, NICHT 500 und keinesfalls ein stiller Fallback: `server/biz_grpc.go:1365`
+      macht genau das im PDF-Pfad und verdeckt damit, dass gar kein XML entstanden ist.
       Bestehenden Permission-Guard des Rechnungs-Moduls wiederverwenden, keinen neuen einfuehren
       (sonst Seed-Pflicht). Format-Parameter serverseitig validieren, unbekanntes Format 422.
       404 wenn die Rechnung dem Tenant nicht gehoert — tenant-gescopter Read, nicht nur RLS.
