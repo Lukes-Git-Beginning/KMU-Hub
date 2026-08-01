@@ -47,15 +47,43 @@ func (d *DocumentRoutes) getDocumentClient() (documentv1.DocumentServiceClient, 
 
 // RegisterRoutes registers all Document HTTP routes.
 func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Additive guards: every route keeps its legacy coarse key AND accepts the
+	// matching capability-catalogue key. Extend, never swap (see
+	// middleware.RequirePermissionAny doc comment).
+	//
+	// Mapping verified against FileContextMenu.tsx/DokumentePage.tsx, not
+	// assumed: canEdit (documents:file:edit) gates rename+move on files AND
+	// new-subfolder+rename on folders — "new folder" in DokumentePage.tsx:144
+	// is explicitly `canEditAllowed`, not upload. canUpload
+	// (documents:file:upload) only gates registering an uploaded file.
+	// Copy is commented "read-action — always visible" in the FE with no
+	// capability check at all, so it keeps its coarse key only. Version
+	// history is only reachable behind the version:restore menu item
+	// (FileContextMenu.tsx:245), so the LIST route gets that alt key too, not
+	// file:read. documents:template:manage and documents:share_link:create
+	// have zero backend wiring (TemplateGalleryDialog and ShareDialog's
+	// copyLink are FE-only mocks, verified no API call in either) — both stay
+	// unwired, no route invented. Tags, entity links, search, virtual files,
+	// WOPI and space initialization have no catalogue subject at all.
+	var (
+		docRead           = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "read"})
+		docDownload       = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "download"})
+		docUpload         = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:file", "upload"})
+		docEdit           = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:file", "edit"})
+		docDelete         = middleware.RequirePermissionAny([2]string{"documents", "delete"}, [2]string{"documents:file", "delete"})
+		docShareManage    = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:share", "manage"})
+		docVersionRestore = middleware.RequirePermissionAny([2]string{"documents", "write"}, [2]string{"documents:version", "restore"})
+	)
+
 	// Folders
 	r.Route("/api/v1/documents/folders", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/", d.HandleListFolders)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}", d.HandleGetFolder)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/", d.HandleCreateFolder)
-		r.With(middleware.RequirePermission("documents", "write")).Put("/{id}", d.HandleUpdateFolder)
-		r.With(middleware.RequirePermission("documents", "delete")).Delete("/{id}", d.HandleDeleteFolder)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}/path", d.HandleGetFolderPath)
+		r.With(docRead).Get("/", d.HandleListFolders)
+		r.With(docRead).Get("/{id}", d.HandleGetFolder)
+		r.With(docEdit).Post("/", d.HandleCreateFolder)
+		r.With(docEdit).Put("/{id}", d.HandleUpdateFolder)
+		r.With(docDelete).Delete("/{id}", d.HandleDeleteFolder)
+		r.With(docRead).Get("/{id}/path", d.HandleGetFolderPath)
 		r.With(middleware.RequirePermission("documents", "write")).Post("/initialize-user", d.HandleInitializeUserSpace)
 		r.With(middleware.RequirePermission("documents", "write")).Post("/initialize-team", d.HandleInitializeTeamSpace)
 	})
@@ -63,19 +91,19 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// Files
 	r.Route("/api/v1/documents/files", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/", d.HandleListFiles)
+		r.With(docRead).Get("/", d.HandleListFiles)
 		// Register metadata for a file already uploaded to MinIO via a presigned
 		// PUT URL (POST /api/v1/files/presign-upload → PUT to MinIO → register here).
-		r.With(middleware.RequirePermission("documents", "write")).Post("/", d.HandleRegisterUploadedFile)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}", d.HandleGetFile)
-		r.With(middleware.RequirePermission("documents", "write")).Put("/{id}", d.HandleUpdateFile)
-		r.With(middleware.RequirePermission("documents", "delete")).Delete("/{id}", d.HandleDeleteFile)
+		r.With(docUpload).Post("/", d.HandleRegisterUploadedFile)
+		r.With(docRead).Get("/{id}", d.HandleGetFile)
+		r.With(docEdit).Put("/{id}", d.HandleUpdateFile)
+		r.With(docDelete).Delete("/{id}", d.HandleDeleteFile)
 		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/copy", d.HandleCopyFile)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/move", d.HandleMoveFile)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}/download-url", d.HandleGetFileDownloadURL)
+		r.With(docEdit).Post("/{id}/move", d.HandleMoveFile)
+		r.With(docDownload).Get("/{id}/download-url", d.HandleGetFileDownloadURL)
 		// Versions
-		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}/versions", d.HandleListFileVersions)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
+		r.With(docVersionRestore).Get("/{id}/versions", d.HandleListFileVersions)
+		r.With(docVersionRestore).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
 		// Entity links
 		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}/links", d.HandleListFileEntityLinks)
 		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/links", d.HandleLinkFileToEntity)
@@ -85,10 +113,10 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// Shares
 	r.Route("/api/v1/documents/shares", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/", d.HandleShareEntity)
-		r.With(middleware.RequirePermission("documents", "write")).Delete("/", d.HandleUnshareEntity)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/entity", d.HandleListShares)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/shared-with-me", d.HandleListSharedWithMe)
+		r.With(docShareManage).Post("/", d.HandleShareEntity)
+		r.With(docShareManage).Delete("/", d.HandleUnshareEntity)
+		r.With(docRead).Get("/entity", d.HandleListShares)
+		r.With(docRead).Get("/shared-with-me", d.HandleListSharedWithMe)
 	})
 
 	// Tags

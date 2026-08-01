@@ -685,24 +685,74 @@ units:
     service: querschnitt
     model: sonnet
     deps: [p2b-helpdesk-kommunikation-kalender]
-    status: todo
+    status: done
     scope: >
-      Wie p2a, fuer work, documents, crm und finance.
+      Wie p2a, fuer work, documents, crm und finance. GETEILT (2026-08-01): diese Unit deckt nur
+      work + documents ab, crm + finance sind in die Folge-Unit `p2c-work-documents-crm-finance-2`
+      ausgelagert (siehe Notes dort).
     sources:
       - desktop/src/renderer/src/config/capability-catalog.ts
     notes: >
       Groesster Batch, notfalls nach zwei Modulen abschliessen und eine Folge-Unit
       `p2c-work-documents-crm-finance-2` anlegen — lieber zwei saubere Commits als einer, der auf
       halber Strecke abbricht.
+
+      ERGEBNIS (2026-08-01): work + documents additiv verdrahtet, Detail im Journal (Iteration 17).
+      Kurzfassung der Muster: FE-Gate-Calls sind die einzige Quelle fuer die Zuordnung Route->Key,
+      nicht der Modul-Dateiname. Mehrere BE-Sub-Ressourcen teilen sich oft denselben FE-`can.edit`
+      und damit denselben additiven Key (work: Dependencies/Links/CustomFields/Files/Labels haengen
+      alle an `can.edit` in TaskDetailPage.tsx; documents: Rename+Move+NewSubfolder haengen alle an
+      `documents:file:edit`). Ein legacy-Verb kann von einem ANDEREN catalogue-Verb erweitert werden,
+      wenn die FE-Sichtbarkeitsgrenze das so vorgibt (Kanban-Status-DELETE ist legacy `projects:delete`,
+      additiver Key ist trotzdem `work:project:edit`, weil die ganze Statuses-Tab-UI hinter
+      `projectCan.edit` sitzt). Routen ohne JEDEN FE-Capability-Aufruf (grep auf `useHasCapability`/
+      `useScopedCapability`) bleiben unangetastet, auch wenn ein passender Katalog-Key existiert und
+      die Zuordnung "naheliegend" waere (AddProjectMember, UpdateProjectMemberRole,
+      CreateProjectFromTemplate, SetUserProjectPreference, MoveTask, UpdateTimeEntry/DeleteTimeEntry,
+      UpdateTaskComment/DeleteTaskComment — letztere vier sind FE-seitig reine `isOwn`/`isOwner`-Checks
+      ohne Capability-Aufruf). Zwei Katalog-Keys sind komplett unwired, weil der FE-Aufrufer selbst ein
+      No-op-Mock ist (kein API-Call, verifiziert im Code): `documents:template:manage`
+      (TemplateGalleryDialog) und `documents:share_link:create` (ShareDialog `copyLink`, nur ein
+      Toast). `work:board:export` hat weder FE-Aufrufer noch Backend-Route.
+
+  - id: p2c-work-documents-crm-finance-2
+    phase: 2
+    service: querschnitt
+    model: sonnet
+    deps: [p2c-work-documents-crm-finance]
+    status: todo
+    scope: >
+      Wie p2a, fuer crm und finance (Rest-Haelfte von p2c-work-documents-crm-finance, siehe deren
+      Notes fuer die Vorgehensweise).
+    sources:
+      - desktop/src/renderer/src/config/capability-catalog.ts
+    notes: >
+      Gleiche Regeln wie p2a/p2b/p2c-work-documents-crm-finance. Katalog-Keys (verifiziert gegen
+      `capability-catalog.ts`, Zeilen 326-358): crm hat 14 (`crm:contact:*` x5, `crm:deal:*` x4,
+      `crm:pipeline:manage`, `crm:import:run`, `crm:advisory:read`/`write`, `crm:segment:override`),
+      finance hat 14 (`finance:invoice:*` x5, `finance:quote:*` x3, `finance:dunning:run`,
+      `finance:amounts:view`, `finance:export:run`, `finance:incoming:review`/`book`,
+      `finance:settings:manage`). Gateway-Dateien fuer crm: `route_crm.go`, `route_crm_contacts.go`,
+      `route_crm_companies.go`, `route_crm_pipeline.go`, `route_crm_activities.go`,
+      `route_crm_advisory.go`, `route_crm_ext.go` (kein 1:1-Mapping, wie bei kommunikation in p2b —
+      vor dem Guarding den FE-Gate-Call grep'en, dann die zugehoerige Route suchen). Fuer finance:
+      kein dediziertes `route_finance.go` — die Routen liegen in `route_biz_invoices.go`,
+      `route_biz_quotes.go`, `route_biz_einvoice.go` (die neue Welle-5-E-Rechnung-Route zaehlt NICHT
+      zu diesem Katalog-Batch, nicht anfassen). Muster aus `p2c-work-documents-crm-finance`: FE-Gate-
+      Calls (`useHasCapability`/`useScopedCapability`) sind die einzige Quelle fuer die Zuordnung
+      Route->Key; eine Route ohne JEDEN Aufruf bleibt unangetastet, auch wenn ein Katalog-Key
+      thematisch passen wuerde. Vor dem Bauen pruefen, ob alle referenzierten Keys bereits in
+      `permissions` existieren (aus `p1a-migration`/000256 — bei diesem Katalogausschnitt erwartet,
+      aber gegenpruefen statt annehmen).
     done_when:
-      - Routen additiv abgesichert, Keys existieren
+      - Routen fuer crm und finance additiv abgesichert, Keys existieren
       - go build/vet/lint/test gruen
 
   - id: p2c-inventar-einkauf-produktion-vertraege
     phase: 2
     service: querschnitt
     model: sonnet
-    deps: [p2c-work-documents-crm-finance]
+    deps: [p2c-work-documents-crm-finance-2]
     status: todo
     scope: >
       Wie p2a, fuer inventar, einkauf, produktion und vertraege.

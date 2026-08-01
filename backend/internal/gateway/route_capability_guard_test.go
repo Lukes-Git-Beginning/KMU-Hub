@@ -54,6 +54,12 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 	bookingRouter := chi.NewRouter()
 	NewBookingRoutes(emptyRegistry(), security.NewCaptchaVerifier("", "")).RegisterRoutes(bookingRouter, guardTestAuth)
 
+	workRouter := chi.NewRouter()
+	NewWorkRoutes(emptyRegistry()).RegisterRoutes(workRouter, guardTestAuth)
+
+	documentRouter := chi.NewRouter()
+	NewDocumentRoutes(emptyRegistry()).RegisterRoutes(documentRouter, guardTestAuth)
+
 	const articleID = "11111111-1111-1111-1111-111111111111"
 
 	const (
@@ -147,6 +153,68 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 
 		// --- kalender: calendars/events/resources have no catalogue key, untouched ---
 		{"calendar create still requires calendars:write only", calendarRouter, "POST", "/api/v1/calendar/calendars", []string{"kalender:category:manage"}, denied},
+
+		// --- work: projects ---
+		{"project list, catalogue key only", workRouter, "GET", "/api/v1/projects/", []string{"work:project:read"}, allowed},
+		{"project create, legacy key only", workRouter, "POST", "/api/v1/projects/", []string{"projects:write"}, allowed},
+		{"project create, catalogue key only", workRouter, "POST", "/api/v1/projects/", []string{"work:project:create"}, allowed},
+		{"project create, edit key does not grant create", workRouter, "POST", "/api/v1/projects/", []string{"work:project:edit"}, denied},
+		{"project update, catalogue key only", workRouter, "PUT", "/api/v1/projects/" + articleID, []string{"work:project:edit"}, allowed},
+		{"project delete, catalogue key only", workRouter, "DELETE", "/api/v1/projects/" + articleID, []string{"work:project:delete"}, allowed},
+		{"project delete, edit key does not grant delete", workRouter, "DELETE", "/api/v1/projects/" + articleID, []string{"work:project:edit"}, denied},
+		{"remove project member, catalogue key only", workRouter, "DELETE", "/api/v1/projects/" + articleID + "/members/" + articleID, []string{"work:project:manage_members"}, allowed},
+		{"kanban status delete, catalogue edit key maps to it", workRouter, "DELETE", "/api/v1/project-statuses/" + articleID, []string{"work:project:edit"}, allowed},
+
+		// --- work: add-member and set-preference have no FE caller, untouched ---
+		{"add project member still requires projects:write only", workRouter, "POST", "/api/v1/projects/" + articleID + "/members", []string{"work:project:edit"}, denied},
+		{"add project member with projects:write", workRouter, "POST", "/api/v1/projects/" + articleID + "/members", []string{"projects:write"}, allowed},
+
+		// --- work: tasks ---
+		{"task list, catalogue key only", workRouter, "GET", "/api/v1/tasks/", []string{"work:task:read"}, allowed},
+		{"task create, catalogue key only", workRouter, "POST", "/api/v1/tasks/", []string{"work:task:create"}, allowed},
+		{"task update, catalogue key only", workRouter, "PUT", "/api/v1/tasks/" + articleID, []string{"work:task:edit"}, allowed},
+		{"task delete, catalogue key only", workRouter, "DELETE", "/api/v1/tasks/" + articleID, []string{"work:task:delete"}, allowed},
+		{"task delete, edit key does not grant delete", workRouter, "DELETE", "/api/v1/tasks/" + articleID, []string{"work:task:edit"}, denied},
+		{"task comment create, catalogue key only", workRouter, "POST", "/api/v1/tasks/" + articleID + "/comments", []string{"work:task:comment"}, allowed},
+		{"task comment create, edit key does not grant it", workRouter, "POST", "/api/v1/tasks/" + articleID + "/comments", []string{"work:task:edit"}, denied},
+		{"task custom fields set, catalogue key only", workRouter, "PUT", "/api/v1/tasks/" + articleID + "/custom-fields", []string{"work:task:edit"}, allowed},
+		{"manual time entry, catalogue key only", workRouter, "POST", "/api/v1/tasks/" + articleID + "/time-entries", []string{"work:time:log"}, allowed},
+		{"manual time entry, edit key does not grant it", workRouter, "POST", "/api/v1/tasks/" + articleID + "/time-entries", []string{"work:task:edit"}, denied},
+		{"task labels set, catalogue key only", workRouter, "PUT", "/api/v1/tasks/" + articleID + "/labels", []string{"work:task:edit"}, allowed},
+		{"task dependency delete, catalogue edit key maps to it", workRouter, "DELETE", "/api/v1/task-dependencies/" + articleID, []string{"work:task:edit"}, allowed},
+
+		// --- work: move, comment-update and time-entry-update stay isOwn/coarse-only ---
+		{"move task still requires tasks:write only", workRouter, "POST", "/api/v1/tasks/" + articleID + "/move", []string{"work:task:edit"}, denied},
+		{"move task with tasks:write", workRouter, "POST", "/api/v1/tasks/" + articleID + "/move", []string{"tasks:write"}, allowed},
+		{"time entry update still requires tasks:write only", workRouter, "PUT", "/api/v1/time-entries/" + articleID, []string{"work:time:log"}, denied},
+
+		// --- documents: folders and files ---
+		{"folder list, catalogue key only", documentRouter, "GET", "/api/v1/documents/folders/", []string{"documents:file:read"}, allowed},
+		{"folder create, legacy key only", documentRouter, "POST", "/api/v1/documents/folders/", []string{"documents:write"}, allowed},
+		{"folder create, catalogue key only", documentRouter, "POST", "/api/v1/documents/folders/", []string{"documents:file:edit"}, allowed},
+		{"folder delete, catalogue key only", documentRouter, "DELETE", "/api/v1/documents/folders/" + articleID, []string{"documents:file:delete"}, allowed},
+		{"file upload register, catalogue key only", documentRouter, "POST", "/api/v1/documents/files/", []string{"documents:file:upload"}, allowed},
+		{"file upload register, edit key does not grant it", documentRouter, "POST", "/api/v1/documents/files/", []string{"documents:file:edit"}, denied},
+		{"file update, catalogue key only", documentRouter, "PUT", "/api/v1/documents/files/" + articleID, []string{"documents:file:edit"}, allowed},
+		{"file move, catalogue key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/move", []string{"documents:file:edit"}, allowed},
+		{"file delete, catalogue key only", documentRouter, "DELETE", "/api/v1/documents/files/" + articleID, []string{"documents:file:delete"}, allowed},
+		{"file download url, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/download-url", []string{"documents:file:download"}, allowed},
+		{"file download url, edit key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/download-url", []string{"documents:file:edit"}, denied},
+
+		// --- documents: copy is a read-action in the FE, stays coarse-only ---
+		{"file copy still requires documents:write only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:edit"}, denied},
+		{"file copy with documents:write", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:write"}, allowed},
+
+		// --- documents: shares and versions ---
+		{"share create, catalogue key only", documentRouter, "POST", "/api/v1/documents/shares/", []string{"documents:share:manage"}, allowed},
+		{"share delete, catalogue key only", documentRouter, "DELETE", "/api/v1/documents/shares/", []string{"documents:share:manage"}, allowed},
+		{"version list, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/versions", []string{"documents:version:restore"}, allowed},
+		{"version list, read key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/versions", []string{"documents:read"}, denied},
+		{"version revert, catalogue key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/versions/revert", []string{"documents:version:restore"}, allowed},
+
+		// --- documents: tags/links/search have no catalogue key, untouched ---
+		{"tag create still requires documents:write only", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:edit"}, denied},
+		{"tag create with documents:write", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:write"}, allowed},
 	}
 
 	for _, tt := range tests {

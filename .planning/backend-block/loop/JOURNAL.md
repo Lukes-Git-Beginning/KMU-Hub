@@ -1001,3 +1001,70 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       CRUD-Verben ab, Guard-Test-Helper wiederverwenden) zusaetzlich zu p2a's fuenf Punkten.
   (3) TOKEN-GROESSE (Iteration 14/15) bleibt unveraendert offen, waechst durch diese Unit nicht:
       keine neuen Permission-Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards.
+
+## Iteration 17 — p2c-work-documents-crm-finance — done (GETEILT, work+documents) — 2026-08-01 (Nachtlauf 3)
+- commit: (siehe unten, wird nach Commit ergaenzt)
+- gebaut: `RequirePermissionAny(alt, neu)` additiv auf work- und documents-Routen (beide 1:1 in
+  `route_work.go`/`route_document.go`, keine weiteren Dateien). Groesster Batch bisher — 13
+  Katalog-Keys (work) + 9 (documents) — deshalb wie in den Notes vorgesehen NACH ZWEI MODULEN
+  geteilt: crm+finance sind als neue Folge-Unit `p2c-work-documents-crm-finance-2` (deps: diese
+  Unit) direkt vor `p2c-inventar-einkauf-produktion-vertraege` eingehaengt, deren `deps` entsprechend
+  umgebogen.
+  `route_work.go`: zwei Guard-Bloecke (Projects, Tasks). Projects: `projRead`/`projCreate`/`projEdit`/
+  `projDelete`/`projMemberManage` + `projStatusDelete` (Sonderfall: Kanban-Spalten-DELETE traegt
+  legacy `projects:delete`, additiver Key ist trotzdem `work:project:edit`, weil Create/Update/
+  Reorder/Delete der Statuses alle in derselben `projectCan.edit`-gated `ProjectSettingsDialog`-Tab
+  sitzen — verifiziert gegen `ProjectSettingsDialog.tsx`). Tasks: `taskRead`/`taskCreate`/`taskEdit`/
+  `taskDelete`/`taskComment`/`timeLog`/`labelEdit` + `taskEditDel` (DeleteTaskDependency/
+  UnlinkEntityFromTask/RemoveTaskFile tragen legacy `tasks:delete`, additiver Key `work:task:edit`,
+  weil alle Sub-Ressourcen-Sektionen in `TaskDetailPage.tsx` denselben `can.edit`-Prop durchreichen —
+  verifiziert Zeile fuer Zeile, nicht angenommen).
+  `route_document.go`: ein Guard-Block. `docRead`/`docDownload`/`docUpload`/`docEdit`/`docDelete`/
+  `docShareManage`/`docVersionRestore`. Bemerkenswert: `documents:file:edit` deckt sowohl Datei-
+  Rename+Move ALS AUCH Ordner-NewSubfolder+Rename ab (verifiziert gegen `FileContextMenu.tsx`:
+  `canNewFolder = canEditAllowed` in `DokumentePage.tsx:144`, explizit NICHT `documents:file:upload`).
+  Version-Liste (GET .../versions) traegt `documents:version:restore` statt `documents:file:read`,
+  weil der einzige FE-Zugang (Kontextmenue "Version history") komplett hinter `canVersionRestore`
+  sitzt (`FileContextMenu.tsx:245-247`) — es gibt keinen separaten Lese-Pfad.
+  ZWEI KATALOG-KEYS OHNE JEDEN BACKEND-ENDPOINT, verifiziert per Code-Lesen (nicht nur "keine Route
+  gefunden"): `documents:template:manage` — `TemplateGalleryDialog.tsx` hat null API-Calls, reiner FE-
+  Stub. `documents:share_link:create` — `ShareDialog.tsx` `copyLink()` ist `toast.success(...)` ohne
+  jeden Netzwerk-Call. `work:board:export` hat weder FE-Aufrufer noch Backend-Route. Alle drei bleiben
+  unwired, keine Route erfunden (wie infrastructure in p2a, webhook:manage in p2b).
+  ROUTEN OHNE FE-CAPABILITY-AUFRUF BLEIBEN AUF DEM COARSE-KEY, auch wo ein Katalog-Key thematisch
+  passen wuerde (bewusst nicht geraten, per grep auf `useHasCapability`/`useScopedCapability`
+  verifiziert dass 0 Treffer existieren): work `AddProjectMember`/`UpdateProjectMemberRole`/
+  `CreateProjectFromTemplate`/`SetUserProjectPreference`/`MoveTask` sowie die vier `isOwn`/
+  `isOwner`-Client-Checks (`UpdateTimeEntry`/`DeleteTimeEntry`/`UpdateTaskComment`/
+  `DeleteTaskComment` — kein Capability-Aufruf im FE, nur Besitzer-Vergleich); documents `CopyFile`
+  (FE-Kommentar: "Copy is read-action — always visible", kein Gate).
+  Test: `route_capability_guard_test.go` um zwei Router-Setups (`workRouter`, `documentRouter`) und
+  47 neue Faelle erweitert — je Guard-Paar: Katalog-Key-only, plus fuer die Sonderfaelle (Kanban-
+  Status-Delete, Dependency-Delete, Version-Liste) einen "falscher Key oeffnet es NICHT"-Gegenfall.
+- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
+  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
+  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` alle Faelle gruen inkl.
+  47 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route) und
+  `./internal/middleware/...` beide gruen, 0 Skips. migration n.a. (alle referenzierten
+  work/documents-Keys per SQL gegen die laufende DB verifiziert: vorhanden aus 000256). openapi n.a.
+  (keine neue Route, nur Guards ausgetauscht). rls-smoke n.a. (keine Tabelle/Policy angefasst). gofmt:
+  `route_document.go` von `gofmt -l` gemeldet — Diff-Pruefung (CRLF strippen, dann `gofmt -l` erneut)
+  bestaetigt reinen CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus Iteration 15/16,
+  `core.autocrlf=true`), committeter Inhalt ist LF und gofmt-clean. `route_work.go` und die Testdatei
+  waren bereits LF/ASCII und wurden nicht gemeldet.
+- verify vorgaenger: `89789994` (p2b-helpdesk-kommunikation-kalender) gegen die acht Fehlerklassen
+  geprueft. Diff: `route_booking.go`/`route_calendar.go`/`route_capability_guard_test.go`/
+  `route_chat.go`/`route_helpdesk.go`/`route_inbox.go`. Alle Alt-Keys additiv erweitert (kein
+  einziger `RequirePermission`-Aufruf ersetzt statt erweitert), Testfaelle substantiell (nicht nur
+  "irgendwas ausser 403"). Kein Proto/Migration/neue Route/Handler-Direktzugriff/Stub in diesem
+  Commit, Fehlerklassen 1/2/3/5/6/7 n.a. Kein Fund.
+- offen fuer Luke:
+  (1) `p2c-work-documents-crm-finance-2` (crm+finance) ist die naechste ziehbare Unit in Block B,
+      `p2c-inventar-einkauf-produktion-vertraege` deps entsprechend umgebogen. Ihre Notes nennen
+      bereits die betroffenen Gateway-Dateien (kein 1:1-Modul-Mapping bei crm, kein dediziertes
+      `route_finance.go`) und die Katalog-Key-Zahlen (14+14).
+  (2) Zu pruefen, ob `work:board:export`, `documents:template:manage` und
+      `documents:share_link:create` dauerhaft ohne Backend bleiben sollen oder ob die FE-Stubs
+      (TemplateGalleryDialog, ShareDialog-Link-Copy, Board-Export) noch gebaut werden — das ist
+      Neubau, keine Guard-Tightening-Frage, keine Backlog-Unit dafuer angelegt.
+  (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht.
