@@ -251,7 +251,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1a-gateway]
-    status: todo
+    status: done
     scope: >
       Abschluss-Verifikation der Welle: RLS-Smoke gegen `roles`/`role_permissions` als `kmuhub_app`
       plus ein DB-Test, der beweist, dass ein normaler Tenant-User eine NICHT-LEERE Capability-Menge
