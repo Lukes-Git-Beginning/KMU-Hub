@@ -504,7 +504,7 @@ units:
     service: einvoice
     model: sonnet
     deps: [w5-route]
-    status: todo
+    status: done
     scope: >
       Ende-zu-Ende-Test: Rechnung anlegen, ueber die neue Route exportieren, das Ergebnis durch den
       bestehenden Eingangs-Import (`Service.Import`) zurueckspielen und Betraege, Positionen und
