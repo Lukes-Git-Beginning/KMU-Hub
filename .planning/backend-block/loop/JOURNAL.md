@@ -2162,7 +2162,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     wird serverseitig in `toLeadInfo` abgeleitet, damit sie nicht an zwei Orten driftet.
 
 ## Iteration 31 — fe-projects-time-entries — done — 2026-08-01 23:45 (Nachtlauf 3)
-- commit: (siehe naechste Journal-Iteration)
+- commit: db17bb62
 - gebaut:
   - `GET /api/v1/projects/{id}/time-entries` liefert die abgeschlossenen Zeiteintraege eines
     Projekts (`{entries:[...]}`, Felder `id/date/task/person/hours/description`). KORREKTUR zur
