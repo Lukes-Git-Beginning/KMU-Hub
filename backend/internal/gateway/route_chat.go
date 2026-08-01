@@ -83,12 +83,16 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("mentions", "read")).Get("/mentions", ch.HandleGetUserMentions)
 		// Reaction batch summary: static segment must be declared before /{id} to avoid chi ambiguity
 		r.With(middleware.RequirePermission("messages", "read")).Post("/reactions/summary", ch.HandleGetReactionSummary)
+		// Bookmarks: static segment before /{id}, same reason as above
+		r.With(middleware.RequirePermission("messages", "read")).Get("/bookmarks", ch.HandleListBookmarks)
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/thread", ch.HandleGetThreadReplies)
 		r.With(middleware.RequirePermission("messages", "write")).Put("/{id}", ch.HandleUpdateMessage)
 		r.With(middleware.RequirePermission("messages", "delete")).Delete("/{id}", ch.HandleDeleteMessage)
 		// Reaction routes per message
 		r.With(middleware.RequirePermission("messages", "write")).Post("/{id}/reactions", ch.HandleToggleReaction)
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/reactions", ch.HandleListReactions)
+		// Bookmark toggle per message
+		r.With(middleware.RequirePermission("messages", "write")).Post("/{id}/bookmark", ch.HandleToggleBookmark)
 	})
 
 	// Files (individual file operations)
@@ -979,6 +983,56 @@ func (ch *ChatRoutes) HandleGetReactionSummary(w http.ResponseWriter, r *http.Re
 	resp, err := client.GetReactionSummary(r.Context(), &chatv1.GetReactionSummaryRequest{
 		MessageIds: req.MessageIDs,
 		UserId:     userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Bookmark Handlers
+// ============================================================================
+
+func (ch *ChatRoutes) HandleListBookmarks(w http.ResponseWriter, r *http.Request) {
+	client, err := ch.getChatClient()
+	if err != nil {
+		respondServiceUnavailable(w, ch.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.ListBookmarks(r.Context(), &chatv1.ListBookmarksRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ch *ChatRoutes) HandleToggleBookmark(w http.ResponseWriter, r *http.Request) {
+	client, err := ch.getChatClient()
+	if err != nil {
+		respondServiceUnavailable(w, ch.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ToggleBookmark(r.Context(), &chatv1.ToggleBookmarkRequest{
+		MessageId: messageID,
+		UserId:    userID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

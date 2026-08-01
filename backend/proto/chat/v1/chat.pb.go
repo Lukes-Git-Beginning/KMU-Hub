@@ -4058,6 +4058,190 @@ func (x *GetReactionSummaryResponse) GetSummaries() []*ReactionSummary {
 	return nil
 }
 
+type ToggleBookmarkRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleBookmarkRequest) Reset() {
+	*x = ToggleBookmarkRequest{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleBookmarkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleBookmarkRequest) ProtoMessage() {}
+
+func (x *ToggleBookmarkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleBookmarkRequest.ProtoReflect.Descriptor instead.
+func (*ToggleBookmarkRequest) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ToggleBookmarkRequest) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *ToggleBookmarkRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ToggleBookmarkResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bookmarked    bool                   `protobuf:"varint,1,opt,name=bookmarked,proto3" json:"bookmarked,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleBookmarkResponse) Reset() {
+	*x = ToggleBookmarkResponse{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleBookmarkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleBookmarkResponse) ProtoMessage() {}
+
+func (x *ToggleBookmarkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleBookmarkResponse.ProtoReflect.Descriptor instead.
+func (*ToggleBookmarkResponse) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ToggleBookmarkResponse) GetBookmarked() bool {
+	if x != nil {
+		return x.Bookmarked
+	}
+	return false
+}
+
+type ListBookmarksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBookmarksRequest) Reset() {
+	*x = ListBookmarksRequest{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBookmarksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBookmarksRequest) ProtoMessage() {}
+
+func (x *ListBookmarksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBookmarksRequest.ProtoReflect.Descriptor instead.
+func (*ListBookmarksRequest) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ListBookmarksRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListBookmarksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*MessageInfo         `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBookmarksResponse) Reset() {
+	*x = ListBookmarksResponse{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBookmarksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBookmarksResponse) ProtoMessage() {}
+
+func (x *ListBookmarksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBookmarksResponse.ProtoReflect.Descriptor instead.
+func (*ListBookmarksResponse) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ListBookmarksResponse) GetMessages() []*MessageInfo {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 var File_proto_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_proto_chat_v1_chat_proto_rawDesc = "" +
@@ -4415,11 +4599,23 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"messageIds\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"T\n" +
 	"\x1aGetReactionSummaryResponse\x126\n" +
-	"\tsummaries\x18\x01 \x03(\v2\x18.chat.v1.ReactionSummaryR\tsummaries*Y\n" +
+	"\tsummaries\x18\x01 \x03(\v2\x18.chat.v1.ReactionSummaryR\tsummaries\"O\n" +
+	"\x15ToggleBookmarkRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"8\n" +
+	"\x16ToggleBookmarkResponse\x12\x1e\n" +
+	"\n" +
+	"bookmarked\x18\x01 \x01(\bR\n" +
+	"bookmarked\"/\n" +
+	"\x14ListBookmarksRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"I\n" +
+	"\x15ListBookmarksResponse\x120\n" +
+	"\bmessages\x18\x01 \x03(\v2\x14.chat.v1.MessageInfoR\bmessages*Y\n" +
 	"\vMentionType\x12\x15\n" +
 	"\x11MENTION_TYPE_USER\x10\x00\x12\x18\n" +
 	"\x14MENTION_TYPE_CHANNEL\x10\x01\x12\x19\n" +
-	"\x15MENTION_TYPE_EVERYONE\x10\x022\xf7\x11\n" +
+	"\x15MENTION_TYPE_EVERYONE\x10\x022\x9a\x13\n" +
 	"\vChatService\x12N\n" +
 	"\rCreateChannel\x12\x1d.chat.v1.CreateChannelRequest\x1a\x1e.chat.v1.CreateChannelResponse\x12E\n" +
 	"\n" +
@@ -4451,7 +4647,9 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"SearchChat\x12\x1a.chat.v1.SearchChatRequest\x1a\x1b.chat.v1.SearchChatResponse\x12Q\n" +
 	"\x0eToggleReaction\x12\x1e.chat.v1.ToggleReactionRequest\x1a\x1f.chat.v1.ToggleReactionResponse\x12N\n" +
 	"\rListReactions\x12\x1d.chat.v1.ListReactionsRequest\x1a\x1e.chat.v1.ListReactionsResponse\x12]\n" +
-	"\x12GetReactionSummary\x12\".chat.v1.GetReactionSummaryRequest\x1a#.chat.v1.GetReactionSummaryResponseB/Z-github.com/kmuhub/kmuhub/proto/chat/v1;chatv1b\x06proto3"
+	"\x12GetReactionSummary\x12\".chat.v1.GetReactionSummaryRequest\x1a#.chat.v1.GetReactionSummaryResponse\x12Q\n" +
+	"\x0eToggleBookmark\x12\x1e.chat.v1.ToggleBookmarkRequest\x1a\x1f.chat.v1.ToggleBookmarkResponse\x12N\n" +
+	"\rListBookmarks\x12\x1d.chat.v1.ListBookmarksRequest\x1a\x1e.chat.v1.ListBookmarksResponseB/Z-github.com/kmuhub/kmuhub/proto/chat/v1;chatv1b\x06proto3"
 
 var (
 	file_proto_chat_v1_chat_proto_rawDescOnce sync.Once
@@ -4466,7 +4664,7 @@ func file_proto_chat_v1_chat_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_chat_v1_chat_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
+var file_proto_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
 var file_proto_chat_v1_chat_proto_goTypes = []any{
 	(MentionType)(0),                    // 0: chat.v1.MentionType
 	(*ChannelInfo)(nil),                 // 1: chat.v1.ChannelInfo
@@ -4534,7 +4732,11 @@ var file_proto_chat_v1_chat_proto_goTypes = []any{
 	(*ListReactionsResponse)(nil),       // 63: chat.v1.ListReactionsResponse
 	(*GetReactionSummaryRequest)(nil),   // 64: chat.v1.GetReactionSummaryRequest
 	(*GetReactionSummaryResponse)(nil),  // 65: chat.v1.GetReactionSummaryResponse
-	nil,                                 // 66: chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
+	(*ToggleBookmarkRequest)(nil),       // 66: chat.v1.ToggleBookmarkRequest
+	(*ToggleBookmarkResponse)(nil),      // 67: chat.v1.ToggleBookmarkResponse
+	(*ListBookmarksRequest)(nil),        // 68: chat.v1.ListBookmarksRequest
+	(*ListBookmarksResponse)(nil),       // 69: chat.v1.ListBookmarksResponse
+	nil,                                 // 70: chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
 }
 var file_proto_chat_v1_chat_proto_depIdxs = []int32{
 	24, // 0: chat.v1.ChannelInfo.last_message:type_name -> chat.v1.MessageInfo
@@ -4556,7 +4758,7 @@ var file_proto_chat_v1_chat_proto_depIdxs = []int32{
 	1,  // 16: chat.v1.ListDMsResponse.channels:type_name -> chat.v1.ChannelInfo
 	24, // 17: chat.v1.GetThreadRepliesResponse.parent:type_name -> chat.v1.MessageInfo
 	24, // 18: chat.v1.GetThreadRepliesResponse.replies:type_name -> chat.v1.MessageInfo
-	66, // 19: chat.v1.GetUnreadCountsResponse.unread_counts:type_name -> chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
+	70, // 19: chat.v1.GetUnreadCountsResponse.unread_counts:type_name -> chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
 	0,  // 20: chat.v1.MentionDetail.mention_type:type_name -> chat.v1.MentionType
 	44, // 21: chat.v1.GetUserMentionsResponse.mentions:type_name -> chat.v1.MentionDetail
 	46, // 22: chat.v1.ListChannelFilesResponse.files:type_name -> chat.v1.FileInfo
@@ -4564,67 +4766,72 @@ var file_proto_chat_v1_chat_proto_depIdxs = []int32{
 	58, // 24: chat.v1.ToggleReactionResponse.reactions:type_name -> chat.v1.Reaction
 	58, // 25: chat.v1.ListReactionsResponse.reactions:type_name -> chat.v1.Reaction
 	59, // 26: chat.v1.GetReactionSummaryResponse.summaries:type_name -> chat.v1.ReactionSummary
-	2,  // 27: chat.v1.ChatService.CreateChannel:input_type -> chat.v1.CreateChannelRequest
-	4,  // 28: chat.v1.ChatService.GetChannel:input_type -> chat.v1.GetChannelRequest
-	6,  // 29: chat.v1.ChatService.ListChannels:input_type -> chat.v1.ListChannelsRequest
-	8,  // 30: chat.v1.ChatService.UpdateChannel:input_type -> chat.v1.UpdateChannelRequest
-	10, // 31: chat.v1.ChatService.DeleteChannel:input_type -> chat.v1.DeleteChannelRequest
-	12, // 32: chat.v1.ChatService.ArchiveChannel:input_type -> chat.v1.ArchiveChannelRequest
-	15, // 33: chat.v1.ChatService.JoinChannel:input_type -> chat.v1.JoinChannelRequest
-	17, // 34: chat.v1.ChatService.LeaveChannel:input_type -> chat.v1.LeaveChannelRequest
-	19, // 35: chat.v1.ChatService.GetChannelMembers:input_type -> chat.v1.GetChannelMembersRequest
-	21, // 36: chat.v1.ChatService.UpdateMemberRole:input_type -> chat.v1.UpdateMemberRoleRequest
-	25, // 37: chat.v1.ChatService.SendMessage:input_type -> chat.v1.SendMessageRequest
-	27, // 38: chat.v1.ChatService.GetMessages:input_type -> chat.v1.GetMessagesRequest
-	29, // 39: chat.v1.ChatService.UpdateMessage:input_type -> chat.v1.UpdateMessageRequest
-	31, // 40: chat.v1.ChatService.DeleteMessage:input_type -> chat.v1.DeleteMessageRequest
-	33, // 41: chat.v1.ChatService.GetOrCreateDM:input_type -> chat.v1.GetOrCreateDMRequest
-	35, // 42: chat.v1.ChatService.ListDMs:input_type -> chat.v1.ListDMsRequest
-	37, // 43: chat.v1.ChatService.GetThreadReplies:input_type -> chat.v1.GetThreadRepliesRequest
-	39, // 44: chat.v1.ChatService.MarkChannelRead:input_type -> chat.v1.MarkChannelReadRequest
-	41, // 45: chat.v1.ChatService.GetUnreadCounts:input_type -> chat.v1.GetUnreadCountsRequest
-	43, // 46: chat.v1.ChatService.GetUserMentions:input_type -> chat.v1.GetUserMentionsRequest
-	47, // 47: chat.v1.ChatService.GetFileDownloadURL:input_type -> chat.v1.GetFileDownloadURLRequest
-	49, // 48: chat.v1.ChatService.GetFileThumbnailURL:input_type -> chat.v1.GetFileThumbnailURLRequest
-	51, // 49: chat.v1.ChatService.ListChannelFiles:input_type -> chat.v1.ListChannelFilesRequest
-	53, // 50: chat.v1.ChatService.DeleteFile:input_type -> chat.v1.DeleteFileRequest
-	55, // 51: chat.v1.ChatService.SearchChat:input_type -> chat.v1.SearchChatRequest
-	60, // 52: chat.v1.ChatService.ToggleReaction:input_type -> chat.v1.ToggleReactionRequest
-	62, // 53: chat.v1.ChatService.ListReactions:input_type -> chat.v1.ListReactionsRequest
-	64, // 54: chat.v1.ChatService.GetReactionSummary:input_type -> chat.v1.GetReactionSummaryRequest
-	3,  // 55: chat.v1.ChatService.CreateChannel:output_type -> chat.v1.CreateChannelResponse
-	5,  // 56: chat.v1.ChatService.GetChannel:output_type -> chat.v1.GetChannelResponse
-	7,  // 57: chat.v1.ChatService.ListChannels:output_type -> chat.v1.ListChannelsResponse
-	9,  // 58: chat.v1.ChatService.UpdateChannel:output_type -> chat.v1.UpdateChannelResponse
-	11, // 59: chat.v1.ChatService.DeleteChannel:output_type -> chat.v1.DeleteChannelResponse
-	13, // 60: chat.v1.ChatService.ArchiveChannel:output_type -> chat.v1.ArchiveChannelResponse
-	16, // 61: chat.v1.ChatService.JoinChannel:output_type -> chat.v1.JoinChannelResponse
-	18, // 62: chat.v1.ChatService.LeaveChannel:output_type -> chat.v1.LeaveChannelResponse
-	20, // 63: chat.v1.ChatService.GetChannelMembers:output_type -> chat.v1.GetChannelMembersResponse
-	22, // 64: chat.v1.ChatService.UpdateMemberRole:output_type -> chat.v1.UpdateMemberRoleResponse
-	26, // 65: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
-	28, // 66: chat.v1.ChatService.GetMessages:output_type -> chat.v1.GetMessagesResponse
-	30, // 67: chat.v1.ChatService.UpdateMessage:output_type -> chat.v1.UpdateMessageResponse
-	32, // 68: chat.v1.ChatService.DeleteMessage:output_type -> chat.v1.DeleteMessageResponse
-	34, // 69: chat.v1.ChatService.GetOrCreateDM:output_type -> chat.v1.GetOrCreateDMResponse
-	36, // 70: chat.v1.ChatService.ListDMs:output_type -> chat.v1.ListDMsResponse
-	38, // 71: chat.v1.ChatService.GetThreadReplies:output_type -> chat.v1.GetThreadRepliesResponse
-	40, // 72: chat.v1.ChatService.MarkChannelRead:output_type -> chat.v1.MarkChannelReadResponse
-	42, // 73: chat.v1.ChatService.GetUnreadCounts:output_type -> chat.v1.GetUnreadCountsResponse
-	45, // 74: chat.v1.ChatService.GetUserMentions:output_type -> chat.v1.GetUserMentionsResponse
-	48, // 75: chat.v1.ChatService.GetFileDownloadURL:output_type -> chat.v1.GetFileDownloadURLResponse
-	50, // 76: chat.v1.ChatService.GetFileThumbnailURL:output_type -> chat.v1.GetFileThumbnailURLResponse
-	52, // 77: chat.v1.ChatService.ListChannelFiles:output_type -> chat.v1.ListChannelFilesResponse
-	54, // 78: chat.v1.ChatService.DeleteFile:output_type -> chat.v1.DeleteFileResponse
-	57, // 79: chat.v1.ChatService.SearchChat:output_type -> chat.v1.SearchChatResponse
-	61, // 80: chat.v1.ChatService.ToggleReaction:output_type -> chat.v1.ToggleReactionResponse
-	63, // 81: chat.v1.ChatService.ListReactions:output_type -> chat.v1.ListReactionsResponse
-	65, // 82: chat.v1.ChatService.GetReactionSummary:output_type -> chat.v1.GetReactionSummaryResponse
-	55, // [55:83] is the sub-list for method output_type
-	27, // [27:55] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	24, // 27: chat.v1.ListBookmarksResponse.messages:type_name -> chat.v1.MessageInfo
+	2,  // 28: chat.v1.ChatService.CreateChannel:input_type -> chat.v1.CreateChannelRequest
+	4,  // 29: chat.v1.ChatService.GetChannel:input_type -> chat.v1.GetChannelRequest
+	6,  // 30: chat.v1.ChatService.ListChannels:input_type -> chat.v1.ListChannelsRequest
+	8,  // 31: chat.v1.ChatService.UpdateChannel:input_type -> chat.v1.UpdateChannelRequest
+	10, // 32: chat.v1.ChatService.DeleteChannel:input_type -> chat.v1.DeleteChannelRequest
+	12, // 33: chat.v1.ChatService.ArchiveChannel:input_type -> chat.v1.ArchiveChannelRequest
+	15, // 34: chat.v1.ChatService.JoinChannel:input_type -> chat.v1.JoinChannelRequest
+	17, // 35: chat.v1.ChatService.LeaveChannel:input_type -> chat.v1.LeaveChannelRequest
+	19, // 36: chat.v1.ChatService.GetChannelMembers:input_type -> chat.v1.GetChannelMembersRequest
+	21, // 37: chat.v1.ChatService.UpdateMemberRole:input_type -> chat.v1.UpdateMemberRoleRequest
+	25, // 38: chat.v1.ChatService.SendMessage:input_type -> chat.v1.SendMessageRequest
+	27, // 39: chat.v1.ChatService.GetMessages:input_type -> chat.v1.GetMessagesRequest
+	29, // 40: chat.v1.ChatService.UpdateMessage:input_type -> chat.v1.UpdateMessageRequest
+	31, // 41: chat.v1.ChatService.DeleteMessage:input_type -> chat.v1.DeleteMessageRequest
+	33, // 42: chat.v1.ChatService.GetOrCreateDM:input_type -> chat.v1.GetOrCreateDMRequest
+	35, // 43: chat.v1.ChatService.ListDMs:input_type -> chat.v1.ListDMsRequest
+	37, // 44: chat.v1.ChatService.GetThreadReplies:input_type -> chat.v1.GetThreadRepliesRequest
+	39, // 45: chat.v1.ChatService.MarkChannelRead:input_type -> chat.v1.MarkChannelReadRequest
+	41, // 46: chat.v1.ChatService.GetUnreadCounts:input_type -> chat.v1.GetUnreadCountsRequest
+	43, // 47: chat.v1.ChatService.GetUserMentions:input_type -> chat.v1.GetUserMentionsRequest
+	47, // 48: chat.v1.ChatService.GetFileDownloadURL:input_type -> chat.v1.GetFileDownloadURLRequest
+	49, // 49: chat.v1.ChatService.GetFileThumbnailURL:input_type -> chat.v1.GetFileThumbnailURLRequest
+	51, // 50: chat.v1.ChatService.ListChannelFiles:input_type -> chat.v1.ListChannelFilesRequest
+	53, // 51: chat.v1.ChatService.DeleteFile:input_type -> chat.v1.DeleteFileRequest
+	55, // 52: chat.v1.ChatService.SearchChat:input_type -> chat.v1.SearchChatRequest
+	60, // 53: chat.v1.ChatService.ToggleReaction:input_type -> chat.v1.ToggleReactionRequest
+	62, // 54: chat.v1.ChatService.ListReactions:input_type -> chat.v1.ListReactionsRequest
+	64, // 55: chat.v1.ChatService.GetReactionSummary:input_type -> chat.v1.GetReactionSummaryRequest
+	66, // 56: chat.v1.ChatService.ToggleBookmark:input_type -> chat.v1.ToggleBookmarkRequest
+	68, // 57: chat.v1.ChatService.ListBookmarks:input_type -> chat.v1.ListBookmarksRequest
+	3,  // 58: chat.v1.ChatService.CreateChannel:output_type -> chat.v1.CreateChannelResponse
+	5,  // 59: chat.v1.ChatService.GetChannel:output_type -> chat.v1.GetChannelResponse
+	7,  // 60: chat.v1.ChatService.ListChannels:output_type -> chat.v1.ListChannelsResponse
+	9,  // 61: chat.v1.ChatService.UpdateChannel:output_type -> chat.v1.UpdateChannelResponse
+	11, // 62: chat.v1.ChatService.DeleteChannel:output_type -> chat.v1.DeleteChannelResponse
+	13, // 63: chat.v1.ChatService.ArchiveChannel:output_type -> chat.v1.ArchiveChannelResponse
+	16, // 64: chat.v1.ChatService.JoinChannel:output_type -> chat.v1.JoinChannelResponse
+	18, // 65: chat.v1.ChatService.LeaveChannel:output_type -> chat.v1.LeaveChannelResponse
+	20, // 66: chat.v1.ChatService.GetChannelMembers:output_type -> chat.v1.GetChannelMembersResponse
+	22, // 67: chat.v1.ChatService.UpdateMemberRole:output_type -> chat.v1.UpdateMemberRoleResponse
+	26, // 68: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
+	28, // 69: chat.v1.ChatService.GetMessages:output_type -> chat.v1.GetMessagesResponse
+	30, // 70: chat.v1.ChatService.UpdateMessage:output_type -> chat.v1.UpdateMessageResponse
+	32, // 71: chat.v1.ChatService.DeleteMessage:output_type -> chat.v1.DeleteMessageResponse
+	34, // 72: chat.v1.ChatService.GetOrCreateDM:output_type -> chat.v1.GetOrCreateDMResponse
+	36, // 73: chat.v1.ChatService.ListDMs:output_type -> chat.v1.ListDMsResponse
+	38, // 74: chat.v1.ChatService.GetThreadReplies:output_type -> chat.v1.GetThreadRepliesResponse
+	40, // 75: chat.v1.ChatService.MarkChannelRead:output_type -> chat.v1.MarkChannelReadResponse
+	42, // 76: chat.v1.ChatService.GetUnreadCounts:output_type -> chat.v1.GetUnreadCountsResponse
+	45, // 77: chat.v1.ChatService.GetUserMentions:output_type -> chat.v1.GetUserMentionsResponse
+	48, // 78: chat.v1.ChatService.GetFileDownloadURL:output_type -> chat.v1.GetFileDownloadURLResponse
+	50, // 79: chat.v1.ChatService.GetFileThumbnailURL:output_type -> chat.v1.GetFileThumbnailURLResponse
+	52, // 80: chat.v1.ChatService.ListChannelFiles:output_type -> chat.v1.ListChannelFilesResponse
+	54, // 81: chat.v1.ChatService.DeleteFile:output_type -> chat.v1.DeleteFileResponse
+	57, // 82: chat.v1.ChatService.SearchChat:output_type -> chat.v1.SearchChatResponse
+	61, // 83: chat.v1.ChatService.ToggleReaction:output_type -> chat.v1.ToggleReactionResponse
+	63, // 84: chat.v1.ChatService.ListReactions:output_type -> chat.v1.ListReactionsResponse
+	65, // 85: chat.v1.ChatService.GetReactionSummary:output_type -> chat.v1.GetReactionSummaryResponse
+	67, // 86: chat.v1.ChatService.ToggleBookmark:output_type -> chat.v1.ToggleBookmarkResponse
+	69, // 87: chat.v1.ChatService.ListBookmarks:output_type -> chat.v1.ListBookmarksResponse
+	58, // [58:88] is the sub-list for method output_type
+	28, // [28:58] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_proto_chat_v1_chat_proto_init() }
@@ -4649,7 +4856,7 @@ func file_proto_chat_v1_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_chat_v1_chat_proto_rawDesc), len(file_proto_chat_v1_chat_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   66,
+			NumMessages:   70,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

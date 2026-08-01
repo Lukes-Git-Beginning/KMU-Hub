@@ -7294,6 +7294,53 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/messages/bookmarks:
+    get:
+      summary: List the current user's bookmarked messages, newest bookmark first
+      tags: [chat-messages]
+      operationId: listBookmarks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Bookmarked messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBookmarksResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/messages/{id}/bookmark:
+    post:
+      summary: Toggle the bookmark state of a message for the current user
+      tags: [chat-messages]
+      operationId: toggleBookmark
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bookmark toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToggleBookmarkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Caller is not a member of the message's channel
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ===========================================================================
   # Meetings
   # ===========================================================================
@@ -33687,6 +33734,21 @@ components:
                 additionalProperties:
                   type: integer
                 description: "Map of emoji to count"
+
+    ToggleBookmarkResponse:
+      type: object
+      properties:
+        bookmarked:
+          type: boolean
+          description: true if the message is now bookmarked, false if the bookmark was removed
+
+    ListBookmarksResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageInfo"
 
     # =========================================================================
     # Meeting Schemas
