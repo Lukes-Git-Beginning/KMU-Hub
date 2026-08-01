@@ -720,7 +720,7 @@ units:
     service: querschnitt
     model: sonnet
     deps: [p2c-work-documents-crm-finance]
-    status: todo
+    status: done
     scope: >
       Wie p2a, fuer crm und finance (Rest-Haelfte von p2c-work-documents-crm-finance, siehe deren
       Notes fuer die Vorgehensweise).
@@ -744,6 +744,49 @@ units:
       thematisch passen wuerde. Vor dem Bauen pruefen, ob alle referenzierten Keys bereits in
       `permissions` existieren (aus `p1a-migration`/000256 — bei diesem Katalogausschnitt erwartet,
       aber gegenpruefen statt annehmen).
+
+      ERGEBNIS (2026-08-01): crm + finance additiv verdrahtet, Detail im Journal (Iteration 18).
+      KORREKTUR zur Datei-Annahme oben: alle crm-Guards sitzen tatsaechlich in `route_crm.go`
+      (Contacts/Companies/Deals/Activities/Reports), die anderen `route_crm_*.go`-Dateien enthalten
+      nur Handler-Funktionen ohne eigene `r.Route(...)`-Bloecke — kein 1:1-Datei-zu-Guard-Mapping,
+      aber auch kein 7-Datei-Split wie vermutet. Analog finance: ein einziger Guard-Block in
+      `route_biz.go` deckt ALLE `/finance/*`-Routen ab (Invoices/Quotes/Recurring/CreditNotes/
+      Dunning/Export/...), die `route_biz_invoices.go`/`route_biz_quotes.go`/`route_biz_einvoice.go`
+      enthalten nur Handler.
+      GROESSTER FUND: ein guter Teil des finance-Katalogs hat KEINEN echten Backend-Anschluss, weil
+      die konsumierenden FE-Komponenten selbst Mocks sind (verifiziert per Code-Lesen, nicht geraten):
+      `BankingWidget.tsx` ("Mock data for design — backend: FinAPI integration") ruft
+      `/finance/bank-accounts` + `/finance/bank-transactions/{id}/match|reject-match` — Pfade, die es
+      im Gateway gar nicht gibt (das sind die kuenftigen `fe-finance-bank-accounts`/
+      `-bank-transactions-matching`-Units aus Block D). `TransactionsTab.tsx` und `BerichteTab.tsx`
+      lesen explizit aus `useFinanceStore`/`useFinanceLedger` (Zustand-Mock, Kommentar "Backend-
+      Anbindung folgt in einem spaeteren Sprint"). `ExpensesTab.tsx`/`ExpenseDetailPanel.tsx` laufen
+      ueber den MSW-"swap-ready Mock" aus `fe-finance-expenses` (Block D, noch `todo`). Ergebnis:
+      `finance:incoming:review`, `finance:incoming:book` und `finance:amounts:view` gaten reale FE-
+      Buttons, aber KEINE der bestehenden Backend-Routen (`bank-statements`, `bank-transactions`,
+      `incoming-invoices`, `journal/summary`, `stats/payments`, `open-items`) — die bleiben komplett
+      legacy-only, bis die Block-D-Units sie ans echte Backend anschliessen. `finance:settings:manage`
+      hat ebenfalls keinen FE-Gate-Call auf `PUT /finance/settings` (StammdatenTab.tsx/
+      CompanySettingsTab.tsx speichern ungegated) — nur der Dunning-Config-Teil ist real verdrahtet.
+      Bei crm analog: die gesamte Advisory-Protokoll-Funktion (`route_crm_advisory.go`, 8 Routen) ist
+      FE-seitig 100% lokaler Zustand (`stores/advisoryProtocols.ts`, kein einziger API-Call) — trotz
+      echter `crm:advisory:read`/`write`-Gate-Calls im FE bleibt der Backend-Teil unberuehrt.
+      `crm:pipeline:manage` und `crm:segment:override` sind ebenfalls FE-seitig ungegatet
+      (PipelineStagesEditor.tsx ohne Capability-Hook; Segment-Override ist ein reiner
+      Zustand-Persist-Store, "Backend target" laut Code-Kommentar noch offen).
+      Neues Guard-Muster (zusaetzlich zu p2a-p2c's Punkten): eine Route kann durch ZWEI verschiedene
+      fine Keys geoeffnet werden, wenn zwei FE-Aktionen mit unterschiedlichen Capabilities auf
+      denselben Endpoint zielen (`POST /finance/credit-notes` ist sowohl "neue Gutschrift" ->
+      `finance:invoice:create` als auch "Storno" -> `finance:invoice:delete`,
+      `RequirePermissionAny(legacy, create, delete)` mit drei Paaren). Und: ein legacy-Verb kann
+      OHNE eigenen catalogue-Key trotzdem eine fine-Erweiterung bekommen, wenn ein ANDERES
+      Katalog-Verb dieselbe Route gated (Quote-Edit/Accept/Reject haben keinen `quote:edit`-Key,
+      sind aber laut explizitem FE-Kommentar alle auf `quote:create` gemappt; Quote-Convert-to-
+      Invoice ist auf `invoice:create` gemappt, nicht `quote:*`).
+      Guard-Test: `route_capability_guard_test.go` um zwei Router-Setups (`crmRouter`, `bizRouter`)
+      und 76 neue Faelle erweitert. Ein Sonderfall: `HandleAddDealTags` ist ein reiner 501-Stub, der
+      den Body VOR jedem Client-Call dekodiert — bei leerem Test-Body ist "Guard bestanden" als 400
+      sichtbar, nicht als 503 wie sonst ueberall (dokumentiert im Testkommentar).
     done_when:
       - Routen fuer crm und finance additiv abgesichert, Keys existieren
       - go build/vet/lint/test gruen

@@ -60,6 +60,12 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 	documentRouter := chi.NewRouter()
 	NewDocumentRoutes(emptyRegistry()).RegisterRoutes(documentRouter, guardTestAuth)
 
+	crmRouter := chi.NewRouter()
+	NewCRMRoutes(emptyRegistry(), nil).RegisterRoutes(crmRouter, guardTestAuth)
+
+	bizRouter := chi.NewRouter()
+	NewBizRoutes(emptyRegistry()).RegisterRoutes(bizRouter, guardTestAuth)
+
 	const articleID = "11111111-1111-1111-1111-111111111111"
 
 	const (
@@ -215,6 +221,129 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		// --- documents: tags/links/search have no catalogue key, untouched ---
 		{"tag create still requires documents:write only", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:edit"}, denied},
 		{"tag create with documents:write", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:write"}, allowed},
+
+		// --- crm: contacts ---
+		{"contact list, legacy key only", crmRouter, "GET", "/api/v1/contacts", []string{"contacts:read"}, allowed},
+		{"contact list, catalogue key only", crmRouter, "GET", "/api/v1/contacts", []string{"crm:contact:read"}, allowed},
+		{"contact list, neither key", crmRouter, "GET", "/api/v1/contacts", []string{"crm:deal:read"}, denied},
+		{"contact create, legacy key only", crmRouter, "POST", "/api/v1/contacts", []string{"contacts:write"}, allowed},
+		{"contact create, catalogue key only", crmRouter, "POST", "/api/v1/contacts", []string{"crm:contact:create"}, allowed},
+		{"contact create, edit key does not grant create", crmRouter, "POST", "/api/v1/contacts", []string{"crm:contact:edit"}, denied},
+		{"contact update, catalogue key only", crmRouter, "PUT", "/api/v1/contacts/" + articleID, []string{"crm:contact:edit"}, allowed},
+		{"contact delete, catalogue key only", crmRouter, "DELETE", "/api/v1/contacts/" + articleID, []string{"crm:contact:delete"}, allowed},
+		{"contact delete, edit key does not grant delete", crmRouter, "DELETE", "/api/v1/contacts/" + articleID, []string{"crm:contact:edit"}, denied},
+		{"contact tags add, catalogue edit key maps to it", crmRouter, "POST", "/api/v1/contacts/" + articleID + "/tags", []string{"crm:contact:edit"}, allowed},
+		{"contact import csv, catalogue key only", crmRouter, "POST", "/api/v1/contacts/import/csv", []string{"crm:import:run"}, allowed},
+		{"contact export csv, catalogue key only", crmRouter, "POST", "/api/v1/contacts/export/csv", []string{"crm:contact:export"}, allowed},
+
+		// --- crm: contact visibility has no FE caller, untouched ---
+		{"contact visibility still requires contacts:write only", crmRouter, "PUT", "/api/v1/contacts/" + articleID + "/visibility", []string{"crm:contact:edit"}, denied},
+		{"contact visibility with contacts:write", crmRouter, "PUT", "/api/v1/contacts/" + articleID + "/visibility", []string{"contacts:write"}, allowed},
+
+		// --- crm: companies share the crm:contact:* fine keys (no dedicated company key) ---
+		{"company list, catalogue contact key maps to it", crmRouter, "GET", "/api/v1/companies", []string{"crm:contact:read"}, allowed},
+		{"company create, catalogue contact key maps to it", crmRouter, "POST", "/api/v1/companies", []string{"crm:contact:create"}, allowed},
+		{"company delete, catalogue contact key maps to it", crmRouter, "DELETE", "/api/v1/companies/" + articleID, []string{"crm:contact:delete"}, allowed},
+
+		// --- crm: pipeline stages have no FE gate call, untouched ---
+		{"pipeline stage create still requires pipeline_stages:write only", crmRouter, "POST", "/api/v1/pipeline-stages", []string{"crm:pipeline:manage"}, denied},
+		{"pipeline stage create with pipeline_stages:write", crmRouter, "POST", "/api/v1/pipeline-stages", []string{"pipeline_stages:write"}, allowed},
+
+		// --- crm: deals ---
+		{"deal list, catalogue key only", crmRouter, "GET", "/api/v1/deals", []string{"crm:deal:read"}, allowed},
+		{"deal create, catalogue key only", crmRouter, "POST", "/api/v1/deals", []string{"crm:deal:create"}, allowed},
+		{"deal create, edit key does not grant create", crmRouter, "POST", "/api/v1/deals", []string{"crm:deal:edit"}, denied},
+		{"deal update, catalogue key only", crmRouter, "PUT", "/api/v1/deals/" + articleID, []string{"crm:deal:edit"}, allowed},
+		{"deal stage move, catalogue edit key maps to it", crmRouter, "POST", "/api/v1/deals/" + articleID + "/stage", []string{"crm:deal:edit"}, allowed},
+		{"deal delete, catalogue key only", crmRouter, "DELETE", "/api/v1/deals/" + articleID, []string{"crm:deal:delete"}, allowed},
+
+		// --- crm: deal tags have no FE caller, untouched. HandleAddDealTags is a
+		// permanent 501 stub that decodes the body before ever reaching a gRPC
+		// client, so a passed guard surfaces as 400 (nil body) here, not 503.
+		{"deal tags add still requires deals:write only", crmRouter, "POST", "/api/v1/deals/" + articleID + "/tags", []string{"crm:deal:edit"}, denied},
+		{"deal tags add with deals:write", crmRouter, "POST", "/api/v1/deals/" + articleID + "/tags", []string{"deals:write"}, http.StatusBadRequest},
+
+		// --- crm: activities share the crm:contact:* fine keys (nav-gated with contacts) ---
+		{"activity list, catalogue contact key maps to it", crmRouter, "GET", "/api/v1/activities", []string{"crm:contact:read"}, allowed},
+		{"activity create, catalogue contact key maps to it", crmRouter, "POST", "/api/v1/activities", []string{"crm:contact:edit"}, allowed},
+		{"activity delete, catalogue contact key maps to it", crmRouter, "DELETE", "/api/v1/activities/" + articleID, []string{"crm:contact:delete"}, allowed},
+		{"activity delete, edit key does not grant delete", crmRouter, "DELETE", "/api/v1/activities/" + articleID, []string{"crm:contact:edit"}, denied},
+
+		// --- crm: reports are gated by crm:deal:read in KontakteLayout.tsx, not contact:read ---
+		{"pipeline report, catalogue deal key only", crmRouter, "GET", "/api/v1/reports/pipeline", []string{"crm:deal:read"}, allowed},
+		{"pipeline report, contact key does not grant it", crmRouter, "GET", "/api/v1/reports/pipeline", []string{"crm:contact:read"}, denied},
+
+		// --- finance: invoices ---
+		{"invoice list, legacy key only", bizRouter, "GET", "/api/v1/finance/invoices", []string{"finance:read"}, allowed},
+		{"invoice list, catalogue key only", bizRouter, "GET", "/api/v1/finance/invoices", []string{"finance:invoice:read"}, allowed},
+		{"invoice list, neither key", bizRouter, "GET", "/api/v1/finance/invoices", []string{"crm:deal:read"}, denied},
+		{"invoice create, catalogue key only", bizRouter, "POST", "/api/v1/finance/invoices", []string{"finance:invoice:create"}, allowed},
+		{"invoice create, edit key does not grant create", bizRouter, "POST", "/api/v1/finance/invoices", []string{"finance:invoice:edit"}, denied},
+		{"invoice update, catalogue key only", bizRouter, "PUT", "/api/v1/finance/invoices/" + articleID, []string{"finance:invoice:edit"}, allowed},
+		{"invoice send, catalogue key only", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/send", []string{"finance:invoice:send"}, allowed},
+		{"invoice pay, catalogue edit key maps to it", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/pay", []string{"finance:invoice:edit"}, allowed},
+		{"invoice cancel, catalogue delete key maps to it", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/cancel", []string{"finance:invoice:delete"}, allowed},
+		{"invoice cancel, edit key does not grant it", bizRouter, "POST", "/api/v1/finance/invoices/" + articleID + "/cancel", []string{"finance:invoice:edit"}, denied},
+
+		// --- finance: invoice import/lock/validate-number have no FE caller, untouched ---
+		{"invoice import still requires finance:write only", bizRouter, "POST", "/api/v1/finance/invoices/import", []string{"finance:invoice:create"}, denied},
+		{"invoice import with finance:write", bizRouter, "POST", "/api/v1/finance/invoices/import", []string{"finance:write"}, allowed},
+
+		// --- finance: recurring invoices share the finance:invoice:* fine keys ---
+		{"recurring list, catalogue key only", bizRouter, "GET", "/api/v1/finance/recurring", []string{"finance:invoice:read"}, allowed},
+		{"recurring generate, catalogue create key maps to it", bizRouter, "POST", "/api/v1/finance/recurring/" + articleID + "/generate", []string{"finance:invoice:create"}, allowed},
+		{"recurring pause, catalogue edit key maps to it", bizRouter, "POST", "/api/v1/finance/recurring/" + articleID + "/pause", []string{"finance:invoice:edit"}, allowed},
+		{"recurring delete, catalogue key only", bizRouter, "DELETE", "/api/v1/finance/recurring/" + articleID, []string{"finance:invoice:delete"}, allowed},
+
+		// --- finance: credit notes create is reachable by either create or delete (storno) ---
+		{"credit note create, catalogue create key only", bizRouter, "POST", "/api/v1/finance/credit-notes", []string{"finance:invoice:create"}, allowed},
+		{"credit note create, catalogue delete key also grants it (storno)", bizRouter, "POST", "/api/v1/finance/credit-notes", []string{"finance:invoice:delete"}, allowed},
+		{"credit note create, read key does not grant it", bizRouter, "POST", "/api/v1/finance/credit-notes", []string{"finance:invoice:read"}, denied},
+		{"credit note send, catalogue key only", bizRouter, "POST", "/api/v1/finance/credit-notes/" + articleID + "/send", []string{"finance:invoice:send"}, allowed},
+
+		// --- finance: quotes ---
+		{"quote list, catalogue key only", bizRouter, "GET", "/api/v1/finance/quotes", []string{"finance:quote:read"}, allowed},
+		{"quote create, catalogue key only", bizRouter, "POST", "/api/v1/finance/quotes", []string{"finance:quote:create"}, allowed},
+		{"quote edit, catalogue create key maps to it (no separate edit key)", bizRouter, "PUT", "/api/v1/finance/quotes/" + articleID, []string{"finance:quote:create"}, allowed},
+		{"quote accept, catalogue create key maps to it", bizRouter, "POST", "/api/v1/finance/quotes/" + articleID + "/accept", []string{"finance:quote:create"}, allowed},
+		{"quote send, catalogue key only", bizRouter, "POST", "/api/v1/finance/quotes/" + articleID + "/send", []string{"finance:quote:send"}, allowed},
+		{"quote send, create key does not grant send", bizRouter, "POST", "/api/v1/finance/quotes/" + articleID + "/send", []string{"finance:quote:create"}, denied},
+		{"quote convert, catalogue invoice-create key maps to it", bizRouter, "POST", "/api/v1/finance/quotes/" + articleID + "/convert", []string{"finance:invoice:create"}, allowed},
+		{"quote convert, quote-create key does not grant it", bizRouter, "POST", "/api/v1/finance/quotes/" + articleID + "/convert", []string{"finance:quote:create"}, denied},
+		{"deal-to-quote create, catalogue quote-create key maps to it", bizRouter, "POST", "/api/v1/finance/deals/" + articleID + "/quote", []string{"finance:quote:create"}, allowed},
+
+		// --- finance: quote delete has no catalogue key, untouched ---
+		{"quote delete still requires finance:delete only", bizRouter, "DELETE", "/api/v1/finance/quotes/" + articleID, []string{"finance:quote:create"}, denied},
+		{"quote delete with finance:delete", bizRouter, "DELETE", "/api/v1/finance/quotes/" + articleID, []string{"finance:delete"}, allowed},
+
+		// --- finance: dunning ---
+		{"dunning list, catalogue key only", bizRouter, "GET", "/api/v1/finance/dunning", []string{"finance:dunning:run"}, allowed},
+		{"dunning detect, catalogue key only", bizRouter, "POST", "/api/v1/finance/dunning/detect", []string{"finance:dunning:run"}, allowed},
+		{"dunning config get, catalogue settings key only", bizRouter, "GET", "/api/v1/finance/dunning/config", []string{"finance:settings:manage"}, allowed},
+		{"dunning config put, catalogue settings key only", bizRouter, "PUT", "/api/v1/finance/dunning/config", []string{"finance:settings:manage"}, allowed},
+
+		// --- finance: dunning status/notice (GoBD gaps) have no FE caller, untouched ---
+		{"dunning status still requires finance:admin only", bizRouter, "PUT", "/api/v1/finance/dunning/" + articleID + "/status", []string{"finance:settings:manage"}, denied},
+		{"dunning status with finance:admin", bizRouter, "PUT", "/api/v1/finance/dunning/" + articleID + "/status", []string{"finance:admin"}, allowed},
+
+		// --- finance: export ---
+		{"datev export, catalogue key only", bizRouter, "POST", "/api/v1/finance/export/datev", []string{"finance:export:run"}, allowed},
+
+		// --- finance: gobd export has no FE caller, untouched ---
+		{"gobd export still requires finance:admin only", bizRouter, "POST", "/api/v1/finance/export/gobd", []string{"finance:export:run"}, denied},
+		{"gobd export with finance:admin", bizRouter, "POST", "/api/v1/finance/export/gobd", []string{"finance:admin"}, allowed},
+
+		// --- finance: company settings, bank-statements, incoming-invoices, open-items are
+		// FE-mock-only today (BankingWidget/TransactionsTab/ExpensesTab all read from a Zustand
+		// mock store, see JOURNAL.md) — legacy-only, untouched ---
+		{"company settings update still requires finance:admin only", bizRouter, "PUT", "/api/v1/finance/settings", []string{"finance:settings:manage"}, denied},
+		{"company settings update with finance:admin", bizRouter, "PUT", "/api/v1/finance/settings", []string{"finance:admin"}, allowed},
+		{"bank statements list still requires finance:read only", bizRouter, "GET", "/api/v1/finance/bank-statements", []string{"finance:incoming:book"}, denied},
+		{"bank statements list with finance:read", bizRouter, "GET", "/api/v1/finance/bank-statements", []string{"finance:read"}, allowed},
+		{"incoming invoices list still requires finance:read only", bizRouter, "GET", "/api/v1/finance/incoming-invoices", []string{"finance:incoming:review"}, denied},
+		{"incoming invoices list with finance:read", bizRouter, "GET", "/api/v1/finance/incoming-invoices", []string{"finance:read"}, allowed},
+		{"open items list still requires finance:read only", bizRouter, "GET", "/api/v1/finance/open-items", []string{"finance:amounts:view"}, denied},
+		{"open items list with finance:read", bizRouter, "GET", "/api/v1/finance/open-items", []string{"finance:read"}, allowed},
 	}
 
 	for _, tt := range tests {

@@ -1067,4 +1067,91 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       `documents:share_link:create` dauerhaft ohne Backend bleiben sollen oder ob die FE-Stubs
       (TemplateGalleryDialog, ShareDialog-Link-Copy, Board-Export) noch gebaut werden — das ist
       Neubau, keine Guard-Tightening-Frage, keine Backlog-Unit dafuer angelegt.
+
+## Iteration 18 — p2c-work-documents-crm-finance-2 — done (crm+finance) — 2026-08-01 (Nachtlauf 3)
+- commit: (siehe unten, wird nach Commit ergaenzt)
+- gebaut: `RequirePermissionAny(alt, neu)` additiv auf allen crm- und finance-Routen. crm sitzt
+  komplett in `route_crm.go` (Contacts/Companies/Deals/Activities/Reports — die anderen
+  `route_crm_*.go`-Dateien enthalten nur Handler, keine eigenen `r.Route`-Bloecke, Korrektur zur
+  Datei-Vermutung aus der vorigen Unit). finance sitzt komplett in `route_biz.go`
+  (Invoices/Quotes/Recurring/CreditNotes/Dunning/Export/Deal-to-Quote — `route_biz_invoices.go`/
+  `route_biz_quotes.go`/`route_biz_einvoice.go` ebenfalls nur Handler). 15 Guard-Variablen crm
+  (`contactRead/Create/Edit/Delete/Import/Export`, `companyRead/Create/Edit/Delete`,
+  `dealRead/Create/Edit/Delete`, `activityRead/Edit/Delete`, `reportRead`), 14 Guard-Variablen
+  finance (`invoiceRead/Create/Edit/Delete/Send`, `creditNoteCreate`, `quoteRead/Write/Send/Convert`,
+  `dunningRun/RunWrite/Settings/SettingsWrite`, `exportRun`).
+  ZWEI NEUE MUSTER (zusaetzlich zu p2a-p2c's Katalog): (a) eine Route kann durch mehrere fine Keys
+  geoeffnet werden, wenn zwei FE-Aktionen mit unterschiedlicher Capability auf denselben Endpoint
+  zielen — `POST /finance/credit-notes` ist sowohl "neue Gutschrift" (`finance:invoice:create`,
+  FinanzenPage.tsx canCreateInvoice) als auch "Storno einer versendeten Rechnung"
+  (`finance:invoice:delete`, canDeleteInvoice); `creditNoteCreate` traegt beide als Alternativen.
+  (b) ein legacy-Verb kann durch ein ANDERES catalogue-Verb erweitert werden, wenn es keinen
+  eigenen Key gibt — Quote-Edit/Accept/Reject haben keinen `quote:edit`-Key, QuoteDetailPanel.tsx
+  kommentiert sie explizit als "-> quote:create"; Quote-Convert-to-Invoice ist laut Kommentar
+  "-> invoice:create" (erzeugt ja tatsaechlich eine Rechnung).
+  GROESSTER FUND: ein grosser Teil des finance-Katalogs hat aktuell KEINEN echten Backend-Anschluss,
+  weil die konsumierenden FE-Komponenten selbst Mocks sind (per Code-Lesen verifiziert, nicht
+  geraten). `BankingWidget.tsx` ("Mock data for design — backend: FinAPI integration") ruft
+  `/finance/bank-accounts` + `/finance/bank-transactions/{id}/match|reject-match` — Pfade, die im
+  Gateway gar nicht existieren (das sind die kuenftigen `fe-finance-bank-accounts`/
+  `-bank-transactions-matching`-Units aus Block D). `TransactionsTab.tsx` und `BerichteTab.tsx`
+  lesen explizit aus `useFinanceStore`/`useFinanceLedger` (Zustand-Mock, Datei-Kopfkommentar
+  "Backend-Anbindung folgt in einem spaeteren Sprint"). `ExpensesTab.tsx`/`ExpenseDetailPanel.tsx`
+  laufen ueber den MSW-"swap-ready Mock" aus `fe-finance-expenses` (Block D, weiterhin `todo`).
+  Ergebnis: `finance:incoming:review`, `finance:incoming:book`, `finance:amounts:view` gaten reale
+  FE-Buttons, aber KEINE bestehende Backend-Route (`bank-statements`, `bank-transactions`,
+  `incoming-invoices`, `journal/summary`, `stats/payments`, `open-items` bleiben komplett
+  legacy-only). `finance:settings:manage` hat KEINEN FE-Gate-Call auf `PUT /finance/settings`
+  (StammdatenTab.tsx/CompanySettingsTab.tsx speichern ungegated) — nur der Dunning-Config-Teil ist
+  real verdrahtet (`DunningConfigDialog`). Bei crm analog: die komplette Advisory-Protokoll-Funktion
+  (`route_crm_advisory.go`, 8 Routen — List/Create/Get/Update/Delete/HandOver/PDF +
+  ReferralReport) ist FE-seitig 100 % lokaler Zustand (`stores/advisoryProtocols.ts`, kein
+  einziger API-Call trotz echter `crm:advisory:read`/`write`-Gate-Calls im FE) — Datei komplett
+  unangetastet gelassen. `crm:pipeline:manage` (PipelineStagesEditor.tsx ohne Capability-Hook) und
+  `crm:segment:override` (reiner Zustand-Persist-Store, Code-Kommentar "Backend target" noch offen)
+  ebenfalls FE-seitig ungegatet, pipeline-stages-Routen unangetastet.
+  Nebenfunde ohne FE-Aufrufer, legacy-only belassen: `HandleUpdateContactVisibility`,
+  `HandleValidateInvoiceNumber`, `HandleImportInvoice`, `HandleLockInvoice`, `HandleDeletePayment`,
+  `HandleUpdateDunningStatus`/`HandleSendDunningNotice`, `HandleGenerateGoBDExport`,
+  `HandleFindContactDuplicates`/`HandleMergeContacts` (+ Company-Pendants), `HandleAddDealTags`/
+  `HandleRemoveDealTags` (Handler ist ein reiner 501-Stub). `/api/v1/finance/document-chains`
+  (Belegkette-Tab-Aufruf) existiert im Gateway ueberhaupt nicht — Phantom-Endpoint, ausserhalb
+  des Guard-Tightening-Scopes, nicht behoben.
+  Test: `route_capability_guard_test.go` um zwei Router-Setups (`crmRouter`, `bizRouter`) und 76
+  neue Faelle erweitert. Sonderfall `HandleAddDealTags`: 501-Stub dekodiert den Body VOR jedem
+  Client-Call, bestandener Guard ist bei leerem Test-Body als 400 sichtbar statt 503 — im
+  Testkommentar dokumentiert, nicht als Bug behandelt.
+- gate: `go build -p 2 ./internal/gateway/... ./internal/middleware/... ./cmd/gateway/...` ok |
+  vet ok | lint ok (0 issues auf gateway+middleware) | test ok mit `DATABASE_URL` gegen
+  `kmuhub_app`: `./internal/gateway/...` (`TestCapabilityGuards_AdditiveWiring` alle Faelle gruen
+  inkl. 76 neuer, `TestOpenAPIRouteDrift` 739 Routen/741 Pfade — unveraendert, keine neue Route)
+  und `./internal/middleware/...` gruen, 0 Skips. migration n.a. (alle referenzierten crm/finance-
+  Keys per SQL gegen die laufende DB verifiziert: vorhanden aus 000256). openapi n.a. (keine neue
+  Route, nur Guards ausgetauscht). rls-smoke n.a. (keine Tabelle/Policy angefasst). gofmt:
+  `route_biz.go` von `gofmt -l` gemeldet — Diff-Pruefung (CRLF strippen, dann `gofmt -l` erneut auf
+  einer temporaeren Kopie) bestaetigt reinen CRLF-Checkout-Artefakt (identisch zum Fehlalarm aus
+  Iteration 15-17, `core.autocrlf=true`), committeter Inhalt ist LF und gofmt-clean. `route_crm.go`
+  und die Testdatei waren bereits LF und wurden nicht gemeldet.
+- verify vorgaenger: `94c26a40` (p2c-work-documents-crm-finance, work+documents) gegen die acht
+  Fehlerklassen geprueft. Diff: `route_work.go`/`route_document.go`/`route_capability_guard_test.go`.
+  Alle entfernten `RequirePermission(...)`-Direktaufrufe wurden durch benannte
+  `RequirePermissionAny(alt, neu)`-Variablen ersetzt (additiv, kein Key verengt), Testfaelle
+  substantiell. Kein Proto/Migration/neue Route/Handler-Direktzugriff/Stub in diesem Commit,
+  Fehlerklassen 1/2/3/5/6/7 n.a. Kein Fund.
+- offen fuer Luke:
+  (1) `p2c-inventar-einkauf-produktion-vertraege` ist die naechste ziehbare Unit in Block B (deps
+      bereits auf diese Unit umgebogen).
+  (2) Grosses FE/BE-Luecken-Inventar im finance-Modul entdeckt (siehe "gebaut" oben): Banking/
+      Transaktionen/Ausgaben/Berichte laufen komplett gegen Mocks, nicht gegen die bestehenden
+      Backend-Routen. Die Block-D-Units (`fe-finance-expenses`, `fe-finance-bank-accounts`,
+      `fe-finance-bank-transactions-matching`) muessen das schliessen — bis dahin sind
+      `finance:incoming:review`/`book`/`amounts:view` reine FE-UI-Capabilities ohne Backend-Wirkung.
+  (3) `/api/v1/finance/document-chains` (Belegkette-Tab) ist ein Phantom-Endpoint — FE ruft ihn,
+      Gateway hat ihn nicht. Ausserhalb des Scopes dieser Unit, aber ein echter Bug fuer den
+      Belegkette-Tab in Produktion.
+  (4) Advisory-Protokolle (`route_crm_advisory.go`, 8 Routen) sind seit Bestand reine FE-Mock-
+      Funktion ohne API-Anbindung — falls das Feature scharf geschaltet werden soll, ist das
+      Neubau (FE-Hooks + Wiring), keine Guard-Tightening-Frage.
+  (5) TOKEN-GROESSE bleibt unveraendert offen, waechst durch diese Unit nicht (keine neuen
+      Permission-Keys, nur zusaetzliche OR-Bedingungen in bestehenden Guards).
   (3) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit nicht.
