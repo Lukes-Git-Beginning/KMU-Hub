@@ -19,8 +19,12 @@ func TestTenantIsolation_IncomingInvoices(t *testing.T) {
 
 	pool := testutil.PoolFromEnv(t)
 
-	tenantA := testutil.TenantA
-	tenantB := testutil.TenantB
+	// Freshly minted tenants, not the shared testutil.TenantA/TenantB: the fixture
+	// XML carries a fixed supplier and invoice number, so importing it into a tenant
+	// that a previous run already used trips the duplicate check instead of testing
+	// isolation.
+	tenantA := uuid.New()
+	tenantB := uuid.New()
 	testutil.EnsureTenant(t, pool, tenantA, "Tenant A EInvoice")
 	testutil.EnsureTenant(t, pool, tenantB, "Tenant B EInvoice")
 
