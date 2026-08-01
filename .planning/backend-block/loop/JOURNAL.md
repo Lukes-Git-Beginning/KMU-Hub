@@ -2081,7 +2081,7 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Unit, aber ein sichtbares Verhalten, das Luke kennen sollte.
 
 ## Iteration 30 — fe-leads-lifecycle — done — 2026-08-01 23:35
-- commit: <pending>
+- commit: 6b570fcc
 - gebaut:
   - **Leads sind Kontakte, keine zweite Tabelle.** Migration `000259_contact_lead_lifecycle`
     haengt sechs Spalten an `contacts`: `lifecycle_stage VARCHAR(20) NOT NULL DEFAULT 'customer'`
