@@ -361,3 +361,55 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   (auf `base` verzweigen).
   (3) `g-user-roles-rls` bleibt sinnvoll als Backstop, ist durch den `GetUser`-Vorschalt-Check auf der
   Admin-Route aber nicht mehr akut.
+
+## Iteration 7 — p1a-rls-verify — done — 2026-08-01 (Nachtlauf 3)
+
+- commit: (nur BACKLOG.yml, kein Quellcode — reine Verifikations-Unit)
+- gebaut: nichts Neues. Abschluss-Verifikation von Block A (RBAC Phase 1 Welle 1a): RLS-Smoke gegen
+  `roles`/`role_permissions` als `kmuhub_app` plus Bestaetigung, dass die geforderte DB-Test-Aussage
+  bereits existiert.
+- RLS-Smoke (manuell, Transaktion mit `ROLLBACK`, keine Datenspuren):
+  Das Standard-Smoke-Muster aus `GATE-COMMANDS.md` passt hier nicht 1:1 — die Policy lautet
+  `tenant_id IS NULL OR tenant_id = current_tenant_id() OR is_system_context()`, Presets (tenant_id
+  NULL) sind also bewusst unter JEDEM Tenant sichtbar. Getestet wurde deshalb zusaetzlich mit einer
+  temporaeren Custom-Rolle unter Tenant A (`aaaa0000-...0001`), die vor dem Commit zurueckgerollt wurde:
+  - Presets (superuser, sanity): 8 Zeilen (`tenant_id IS NULL`)
+  - Eigener Tenant (A) unter `kmuhub_app`: `roles` liefert 9 (8 Presets + 1 eigene Custom-Rolle),
+    `role_permissions` fuer die Custom-Rolle liefert 1
+  - Fremder Tenant (B) unter `kmuhub_app`: `roles` liefert 8 (nur Presets, Custom-Rolle ausgeblendet),
+    direkte Abfrage der Custom-Rolle liefert 0, ihre `role_permissions`-Zeile liefert 0
+  - Write-Policy: `DELETE FROM roles WHERE name='member' AND tenant_id IS NULL` unter fremdem
+    Tenant-Context (B) betrifft 0 Zeilen, Preset danach weiterhin vorhanden (1) — die
+    Read/Write-Split-Policy aus der Migration haelt wie begruendet.
+  Ergebnis: Presets tenant-uebergreifend lesbar (Design-Absicht), Custom-Rollen strikt
+  tenant-isoliert (Lesen UND Schreiben), keine der beiden Nullen ein kaputter Test.
+- DB-Test "member bekommt nicht-leere Capabilities": existiert bereits, nicht neu gebaut.
+  `TestEffectivePermissions_DB_UnionAcrossRoles` (`require.NotEmpty(t, memberGot.Capabilities, ...)`)
+  und `TestEffectivePermissions_DB_PresetsVisibleUnderForeignTenant` (member-Rolle unter fremdem
+  Tenant, `assert.NotEmpty(t, got.Capabilities, ...)`) belegen das bereits aus `p1a-resolver`/
+  `p1a-gateway`. Zusaetzlich per SQL bestaetigt: `role_permissions` fuer die Rolle `member` traegt 159
+  Zeilen (`admin` 454, `manager` 305, `it_admin` 104, `readonly` 74, `hr_admin` 71, `extern` 11,
+  `platform_admin` 1 — Summe 1179), also strukturell nicht leer.
+- gate: build ok (`./internal/auth/... ./internal/gateway/... ./cmd/auth/... ./cmd/gateway/...`) |
+  vet ok | lint ok (0 issues) |
+  test ok: `./internal/auth/...` 9,02 s, `./internal/gateway/` 0,35 s (inkl.
+  `TestOpenAPIRouteDrift` PASS). Gezielt `-run TestEffectivePermissions_DB -v`: 5× PASS, 0× SKIP.
+  Alle mit `DATABASE_URL` gegen `kmuhub_app` (lokaler Migrationskopf 256 = Repo-Kopf, keine Migration
+  in dieser Unit noetig). migration n.a. (keine Schema-Aenderung in dieser Unit).
+- verify vorgaenger: `0d84142a` (p1a-gateway) — Dateiliste passt zur Unit (Gateway-Routen + Mapping +
+  zwei Testdateien, `effective_permissions.go`-Korrektur, openapi.yaml, kein Proto-Diff ohne Regen).
+  Gateway-Handler gegengelesen: beide Routen gehen ueber `getAuthClient()`, kein direkter
+  Service-Zugriff (Fehlerklasse 1 n.a.). `/auth/me/permissions` ohne neuen Guard (korrekt, jeder
+  eingeloggte User darf eigene Rechte lesen), `/admin/users/{id}/permissions` nutzt den bestehenden
+  `RequireRole("admin")` (Fehlerklasse 4 n.a., kein neuer Key). Tenant-Check via `client.GetUser` vor
+  dem Resolver-Aufruf verifiziert vorhanden. Wire-Shape (Fehlerklasse 6) gegen `rbac-types.ts`
+  gegengelesen: `capabilities` als Map, `roles[].isSystem` camelCase, leere Antwort marshallt als
+  `{"roles":[],"capabilities":{}}` nicht `null`. Sources-Korrektur (Rollen-IDs statt Namen) im Diff
+  bestaetigt (`g.RoleID.String()`). openapi.yaml traegt beide Pfade plus vier Schemas mit den Handler-
+  Statuscodes (me: 200/401; admin: 200/400/401/403/404), `TestOpenAPIRouteDrift` bestaetigt gruen.
+  Kein Fund.
+- offen: **Block A (RBAC Phase 1 Welle 1a) ist damit vollstaendig abgeschlossen** — alle sieben Units
+  (`p1a-proto` bis `p1a-rls-verify`) `done`. Welle 1b (Rollen-CRUD) und Phase 2 (Guard-Verfeinerung je
+  Modul) bleiben wie im Backlog vermerkt gesperrt bzw. warten auf `p2-guard-compat`. R-6 (per-user
+  Overrides) bleibt offen, siehe Iteration 6. Naechste ziehbare Unit laut Backlog-Reihenfolge:
+  `w5-ubl-generator` (Block C, E-Rechnung-Ausgang, keine deps).
