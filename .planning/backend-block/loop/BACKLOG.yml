@@ -58,7 +58,7 @@ units:
     service: auth
     model: sonnet
     deps: [p1a-proto]
-    status: todo
+    status: done
     scope: >
       Generator-Script `desktop/scripts/gen-rbac-seed.mjs`. Liest die beiden Frontend-SSOT-Dateien
       und emittiert die SQL-INSERT-Bloecke fuer die Migration in `p1a-migration` nach stdout:
