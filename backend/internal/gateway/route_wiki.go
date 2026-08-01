@@ -41,56 +41,73 @@ func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		return
 	}
 
+	// Additive guards: every route keeps its legacy coarse key AND accepts the
+	// matching capability-catalogue key. Permissions are baked into the access
+	// token at login and never re-read per request, so swapping a key outright
+	// would 403 every user holding a still-valid token. Extend, never swap.
+	//
+	// `wiki:categories:read` has no catalogue counterpart (the catalogue gates
+	// category administration only), so that guard stays as it is.
+	var (
+		wikiRead      = middleware.RequirePermissionAny([2]string{"wiki:articles", "read"}, [2]string{"wiki:article", "read"})
+		wikiCreate    = middleware.RequirePermissionAny([2]string{"wiki:articles", "write"}, [2]string{"wiki:article", "create"})
+		wikiEdit      = middleware.RequirePermissionAny([2]string{"wiki:articles", "write"}, [2]string{"wiki:article", "edit"})
+		wikiDelete    = middleware.RequirePermissionAny([2]string{"wiki:articles", "write"}, [2]string{"wiki:article", "delete"})
+		wikiShare     = middleware.RequirePermissionAny([2]string{"wiki:articles", "write"}, [2]string{"wiki:share_token", "create"})
+		wikiCatManage = middleware.RequirePermissionAny([2]string{"wiki:categories", "write"}, [2]string{"wiki:category", "manage"})
+	)
+
 	r.Route("/api/v1/wiki", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
 		// Articles
 		r.Route("/articles", func(r chi.Router) {
-			r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/", wr.HandleListArticles)
-			r.With(middleware.RequirePermission("wiki:articles", "write")).Post("/", wr.HandleCreateArticle)
+			r.With(wikiRead).Get("/", wr.HandleListArticles)
+			r.With(wikiCreate).Post("/", wr.HandleCreateArticle)
 
 			r.Route("/{id}", func(r chi.Router) {
-				r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/", wr.HandleGetArticle)
-				r.With(middleware.RequirePermission("wiki:articles", "write")).Patch("/", wr.HandleUpdateArticle)
-				r.With(middleware.RequirePermission("wiki:articles", "write")).Delete("/", wr.HandleDeleteArticle)
+				r.With(wikiRead).Get("/", wr.HandleGetArticle)
+				r.With(wikiEdit).Patch("/", wr.HandleUpdateArticle)
+				r.With(wikiDelete).Delete("/", wr.HandleDeleteArticle)
 
 				// Versions
-				r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/versions", wr.HandleListVersions)
-				r.With(middleware.RequirePermission("wiki:articles", "write")).Post("/versions/{versionId}/restore", wr.HandleRestoreVersion)
+				r.With(wikiRead).Get("/versions", wr.HandleListVersions)
+				r.With(wikiEdit).Post("/versions/{versionId}/restore", wr.HandleRestoreVersion)
 
 				// Attachments
-				r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/attachments", wr.HandleListAttachments)
-				r.With(middleware.RequirePermission("wiki:articles", "write")).Post("/attachments", wr.HandleUploadAttachment)
-				r.With(middleware.RequirePermission("wiki:articles", "write")).Delete("/attachments/{attachmentId}", wr.HandleDeleteAttachment)
+				r.With(wikiRead).Get("/attachments", wr.HandleListAttachments)
+				r.With(wikiEdit).Post("/attachments", wr.HandleUploadAttachment)
+				r.With(wikiDelete).Delete("/attachments/{attachmentId}", wr.HandleDeleteAttachment)
 
-				// Share tokens
-				r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/share", wr.HandleListShareTokens)
-				r.With(middleware.RequirePermission("wiki:articles", "write")).Post("/share", wr.HandleCreateShareToken)
+				// Share tokens — revoking is part of managing them, and the
+				// catalogue has no separate revoke key.
+				r.With(wikiRead).Get("/share", wr.HandleListShareTokens)
+				r.With(wikiShare).Post("/share", wr.HandleCreateShareToken)
 			})
 		})
 
 		// Search
-		r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/search", wr.HandleSearchArticles)
+		r.With(wikiRead).Get("/search", wr.HandleSearchArticles)
 
 		// Versions (standalone get by ID)
 		r.Route("/versions", func(r chi.Router) {
-			r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/{id}", wr.HandleGetVersion)
+			r.With(wikiRead).Get("/{id}", wr.HandleGetVersion)
 		})
 
 		// Categories
 		r.Route("/categories", func(r chi.Router) {
 			r.With(middleware.RequirePermission("wiki:categories", "read")).Get("/", wr.HandleListCategories)
-			r.With(middleware.RequirePermission("wiki:categories", "write")).Post("/", wr.HandleCreateCategory)
+			r.With(wikiCatManage).Post("/", wr.HandleCreateCategory)
 			r.Route("/{id}", func(r chi.Router) {
-				r.With(middleware.RequirePermission("wiki:categories", "write")).Delete("/", wr.HandleDeleteCategory)
-				r.With(middleware.RequirePermission("wiki:categories", "write")).Patch("/", wr.HandleUpdateCategory)
+				r.With(wikiCatManage).Delete("/", wr.HandleDeleteCategory)
+				r.With(wikiCatManage).Patch("/", wr.HandleUpdateCategory)
 			})
 		})
 
 		// Share tokens
 		r.Route("/share", func(r chi.Router) {
-			r.With(middleware.RequirePermission("wiki:articles", "write")).Delete("/{tokenId}", wr.HandleRevokeShareToken)
+			r.With(wikiShare).Delete("/{tokenId}", wr.HandleRevokeShareToken)
 		})
 	})
 }

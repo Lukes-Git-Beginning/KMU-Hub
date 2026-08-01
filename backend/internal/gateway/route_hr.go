@@ -82,7 +82,21 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Post("/sick", h.HandleRecordSickLeave)
 	})
 
-	// Time tracking
+	// Time tracking (Zeiterfassung). Additive guards on the supervisory routes:
+	// the legacy `hr:read`/`hr:write` key stays valid AND the matching
+	// capability-catalogue key grants access. Permissions are baked into the
+	// access token at login and never re-read per request, so swapping a key
+	// outright would 403 every user holding a still-valid token.
+	//
+	// Personal daily use (clock in/out, own entries, own week) stays on the
+	// coarse key by design — the catalogue deliberately carries no capability
+	// for it. `zeiterfassung:export:run` has no endpoint yet.
+	var (
+		zeitTeamView    = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"})
+		zeitWeekApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:week", "approve"})
+		zeitCorrApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:corrections", "approve"})
+	)
+
 	r.Route("/api/v1/hr/time", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/clock-in", h.HandleClockIn)
@@ -96,16 +110,16 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/daily", h.HandleDailySummary)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/weekly", h.HandleWeeklySummary)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections", h.HandleSubmitCorrection)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections/{id}/approve", h.HandleApproveCorrection)
+		r.With(zeitCorrApprove).Post("/corrections/{id}/approve", h.HandleApproveCorrection)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/balance", h.HandleGetTimeBalance)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/analytics", h.HandleGetTimeAnalytics)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/team", h.HandleGetTeamTime)
+		r.With(zeitTeamView).Get("/team", h.HandleGetTeamTime)
 		// Week approvals
 		r.With(middleware.RequirePermission("hr", "read")).Get("/weeks/status", h.HandleGetMyWeekStatus)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/submit", h.HandleSubmitWeek)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/approve", h.HandleApproveWeek)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reject", h.HandleRejectWeek)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reopen", h.HandleReopenWeek)
+		r.With(zeitWeekApprove).Post("/weeks/approve", h.HandleApproveWeek)
+		r.With(zeitWeekApprove).Post("/weeks/reject", h.HandleRejectWeek)
+		r.With(zeitWeekApprove).Post("/weeks/reopen", h.HandleReopenWeek)
 		// Time categories
 		r.With(middleware.RequirePermission("hr:time_category", "read")).Get("/categories", h.HandleListTimeCategories)
 		r.With(middleware.RequirePermission("hr:time_category", "write")).Post("/categories", h.HandleCreateTimeCategory)

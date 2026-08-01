@@ -576,7 +576,7 @@ units:
     service: querschnitt
     model: opus
     deps: [p1a-migration, p2-guard-compat]
-    status: todo
+    status: done
     scope: >
       Die drei Module ohne jeden Permission-Seed (wiki, zeiterfassung, infrastructure): feine
       Capability-Keys aus dem FE-Katalog seeden und die Routen additiv per
@@ -623,6 +623,32 @@ units:
       - desktop/src/renderer/src/config/capability-catalog.ts
     notes: >
       Gleiche Regeln wie p2a. Additiv, Alt-Key bleibt, Seed-Existenz gegen die DB pruefen.
+
+      MUSTER AUS `p2a` (2026-08-01), fuenf Punkte, die dir Arbeit sparen:
+      (a) KEINE MIGRATION NOETIG. `p1a-migration` (000256) hat den GESAMTEN Katalog geseedet,
+          inklusive Grants pro Preset-Rolle. Vor dem Bauen einmal gegenpruefen, dann nur Guards:
+          `docker exec docker-postgres-1 psql -U kmuhub -d kmuhub -tAc "SELECT name||' | '||resource
+          ||' | '||action FROM permissions WHERE name LIKE 'helpdesk:%'"` — die resource/action-
+          Zerlegung ist die, die `RequirePermissionAny` erwartet (`wiki:article:read` ->
+          `[2]string{"wiki:article","read"}`), nicht raten.
+      (b) GUARDS ALS LOKALE VARIABLEN vor dem `r.Route(...)` deklarieren, nicht inline pro Zeile —
+          die Key-Map wird dann einmal beim Wiring gebaut statt pro Route, und die Route-Tabelle
+          bleibt lesbar. Vorlage: `route_wiki.go` (var-Block direkt ueber `r.Route("/api/v1/wiki")`).
+      (c) TESTS GEHOEREN IN DIE BESTEHENDE `internal/gateway/route_capability_guard_test.go` —
+          Faelle in die Tabelle ergaenzen, keine zweite Datei. Die Helper `guardTestAuth` und
+          `withPermissions` liegen dort. WICHTIG: auf den EXAKTEN Status pruefen
+          (`allowed` = 503 bei leerer Registry, `denied` = 403), nicht auf "irgendwas ausser 403" —
+          ein vertippter Pfad liefert 404 und wuerde eine lockere Assertion erfuellen, ohne dass je
+          ein Guard lief. Mindestens ein Fall pro Route-Gruppe: nur Alt-Key, nur Neu-Key, keiner
+          von beiden.
+      (d) NICHT JEDER KATALOG-KEY HAT EINEN ENDPOINT und nicht jede Route hat einen Katalog-Key.
+          Fehlt der Endpoint: Key liegen lassen, im Journal vermerken, KEINE Route erfinden. Fehlt
+          der Katalog-Key zu einer Route (in wiki: `wiki:categories:read`): Guard unveraendert
+          lassen, nicht "sinngemaess" einen fremden Key danebenlegen.
+      (e) Additiv heisst hier real ERWEITERND: der Neu-Key hat teils mehr Rollen als der Alt-Key
+          (`wiki:article:read` auch fuer readonly/it_admin/hr_admin, `wiki:articles:read` nur
+          admin/manager/member). Das ist die Katalog-Absicht und gewollt. Umgekehrt darf ein Guard
+          nie enger werden — wer heute durchkommt, muss morgen durchkommen.
     done_when:
       - Routen additiv abgesichert, Keys existieren
       - go build/vet/lint/test gruen
