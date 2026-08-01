@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/security"
 )
 
 // guardTestAuth stands in for the JWT auth middleware. The guards under test
@@ -37,6 +38,21 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 
 	hrRouter := chi.NewRouter()
 	NewHRRoutes(emptyRegistry(), nil).RegisterRoutes(hrRouter, guardTestAuth)
+
+	helpdeskRouter := chi.NewRouter()
+	newHelpdeskRoutes(emptyRegistry()).RegisterRoutes(helpdeskRouter, guardTestAuth)
+
+	chatRouter := chi.NewRouter()
+	NewChatRoutes(emptyRegistry()).RegisterRoutes(chatRouter, guardTestAuth)
+
+	inboxRouter := chi.NewRouter()
+	NewInboxRoutes(emptyRegistry()).RegisterRoutes(inboxRouter, guardTestAuth)
+
+	calendarRouter := chi.NewRouter()
+	NewCalendarRoutes(emptyRegistry()).RegisterRoutes(calendarRouter, guardTestAuth)
+
+	bookingRouter := chi.NewRouter()
+	NewBookingRoutes(emptyRegistry(), security.NewCaptchaVerifier("", "")).RegisterRoutes(bookingRouter, guardTestAuth)
 
 	const articleID = "11111111-1111-1111-1111-111111111111"
 
@@ -87,6 +103,50 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		// a supervisory key must NOT open it.
 		{"clock-in still requires hr:write", hrRouter, "POST", "/api/v1/hr/time/clock-in", []string{"zeiterfassung:week:approve"}, denied},
 		{"clock-in with hr:write", hrRouter, "POST", "/api/v1/hr/time/clock-in", []string{"hr:write"}, allowed},
+
+		// --- helpdesk: tickets ---
+		{"ticket create, legacy key only", helpdeskRouter, "POST", "/api/v1/helpdesk/tickets", []string{"helpdesk:write"}, allowed},
+		{"ticket create, catalogue key only", helpdeskRouter, "POST", "/api/v1/helpdesk/tickets", []string{"helpdesk:ticket:create"}, allowed},
+		{"ticket list, catalogue key only", helpdeskRouter, "GET", "/api/v1/helpdesk/tickets", []string{"helpdesk:ticket:read"}, allowed},
+		{"ticket edit, catalogue key only", helpdeskRouter, "PUT", "/api/v1/helpdesk/tickets/" + articleID, []string{"helpdesk:ticket:edit"}, allowed},
+		{"ticket close, catalogue edit key maps to it", helpdeskRouter, "POST", "/api/v1/helpdesk/tickets/" + articleID + "/close", []string{"helpdesk:ticket:edit"}, allowed},
+		{"ticket close, reply key does not grant it", helpdeskRouter, "POST", "/api/v1/helpdesk/tickets/" + articleID + "/close", []string{"helpdesk:ticket:reply"}, denied},
+		{"ticket reply, catalogue key only", helpdeskRouter, "POST", "/api/v1/helpdesk/tickets/" + articleID + "/messages", []string{"helpdesk:ticket:reply"}, allowed},
+		{"ticket reply, edit key does not grant it", helpdeskRouter, "POST", "/api/v1/helpdesk/tickets/" + articleID + "/messages", []string{"helpdesk:ticket:edit"}, denied},
+
+		// --- helpdesk: kb, canned responses, stats ---
+		{"kb article create, catalogue key only", helpdeskRouter, "POST", "/api/v1/helpdesk/kb-articles", []string{"helpdesk:kb:manage"}, allowed},
+		{"canned response create, catalogue key only", helpdeskRouter, "POST", "/api/v1/helpdesk/canned-responses", []string{"helpdesk:canned:manage"}, allowed},
+		{"stats, catalogue key only", helpdeskRouter, "GET", "/api/v1/helpdesk/stats", []string{"helpdesk:stats:view"}, allowed},
+
+		// --- helpdesk: queues have no catalogue key, coarse key still required ---
+		{"queue create still requires helpdesk:write", helpdeskRouter, "POST", "/api/v1/helpdesk/queues", []string{"helpdesk:ticket:edit"}, denied},
+		{"queue create with helpdesk:write", helpdeskRouter, "POST", "/api/v1/helpdesk/queues", []string{"helpdesk:write"}, allowed},
+
+		// --- kommunikation: channel administration ---
+		{"channel create, legacy key only", chatRouter, "POST", "/api/v1/channels/", []string{"channels:write"}, allowed},
+		{"channel create, catalogue key only", chatRouter, "POST", "/api/v1/channels/", []string{"kommunikation:channel:manage"}, allowed},
+		{"channel delete, catalogue key only", chatRouter, "DELETE", "/api/v1/channels/" + articleID, []string{"kommunikation:channel:manage"}, allowed},
+		{"channel member role, catalogue key only", chatRouter, "PUT", "/api/v1/channels/" + articleID + "/members/" + articleID + "/role", []string{"kommunikation:channel:manage"}, allowed},
+
+		// --- kommunikation: personal channel use is not widened by the new key ---
+		{"channel join still requires channels:write", chatRouter, "POST", "/api/v1/channels/" + articleID + "/join", []string{"kommunikation:channel:manage"}, denied},
+		{"channel join with channels:write", chatRouter, "POST", "/api/v1/channels/" + articleID + "/join", []string{"channels:write"}, allowed},
+
+		// --- kommunikation: inbox canned responses and team-inbox routes ---
+		{"inbox canned response create, catalogue key only", inboxRouter, "POST", "/api/v1/inbox/canned-responses", []string{"kommunikation:canned:manage"}, allowed},
+		{"team inbox update, catalogue key only", inboxRouter, "PUT", "/api/v1/inbox/teams/" + articleID, []string{"kommunikation:team_inbox:manage"}, allowed},
+		{"team inbox add member, catalogue key only", inboxRouter, "POST", "/api/v1/inbox/teams/" + articleID + "/members", []string{"kommunikation:team_inbox:manage"}, allowed},
+
+		// --- kalender: event categories and booking pages ---
+		{"category create, legacy key only", calendarRouter, "POST", "/api/v1/calendar/categories", []string{"calendars:write"}, allowed},
+		{"category create, catalogue key only", calendarRouter, "POST", "/api/v1/calendar/categories", []string{"kalender:category:manage"}, allowed},
+		{"category delete, catalogue key only", calendarRouter, "DELETE", "/api/v1/calendar/categories/" + articleID, []string{"kalender:category:manage"}, allowed},
+		{"booking page create, catalogue key only", bookingRouter, "POST", "/api/v1/calendar/booking-pages/", []string{"kalender:booking_page:manage"}, allowed},
+		{"booking page delete, catalogue key only", bookingRouter, "DELETE", "/api/v1/calendar/booking-pages/" + articleID, []string{"kalender:booking_page:manage"}, allowed},
+
+		// --- kalender: calendars/events/resources have no catalogue key, untouched ---
+		{"calendar create still requires calendars:write only", calendarRouter, "POST", "/api/v1/calendar/calendars", []string{"kalender:category:manage"}, denied},
 	}
 
 	for _, tt := range tests {

@@ -41,19 +41,27 @@ func (br *BookingRoutes) getCalendarClient() (calv1.CalendarServiceClient, error
 
 // RegisterRoutes mounts the authenticated admin booking-page CRUD endpoints.
 func (br *BookingRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Additive guards: keep the legacy coarse "booking-pages" key AND accept
+	// kalender:booking_page:manage. Reads have no catalogue counterpart (the
+	// mini-catalogue only curates management), so they stay coarse-only.
+	var (
+		bookingPageWrite  = middleware.RequirePermissionAny([2]string{"booking-pages", "write"}, [2]string{"kalender:booking_page", "manage"})
+		bookingPageDelete = middleware.RequirePermissionAny([2]string{"booking-pages", "delete"}, [2]string{"kalender:booking_page", "manage"})
+	)
+
 	r.Route("/api/v1/calendar/booking-pages", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
 		r.With(middleware.RequirePermission("booking-pages", "read")).
 			Get("/", br.HandleListBookingPages)
-		r.With(middleware.RequirePermission("booking-pages", "write")).
+		r.With(bookingPageWrite).
 			Post("/", br.HandleCreateBookingPage)
 		r.With(middleware.RequirePermission("booking-pages", "read")).
 			Get("/{id}", br.HandleGetBookingPage)
-		r.With(middleware.RequirePermission("booking-pages", "write")).
+		r.With(bookingPageWrite).
 			Put("/{id}", br.HandleUpdateBookingPage)
-		r.With(middleware.RequirePermission("booking-pages", "delete")).
+		r.With(bookingPageDelete).
 			Delete("/{id}", br.HandleDeleteBookingPage)
 	})
 }

@@ -36,6 +36,16 @@ func (ch *ChatRoutes) getChatClient() (chatv1.ChatServiceClient, error) {
 
 // RegisterRoutes registers all chat HTTP routes.
 func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Additive guard: channel administration (create/update/delete/archive/role
+	// changes) keeps the legacy coarse "channels" key AND accepts the matching
+	// capability-catalogue key. Personal daily use (DM, join/leave, read
+	// receipts, messages, files) stays capability-free per the catalogue's
+	// design (config/capability-catalog.ts batch-5 comment). Extend, never swap.
+	var (
+		chanManageWrite  = middleware.RequirePermissionAny([2]string{"channels", "write"}, [2]string{"kommunikation:channel", "manage"})
+		chanManageDelete = middleware.RequirePermissionAny([2]string{"channels", "delete"}, [2]string{"kommunikation:channel", "manage"})
+	)
+
 	// Channels
 	r.Route("/api/v1/channels", func(r chi.Router) {
 		r.Use(authMiddleware)
@@ -47,18 +57,18 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(middleware.RequirePermission("channels", "read")).Get("/unread", ch.HandleGetUnreadCounts)
 		// Channel CRUD
 		r.With(middleware.RequirePermission("channels", "read")).Get("/", ch.HandleListChannels)
-		r.With(middleware.RequirePermission("channels", "write")).Post("/", ch.HandleCreateChannel)
+		r.With(chanManageWrite).Post("/", ch.HandleCreateChannel)
 		r.With(middleware.RequirePermission("channels", "read")).Get("/{id}", ch.HandleGetChannel)
-		r.With(middleware.RequirePermission("channels", "write")).Put("/{id}", ch.HandleUpdateChannel)
-		r.With(middleware.RequirePermission("channels", "delete")).Delete("/{id}", ch.HandleDeleteChannel)
-		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/archive", ch.HandleArchiveChannel)
+		r.With(chanManageWrite).Put("/{id}", ch.HandleUpdateChannel)
+		r.With(chanManageDelete).Delete("/{id}", ch.HandleDeleteChannel)
+		r.With(chanManageWrite).Post("/{id}/archive", ch.HandleArchiveChannel)
 		// Read receipts
 		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/read", ch.HandleMarkChannelRead)
 		// Membership routes
 		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/join", ch.HandleJoinChannel)
 		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/leave", ch.HandleLeaveChannel)
 		r.With(middleware.RequirePermission("channels", "read")).Get("/{id}/members", ch.HandleGetChannelMembers)
-		r.With(middleware.RequirePermission("channels", "write")).Put("/{id}/members/{userId}/role", ch.HandleUpdateMemberRole)
+		r.With(chanManageWrite).Put("/{id}/members/{userId}/role", ch.HandleUpdateMemberRole)
 		// Message routes
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/messages", ch.HandleGetMessages)
 		r.With(middleware.RequirePermission("messages", "write")).Post("/{id}/messages", ch.HandleSendMessage)

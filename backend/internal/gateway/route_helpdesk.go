@@ -41,23 +41,43 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		return
 	}
 
+	// Additive guards: every route keeps its legacy coarse key AND accepts the
+	// matching capability-catalogue key. Permissions are baked into the access
+	// token at login and never re-read per request, so swapping a key outright
+	// would 403 every user holding a still-valid token. Extend, never swap.
+	//
+	// Queues, SLA policies, routing rules and business hours have no
+	// catalogue counterpart (backend-gaps §RBAC: helpdesk BE seeds only the
+	// coarse read/write pair beyond tickets/kb/canned/stats) — those routes
+	// stay on the coarse key as-is.
+	var (
+		hdTicketRead   = middleware.RequirePermissionAny([2]string{"helpdesk", "read"}, [2]string{"helpdesk:ticket", "read"})
+		hdTicketCreate = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "create"})
+		hdTicketEdit   = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "edit"})
+		hdTicketReply  = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "reply"})
+		hdKbManage     = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:kb", "manage"})
+		hdCannedManage = middleware.RequirePermissionAny([2]string{"helpdesk", "write"}, [2]string{"helpdesk:canned", "manage"})
+		hdStatsView    = middleware.RequirePermissionAny([2]string{"helpdesk", "read"}, [2]string{"helpdesk:stats", "view"})
+	)
+
 	r.Route("/api/v1/helpdesk", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 
-		// Tickets
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets", h.HandleCreateTicket)
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/tickets", h.HandleListTickets)
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/tickets/{id}", h.HandleGetTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/tickets/{id}", h.HandleUpdateTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/close", h.HandleCloseTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/reopen", h.HandleReopenTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/assign", h.HandleAssignTicket)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/merge", h.HandleMergeTickets)
+		// Tickets. close/reopen/assign/merge are state changes on the ticket
+		// and map to ticket:edit, matching the FE gate in HelpdeskPage.tsx.
+		r.With(hdTicketCreate).Post("/tickets", h.HandleCreateTicket)
+		r.With(hdTicketRead).Get("/tickets", h.HandleListTickets)
+		r.With(hdTicketRead).Get("/tickets/{id}", h.HandleGetTicket)
+		r.With(hdTicketEdit).Put("/tickets/{id}", h.HandleUpdateTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/close", h.HandleCloseTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/reopen", h.HandleReopenTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/assign", h.HandleAssignTicket)
+		r.With(hdTicketEdit).Post("/tickets/{id}/merge", h.HandleMergeTickets)
 
 		// Messages
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/messages", h.HandleAddMessage)
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/tickets/{id}/messages", h.HandleListMessages)
+		r.With(hdTicketReply).Post("/tickets/{id}/messages", h.HandleAddMessage)
+		r.With(hdTicketRead).Get("/tickets/{id}/messages", h.HandleListMessages)
 
 		// Queues
 		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/queues", h.HandleCreateQueue)
@@ -66,10 +86,10 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/queues/{id}", h.HandleDeleteQueue)
 
 		// Canned responses
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/canned-responses", h.HandleCreateCannedResponse)
+		r.With(hdCannedManage).Post("/canned-responses", h.HandleCreateCannedResponse)
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/canned-responses", h.HandleListCannedResponses)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/canned-responses/{id}", h.HandleUpdateCannedResponse)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/canned-responses/{id}", h.HandleDeleteCannedResponse)
+		r.With(hdCannedManage).Put("/canned-responses/{id}", h.HandleUpdateCannedResponse)
+		r.With(hdCannedManage).Delete("/canned-responses/{id}", h.HandleDeleteCannedResponse)
 
 		// SLA policies
 		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/sla-policies", h.HandleCreateSLAPolicy)
@@ -81,9 +101,9 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 
 		// Knowledge-base articles
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/kb-articles", h.HandleListKBArticles)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/kb-articles", h.HandleCreateKBArticle)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/kb-articles/{id}", h.HandleUpdateKBArticle)
-		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/kb-articles/{id}", h.HandleDeleteKBArticle)
+		r.With(hdKbManage).Post("/kb-articles", h.HandleCreateKBArticle)
+		r.With(hdKbManage).Put("/kb-articles/{id}", h.HandleUpdateKBArticle)
+		r.With(hdKbManage).Delete("/kb-articles/{id}", h.HandleDeleteKBArticle)
 
 		// Routing rules
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/routing-rules", h.HandleListRoutingRules)
@@ -96,7 +116,7 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/business-hours", h.HandleUpdateBusinessHours)
 
 		// Stats
-		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/stats", h.HandleGetHelpdeskStats)
+		r.With(hdStatsView).Get("/stats", h.HandleGetHelpdeskStats)
 	})
 }
 
