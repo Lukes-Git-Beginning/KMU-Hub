@@ -100,6 +100,29 @@ if ($UntilTime -ne "") {
     Write-Line ("Deadline: {0}" -f $Deadline.ToString("yyyy-MM-dd HH:mm")) "Cyan"
 }
 
+# --- Schlafsperre ------------------------------------------------------------
+# Ohne das schickt Windows die Maschine mitten im Lauf in den Standby. Der Treiber
+# und seine claude-Kindprozesse ueberleben das zwar (verifiziert 2026-08-01: der
+# Lauf machte nach 47 Minuten Schlaf einfach weiter), aber die Nacht ist dann um
+# die Schlafzeit kuerzer - bei einem 15-Stunden-Fenster kostet das echte Units.
+#
+# ES_CONTINUOUS | ES_SYSTEM_REQUIRED: System bleibt wach, das Display darf
+# ausgehen. Die Anforderung haengt am Prozess und faellt weg, sobald er endet -
+# deshalb ist das hier richtig aufgehoben und nicht als dauerhafte
+# powercfg-Aenderung am System.
+Add-Type -Name Power -Namespace Win32 -MemberDefinition @"
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern uint SetThreadExecutionState(uint esFlags);
+"@
+$ES_CONTINUOUS      = [uint32]"0x80000000"
+$ES_SYSTEM_REQUIRED = [uint32]"0x00000001"
+$sleepRc = [Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED)
+if ($sleepRc -eq 0) {
+    Write-Line "WARNUNG: Schlafsperre konnte nicht gesetzt werden - der Lauf kann durch Standby unterbrochen werden." "Yellow"
+} else {
+    Write-Line "Schlafsperre aktiv (System bleibt wach, Display darf ausgehen)." "DarkGray"
+}
+
 # --- Modell der naechsten Unit aus BACKLOG.yml -------------------------------
 # Bewusst simpel: erste 'model:'-Zeile nach der ersten 'status: todo'-Unit.
 function Get-NextUnitModel {
@@ -303,6 +326,9 @@ if (-not $DryRun) {
         }
     }
 }
+
+[Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS) | Out-Null
+Write-Line "Schlafsperre aufgehoben." "DarkGray"
 
 Write-Line "Review:  git log --oneline main..backend-loop" "Cyan"
 Write-Line "Journal: $Journal" "Cyan"
