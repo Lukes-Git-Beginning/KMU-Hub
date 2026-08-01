@@ -1410,7 +1410,7 @@ units:
     service: customization
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       `/api/v1/customization/labels` — tenant-eigene Umbenennungen von UI-Begriffen.
     sources:

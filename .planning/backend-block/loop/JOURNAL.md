@@ -2375,3 +2375,87 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   - **Entscheidung fuer Luke:** siehe `blocked_reason` in BACKLOG.yml, drei Optionen zur Auswahl.
   - Naechste Unit laut Reihenfolge: `fe-customization-labels` (deps: [], unabhaengig von dieser
     blockierten Unit).
+
+## Iteration 34 — fe-customization-labels — done — 2026-08-02 00:40 (Nachtlauf 3)
+- commit: <pending>
+- verify vorgaenger: `95ff9dbc` (Iteration 33) war reiner Doku-Commit (BACKLOG.yml/JOURNAL.md,
+  keine Code-Zeile) — nichts zu verifizieren. Der letzte echte Code-Commit `3f26f98a`
+  (fe-projects-team-utilization) wurde bereits in Iteration 33 gegen alle Fehlerklassen geprueft
+  und als "Kein Fund" journalisiert; keine erneute Pruefung noetig.
+- gebaut:
+  - `GET /api/v1/customization/labels?locale=de[&base=1]` und
+    `PUT /api/v1/customization/labels` — tenant-eigene Umbenennungen von UI-Begriffen
+    (`desktop/src/renderer/src/api/customization-types.ts`). Scope bewusst so eng wie in der
+    Backlog-Note verlangt: nur die Tenant-Overlay-Schicht von Label-Overrides, NICHT Value-Sets,
+    Drafts/Scheduling oder der Vendor-Resolver — die bleiben unangetastet.
+  - **Keine neue Tabelle, keine neue Migration, keine neue Proto-RPC.** `tenant_settings`
+    (Migration 000138, RLS seit 000218 per `enable_tenant_rls`) traegt das bereits generisch als
+    `(tenant_id, module_id, key) -> JSONB`. Neue Datei `backend/internal/gateway/route_customization.go`
+    (`CustomizationRoutes`, eigener `RouteRegistrar`) ruft dafuer ausschliesslich die BEREITS
+    vorhandenen `SettingsService.GetTenantSettings`/`PutTenantSettings`-RPCs mit
+    `module_id="customization"` auf — ein Row pro Locale, Value ist die sparse
+    `{labelKey: overrideText}`-Map (via `structpb.Value`/`AsInterface()` hin- und rueckkonvertiert).
+    Damit ist dies der erste Consumer, der die Settings-Foundation-Infrastruktur (Sprint 4/07-xx)
+    fuer einen fachfremden Zweck zweitverwertet, statt einen neuen Dienst zu bauen.
+  - Whitelist-Filterung (nur `LABEL_WHITELIST`-Keys aus `mocks/data/customization.ts` werden
+    angenommen, unbekannte Keys still verworfen — identisch zum MSW-Mock-Verhalten) und die
+    Default/Tenant-Provenance-Aufloesung sind pure Funktionen (`resolveLabels`,
+    `applyLabelOverrides`, `structValueToStringMap`) im Gateway-Package, nicht im Handler selbst —
+    Praezedenzfall dafuer ist `internal/modules`/`toTenantModuleJSON` (statische Katalogdaten direkt
+    im Gateway, kein gRPC-Umweg fuer reine Shape-Transformation auf bereits tenant-gescopten Daten).
+  - **Fund beim Bau:** `desktop/src/renderer/src/api/hooks/useLabelOverrides.ts` ist KEIN totes
+    Type-File, sondern ein echter, bereits verdrahteter Consumer
+    (`modules/admin/anpassungen/BegriffeTab.tsx`) — `useLabelOverrides`/`useSetLabelOverrides`/
+    `useResetLabelOverride`/`useResetAllLabelOverrides` sind dort live im Editor genutzt. Der Hook
+    `useLabelDefaults` (fuer `?base=1`, "Cosmi-Standard"-Baseline-Ansicht) ist im Hook-File definiert,
+    aber aktuell in KEINER Seite importiert — trotzdem mitgebaut, weil der Vertrag real existiert und
+    ein spaeteres Wieder-Einschalten sonst still falsche Daten (Tenant-Overrides statt Default)
+    gezeigt haette. `base=1` überspringt den `GetTenantSettings`-Call komplett (jeder Whitelist-Key
+    kommt mit `provenance="default"`/`value=""` zurueck), getestet auch mit absichtlich kaputter
+    Settings-Verbindung (`registryWithService`, Adresse loest nie real auf) — beweist, dass der
+    Fetch fuer `base=1` wirklich uebersprungen wird und nicht nur zufaellig durchlaeuft.
+  - Guard: `RequirePermission("admin:customization","manage")` NUR auf PUT — GET ist fuer jeden
+    authentifizierten User offen, weil aufgeloeste Labels UI-Text fuer ALLE User treiben, nicht nur
+    fuer die, die ihn editieren duerfen (gleiches Muster wie `/auth/me/permissions`). Kein neuer
+    Seed noetig: `admin:customization:manage` steht bereits seit `p1a-migration`/000256 im
+    Gesamt-Katalog-Seed und ist an `admin`+`it_admin` vergeben (gegen die lokale DB verifiziert,
+    nicht angenommen). Da dies eine BRANDNEUE Route ist (nicht die additive Verschaerfung eines
+    Bestandsguards aus Block B), gibt es keinen Alt-Key zu bewahren — der einzelne Fine-Key reicht.
+  - Vendor-Layer bewusst abgelehnt: `PUT` mit `layer:"vendor"` liefert 400 statt den Request
+    stillschweigend in die Tenant-Schicht zu schreiben. Grund: R-5 (GDAP-Vendor-Access) ist nicht
+    verdrahtet, `activeConfigLayer()` im FE-Mock liefert selbst in v1.0 immer nur `"tenant"` — ein
+    Vendor-Schreibpfad waere unbenutzt bis dahin und ein falsch benannter Layer haette sonst leise
+    im Tenant-Overlay gelandet.
+  - Tests (`route_customization_test.go`, neu): pure Funktionstests fuer `resolveLabels` (Default-
+    vs. Tenant-Provenance, nicht-Whitelist-Key filtert sich raus), `applyLabelOverrides`
+    (unbekannter Key verworfen, leerer Wert loescht, bestehende unberuehrte Keys bleiben stehen),
+    `structValueToStringMap` (Objekt-Roundtrip, nicht-String-Werte defensiv verworfen, nil/Array
+    liefert nil) sowie ein Wire-Shape-Test (`json.Marshal` gegen den exakten erwarteten String, wie
+    bei `TestToEffectivePermissionsBody_WireShape`). HTTP-Verdrahtungstests ueber
+    `emptyRegistry()`/`registryWithService()` (Muster aus `testutil_test.go`): GET ohne Guard
+    erreicht den Handler auch mit leerem Permission-Slice (503 statt 403), PUT ohne
+    `admin:customization:manage` liefert 403, PUT mit dem Key erreicht den Handler (503 an der
+    leeren Registry, nicht 403), Vendor-Layer-Ablehnung, ungueltige Locale (400), `base=1`-Erfolg
+    trotz kaputter Verbindung.
+  - `backend/api/openapi.yaml`: neuer Tag `Customization`, Pfad `/api/v1/customization/labels`
+    (GET+PUT) sowie Schemas `ResolvedLabel`/`LabelOverridesResponse`/`UpdateLabelOverridesRequest`
+    im selben Commit.
+- gate: build ok (`go build -p 2 ./internal/gateway/... ./cmd/gateway/...`) | vet ok | lint ok
+  (`golangci-lint`, 0 issues — drei Anfangsfunde selbst behoben: `interface{}` -> `any`,
+  Merge-Loop -> `maps.Copy`) | gofmt: `route_customization.go`/`route_customization_test.go` sauber;
+  `openapi_drift_test.go`/`cmd/gateway/main.go` per `git stash`/gofmt/`stash pop` gegengeprueft —
+  waren bereits VOR meiner Ein-Zeilen-Aenderung unformatiert (Bestandsschulden), meine Zeile selbst
+  nicht betroffen. | test ok: `go test -count=1 -v ./internal/gateway/` — 571 PASS, 0 FAIL, 0 SKIP.
+  `TestOpenAPIRouteDrift` gruen: 758 registrierte Routen gegen 760 dokumentierte Pfade (+1 gegenueber
+  Iteration 32, wie erwartet — GET+PUT teilen sich einen Pfad-Eintrag). `npx @apidevtools/swagger-cli
+  validate backend/api/openapi.yaml` gruen (identisch zum CI-Job `openapi-validate`). migration: keine
+  (reine Zweitverwertung von `tenant_settings`). rls-smoke: manuell gegen `tenant_settings` mit
+  `module_id='customization'` unter `kmuhub_app` gefahren (Muster aus GATE-COMMANDS.md) — eigener
+  Tenant 1, fremder Tenant 0, Testzeile danach wieder geloescht. Kein Fund.
+- offen:
+  - `useLabelDefaults`/`?base=1` ist backend-seitig fertig, aber FE-seitig noch nirgends verbaut
+    (kein Import ausserhalb des Hook-Files) — reine Beobachtung, keine Aktion noetig.
+  - Value-Sets (`/customization/value-sets[/:id]`), Drafts/Scheduling (`/customization/drafts`) und
+    der Vendor-Overlay-Schreibpfad (R-5-Anbindung) sind im FE-Type-File vollstaendig spezifiziert,
+    aber laut dieser Unit explizit nicht im Scope — eigene Folge-Units, falls gewuenscht.
+  - Naechste Unit laut Reihenfolge: `fe-email-rules` (Block E, deps: [], model: opus).

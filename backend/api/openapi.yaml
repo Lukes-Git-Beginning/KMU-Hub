@@ -12036,6 +12036,57 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/customization/labels:
+    get:
+      summary: Get resolved tenant label overrides for a locale
+      description: >
+        Every whitelisted i18n key, each with the effective value and its
+        provenance ("tenant" or "default"). Available to any authenticated
+        user — the labels drive UI text for everyone, not just editors.
+      operationId: getCustomizationLabels
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: locale
+          in: query
+          required: false
+          schema: { type: string, default: de }
+        - name: base
+          in: query
+          required: false
+          schema: { type: string, enum: ["1"] }
+          description: When "1", returns the code-default baseline (every key provenance "default") instead of resolving tenant overrides.
+      responses:
+        "200":
+          description: Resolved label map
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LabelOverridesResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Update tenant-scope label overrides for a locale
+      operationId: putCustomizationLabels
+      tags: [Customization]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateLabelOverridesRequest" }
+      responses:
+        "200":
+          description: Updated, freshly resolved label map
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LabelOverridesResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller lacks admin:customization:manage
+
   /api/v1/finance/gobd-archive:
     get:
       summary: List GoBD archived documents
@@ -35688,6 +35739,54 @@ components:
           workStartHour: 8
           payroll.beraterNr: "12345"
           payroll.mandantNr: "67890"
+    ResolvedLabel:
+      type: object
+      properties:
+        value:
+          type: string
+          description: Effective text — the tenant override, or "" when unset (the FE i18n bundle already holds the code default).
+        provenance:
+          type: string
+          enum: [default, tenant]
+          description: Where the effective value came from. Vendor/draft provenance is not produced by this endpoint yet.
+        key:
+          type: string
+          description: The i18n key from the label whitelist.
+      required: [value, provenance, key]
+
+    LabelOverridesResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        labels:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/ResolvedLabel" }
+          description: One entry per whitelisted i18n key.
+      required: [locale, labels]
+
+    UpdateLabelOverridesRequest:
+      type: object
+      description: >
+        Upserts tenant-scope label overrides for a locale. Only whitelisted keys are
+        honoured — others are silently dropped. An empty-string value clears that key's
+        override back to the code default.
+      properties:
+        locale:
+          type: string
+        layer:
+          type: string
+          enum: [tenant, vendor]
+          description: Only "tenant" (the default) is currently writable; "vendor" is rejected with 400.
+        overrides:
+          type: object
+          additionalProperties: { type: string }
+      required: [locale, overrides]
+      example:
+        locale: de
+        overrides:
+          crm.deals.title: "Aufträge"
+
     GobdDocument:
       type: object
       description: An immutable archived GoBD document (§147 AO)

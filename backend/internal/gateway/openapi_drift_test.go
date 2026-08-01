@@ -122,6 +122,7 @@ func buildGatewayRouter(t *testing.T) chi.Router {
 		gateway.NewHealthRoutes(nil, registry),
 		bookingRoutes,
 		gateway.NewSettingsRoutes(registry, flagRegistry),
+		gateway.NewCustomizationRoutes(registry),
 	}
 
 	r := chi.NewRouter()
