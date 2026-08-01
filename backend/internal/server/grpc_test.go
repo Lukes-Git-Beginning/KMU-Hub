@@ -443,7 +443,8 @@ func TestAuthGRPC_GetEffectivePermissions(t *testing.T) {
 		require.Len(t, resp.Capabilities, 1)
 		assert.Equal(t, "work:task:edit", resp.Capabilities[0].Key)
 		assert.Equal(t, "team", resp.Capabilities[0].Scope)
-		assert.Equal(t, []string{"member"}, resp.Capabilities[0].Sources)
+		// Sources carries role IDs — the frontend resolves them against Roles.
+		assert.Equal(t, []string{roleID.String()}, resp.Capabilities[0].Sources)
 	})
 
 	t.Run("empty user id falls back to caller from context", func(t *testing.T) {

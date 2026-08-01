@@ -199,7 +199,7 @@ units:
     service: gateway
     model: opus
     deps: [p1a-grpc]
-    status: todo
+    status: done
     scope: >
       Zwei Gateway-Routen in `internal/gateway/route_auth.go`:
       `GET /api/v1/auth/me/permissions` (User aus dem Context) und
@@ -216,8 +216,15 @@ units:
 
           {"permissions": {
             "roles": [{"id": "...", "name": "...", "isSystem": true, "color": "hsl(217 91% 60%)"}],
-            "capabilities": {"work:task:edit": {"scope": "team", "sources": ["manager","hr_admin"]}}
+            "capabilities": {"work:task:edit": {"scope": "team", "sources": ["<role-uuid>","<role-uuid>"]}}
           }}
+
+      KORREKTUR (Fund beim Bau, 2026-08-01): `sources` traegt Rollen-**IDs**, nicht Rollennamen. Die
+      urspruengliche Note hier war falsch. Der FE-Typ sagt es explizit (`rbac-types.ts`,
+      CapabilityGrant: "Role ids (Role.id)"), der MSW-Mock emittiert `[roleId]`, und
+      `EffectivePermissionsView.tsx` loest per `roles.find(r => r.id === src)` auf — mit Namen faellt
+      der Provenance-Chip auf den Rohstring zurueck (keine Farbe, kein i18n-Label). Der Resolver aus
+      `p1a-resolver` lieferte Namen und wurde in diesem Commit umgestellt.
 
       Fehlender Key heisst verboten (Default-Deny) — kein Key mit leerem Scope ausliefern.
       Achtung: `roles[]` nutzt hier camelCase (`isSystem`), weil der FE-Typ in `rbac-types.ts` das so

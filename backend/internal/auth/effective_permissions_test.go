@@ -2,12 +2,25 @@ package auth
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// sourceIDs builds the expected Sources slice for a set of contributing roles:
+// role IDs as strings, sorted — the frontend looks each entry up in the Roles
+// slice of the same response, so names would never match.
+func sourceIDs(ids ...uuid.UUID) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.String()
+	}
+	slices.Sort(out)
+	return out
+}
 
 // grantRow keeps the table-driven fixtures below readable — the resolver takes
 // one row per (role, capability) pair and the interesting cases are the ones
@@ -52,13 +65,13 @@ func TestGetEffectivePermissions_WidestScopeWinsAndSourcesAccumulate(t *testing.
 
 	// team + all → all: a second role can only widen reach, never narrow it.
 	assert.Equal(t, "all", caps["documents:file:read"].Scope)
-	// Sources names every contributing role, including the one that lost the
+	// Sources lists every contributing role, including the one that lost the
 	// scope comparison — the admin UI has to show where a right comes from.
-	assert.Equal(t, []string{"hr_admin", "manager"}, caps["documents:file:read"].Sources)
+	assert.Equal(t, sourceIDs(manager, hrAdmin), caps["documents:file:read"].Sources)
 
 	assert.Equal(t, "own", caps["work:task:edit"].Scope)
-	assert.Equal(t, []string{"manager"}, caps["work:task:edit"].Sources)
-	assert.Equal(t, []string{"hr_admin"}, caps["hr:employee:read"].Sources)
+	assert.Equal(t, sourceIDs(manager), caps["work:task:edit"].Sources)
+	assert.Equal(t, sourceIDs(hrAdmin), caps["hr:employee:read"].Sources)
 
 	// Roles are distinct and sorted, no matter how often a role contributed.
 	require.Len(t, got.Roles, 2)
@@ -100,7 +113,7 @@ func TestGetEffectivePermissions_ScopeOrderIsOwnTeamAll(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, got.Capabilities, 1)
 			assert.Equal(t, tc.want, got.Capabilities[0].Scope)
-			assert.Equal(t, []string{"role_a", "role_b"}, got.Capabilities[0].Sources)
+			assert.Equal(t, sourceIDs(roleA, roleB), got.Capabilities[0].Sources)
 		})
 	}
 }

@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -107,7 +108,9 @@ func TestEffectivePermissions_DB_ExternIsExactlyTheCatalogueGrants(t *testing.T)
 	caps := effPermCapMap(got.Capabilities)
 	assert.Equal(t, "team", caps["documents:file:read"].Scope)
 	assert.Equal(t, "own", caps["work:task:comment"].Scope)
-	assert.Equal(t, []string{"extern"}, caps["work:task:comment"].Sources)
+	// Sources carries role IDs, not names: the frontend resolves each entry
+	// against the Roles slice of this same response to draw the provenance chip.
+	assert.Equal(t, []string{got.Roles[0].ID.String()}, caps["work:task:comment"].Sources)
 }
 
 // TestEffectivePermissions_DB_OnlyCatalogueKeys guards the fine/coarse filter.
@@ -123,11 +126,20 @@ func TestEffectivePermissions_DB_OnlyCatalogueKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Greater(t, len(got.Capabilities), 250, "admin holds the full catalogue")
+	roleIDs := make([]string, len(got.Roles))
+	for i, r := range got.Roles {
+		roleIDs[i] = r.ID.String()
+	}
 	for _, c := range got.Capabilities {
 		assert.Equal(t, 2, strings.Count(c.Key, ":"),
 			"key %q is not in module:subject:action form — coarse permission leaked through", c.Key)
 		assert.Contains(t, []string{"own", "team", "all"}, c.Scope, "key %q", c.Key)
 		assert.NotEmpty(t, c.Sources, "key %q has no contributing role", c.Key)
+		// Every source must resolve against Roles — the frontend looks the chip
+		// up there and would silently fall back to the raw string otherwise.
+		for _, src := range c.Sources {
+			assert.Containsf(t, roleIDs, src, "key %q cites an unknown role", c.Key)
+		}
 	}
 }
 
@@ -155,12 +167,15 @@ func TestEffectivePermissions_DB_UnionAcrossRoles(t *testing.T) {
 	assert.Equal(t, "extern", bothGot.Roles[0].Name)
 	assert.Equal(t, "member", bothGot.Roles[1].Name)
 
+	wantSources := []string{bothGot.Roles[0].ID.String(), bothGot.Roles[1].ID.String()}
+	slices.Sort(wantSources)
+
 	caps := effPermCapMap(bothGot.Capabilities)
 	// extern grants these at team/own, member at all — the wider grant wins,
 	// and both roles are credited.
 	for _, key := range []string{"documents:file:read", "work:task:read", "work:task:comment"} {
 		assert.Equalf(t, "all", caps[key].Scope, "%s: extern must not narrow member's reach", key)
-		assert.Equalf(t, []string{"extern", "member"}, caps[key].Sources, "%s", key)
+		assert.Equalf(t, wantSources, caps[key].Sources, "%s", key)
 	}
 }
 

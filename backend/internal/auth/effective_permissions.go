@@ -32,9 +32,15 @@ type EffectiveRole struct {
 }
 
 // EffectiveCapability is one capability key after the union across all roles.
-// Sources names every contributing role, not only the one that won the scope —
+// Sources lists every contributing role, not only the one that won the scope —
 // the admin UI shows where a right comes from, and "you have it through
 // manager" is the wrong answer when hr_admin grants it too.
+//
+// Sources carries role IDs, not names: the frontend resolves each entry against
+// the Roles slice of this same response (`roles.find(r => r.id === src)` in
+// EffectivePermissionsView) to render the provenance chip with the role's
+// colour and its translated label. Names would silently fall back to the raw
+// string — no colour, no i18n.
 type EffectiveCapability struct {
 	Key     string
 	Scope   string
@@ -99,20 +105,21 @@ func (s *Service) GetEffectivePermissions(ctx context.Context, userID uuid.UUID)
 		}
 
 		scope := normalizeScope(g.Scope)
+		roleID := g.RoleID.String()
 		existing, ok := byKey[g.Key]
 		if !ok {
 			byKey[g.Key] = &EffectiveCapability{
 				Key:     g.Key,
 				Scope:   scope,
-				Sources: []string{g.RoleName},
+				Sources: []string{roleID},
 			}
 			continue
 		}
 		if scopeRank[scope] > scopeRank[existing.Scope] {
 			existing.Scope = scope
 		}
-		if !slices.Contains(existing.Sources, g.RoleName) {
-			existing.Sources = append(existing.Sources, g.RoleName)
+		if !slices.Contains(existing.Sources, roleID) {
+			existing.Sources = append(existing.Sources, roleID)
 		}
 	}
 

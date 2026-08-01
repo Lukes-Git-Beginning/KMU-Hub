@@ -373,6 +373,29 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/auth/me/permissions:
+    get:
+      summary: Get own effective permissions
+      description: >
+        Resolved multi-role union of the authenticated account: the roles it
+        holds and, per fine-grained capability key, the widest scope any of
+        those roles grants. The account is taken from the JWT, never from the
+        request. No permission guard — every signed-in user may read their own
+        rights.
+      tags: [auth]
+      operationId: getMyEffectivePermissions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resolved effective permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivePermissionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/auth/profile:
     patch:
       summary: Update own profile
@@ -786,6 +809,49 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  # Effective permissions of any account (admin audit view). Under /admin/users
+  # rather than /users because that is where the RBAC frontend addresses it.
+  # Handler: internal/gateway/route_auth.go (AuthRoutes)
+  /api/v1/admin/users/{id}/permissions:
+    get:
+      summary: Get any account's effective permissions
+      description: >
+        Same resolved multi-role union as /api/v1/auth/me/permissions, for an
+        arbitrary account. Requires admin role. A user id outside the caller's
+        tenant returns 404, not an empty result — the target account is fetched
+        under the users RLS policy before its rights are resolved.
+      tags: [users]
+      operationId: getUserEffectivePermissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - name: base
+          in: query
+          required: false
+          description: >
+            Reserved for the role union without per-user overrides. Per-user
+            overrides do not exist server-side yet, so the parameter is
+            currently accepted and ignored.
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "200":
+          description: Resolved effective permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectivePermissionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   # Custom Fields
   /api/v1/custom-fields:
@@ -28689,6 +28755,69 @@ components:
             $ref: "#/components/schemas/UserInfo"
         total:
           type: integer
+
+    # RBAC — effective (multi-role union) permissions. camelCase in
+    # EffectiveRole is intentional: this block is app-owned API contract
+    # mirroring the frontend type, not a proto passthrough.
+    EffectiveRole:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Technical role name, unique per tenant.
+        isSystem:
+          type: boolean
+          description: True for a Zentria-maintained preset (tenant_id IS NULL).
+        color:
+          type: string
+          description: HSL accent used for role dots in the admin surfaces.
+          example: hsl(217 91% 60%)
+
+    EffectiveCapability:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum: [own, team, all]
+          description: >
+            Widest data scope any of the account's roles grants for this key.
+        sources:
+          type: array
+          description: >
+            IDs of every role contributing this grant, including those that lost
+            the scope comparison. Resolvable against the roles list of the same
+            response.
+          items:
+            type: string
+            format: uuid
+      required: [scope, sources]
+
+    EffectivePermissions:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffectiveRole"
+        capabilities:
+          type: object
+          description: >
+            Capability key (module:subject:action) to resolved grant. An absent
+            key means denied — default-deny, so no entry ever carries an empty
+            scope. Coarse legacy permission names are filtered out.
+          additionalProperties:
+            $ref: "#/components/schemas/EffectiveCapability"
+      required: [roles, capabilities]
+
+    EffectivePermissionsResponse:
+      type: object
+      properties:
+        permissions:
+          $ref: "#/components/schemas/EffectivePermissions"
+      required: [permissions]
 
     StatusResponse:
       type: object
