@@ -697,3 +697,77 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
       kennt. Fuer die neue Route in `w5-route` ist das die offene Wahl (Nachtrag steht dort).
   (3) Das erzeugte PDF ist bewusst kein PDF/A-3b. Fuer oeffentliche Auftraggeber ist ohnehin
       XRechnung (reines XML) der Weg; fuer B2B-Empfaenger reicht der deklarierte Anhang.
+
+## Iteration 12 — w5-route — done — 2026-08-01 (Nachtlauf 3)
+- commit: 38cae79b
+- gebaut: neuer RPC `FinanceService.GenerateEInvoice` (`GenerateEInvoiceRequest{id, tenant_id,
+  format, buyer_reference}` -> `GenerateEInvoiceResponse{data, filename}`) plus
+  `POST /api/v1/finance/invoices/{id}/erechnung`. `format=xrechnung` ruft `einvoice.GenerateUBL`
+  direkt; `format=zugferd` ruft `pdf.NewGenerator(settings).GenerateZUGFeRDInvoicePDF(inv)` — exakt
+  der Helper, den `w5-pdfa3-embed` schon gebaut hatte, nichts davon neu geschrieben. Gateway prueft
+  `format` gegen eine feste Map (`eInvoiceContentTypes`) VOR dem gRPC-Call und setzt daraus
+  Content-Type (`application/xml` bzw. `application/pdf`); unbekannt/leer -> 400 ohne RPC-Aufruf.
+- ENTSCHEIDUNG (a) — 409, nicht 422: `mapBizError` kannte `ErrValidationFailed`/`ErrGenerateFailed`/
+  `ErrTotalsMismatch` bereits aus `w5-pdfa3-embed` und mappt sie auf `FailedPrecondition` ->
+  `grpcStatusToHTTP` -> 409. Diese Route nutzt denselben Pfad, statt einen zweiten
+  Fehlercode-Vertrag fuer dieselbe Fehlerfamilie zu erfinden — die Geschwister-Route
+  `/pdf?format=zugferd` liefert für dieselben Fehler bereits 409, zwei verschiedene Codes für
+  denselben Fehlertyp waeren die schlechtere API. In `openapi.yaml` als 409 dokumentiert.
+- ENTSCHEIDUNG (b) — buyer_reference gilt nur fuer xrechnung: bei `format=zugferd` wird jeder
+  `buyer_reference`-Wert stillschweigend ignoriert (bestehendes Verhalten aus
+  `pdf.GenerateZUGFeRDXML`, das intern immer mit leerem BuyerReference an `einvoice.GenerateCII`
+  geht — ZUGFeRD-im-PDF ist fuer private Empfaenger, die keine Leitweg-ID haben). Ist
+  `buyer_reference` gesetzt UND `format=xrechnung`, laeuft vor `GenerateUBL` zusaetzlich
+  `einvoice.Validate(..., ProfileXRechnung)` — die deutschen CIUS-Regeln (Leitweg-ID, IBAN,
+  zerlegte Adressen), die `GenerateUBL` selbst nur mit dem EN-16931-Kern prueft.
+- Neues Message-Paar `GenerateEInvoiceRequest/Response` statt eins der bestehenden
+  wiederzuverwenden — `GenerateZUGFeRDInvoicePDFResponse` heisst sein bytes-Feld `pdf_data` und ist
+  an ZUGFeRD gebunden; ein XRechnung-Ergebnis darin unterzubringen waere Etikettenschwindel. Proto
+  im selben Commit regeneriert (`protoc --go_out --go-grpc_out`, `make` war in der Bash-Umgebung
+  nicht auf PATH, direkter `protoc`-Aufruf mit denselben Flags wie `make proto-biz`).
+  Nebenbei korrigiert: der Kommentar an `GenerateZUGFeRDInvoicePDFResponse` behauptete noch
+  "graceful degradation (plain PDF on failure)" — das hat `w5-pdfa3-embed` bereits entfernt, der
+  Kommentar war seither falsch.
+  `respondPDF` in `route_biz.go` auf einen generischen `respondFile(w, data, filename,
+  contentType)` umgestellt (Ein-Zeilen-Wrapper), damit die neue Route denselben Header-Code nutzt
+  statt ihn zu duplizieren.
+- Kein neuer Guard: bestehendes `RequirePermission("finance","read")` wiederverwendet (wie bei der
+  Schwester-Route `/pdf`), kein Seed noetig. Kein 404-Zusatzcode noetig — `invoiceService.GetByID`
+  ist bereits tenant-gescoped und liefert `ErrInvoiceNotFound` fuer fremde Rechnungen, `mapBizError`
+  macht daraus 404 (identisch zum bestehenden Verhalten der PDF-Route).
+- Kein Server-Test (`internal/server`) fuer den neuen RPC angelegt — bewusst, nicht vergessen: die
+  Schwester-RPC `GenerateZUGFeRDInvoicePDF` hat ebenfalls keinen direkten Test in diesem Paket, die
+  eigentliche Logik ist bereits in `internal/biz/einvoice` und `internal/biz/pdf` vollstaendig
+  getestet, und der RPC selbst ist duenne Verdrahtung (Tenant/ID parsen, Invoice+Settings laden,
+  dispatch, mapBizError). Inhaltliche Pruefung des Outputs ist explizit `w5-roundtrip-test`
+  zugewiesen — Nachtrag mit den exakten RPC-Signaturen steht jetzt dort im Backlog.
+  Gateway-Tests neu: `TestHandleGenerateEInvoice_ServiceUnavailable`,
+  `_MissingFormat`, `_InvalidFormat` — folgen dem bestehenden Muster (Validierung vor dem
+  gRPC-Call wird ohne echte Verbindung getestet, echte Erzeugung nicht — dafuer gibt es keine
+  Server-Test-Infrastruktur in diesem Paket, siehe oben).
+- gate: build ok (`./internal/server/... ./internal/gateway/... ./internal/biz/... ./cmd/gateway/...
+  ./cmd/biz/...`) | vet ok | lint ok (golangci-lint auf server+gateway+einvoice+pdf: 0 issues) |
+  gofmt ok (drei beruehrte Go-Dateien gegen LF-normalisierten Inhalt geprueft, keine echten Diffs —
+  CRLF im Bestand) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: `./internal/gateway/...` gruen
+  inkl. `TestOpenAPIRouteDrift` (739 Routen gegen 741 dokumentierte Pfade), `./internal/server/...`
+  und `./internal/biz/einvoice/...` zusammen 256 Tests, **0 Skips**. migration n.a. (keine Tabelle),
+  rls-smoke n.a. (keine Policy angefasst), proto-regen durchgefuehrt und geprueft.
+- verify vorgaenger: `c12467c8` (w5-pdfa3-embed) gegen die acht Fehlerklassen geprueft. Diff:
+  `zugferd.go`+Test, `biz_grpc.go`, `route_biz_invoices.go`, `openapi.yaml`. gRPC-Client-Aufruf im
+  Gateway unveraendert (`client.GenerateZUGFeRDInvoicePDF`, Fehlerklasse 1 n.a.). Kein Stub, kein
+  TODO. Keine `.proto`-Aenderung in diesem Commit (Fehlerklasse 3 n.a.). Kein neuer Guard
+  (Fehlerklasse 4/8 n.a.). Keine neue Tabelle (Fehlerklasse 5 n.a.). Route unveraendert, nur ihr
+  Fehlerverhalten (Fehlerklasse 7 n.a. — `/pdf` stand schon in openapi.yaml, der Commit ergaenzt nur
+  409+Beschreibung). Wire-Shape (Fehlerklasse 6) gegen den Test gegengelesen: `/AF`, `/AFRelationship
+  /Alternative`, `text/xml`, exakter Dateiname `factur-x.xml` — alles wie behauptet, im Test
+  verifiziert statt geglaubt. Kein Fund.
+- offen fuer Luke:
+  (1) Die neue Route ist noch ungetestet gegen echten Content — `w5-roundtrip-test` (naechste Unit)
+      schliesst das, indem er Rechnung -> Route -> `Service.Import` zurueckspielt.
+  (2) `models.Invoice` hat weiterhin kein Leitweg-ID-Feld — `buyer_reference` kommt ausschliesslich
+      als Query-Parameter, nicht aus gespeicherten Rechnungsdaten. Wenn ein Kunde die Leitweg-ID
+      dauerhaft am Kontakt/Rechnung hinterlegen will, ist das ein FE+Migrations-Thema, nicht Teil
+      dieser Welle.
+  (3) Kein Desktop-Aufrufer fuer `/erechnung` existiert (wie schon bei `/pdf?format=zugferd` in
+      Iteration 11 notiert) — `EInvoiceIndicator.tsx` ist reines Mock-Widget ohne API-Calls. Sobald
+      das FE anbindet, muss die 400/409-Fehlerdarstellung dort sichtbar werden.

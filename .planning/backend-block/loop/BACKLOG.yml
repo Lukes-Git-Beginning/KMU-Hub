@@ -446,7 +446,7 @@ units:
     service: gateway
     model: sonnet
     deps: [w5-pdfa3-embed]
-    status: todo
+    status: done
     scope: >
       `POST /api/v1/finance/invoices/{id}/erechnung` mit Format-Parameter
       (`xrechnung` | `zugferd`), Route im Gateway ueber den zustaendigen gRPC-Client,
@@ -517,6 +517,20 @@ units:
       Eigene Tenants seeden, nicht die geteilten Konstanten TenantA/TenantB verwenden — sonst
       kollidiert der Test unter `t.Parallel()` mit Bestandstests an Unique-Constraints (real
       passiert in Nachtlauf 1, siehe GATE-COMMANDS.md).
+      NACHTRAG (aus `w5-route`, 2026-08-01): der einzige Weg, das erzeugte Dokument in dieser Unit
+      zu bekommen, ist der neue RPC `BizGRPCServer.GenerateEInvoice(ctx,
+      &bizv1.GenerateEInvoiceRequest{Id, TenantId, Format, BuyerReference})` — kein
+      Gateway-Test hat das Erzeugnis bisher inhaltlich geprueft (nur ServiceUnavailable/400 vor dem
+      gRPC-Call, siehe `route_biz_test.go`). `Format` ist `"xrechnung"` oder `"zugferd"`,
+      `BuyerReference` ist BT-10 und wirkt nur bei xrechnung (bei zugferd immer ignoriert, siehe
+      `pdf.GenerateZUGFeRDXML`, das intern mit leerem BuyerReference an `einvoice.GenerateCII`
+      geht). Antwort ist `GenerateEInvoiceResponse{Data []byte, Filename string}` — bei xrechnung
+      rohes UBL-XML, bei zugferd das komplette PDF mit eingebettetem CII-XML; fuer den Roundtrip
+      bei zugferd also zuerst `einvoice.ExtractXMLFromPDF(resp.Data)` aufrufen, bevor es an
+      `Service.Import` geht. Für xrechnung geht `resp.Data` direkt rein.
+      Kein eigener HTTP-Layer noetig fuer diesen Test — der RPC ist direkt aufrufbar wie die
+      bestehenden `internal/server`-Tests es fuer andere RPCs tun, keine neue Test-Infrastruktur
+      noetig.
     done_when:
       - Roundtrip fuer beide Formate gruen, Summen und Positionszahl identisch
       - eigene Tenants, kein Duplicate-Key unter parallelem Lauf
