@@ -44,6 +44,27 @@ type Repository interface {
 	// Duplicate detection
 	FindDuplicateCandidates(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID) ([]*DuplicateCandidate, error)
 	MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID, tenantID uuid.UUID) error
+
+	// Lead lifecycle (same contacts rows, filtered by lifecycle_stage)
+	ListLeads(ctx context.Context, filter LeadFilter, offset, limit int) ([]*models.ContactWithRelations, int, error)
+	UpdateLead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, patch LeadPatch) (*models.ContactWithRelations, error)
+}
+
+// LeadFilter narrows the lead inbox. TenantID is always applied.
+type LeadFilter struct {
+	TenantID uuid.UUID
+	Stage    string // "" = every non-customer stage
+	Status   string // "" = every status
+	Search   string // first_name, last_name, email, lead_company
+}
+
+// LeadPatch is a partial update of the lead columns. Nil fields stay as they
+// are; ClearTemperature wins over Temperature and resets the manual override.
+type LeadPatch struct {
+	Stage            *string
+	Status           *string
+	Temperature      *string
+	ClearTemperature bool
 }
 
 // ListFilter contains filtering options for listing contacts

@@ -11017,6 +11017,620 @@ func (x *GetReferralReportResponse) GetEntries() []*ReferralReportEntry {
 	return nil
 }
 
+type LeadInfo struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FirstName           string                 `protobuf:"bytes,2,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName            string                 `protobuf:"bytes,3,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	Company             string                 `protobuf:"bytes,4,opt,name=company,proto3" json:"company,omitempty"` // linked company name, else the free-text employer
+	Email               string                 `protobuf:"bytes,5,opt,name=email,proto3" json:"email,omitempty"`
+	Phone               string                 `protobuf:"bytes,6,opt,name=phone,proto3" json:"phone,omitempty"`
+	Source              string                 `protobuf:"bytes,7,opt,name=source,proto3" json:"source,omitempty"`                                                             // manual, csv, dialer
+	Score               int32                  `protobuf:"varint,8,opt,name=score,proto3" json:"score,omitempty"`                                                              // 0-100, computed server-side
+	Temperature         string                 `protobuf:"bytes,9,opt,name=temperature,proto3" json:"temperature,omitempty"`                                                   // effective: override if set, else derived from score
+	TemperatureOverride *string                `protobuf:"bytes,10,opt,name=temperature_override,json=temperatureOverride,proto3,oneof" json:"temperature_override,omitempty"` // present only when pinned by hand
+	Status              string                 `protobuf:"bytes,11,opt,name=status,proto3" json:"status,omitempty"`                                                            // new, contacted, qualified, disqualified
+	LifecycleStage      string                 `protobuf:"bytes,12,opt,name=lifecycle_stage,json=lifecycleStage,proto3" json:"lifecycle_stage,omitempty"`                      // lead, qualified
+	Notes               string                 `protobuf:"bytes,13,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedAt           string                 `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *LeadInfo) Reset() {
+	*x = LeadInfo{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[173]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeadInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeadInfo) ProtoMessage() {}
+
+func (x *LeadInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[173]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeadInfo.ProtoReflect.Descriptor instead.
+func (*LeadInfo) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{173}
+}
+
+func (x *LeadInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetLastName() string {
+	if x != nil {
+		return x.LastName
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetCompany() string {
+	if x != nil {
+		return x.Company
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetScore() int32 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *LeadInfo) GetTemperature() string {
+	if x != nil {
+		return x.Temperature
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetTemperatureOverride() string {
+	if x != nil && x.TemperatureOverride != nil {
+		return *x.TemperatureOverride
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetLifecycleStage() string {
+	if x != nil {
+		return x.LifecycleStage
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *LeadInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type ListLeadsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stage         string                 `protobuf:"bytes,1,opt,name=stage,proto3" json:"stage,omitempty"`   // "" = every non-customer stage
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"` // "" = every status
+	Search        string                 `protobuf:"bytes,3,opt,name=search,proto3" json:"search,omitempty"`
+	Page          int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLeadsRequest) Reset() {
+	*x = ListLeadsRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[174]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLeadsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLeadsRequest) ProtoMessage() {}
+
+func (x *ListLeadsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[174]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLeadsRequest.ProtoReflect.Descriptor instead.
+func (*ListLeadsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{174}
+}
+
+func (x *ListLeadsRequest) GetStage() string {
+	if x != nil {
+		return x.Stage
+	}
+	return ""
+}
+
+func (x *ListLeadsRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListLeadsRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListLeadsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListLeadsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListLeadsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Leads         []*LeadInfo            `protobuf:"bytes,1,rep,name=leads,proto3" json:"leads,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLeadsResponse) Reset() {
+	*x = ListLeadsResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[175]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLeadsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLeadsResponse) ProtoMessage() {}
+
+func (x *ListLeadsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[175]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLeadsResponse.ProtoReflect.Descriptor instead.
+func (*ListLeadsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{175}
+}
+
+func (x *ListLeadsResponse) GetLeads() []*LeadInfo {
+	if x != nil {
+		return x.Leads
+	}
+	return nil
+}
+
+func (x *ListLeadsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type CreateLeadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FirstName     string                 `protobuf:"bytes,1,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName      string                 `protobuf:"bytes,2,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	Company       string                 `protobuf:"bytes,3,opt,name=company,proto3" json:"company,omitempty"`
+	Email         string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
+	Phone         string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`
+	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	Source        string                 `protobuf:"bytes,7,opt,name=source,proto3" json:"source,omitempty"`
+	CreatedBy     string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateLeadRequest) Reset() {
+	*x = CreateLeadRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[176]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateLeadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateLeadRequest) ProtoMessage() {}
+
+func (x *CreateLeadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[176]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateLeadRequest.ProtoReflect.Descriptor instead.
+func (*CreateLeadRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{176}
+}
+
+func (x *CreateLeadRequest) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *CreateLeadRequest) GetLastName() string {
+	if x != nil {
+		return x.LastName
+	}
+	return ""
+}
+
+func (x *CreateLeadRequest) GetCompany() string {
+	if x != nil {
+		return x.Company
+	}
+	return ""
+}
+
+func (x *CreateLeadRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *CreateLeadRequest) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *CreateLeadRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *CreateLeadRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *CreateLeadRequest) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+type CreateLeadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Lead          *LeadInfo              `protobuf:"bytes,1,opt,name=lead,proto3" json:"lead,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateLeadResponse) Reset() {
+	*x = CreateLeadResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[177]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateLeadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateLeadResponse) ProtoMessage() {}
+
+func (x *CreateLeadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[177]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateLeadResponse.ProtoReflect.Descriptor instead.
+func (*CreateLeadResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{177}
+}
+
+func (x *CreateLeadResponse) GetLead() *LeadInfo {
+	if x != nil {
+		return x.Lead
+	}
+	return nil
+}
+
+type UpdateLeadRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status *string                `protobuf:"bytes,2,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	// Empty string clears the manual override and hands the display back to the
+	// computed score.
+	Temperature   *string `protobuf:"bytes,3,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateLeadRequest) Reset() {
+	*x = UpdateLeadRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[178]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateLeadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateLeadRequest) ProtoMessage() {}
+
+func (x *UpdateLeadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[178]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateLeadRequest.ProtoReflect.Descriptor instead.
+func (*UpdateLeadRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{178}
+}
+
+func (x *UpdateLeadRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateLeadRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *UpdateLeadRequest) GetTemperature() string {
+	if x != nil && x.Temperature != nil {
+		return *x.Temperature
+	}
+	return ""
+}
+
+type UpdateLeadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Lead          *LeadInfo              `protobuf:"bytes,1,opt,name=lead,proto3" json:"lead,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateLeadResponse) Reset() {
+	*x = UpdateLeadResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[179]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateLeadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateLeadResponse) ProtoMessage() {}
+
+func (x *UpdateLeadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[179]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateLeadResponse.ProtoReflect.Descriptor instead.
+func (*UpdateLeadResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{179}
+}
+
+func (x *UpdateLeadResponse) GetLead() *LeadInfo {
+	if x != nil {
+		return x.Lead
+	}
+	return nil
+}
+
+type ConvertLeadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConvertLeadRequest) Reset() {
+	*x = ConvertLeadRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[180]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConvertLeadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConvertLeadRequest) ProtoMessage() {}
+
+func (x *ConvertLeadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[180]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConvertLeadRequest.ProtoReflect.Descriptor instead.
+func (*ConvertLeadRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{180}
+}
+
+func (x *ConvertLeadRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ConvertLeadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Lead          *LeadInfo              `protobuf:"bytes,1,opt,name=lead,proto3" json:"lead,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConvertLeadResponse) Reset() {
+	*x = ConvertLeadResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[181]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConvertLeadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConvertLeadResponse) ProtoMessage() {}
+
+func (x *ConvertLeadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[181]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConvertLeadResponse.ProtoReflect.Descriptor instead.
+func (*ConvertLeadResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{181}
+}
+
+func (x *ConvertLeadResponse) GetLead() *LeadInfo {
+	if x != nil {
+		return x.Lead
+	}
+	return nil
+}
+
 var File_proto_crm_v1_crm_proto protoreflect.FileDescriptor
 
 const file_proto_crm_v1_crm_proto_rawDesc = "" +
@@ -12123,7 +12737,60 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x0ereferred_count\x18\x04 \x01(\x05R\rreferredCount\"\x1a\n" +
 	"\x18GetReferralReportRequest\"R\n" +
 	"\x19GetReferralReportResponse\x125\n" +
-	"\aentries\x18\x01 \x03(\v2\x1b.crm.v1.ReferralReportEntryR\aentries2\xe91\n" +
+	"\aentries\x18\x01 \x03(\v2\x1b.crm.v1.ReferralReportEntryR\aentries\"\xb3\x03\n" +
+	"\bLeadInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\x02 \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\x03 \x01(\tR\blastName\x12\x18\n" +
+	"\acompany\x18\x04 \x01(\tR\acompany\x12\x14\n" +
+	"\x05email\x18\x05 \x01(\tR\x05email\x12\x14\n" +
+	"\x05phone\x18\x06 \x01(\tR\x05phone\x12\x16\n" +
+	"\x06source\x18\a \x01(\tR\x06source\x12\x14\n" +
+	"\x05score\x18\b \x01(\x05R\x05score\x12 \n" +
+	"\vtemperature\x18\t \x01(\tR\vtemperature\x126\n" +
+	"\x14temperature_override\x18\n" +
+	" \x01(\tH\x00R\x13temperatureOverride\x88\x01\x01\x12\x16\n" +
+	"\x06status\x18\v \x01(\tR\x06status\x12'\n" +
+	"\x0flifecycle_stage\x18\f \x01(\tR\x0elifecycleStage\x12\x14\n" +
+	"\x05notes\x18\r \x01(\tR\x05notes\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x0e \x01(\tR\tcreatedAtB\x17\n" +
+	"\x15_temperature_override\"\x89\x01\n" +
+	"\x10ListLeadsRequest\x12\x14\n" +
+	"\x05stage\x18\x01 \x01(\tR\x05stage\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x16\n" +
+	"\x06search\x18\x03 \x01(\tR\x06search\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\"Q\n" +
+	"\x11ListLeadsResponse\x12&\n" +
+	"\x05leads\x18\x01 \x03(\v2\x10.crm.v1.LeadInfoR\x05leads\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xe2\x01\n" +
+	"\x11CreateLeadRequest\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\x01 \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\x02 \x01(\tR\blastName\x12\x18\n" +
+	"\acompany\x18\x03 \x01(\tR\acompany\x12\x14\n" +
+	"\x05email\x18\x04 \x01(\tR\x05email\x12\x14\n" +
+	"\x05phone\x18\x05 \x01(\tR\x05phone\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\x12\x16\n" +
+	"\x06source\x18\a \x01(\tR\x06source\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\b \x01(\tR\tcreatedBy\":\n" +
+	"\x12CreateLeadResponse\x12$\n" +
+	"\x04lead\x18\x01 \x01(\v2\x10.crm.v1.LeadInfoR\x04lead\"\x82\x01\n" +
+	"\x11UpdateLeadRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\x06status\x18\x02 \x01(\tH\x00R\x06status\x88\x01\x01\x12%\n" +
+	"\vtemperature\x18\x03 \x01(\tH\x01R\vtemperature\x88\x01\x01B\t\n" +
+	"\a_statusB\x0e\n" +
+	"\f_temperature\":\n" +
+	"\x12UpdateLeadResponse\x12$\n" +
+	"\x04lead\x18\x01 \x01(\v2\x10.crm.v1.LeadInfoR\x04lead\"$\n" +
+	"\x12ConvertLeadRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\";\n" +
+	"\x13ConvertLeadResponse\x12$\n" +
+	"\x04lead\x18\x01 \x01(\v2\x10.crm.v1.LeadInfoR\x04lead2\xfd3\n" +
 	"\n" +
 	"CRMService\x12X\n" +
 	"\x11CreateCustomField\x12 .crm.v1.CreateCustomFieldRequest\x1a!.crm.v1.CreateCustomFieldResponse\x12O\n" +
@@ -12205,7 +12872,13 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x16DeleteAdvisoryProtocol\x12%.crm.v1.DeleteAdvisoryProtocolRequest\x1a&.crm.v1.DeleteAdvisoryProtocolResponse\x12m\n" +
 	"\x18HandOverAdvisoryProtocol\x12'.crm.v1.HandOverAdvisoryProtocolRequest\x1a(.crm.v1.HandOverAdvisoryProtocolResponse\x12v\n" +
 	"\x1bGenerateAdvisoryProtocolPDF\x12*.crm.v1.GenerateAdvisoryProtocolPDFRequest\x1a+.crm.v1.GenerateAdvisoryProtocolPDFResponse\x12X\n" +
-	"\x11GetReferralReport\x12 .crm.v1.GetReferralReportRequest\x1a!.crm.v1.GetReferralReportResponseB-Z+github.com/kmuhub/kmuhub/proto/crm/v1;crmv1b\x06proto3"
+	"\x11GetReferralReport\x12 .crm.v1.GetReferralReportRequest\x1a!.crm.v1.GetReferralReportResponse\x12@\n" +
+	"\tListLeads\x12\x18.crm.v1.ListLeadsRequest\x1a\x19.crm.v1.ListLeadsResponse\x12C\n" +
+	"\n" +
+	"CreateLead\x12\x19.crm.v1.CreateLeadRequest\x1a\x1a.crm.v1.CreateLeadResponse\x12C\n" +
+	"\n" +
+	"UpdateLead\x12\x19.crm.v1.UpdateLeadRequest\x1a\x1a.crm.v1.UpdateLeadResponse\x12F\n" +
+	"\vConvertLead\x12\x1a.crm.v1.ConvertLeadRequest\x1a\x1b.crm.v1.ConvertLeadResponseB-Z+github.com/kmuhub/kmuhub/proto/crm/v1;crmv1b\x06proto3"
 
 var (
 	file_proto_crm_v1_crm_proto_rawDescOnce sync.Once
@@ -12219,7 +12892,7 @@ func file_proto_crm_v1_crm_proto_rawDescGZIP() []byte {
 	return file_proto_crm_v1_crm_proto_rawDescData
 }
 
-var file_proto_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 180)
+var file_proto_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 189)
 var file_proto_crm_v1_crm_proto_goTypes = []any{
 	(*CustomFieldInfo)(nil),                     // 0: crm.v1.CustomFieldInfo
 	(*CreateCustomFieldRequest)(nil),            // 1: crm.v1.CreateCustomFieldRequest
@@ -12394,13 +13067,22 @@ var file_proto_crm_v1_crm_proto_goTypes = []any{
 	(*ReferralReportEntry)(nil),                 // 170: crm.v1.ReferralReportEntry
 	(*GetReferralReportRequest)(nil),            // 171: crm.v1.GetReferralReportRequest
 	(*GetReferralReportResponse)(nil),           // 172: crm.v1.GetReferralReportResponse
-	nil,                                         // 173: crm.v1.ContactInfo.CustomFieldsEntry
-	nil,                                         // 174: crm.v1.ImportContactsCSVRequest.FieldMappingEntry
-	nil,                                         // 175: crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
-	nil,                                         // 176: crm.v1.CompanyInfo.CustomFieldsEntry
-	nil,                                         // 177: crm.v1.DealInfo.CustomFieldsEntry
-	nil,                                         // 178: crm.v1.TimelineEventMetadata.DataEntry
-	nil,                                         // 179: crm.v1.ConsentSummary.ConsentsEntry
+	(*LeadInfo)(nil),                            // 173: crm.v1.LeadInfo
+	(*ListLeadsRequest)(nil),                    // 174: crm.v1.ListLeadsRequest
+	(*ListLeadsResponse)(nil),                   // 175: crm.v1.ListLeadsResponse
+	(*CreateLeadRequest)(nil),                   // 176: crm.v1.CreateLeadRequest
+	(*CreateLeadResponse)(nil),                  // 177: crm.v1.CreateLeadResponse
+	(*UpdateLeadRequest)(nil),                   // 178: crm.v1.UpdateLeadRequest
+	(*UpdateLeadResponse)(nil),                  // 179: crm.v1.UpdateLeadResponse
+	(*ConvertLeadRequest)(nil),                  // 180: crm.v1.ConvertLeadRequest
+	(*ConvertLeadResponse)(nil),                 // 181: crm.v1.ConvertLeadResponse
+	nil,                                         // 182: crm.v1.ContactInfo.CustomFieldsEntry
+	nil,                                         // 183: crm.v1.ImportContactsCSVRequest.FieldMappingEntry
+	nil,                                         // 184: crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
+	nil,                                         // 185: crm.v1.CompanyInfo.CustomFieldsEntry
+	nil,                                         // 186: crm.v1.DealInfo.CustomFieldsEntry
+	nil,                                         // 187: crm.v1.TimelineEventMetadata.DataEntry
+	nil,                                         // 188: crm.v1.ConsentSummary.ConsentsEntry
 }
 var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	0,   // 0: crm.v1.CreateCustomFieldResponse.custom_field:type_name -> crm.v1.CustomFieldInfo
@@ -12412,7 +13094,7 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	11,  // 6: crm.v1.ListTagsResponse.tags:type_name -> crm.v1.TagInfo
 	11,  // 7: crm.v1.UpdateTagResponse.tag:type_name -> crm.v1.TagInfo
 	11,  // 8: crm.v1.ContactInfo.tags:type_name -> crm.v1.TagInfo
-	173, // 9: crm.v1.ContactInfo.custom_fields:type_name -> crm.v1.ContactInfo.CustomFieldsEntry
+	182, // 9: crm.v1.ContactInfo.custom_fields:type_name -> crm.v1.ContactInfo.CustomFieldsEntry
 	22,  // 10: crm.v1.CreateContactRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	23,  // 11: crm.v1.CreateContactResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 12: crm.v1.GetContactResponse.contact:type_name -> crm.v1.ContactInfo
@@ -12421,13 +13103,13 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	23,  // 15: crm.v1.UpdateContactResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 16: crm.v1.AddContactTagsResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 17: crm.v1.RemoveContactTagsResponse.contact:type_name -> crm.v1.ContactInfo
-	174, // 18: crm.v1.ImportContactsCSVRequest.field_mapping:type_name -> crm.v1.ImportContactsCSVRequest.FieldMappingEntry
+	183, // 18: crm.v1.ImportContactsCSVRequest.field_mapping:type_name -> crm.v1.ImportContactsCSVRequest.FieldMappingEntry
 	41,  // 19: crm.v1.ImportContactsResponse.errors:type_name -> crm.v1.ImportContactError
 	47,  // 20: crm.v1.PreviewImportCSVResponse.sample_rows:type_name -> crm.v1.CSVSampleRow
-	175, // 21: crm.v1.PreviewImportCSVResponse.detected_mapping:type_name -> crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
+	184, // 21: crm.v1.PreviewImportCSVResponse.detected_mapping:type_name -> crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
 	23,  // 22: crm.v1.UpdateContactVisibilityResponse.contact:type_name -> crm.v1.ContactInfo
 	11,  // 23: crm.v1.CompanyInfo.tags:type_name -> crm.v1.TagInfo
-	176, // 24: crm.v1.CompanyInfo.custom_fields:type_name -> crm.v1.CompanyInfo.CustomFieldsEntry
+	185, // 24: crm.v1.CompanyInfo.custom_fields:type_name -> crm.v1.CompanyInfo.CustomFieldsEntry
 	22,  // 25: crm.v1.CreateCompanyRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	50,  // 26: crm.v1.CreateCompanyResponse.company:type_name -> crm.v1.CompanyInfo
 	50,  // 27: crm.v1.GetCompanyResponse.company:type_name -> crm.v1.CompanyInfo
@@ -12441,7 +13123,7 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	63,  // 35: crm.v1.UpdatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStageInfo
 	63,  // 36: crm.v1.ReorderPipelineStagesResponse.stages:type_name -> crm.v1.PipelineStageInfo
 	11,  // 37: crm.v1.DealInfo.tags:type_name -> crm.v1.TagInfo
-	177, // 38: crm.v1.DealInfo.custom_fields:type_name -> crm.v1.DealInfo.CustomFieldsEntry
+	186, // 38: crm.v1.DealInfo.custom_fields:type_name -> crm.v1.DealInfo.CustomFieldsEntry
 	22,  // 39: crm.v1.CreateDealRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	76,  // 40: crm.v1.CreateDealResponse.deal:type_name -> crm.v1.DealInfo
 	76,  // 41: crm.v1.GetDealResponse.deal:type_name -> crm.v1.DealInfo
@@ -12468,10 +13150,10 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	50,  // 62: crm.v1.DuplicateCompanyCandidate.company:type_name -> crm.v1.CompanyInfo
 	130, // 63: crm.v1.FindCompanyDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateCompanyCandidate
 	50,  // 64: crm.v1.MergeCompaniesResponse.company:type_name -> crm.v1.CompanyInfo
-	178, // 65: crm.v1.TimelineEventMetadata.data:type_name -> crm.v1.TimelineEventMetadata.DataEntry
+	187, // 65: crm.v1.TimelineEventMetadata.data:type_name -> crm.v1.TimelineEventMetadata.DataEntry
 	135, // 66: crm.v1.TimelineEvent.metadata:type_name -> crm.v1.TimelineEventMetadata
 	136, // 67: crm.v1.GetContactTimelineResponse.events:type_name -> crm.v1.TimelineEvent
-	179, // 68: crm.v1.ConsentSummary.consents:type_name -> crm.v1.ConsentSummary.ConsentsEntry
+	188, // 68: crm.v1.ConsentSummary.consents:type_name -> crm.v1.ConsentSummary.ConsentsEntry
 	140, // 69: crm.v1.GetContactConsentsResponse.summary:type_name -> crm.v1.ConsentSummary
 	139, // 70: crm.v1.GrantConsentResponse.record:type_name -> crm.v1.ConsentRecord
 	139, // 71: crm.v1.RevokeConsentResponse.record:type_name -> crm.v1.ConsentRecord
@@ -12485,162 +13167,174 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	155, // 79: crm.v1.UpdateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
 	155, // 80: crm.v1.HandOverAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
 	170, // 81: crm.v1.GetReferralReportResponse.entries:type_name -> crm.v1.ReferralReportEntry
-	139, // 82: crm.v1.ConsentSummary.ConsentsEntry.value:type_name -> crm.v1.ConsentRecord
-	1,   // 83: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
-	3,   // 84: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
-	5,   // 85: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
-	7,   // 86: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
-	9,   // 87: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
-	12,  // 88: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
-	14,  // 89: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
-	16,  // 90: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
-	18,  // 91: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
-	20,  // 92: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
-	24,  // 93: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
-	26,  // 94: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
-	28,  // 95: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
-	30,  // 96: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
-	32,  // 97: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
-	34,  // 98: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
-	36,  // 99: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
-	38,  // 100: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
-	39,  // 101: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
-	42,  // 102: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
-	43,  // 103: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
-	45,  // 104: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
-	48,  // 105: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
-	51,  // 106: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
-	53,  // 107: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
-	55,  // 108: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
-	57,  // 109: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
-	59,  // 110: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
-	61,  // 111: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
-	64,  // 112: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
-	66,  // 113: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
-	68,  // 114: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
-	70,  // 115: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
-	72,  // 116: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
-	74,  // 117: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
-	77,  // 118: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
-	79,  // 119: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
-	81,  // 120: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
-	83,  // 121: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
-	85,  // 122: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
-	87,  // 123: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
-	90,  // 124: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
-	92,  // 125: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
-	94,  // 126: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
-	96,  // 127: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
-	98,  // 128: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
-	100, // 129: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
-	103, // 130: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
-	106, // 131: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
-	108, // 132: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
-	110, // 133: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
-	112, // 134: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
-	114, // 135: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
-	117, // 136: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
-	120, // 137: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
-	123, // 138: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
-	126, // 139: crm.v1.CRMService.FindContactDuplicates:input_type -> crm.v1.FindContactDuplicatesRequest
-	128, // 140: crm.v1.CRMService.MergeContacts:input_type -> crm.v1.MergeContactsRequest
-	131, // 141: crm.v1.CRMService.FindCompanyDuplicates:input_type -> crm.v1.FindCompanyDuplicatesRequest
-	133, // 142: crm.v1.CRMService.MergeCompanies:input_type -> crm.v1.MergeCompaniesRequest
-	137, // 143: crm.v1.CRMService.GetContactTimeline:input_type -> crm.v1.GetContactTimelineRequest
-	141, // 144: crm.v1.CRMService.GetContactConsents:input_type -> crm.v1.GetContactConsentsRequest
-	143, // 145: crm.v1.CRMService.GrantConsent:input_type -> crm.v1.GrantConsentRequest
-	145, // 146: crm.v1.CRMService.RevokeConsent:input_type -> crm.v1.RevokeConsentRequest
-	147, // 147: crm.v1.CRMService.GetConsentHistory:input_type -> crm.v1.GetConsentHistoryRequest
-	150, // 148: crm.v1.CRMService.RequestDeletion:input_type -> crm.v1.RequestDeletionRequest
-	152, // 149: crm.v1.CRMService.ProcessDeletion:input_type -> crm.v1.ProcessDeletionRequest
-	156, // 150: crm.v1.CRMService.CreateAdvisoryProtocol:input_type -> crm.v1.CreateAdvisoryProtocolRequest
-	158, // 151: crm.v1.CRMService.GetAdvisoryProtocol:input_type -> crm.v1.GetAdvisoryProtocolRequest
-	160, // 152: crm.v1.CRMService.ListAdvisoryProtocols:input_type -> crm.v1.ListAdvisoryProtocolsRequest
-	162, // 153: crm.v1.CRMService.UpdateAdvisoryProtocol:input_type -> crm.v1.UpdateAdvisoryProtocolRequest
-	164, // 154: crm.v1.CRMService.DeleteAdvisoryProtocol:input_type -> crm.v1.DeleteAdvisoryProtocolRequest
-	166, // 155: crm.v1.CRMService.HandOverAdvisoryProtocol:input_type -> crm.v1.HandOverAdvisoryProtocolRequest
-	168, // 156: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:input_type -> crm.v1.GenerateAdvisoryProtocolPDFRequest
-	171, // 157: crm.v1.CRMService.GetReferralReport:input_type -> crm.v1.GetReferralReportRequest
-	2,   // 158: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
-	4,   // 159: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
-	6,   // 160: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
-	8,   // 161: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
-	10,  // 162: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
-	13,  // 163: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
-	15,  // 164: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
-	17,  // 165: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
-	19,  // 166: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
-	21,  // 167: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
-	25,  // 168: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
-	27,  // 169: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
-	29,  // 170: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
-	31,  // 171: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
-	33,  // 172: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
-	35,  // 173: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
-	37,  // 174: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
-	40,  // 175: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
-	40,  // 176: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
-	44,  // 177: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
-	44,  // 178: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
-	46,  // 179: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
-	49,  // 180: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
-	52,  // 181: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
-	54,  // 182: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
-	56,  // 183: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
-	58,  // 184: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
-	60,  // 185: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
-	62,  // 186: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
-	65,  // 187: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
-	67,  // 188: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
-	69,  // 189: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
-	71,  // 190: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
-	73,  // 191: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
-	75,  // 192: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
-	78,  // 193: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
-	80,  // 194: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
-	82,  // 195: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
-	84,  // 196: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
-	86,  // 197: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
-	88,  // 198: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
-	91,  // 199: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
-	93,  // 200: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
-	95,  // 201: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
-	97,  // 202: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
-	99,  // 203: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
-	101, // 204: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
-	104, // 205: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
-	107, // 206: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
-	109, // 207: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
-	111, // 208: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
-	113, // 209: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
-	115, // 210: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
-	118, // 211: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
-	121, // 212: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
-	124, // 213: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
-	127, // 214: crm.v1.CRMService.FindContactDuplicates:output_type -> crm.v1.FindContactDuplicatesResponse
-	129, // 215: crm.v1.CRMService.MergeContacts:output_type -> crm.v1.MergeContactsResponse
-	132, // 216: crm.v1.CRMService.FindCompanyDuplicates:output_type -> crm.v1.FindCompanyDuplicatesResponse
-	134, // 217: crm.v1.CRMService.MergeCompanies:output_type -> crm.v1.MergeCompaniesResponse
-	138, // 218: crm.v1.CRMService.GetContactTimeline:output_type -> crm.v1.GetContactTimelineResponse
-	142, // 219: crm.v1.CRMService.GetContactConsents:output_type -> crm.v1.GetContactConsentsResponse
-	144, // 220: crm.v1.CRMService.GrantConsent:output_type -> crm.v1.GrantConsentResponse
-	146, // 221: crm.v1.CRMService.RevokeConsent:output_type -> crm.v1.RevokeConsentResponse
-	148, // 222: crm.v1.CRMService.GetConsentHistory:output_type -> crm.v1.GetConsentHistoryResponse
-	151, // 223: crm.v1.CRMService.RequestDeletion:output_type -> crm.v1.RequestDeletionResponse
-	153, // 224: crm.v1.CRMService.ProcessDeletion:output_type -> crm.v1.ProcessDeletionResponse
-	157, // 225: crm.v1.CRMService.CreateAdvisoryProtocol:output_type -> crm.v1.CreateAdvisoryProtocolResponse
-	159, // 226: crm.v1.CRMService.GetAdvisoryProtocol:output_type -> crm.v1.GetAdvisoryProtocolResponse
-	161, // 227: crm.v1.CRMService.ListAdvisoryProtocols:output_type -> crm.v1.ListAdvisoryProtocolsResponse
-	163, // 228: crm.v1.CRMService.UpdateAdvisoryProtocol:output_type -> crm.v1.UpdateAdvisoryProtocolResponse
-	165, // 229: crm.v1.CRMService.DeleteAdvisoryProtocol:output_type -> crm.v1.DeleteAdvisoryProtocolResponse
-	167, // 230: crm.v1.CRMService.HandOverAdvisoryProtocol:output_type -> crm.v1.HandOverAdvisoryProtocolResponse
-	169, // 231: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:output_type -> crm.v1.GenerateAdvisoryProtocolPDFResponse
-	172, // 232: crm.v1.CRMService.GetReferralReport:output_type -> crm.v1.GetReferralReportResponse
-	158, // [158:233] is the sub-list for method output_type
-	83,  // [83:158] is the sub-list for method input_type
-	83,  // [83:83] is the sub-list for extension type_name
-	83,  // [83:83] is the sub-list for extension extendee
-	0,   // [0:83] is the sub-list for field type_name
+	173, // 82: crm.v1.ListLeadsResponse.leads:type_name -> crm.v1.LeadInfo
+	173, // 83: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	173, // 84: crm.v1.UpdateLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	173, // 85: crm.v1.ConvertLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	139, // 86: crm.v1.ConsentSummary.ConsentsEntry.value:type_name -> crm.v1.ConsentRecord
+	1,   // 87: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
+	3,   // 88: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
+	5,   // 89: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
+	7,   // 90: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
+	9,   // 91: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
+	12,  // 92: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
+	14,  // 93: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
+	16,  // 94: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
+	18,  // 95: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
+	20,  // 96: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
+	24,  // 97: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
+	26,  // 98: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
+	28,  // 99: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
+	30,  // 100: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
+	32,  // 101: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
+	34,  // 102: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
+	36,  // 103: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
+	38,  // 104: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
+	39,  // 105: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
+	42,  // 106: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
+	43,  // 107: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
+	45,  // 108: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
+	48,  // 109: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
+	51,  // 110: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
+	53,  // 111: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
+	55,  // 112: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
+	57,  // 113: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
+	59,  // 114: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
+	61,  // 115: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
+	64,  // 116: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
+	66,  // 117: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
+	68,  // 118: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
+	70,  // 119: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
+	72,  // 120: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
+	74,  // 121: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
+	77,  // 122: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
+	79,  // 123: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
+	81,  // 124: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
+	83,  // 125: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
+	85,  // 126: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
+	87,  // 127: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
+	90,  // 128: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
+	92,  // 129: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
+	94,  // 130: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
+	96,  // 131: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
+	98,  // 132: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
+	100, // 133: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
+	103, // 134: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
+	106, // 135: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
+	108, // 136: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
+	110, // 137: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
+	112, // 138: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
+	114, // 139: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
+	117, // 140: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
+	120, // 141: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
+	123, // 142: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
+	126, // 143: crm.v1.CRMService.FindContactDuplicates:input_type -> crm.v1.FindContactDuplicatesRequest
+	128, // 144: crm.v1.CRMService.MergeContacts:input_type -> crm.v1.MergeContactsRequest
+	131, // 145: crm.v1.CRMService.FindCompanyDuplicates:input_type -> crm.v1.FindCompanyDuplicatesRequest
+	133, // 146: crm.v1.CRMService.MergeCompanies:input_type -> crm.v1.MergeCompaniesRequest
+	137, // 147: crm.v1.CRMService.GetContactTimeline:input_type -> crm.v1.GetContactTimelineRequest
+	141, // 148: crm.v1.CRMService.GetContactConsents:input_type -> crm.v1.GetContactConsentsRequest
+	143, // 149: crm.v1.CRMService.GrantConsent:input_type -> crm.v1.GrantConsentRequest
+	145, // 150: crm.v1.CRMService.RevokeConsent:input_type -> crm.v1.RevokeConsentRequest
+	147, // 151: crm.v1.CRMService.GetConsentHistory:input_type -> crm.v1.GetConsentHistoryRequest
+	150, // 152: crm.v1.CRMService.RequestDeletion:input_type -> crm.v1.RequestDeletionRequest
+	152, // 153: crm.v1.CRMService.ProcessDeletion:input_type -> crm.v1.ProcessDeletionRequest
+	156, // 154: crm.v1.CRMService.CreateAdvisoryProtocol:input_type -> crm.v1.CreateAdvisoryProtocolRequest
+	158, // 155: crm.v1.CRMService.GetAdvisoryProtocol:input_type -> crm.v1.GetAdvisoryProtocolRequest
+	160, // 156: crm.v1.CRMService.ListAdvisoryProtocols:input_type -> crm.v1.ListAdvisoryProtocolsRequest
+	162, // 157: crm.v1.CRMService.UpdateAdvisoryProtocol:input_type -> crm.v1.UpdateAdvisoryProtocolRequest
+	164, // 158: crm.v1.CRMService.DeleteAdvisoryProtocol:input_type -> crm.v1.DeleteAdvisoryProtocolRequest
+	166, // 159: crm.v1.CRMService.HandOverAdvisoryProtocol:input_type -> crm.v1.HandOverAdvisoryProtocolRequest
+	168, // 160: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:input_type -> crm.v1.GenerateAdvisoryProtocolPDFRequest
+	171, // 161: crm.v1.CRMService.GetReferralReport:input_type -> crm.v1.GetReferralReportRequest
+	174, // 162: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
+	176, // 163: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
+	178, // 164: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
+	180, // 165: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
+	2,   // 166: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
+	4,   // 167: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
+	6,   // 168: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
+	8,   // 169: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
+	10,  // 170: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
+	13,  // 171: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
+	15,  // 172: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
+	17,  // 173: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
+	19,  // 174: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
+	21,  // 175: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
+	25,  // 176: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
+	27,  // 177: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
+	29,  // 178: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
+	31,  // 179: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
+	33,  // 180: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
+	35,  // 181: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
+	37,  // 182: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
+	40,  // 183: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
+	40,  // 184: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
+	44,  // 185: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
+	44,  // 186: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
+	46,  // 187: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
+	49,  // 188: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
+	52,  // 189: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
+	54,  // 190: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
+	56,  // 191: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
+	58,  // 192: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
+	60,  // 193: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
+	62,  // 194: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
+	65,  // 195: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
+	67,  // 196: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
+	69,  // 197: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
+	71,  // 198: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
+	73,  // 199: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
+	75,  // 200: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
+	78,  // 201: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
+	80,  // 202: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
+	82,  // 203: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
+	84,  // 204: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
+	86,  // 205: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
+	88,  // 206: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
+	91,  // 207: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
+	93,  // 208: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
+	95,  // 209: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
+	97,  // 210: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
+	99,  // 211: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
+	101, // 212: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
+	104, // 213: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
+	107, // 214: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
+	109, // 215: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
+	111, // 216: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
+	113, // 217: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
+	115, // 218: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
+	118, // 219: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
+	121, // 220: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
+	124, // 221: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
+	127, // 222: crm.v1.CRMService.FindContactDuplicates:output_type -> crm.v1.FindContactDuplicatesResponse
+	129, // 223: crm.v1.CRMService.MergeContacts:output_type -> crm.v1.MergeContactsResponse
+	132, // 224: crm.v1.CRMService.FindCompanyDuplicates:output_type -> crm.v1.FindCompanyDuplicatesResponse
+	134, // 225: crm.v1.CRMService.MergeCompanies:output_type -> crm.v1.MergeCompaniesResponse
+	138, // 226: crm.v1.CRMService.GetContactTimeline:output_type -> crm.v1.GetContactTimelineResponse
+	142, // 227: crm.v1.CRMService.GetContactConsents:output_type -> crm.v1.GetContactConsentsResponse
+	144, // 228: crm.v1.CRMService.GrantConsent:output_type -> crm.v1.GrantConsentResponse
+	146, // 229: crm.v1.CRMService.RevokeConsent:output_type -> crm.v1.RevokeConsentResponse
+	148, // 230: crm.v1.CRMService.GetConsentHistory:output_type -> crm.v1.GetConsentHistoryResponse
+	151, // 231: crm.v1.CRMService.RequestDeletion:output_type -> crm.v1.RequestDeletionResponse
+	153, // 232: crm.v1.CRMService.ProcessDeletion:output_type -> crm.v1.ProcessDeletionResponse
+	157, // 233: crm.v1.CRMService.CreateAdvisoryProtocol:output_type -> crm.v1.CreateAdvisoryProtocolResponse
+	159, // 234: crm.v1.CRMService.GetAdvisoryProtocol:output_type -> crm.v1.GetAdvisoryProtocolResponse
+	161, // 235: crm.v1.CRMService.ListAdvisoryProtocols:output_type -> crm.v1.ListAdvisoryProtocolsResponse
+	163, // 236: crm.v1.CRMService.UpdateAdvisoryProtocol:output_type -> crm.v1.UpdateAdvisoryProtocolResponse
+	165, // 237: crm.v1.CRMService.DeleteAdvisoryProtocol:output_type -> crm.v1.DeleteAdvisoryProtocolResponse
+	167, // 238: crm.v1.CRMService.HandOverAdvisoryProtocol:output_type -> crm.v1.HandOverAdvisoryProtocolResponse
+	169, // 239: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:output_type -> crm.v1.GenerateAdvisoryProtocolPDFResponse
+	172, // 240: crm.v1.CRMService.GetReferralReport:output_type -> crm.v1.GetReferralReportResponse
+	175, // 241: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
+	177, // 242: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
+	179, // 243: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
+	181, // 244: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
+	166, // [166:245] is the sub-list for method output_type
+	87,  // [87:166] is the sub-list for method input_type
+	87,  // [87:87] is the sub-list for extension type_name
+	87,  // [87:87] is the sub-list for extension extendee
+	0,   // [0:87] is the sub-list for field type_name
 }
 
 func init() { file_proto_crm_v1_crm_proto_init() }
@@ -12677,13 +13371,15 @@ func file_proto_crm_v1_crm_proto_init() {
 	file_proto_crm_v1_crm_proto_msgTypes[150].OneofWrappers = []any{}
 	file_proto_crm_v1_crm_proto_msgTypes[154].OneofWrappers = []any{}
 	file_proto_crm_v1_crm_proto_msgTypes[155].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[173].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[178].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_crm_v1_crm_proto_rawDesc), len(file_proto_crm_v1_crm_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   180,
+			NumMessages:   189,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

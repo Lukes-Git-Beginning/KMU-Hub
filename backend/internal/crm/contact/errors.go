@@ -15,4 +15,12 @@ var (
 	ErrCannotMergeSelf    = errors.New("cannot merge a contact with itself")
 	ErrAlreadyMerged      = errors.New("contact has already been merged")
 	ErrInvalidTenant      = errors.New("tenant_id is required")
+
+	// Lead lifecycle
+	ErrLeadNotFound           = errors.New("lead not found")
+	ErrInvalidLeadSource      = errors.New("lead source must be manual, csv or dialer")
+	ErrInvalidLeadStatus      = errors.New("lead status must be new, contacted, qualified or disqualified")
+	ErrInvalidLeadTemperature = errors.New("lead temperature must be hot, warm or cold")
+	ErrInvalidLifecycleStage  = errors.New("lifecycle stage must be lead or qualified")
+	ErrNoLeadChanges          = errors.New("no lead fields to update")
 )

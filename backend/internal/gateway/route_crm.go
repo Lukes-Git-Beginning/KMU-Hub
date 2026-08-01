@@ -111,6 +111,15 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		}
 	})
 
+	// Leads (contact lifecycle stage -- same rows, same permissions as contacts)
+	r.Route("/api/v1/leads", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(contactRead).Get("/", c.HandleListLeads)
+		r.With(contactCreate).Post("/", c.HandleCreateLead)
+		r.With(contactEdit).Patch("/{id}", c.HandleUpdateLead)
+		r.With(contactEdit).Post("/{id}/convert", c.HandleConvertLead)
+	})
+
 	// Companies
 	r.Route("/api/v1/companies", func(r chi.Router) {
 		r.Use(authMiddleware)

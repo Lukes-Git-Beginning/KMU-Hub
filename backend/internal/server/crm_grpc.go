@@ -2683,6 +2683,15 @@ func mapCRMError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, contact.ErrTagNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	// Lead lifecycle errors
+	case errors.Is(err, contact.ErrLeadNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, contact.ErrInvalidLeadSource),
+		errors.Is(err, contact.ErrInvalidLeadStatus),
+		errors.Is(err, contact.ErrInvalidLeadTemperature),
+		errors.Is(err, contact.ErrInvalidLifecycleStage),
+		errors.Is(err, contact.ErrNoLeadChanges):
+		return status.Error(codes.InvalidArgument, err.Error())
 	// Company errors
 	case errors.Is(err, company.ErrCompanyNotFound):
 		return status.Error(codes.NotFound, err.Error())

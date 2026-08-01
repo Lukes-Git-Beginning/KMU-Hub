@@ -1221,7 +1221,7 @@ units:
     service: crm
     model: opus
     deps: []
-    status: todo
+    status: done
     scope: >
       Leads als Lifecycle-Status am Kontakt, NICHT als eigene Tabelle:
       `contacts.lifecycle_stage` (lead -> qualified -> customer) plus
@@ -1239,6 +1239,27 @@ units:
       per Default den Wert, der dem heutigen Verhalten entspricht (kein NULL-Loch).
       Scoring serverseitig spiegeln, aber regelbasiert und schlicht halten — kein ML.
       `GET /leads` ist eine gefilterte Kontaktabfrage, tenant-gescoped, mit {items,total}.
+      ---
+      ERLEDIGT Iteration 30. Migration 000259 haengt sechs Spalten an `contacts`
+      (`lifecycle_stage NOT NULL DEFAULT 'customer'` + CHECK, `lead_source`, `lead_score`,
+      `lead_temperature` = NUR Override, `lead_status`, `lead_company`) plus partiellen Index
+      `(tenant_id, lifecycle_stage, created_at DESC) WHERE lifecycle_stage <> 'customer'`.
+      Keine `leads`-Tabelle. `lead_company` war noetig, weil der FE-`Lead`-Typ `company` als
+      String fuehrt und CSV-/Dialer-Intake einen Arbeitgeber nennt, lange bevor jemand eine
+      `companies`-Zeile anlegt — ohne Spalte waere der Wert beim Anlegen still verloren gegangen.
+      Vier Routen (mehr als der Scope nannte, aber `GET /leads` waere sonst per Konstruktion leer
+      und `lead_status` eine tote Spalte): `GET /api/v1/leads` ({items,total}, Filter stage/
+      status/search + Pagination), `POST /api/v1/leads` (Score serverseitig berechnet),
+      `PATCH /api/v1/leads/{id}` (status/temperature; leerer String loescht den Override),
+      `POST /api/v1/leads/{id}/convert`. Guards: bestehende `contactRead`/`contactCreate`/
+      `contactEdit` (`RequirePermissionAny`) — kein neuer Key, kein Seed noetig.
+      Scoring spiegelt `DEFAULT_LEAD_SCORING` aus `stores/leadScoring.ts` exakt
+      (dialer 35/manual 25/csv 10 + email 20/phone 15/company 20/notes 10, Schwellen 66/33),
+      `lean:`-Marker in `lead.go` fuer den Umzug nach `tenant_settings`.
+      Wire-Shape camelCase gegen den FE-`Lead`-Typ handgemappt (`route_crm_leads.go`),
+      `temperature` effektiv (Override schlaegt Score), `temperatureOverride` nur wenn gepinnt.
+      Der UPDATE-Pfad schliesst `lifecycle_stage = 'customer'` aus — der Lead-Endpoint darf keine
+      Seitentuer zum Editieren normaler Kontakte sein (Test deckt das ab).
     done_when:
       - Spalten migriert, Bestandsdaten sinnvoll defaultet
       - GET /leads liefert gefilterte Kontakte, Convert setzt den Status um

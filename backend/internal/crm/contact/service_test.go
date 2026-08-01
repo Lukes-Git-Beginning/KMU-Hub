@@ -220,6 +220,40 @@ func (m *MockRepository) MergeInto(_ context.Context, _, _, _ uuid.UUID) error {
 	return nil
 }
 
+func (m *MockRepository) ListLeads(_ context.Context, filter LeadFilter, _, _ int) ([]*models.ContactWithRelations, int, error) {
+	leads := make([]*models.ContactWithRelations, 0)
+	for _, c := range m.contacts {
+		if c.TenantID != filter.TenantID || c.LifecycleStage == LifecycleCustomer {
+			continue
+		}
+		if filter.Stage != "" && c.LifecycleStage != filter.Stage {
+			continue
+		}
+		leads = append(leads, &models.ContactWithRelations{Contact: *c})
+	}
+	return leads, len(leads), nil
+}
+
+func (m *MockRepository) UpdateLead(_ context.Context, id uuid.UUID, tenantID uuid.UUID, patch LeadPatch) (*models.ContactWithRelations, error) {
+	c, ok := m.contacts[id]
+	if !ok || c.TenantID != tenantID || c.LifecycleStage == LifecycleCustomer {
+		return nil, ErrLeadNotFound
+	}
+	if patch.Stage != nil {
+		c.LifecycleStage = *patch.Stage
+	}
+	if patch.Status != nil {
+		c.LeadStatus = patch.Status
+	}
+	switch {
+	case patch.ClearTemperature:
+		c.LeadTemperature = nil
+	case patch.Temperature != nil:
+		c.LeadTemperature = patch.Temperature
+	}
+	return &models.ContactWithRelations{Contact: *c}, nil
+}
+
 // ============================================================================
 // Create Tests
 // ============================================================================

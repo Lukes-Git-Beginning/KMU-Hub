@@ -23,6 +23,19 @@ type Contact struct {
 	CreatedBy    uuid.UUID  `json:"created_by"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+
+	// Lead lifecycle (migration 000259). A lead is this same row at an earlier
+	// stage, never a separate table -- two rows for one person would break
+	// duplicate detection. Contacts that never came through the lead inbox
+	// carry LifecycleStage "customer" and NULL in every Lead* field.
+	LifecycleStage string  `json:"lifecycle_stage"`
+	LeadSource     *string `json:"lead_source,omitempty"` // manual, csv, dialer
+	LeadScore      *int16  `json:"lead_score,omitempty"`  // 0-100, computed server-side
+	// LeadTemperature is the manual override only; NULL means "derive from LeadScore".
+	LeadTemperature *string `json:"lead_temperature,omitempty"` // hot, warm, cold
+	LeadStatus      *string `json:"lead_status,omitempty"`      // new, contacted, qualified, disqualified
+	// LeadCompany names the employer before a companies row exists for it.
+	LeadCompany *string `json:"lead_company,omitempty"`
 }
 
 // ContactWithRelations includes associated data for API responses

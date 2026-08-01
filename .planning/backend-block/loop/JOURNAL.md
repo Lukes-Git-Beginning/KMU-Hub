@@ -2079,3 +2079,84 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
     Loeschen entschiedener Ausgaben). Der FE-Loeschen-Button unterscheidet nicht zwischen Payment-
     und Expense-Zeilen — das ist eine FE-Produktentscheidung ausserhalb des Backend-Scopes dieser
     Unit, aber ein sichtbares Verhalten, das Luke kennen sollte.
+
+## Iteration 30 — fe-leads-lifecycle — done — 2026-08-01 23:35
+- commit: <pending>
+- gebaut:
+  - **Leads sind Kontakte, keine zweite Tabelle.** Migration `000259_contact_lead_lifecycle`
+    haengt sechs Spalten an `contacts`: `lifecycle_stage VARCHAR(20) NOT NULL DEFAULT 'customer'`
+    (CHECK lead|qualified|customer — Bestandszeilen bekommen per Default den Wert, der dem
+    heutigen Verhalten entspricht, kein NULL-Loch), `lead_source`, `lead_score SMALLINT` (CHECK
+    0–100), `lead_temperature` (NUR der manuelle Override, NULL = aus dem Score ableiten),
+    `lead_status`, `lead_company`. Dazu ein partieller Index
+    `(tenant_id, lifecycle_stage, created_at DESC) WHERE lifecycle_stage <> 'customer'`.
+    `contacts` traegt `tenant_id NOT NULL` + Policy schon seit Migr. 000070/RLS-Welle — neue
+    Spalten erben beides, keine neue Policy noetig. Down-Migration getestet (259/d dann 259/u).
+  - `lead_company` ist keine Bequemlichkeit: der FE-`Lead`-Typ fuehrt `company` als Pflicht-String,
+    und CSV-/Dialer-Intake nennt einen Arbeitgeber lange bevor jemand eine `companies`-Zeile
+    anlegt. Ohne die Spalte waere der Wert beim Anlegen still verloren gegangen. Read loest ueber
+    `COALESCE(companies.name, contacts.lead_company)` auf.
+  - Vier Routen — mehr als der Scope woertlich nannte (`GET` + Convert), aber ohne Schreibpfad
+    waere `GET /leads` per Konstruktion immer leer und `lead_status` eine Spalte, die man nie
+    setzen kann: `GET /api/v1/leads` (`{items,total}`, Filter `stage`/`status`/`search`,
+    Pagination), `POST /api/v1/leads`, `PATCH /api/v1/leads/{id}` (status/temperature; leerer
+    String loescht den Override), `POST /api/v1/leads/{id}/convert`.
+  - Service-Layer in `internal/crm/contact/lead.go` (`CreateLead`/`ListLeads`/`UpdateLead`/
+    `ConvertLead` + `ComputeLeadScore`/`ScoreToTemperature`/`EffectiveTemperature`), Persistenz in
+    `postgres_lead.go` (2 neue Repository-Methoden `ListLeads`/`UpdateLead`, beide tenant-gescoped;
+    Mock im `service_test.go` nachgezogen). `CreateInput` bekam ein optionales `Lead *LeadIntake`
+    statt eines zweiten Create-Pfads — bestehende Aufrufer bleiben unveraendert.
+  - Scoring serverseitig, regelbasiert, kein ML: spiegelt `DEFAULT_LEAD_SCORING` aus
+    `stores/leadScoring.ts` exakt (dialer 35 / manual 25 / csv 10, unbekannte Quelle 15; +email 20
+    +phone 15 +company 20 +notes 10; Schwellen hot 66 / warm 33). Der Score wird nie vom Client
+    uebernommen — ein Client-Score waere eine Client-gewaehlte Prioritaet. `lean:`-Marker mit
+    Upgrade-Trigger auf `tenant_settings (module_id='crm', key='leadScoring.*')`.
+  - Neue RPCs `ListLeads`/`CreateLead`/`UpdateLead`/`ConvertLead` in `crm.proto`, im selben Commit
+    regeneriert (`crm.pb.go`/`crm_grpc.pb.go`), Server-Seite in `internal/server/crm_grpc_leads.go`
+    ueber `contactService`. Gateway-Handler gehen ausschliesslich ueber `c.getCRMClient()`.
+  - Guards: bestehende `contactRead`/`contactCreate`/`contactEdit` (`RequirePermissionAny`,
+    `contacts`+`crm:contact`). **Kein neuer Permission-Key, also kein Seed noetig** — und kein
+    bestehender Guard ersetzt.
+  - Sicherheitsdetail: der UPDATE-Pfad hat `AND lifecycle_stage <> 'customer'` in der WHERE-Klausel.
+    Der Lead-Endpoint darf keine Seitentuer zum Editieren gewoehnlicher Kontakte sein; ein Test
+    deckt genau das ab (Update auf eine Customer-Zeile -> `ErrLeadNotFound`).
+  - Tests: `TestLeads_TenantIsolation` (echte DB, `kmuhub_app`) — Eigentuemer sieht genau seine 2
+    Leads, die gewoehnliche Kontaktzeile taucht NICHT im Inbox auf; derselbe `ListLeads`-Aufruf aus
+    der Fremd-Session mit der *echten* fremden `tenantID` liefert 0 Zeilen (nur RLS kann das
+    stoppen), waehrend der fremde Tenant seinen eigenen Lead sehr wohl sieht; Status-Filter,
+    Override-Setzen und -Loeschen. `TestCreateLead_PersistsComputedScore` — Score 100 persistiert,
+    Lead ist ueber `GetByID` auch als Kontakt lesbar, Convert aendert die Stage **derselben** Zeile
+    (`COUNT(*) = 1` nach Convert: eine Person, eine Zeile). Dazu Scoring-Tabellentests,
+    Validierungstests und zwei Gateway-Wire-Shape-Tests (`route_crm_leads_test.go`), die camelCase
+    pinnen und dass `temperatureOverride` ohne Pin abwesend bleibt.
+- verify vorgaenger: `120b32a4` (fe-finance-transactions) gegen alle acht Fehlerklassen geprueft.
+  Handler ueber `b.getBizClient()`; `biz.proto` + beide `.pb.go` im selben Commit; keine
+  `Unimplemented`/`TODO` im neuen Pfad (`postgres_transactions.go`, `biz_grpc_transactions.go`);
+  Guards `RequirePermission("finance","read"/"delete")` sind bestehende Keys der Nachbarrouten
+  (Zeilen 98/155/225/245 in `route_biz.go`) — additiv ergaenzt, keiner ersetzt, also kein Seed
+  faellig; keine neue Tabelle (Read-Zeit-Union); Wire-Shape `{transactions, total}` deckt sich
+  exakt mit `financeTransactionApi.list()` in `desktop/src/renderer/src/api/finance-client.ts:494`;
+  openapi.yaml im selben Commit (+123 Zeilen), `TestOpenAPIRouteDrift` gruen. Kein Fund.
+- gate: build ok (`-p 2`: `internal/crm/...`, `internal/gateway/...`, `internal/server/...`,
+  `internal/models/...`, `proto/crm/...`, `cmd/crm/...`, `cmd/gateway/...`) | vet ok | lint ok
+  (`golangci-lint`, 0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`
+  (verifiziert NOSUPERUSER/NOBYPASSRLS via `pg_roles`): `internal/crm/...` (alle 12 Unterpakete),
+  `internal/gateway/`, `internal/server/...` gruen, **0 SKIP** (per `-v` gezaehlt auf
+  `internal/crm/contact` + `internal/gateway`). migration ok (259 up, down 1, up — sauberer
+  Roundtrip). rls-smoke ok: `TestLeads_TenantIsolation`, Details oben.
+  `TestOpenAPIRouteDrift` gruen (4 neue Routen, 4 neue Pfad-Eintraege).
+- offen:
+  - **`useLeads.ts` bleibt Mock-first.** Der FE-Hook arbeitet weiter auf seinem In-Memory-Array;
+    das Umstellen auf `/api/v1/leads` war nicht Teil dieser Unit (gleiche Lage wie bei den
+    `fe-finance-*`-Units). Beim Umbau beachten: `useLeads()` liefert heute ein *nacktes* Array,
+    der Endpoint liefert `{items,total}` (Backlog-Vorgabe).
+  - **Produktfrage fuer Luke: Leads erscheinen jetzt auch in `GET /api/v1/contacts`.** Das folgt
+    zwingend aus der Modell-Entscheidung (ein Lead *ist* ein Kontakt) und ich habe die bestehende
+    Route bewusst NICHT angefasst — eine stille Verhaltensaenderung an einer Bestandsroute waere
+    schlimmer als die offene Frage. Fuer Bestandsdaten aendert sich faktisch nichts (alle sind
+    `customer`). Sobald echte Leads angelegt werden, ist zu entscheiden, ob die Kontaktliste
+    `lifecycle_stage = 'lead'` per Default ausblendet.
+  - **Batch-Anlage fehlt** (`useCreateLeadsBatch`, CSV-Import von Leads). `ImportContactsCSV`
+    existiert, kennt aber die Lead-Spalten nicht. Eigene Unit wert.
+  - `lead_temperature` speichert ausschliesslich den manuellen Override; die effektive Temperatur
+    wird serverseitig in `toLeadInfo` abgeleitet, damit sie nicht an zwei Orten driftet.

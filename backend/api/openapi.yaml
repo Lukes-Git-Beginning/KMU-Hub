@@ -1180,6 +1180,152 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/leads:
+    get:
+      summary: List leads
+      description: >
+        The lead inbox. A lead is a contact at an earlier lifecycle stage, not
+        a separate entity — these are contacts rows filtered by
+        lifecycle_stage. Guarded by the contacts read permission.
+      tags: [contacts]
+      operationId: listLeads
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stage
+          in: query
+          description: Empty means every non-customer stage.
+          schema:
+            type: string
+            enum: [lead, qualified]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, contacted, qualified, disqualified]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of leads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListLeadsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      summary: Create lead
+      description: >
+        Records a raw prospect as a contact at the "lead" lifecycle stage. The
+        score is computed server-side from source and data completeness.
+      tags: [contacts]
+      operationId: createLead
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadRequest"
+      responses:
+        "201":
+          description: Lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/leads/{id}:
+    patch:
+      summary: Update lead status or temperature
+      description: >
+        Moves a lead through the inbox or pins its temperature. An empty
+        temperature clears the manual override and hands the displayed value
+        back to the computed score. Setting status to "qualified" also moves
+        the lifecycle stage, exactly like the convert endpoint.
+      tags: [contacts]
+      operationId: updateLead
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadRequest"
+      responses:
+        "200":
+          description: Lead updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/leads/{id}/convert:
+    post:
+      summary: Convert lead to qualified
+      description: >
+        Qualifies a lead. The row already is the contact, so this is a stage
+        change rather than a copy into a second table.
+      tags: [contacts]
+      operationId: convertLead
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Lead converted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/contacts/{id}:
     get:
       summary: Get contact by ID
@@ -29955,6 +30101,103 @@ components:
             $ref: "#/components/schemas/ContactInfo"
         total:
           type: integer
+
+    # Leads (contact lifecycle stage — same rows as contacts)
+    Lead:
+      type: object
+      description: >
+        A contact at the lead or qualified lifecycle stage. camelCase because
+        this is hand-mapped onto the desktop inbox's Lead type rather than
+        emitted straight from the proto.
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+          description: Linked company name, else the free-text employer from intake.
+        email:
+          type: string
+        phone:
+          type: string
+        source:
+          type: string
+          enum: [manual, csv, dialer]
+        score:
+          type: integer
+          description: 0-100, computed server-side from source and data completeness.
+        temperature:
+          type: string
+          enum: [hot, warm, cold]
+          description: Effective value — the manual override if pinned, else derived from score.
+        temperatureOverride:
+          type: string
+          enum: [hot, warm, cold]
+          description: Present only when a user pinned the temperature by hand.
+        status:
+          type: string
+          enum: [new, contacted, qualified, disqualified]
+        lifecycleStage:
+          type: string
+          enum: [lead, qualified]
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    LeadResponse:
+      type: object
+      properties:
+        lead:
+          $ref: "#/components/schemas/Lead"
+
+    ListLeadsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lead"
+        total:
+          type: integer
+
+    CreateLeadRequest:
+      type: object
+      required: [firstName, lastName, source]
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        notes:
+          type: string
+        source:
+          type: string
+          enum: [manual, csv, dialer]
+
+    UpdateLeadRequest:
+      type: object
+      description: At least one of status or temperature must be present.
+      properties:
+        status:
+          type: string
+          enum: [new, contacted, qualified, disqualified]
+        temperature:
+          type: string
+          enum: [hot, warm, cold, ""]
+          description: Empty string clears the manual override.
 
     # Companies
     CompanyInfo:
