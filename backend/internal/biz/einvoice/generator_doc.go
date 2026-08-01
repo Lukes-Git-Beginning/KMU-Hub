@@ -66,7 +66,11 @@ type docParty struct {
 	PostalZone string
 	City       string
 	Country    string // ISO 3166-1 alpha-2
-	VATID      string
+	VATID      string // BT-31 / BT-48
+	// TaxRegID is BT-32 (Steuernummer), the fallback identification for a seller
+	// without a VAT identifier. Only ever set when VATID is empty — see
+	// buildSellerParty.
+	TaxRegID string
 }
 
 type docBank struct {
@@ -154,15 +158,8 @@ func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, bu
 		BuyerReference: strings.TrimSpace(buyerReference),
 		Note:           invoice.Notes,
 		PaymentTerms:   invoice.PaymentTerms,
-		Seller: docParty{
-			Name:       settings.Name,
-			Street:     settings.Street,
-			PostalZone: settings.PLZ,
-			City:       settings.City,
-			Country:    isoCountryCode(settings.Country),
-			VATID:      settings.UStIDNr,
-		},
-		Buyer: buildBuyerParty(invoice, settings),
+		Seller:         buildSellerParty(settings),
+		Buyer:          buildBuyerParty(invoice, settings),
 		Bank: docBank{
 			Name: settings.BankName,
 			IBAN: settings.IBAN,
@@ -174,6 +171,29 @@ func buildInvoiceDoc(invoice models.Invoice, settings models.CompanySettings, bu
 		TaxTotal:   taxTotal,
 		GrossTotal: grossTotal,
 	}, nil
+}
+
+// buildSellerParty derives the seller (BG-4/BG-5) from the company settings.
+//
+// EN 16931 accepts either the VAT identifier (BT-31) or the tax number (BT-32) as
+// the seller's tax identification, and BR-S-02/BR-E-02 demand one of them for every
+// VAT category. A Kleinunternehmer has no VAT identifier at all, so without the
+// BT-32 fallback their invoices would be rejected by every receiver with no way to
+// fix it. Only one of the two is written: the inbound parser reads a single tax
+// registration element and would otherwise pick up the wrong one.
+func buildSellerParty(settings models.CompanySettings) docParty {
+	p := docParty{
+		Name:       settings.Name,
+		Street:     settings.Street,
+		PostalZone: settings.PLZ,
+		City:       settings.City,
+		Country:    isoCountryCode(settings.Country),
+		VATID:      strings.TrimSpace(settings.UStIDNr),
+	}
+	if p.VATID == "" {
+		p.TaxRegID = strings.TrimSpace(settings.Steuernummer)
+	}
+	return p
 }
 
 // buildBuyerParty derives the buyer (BG-7/BG-8) from the invoice record.
@@ -188,8 +208,10 @@ func buildBuyerParty(invoice models.Invoice, settings models.CompanySettings) do
 		Street:     street,
 		PostalZone: postalZone,
 		City:       city,
-		// The buyer country is not stored; assume the seller's, which is right for
-		// the domestic invoices this covers. w5-en16931-validation reports BT-55.
+		// lean: the buyer country (BT-55) is not stored, so the seller's is assumed —
+		// right for the domestic invoices this covers, and validation cannot flag it
+		// because the assumption leaves no gap to detect. Store the country on the
+		// customer record once invoices cross a border.
 		Country: isoCountryCode(settings.Country),
 		VATID:   invoice.CustomerUStIDNr,
 	}

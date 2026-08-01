@@ -561,3 +561,72 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
 - offen: `w5-en16931-validation` als naechste Unit (Ansatzpunkt `invoiceDoc`, siehe oben).
   Weiterhin offen fuer `w5-route`: woher die Leitweg-ID (BT-10) kommt — sie hat kein Feld in
   `finance_invoices`.
+
+## Iteration 10 — w5-en16931-validation — done — 2026-08-01 (Nachtlauf 3)
+
+- Validierung auf `invoiceDoc` gelegt (neue `internal/biz/einvoice/validation.go`), wie in der
+  Unit-Note vorgegeben: dort gilt sie fuer XRechnung und ZUGFeRD zugleich, weil beide Formate durch
+  dasselbe neutrale Modell laufen. Auf `models.Invoice` haette man die Ableitungen (Steuerkategorien,
+  BG-23-Gruppen, Summen) ein zweites Mal nachbauen muessen — genau das, was `w5-cii-generator`
+  gerade beseitigt hat.
+- `*ValidationError` traegt ALLE Verstoesse (`Violations[]{Rule, Term, Message}`) und unwrappt auf
+  `ErrValidationFailed`, also `errors.Is` fuer den 422-Fall und `errors.As` fuer die Liste. Kein
+  Abbruch beim ersten Fund — eine E-Rechnung wird beim Empfaenger abgelehnt, der Kunde erfaehrt es
+  Wochen spaeter ueber seine Buchhaltung, und pro Runde ein Feld nachzureichen ist der eigentliche
+  Schaden. `TestValidate_ReportsEveryViolationAtOnce` faehrt sechs Verstoesse in einem Durchlauf.
+- Geprueft wird nur, was `buildInvoiceDoc` NICHT schon ablehnt (BT-1, BT-2, BG-25, Summen-Drift,
+  unparsebare Positionen sind dort und bleiben dort): Verkaeufer-Name/Land (BR-06/BR-09),
+  Kaeufer-Name/Land (BR-07/BR-11), Steueridentifikation des Verkaeufers (BR-S-02/BR-E-02/BR-Z-02/
+  BR-AE-02 je nach Kategorie), Kaeufer-USt-ID bei Reverse Charge (BR-AE-03), Positionsbezeichnung
+  (BR-25), negativer Einzelpreis (BR-27), und BR-CO-25 (Faelligkeitsdatum ODER Zahlungsbedingungen —
+  nicht beides, sonst wuerde eine Rechnung abgelehnt, die das Zahlungsziel in Worten nennt).
+- ZWEI PROFILE, und die Trennung ist der eigentliche Entwurfsentscheid. `ProfileEN16931` ist die
+  Untergrenze und wird von `GenerateUBL`/`GenerateCII` selbst erzwungen — ab jetzt verlaesst kein
+  halb gueltiges Dokument den Generator. `ProfileXRechnung` (BR-DE-15 Leitweg-ID, BR-DE-1
+  Zahlungsangaben, zerlegte Postanschriften BT-35/37/38 + BT-50/52/53) liegt NICHT im Generator:
+  ob der Empfaenger ein oeffentlicher Auftraggeber ist, weiss nur der Aufrufer. Haette ich BR-DE-15
+  hart in `GenerateUBL` gezogen, waere jede B2B-XRechnung unerzeugbar geworden — der bestehende
+  `TestGenerateUBL_OmitsBuyerReferenceWhenEmpty` haelt genau dieses Verhalten fest, und er hat
+  recht. Deshalb exportiert `Validate(invoice, settings, buyerReference, profile)` die strengere
+  Stufe; `w5-route` ruft sie, wenn eine Leitweg-ID im Request mitkommt. In die Notes uebertragen.
+- FUND BEIM BAUEN, mit behoben (sonst waere die eigene Regel eine Sackgasse): Das Dokument schrieb
+  nur BT-31 (USt-ID). `ValidateCompanySettingsForPDF` akzeptiert aber seit jeher Steuernummer ODER
+  USt-ID, und ein Kleinunternehmer hat per Definition keine USt-ID. Ergebnis: dessen ZUGFeRD-
+  Rechnungen verletzten BR-E-02 immer, und die Meldung "USt-ID fehlt" waere fuer ihn nicht
+  behebbar gewesen. `docParty.TaxRegID` traegt jetzt BT-32 (Steuernummer) als Rueckfall, in UBL als
+  TaxScheme `FC`, in CII als `schemeID="FC"`. Bewusst nur EINES von beiden: der Eingangs-Parser
+  liest ein einzelnes `SpecifiedTaxRegistration`/`PartyTaxScheme` und wuerde bei zwei Elementen das
+  letzte nehmen, also die Steuernummer fuer die USt-ID halten. `TestGenerate_VATIDWinsOverTaxNumber`
+  haelt das inklusive Parser-Roundtrip fest.
+- VERHALTENSAENDERUNG AM PDF-PFAD, bewusst und gleicher Art wie in Iteration 9: `GenerateZUGFeRDXML`
+  erbt die Validierung. Vier bestehende `pdf`-Tests fielen, alle vier zu Recht — ihre Fixtures
+  hatten keinen Kundennamen (BT-44), der Reverse-Charge-Fall zusaetzlich keine Kaeufer-USt-ID
+  (BR-AE-03). Fixtures ergaenzt statt Regel entschaerft: eine Rechnung ohne Kundennamen ist ein
+  Datendefekt, kein Testfall. `server/biz_grpc.go:1365` verschluckt den neuen Fehler weiterhin still
+  und liefert das PDF ohne XML (nur `slog.Error`) — nicht angefasst, das ist `w5-pdfa3-embed`; der
+  Nachtrag steht dort in den Notes, samt dem Hinweis, dass jetzt die Verstossliste hochzureichen ist.
+- Kommentar in `buildBuyerParty` korrigiert: er versprach, diese Unit melde BT-55. Tut sie nicht und
+  kann sie nicht — `isoCountryCode` liefert immer einen Wert, das geratene Kaeuferland hinterlaesst
+  keine Luecke. Steht jetzt als `lean:`-Marker mit Trigger "sobald Rechnungen die Grenze
+  ueberschreiten". Zweiter `lean:`-Marker an `xrechnungViolations` fuer BR-DE-2/5..7 (Kontaktdaten
+  des Verkaeufers) — das Datenmodell hat keine Kontaktfelder, also gibt es nichts zu pruefen;
+  Trigger "sobald ein Kunde einen oeffentlichen Auftraggeber beliefert, der sie erzwingt".
+- keine neue Dependency, keine Migration, keine Route, kein Proto, kein Guard.
+- gate: build ok (`./internal/biz/... ./internal/server/... ./cmd/gateway/...`) | vet ok |
+  lint ok (golangci-lint auf einvoice + pdf: 0 issues) | gofmt ok (alle sieben beruehrten Dateien
+  gegen LF-normalisierten Inhalt geprueft; zwei echte Treffer gefunden und behoben — Struct-Feld-
+  Ausrichtung, keine CRLF-Artefakte) | test ok: `./internal/biz/...` und `./internal/server/...`
+  vollstaendig gruen mit `DATABASE_URL` gegen `kmuhub_app`, 12 neue Testfaelle. openapi n.a.,
+  migration n.a., gateway n.a. (keine Route).
+- verify vorgaenger: `3b45e1e1` (w5-cii-generator) gegen die sechs Fehlerklassen geprueft. Diff
+  umfasst `generator_cii.go` + Test, `parser_test.go`, `pdf_extract_test.go`, `pdf/zugferd.go` +
+  Test, plus Loop-Dateien — keine Migration, keine Route, kein Proto, kein Guard, kein JSON-Handler,
+  kein DB-Zugriff, kein gRPC-Layer. Kein `Unimplemented`, kein Stub. Gezielt nachgesehen, ob der
+  Umbau die Delivery-Gruppe verliert: der alte Writer schrieb `ApplicableHeaderTradeDelivery` immer
+  mit Rueckfall auf das Rechnungsdatum, der neue schreibt sie unter `if !doc.DeliveryDate.IsZero()`.
+  Kein Fund — `buildInvoiceDoc` setzt denselben Rueckfall (`generator_doc.go:127`), und da BT-2
+  vorher erzwungen wird, ist das Feld nie leer. Beim Weiterbauen bestaetigt: `buildInvoiceDoc` war
+  der richtige Ansatzpunkt, die Validierung brauchte keine einzige Zahl neu.
+- offen: `w5-pdfa3-embed` als naechste Unit. Weiterhin offen fuer `w5-route`: woher die Leitweg-ID
+  (BT-10) kommt — sie hat kein Feld in `finance_invoices`. Mit den zwei Profilen ist die Frage jetzt
+  scharf gestellt: Leitweg-ID mitgeliefert = oeffentlicher Auftraggeber = strenges Profil.

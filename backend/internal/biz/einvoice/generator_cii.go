@@ -27,6 +27,10 @@ const (
 
 	ciiDateFormatCode = "102" // UNTDID 2379: CCYYMMDD
 	ciiDateLayout     = "20060102"
+
+	// UNTDID 1153 scheme identifiers for the seller tax registration.
+	ciiTaxSchemeVAT    = "VA" // BT-31 VAT identifier
+	ciiTaxSchemeFiscal = "FC" // BT-32 tax number (Steuernummer)
 )
 
 // GenerateCII renders an invoice as a ZUGFeRD 2.1 / Factur-X Cross Industry
@@ -39,6 +43,9 @@ const (
 func GenerateCII(invoice models.Invoice, settings models.CompanySettings, buyerReference string) ([]byte, error) {
 	doc, err := buildInvoiceDoc(invoice, settings, buyerReference)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateInvoiceDoc(doc, ProfileEN16931); err != nil {
 		return nil, err
 	}
 	return renderCII(doc)
@@ -155,8 +162,11 @@ func buildCIIParty(p docParty) ciiPartyOut {
 			CountryID:    p.Country,
 		},
 	}
-	if vatID := strings.TrimSpace(p.VATID); vatID != "" {
-		out.TaxReg = &ciiTaxRegOut{ID: ciiSchemeIDOut{SchemeID: "VA", Value: vatID}}
+	switch {
+	case strings.TrimSpace(p.VATID) != "":
+		out.TaxReg = &ciiTaxRegOut{ID: ciiSchemeIDOut{SchemeID: ciiTaxSchemeVAT, Value: strings.TrimSpace(p.VATID)}}
+	case strings.TrimSpace(p.TaxRegID) != "":
+		out.TaxReg = &ciiTaxRegOut{ID: ciiSchemeIDOut{SchemeID: ciiTaxSchemeFiscal, Value: strings.TrimSpace(p.TaxRegID)}}
 	}
 	return out
 }

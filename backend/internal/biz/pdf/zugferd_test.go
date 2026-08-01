@@ -106,6 +106,7 @@ func TestGenerateZUGFeRDXML_CurrencyFromInvoice(t *testing.T) {
 
 	inv := models.Invoice{
 		InvoiceNumber: "RE-2026-0001",
+		CustomerName:  "Beispiel GmbH",
 		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
 		Currency:      "CHF",
@@ -129,6 +130,7 @@ func TestGenerateZUGFeRDXML_CurrencyDefaultsToEUR(t *testing.T) {
 
 	inv := models.Invoice{
 		InvoiceNumber: "RE-2026-0001",
+		CustomerName:  "Beispiel GmbH",
 		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
 		LineItems:     singleLineItemJSON(t),
@@ -187,6 +189,7 @@ func TestGenerateZUGFeRDXML_EN16931HeaderTaxAndDelivery(t *testing.T) {
 	delivery := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
 	inv := models.Invoice{
 		InvoiceNumber: "RE-2026-0042",
+		CustomerName:  "Beispiel GmbH",
 		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
 		DeliveryDate:  &delivery,
@@ -226,13 +229,17 @@ func TestGenerateZUGFeRDXML_ReverseChargeExemptCategory(t *testing.T) {
 	liJSON, _ := json.Marshal(items)
 	inv := models.Invoice{
 		InvoiceNumber: "RE-2026-0043",
-		InvoiceDate:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
-		DueDate:       time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
-		TaxMode:       models.TaxModeReverseCharge,
-		LineItems:     liJSON,
-		Subtotal:      decimal.NewFromInt(500),
-		TotalTax:      decimal.Zero,
-		GrossTotal:    decimal.NewFromInt(500),
+		CustomerName:  "Beispiel GmbH",
+		// BR-AE-03: reverse charge shifts the liability, so the buyer has to carry
+		// a VAT identifier of their own.
+		CustomerUStIDNr: "ATU12345678",
+		InvoiceDate:     time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		DueDate:         time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC),
+		TaxMode:         models.TaxModeReverseCharge,
+		LineItems:       liJSON,
+		Subtotal:        decimal.NewFromInt(500),
+		TotalTax:        decimal.Zero,
+		GrossTotal:      decimal.NewFromInt(500),
 	}
 
 	out, err := GenerateZUGFeRDXML(inv, completeTestSettings())

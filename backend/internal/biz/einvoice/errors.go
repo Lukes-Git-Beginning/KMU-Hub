@@ -29,4 +29,10 @@ var (
 	// disagree with the totals stored on the invoice. Emitting the document anyway
 	// would send the customer a different amount than the PDF shows.
 	ErrTotalsMismatch = errors.New("recomputed invoice totals disagree with the stored totals")
+
+	// ErrValidationFailed is returned when an invoice is renderable but misses
+	// values the receiver requires, so the document would be rejected on arrival.
+	// The concrete violations travel on *ValidationError; use errors.As to read
+	// them and report all of them to the user at once.
+	ErrValidationFailed = errors.New("invoice does not meet the e-invoice requirements")
 )

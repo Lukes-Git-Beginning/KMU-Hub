@@ -30,6 +30,8 @@ const (
 	unitCodePiece              = "C62" // UN/ECE Rec 20: one (piece)
 	paymentMeansCodeSEPACredit = "58"  // UNTDID 4461: SEPA credit transfer
 	taxSchemeVAT               = "VAT"
+	// taxSchemeFiscal identifies BT-32 (Steuernummer) as opposed to BT-31 (VAT id).
+	taxSchemeFiscal = "FC"
 )
 
 // GenerateUBL renders an invoice as an XRechnung UBL 2.1 document (EN 16931).
@@ -38,6 +40,12 @@ const (
 func GenerateUBL(invoice models.Invoice, settings models.CompanySettings, buyerReference string) ([]byte, error) {
 	doc, err := buildInvoiceDoc(invoice, settings, buyerReference)
 	if err != nil {
+		return nil, err
+	}
+	// EN 16931 only: whether the German CIUS also applies depends on the receiver,
+	// which the generator does not know. Call Validate with ProfileXRechnung before
+	// sending to a public-sector buyer.
+	if err := validateInvoiceDoc(doc, ProfileEN16931); err != nil {
 		return nil, err
 	}
 	return renderUBL(doc)
@@ -144,10 +152,16 @@ func buildUBLParty(p docParty) ublPartyOut {
 		},
 		LegalEntity: ublLegalEntityOut{RegistrationName: p.Name},
 	}
-	if vatID := strings.TrimSpace(p.VATID); vatID != "" {
+	switch {
+	case strings.TrimSpace(p.VATID) != "":
 		out.PartyTaxScheme = &ublPartyTaxSchemeOut{
-			CompanyID: vatID,
+			CompanyID: strings.TrimSpace(p.VATID),
 			TaxScheme: ublTaxSchemeOut{ID: taxSchemeVAT},
+		}
+	case strings.TrimSpace(p.TaxRegID) != "":
+		out.PartyTaxScheme = &ublPartyTaxSchemeOut{
+			CompanyID: strings.TrimSpace(p.TaxRegID),
+			TaxScheme: ublTaxSchemeOut{ID: taxSchemeFiscal},
 		}
 	}
 	return out
