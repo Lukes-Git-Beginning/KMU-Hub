@@ -1457,3 +1457,48 @@ Uhrzeiten im Journal sind geraten — der Agent hat keine Uhr. Die Wahrheit steh
   (4) TOKEN-GROESSE (Iteration 14-16) bleibt unveraendert offen, waechst durch diese Unit kaum (nur
       zusaetzliche OR-Bedingungen + 6 neue Basis-Keys `automatisierung:automations:read/create/edit/
       delete/toggle` + `executions:read`, die aber schon seit `p1a-migration` im Katalog-Seed stehen).
+
+## Iteration 22 — p2-owner-fk-crm — done — 2026-08-01 21:05 (Nachtlauf 3)
+- commit: (siehe naechster `git log`)
+- gebaut: kein Produktionscode geaendert — die Unit war beim Recherchieren bereits erfuellt.
+  `created_by UUID NOT NULL REFERENCES users(id)` existiert an `contacts` (000007) und `deals`
+  (000009) seit den CRM-Basis-Migrationen, lange vor RBAC. Die Befuellung aus dem Auth-Context ist
+  bereits durchgaengig verdrahtet: `HandleCreateContact`/`HandleCreateDeal`
+  (`route_crm_contacts.go`/`route_crm_pipeline.go`) setzen `CreatedBy: middleware.GetUserID(r.
+  Context())` auf den gRPC-Request, NIE aus dem Body — kein Client-Spoofing moeglich. Von dort laeuft
+  es unveraendert durch `CreateInput.CreatedBy` -> `models.{Contact,Deal}.CreatedBy` -> Repository-
+  INSERT. `backend-gaps.md:54` ("CRM contact/deal tragen KEIN owner_id/created_by") bezog sich
+  offenbar auf fehlende Wire-Exposure ans FE, nicht auf die DB-Spalte — fuer serverseitiges
+  `own`-Filtern (naechste Unit) reicht die WHERE-Klausel auf der Repo-Query, ein FE-sichtbares Feld
+  ist dafuer nicht Voraussetzung.
+  Einzige echte Luecke gegen `done_when`: kein Test bewies den Round-Trip. Geschlossen mit vier
+  Assertions in bestehenden Tests (kein neuer Testfall, keine neue Infrastruktur): `TestContactWrites_
+  LandInCallerTenant`/`TestDealWrites_LandInCallerTenant` (`tenant_write_test.go`, echte DB als
+  `kmuhub_app`) pruefen nach Create+GetByID jetzt zusaetzlich `got.CreatedBy == userID`;
+  `TestService_Create_Success` in beiden Paketen prueft zusaetzlich `contact.CreatedBy`/`deal.
+  CreatedBy == input.CreatedBy` auf Service-Ebene (Mock-Repo).
+- gate: `go build -p 2 ./internal/crm/... ./internal/gateway/... ./cmd/gateway/...` ok | vet ok |
+  lint ok (0 issues) | test ok mit `DATABASE_URL` gegen `kmuhub_app`: alle 12 `internal/crm/*`-Pakete
+  gruen, die beiden geaenderten DB-Tests einzeln verbose gegengeprueft (PAUSE/CONT sichtbar, kein
+  SKIP). migration n.a. (keine Schemaaenderung). openapi n.a. (keine Route). rls-smoke n.a. (keine
+  Tabelle/Policy angefasst, bestehende RLS-Write-Tests nur um eine Feldassertion erweitert). gofmt:
+  `contact/tenant_write_test.go`/`deal/tenant_write_test.go` von `gofmt -l` gemeldet — CRLF-Checkout-
+  Artefakt (Muster aus Iteration 15-21, `git show HEAD:...` liefert reines LF). `deal/service_test.go`
+  ebenfalls gemeldet, aber verifiziert VORBESTEHEND: `git show HEAD:...` durch `gofmt -l` gejagt
+  meldet denselben Import-Reihenfolge-Fund (`errors` nach den externen Imports) unabhaengig von diesem
+  Commit — nicht in dieser Iteration eingefuehrt, nicht angefasst (Scope-Disziplin).
+- verify vorgaenger: `c3721884` (p2c-dialer-berichte-formulare-automatisierung) gegen die acht
+  Fehlerklassen geprueft. Diff: vier Route-Dateien + `route_capability_guard_test.go` + neue
+  `route_formulare_test.go`, kein Proto/Migration/Handler-Direktzugriff/Stub. Alle ersetzten
+  `RequirePermission(...)`-Direktaufrufe wurden additiv durch `RequirePermissionAny(alt, neu[,
+  neu2])` erweitert, kein Alt-Key verloren (Fehlerklasse 8 n.a.). Kein Fund.
+- offen fuer Luke:
+  (1) `p2-own-scope-list-filter` (naechste Unit, deps erfuellt) muss fuer deals entscheiden, ob
+      `own`-Scope gegen `created_by` (Ersteller) oder `owner_id` (Business-Owner, vom Client im
+      Request settable) filtert — das ist eine Produktentscheidung, keine Code-Luecke. Bei contact
+      gibt es nur `created_by`, keine Ambiguitaet.
+  (2) `crm:pipeline:manage`/`crm:segment:override` (Iteration 18-Fund) und die komplette
+      Advisory-Protokoll-Funktion bleiben FE-seitig ungegatet/Mock — unveraendert offen, nur zur
+      Erinnerung, betrifft diese Unit nicht direkt.
+  (3) TOKEN-GROESSE (Iteration 14-16) unveraendert offen, durch diese Unit nicht beruehrt (keine
+      neuen Permission-Keys).

@@ -846,7 +846,7 @@ units:
     service: crm
     model: sonnet
     deps: [p1a-migration]
-    status: todo
+    status: done
     scope: >
       `created_by` an contact und deal: Spalte (falls fehlend), beim Create aus dem Auth-Context
       befuellen. Voraussetzung fuer jede `own`-Scope-Auswertung im CRM.
@@ -857,6 +857,25 @@ units:
       Erst pruefen, ob die Spalten existieren — moeglicherweise ist nur das Befuellen offen.
       Migration nur wenn noetig; `tenant_id`-Regeln gelten wie ueberall.
       Bestandszeilen: `created_by` nullable lassen statt einen Fake-Owner zu backfillen.
+
+      ERGEBNIS (2026-08-01): beides bereits vorhanden, keine Migration noetig. `created_by UUID NOT
+      NULL REFERENCES users(id)` existiert an `contacts` und `deals` seit den Basis-Migrationen
+      000007/000009 (vor RBAC, vor der backend-gaps.md-Notiz). Die Befuellung aus dem Auth-Context ist
+      bereits durchgaengig verdrahtet: Gateway (`middleware.GetUserID(r.Context())` in
+      `HandleCreateContact`/`HandleCreateDeal`) -> gRPC-Request-Feld `created_by` -> `CreateInput.
+      CreatedBy` -> `models.{Contact,Deal}.CreatedBy` -> Repository-INSERT. Kein Client-Spoofing
+      moeglich, der Wert kommt nie aus dem Request-Body. `backend-gaps.md` bezog sich offenbar auf die
+      fehlende Wire-Exposure fuers FE (nicht auf die DB-Spalte), die fuer serverseitiges
+      `own`-Scope-Filtern in `p2-own-scope-list-filter` ohnehin nicht noetig ist (WHERE-Klausel auf
+      der Repo-Query, kein Client-seitiger Vergleich). Einzige Luecke gegen `done_when`: kein Test
+      bewies den Round-Trip. Geschlossen mit zwei kleinen Ergaenzungen (kein Produktionscode
+      geaendert): `TestContactWrites_LandInCallerTenant`/`TestDealWrites_LandInCallerTenant`
+      (echte DB, `kmuhub_app`) pruefen jetzt zusaetzlich `got.CreatedBy == userID` nach Create+
+      GetByID; `TestService_Create_Success` in beiden Paketen prueft zusaetzlich `contact.CreatedBy`/
+      `deal.CreatedBy == input.CreatedBy` auf Service-Ebene. `deal.OwnerID` (Business-Owner, vom
+      Client im Request settable) bleibt bewusst unangetastet — die naechste Unit
+      (`p2-own-scope-list-filter`) muss entscheiden, ob `own`-Scope bei deals gegen `created_by` oder
+      `owner_id` filtert; das ist eine Produktentscheidung, keine Code-Luecke.
     done_when:
       - Neue Kontakte/Deals tragen created_by aus dem Context
       - DB-Test belegt das

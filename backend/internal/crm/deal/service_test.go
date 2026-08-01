@@ -265,12 +265,13 @@ func TestService_Create_Success(t *testing.T) {
 		Probability: decimal.NewFromFloat(10.0),
 	})
 
+	createdBy := uuid.New()
 	input := CreateInput{
 		Name:      "Big Deal",
 		Value:     50000.00,
 		Currency:  "EUR",
 		StageID:   stageID,
-		CreatedBy: uuid.New(),
+		CreatedBy: createdBy,
 	}
 
 	deal, err := svc.Create(context.Background(), input)
@@ -282,6 +283,7 @@ func TestService_Create_Success(t *testing.T) {
 	assert.Equal(t, "EUR", deal.Currency)
 	assert.Equal(t, stageID, deal.StageID)
 	assert.Equal(t, "Lead", deal.StageName)
+	assert.Equal(t, createdBy, deal.CreatedBy)
 	assert.Nil(t, deal.ClosedAt)
 }
 

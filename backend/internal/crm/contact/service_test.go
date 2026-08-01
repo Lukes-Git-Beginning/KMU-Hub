@@ -229,10 +229,11 @@ func TestService_Create_Success(t *testing.T) {
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
+	createdBy := uuid.New()
 	input := CreateInput{
 		FirstName: "John",
 		LastName:  "Doe",
-		CreatedBy: uuid.New(),
+		CreatedBy: createdBy,
 		TenantID:  tenantID,
 	}
 
@@ -243,6 +244,7 @@ func TestService_Create_Success(t *testing.T) {
 	assert.Equal(t, "John", contact.FirstName)
 	assert.Equal(t, "Doe", contact.LastName)
 	assert.Nil(t, contact.Email)
+	assert.Equal(t, createdBy, contact.CreatedBy)
 	assert.NotZero(t, contact.CreatedAt)
 	assert.NotZero(t, contact.UpdatedAt)
 }
